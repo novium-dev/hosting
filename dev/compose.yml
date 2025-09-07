@@ -1,0 +1,20 @@
+services:
+  mysql:
+    image: mariadb:latest
+    network_mode: bridge
+    ports:
+      - 3306:3306
+    environment:
+      - MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1
+    volumes:
+      - ../../mysql/data:/var/lib/mysql
+      - ../../mysql/db.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+  valkey:
+    image: valkey/valkey
+    network_mode: bridge
+    ports:
+      - 8080:8080
+    command: valkey-server /valkey.conf --save 60 1 --loglevel warning
+    volumes:
+      - ../../valkey/data:/data
+      - ../../valkey/valkey.conf:/valkey.conf:ro

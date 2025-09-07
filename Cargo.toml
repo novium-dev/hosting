@@ -1,0 +1,50 @@
+[package]
+name = "hosting-system"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.47.1", features = ["full"] }
+tracing = "0.1.41"
+tracing-subscriber = "0.3.20"
+thiserror = "2.0.16"
+futures = "0.3.31"
+ed25519-dalek = "2.2.0"
+
+axum = "0.8.4"
+axum-extra = "0.10.1"
+axum-server = "0.7.2"
+axum-login = "0.18.0"
+
+serde = "1.0"
+serde_json = "1.0"
+nanoid = "0.4.0"
+
+sqlx = { version = "0.8", features = [ "mysql", "runtime-tokio", "tls-native-tls" ] }
+rustls = "0.23.31"
+
+[dependencies.daemon_common]
+git = "ssh://git@github.com/novium-dev/daemon.git"
+default-features = false
+features = ["sdk"]
+
+
+[dependencies.sentry]
+version = "0.42.0"
+default-features = false
+features = [
+    "backtrace",
+    "contexts",
+    "debug-images",
+    "panic",
+    "reqwest",
+    "rustls",
+    "log",
+    "tower",
+    "tower-axum-matched-path",
+    "tracing",
+]
+
+[workspace.dependencies.utoipa]
+version = "5.4.0"
+features = ["macros", "preserve_path_order"]

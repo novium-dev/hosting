@@ -26,7 +26,6 @@ frontend/.svelte-kit/
 build/*
 gen/*
 
-daemon/server/wrapper-precompile.h*
-daemon/server/.macro_eval.c
-daemon/common/sdk.ts
+# Added by cargo
 
+/target
