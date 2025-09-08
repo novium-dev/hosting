@@ -30,4 +30,6 @@ pub(crate) mod server {
         StatusCode::INTERNAL_SERVER_ERROR,
         "Server error: Internal Configuration is invalid",
     );
+
+    pub(crate) const NOT_FOUND: HttpError = (StatusCode::NOT_FOUND, "Server not found");
 }
