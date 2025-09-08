@@ -1,4 +1,7 @@
 mod crypto;
+pub(crate) mod error;
+pub(crate) mod db;
+pub(crate) mod templates;
 
 use std::env;
 use std::sync::Arc;
@@ -13,6 +16,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 const DATABASE_URL: &str = "mysql://root@localhost/backend";
+pub const CACHE_KEY_PREFIX: &str = "novium:";
 
 #[derive(Clone)]
 pub(crate) struct Backend {
@@ -76,7 +80,9 @@ async fn main0() {
                 .connect(&env::var("DATABASE_URL").unwrap_or(DATABASE_URL.to_string()))
                 .await
             {
-                Ok(conn) => break conn,
+                Ok(conn) => {
+                    break conn
+                },
                 Err(err) => {
                     debug!("MySQL connection attempt failed: {:?}", err);
                 }
@@ -88,5 +94,10 @@ async fn main0() {
         backend_key: Arc::new(backend_key),
         user_key,
     };
+
+    sqlx::migrate!("./migrations")
+        .run(backend.database.as_ref())
+        .await
+        .expect("Unable to run migrations");
 
 }
