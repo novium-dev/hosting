@@ -11,6 +11,8 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use crate::error::HttpError;
 
+pub use concat_idents::concat_idents;
+
 pub const LENGTH: usize = 6;
 
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
@@ -173,12 +175,12 @@ impl<T> Display for GenericNanoId<T> {
 #[macro_export]
 macro_rules! define_id {
     ($x: ident) => {
-        $crate::id::concat_idents!(inner_name = $x, Inner {
-            pub type $x = $crate::id::GenericNanoId<inner_name>;
+        $crate::utils::id::concat_idents!(inner_name = $x, Inner {
+            pub type $x = $crate::utils::id::GenericNanoId<inner_name>;
 
             #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
             pub struct inner_name;
         });
-        pub const DUMMY_ID: $x = $crate::id::GenericNanoId::dummy();
+        pub const DUMMY_ID: $x = $crate::utils::id::GenericNanoId::dummy();
     };
 }

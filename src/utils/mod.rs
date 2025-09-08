@@ -1,2 +1,2 @@
 mod serde;
-mod id;
+pub(crate) mod id;
