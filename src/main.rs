@@ -2,6 +2,7 @@ mod crypto;
 pub(crate) mod error;
 pub(crate) mod db;
 pub(crate) mod templates;
+mod utils;
 
 use std::env;
 use std::sync::Arc;
