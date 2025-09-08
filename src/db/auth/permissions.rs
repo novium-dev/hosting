@@ -1,6 +1,6 @@
-
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
+use crate::db::server::ServerId;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub(crate) enum AccessPermission {
@@ -59,5 +59,59 @@ bitflags! {
         const NETWORK_MANAGE = 1 << 34;
 
         const BACKUP_STORAGE_SELECT = 1 << 35;
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub(crate) enum Role {
+    Admin,
+    ServerManager,
+    Moderator,
+    User,
+}
+
+impl Role {
+    pub fn management_permissions(&self) -> ManagementPermissions {
+        match self {
+            Role::Admin => ManagementPermissions::all(),
+            Role::ServerManager => {
+                ManagementPermissions::SERVER_VIEW
+                    | ManagementPermissions::SERVER_MANAGE
+                    | ManagementPermissions::SERVER_SUSPEND
+                    | ManagementPermissions::DATABASE_VIEW
+                    | ManagementPermissions::DATABASE_MANAGE
+                    | ManagementPermissions::BACKUP_STORAGE_SELECT
+            }
+            Role::Moderator => {
+                ManagementPermissions::SERVER_VIEW
+                    | ManagementPermissions::USER_VIEW
+            }
+            Role::User => ManagementPermissions::empty(),
+        }
+    }
+
+    pub fn server_permissions(&self) -> ServerPermissions {
+        match self {
+            Role::Admin => ServerPermissions::all(),
+            Role::ServerManager => {
+                ServerPermissions::VIEW
+                    | ServerPermissions::POWER
+                    | ServerPermissions::TERMINAL_READ
+                    | ServerPermissions::TERMINAL_WRITE
+                    | ServerPermissions::FILES_READ
+                    | ServerPermissions::FILES_WRITE
+                    | ServerPermissions::DATABASE_VIEW
+                    | ServerPermissions::DATABASE_MANAGE
+                    | ServerPermissions::BACKUP_VIEW
+                    | ServerPermissions::BACKUP_CREATE
+                    | ServerPermissions::BACKUP_RESTORE
+            }
+            Role::Moderator => {
+                ServerPermissions::VIEW
+                    | ServerPermissions::POWER
+                    | ServerPermissions::TERMINAL_READ
+            }
+            Role::User => ServerPermissions::empty(),
+        }
     }
 }

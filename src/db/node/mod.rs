@@ -1,5 +1,3 @@
-mod service;
-
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
