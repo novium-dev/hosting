@@ -1,39 +1,39 @@
-use std::collections::HashMap;
-use std::ops::Deref;
-use std::sync::Arc;
+use crate::db::server::ports::NetworkProtocol;
+use core::ops::Deref;
 use daemon_common::node::{BackupStorage, ServerStorage};
 use daemon_common::service::DaemonServicesURLWithUserKey;
 use serde::Serialize;
+use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
-use crate::db::server::ports::NetworkProtocol;
 
 #[derive(Clone)]
-pub(crate) struct BackendNode {
-    pub(crate) id: u32,
-    pub(crate) uuid: Uuid,
-    pub(crate) sdk: Arc<dyn DaemonServicesURLWithUserKey + Send + Sync + 'static>,
-    pub(crate) display: String,
-    pub(crate) default_host: String,
-    pub(crate) default_bind: String,
-    pub(crate) server_storages: HashMap<String, ServerStorage>,
-    pub(crate) backup_storages: HashMap<String, BackupStorage>,
-    pub(crate) ports: Vec<NodePortAllocation>,
+pub struct BackendNode {
+    pub id: u32,
+    pub uuid: Uuid,
+    pub sdk: Arc<dyn DaemonServicesURLWithUserKey + Send + Sync + 'static>,
+    pub display: String,
+    pub default_host: String,
+    pub default_bind: String,
+    pub server_storages: HashMap<String, ServerStorage>,
+    pub backup_storages: HashMap<String, BackupStorage>,
+    pub ports: Vec<NodePortAllocation>,
 }
 
 #[derive(Clone, Debug, Serialize, sqlx::FromRow)]
-pub(crate) struct NodePortAllocation {
-    pub(crate) id: u32,
-    pub(crate) node: u32,
-    pub(crate) protocol: NetworkProtocol,
-    pub(crate) start: u16,
-    pub(crate) end: u16,
+pub struct NodePortAllocation {
+    pub id: u32,
+    pub node: u32,
+    pub protocol: NetworkProtocol,
+    pub start: u16,
+    pub end: u16,
 }
 
 impl Deref for BackendNode {
     type Target = dyn DaemonServicesURLWithUserKey + Send + Sync + 'static;
 
     fn deref(&self) -> &Self::Target {
-        self.sdk.deref()
+        &*self.sdk
     }
 }
 

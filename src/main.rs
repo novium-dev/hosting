@@ -1,20 +1,30 @@
+mod config;
 mod crypto;
-pub(crate) mod error;
 pub(crate) mod db;
+pub(crate) mod error;
+mod http;
+mod routes;
+mod shutdown;
 pub(crate) mod templates;
 mod utils;
 
+use crate::config::BackendConfig;
+use core::time::Duration;
+use daemon_common::key::rcgen::KeyPair;
+use daemon_common::key::{BackendKey, DaemonRootKey};
+use ed25519_dalek::SigningKey;
+use sqlx::MySqlPool;
+use sqlx::mysql::MySqlPoolOptions;
 use std::env;
 use std::sync::Arc;
-use std::time::Duration;
-use daemon_common::key::{BackendKey, DaemonRootKey};
-use daemon_common::key::rcgen::KeyPair;
-use ed25519_dalek::SigningKey;
-use sqlx::mysql::MySqlPoolOptions;
-use sqlx::MySqlPool;
+use tokio::fs::File;
+use tokio::io::AsyncReadExt as _;
+use tokio::sync::Mutex;
+use tokio::sync::broadcast::Sender;
+use tokio::task::JoinSet;
 use tracing::{debug, info};
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
 
 const DATABASE_URL: &str = "mysql://root@localhost/backend";
 pub const CACHE_KEY_PREFIX: &str = "novium:";
@@ -23,10 +33,17 @@ pub const CACHE_KEY_PREFIX: &str = "novium:";
 pub(crate) struct Backend {
     pub(crate) database: Arc<MySqlPool>,
 
+    pub(crate) config: Arc<BackendConfig>,
+
+    pub(crate) server_task_cancellable: Arc<Mutex<JoinSet<()>>>,
+    pub(crate) server_task: Arc<Mutex<JoinSet<()>>>,
+    pub(crate) shutdown_task: Arc<Mutex<JoinSet<()>>>,
+    pub(crate) shutdown_channel: Arc<Sender<()>>,
+
     pub(crate) root_key: Arc<DaemonRootKey>,
     pub(crate) root_privkey: Arc<KeyPair>,
     pub(crate) user_key: SigningKey,
-    pub(crate) backend_key: Arc<BackendKey>,
+    pub(crate) key: Arc<BackendKey>,
 }
 
 pub fn main() {
@@ -42,7 +59,7 @@ pub fn main() {
 
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
-        .unwrap();
+        .expect("Unable to install default crypto provider");
 
     #[cfg(not(debug_assertions))]
     let guard = {
@@ -74,25 +91,42 @@ async fn main0() {
 
     let (root_key, root_privkey, user_key, backend_key) = crypto::check_and_generate_keys().await;
 
+    let config: BackendConfig = {
+        let mut config_buffer = String::new();
+        File::open("config.toml")
+            .await
+            .expect("Failed to open config file")
+            .read_to_string(&mut config_buffer)
+            .await
+            .expect("Unable to read config file");
+        toml::from_str(&config_buffer).expect("Failed to parse config file")
+    };
+
     let backend = Backend {
         database: Arc::new(loop {
             match MySqlPoolOptions::new()
                 .max_connections(5)
-                .connect(&env::var("DATABASE_URL").unwrap_or(DATABASE_URL.to_string()))
+                .connect(&env::var("DATABASE_URL").unwrap_or_else(|_| DATABASE_URL.to_owned()))
                 .await
             {
-                Ok(conn) => {
-                    break conn
-                },
+                Ok(conn) => break conn,
                 Err(err) => {
-                    debug!("MySQL connection attempt failed: {:?}", err);
+                    debug!("MySQL connection attempt failed: {err:?}");
                 }
             }
             tokio::time::sleep(Duration::from_secs(5)).await;
         }),
+
+        config: Arc::new(config),
+
+        shutdown_channel: Arc::new(Sender::new(1)),
+        server_task: Arc::default(),
+        server_task_cancellable: Arc::default(),
+        shutdown_task: Arc::default(),
+
         root_key: Arc::new(root_key),
         root_privkey: Arc::new(root_privkey),
-        backend_key: Arc::new(backend_key),
+        key: Arc::new(backend_key),
         user_key,
     };
 
@@ -101,4 +135,12 @@ async fn main0() {
         .await
         .expect("Unable to run migrations");
 
+    backend
+        .serve_http()
+        .await
+        .expect("Unable to serve http server");
+
+    backend.hook_signals();
+
+    backend.await_shutdown().await;
 }

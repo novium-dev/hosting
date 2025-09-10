@@ -1,10 +1,13 @@
-pub(crate) mod variable;
+pub mod variable;
+use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use crate::error::HttpError;
 use async_trait::async_trait;
 use bytes::Bytes;
+use core::future::Future;
+use core::time::Duration;
 pub use daemon_common::service::server::ServerBuildPayload;
 use either::Either;
-use redis::AsyncCommands;
+use redis::AsyncCommands as _;
 pub use redis::aio::ConnectionManager;
 use reqwest::Response;
 use serde::de::DeserializeOwned;
@@ -12,12 +15,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use speedy::{LittleEndian, Readable, Writable};
 use std::collections::{HashMap, HashSet};
-use std::future::Future;
 use std::io;
-use std::time::Duration;
 use tracing::{debug, error, info};
 use variable::VariablePayload;
-use crate::db::server::ports::{NetworkProtocol, ServerPort};
 
 #[derive(Debug, Serialize)]
 pub struct TemplatePortDefinition {
@@ -181,10 +181,9 @@ async fn load_cache_required<'a, T: Readable<'a, LittleEndian> + Send + Sync>(
     cache: &mut ConnectionManager,
     id: &'static str,
 ) -> Result<T, HttpError> {
-    match load_cache(cache, id).await? {
-        Some(cache) => Ok(cache),
-        None => Err(crate::error::cache::CACHE_MISSING),
-    }
+    load_cache(cache, id)
+        .await?
+        .map_or_else(|| Err(crate::error::cache::CACHE_MISSING), Ok)
 }
 
 async fn save_cache<T: Writable<LittleEndian> + Send + Sync>(
@@ -211,31 +210,28 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         mut cache_client: ConnectionManager,
         extra: Value,
     ) -> Result<ServerBuildPayload, HttpError> {
-        let extra: <Self as Template>::Extra =
-            serde_json::from_value(extra).map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
+        let extra: <Self as Template>::Extra = serde_json::from_value(extra)
+            .map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
         self.extra_to_build_payload(
             &load_cache_required(&mut cache_client, self.id()).await?,
             extra,
         )
-            .await
+        .await
     }
 
     async fn default_ports(&self) -> Result<HashMap<String, TemplatePortDefinition>, HttpError> {
         <Self as Template>::default_ports(self).await
     }
 
-    async fn default_extra(
-        &self,
-        mut cache_client: ConnectionManager,
-    ) -> Result<Value, HttpError> {
+    async fn default_extra(&self, mut cache_client: ConnectionManager) -> Result<Value, HttpError> {
         Ok(serde_json::to_value(
             &<Self as Template>::default_extra(
                 self,
                 &load_cache_required(&mut cache_client, self.id()).await?,
             )
-                .await?,
+            .await?,
         )
-            .unwrap())
+        .expect("Unable to serialize default extra"))
     }
 
     async fn extra_to_variables(
@@ -243,14 +239,14 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         mut cache_client: ConnectionManager,
         extra: Value,
     ) -> Result<VariablePayload, HttpError> {
-        let extra: <Self as Template>::Extra =
-            serde_json::from_value(extra).map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
+        let extra: <Self as Template>::Extra = serde_json::from_value(extra)
+            .map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
         <Self as Template>::extra_to_variables(
             self,
             &load_cache_required(&mut cache_client, self.id()).await?,
             extra,
         )
-            .await
+        .await
     }
 
     async fn variables_to_extra_validated(
@@ -268,9 +264,9 @@ impl<T: Template + Send + Sync> TemplateInner for T {
                 extra,
                 variables,
             )
-                .await?,
+            .await?,
         )
-            .unwrap())
+        .expect("Unable to serialize extra"))
     }
 
     async fn enabled_features(
@@ -278,14 +274,14 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         mut cache_client: ConnectionManager,
         extra: Value,
     ) -> Result<HashSet<&'static str>, HttpError> {
-        let extra: <Self as Template>::Extra =
-            serde_json::from_value(extra).map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
+        let extra: <Self as Template>::Extra = serde_json::from_value(extra)
+            .map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
         <Self as Template>::enabled_features(
             self,
             &load_cache_required(&mut cache_client, self.id()).await?,
             extra,
         )
-            .await
+        .await
     }
 
     async fn primary_port(
@@ -294,15 +290,15 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         extra: Value,
         ports: &HashMap<u32, ServerPort>,
     ) -> Result<Option<(u32, ServerPort, u16)>, HttpError> {
-        let extra: <Self as Template>::Extra =
-            serde_json::from_value(extra).map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
+        let extra: <Self as Template>::Extra = serde_json::from_value(extra)
+            .map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
         Ok(<Self as Template>::primary_port(
             self,
             &load_cache_required(&mut cache_client, self.id()).await?,
             extra,
             ports,
         )
-            .await)
+        .await)
     }
 
     async fn init(&self, mut cache_client: ConnectionManager) -> Result<(), io::Error> {
@@ -315,11 +311,8 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         {
             None => {
                 info!("Cache for Template {} not found. Generating...", self.id());
-                let cache_obj = T::update_cache().await.map_err(|_| {
-                    io::Error::other(format!(
-                        "Failed to update cache for template: {}",
-                        self.id()
-                    ))
+                let cache_obj = T::update_cache().await.map_err(|()| {
+                    io::Error::other(format!("Failed to update cache for template {}", self.id()))
                 })?;
                 save_cache(&mut cache_client, self.id(), &cache_obj).await?;
                 cache_obj
@@ -332,6 +325,8 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         let id = self.id();
         tokio::task::spawn(async move {
             let mut cache_obj = cache_obj;
+
+            #[expect(clippy::infinite_loop, reason = "intended behaviour")]
             loop {
                 if T::cache_update_needed(&cache_obj) {
                     debug!("Updating Cache for {}", id);
@@ -346,8 +341,8 @@ impl<T: Template + Send + Sync> TemplateInner for T {
                                 cache_obj = obj;
                             }
                         }
-                        Err(_) => {
-                            error!("Failed to update cache for template {} (update_cache)", id,);
+                        Err(()) => {
+                            error!("Failed to update cache for template {id} (update_cache)");
                         }
                     }
                 }

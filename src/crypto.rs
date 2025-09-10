@@ -1,16 +1,13 @@
-use tokio::fs;
-use tokio::fs::File;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
+use rand::TryRngCore as _;
+use rand::rngs::OsRng;
+use tokio::fs;
+use tokio::fs::File;
+use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 
-pub(crate) async fn check_and_generate_keys() -> (
-    DaemonRootKey,
-    KeyPair,
-    SigningKey,
-    BackendKey,
-) {
+pub async fn check_and_generate_keys() -> (DaemonRootKey, KeyPair, SigningKey, BackendKey) {
     let (root_key, root_privkey, user_key) = if fs::try_exists("./backend_root.pem")
         .await
         .expect("Unable to check backend_root.pem presence")
@@ -30,8 +27,7 @@ pub(crate) async fn check_and_generate_keys() -> (
             user_key.expect("Private User key is missing"),
         )
     } else {
-        let user_key =
-            SigningKey::generate(&mut ed25519_dalek::ed25519::signature::rand_core::OsRng);
+        let user_key = SigningKey::generate(&mut OsRng.unwrap_err());
 
         let root_privkey = KeyPair::generate().expect("Unable to generate root key");
         let root_key = DaemonRootKey::new(&root_privkey, Some(user_key.verifying_key()))
@@ -45,8 +41,8 @@ pub(crate) async fn check_and_generate_keys() -> (
                 .dump(Some(&root_privkey), Some(&user_key))
                 .as_bytes(),
         )
-            .await
-            .expect("Unable to write backend_root.pem");
+        .await
+        .expect("Unable to write backend_root.pem");
         file.flush()
             .await
             .expect("Unable to flush backend_root.pem");

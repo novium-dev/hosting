@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use core::ops::RangeInclusive;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq)]
@@ -14,18 +14,18 @@ pub struct ServerPort {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum NetworkProtocol {
     #[serde(rename = "tcp")]
-    TCP,
+    Tcp,
     #[serde(rename = "udp")]
-    UDP,
+    Udp,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub(crate) struct NetworkPort {
-    pub(crate) host: String,
-    pub(crate) name: String, // only for ux purposes
-    pub(crate) external_port_start: u16,
-    pub(crate) external_port_end: u16,
-    pub(crate) internal_port: u16,
-    pub(crate) protocol: NetworkProtocol,
-    pub(crate) bind: Option<String>, // Only visible to admins
+pub struct NetworkPort {
+    pub host: String,
+    pub name: String, // only for ux purposes
+    pub external_port_start: u16,
+    pub external_port_end: u16,
+    pub internal_port: u16,
+    pub protocol: NetworkProtocol,
+    pub bind: Option<String>, // Only visible to admins
 }

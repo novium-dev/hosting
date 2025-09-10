@@ -1,5 +1,5 @@
+pub mod id;
 mod serde;
-pub(crate) mod id;
 
 #[derive(Copy, Clone)]
 pub struct PageSplit {
@@ -18,7 +18,7 @@ impl<S: Send + Sync> axum::extract::OptionalFromRequestParts<S> for PageSplit {
         state: &S,
     ) -> Result<Option<Self>, Self::Rejection> {
         use ::serde::Deserialize;
-        use axum::extract::FromRequestParts;
+        use axum::extract::FromRequestParts as _;
         #[derive(Debug, Deserialize)]
         struct PageSplitQuery {
             limit: Option<u32>,
@@ -31,7 +31,7 @@ impl<S: Send + Sync> axum::extract::OptionalFromRequestParts<S> for PageSplit {
             PageSplitQuery {
                 page: Some(page),
                 limit,
-            } => Some(PageSplit {
+            } => Some(Self {
                 page,
                 limit: limit.unwrap_or(100),
 
@@ -75,7 +75,7 @@ pub trait PageSplitExtension<T: Iterator<Item = E>, E> {
 }
 
 impl<'a, T: Iterator<Item = E> + 'a, E: 'a> PageSplitExtension<Box<dyn Iterator<Item = E> + 'a>, E>
-for T
+    for T
 {
     fn apply_pagesplit(self, page: &mut Option<PageSplit>) -> Box<dyn Iterator<Item = E> + 'a> {
         if let Some(page) = page {

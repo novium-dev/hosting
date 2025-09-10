@@ -1,26 +1,22 @@
 use arrayvec::ArrayString;
+pub use concat_idents::concat_idents;
+use core::fmt::{Display, Formatter};
+use core::marker::PhantomData;
+use core::ops::Deref;
+use core::str::FromStr;
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sqlx::encode::IsNull;
 use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Encode, MySql};
-use std::fmt::{Display, Formatter};
 use std::io;
 use std::io::ErrorKind;
-use std::marker::PhantomData;
-use std::ops::Deref;
-use crate::error::HttpError;
-
-pub use concat_idents::concat_idents;
 
 pub const LENGTH: usize = 6;
 
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 #[repr(transparent)]
-pub struct GenericNanoId<T: ?Sized>(
-    pub(super) ArrayString<LENGTH>,
-    pub(super) PhantomData<T>,
-);
+pub struct GenericNanoId<T: ?Sized>(pub(super) ArrayString<LENGTH>, pub(super) PhantomData<T>);
 
 impl<T: ?Sized> GenericNanoId<T> {
     pub const fn dummy() -> Self {
@@ -29,28 +25,31 @@ impl<T: ?Sized> GenericNanoId<T> {
 }
 
 impl<T> TryFrom<Vec<u8>> for GenericNanoId<T> {
-    type Error = HttpError;
+    type Error = ();
 
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        let Ok(str) = String::from_utf8(value) else {
-            return Err(crate::error::server::NOT_FOUND);
+        let Ok(str) = str::from_utf8(&value) else {
+            return Err(());
         };
-        Self::try_from(str)
+        Self::from_str(str)
     }
 }
 
-impl<T> TryFrom<String> for GenericNanoId<T> {
-    type Error = HttpError;
+impl<T> FromStr for GenericNanoId<T> {
+    type Err = ();
 
-    fn try_from(v: String) -> Result<Self, Self::Error> {
-        if v.len() != LENGTH {
-            return Err(crate::error::server::NOT_FOUND);
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.len() != LENGTH {
+            return Err(());
         }
-        if v.chars().any(|c| !nanoid::alphabet::SAFE.contains(&c)) {
-            return Err(crate::error::server::NOT_FOUND);
+        if value
+            .chars()
+            .any(|ch| !nanoid::alphabet::SAFE.contains(&ch))
+        {
+            return Err(());
         }
-        Ok(GenericNanoId(
-            arrayvec::ArrayString::from(&v).unwrap(),
+        Ok(Self(
+            arrayvec::ArrayString::from(value).expect("Unable to create array vec"),
             PhantomData,
         ))
     }
@@ -86,17 +85,10 @@ impl<'q, T> sqlx::Encode<'q, MySql> for GenericNanoId<T> {
 
 impl<'r, T> sqlx::Decode<'r, MySql> for GenericNanoId<T> {
     fn decode(value: <MySql as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let v = <&str as Decode<'r, MySql>>::decode(value)?;
-        if v.len() != LENGTH {
-            return Err(io::Error::new(ErrorKind::InvalidData, "String has wrong length.").into());
-        }
-        if v.chars().any(|c| !nanoid::alphabet::SAFE.contains(&c)) {
-            return Err(io::Error::new(ErrorKind::InvalidData, "Invalid alphabet").into());
-        }
-        Ok(GenericNanoId(
-            arrayvec::ArrayString::from(v).unwrap(),
-            PhantomData,
-        ))
+        let value = <&str as Decode<'r, MySql>>::decode(value)?;
+
+        Self::from_str(value)
+            .map_err(|()| io::Error::new(ErrorKind::InvalidData, "Invalid nano id").into())
     }
 }
 
@@ -110,11 +102,11 @@ impl<T> Deref for GenericNanoId<T> {
 
 impl<T> GenericNanoId<T> {
     pub fn generate() -> Self {
-        GenericNanoId(
+        Self(
             arrayvec::ArrayString::from(
                 nanoid::format(nanoid::rngs::default, &nanoid::alphabet::SAFE, LENGTH).as_str(),
             )
-                .unwrap(),
+            .expect("Unable to generate nano id"),
             PhantomData,
         )
     }
@@ -129,28 +121,18 @@ impl<'de, T> Deserialize<'de> for GenericNanoId<T> {
         impl<F> Visitor<'_> for StringVisitor<F> {
             type Value = GenericNanoId<F>;
 
-            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+            fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
                 write!(
                     formatter,
-                    "a string with {}-sized characters with only characters available in the nanoid SAFE alphabet.",
-                    LENGTH
+                    "a string with {LENGTH}-sized characters with only characters available in the nanoid SAFE alphabet."
                 )
             }
 
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
             where
                 E: Error,
             {
-                if v.len() != LENGTH {
-                    return Err(E::custom("String has wrong length."));
-                }
-                if v.chars().any(|c| !nanoid::alphabet::SAFE.contains(&c)) {
-                    return Err(E::custom("Invalid alphabet"));
-                }
-                Ok(GenericNanoId(
-                    arrayvec::ArrayString::from(v).unwrap(),
-                    PhantomData,
-                ))
+                GenericNanoId::from_str(value).map_err(|()| E::custom("Invalid nano id"))
             }
         }
         deserializer.deserialize_str(StringVisitor(PhantomData))
@@ -167,8 +149,8 @@ impl<T> Serialize for GenericNanoId<T> {
 }
 
 impl<T> Display for GenericNanoId<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        <ArrayString<LENGTH> as Display>::fmt(&self.0, f)
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
+        <ArrayString<LENGTH> as Display>::fmt(&self.0, formatter)
     }
 }
 

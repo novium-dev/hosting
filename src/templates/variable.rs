@@ -1,12 +1,11 @@
-#![allow(unused)]
+#![expect(unused)]
 
+use core::fmt::Debug;
 use indexmap::{IndexMap, IndexSet};
 use regex::Regex;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 use serde_json::Value;
-use std::borrow::Borrow;
 use std::collections::HashSet;
-use std::fmt::Debug;
 
 #[derive(Debug, Serialize, Default)]
 pub struct VariablePayload {
@@ -33,7 +32,7 @@ pub enum VariableType {
     StaticSet(IndexSet<String>),
     Checkbox { label: String },
     Hierarchy { field_index: u8, data_index: u8 },
-    Regex { regex: String },
+    Regex { regex: String, placeholder: String },
 }
 
 #[derive(Debug, Serialize)]
@@ -48,11 +47,15 @@ pub enum VariableContent {
     StringSet {
         content: IndexSet<String>,
     },
+    #[expect(
+        clippy::empty_enum_variants_with_brackets,
+        reason = "to ensure we don't confuse serde"
+    )]
     Disabled {},
 }
 
 type VariableMapFunction<'a, const LAYERS: usize, T, E> =
-Box<dyn Fn(T) -> Vec<([String; LAYERS], E)> + 'a>;
+    Box<dyn Fn(T) -> Vec<([String; LAYERS], E)> + 'a>;
 
 pub struct VariableDataBuilder<'a, const LAYERS: usize, T: Clone + 'a, E: 'a> {
     base: Vec<T>,
@@ -63,12 +66,12 @@ pub struct VariableDataBuilder<'a, const LAYERS: usize, T: Clone + 'a, E: 'a> {
 #[serde(untagged)]
 enum VariableDataBuilderRecursiveMapEntry {
     Last(VariableContent),
-    Recursive(IndexMap<String, VariableDataBuilderRecursiveMapEntry>),
+    Recursive(IndexMap<String, Self>),
 }
 
 impl VariableDataBuilderRecursiveMapEntry {
-    fn map(&mut self) -> &mut IndexMap<String, VariableDataBuilderRecursiveMapEntry> {
-        if let VariableDataBuilderRecursiveMapEntry::Recursive(map) = self {
+    fn map(&mut self) -> &mut IndexMap<String, Self> {
+        if let Self::Recursive(map) = self {
             map
         } else {
             unreachable!()
@@ -76,11 +79,15 @@ impl VariableDataBuilderRecursiveMapEntry {
     }
 }
 
+#[expect(
+    clippy::mismatching_type_param_order,
+    reason = "false positive, param used multiple times"
+)]
 impl<'a, T: Clone + 'a> VariableDataBuilder<'a, 0, T, T> {
     pub fn new(base: Vec<T>) -> Self {
         Self {
             base,
-            current: Box::new(|t| vec![([], t.clone())]),
+            current: Box::new(|data| vec![([], data)]),
         }
     }
 }
@@ -102,39 +109,33 @@ impl<'a, const LAYERS: usize, T: Clone + 'a> VariableDataBuilder<'a, LAYERS, T, 
                         VariableDataBuilderRecursiveMapEntry::Last(content),
                     );
                     break;
-                } else {
-                    if !current.contains_key(key) {
-                        current.insert(
-                            key.clone(),
-                            VariableDataBuilderRecursiveMapEntry::Recursive(IndexMap::new()),
-                        );
-                    }
-                    current = current.get_mut(key).unwrap().map();
                 }
+                current = current
+                    .entry(key.clone())
+                    .or_insert_with(|| {
+                        VariableDataBuilderRecursiveMapEntry::Recursive(IndexMap::new())
+                    })
+                    .map();
             }
         }
-        serde_json::to_value(map).unwrap()
+        serde_json::to_value(map).expect("Unable to serialize variable to json")
     }
 }
 
 impl<'a, const LAYERS: usize, T: Clone + 'a, E: 'a> VariableDataBuilder<'a, LAYERS, T, E> {
     pub fn layer<const LAYERS2: usize, F: Fn(&E) -> Vec<(String, G)> + 'a, G>(
         self,
-        f: F,
+        func: F,
     ) -> VariableDataBuilder<'a, LAYERS2, T, G> {
         let old_current = self.current;
         VariableDataBuilder {
             base: self.base,
-            current: Box::new(move |v| {
+            current: Box::new(move |value| {
                 let mut result = Vec::new();
-                for (vec, val) in old_current(v) {
-                    for (str, obj) in f(&val) {
-                        let vec2: [String; LAYERS2] = std::array::from_fn(|i| {
-                            if i == LAYERS {
-                                str.clone()
-                            } else {
-                                vec[i].clone()
-                            }
+                for (vec, val) in old_current(value) {
+                    for (str, obj) in func(&val) {
+                        let vec2: [String; LAYERS2] = core::array::from_fn(|i| {
+                            vec.get(i).map_or_else(|| str.clone(), String::clone)
                         });
                         result.push((vec2, obj));
                     }
@@ -147,10 +148,10 @@ impl<'a, const LAYERS: usize, T: Clone + 'a, E: 'a> VariableDataBuilder<'a, LAYE
 
     pub fn layer_impl<const LAYERS2: usize, F: Fn(&E) -> Vec<G> + 'a, G: ToString>(
         self,
-        f: F,
+        func: F,
     ) -> VariableDataBuilder<'a, LAYERS2, T, G> {
-        self.layer(move |e| {
-            let val = f(e);
+        self.layer(move |data| {
+            let val = func(data);
             val.into_iter().map(|val| (val.to_string(), val)).collect()
         })
     }
@@ -170,7 +171,7 @@ pub struct VariableGroupBuilder(VariableGroup);
 impl VariableGroupBuilder {
     pub fn new(name: Option<impl Into<String>>) -> Self {
         Self(VariableGroup {
-            name: name.map(|opt| opt.into()),
+            name: name.map(Into::into),
             variables: Vec::new(),
         })
     }
@@ -181,16 +182,14 @@ impl VariableGroupBuilder {
         current: Option<impl Into<String>>,
         values: IndexSet<impl Into<String>>,
     ) -> Self {
-        let values: IndexSet<_> = values.into_iter().map(|str| str.into()).collect();
-        let current = current.map(|opt| opt.into());
+        let values: IndexSet<_> = values.into_iter().map(Into::into).collect();
+        let current = current.map(Into::into);
         #[cfg(debug_assertions)]
         if let Some(ref current) = current {
-            if !values.contains(current) {
-                panic!(
-                    "Invalid current value! Available: {:?}, Current: {:?}",
-                    values, current
-                );
-            }
+            assert!(
+                values.contains(current),
+                "Invalid current value! Available: {values:?}, Current: {current:?}"
+            );
         }
         self.0.variables.push(VariableField {
             id: id.into(),
@@ -208,7 +207,7 @@ impl VariableGroupBuilder {
     ) -> Self {
         self.0.variables.push(VariableField {
             id: id.into(),
-            current: current.map(|b| b.to_string()),
+            current: current.map(|value| value.to_string()),
             data: VariableType::Checkbox { label },
         });
         self
@@ -223,7 +222,7 @@ impl VariableGroupBuilder {
     ) -> Self {
         self.0.variables.push(VariableField {
             id: id.into(),
-            current: current.map(|opt| opt.into()),
+            current: current.map(Into::into),
             data: VariableType::Hierarchy {
                 field_index: index,
                 data_index: data,
@@ -240,16 +239,14 @@ impl VariableGroupBuilder {
         placeholder: impl Into<String>,
     ) -> Self {
         let regex = regex.into();
-        #[cfg(debug_assertions)]
-        {
-            if Regex::new(&regex).is_err() {
-                panic!("Invalid regex value: {:?}", regex);
-            }
-        }
+        debug_assert!(Regex::new(&regex).is_ok(), "Invalid regex value: {regex:?}");
         self.0.variables.push(VariableField {
             id: id.into(),
-            current: current.map(|opt| opt.into()),
-            data: VariableType::Regex { regex },
+            current: current.map(Into::into),
+            data: VariableType::Regex {
+                regex,
+                placeholder: placeholder.into(),
+            },
         });
         self
     }
@@ -286,12 +283,11 @@ impl VariableBuilder {
                         data_index,
                     } = variable.data
                     {
-                        if (data_index as usize >= self.0.data.len()) {
-                            panic!(
-                                "Hierarchy field does exist, but its out of range: {:?} {:?}",
-                                self.0.data, group
-                            );
-                        }
+                        assert!(
+                            (data_index as usize) < self.0.data.len(),
+                            "Hierarchy field does exist, but its out of range: {:?} {group:?}",
+                            self.0.data
+                        );
                     }
                 }
             }

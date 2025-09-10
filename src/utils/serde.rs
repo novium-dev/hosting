@@ -1,6 +1,6 @@
+use core::fmt::{Display, Formatter};
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer};
-use std::fmt::{Display, Formatter};
 
 #[derive(Deserialize)]
 #[serde(untagged)]
@@ -14,14 +14,14 @@ pub enum SerdePrimitive {
 }
 
 impl Display for SerdePrimitive {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
-            SerdePrimitive::String(str) => f.write_str(str),
-            SerdePrimitive::U64(i) => <u64 as Display>::fmt(i, f),
-            SerdePrimitive::U32(i) => <u32 as Display>::fmt(i, f),
-            SerdePrimitive::U16(i) => <u16 as Display>::fmt(i, f),
-            SerdePrimitive::U8(i) => <u8 as Display>::fmt(i, f),
-            SerdePrimitive::Bool(b) => <bool as Display>::fmt(b, f),
+            Self::String(value) => formatter.write_str(value),
+            Self::U64(value) => <u64 as Display>::fmt(value, formatter),
+            Self::U32(value) => <u32 as Display>::fmt(value, formatter),
+            Self::U16(value) => <u16 as Display>::fmt(value, formatter),
+            Self::U8(value) => <u8 as Display>::fmt(value, formatter),
+            Self::Bool(value) => <bool as Display>::fmt(value, formatter),
         }
     }
 }
@@ -45,15 +45,17 @@ impl<'de> Deserialize<'de> for SerdeStringToU16Wrapper {
         impl Visitor<'_> for StringToU16WrapperVisitor {
             type Value = SerdeStringToU16Wrapper;
 
-            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+            fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
                 write!(formatter, "a string parsable to u16")
             }
 
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
             where
                 E: Error,
             {
-                let val: u16 = v.parse().map_err(|_err| E::custom("String isn't a u16"))?;
+                let val: u16 = value
+                    .parse()
+                    .map_err(|_err| E::custom("String isn't a u16"))?;
                 Ok(SerdeStringToU16Wrapper(val))
             }
         }

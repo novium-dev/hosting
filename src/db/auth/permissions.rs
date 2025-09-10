@@ -1,9 +1,9 @@
+use crate::db::server::ServerId;
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
-use crate::db::server::ServerId;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub(crate) enum AccessPermission {
+pub enum AccessPermission {
     Server(ServerId, ServerPermissions),
     Management(ManagementPermissions),
 }
@@ -11,7 +11,7 @@ pub(crate) enum AccessPermission {
 bitflags! {
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
     #[repr(transparent)]
-    pub(crate) struct ServerPermissions: i64 {
+    pub struct ServerPermissions: i64 {
         const VIEW = 1 << 0;
         const POWER = 1 << 1;
 
@@ -38,7 +38,7 @@ bitflags! {
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
     #[repr(transparent)]
-    pub(crate) struct ManagementPermissions: i64 {
+    pub struct ManagementPermissions: i64 {
         const SERVER_VIEW = 1 << 22;
         const SERVER_MANAGE = 1 << 31;
         const SERVER_SUSPEND = 1 << 36;
@@ -63,7 +63,7 @@ bitflags! {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub(crate) enum Role {
+pub enum Role {
     Admin,
     ServerManager,
     Moderator,
@@ -71,10 +71,10 @@ pub(crate) enum Role {
 }
 
 impl Role {
-    pub fn management_permissions(&self) -> ManagementPermissions {
+    pub fn management_permissions(self) -> ManagementPermissions {
         match self {
-            Role::Admin => ManagementPermissions::all(),
-            Role::ServerManager => {
+            Self::Admin => ManagementPermissions::all(),
+            Self::ServerManager => {
                 ManagementPermissions::SERVER_VIEW
                     | ManagementPermissions::SERVER_MANAGE
                     | ManagementPermissions::SERVER_SUSPEND
@@ -82,18 +82,17 @@ impl Role {
                     | ManagementPermissions::DATABASE_MANAGE
                     | ManagementPermissions::BACKUP_STORAGE_SELECT
             }
-            Role::Moderator => {
-                ManagementPermissions::SERVER_VIEW
-                    | ManagementPermissions::USER_VIEW
+            Self::Moderator => {
+                ManagementPermissions::SERVER_VIEW | ManagementPermissions::USER_VIEW
             }
-            Role::User => ManagementPermissions::empty(),
+            Self::User => ManagementPermissions::empty(),
         }
     }
 
-    pub fn server_permissions(&self) -> ServerPermissions {
+    pub fn server_permissions(self) -> ServerPermissions {
         match self {
-            Role::Admin => ServerPermissions::all(),
-            Role::ServerManager => {
+            Self::Admin => ServerPermissions::all(),
+            Self::ServerManager => {
                 ServerPermissions::VIEW
                     | ServerPermissions::POWER
                     | ServerPermissions::TERMINAL_READ
@@ -106,12 +105,12 @@ impl Role {
                     | ServerPermissions::BACKUP_CREATE
                     | ServerPermissions::BACKUP_RESTORE
             }
-            Role::Moderator => {
+            Self::Moderator => {
                 ServerPermissions::VIEW
                     | ServerPermissions::POWER
                     | ServerPermissions::TERMINAL_READ
             }
-            Role::User => ServerPermissions::empty(),
+            Self::User => ServerPermissions::empty(),
         }
     }
 }
