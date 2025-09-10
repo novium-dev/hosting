@@ -1,7 +1,6 @@
 CREATE TABLE
     IF NOT EXISTS `nodes` (
-    `id` INT (255) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `uuid` UUID NOT NULL UNIQUE,
+    `id` UUID NOT NULL PRIMARY KEY,
     `display` VARCHAR(64) NOT NULL,
     `url` VARCHAR(255) NOT NULL,
     `default_host` VARCHAR(255) NOT NULL,
@@ -10,7 +9,7 @@ CREATE TABLE
 
 CREATE TABLE
     IF NOT EXISTS `node_server_storage` (
-    `node` INT (255) UNSIGNED NOT NULL,
+    `node` UUID NOT NULL,
     `storage` VARCHAR(64) NOT NULL,
     `storage_type` VARCHAR(32) NOT NULL,
     `group` VARCHAR(64),
@@ -20,7 +19,7 @@ CREATE TABLE
 
 CREATE TABLE
     IF NOT EXISTS `node_backup_storage` (
-    `node` INT (255) UNSIGNED NOT NULL,
+    `node` UUID NOT NULL,
     `storage` VARCHAR(64) NOT NULL,
     `storage_type` VARCHAR(32) NOT NULL,
     `group` VARCHAR(64),
@@ -31,7 +30,7 @@ CREATE TABLE
 CREATE TABLE
     IF NOT EXISTS `node_ports` (
     `id` INT (255) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `node` INT (255) UNSIGNED NOT NULL,
+    `node` UUID NOT NULL,
     `protocol` ENUM('tcp', 'udp') NOT NULL,
     `start` SMALLINT UNSIGNED NOT NULL,
     `end` SMALLINT UNSIGNED NOT NULL,
@@ -42,7 +41,7 @@ CREATE TABLE
     IF NOT EXISTS `servers` (
     `id` CHAR(6) NOT NULL PRIMARY KEY,
     `name` VARCHAR(64) NOT NULL,
-    `node` INT (255) UNSIGNED NOT NULL,
+    `node` UUID NOT NULL,
     `node_server_id` INT (255) UNSIGNED NOT NULL,
     `owner` INT (255) UNSIGNED NOT NULL,
     `cpu` FLOAT (255, 2),

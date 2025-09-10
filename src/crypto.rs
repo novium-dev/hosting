@@ -3,11 +3,12 @@ use daemon_common::key::{BackendKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
 use rand::TryRngCore as _;
 use rand::rngs::OsRng;
+use std::sync::Arc;
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 
-pub async fn check_and_generate_keys() -> (DaemonRootKey, KeyPair, SigningKey, BackendKey) {
+pub async fn check_and_generate_keys() -> (Arc<DaemonRootKey>, KeyPair, SigningKey, BackendKey) {
     let (root_key, root_privkey, user_key) = if fs::try_exists("./backend_root.pem")
         .await
         .expect("Unable to check backend_root.pem presence")
@@ -78,5 +79,5 @@ pub async fn check_and_generate_keys() -> (DaemonRootKey, KeyPair, SigningKey, B
         backend_key
     };
 
-    (root_key, root_privkey, user_key, backend_key)
+    (Arc::new(root_key), root_privkey, user_key, backend_key)
 }

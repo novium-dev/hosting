@@ -1,6 +1,8 @@
 mod config;
 mod crypto;
 pub(crate) mod db;
+#[cfg(feature = "embedded_node")]
+mod embedded_node;
 pub(crate) mod error;
 mod http;
 mod routes;
@@ -9,12 +11,16 @@ pub(crate) mod templates;
 mod utils;
 
 use crate::config::BackendConfig;
+use crate::db::node::BackendNode;
+#[cfg(feature = "embedded_node")]
+use crate::embedded_node::setup_embedded_node;
 use core::time::Duration;
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
-use sqlx::MySqlPool;
 use sqlx::mysql::MySqlPoolOptions;
+use sqlx::{Connection as _, MySqlPool};
+use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 use tokio::fs::File;
@@ -25,6 +31,7 @@ use tokio::task::JoinSet;
 use tracing::{debug, info};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
+use uuid::Uuid;
 
 const DATABASE_URL: &str = "mysql://root@localhost/backend";
 pub const CACHE_KEY_PREFIX: &str = "novium:";
@@ -34,6 +41,10 @@ pub(crate) struct Backend {
     pub(crate) database: Arc<MySqlPool>,
 
     pub(crate) config: Arc<BackendConfig>,
+    pub(crate) nodes: Arc<Mutex<HashMap<Uuid, Arc<BackendNode>>>>,
+
+    #[cfg(feature = "embedded_node")]
+    pub(crate) embedded: daemon::Daemon<daemon::WithUserKey>,
 
     pub(crate) server_task_cancellable: Arc<Mutex<JoinSet<()>>>,
     pub(crate) server_task: Arc<Mutex<JoinSet<()>>>,
@@ -102,38 +113,65 @@ async fn main0() {
         toml::from_str(&config_buffer).expect("Failed to parse config file")
     };
 
-    let backend = Backend {
-        database: Arc::new(loop {
-            match MySqlPoolOptions::new()
-                .max_connections(5)
-                .connect(&env::var("DATABASE_URL").unwrap_or_else(|_| DATABASE_URL.to_owned()))
-                .await
-            {
-                Ok(conn) => break conn,
-                Err(err) => {
-                    debug!("MySQL connection attempt failed: {err:?}");
-                }
+    let database = Arc::new(loop {
+        match MySqlPoolOptions::new()
+            .max_connections(5)
+            .connect(&env::var("DATABASE_URL").unwrap_or_else(|_| DATABASE_URL.to_owned()))
+            .await
+        {
+            Ok(conn) => break conn,
+            Err(err) => {
+                debug!("MySQL connection attempt failed: {err:?}");
             }
-            tokio::time::sleep(Duration::from_secs(5)).await;
-        }),
+        }
+        tokio::time::sleep(Duration::from_secs(5)).await;
+    });
+
+    sqlx::migrate!("./migrations")
+        .run(&*database)
+        .await
+        .expect("Unable to run migrations");
+
+    #[cfg(feature = "embedded_node")]
+    let embedded = setup_embedded_node(
+        &database,
+        &config,
+        Arc::clone(&root_key),
+        &root_privkey,
+        user_key.clone(),
+    )
+    .await
+    .expect("Unable to setup embedded node");
+
+    let backend = Backend {
+        database,
 
         config: Arc::new(config),
+        nodes: Arc::default(),
+
+        #[cfg(feature = "embedded_node")]
+        embedded: embedded.clone(),
 
         shutdown_channel: Arc::new(Sender::new(1)),
         server_task: Arc::default(),
         server_task_cancellable: Arc::default(),
         shutdown_task: Arc::default(),
 
-        root_key: Arc::new(root_key),
+        root_key,
         root_privkey: Arc::new(root_privkey),
         key: Arc::new(backend_key),
         user_key,
     };
 
-    sqlx::migrate!("./migrations")
-        .run(backend.database.as_ref())
+    let backend2 = backend.clone();
+    backend
+        .database
+        .acquire()
         .await
-        .expect("Unable to run migrations");
+        .expect("Unable to acquire database connection")
+        .transaction(|tx| Box::pin(async move { backend2.sync_nodes(tx).await }))
+        .await
+        .expect("Unable to sync nodes cache");
 
     backend
         .serve_http()

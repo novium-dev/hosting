@@ -20,6 +20,11 @@ impl Backend {
 
         info!("Backend shutdown complete");
         tokio::time::sleep(Duration::from_millis(500)).await;
+
+        #[cfg(feature = "embedded_node")]
+        {
+            self.embedded.shutdown().await;
+        }
     }
 
     pub fn hook_signals(&self) {
