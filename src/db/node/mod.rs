@@ -144,7 +144,7 @@ impl Backend {
             }));
         }
 
-        *self.nodes.lock().await = nodes;
+        *self.nodes.write().await = nodes;
 
         Ok(())
     }

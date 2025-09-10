@@ -14,6 +14,7 @@ use crate::config::BackendConfig;
 use crate::db::node::BackendNode;
 #[cfg(feature = "embedded_node")]
 use crate::embedded_node::setup_embedded_node;
+use crate::templates::TemplateInner;
 use core::time::Duration;
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
@@ -25,8 +26,8 @@ use std::env;
 use std::sync::Arc;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt as _;
-use tokio::sync::Mutex;
 use tokio::sync::broadcast::Sender;
+use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinSet;
 use tracing::{debug, info};
 use tracing_subscriber::layer::SubscriberExt as _;
@@ -41,7 +42,9 @@ pub(crate) struct Backend {
     pub(crate) database: Arc<MySqlPool>,
 
     pub(crate) config: Arc<BackendConfig>,
-    pub(crate) nodes: Arc<Mutex<HashMap<Uuid, Arc<BackendNode>>>>,
+    pub(crate) nodes: Arc<RwLock<HashMap<Uuid, Arc<BackendNode>>>>,
+
+    pub(crate) templates: Arc<RwLock<HashMap<String, Arc<dyn TemplateInner + Send + Sync>>>>,
 
     #[cfg(feature = "embedded_node")]
     pub(crate) embedded: daemon::Daemon<daemon::WithUserKey>,
@@ -148,6 +151,8 @@ async fn main0() {
 
         config: Arc::new(config),
         nodes: Arc::default(),
+
+        templates: Arc::default(),
 
         #[cfg(feature = "embedded_node")]
         embedded: embedded.clone(),
