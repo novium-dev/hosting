@@ -1,0 +1,21 @@
+backend_url = "http://localhost:3000"
+listeners = ["[::]:3001"]
+origin = "http://localhost:3002"
+database = "mysql://root@localhost/daemon"
+mounts = []
+
+[ssh]
+listeners = ["[::]:2022"]
+host_key = [{ type = "ed25519", path = "ssh_ed25519.pem" }, { type = "rsa", path = "ssh_rsa.pem" }]
+auth_cache_duration = 30000
+auth_url = "http://localhost:3000"
+
+[storage.local]
+method = "directory"
+path = "storages"
+
+[backup.local]
+method = "archive"
+path = "backups"
+compression = { type = "zstd" }
+order = 0

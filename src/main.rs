@@ -1,3 +1,5 @@
+#![expect(dead_code, reason = "work in progress")]
+
 mod config;
 mod crypto;
 pub(crate) mod db;
