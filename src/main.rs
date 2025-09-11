@@ -5,7 +5,9 @@ mod crypto;
 pub(crate) mod db;
 #[cfg(feature = "embedded_node")]
 mod embedded_node;
-pub(crate) mod error;
+
+#[deprecated]
+pub(crate) mod __deprecated_error;
 mod http;
 mod routes;
 mod shutdown;

@@ -3,7 +3,7 @@ use axum::http::StatusCode;
 pub type HttpError = (StatusCode, &'static str);
 
 pub mod cache {
-    use crate::error::*;
+    use crate::__deprecated_error::*;
 
     pub const CACHE_UNREACHABLE: HttpError = (
         StatusCode::INTERNAL_SERVER_ERROR,
@@ -20,7 +20,7 @@ pub mod cache {
 }
 
 pub mod server {
-    use crate::error::*;
+    use crate::__deprecated_error::*;
 
     pub const DAEMON_REQUEST_FAILED: HttpError = (
         StatusCode::INTERNAL_SERVER_ERROR,

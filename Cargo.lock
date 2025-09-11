@@ -1311,7 +1311,7 @@ dependencies = [
 [[package]]
 name = "daemon"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#dc011cb557738a1d3505607f85ef8a47d77d05ba"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#83cadbcc6ea562f53e53bdf013b2aacc7232f199"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1385,7 +1385,7 @@ dependencies = [
 [[package]]
 name = "daemon_common"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#dc011cb557738a1d3505607f85ef8a47d77d05ba"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#83cadbcc6ea562f53e53bdf013b2aacc7232f199"
 dependencies = [
  "asn1-rs",
  "axum",
@@ -1427,7 +1427,7 @@ dependencies = [
 [[package]]
 name = "daemon_framework"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#dc011cb557738a1d3505607f85ef8a47d77d05ba"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#83cadbcc6ea562f53e53bdf013b2aacc7232f199"
 dependencies = [
  "async-trait",
  "axum",
@@ -1455,7 +1455,7 @@ dependencies = [
 [[package]]
 name = "daemon_framework_macros"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#dc011cb557738a1d3505607f85ef8a47d77d05ba"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#83cadbcc6ea562f53e53bdf013b2aacc7232f199"
 dependencies = [
  "either",
  "indexmap 2.11.1",
@@ -2431,9 +2431,9 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
 name = "hybrid-array"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fe39a812f039072707ce38020acbab2f769087952eddd9e2b890f37654b2349"
+checksum = "c7116c472cf19838450b1d421b4e842569f52b519d640aee9ace1ebcf5b21051"
 dependencies = [
  "typenum",
 ]
@@ -4530,9 +4530,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.4"
+version = "0.103.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a17884ae0c1b773f1ccd2bd4a8c72f16da897310a98b0e84bf349ad5ead92fc"
+checksum = "b5a37813727b78798e53c2bec3f5e8fe12a6d6f8389bf9ca7802add4c9905ad8"
 dependencies = [
  "aws-lc-rs",
  "ring",

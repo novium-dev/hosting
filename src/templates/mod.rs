@@ -1,6 +1,6 @@
 pub mod variable;
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
-use crate::error::HttpError;
+use crate::__deprecated_error::HttpError;
 use async_trait::async_trait;
 use bytes::Bytes;
 use core::future::Future;
@@ -164,16 +164,16 @@ async fn load_cache<'a, T: Readable<'a, LittleEndian> + Send + Sync>(
     if !cache
         .exists::<_, bool>(&key)
         .await
-        .map_err(|_err| crate::error::cache::CACHE_DATA_ERROR)?
+        .map_err(|_err| crate::__deprecated_error::cache::CACHE_DATA_ERROR)?
     {
         return Ok(None);
     }
     let value: Vec<u8> = cache
         .get(&key)
         .await
-        .map_err(|_err| crate::error::cache::CACHE_DATA_ERROR)?;
+        .map_err(|_err| crate::__deprecated_error::cache::CACHE_DATA_ERROR)?;
     T::read_from_buffer_copying_data(&value)
-        .map_err(|_err| crate::error::cache::CACHE_DATA_ERROR)
+        .map_err(|_err| crate::__deprecated_error::cache::CACHE_DATA_ERROR)
         .map(|val| Some(val))
 }
 
@@ -183,7 +183,7 @@ async fn load_cache_required<'a, T: Readable<'a, LittleEndian> + Send + Sync>(
 ) -> Result<T, HttpError> {
     load_cache(cache, id)
         .await?
-        .map_or_else(|| Err(crate::error::cache::CACHE_MISSING), Ok)
+        .map_or_else(|| Err(crate::__deprecated_error::cache::CACHE_MISSING), Ok)
 }
 
 async fn save_cache<T: Writable<LittleEndian> + Send + Sync>(
@@ -211,7 +211,7 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         extra: Value,
     ) -> Result<ServerBuildPayload, HttpError> {
         let extra: <Self as Template>::Extra = serde_json::from_value(extra)
-            .map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
+            .map_err(|_err| crate::__deprecated_error::server::DAEMON_CONFIG_INVALID)?;
         self.extra_to_build_payload(
             &load_cache_required(&mut cache_client, self.id()).await?,
             extra,
@@ -240,7 +240,7 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         extra: Value,
     ) -> Result<VariablePayload, HttpError> {
         let extra: <Self as Template>::Extra = serde_json::from_value(extra)
-            .map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
+            .map_err(|_err| crate::__deprecated_error::server::DAEMON_CONFIG_INVALID)?;
         <Self as Template>::extra_to_variables(
             self,
             &load_cache_required(&mut cache_client, self.id()).await?,
@@ -256,7 +256,7 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         variables: HashMap<String, String>,
     ) -> Result<Value, HttpError> {
         let extra: <Self as Template>::Extra = serde_json::from_value(old_extra)
-            .map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
+            .map_err(|_err| crate::__deprecated_error::server::DAEMON_CONFIG_INVALID)?;
         Ok(serde_json::to_value(
             &<Self as Template>::variables_to_extra_validated(
                 self,
@@ -275,7 +275,7 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         extra: Value,
     ) -> Result<HashSet<&'static str>, HttpError> {
         let extra: <Self as Template>::Extra = serde_json::from_value(extra)
-            .map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
+            .map_err(|_err| crate::__deprecated_error::server::DAEMON_CONFIG_INVALID)?;
         <Self as Template>::enabled_features(
             self,
             &load_cache_required(&mut cache_client, self.id()).await?,
@@ -291,7 +291,7 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         ports: &HashMap<u32, ServerPort>,
     ) -> Result<Option<(u32, ServerPort, u16)>, HttpError> {
         let extra: <Self as Template>::Extra = serde_json::from_value(extra)
-            .map_err(|_err| crate::error::server::DAEMON_CONFIG_INVALID)?;
+            .map_err(|_err| crate::__deprecated_error::server::DAEMON_CONFIG_INVALID)?;
         Ok(<Self as Template>::primary_port(
             self,
             &load_cache_required(&mut cache_client, self.id()).await?,
