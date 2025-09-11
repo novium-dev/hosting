@@ -8,6 +8,7 @@ mod embedded_node;
 
 #[deprecated]
 pub(crate) mod __deprecated_error;
+mod auth;
 mod http;
 mod routes;
 mod shutdown;
@@ -23,6 +24,7 @@ use core::time::Duration;
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
+use redis::aio::ConnectionManager as CacheConnectionManager;
 use sqlx::mysql::MySqlPoolOptions;
 use sqlx::{Connection as _, MySqlPool};
 use std::collections::HashMap;
@@ -39,11 +41,15 @@ use tracing_subscriber::util::SubscriberInitExt as _;
 use uuid::Uuid;
 
 const DATABASE_URL: &str = "mysql://root@localhost/backend";
+const CACHE_URL: &str = "valkey://localhost?protocol=resp3";
+const CACHE_PREFIX: &str = "novium:";
+
 pub const CACHE_KEY_PREFIX: &str = "novium:";
 
 #[derive(Clone)]
 pub(crate) struct Backend {
     pub(crate) database: Arc<MySqlPool>,
+    pub(crate) cache: CacheConnectionManager,
 
     pub(crate) config: Arc<BackendConfig>,
     pub(crate) nodes: Arc<RwLock<HashMap<Uuid, Arc<BackendNode>>>>,
@@ -139,6 +145,20 @@ async fn main0() {
         .await
         .expect("Unable to run migrations");
 
+    let cache = loop {
+        match redis::Client::open(CACHE_URL) {
+            Ok(conn) => {
+                break CacheConnectionManager::new(conn)
+                    .await
+                    .expect("Unable to create cache connection manager");
+            }
+            Err(err) => {
+                debug!("Redis connection attempt failed: {:?}", err);
+            }
+        }
+        tokio::time::sleep(Duration::from_secs(5)).await;
+    };
+
     #[cfg(feature = "embedded_node")]
     let embedded = setup_embedded_node(
         &database,
@@ -152,6 +172,7 @@ async fn main0() {
 
     let backend = Backend {
         database,
+        cache,
 
         config: Arc::new(config),
         nodes: Arc::default(),

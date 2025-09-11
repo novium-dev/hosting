@@ -1,5 +1,8 @@
 listeners = ["[::]:3000"]
 
+# In seconds (= 60*24*30, 30 days)
+session_lifetime = 43200
+
 # Only relevant if the "embedded_node" feature is set
 [daemon]
 url = "https://localhost:3001"

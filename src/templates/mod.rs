@@ -1,6 +1,6 @@
 pub mod variable;
-use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use crate::__deprecated_error::HttpError;
+use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use async_trait::async_trait;
 use bytes::Bytes;
 use core::future::Future;
