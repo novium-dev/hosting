@@ -1,15 +1,15 @@
 use crate::Backend;
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
+use core::fmt::{Display, Formatter};
+use core::str::FromStr;
 use rand::TryRngCore as _;
 use rand::rand_core::OsError;
 use rand::rngs::OsRng;
 use redis::{AsyncTypedCommands as _, RedisError};
 use serde::Serializer as _;
-use core::fmt::{Display, Formatter};
 use std::io;
 use std::io::ErrorKind;
-use core::str::FromStr;
 
 const SESSION_SIZE: usize = 128;
 

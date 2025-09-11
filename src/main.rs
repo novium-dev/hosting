@@ -146,14 +146,13 @@ async fn main0() {
         .expect("Unable to run migrations");
 
     let cache = loop {
-        match redis::Client::open(CACHE_URL) {
+        let client = redis::Client::open(CACHE_URL).expect("Invalid cache url");
+        match CacheConnectionManager::new(client).await {
             Ok(conn) => {
-                break CacheConnectionManager::new(conn)
-                    .await
-                    .expect("Unable to create cache connection manager");
+                break conn;
             }
             Err(err) => {
-                debug!("Redis connection attempt failed: {:?}", err);
+                debug!("Cache connection attempt failed: {err:?}");
             }
         }
         tokio::time::sleep(Duration::from_secs(5)).await;
