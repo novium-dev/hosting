@@ -4,6 +4,7 @@ use core::fmt::{Display, Formatter};
 use core::marker::PhantomData;
 use core::ops::Deref;
 use core::str::FromStr;
+use std::borrow::Cow;
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sqlx::encode::IsNull;
@@ -11,6 +12,9 @@ use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Encode, MySql};
 use std::io;
 use std::io::ErrorKind;
+use utoipa::openapi::{Object, RefOr, Schema, Type};
+use utoipa::{PartialSchema, ToSchema};
+use utoipa::openapi::schema::SchemaType;
 
 pub const LENGTH: usize = 6;
 
@@ -151,6 +155,28 @@ impl<T> Serialize for GenericNanoId<T> {
 impl<T> Display for GenericNanoId<T> {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
         <ArrayString<LENGTH> as Display>::fmt(&self.0, formatter)
+    }
+}
+
+impl<T> PartialSchema for GenericNanoId<T> {
+    fn schema() -> RefOr<Schema> {
+        RefOr::T(Schema::Object(
+            Object::builder()
+                .min_length(Some(LENGTH))
+                .max_length(Some(LENGTH))
+                .pattern(Some(format!("^[{}]{{{LENGTH}}}$", nanoid::alphabet::SAFE.iter().collect::<String>())))
+                .schema_type(SchemaType::Type(Type::String))
+                .examples(
+                    vec![serde_json::json!({"value": "A1b2C3"})]
+                )
+                .build(),
+        ))
+    }
+}
+
+impl<T> ToSchema for GenericNanoId<T> {
+    fn name() -> Cow<'static, str> {
+        Cow::Borrowed("NanoId")
     }
 }
 

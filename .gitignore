@@ -15,7 +15,7 @@ dependencies.txt
 
 rustc-*.*
 control.sock
-.env.local
+.env
 .DS_Store
 node_modules/
 
