@@ -10,7 +10,7 @@ mod embedded_node;
 pub(crate) mod __deprecated_error;
 mod auth;
 mod http;
-mod routes;
+pub(crate) mod service;
 mod shutdown;
 pub(crate) mod templates;
 mod utils;

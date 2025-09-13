@@ -844,9 +844,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.36"
+version = "1.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5252b3d2648e5eedbc1a6f501e3c795e07025c1e93bbf8bbdd6eef7f447a6d54"
+checksum = "65193589c6404eb80b450d618eaf9a2cafaaafd57ecce47370519ef674a7bd44"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -1317,7 +1317,7 @@ dependencies = [
 [[package]]
 name = "daemon"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#83cadbcc6ea562f53e53bdf013b2aacc7232f199"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#1e3458413ecaa94c22c762549056d8da28006e56"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1391,7 +1391,7 @@ dependencies = [
 [[package]]
 name = "daemon_common"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#83cadbcc6ea562f53e53bdf013b2aacc7232f199"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#1e3458413ecaa94c22c762549056d8da28006e56"
 dependencies = [
  "asn1-rs",
  "axum",
@@ -1433,7 +1433,7 @@ dependencies = [
 [[package]]
 name = "daemon_framework"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#83cadbcc6ea562f53e53bdf013b2aacc7232f199"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#1e3458413ecaa94c22c762549056d8da28006e56"
 dependencies = [
  "async-trait",
  "axum",
@@ -1452,6 +1452,8 @@ dependencies = [
  "thiserror 2.0.16",
  "tokio",
  "tokio-util",
+ "tower-layer",
+ "tower-service",
  "url",
  "urlencoding",
  "utoipa",
@@ -1461,7 +1463,7 @@ dependencies = [
 [[package]]
 name = "daemon_framework_macros"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#83cadbcc6ea562f53e53bdf013b2aacc7232f199"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#1e3458413ecaa94c22c762549056d8da28006e56"
 dependencies = [
  "either",
  "indexmap 2.11.1",
@@ -1703,7 +1705,7 @@ checksum = "fe639324ff99c3bf32144aaf79dc7e048305a6e82b6409644ddcbe7e0f5f5be9"
 dependencies = [
  "pkcs8 0.11.0-rc.6",
  "serde",
- "signature 3.0.0-rc.3",
+ "signature 3.0.0-rc.4",
 ]
 
 [[package]]
@@ -1732,7 +1734,7 @@ dependencies = [
  "rand_core 0.9.3",
  "serde",
  "sha2 0.11.0-rc.2",
- "signature 3.0.0-rc.3",
+ "signature 3.0.0-rc.4",
  "subtle",
  "zeroize",
 ]
@@ -2349,6 +2351,7 @@ dependencies = [
  "concat-idents",
  "daemon",
  "daemon_common",
+ "daemon_framework",
  "ed25519-dalek 3.0.0-pre.1",
  "either",
  "futures",
@@ -2575,9 +2578,9 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.63"
+version = "0.1.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0c919e5debc312ad217002b8048a17b7d83f80703865bbfcfebb0458b0b27d8"
+checksum = "33e57f83510bb73707521ebaffa789ec8caf86f9657cad665b092b581d40e9fb"
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
@@ -2585,7 +2588,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.61.2",
+ "windows-core 0.62.0",
 ]
 
 [[package]]
@@ -5020,9 +5023,9 @@ dependencies = [
 
 [[package]]
 name = "signature"
-version = "3.0.0-rc.3"
+version = "3.0.0-rc.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39195ff4c0dc41c93e123825ca1f0d11b856df8b26d5fe140a522355632c4345"
+checksum = "fc280a6ff65c79fbd6622f64d7127f32b85563bca8c53cd2e9141d6744a9056d"
 
 [[package]]
 name = "simd-adler32"
@@ -6474,6 +6477,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "windows-core"
+version = "0.62.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57fe7168f7de578d2d8a05b07fd61870d2e73b4020e9f49aa00da8471723497c"
+dependencies = [
+ "windows-implement 0.60.0",
+ "windows-interface 0.59.1",
+ "windows-link 0.2.0",
+ "windows-result 0.4.0",
+ "windows-strings 0.5.0",
+]
+
+[[package]]
 name = "windows-future"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6580,6 +6596,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "windows-result"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7084dcc306f89883455a206237404d3eaf961e5bd7e0f312f7c91f57eb44167f"
+dependencies = [
+ "windows-link 0.2.0",
+]
+
+[[package]]
 name = "windows-strings"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6596,6 +6621,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56e6c93f3a0c3b36176cb1327a4958a0353d5d166c2a35cb268ace15e91d3b57"
 dependencies = [
  "windows-link 0.1.3",
+]
+
+[[package]]
+name = "windows-strings"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7218c655a553b0bed4426cf54b20d7ba363ef543b52d515b3e48d7fd55318dda"
+dependencies = [
+ "windows-link 0.2.0",
 ]
 
 [[package]]
