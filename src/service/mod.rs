@@ -1,13 +1,14 @@
 use daemon_framework::{define_error, define_path_variable};
 
 pub(crate) mod server;
+pub(crate) mod template;
 
 define_error!(auth {
     invalid("Invalid authentication credentials" UNAUTHORIZED),
 });
 
 define_error!(db {
-    failed("Database operation failed" INTERNAL_SERVER_ERROR),
+    failure("Database operation failed" INTERNAL_SERVER_ERROR),
 });
 
 define_error!(server {

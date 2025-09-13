@@ -14,7 +14,7 @@ struct TestServer {
 #[service(path = "/server", tag = "server", no_sdk)]
 pub(crate) impl ServerService for Backend {
     #[route("/{server_id}", method = GET)]
-    #[error(db(failed [sql:*]) server(not_found))]
+    #[error(db(failure [sql:*]) server(not_found))]
     #[doc = "Tests the connection"]
     async fn connection_test(&self, server_id: ServerId) -> Result<TestServer, _> {
         let server = self

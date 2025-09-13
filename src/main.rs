@@ -6,8 +6,6 @@ pub(crate) mod db;
 #[cfg(feature = "embedded_node")]
 mod embedded_node;
 
-#[deprecated]
-pub(crate) mod __deprecated_error;
 mod auth;
 mod http;
 pub(crate) mod service;

@@ -1,14 +1,15 @@
 pub mod variable;
-use crate::__deprecated_error::HttpError;
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
+use crate::service::template::error_template_corrupted::FromTemplateCorrupted;
+use crate::service::template::error_template_unavailable::FromTemplateUnavailable;
 use async_trait::async_trait;
 use bytes::Bytes;
 use core::future::Future;
 use core::time::Duration;
 pub use daemon_common::service::server::ServerBuildPayload;
 use either::Either;
-use redis::AsyncCommands as _;
 pub use redis::aio::ConnectionManager;
+use redis::{AsyncCommands as _, RedisError};
 use reqwest::Response;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -35,35 +36,35 @@ pub trait Template {
         &self,
         cache: &Self::Cache,
         extra: Self::Extra,
-    ) -> impl Future<Output = Result<ServerBuildPayload, HttpError>> + Send + Sync;
+    ) -> impl Future<Output = Result<ServerBuildPayload, TemplateError>> + Send + Sync;
 
     fn default_extra(
         &self,
         cache: &Self::Cache,
-    ) -> impl Future<Output = Result<Self::Extra, HttpError>> + Send + Sync;
+    ) -> impl Future<Output = Result<Self::Extra, TemplateError>> + Send + Sync;
 
     fn default_ports(
         &self,
-    ) -> impl Future<Output = Result<HashMap<String, TemplatePortDefinition>, HttpError>> + Send + Sync;
+    ) -> impl Future<Output = Result<HashMap<String, TemplatePortDefinition>, TemplateError>> + Send + Sync;
 
     fn extra_to_variables(
         &self,
         cache: &Self::Cache,
         extra: Self::Extra,
-    ) -> impl Future<Output = Result<VariablePayload, HttpError>> + Send + Sync;
+    ) -> impl Future<Output = Result<VariablePayload, TemplateError>> + Send + Sync;
 
     fn variables_to_extra_validated(
         &self,
         cache: &Self::Cache,
         old_extra: Self::Extra,
         variables: HashMap<String, String>,
-    ) -> impl Future<Output = Result<Self::Extra, HttpError>> + Send + Sync;
+    ) -> impl Future<Output = Result<Self::Extra, TemplateError>> + Send + Sync;
 
     fn enabled_features(
         &self,
         cache: &Self::Cache,
         extra: Self::Extra,
-    ) -> impl Future<Output = Result<HashSet<&'static str>, HttpError>> + Send + Sync;
+    ) -> impl Future<Output = Result<HashSet<&'static str>, TemplateError>> + Send + Sync;
 
     fn default_internet_access(&self) -> bool;
 
@@ -104,7 +105,7 @@ pub trait Template {
     fn init(
         &self,
         cache_client: ConnectionManager,
-    ) -> impl Future<Output = Result<(), io::Error>> + Send + Sync;
+    ) -> impl Future<Output = Result<(), RedisError>> + Send + Sync;
 
     fn update_cache() -> impl Future<Output = Result<Self::Cache, ()>> + Send + Sync;
 
@@ -119,39 +120,40 @@ pub trait TemplateInner {
         &self,
         cache_client: ConnectionManager,
         extra: Value,
-    ) -> Result<ServerBuildPayload, HttpError>;
+    ) -> Result<ServerBuildPayload, TemplateError>;
 
-    async fn default_ports(&self) -> Result<HashMap<String, TemplatePortDefinition>, HttpError>;
+    async fn default_ports(&self)
+    -> Result<HashMap<String, TemplatePortDefinition>, TemplateError>;
 
-    async fn default_extra(&self, cache_client: ConnectionManager) -> Result<Value, HttpError>;
+    async fn default_extra(&self, cache_client: ConnectionManager) -> Result<Value, TemplateError>;
 
     async fn extra_to_variables(
         &self,
         cache_client: ConnectionManager,
         extra: Value,
-    ) -> Result<VariablePayload, HttpError>;
+    ) -> Result<VariablePayload, TemplateError>;
 
     async fn variables_to_extra_validated(
         &self,
         cache_client: ConnectionManager,
         old_extra: Value,
         variables: HashMap<String, String>,
-    ) -> Result<Value, HttpError>;
+    ) -> Result<Value, TemplateError>;
 
     async fn enabled_features(
         &self,
         cache_client: ConnectionManager,
         extra: Value,
-    ) -> Result<HashSet<&'static str>, HttpError>;
+    ) -> Result<HashSet<&'static str>, TemplateError>;
 
     async fn primary_port(
         &self,
         cache_client: ConnectionManager,
         extra: Value,
         ports: &HashMap<u32, ServerPort>,
-    ) -> Result<Option<(u32, ServerPort, u16)>, HttpError>;
+    ) -> Result<Option<(u32, ServerPort, u16)>, TemplateError>;
 
-    async fn init(&self, cache_client: ConnectionManager) -> Result<(), io::Error>;
+    async fn init(&self, cache_client: ConnectionManager) -> Result<(), RedisError>;
 
     fn default_internet_access(&self) -> bool;
 }
@@ -159,31 +161,25 @@ pub trait TemplateInner {
 async fn load_cache<'a, T: Readable<'a, LittleEndian> + Send + Sync>(
     cache: &mut ConnectionManager,
     id: &'static str,
-) -> Result<Option<T>, HttpError> {
+) -> Result<Option<T>, RedisError> {
     let key = format!("{}template:{}", crate::CACHE_KEY_PREFIX, id);
-    if !cache
-        .exists::<_, bool>(&key)
-        .await
-        .map_err(|_err| crate::__deprecated_error::cache::CACHE_DATA_ERROR)?
-    {
+    if !cache.exists::<_, bool>(&key).await? {
         return Ok(None);
     }
-    let value: Vec<u8> = cache
-        .get(&key)
-        .await
-        .map_err(|_err| crate::__deprecated_error::cache::CACHE_DATA_ERROR)?;
-    T::read_from_buffer_copying_data(&value)
-        .map_err(|_err| crate::__deprecated_error::cache::CACHE_DATA_ERROR)
-        .map(|val| Some(val))
+    let value: Vec<u8> = cache.get(&key).await?;
+    match T::read_from_buffer_copying_data(&value) {
+        Ok(val) => Ok(Some(val)),
+        Err(_err) => Ok(None),
+    }
 }
 
 async fn load_cache_required<'a, T: Readable<'a, LittleEndian> + Send + Sync>(
     cache: &mut ConnectionManager,
     id: &'static str,
-) -> Result<T, HttpError> {
+) -> Result<T, TemplateError> {
     load_cache(cache, id)
         .await?
-        .map_or_else(|| Err(crate::__deprecated_error::cache::CACHE_MISSING), Ok)
+        .map_or_else(|| Err(TemplateError::Unavailable), Ok)
 }
 
 async fn save_cache<T: Writable<LittleEndian> + Send + Sync>(
@@ -199,6 +195,29 @@ async fn save_cache<T: Writable<LittleEndian> + Send + Sync>(
     Ok(())
 }
 
+#[derive(Debug)]
+pub enum TemplateError {
+    Corrupted,
+    Unavailable, // Cache missing
+    Redis(RedisError),
+}
+
+impl From<RedisError> for TemplateError {
+    fn from(value: RedisError) -> Self {
+        Self::Redis(value)
+    }
+}
+
+impl TemplateError {
+    fn into<E: FromTemplateCorrupted + FromTemplateUnavailable + From<RedisError>>(self) -> E {
+        match self {
+            Self::Corrupted => <E as FromTemplateCorrupted>::from(),
+            Self::Unavailable => <E as FromTemplateUnavailable>::from(),
+            Self::Redis(redis) => <E as From<RedisError>>::from(redis),
+        }
+    }
+}
+
 #[async_trait]
 impl<T: Template + Send + Sync> TemplateInner for T {
     fn id(&self) -> &'static str {
@@ -209,9 +228,9 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         &self,
         mut cache_client: ConnectionManager,
         extra: Value,
-    ) -> Result<ServerBuildPayload, HttpError> {
-        let extra: <Self as Template>::Extra = serde_json::from_value(extra)
-            .map_err(|_err| crate::__deprecated_error::server::DAEMON_CONFIG_INVALID)?;
+    ) -> Result<ServerBuildPayload, TemplateError> {
+        let extra: <Self as Template>::Extra =
+            serde_json::from_value(extra).map_err(|_err| TemplateError::Corrupted)?;
         self.extra_to_build_payload(
             &load_cache_required(&mut cache_client, self.id()).await?,
             extra,
@@ -219,11 +238,16 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         .await
     }
 
-    async fn default_ports(&self) -> Result<HashMap<String, TemplatePortDefinition>, HttpError> {
+    async fn default_ports(
+        &self,
+    ) -> Result<HashMap<String, TemplatePortDefinition>, TemplateError> {
         <Self as Template>::default_ports(self).await
     }
 
-    async fn default_extra(&self, mut cache_client: ConnectionManager) -> Result<Value, HttpError> {
+    async fn default_extra(
+        &self,
+        mut cache_client: ConnectionManager,
+    ) -> Result<Value, TemplateError> {
         Ok(serde_json::to_value(
             &<Self as Template>::default_extra(
                 self,
@@ -238,9 +262,9 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         &self,
         mut cache_client: ConnectionManager,
         extra: Value,
-    ) -> Result<VariablePayload, HttpError> {
-        let extra: <Self as Template>::Extra = serde_json::from_value(extra)
-            .map_err(|_err| crate::__deprecated_error::server::DAEMON_CONFIG_INVALID)?;
+    ) -> Result<VariablePayload, TemplateError> {
+        let extra: <Self as Template>::Extra =
+            serde_json::from_value(extra).map_err(|_err| TemplateError::Corrupted)?;
         <Self as Template>::extra_to_variables(
             self,
             &load_cache_required(&mut cache_client, self.id()).await?,
@@ -254,9 +278,9 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         mut cache_client: ConnectionManager,
         old_extra: Value,
         variables: HashMap<String, String>,
-    ) -> Result<Value, HttpError> {
-        let extra: <Self as Template>::Extra = serde_json::from_value(old_extra)
-            .map_err(|_err| crate::__deprecated_error::server::DAEMON_CONFIG_INVALID)?;
+    ) -> Result<Value, TemplateError> {
+        let extra: <Self as Template>::Extra =
+            serde_json::from_value(old_extra).map_err(|_err| TemplateError::Corrupted)?;
         Ok(serde_json::to_value(
             &<Self as Template>::variables_to_extra_validated(
                 self,
@@ -273,9 +297,9 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         &self,
         mut cache_client: ConnectionManager,
         extra: Value,
-    ) -> Result<HashSet<&'static str>, HttpError> {
-        let extra: <Self as Template>::Extra = serde_json::from_value(extra)
-            .map_err(|_err| crate::__deprecated_error::server::DAEMON_CONFIG_INVALID)?;
+    ) -> Result<HashSet<&'static str>, TemplateError> {
+        let extra: <Self as Template>::Extra =
+            serde_json::from_value(extra).map_err(|_err| TemplateError::Corrupted)?;
         <Self as Template>::enabled_features(
             self,
             &load_cache_required(&mut cache_client, self.id()).await?,
@@ -289,9 +313,9 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         mut cache_client: ConnectionManager,
         extra: Value,
         ports: &HashMap<u32, ServerPort>,
-    ) -> Result<Option<(u32, ServerPort, u16)>, HttpError> {
-        let extra: <Self as Template>::Extra = serde_json::from_value(extra)
-            .map_err(|_err| crate::__deprecated_error::server::DAEMON_CONFIG_INVALID)?;
+    ) -> Result<Option<(u32, ServerPort, u16)>, TemplateError> {
+        let extra: <Self as Template>::Extra =
+            serde_json::from_value(extra).map_err(|_err| TemplateError::Corrupted)?;
         Ok(<Self as Template>::primary_port(
             self,
             &load_cache_required(&mut cache_client, self.id()).await?,
@@ -301,14 +325,11 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         .await)
     }
 
-    async fn init(&self, mut cache_client: ConnectionManager) -> Result<(), io::Error> {
+    async fn init(&self, mut cache_client: ConnectionManager) -> Result<(), RedisError> {
         debug!("Initializing Template {}", self.id());
 
         <Self as Template>::init(self, cache_client.clone()).await?;
-        let cache_obj = match load_cache(&mut cache_client, self.id())
-            .await
-            .map_err(|err| io::Error::other(err.1))?
-        {
+        let cache_obj = match load_cache(&mut cache_client, self.id()).await? {
             None => {
                 info!("Cache for Template {} not found. Generating...", self.id());
                 let cache_obj = T::update_cache().await.map_err(|()| {
