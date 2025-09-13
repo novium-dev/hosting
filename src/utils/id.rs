@@ -4,17 +4,17 @@ use core::fmt::{Display, Formatter};
 use core::marker::PhantomData;
 use core::ops::Deref;
 use core::str::FromStr;
-use std::borrow::Cow;
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sqlx::encode::IsNull;
 use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Encode, MySql};
+use std::borrow::Cow;
 use std::io;
 use std::io::ErrorKind;
+use utoipa::openapi::schema::SchemaType;
 use utoipa::openapi::{Object, RefOr, Schema, Type};
 use utoipa::{PartialSchema, ToSchema};
-use utoipa::openapi::schema::SchemaType;
 
 pub const LENGTH: usize = 6;
 
@@ -164,11 +164,12 @@ impl<T> PartialSchema for GenericNanoId<T> {
             Object::builder()
                 .min_length(Some(LENGTH))
                 .max_length(Some(LENGTH))
-                .pattern(Some(format!("^[{}]{{{LENGTH}}}$", nanoid::alphabet::SAFE.iter().rev().collect::<String>())))
+                .pattern(Some(format!(
+                    "^[{}]{{{LENGTH}}}$",
+                    nanoid::alphabet::SAFE.iter().rev().collect::<String>()
+                )))
                 .schema_type(SchemaType::Type(Type::String))
-                .examples(
-                    vec![serde_json::json!({"value": "A1b2C3"})]
-                )
+                .examples(vec![serde_json::json!({"value": "A1b2C3"})])
                 .build(),
         ))
     }

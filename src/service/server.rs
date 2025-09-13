@@ -1,9 +1,9 @@
+use super::*;
 use crate::Backend;
+use crate::db::server::ServerId;
+use crate::service::server::__ServerService_error::ConnectionTestError;
 use daemon_framework::service;
 use serde::{Deserialize, Serialize};
-use crate::db::server::ServerId;
-use crate::service::server::error::ConnectionTestError;
-use super::*;
 
 #[derive(Serialize, Deserialize, utoipa::ToSchema)]
 struct TestServer {
@@ -17,9 +17,10 @@ pub(crate) impl ServerService for Backend {
     #[error(db(failed [sql:*]) server(not_found))]
     #[doc = "Tests the connection"]
     async fn connection_test(&self, server_id: ServerId) -> Result<TestServer, _> {
-        let server = self.resolve_server(&*self.database, server_id).await?.ok_or(
-            ConnectionTestError::ServerNotFound
-        )?;
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(ConnectionTestError::ServerNotFound)?;
 
         Ok(TestServer {
             id: server.id,

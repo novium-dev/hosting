@@ -1317,7 +1317,7 @@ dependencies = [
 [[package]]
 name = "daemon"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#1e3458413ecaa94c22c762549056d8da28006e56"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#b1f24fda8dc89bf451ed9da28fc7d826da5fc4f7"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1363,6 +1363,7 @@ dependencies = [
  "russh-sftp",
  "rustix 1.1.2",
  "rustls",
+ "rustls-pemfile",
  "serde",
  "serde_json",
  "signal-hook",
@@ -1391,7 +1392,7 @@ dependencies = [
 [[package]]
 name = "daemon_common"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#1e3458413ecaa94c22c762549056d8da28006e56"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#b1f24fda8dc89bf451ed9da28fc7d826da5fc4f7"
 dependencies = [
  "asn1-rs",
  "axum",
@@ -1433,7 +1434,7 @@ dependencies = [
 [[package]]
 name = "daemon_framework"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#1e3458413ecaa94c22c762549056d8da28006e56"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#b1f24fda8dc89bf451ed9da28fc7d826da5fc4f7"
 dependencies = [
  "async-trait",
  "axum",
@@ -1463,11 +1464,12 @@ dependencies = [
 [[package]]
 name = "daemon_framework_macros"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#1e3458413ecaa94c22c762549056d8da28006e56"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#b1f24fda8dc89bf451ed9da28fc7d826da5fc4f7"
 dependencies = [
  "either",
  "indexmap 2.11.1",
  "itertools 0.14.0",
+ "manyhow",
  "proc-macro2",
  "quote",
  "syn 2.0.106",
@@ -1699,9 +1701,9 @@ dependencies = [
 
 [[package]]
 name = "ed25519"
-version = "3.0.0-rc.0"
+version = "3.0.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe639324ff99c3bf32144aaf79dc7e048305a6e82b6409644ddcbe7e0f5f5be9"
+checksum = "9ef49c0b20c0ad088893ad2a790a29c06a012b3f05bcfc66661fd22a94b32129"
 dependencies = [
  "pkcs8 0.11.0-rc.6",
  "serde",
@@ -1730,7 +1732,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad207ed88a133091f83224265eac21109930db09bedcad05d5252f2af2de20a1"
 dependencies = [
  "curve25519-dalek 5.0.0-pre.1",
- "ed25519 3.0.0-rc.0",
+ "ed25519 3.0.0-rc.1",
  "rand_core 0.9.3",
  "serde",
  "sha2 0.11.0-rc.2",
@@ -3148,6 +3150,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "manyhow"
+version = "0.11.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b33efb3ca6d3b07393750d4030418d594ab1139cee518f0dc88db70fec873587"
+dependencies = [
+ "manyhow-macros",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
+name = "manyhow-macros"
+version = "0.11.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46fce34d199b78b6e6073abf984c9cf5fd3e9330145a93ee0738a7443e371495"
+dependencies = [
+ "proc-macro-utils",
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
 name = "matchit"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3867,6 +3892,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "353e1ca18966c16d9deb1c69278edbc5f194139612772bd9537af60ac231e1e6"
 dependencies = [
  "elliptic-curve",
+]
+
+[[package]]
+name = "proc-macro-utils"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eeaf08a13de400bc215877b5bdc088f241b12eb42f0a548d3390dc1c56bb7071"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "smallvec",
 ]
 
 [[package]]
@@ -4828,18 +4864,28 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.219"
+version = "1.0.220"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f0e2c6ed6606019b4e29e69dbaba95b11854410e5347d525002456dbbb786b6"
+checksum = "ceecad4c782e936ac90ecfd6b56532322e3262b14320abf30ce89a92ffdbfe22"
+dependencies = [
+ "serde_core",
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_core"
+version = "1.0.220"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddba47394f3b862d6ff6efdbd26ca4673e3566a307880a0ffb98f274bbe0ec32"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.219"
+version = "1.0.220"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b0276cf7f2c73365f7157c8123c21cd9a50fbbd844757af28ca1f5925fc2a00"
+checksum = "60e1f3b1761e96def5ec6d04a6e7421c0404fa3cf5c0155f1e2848fae3d8cc08"
 dependencies = [
  "proc-macro2",
  "quote",

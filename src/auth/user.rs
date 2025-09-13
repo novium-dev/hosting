@@ -1,9 +1,17 @@
 use crate::Backend;
+use crate::service::error_auth_invalid::FromAuthInvalid;
+use axum::Extension;
+use axum_extra::TypedHeader;
+use axum_extra::headers::Authorization;
+use axum_extra::headers::authorization::Credentials;
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
 use core::fmt::Debug;
 use core::fmt::{Display, Formatter};
 use core::str::FromStr;
+use daemon_framework::special::{FromRequestParts, OptionalFromRequestParts};
+use http::HeaderValue;
+use http::request::Parts;
 use rand::TryRngCore as _;
 use rand::rand_core::OsError;
 use rand::rngs::OsRng;
@@ -14,8 +22,49 @@ use std::io::ErrorKind;
 
 #[derive(Debug)]
 pub struct UserAuthentication {
-    session: Session,
     id: u32,
+    session: Session,
+}
+
+impl<E: From<RedisError> + FromAuthInvalid + Send + Sync> OptionalFromRequestParts<E>
+    for UserAuthentication
+{
+    async fn from_request_parts(parts: &mut Parts) -> Result<Option<Self>, E> {
+        let Extension(mut backend) =
+            <Extension<Backend> as axum::extract::FromRequestParts<()>>::from_request_parts(
+                parts,
+                &(),
+            )
+            .await
+            .expect("Extension not registered");
+
+        if let Some(TypedHeader(Authorization(session))) = <Option<
+            TypedHeader<Authorization<Session>>,
+        > as axum::extract::FromRequestParts<()>>::from_request_parts(
+            parts, &()
+        )
+        .await
+        .map_err(|_err| <E as FromAuthInvalid>::from())?
+        {
+            let Some(id) = session.authenticate(&mut backend).await? else {
+                return Ok(None);
+            };
+
+            Ok(Some(Self { id, session }))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl<E: From<RedisError> + FromAuthInvalid + Send + Sync> FromRequestParts<E>
+    for UserAuthentication
+{
+    async fn from_request_parts(parts: &mut Parts) -> Result<Self, E> {
+        <Self as OptionalFromRequestParts<E>>::from_request_parts(parts)
+            .await?
+            .ok_or_else(<E as FromAuthInvalid>::from)
+    }
 }
 
 const SESSION_SIZE: usize = 128;
@@ -51,6 +100,18 @@ impl Session {
             .map_err(|err| RedisError::from(io::Error::new(ErrorKind::InvalidData, err)))?;
         self.apply(backend, user).await?; // refresh the session
         Ok(Some(user))
+    }
+}
+
+impl Credentials for Session {
+    const SCHEME: &'static str = "";
+
+    fn decode(value: &HeaderValue) -> Option<Self> {
+        Self::from_str(value.to_str().ok()?).ok()
+    }
+
+    fn encode(&self) -> HeaderValue {
+        HeaderValue::try_from(self.to_string()).expect("Unable to encode session")
     }
 }
 
