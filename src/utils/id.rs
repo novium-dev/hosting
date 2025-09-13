@@ -164,7 +164,7 @@ impl<T> PartialSchema for GenericNanoId<T> {
             Object::builder()
                 .min_length(Some(LENGTH))
                 .max_length(Some(LENGTH))
-                .pattern(Some(format!("^[{}]{{{LENGTH}}}$", nanoid::alphabet::SAFE.iter().collect::<String>())))
+                .pattern(Some(format!("^[{}]{{{LENGTH}}}$", nanoid::alphabet::SAFE.iter().rev().collect::<String>())))
                 .schema_type(SchemaType::Type(Type::String))
                 .examples(
                     vec![serde_json::json!({"value": "A1b2C3"})]
