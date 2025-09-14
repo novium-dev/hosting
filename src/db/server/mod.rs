@@ -1,8 +1,10 @@
 use crate::db::node::BackendNode;
 use crate::define_id;
 use crate::templates::TemplateInner;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
+use uuid::Uuid;
 
 pub mod ports;
 
@@ -26,4 +28,48 @@ pub struct Server {
     pub internet_access: bool,
 
     pub backup_limit: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ServerInfo {
+    pub node: Uuid,
+    pub id: ServerId,
+    pub name: String,
+    pub node_server_id: u32,
+    pub owner: u32,
+    pub template: String,
+    pub template_extra: Value,
+    pub custom_dockerfile: Option<String>,
+    pub cpu: Option<f32>,
+    pub ram: Option<u32>,
+    pub swap: Option<u32>,
+    pub disk: Option<u64>,
+    pub group: Option<String>,
+    pub suspended: bool,
+    pub internet_access: bool,
+
+    pub backup_limit: Option<u32>,
+}
+
+impl From<&Server> for ServerInfo {
+    fn from(value: &Server) -> Self {
+        Self {
+            node: value.node.id,
+            id: value.id,
+            name: value.name.clone(),
+            node_server_id: value.node_server_id,
+            owner: value.owner,
+            template: value.template.id().to_string(),
+            template_extra: value.template_extra.clone(),
+            custom_dockerfile: value.custom_dockerfile.clone(),
+            cpu: value.cpu,
+            ram: value.ram,
+            swap: value.swap,
+            disk: value.disk,
+            group: value.group.clone(),
+            suspended: value.suspended,
+            internet_access: value.internet_access,
+            backup_limit: value.backup_limit,
+        }
+    }
 }

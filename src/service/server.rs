@@ -5,6 +5,12 @@ use crate::service::server::__ServerService_error::ConnectionTestError;
 use daemon_framework::service;
 use serde::{Deserialize, Serialize};
 
+define_error!(server {
+    not_found("Server not found" NOT_FOUND),
+    daemon_request_failed("Request to daemon failed" BAD_GATEWAY),
+    storage_not_found("The specified storage was not found" BAD_REQUEST),
+});
+
 #[derive(Serialize, Deserialize, utoipa::ToSchema)]
 struct TestServer {
     id: ServerId,
