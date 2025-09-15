@@ -1,0 +1,20 @@
+{
+  "name": "Test Server",
+  "owner": 1,
+  "node": "043c5ff1-3f42-4fd7-aaa5-4091fdf91ea3",
+  "group": null,
+  "template": "java",
+  "storage": "local",
+  "resource": {
+    "cpu": 2.0,
+    "ram": 2048,
+    "swap": 0,
+    "disk": null
+  },
+  "ports": {},
+  "variables": {
+    "version": "21.0.8"
+  },
+  "internet_access": true,
+  "backup_limit": null
+}

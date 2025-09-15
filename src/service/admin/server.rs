@@ -26,6 +26,7 @@ pub(crate) impl ServerAdminService for Backend {
     /// Requires [`ManagementPermissions::SERVER_MANAGE`]
     #[route("/", method = PUT)]
     #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found daemon_request_failed storage_not_found) node(not_found) template(not_found unavailable corrupted port_definition_unknown input_invalid))]
+    #[example("../examples/server.create.json")]
     async fn create_server(
         &self,
         #[special] auth: Authentication,
