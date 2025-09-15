@@ -7,8 +7,6 @@ use tokio::sync::broadcast::error::RecvError;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 use utoipa::OpenApi;
-use utoipa::openapi::Required;
-use utoipa::openapi::path::{ParameterBuilder, ParameterIn};
 use zelus::framework_router;
 use zelus::router::ZelusRouter;
 
@@ -23,16 +21,6 @@ impl Backend {
 
         let (mut router, api) = ZelusRouter::with_openapi(ApiDoc::openapi())
             .merge(router)
-            .document_middleware(|_method, responses, mut operations, schemas| {
-                operations = operations.parameter(
-                    ParameterBuilder::new()
-                        .name("Authorization")
-                        .parameter_in(ParameterIn::Header)
-                        .description(Some("The session token or api key"))
-                        .required(Required::False),
-                );
-                (responses, operations, schemas)
-            })
             .layer(Extension(self.clone()))
             .into_openapi()
             .split_for_parts();

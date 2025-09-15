@@ -4,6 +4,8 @@ use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use http::request::Parts;
 use redis::RedisError;
+use utoipa::openapi::Required;
+use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
@@ -40,4 +42,14 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync> Fr
     }
 }
 
-impl DocumentedType for Authentication {}
+impl DocumentedType for Authentication {
+    fn openapi(operations: OperationBuilder) -> OperationBuilder {
+        operations.parameter(
+            ParameterBuilder::new()
+                .name("Authorization")
+                .parameter_in(ParameterIn::Header)
+                .description(Some("The session token or api key"))
+                .required(Required::False),
+        )
+    }
+}
