@@ -112,83 +112,86 @@ pub(crate) impl ServerAdminService for Backend {
             }
         }
 
-        let new_server = node
-            .create_server(
-                storage.clone(),
-                resource.clone(),
-                build,
-                node_ports,
-                ServerNetworkPayload {
-                    networks: Vec::new(),
-                    internet_access,
-                },
-            )
-            .await
-            .map_err(|err| match err {
-                DaemonCreateServerError::Communication(_) => {
-                    error!("Failed to communicate with server daemon: {err:?}");
-                    CreateServerError::NodeFailure
-                }
-                DaemonCreateServerError::AuthInvalid
-                | DaemonCreateServerError::SqlFailure
-                | DaemonCreateServerError::ServerImageDifferent
-                | DaemonCreateServerError::ServerImageMissingTag => {
-                    error!("Failed to create server: {err:?}");
-                    CreateServerError::NodeFailure
-                }
-                DaemonCreateServerError::StorageLocationNotFound => {
-                    CreateServerError::ServerStorageNotFound
-                }
-            })?;
-
-        let id = ServerId::generate();
-
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| Box::pin(async move {
-            query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`group`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    &id,
-                    node.id,
-                    &new_server,
+        tokio::task::spawn(async move {
+            let new_server = node
+                .create_server(
+                    storage.clone(),
+                    resource.clone(),
+                    build,
+                    node_ports,
+                    ServerNetworkPayload {
+                        networks: Vec::new(),
+                        internet_access,
+                    },
+                )
+                .await
+                .map_err(|err| match err {
+                    DaemonCreateServerError::Communication(_) => {
+                        error!("Failed to communicate with server daemon: {err:?}");
+                        CreateServerError::NodeFailure
+                    }
+                    DaemonCreateServerError::AuthInvalid
+                    | DaemonCreateServerError::SqlFailure
+                    | DaemonCreateServerError::ServerImageDifferent
+                    | DaemonCreateServerError::ServerImageMissingTag => {
+                        error!("Failed to create server: {err:?}");
+                        CreateServerError::NodeFailure
+                    }
+                    DaemonCreateServerError::StorageLocationNotFound => {
+                        CreateServerError::ServerStorageNotFound
+                    }
+                })?;
+
+            let id = ServerId::generate();
+
+            conn.transaction(|tx| Box::pin(async move {
+                query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`group`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        &id,
+                        node.id,
+                        &new_server,
+                        owner,
+                        storage,
+                        resource.cpu,
+                        resource.ram,
+                        resource.swap,
+                        resource.disk,
+                        template.id(),
+                        &extra,
+                        &name,
+                        &group,
+                        internet_access,
+                        backup_limit,
+                    ).execute(&mut **tx).await.inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
+
+                for port in &ports2 {
+                    query!("INSERT INTO `server_ports` (`server`,`host`,`name`,`internal_port`,`external_ip`,`external_port_start`,`external_port_end`,`protocol`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                            &id, &port.host, port.name,port.internal_port, port.bind.as_deref().unwrap_or_else(|| node.default_bind()), port.external_port_start, port.external_port_end, &port.protocol)
+                        .execute(&mut **tx)
+                        .await
+                        .inspect_err(|err| error!("Failed to insert server (ports): {err:?}"))?;
+                }
+                Ok(ServerInfo {
+                    node: node.id,
+                    id,
+                    name,
+                    node_server_id: new_server,
                     owner,
-                    storage,
-                    resource.cpu,
-                    resource.ram,
-                    resource.swap,
-                    resource.disk,
-                    template.id(),
-                    &extra,
-                    &name,
-                    &group,
+                    template: template.id().to_owned(),
+                    template_extra: extra,
+                    custom_dockerfile: None,
+                    cpu: resource.cpu,
+                    ram: resource.ram,
+                    swap: resource.swap,
+                    disk: resource.disk,
+                    group,
+                    suspended: false,
                     internet_access,
                     backup_limit,
-                ).execute(&mut **tx).await.inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
-
-            for port in &ports2 {
-                query!("INSERT INTO `server_ports` (`server`,`host`,`name`,`internal_port`,`external_ip`,`external_port_start`,`external_port_end`,`protocol`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                        &id, &port.host, port.name,port.internal_port, port.bind.as_deref().unwrap_or_else(|| node.default_bind()), port.external_port_start, port.external_port_end, &port.protocol)
-                    .execute(&mut **tx)
-                    .await
-                    .inspect_err(|err| error!("Failed to insert server (ports): {err:?}"))?;
-            }
-            Ok(ServerInfo {
-                node: node.id,
-                id,
-                name,
-                node_server_id: new_server,
-                owner,
-                template: template.id().to_owned(),
-                template_extra: extra,
-                custom_dockerfile: None,
-                cpu: resource.cpu,
-                ram: resource.ram,
-                swap: resource.swap,
-                disk: resource.disk,
-                group,
-                suspended: false,
-                internet_access,
-                backup_limit,
-            })
-        }))
-            .await
+                })
+            }))
+                .await
+        }).await
+            .expect("Unable to execute create server task") // tokio::task::spawn only returns an error, if the task panics, so we panic again
     }
 }
