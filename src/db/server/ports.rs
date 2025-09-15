@@ -83,3 +83,30 @@ impl NetworkProtocol {
         if name.eq("udp") { Self::Udp } else { Self::Tcp }
     }
 }
+
+pub(crate) fn merge_ports(ports: &mut Vec<NetworkPort>) {
+    'outer: loop {
+        let ports_clone = ports.clone();
+        for port1 in &ports_clone {
+            let diff = port1.external_port_end - port1.external_port_start;
+            for port2 in &ports_clone {
+                if *port1 == *port2 {
+                    continue;
+                }
+                if port2.external_port_start == port1.external_port_end + 1
+                    && port2.internal_port == (port1.internal_port + diff + 1)
+                    && port2.protocol == port1.protocol
+                    && port2.bind == port1.bind
+                    && port2.host == port1.host
+                {
+                    let index1 = ports.iter().position(|i| i.eq(port1)).unwrap();
+                    let index2 = ports.iter().position(|i| i.eq(port2)).unwrap();
+                    ports[index1].external_port_end = port2.external_port_end;
+                    ports.remove(index2);
+                    continue 'outer;
+                }
+            }
+        }
+        break;
+    }
+}

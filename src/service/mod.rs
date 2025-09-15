@@ -1,6 +1,7 @@
 use zelus::define_path_variable;
 use zelus::error::define_error;
 
+mod admin;
 pub(crate) mod server;
 pub(crate) mod template;
 
@@ -8,12 +9,12 @@ define_error!(auth {
     invalid("Invalid authentication credentials" UNAUTHORIZED),
 });
 
-define_error!(db {
-    failure("Database operation failed" INTERNAL_SERVER_ERROR),
+define_error!(node {
+    not_found("The specified node was not found" BAD_REQUEST),
 });
 
-define_error!(server {
-    not_found("Server not found" NOT_FOUND),
+define_error!(db {
+    failure("Database operation failed" INTERNAL_SERVER_ERROR),
 });
 
 define_path_variable!(
