@@ -9,7 +9,6 @@ use zelus::service;
 
 define_error!(server {
     not_found("Server not found" NOT_FOUND),
-    daemon_request_failed("Request to daemon failed" BAD_GATEWAY),
     storage_not_found("The specified storage was not found" BAD_REQUEST),
 });
 

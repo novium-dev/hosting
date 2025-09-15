@@ -12,6 +12,7 @@ define_error!(auth {
 
 define_error!(node {
     not_found("The specified node was not found" BAD_REQUEST),
+    failure("Node operation failed" BAD_GATEWAY),
 });
 
 define_error!(db {

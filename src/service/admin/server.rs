@@ -12,7 +12,7 @@ use daemon_common::service::server::server_service_error::CreateServerError as D
 use daemon_common::service::server::{
     ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
 };
-use sqlx::query;
+use sqlx::{Connection as _, query};
 use std::collections::HashMap;
 use tracing::error;
 use uuid::Uuid;
@@ -25,7 +25,7 @@ pub(crate) impl ServerAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::SERVER_MANAGE`]
     #[route("/", method = PUT)]
-    #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found daemon_request_failed storage_not_found) node(not_found) template(not_found unavailable corrupted port_definition_unknown input_invalid))]
+    #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found storage_not_found) node(not_found failure) template(not_found unavailable corrupted port_definition_unknown input_invalid))]
     #[example("../examples/server.create.json")]
     async fn create_server(
         &self,
@@ -127,14 +127,14 @@ pub(crate) impl ServerAdminService for Backend {
             .map_err(|err| match err {
                 DaemonCreateServerError::Communication(_) => {
                     error!("Failed to communicate with server daemon: {err:?}");
-                    CreateServerError::ServerDaemonRequestFailed
+                    CreateServerError::NodeFailure
                 }
                 DaemonCreateServerError::AuthInvalid
                 | DaemonCreateServerError::SqlFailure
                 | DaemonCreateServerError::ServerImageDifferent
                 | DaemonCreateServerError::ServerImageMissingTag => {
                     error!("Failed to create server: {err:?}");
-                    CreateServerError::ServerDaemonRequestFailed
+                    CreateServerError::NodeFailure
                 }
                 DaemonCreateServerError::StorageLocationNotFound => {
                     CreateServerError::ServerStorageNotFound
@@ -144,8 +144,8 @@ pub(crate) impl ServerAdminService for Backend {
         let id = ServerId::generate();
 
         let mut conn = self.database.acquire().await?;
-
-        query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`group`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        conn.transaction(|tx| Box::pin(async move {
+            query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`group`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     &id,
                     node.id,
                     &new_server,
@@ -161,33 +161,34 @@ pub(crate) impl ServerAdminService for Backend {
                     &group,
                     internet_access,
                     backup_limit,
-                ).execute(&mut *conn).await.inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
+                ).execute(&mut **tx).await.inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
-        for port in &ports2 {
-            query!("INSERT INTO `server_ports` (`server`,`host`,`name`,`internal_port`,`external_ip`,`external_port_start`,`external_port_end`,`protocol`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            for port in &ports2 {
+                query!("INSERT INTO `server_ports` (`server`,`host`,`name`,`internal_port`,`external_ip`,`external_port_start`,`external_port_end`,`protocol`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                         &id, &port.host, port.name,port.internal_port, port.bind.as_deref().unwrap_or_else(|| node.default_bind()), port.external_port_start, port.external_port_end, &port.protocol)
-                .execute(&mut *conn)
-                .await
-                .inspect_err(|err| error!("Failed to insert server (ports): {err:?}"))?;
-        }
-
-        Ok(ServerInfo {
-            node: node.id,
-            id,
-            name,
-            node_server_id: new_server,
-            owner,
-            template: template.id().to_owned(),
-            template_extra: extra,
-            custom_dockerfile: None,
-            cpu: resource.cpu,
-            ram: resource.ram,
-            swap: resource.swap,
-            disk: resource.disk,
-            group,
-            suspended: false,
-            internet_access,
-            backup_limit,
-        })
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to insert server (ports): {err:?}"))?;
+            }
+            Ok(ServerInfo {
+                node: node.id,
+                id,
+                name,
+                node_server_id: new_server,
+                owner,
+                template: template.id().to_owned(),
+                template_extra: extra,
+                custom_dockerfile: None,
+                cpu: resource.cpu,
+                ram: resource.ram,
+                swap: resource.swap,
+                disk: resource.disk,
+                group,
+                suspended: false,
+                internet_access,
+                backup_limit,
+            })
+        }))
+            .await
     }
 }
