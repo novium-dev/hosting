@@ -5,6 +5,6 @@ define_error!(template {
     missing ("The template used in the server does no longer exist" INTERNAL_SERVER_ERROR),
     corrupted ("The template was unable to read the server data" INTERNAL_SERVER_ERROR),
     unavailable ("The template is unavailable at the moment" SERVICE_UNAVAILABLE),
-    port_definition_missing ("The template is missing a port definition" BAD_REQUEST),
-    data_incomplete ("The template data is incomplete" BAD_REQUEST),
+    port_definition_unknown ("Unknown template port definition used" BAD_REQUEST),
+    input_invalid ("The template input is invalid" BAD_REQUEST),
 });

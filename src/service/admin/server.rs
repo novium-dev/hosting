@@ -39,7 +39,7 @@ struct ServerCreate {
 #[service(path = "/admin/server", tag = "server-admin", no_sdk)]
 pub(crate) impl ServerAdminService for Backend {
     #[route("/", method = PUT)]
-    #[error(db(failure [sql:*]) cache(failure [redis:*]) server(not_found daemon_request_failed storage_not_found) node(not_found) template(not_found unavailable corrupted port_definition_missing data_incomplete))]
+    #[error(db(failure [sql:*]) cache(failure [redis:*]) server(not_found daemon_request_failed storage_not_found) node(not_found) template(not_found unavailable corrupted port_definition_unknown input_invalid))]
     #[doc = "Creates a new server"]
     async fn create_server(&self, body: ServerCreate) -> Result<ServerInfo, _> {
         let nodes = self.nodes.read().await;
@@ -68,7 +68,7 @@ pub(crate) impl ServerAdminService for Backend {
             .await
             .map_err(TemplateError::into::<CreateServerError>)?
         else {
-            return Err(CreateServerError::TemplateDataIncomplete);
+            return Err(CreateServerError::TemplateInputInvalid);
         };
         let build = template
             .extra_to_build_payload(self.cache.clone(), extra.clone())
@@ -83,7 +83,7 @@ pub(crate) impl ServerAdminService for Backend {
         for (port, external_port) in &body.ports {
             let definition = port_definitions
                 .get(port)
-                .ok_or(CreateServerError::TemplatePortDefinitionMissing)?;
+                .ok_or(CreateServerError::TemplatePortDefinitionUnknown)?;
             ports2.push(NetworkPort {
                 internal_port: definition.internal_port,
                 name: port.clone(),
