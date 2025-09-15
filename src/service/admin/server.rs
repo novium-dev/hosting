@@ -1,5 +1,6 @@
 use crate::Backend;
 use crate::auth::Authentication;
+use crate::auth::permissions::{AccessPermission, ManagementPermissions};
 use crate::db::server::ports::{NetworkPort, merge_ports};
 use crate::db::server::{ServerId, ServerInfo};
 use crate::service::admin::server::server_admin_service_error::CreateServerError;
@@ -16,7 +17,6 @@ use std::collections::HashMap;
 use tracing::error;
 use uuid::Uuid;
 use zelus::service;
-use crate::auth::permissions::{AccessPermission, ManagementPermissions};
 
 #[service(path = "/admin/server", tag = "server-admin", no_sdk)]
 pub(crate) impl ServerAdminService for Backend {
@@ -38,7 +38,9 @@ pub(crate) impl ServerAdminService for Backend {
         internet_access: bool,
         backup_limit: Option<u32>,
     ) -> Result<ServerInfo, _> {
-        auth.require::<CreateServerError>(AccessPermission::Management(ManagementPermissions::SERVER_MANAGE))?;
+        auth.require::<CreateServerError>(AccessPermission::Management(
+            ManagementPermissions::SERVER_MANAGE,
+        ))?;
 
         let nodes = self.nodes.read().await;
         let Some(node) = nodes.get(&node).cloned() else {

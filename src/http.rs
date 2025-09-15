@@ -1,6 +1,6 @@
 use crate::Backend;
 use crate::service::server::ServerService;
-use axum::Router;
+use axum::{Extension, Router};
 use axum_server::{Handle, Server};
 use core::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
@@ -33,6 +33,7 @@ impl Backend {
                 );
                 (responses, operations, schemas)
             })
+            .layer(Extension(self.clone()))
             .into_openapi()
             .split_for_parts();
 

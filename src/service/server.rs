@@ -1,11 +1,11 @@
 use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
+use crate::auth::permissions::{AccessPermission, ServerPermissions};
 use crate::db::server::ServerId;
 use crate::service::server::server_service_error::ConnectionTestError;
 use serde::{Deserialize, Serialize};
 use zelus::service;
-use crate::auth::permissions::{AccessPermission, ServerPermissions};
 
 define_error!(server {
     not_found("Server not found" NOT_FOUND),
@@ -29,7 +29,10 @@ pub(crate) impl ServerService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<TestServer, _> {
-        auth.require::<ConnectionTestError>(AccessPermission::Server(server_id, ServerPermissions::VIEW))?;
+        auth.require::<ConnectionTestError>(AccessPermission::Server(
+            server_id,
+            ServerPermissions::VIEW,
+        ))?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
