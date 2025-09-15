@@ -1,7 +1,7 @@
 use zelus::define_path_variable;
 use zelus::error::define_error;
 
-mod admin;
+pub(crate) mod admin;
 pub(crate) mod server;
 pub(crate) mod template;
 
