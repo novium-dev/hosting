@@ -1,11 +1,14 @@
+use crate::auth::permissions::AccessPermission;
 use crate::auth::user::UserAuthentication;
 use crate::service::error_auth_invalid::FromAuthInvalid;
+use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use http::request::Parts;
 use redis::RedisError;
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
-mod user;
+pub mod permissions;
+pub mod user;
 
 #[derive(Debug)]
 pub enum Authentication {
@@ -13,7 +16,21 @@ pub enum Authentication {
     None,
 }
 
-impl<E: From<RedisError> + FromAuthInvalid + Send + Sync> FromRequestParts<E> for Authentication {
+impl Authentication {
+    pub fn require<E: FromAuthPermissionDenied>(
+        &self,
+        permission: AccessPermission,
+    ) -> Result<(), E> {
+        match self {
+            Self::User(auth) => auth.require(permission),
+            Self::None => Err(E::from()),
+        }
+    }
+}
+
+impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync> FromRequestParts<E>
+    for Authentication
+{
     async fn from_request_parts(parts: &mut Parts) -> Result<Self, E> {
         Ok(
             <UserAuthentication as OptionalFromRequestParts<E>>::from_request_parts(parts)

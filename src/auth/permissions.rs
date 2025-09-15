@@ -9,7 +9,7 @@ pub enum AccessPermission {
 }
 
 bitflags! {
-    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Default)]
     #[repr(transparent)]
     pub struct ServerPermissions: i64 {
         const VIEW = 1 << 0;

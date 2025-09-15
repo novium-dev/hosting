@@ -1,5 +1,8 @@
 use crate::Backend;
+use crate::auth::permissions::{AccessPermission, ManagementPermissions, ServerPermissions};
+use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
+use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use axum::Extension;
 use axum_extra::TypedHeader;
 use axum_extra::headers::Authorization;
@@ -16,18 +19,46 @@ use rand::rand_core::OsError;
 use rand::rngs::OsRng;
 use redis::{AsyncTypedCommands as _, RedisError};
 use serde::Serializer as _;
+use sqlx::{query, query_scalar};
+use std::collections::HashMap;
 use std::io;
 use std::io::ErrorKind;
+use tracing::error;
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 
 #[derive(Debug)]
 pub struct UserAuthentication {
     id: u32,
     session: Session,
+    permissions: i64,
+    servers: HashMap<ServerId, ServerPermissions>,
 }
 
-impl<E: From<RedisError> + FromAuthInvalid + Send + Sync> OptionalFromRequestParts<E>
-    for UserAuthentication
+impl UserAuthentication {
+    pub fn require<E: FromAuthPermissionDenied>(
+        &self,
+        permission: AccessPermission,
+    ) -> Result<(), E> {
+        match permission {
+            AccessPermission::Server(id, perms)
+                if (self.servers.get(&id).copied().unwrap_or_default()
+                    | ServerPermissions::from_bits_retain(self.permissions))
+                .contains(perms) =>
+            {
+                Ok(())
+            }
+            AccessPermission::Management(perms)
+                if ManagementPermissions::from_bits_retain(self.permissions).contains(perms) =>
+            {
+                Ok(())
+            }
+            _ => Err(E::from()),
+        }
+    }
+}
+
+impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync>
+    OptionalFromRequestParts<E> for UserAuthentication
 {
     async fn from_request_parts(parts: &mut Parts) -> Result<Option<Self>, E> {
         let Extension(mut backend) =
@@ -50,14 +81,38 @@ impl<E: From<RedisError> + FromAuthInvalid + Send + Sync> OptionalFromRequestPar
                 return Ok(None);
             };
 
-            Ok(Some(Self { id, session }))
+            let Some(permissions) =
+                query_scalar!("SELECT `permissions` FROM `users` WHERE `id` = ?", id)
+                    .fetch_optional(&*backend.database)
+                    .await
+                    .inspect_err(|err| {
+                        error!("Unable to fetch permissions for user {id}: {err:?}");
+                    })?
+            else {
+                session.invalidate(&mut backend).await?;
+                return Ok(None);
+            };
+            let servers = query!("SELECT `server` AS `server: ServerId`,`permissions` FROM `server_users` WHERE `user` = ?", id)
+                .fetch_all(&*backend.database)
+                .await
+                .inspect_err(|err| error!("Unable to fetch server permissions for user {id}: {err:?}"))?
+                .into_iter()
+                .map(|record| (record.server, ServerPermissions::from_bits_truncate(record.permissions)))
+                .collect();
+
+            Ok(Some(Self {
+                id,
+                session,
+                permissions,
+                servers,
+            }))
         } else {
             Ok(None)
         }
     }
 }
 
-impl<E: From<RedisError> + FromAuthInvalid + Send + Sync> FromRequestParts<E>
+impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync> FromRequestParts<E>
     for UserAuthentication
 {
     async fn from_request_parts(parts: &mut Parts) -> Result<Self, E> {
@@ -84,16 +139,31 @@ impl Session {
         format!("{}session:{self}", crate::CACHE_PREFIX)
     }
 
+    pub async fn invalidate(&self, backend: &mut Backend) -> Result<(), RedisError> {
+        backend
+            .cache
+            .del(self.key())
+            .await
+            .inspect_err(|err| error!("Unable to invalidate session: {err:?}"))?;
+        Ok(())
+    }
+
     pub async fn apply(&self, backend: &mut Backend, user: u32) -> Result<(), RedisError> {
         backend
             .cache
             .set_ex(self.key(), user, backend.config.session_lifetime)
-            .await?;
+            .await
+            .inspect_err(|err| error!("Unable to apply session: {err:?}"))?;
         Ok(())
     }
 
     pub async fn authenticate(&self, backend: &mut Backend) -> Result<Option<u32>, RedisError> {
-        let Some(user) = backend.cache.get_int(self.key()).await? else {
+        let Some(user) = backend
+            .cache
+            .get_int(self.key())
+            .await
+            .inspect_err(|err| error!("Unable to retrieve session: {err:?}"))?
+        else {
             return Ok(None);
         };
         let user = u32::try_from(user)

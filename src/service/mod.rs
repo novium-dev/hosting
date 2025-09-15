@@ -7,6 +7,7 @@ pub(crate) mod template;
 
 define_error!(auth {
     invalid("Invalid authentication credentials" UNAUTHORIZED),
+    permission_denied("You don't have the necessary permissions to perform this operation" FORBIDDEN),
 });
 
 define_error!(node {
