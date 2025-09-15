@@ -1,5 +1,5 @@
 use crate::Backend;
-use crate::auth::permissions::{AccessPermission, ManagementPermissions, ServerPermissions};
+use crate::auth::permissions::{AccessPermission, ManagementPermissions, Role, ServerPermissions};
 use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
@@ -19,7 +19,7 @@ use rand::rand_core::OsError;
 use rand::rngs::OsRng;
 use redis::{AsyncTypedCommands as _, RedisError};
 use serde::Serializer as _;
-use sqlx::{query, query_scalar};
+use sqlx::query;
 use std::collections::HashMap;
 use std::io;
 use std::io::ErrorKind;
@@ -81,13 +81,15 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync>
                 return Ok(None);
             };
 
-            let Some(permissions) =
-                query_scalar!("SELECT `permissions` FROM `users` WHERE `id` = ?", id)
-                    .fetch_optional(&*backend.database)
-                    .await
-                    .inspect_err(|err| {
-                        error!("Unable to fetch permissions for user {id}: {err:?}");
-                    })?
+            let Some(user) = query!(
+                "SELECT `permissions`,`role` AS `role: u8` FROM `users` WHERE `id` = ?",
+                id
+            )
+            .fetch_optional(&*backend.database)
+            .await
+            .inspect_err(|err| {
+                error!("Unable to fetch permissions for user {id}: {err:?}");
+            })?
             else {
                 session.invalidate(&mut backend).await?;
                 return Ok(None);
@@ -100,10 +102,17 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync>
                 .map(|record| (record.server, ServerPermissions::from_bits_truncate(record.permissions)))
                 .collect();
 
+            let role = Role::try_from(user.role).ok();
+
             Ok(Some(Self {
                 id,
                 session,
-                permissions,
+                permissions: user.permissions
+                    | role
+                        .map(|role| {
+                            role.management_permissions().bits() | role.server_permissions().bits()
+                        })
+                        .unwrap_or_default(),
                 servers,
             }))
         } else {

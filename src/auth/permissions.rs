@@ -63,11 +63,26 @@ bitflags! {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[repr(u8)]
 pub enum Role {
-    Admin,
-    ServerManager,
-    Moderator,
-    User,
+    Admin = 3,
+    ServerManager = 2,
+    Moderator = 1,
+    User = 0,
+}
+
+impl TryFrom<u8> for Role {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::User),
+            1 => Ok(Self::Moderator),
+            2 => Ok(Self::ServerManager),
+            3 => Ok(Self::Admin),
+            _ => Err(()),
+        }
+    }
 }
 
 impl Role {

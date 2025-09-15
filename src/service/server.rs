@@ -24,7 +24,7 @@ pub(crate) impl ServerService for Backend {
     /// Tests the connection
     ///
     /// # Permissions
-    /// Requires ServerPermissions::VIEW
+    /// Requires [`ServerPermissions::VIEW`]
     #[route("/{server_id}", method = GET)]
     #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found))]
     async fn connection_test(

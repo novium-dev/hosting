@@ -6936,7 +6936,7 @@ dependencies = [
 [[package]]
 name = "zelus"
 version = "0.1.0"
-source = "git+https://github.com/MarkusTieger/zelus.git#10d0ed1e027e923eeb26a0af553d8f4f9a337a3b"
+source = "git+https://github.com/MarkusTieger/zelus.git#d192a0af0320a34060ffe3228784b447a3b5f2bd"
 dependencies = [
  "async-trait",
  "axum",
@@ -6967,12 +6967,13 @@ dependencies = [
 [[package]]
 name = "zelus_macros"
 version = "0.1.0"
-source = "git+https://github.com/MarkusTieger/zelus.git#10d0ed1e027e923eeb26a0af553d8f4f9a337a3b"
+source = "git+https://github.com/MarkusTieger/zelus.git#d192a0af0320a34060ffe3228784b447a3b5f2bd"
 dependencies = [
  "convert_case 0.8.0",
  "either",
  "indexmap 2.11.1",
  "itertools 0.14.0",
+ "lazy-regex",
  "manyhow",
  "proc-macro2",
  "quote",
