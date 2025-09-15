@@ -42,12 +42,12 @@ impl Deref for BackendNode {
 }
 
 impl BackendNode {
-    pub(crate) fn default_host(&self) -> String {
-        self.default_host.clone()
+    pub(crate) fn default_host(&self) -> &str {
+        &self.default_host
     }
 
-    pub(crate) fn default_bind(&self) -> String {
-        self.default_bind.clone()
+    pub(crate) fn default_bind(&self) -> &str {
+        &self.default_bind
     }
 }
 

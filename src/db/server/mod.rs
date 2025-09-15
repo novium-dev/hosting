@@ -59,7 +59,7 @@ impl From<&Server> for ServerInfo {
             name: value.name.clone(),
             node_server_id: value.node_server_id,
             owner: value.owner,
-            template: value.template.id().to_string(),
+            template: value.template.id().to_owned(),
             template_extra: value.template_extra.clone(),
             custom_dockerfile: value.custom_dockerfile.clone(),
             cpu: value.cpu,

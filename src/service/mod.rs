@@ -17,6 +17,10 @@ define_error!(db {
     failure("Database operation failed" INTERNAL_SERVER_ERROR),
 });
 
+define_error!(cache {
+    failure("Cache operation failed" INTERNAL_SERVER_ERROR),
+});
+
 define_path_variable!(
     server_id "The server ID"
 );

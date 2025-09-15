@@ -85,11 +85,15 @@ impl NetworkProtocol {
 }
 
 pub(crate) fn merge_ports(ports: &mut Vec<NetworkPort>) {
+    let mut remove = None;
     'outer: loop {
+        if let Some(remove) = remove.take() {
+            ports.remove(remove);
+        }
         let ports_clone = ports.clone();
-        for port1 in &ports_clone {
+        for port1 in &mut *ports {
             let diff = port1.external_port_end - port1.external_port_start;
-            for port2 in &ports_clone {
+            for (index2, port2) in ports_clone.iter().enumerate() {
                 if *port1 == *port2 {
                     continue;
                 }
@@ -99,9 +103,8 @@ pub(crate) fn merge_ports(ports: &mut Vec<NetworkPort>) {
                     && port2.bind == port1.bind
                     && port2.host == port1.host
                 {
-                    let index1 = ports.iter().position(|i| i.eq(port1)).unwrap();
-                    let index2 = ports.iter().position(|i| i.eq(port2)).unwrap();
-                    ports[index1].external_port_end = port2.external_port_end;
+                    port1.external_port_end = port2.external_port_end;
+                    remove = Some(index2);
                     ports.remove(index2);
                     continue 'outer;
                 }

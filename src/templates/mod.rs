@@ -58,7 +58,7 @@ pub trait Template {
         cache: &Self::Cache,
         old_extra: Self::Extra,
         variables: HashMap<String, String>,
-    ) -> impl Future<Output = Result<Self::Extra, TemplateError>> + Send + Sync;
+    ) -> impl Future<Output = Result<Option<Self::Extra>, TemplateError>> + Send + Sync;
 
     fn enabled_features(
         &self,
@@ -138,7 +138,7 @@ pub trait TemplateInner {
         cache_client: ConnectionManager,
         old_extra: Value,
         variables: HashMap<String, String>,
-    ) -> Result<Value, TemplateError>;
+    ) -> Result<Option<Value>, TemplateError>;
 
     async fn enabled_features(
         &self,
@@ -209,7 +209,7 @@ impl From<RedisError> for TemplateError {
 }
 
 impl TemplateError {
-    fn into<E: FromTemplateCorrupted + FromTemplateUnavailable + From<RedisError>>(self) -> E {
+    pub fn into<E: FromTemplateCorrupted + FromTemplateUnavailable + From<RedisError>>(self) -> E {
         match self {
             Self::Corrupted => <E as FromTemplateCorrupted>::from(),
             Self::Unavailable => <E as FromTemplateUnavailable>::from(),
@@ -278,19 +278,22 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         mut cache_client: ConnectionManager,
         old_extra: Value,
         variables: HashMap<String, String>,
-    ) -> Result<Value, TemplateError> {
+    ) -> Result<Option<Value>, TemplateError> {
         let extra: <Self as Template>::Extra =
             serde_json::from_value(old_extra).map_err(|_err| TemplateError::Corrupted)?;
-        Ok(serde_json::to_value(
-            &<Self as Template>::variables_to_extra_validated(
-                self,
-                &load_cache_required(&mut cache_client, self.id()).await?,
-                extra,
-                variables,
-            )
-            .await?,
+        let Some(extra) = <Self as Template>::variables_to_extra_validated(
+            self,
+            &load_cache_required(&mut cache_client, self.id()).await?,
+            extra,
+            variables,
         )
-        .expect("Unable to serialize extra"))
+        .await?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(
+            serde_json::to_value(&extra).expect("Unable to serialize extra"),
+        ))
     }
 
     async fn enabled_features(
