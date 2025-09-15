@@ -21,9 +21,12 @@ struct TestServer {
 
 #[service(path = "/server", tag = "server", no_sdk)]
 pub(crate) impl ServerService for Backend {
+    /// Tests the connection
+    ///
+    /// # Permissions
+    /// Requires ServerPermissions::VIEW
     #[route("/{server_id}", method = GET)]
     #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found))]
-    #[doc = "Tests the connection"]
     async fn connection_test(
         &self,
         #[special] auth: Authentication,
