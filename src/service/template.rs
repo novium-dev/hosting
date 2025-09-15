@@ -1,4 +1,4 @@
-use daemon_framework::define_error;
+use zelus::error::define_error;
 
 define_error!(template {
     not_found ("The template does not exist" NOT_FOUND),

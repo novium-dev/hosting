@@ -9,7 +9,6 @@ use base64::prelude::BASE64_STANDARD;
 use core::fmt::Debug;
 use core::fmt::{Display, Formatter};
 use core::str::FromStr;
-use daemon_framework::special::{FromRequestParts, OptionalFromRequestParts};
 use http::HeaderValue;
 use http::request::Parts;
 use rand::TryRngCore as _;
@@ -19,6 +18,7 @@ use redis::{AsyncTypedCommands as _, RedisError};
 use serde::Serializer as _;
 use std::io;
 use std::io::ErrorKind;
+use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 
 #[derive(Debug)]
 pub struct UserAuthentication {

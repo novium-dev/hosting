@@ -1,4 +1,5 @@
-use daemon_framework::{define_error, define_path_variable};
+use zelus::define_path_variable;
+use zelus::error::define_error;
 
 pub(crate) mod server;
 pub(crate) mod template;

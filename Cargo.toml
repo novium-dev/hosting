@@ -4,6 +4,17 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
+[patch.crates-io.reqwest]
+git = "https://github.com/MarkusTieger/reqwest.git"
+default-features = false
+features = [
+    "charset",
+    "http2",
+    "json",
+    "rustls-tls-webpki-roots-no-provider",
+    "stream"
+]
+
 [features]
 embedded_node = ["daemon"]
 
@@ -230,8 +241,10 @@ git = "ssh://git@github.com/novium-dev/daemon.git"
 default-features = false
 features = ["sdk", "backend"]
 
-[dependencies.daemon_framework]
-git = "ssh://git@github.com/novium-dev/daemon.git"
+[dependencies.zelus]
+git = "https://github.com/MarkusTieger/zelus.git"
+default-features = false
+features = ["error", "http2", "io", "sqlx", "redis", "rustls-tls-webpki-roots-no-provider"]
 
 [dependencies.daemon]
 git = "ssh://git@github.com/novium-dev/daemon.git"

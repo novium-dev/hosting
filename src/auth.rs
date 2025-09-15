@@ -1,8 +1,8 @@
 use crate::auth::user::UserAuthentication;
 use crate::service::error_auth_invalid::FromAuthInvalid;
-use daemon_framework::special::{FromRequestParts, OptionalFromRequestParts};
 use http::request::Parts;
 use redis::RedisError;
+use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 
 mod user;
 

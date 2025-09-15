@@ -3,14 +3,14 @@ use crate::service::server::ServerService;
 use axum::Router;
 use axum_server::{Handle, Server};
 use core::time::Duration;
-use daemon_framework::framework_router;
-use daemon_framework::router::FrameworkRouter;
 use tokio::sync::broadcast::error::RecvError;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 use utoipa::OpenApi;
 use utoipa::openapi::Required;
 use utoipa::openapi::path::{ParameterBuilder, ParameterIn};
+use zelus::framework_router;
+use zelus::router::ZelusRouter;
 
 impl Backend {
     #[expect(clippy::needless_for_each, reason = "caused by OpenApi derive macro")]
@@ -21,7 +21,7 @@ impl Backend {
 
         let (router,) = framework_router!(Self self (default,) { ServerService });
 
-        let (mut router, api) = FrameworkRouter::with_openapi(ApiDoc::openapi())
+        let (mut router, api) = ZelusRouter::with_openapi(ApiDoc::openapi())
             .merge(router)
             .document_middleware(|_method, responses, mut operations, schemas| {
                 operations = operations.parameter(

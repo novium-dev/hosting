@@ -1,9 +1,9 @@
 use super::*;
 use crate::Backend;
 use crate::db::server::ServerId;
-use crate::service::server::__ServerService_error::ConnectionTestError;
-use daemon_framework::service;
+use crate::service::server::server_service_error::ConnectionTestError;
 use serde::{Deserialize, Serialize};
+use zelus::service;
 
 #[derive(Serialize, Deserialize, utoipa::ToSchema)]
 struct TestServer {
