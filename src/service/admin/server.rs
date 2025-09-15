@@ -1,4 +1,5 @@
 use crate::Backend;
+use crate::auth::Authentication;
 use crate::db::server::ports::{NetworkPort, merge_ports};
 use crate::db::server::{ServerId, ServerInfo};
 use crate::service::admin::server::server_admin_service_error::CreateServerError;
@@ -10,53 +11,40 @@ use daemon_common::service::server::server_service_error::CreateServerError as D
 use daemon_common::service::server::{
     ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
 };
-use serde::Deserialize;
 use sqlx::query;
 use std::collections::HashMap;
 use tracing::error;
 use uuid::Uuid;
 use zelus::service;
 
-#[derive(Deserialize, utoipa::ToSchema)]
-struct ServerCreate {
-    name: String,
-    owner: u32,
-    node: Uuid,
-    group: Option<String>,
-    template: String,
-    storage: String,
-    cpu: Option<f32>,
-    ram: Option<u32>,
-    swap: Option<u32>,
-    disk: Option<u64>,
-    ports: HashMap<String, u16>,
-    variables: HashMap<String, String>,
-
-    internet_access: bool,
-    pub backup_limit: Option<u32>,
-}
-
 #[service(path = "/admin/server", tag = "server-admin", no_sdk)]
 pub(crate) impl ServerAdminService for Backend {
     #[route("/", method = PUT)]
     #[error(db(failure [sql:*]) cache(failure [redis:*]) server(not_found daemon_request_failed storage_not_found) node(not_found) template(not_found unavailable corrupted port_definition_unknown input_invalid))]
     #[doc = "Creates a new server"]
-    async fn create_server(&self, body: ServerCreate) -> Result<ServerInfo, _> {
+    async fn create_server(
+        &self,
+        #[special] _auth: Authentication,
+        name: String,
+        owner: u32,
+        node: Uuid,
+        group: Option<String>,
+        template: String,
+        storage: String,
+        resource: ServerResourcePayload,
+        ports: HashMap<String, u16>,
+        variables: HashMap<String, String>,
+        internet_access: bool,
+        backup_limit: Option<u32>,
+    ) -> Result<ServerInfo, _> {
         let nodes = self.nodes.read().await;
-        let Some(node) = nodes.get(&body.node).cloned() else {
+        let Some(node) = nodes.get(&node).cloned() else {
             return Err(CreateServerError::NodeNotFound);
         };
         drop(nodes);
 
-        let Some(template) = self.templates.read().await.get(&body.template).cloned() else {
+        let Some(template) = self.templates.read().await.get(&template).cloned() else {
             return Err(CreateServerError::TemplateNotFound);
-        };
-
-        let resource = ServerResourcePayload {
-            cpu: body.cpu,
-            ram: body.ram,
-            swap: body.swap,
-            disk: body.disk,
         };
 
         let default_extra = template
@@ -64,7 +52,7 @@ pub(crate) impl ServerAdminService for Backend {
             .await
             .map_err(TemplateError::into::<CreateServerError>)?;
         let Some(extra) = template
-            .variables_to_extra_validated(self.cache.clone(), default_extra, body.variables)
+            .variables_to_extra_validated(self.cache.clone(), default_extra, variables)
             .await
             .map_err(TemplateError::into::<CreateServerError>)?
         else {
@@ -80,7 +68,7 @@ pub(crate) impl ServerAdminService for Backend {
             .default_ports()
             .await
             .map_err(TemplateError::into::<CreateServerError>)?;
-        for (port, external_port) in &body.ports {
+        for (port, external_port) in &ports {
             let definition = port_definitions
                 .get(port)
                 .ok_or(CreateServerError::TemplatePortDefinitionUnknown)?;
@@ -117,13 +105,13 @@ pub(crate) impl ServerAdminService for Backend {
 
         let new_server = node
             .create_server(
-                body.storage.clone(),
+                storage.clone(),
                 resource.clone(),
                 build,
                 node_ports,
                 ServerNetworkPayload {
                     networks: Vec::new(),
-                    internet_access: body.internet_access,
+                    internet_access,
                 },
             )
             .await
@@ -152,18 +140,18 @@ pub(crate) impl ServerAdminService for Backend {
                     &id,
                     node.id,
                     &new_server,
-                    body.owner,
-                    body.storage,
+                    owner,
+                    storage,
                     resource.cpu,
                     resource.ram,
                     resource.swap,
                     resource.disk,
                     template.id(),
                     &extra,
-                    &body.name,
-                    &body.group,
-                    body.internet_access,
-                    body.backup_limit,
+                    &name,
+                    &group,
+                    internet_access,
+                    backup_limit,
                 ).execute(&mut *conn).await.inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
         for port in &ports2 {
@@ -177,9 +165,9 @@ pub(crate) impl ServerAdminService for Backend {
         Ok(ServerInfo {
             node: node.id,
             id,
-            name: body.name,
+            name,
             node_server_id: new_server,
-            owner: body.owner,
+            owner,
             template: template.id().to_owned(),
             template_extra: extra,
             custom_dockerfile: None,
@@ -187,10 +175,10 @@ pub(crate) impl ServerAdminService for Backend {
             ram: resource.ram,
             swap: resource.swap,
             disk: resource.disk,
-            group: body.group,
+            group,
             suspended: false,
-            internet_access: body.internet_access,
-            backup_limit: body.backup_limit,
+            internet_access,
+            backup_limit,
         })
     }
 }

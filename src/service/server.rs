@@ -1,5 +1,6 @@
 use super::*;
 use crate::Backend;
+use crate::auth::Authentication;
 use crate::db::server::ServerId;
 use crate::service::server::server_service_error::ConnectionTestError;
 use serde::{Deserialize, Serialize};
@@ -20,9 +21,13 @@ struct TestServer {
 #[service(path = "/server", tag = "server", no_sdk)]
 pub(crate) impl ServerService for Backend {
     #[route("/{server_id}", method = GET)]
-    #[error(db(failure [sql:*]) server(not_found))]
+    #[error(db(failure [sql:*]) cache(failure [redis:*]) server(not_found))]
     #[doc = "Tests the connection"]
-    async fn connection_test(&self, server_id: ServerId) -> Result<TestServer, _> {
+    async fn connection_test(
+        &self,
+        #[special] _auth: Authentication,
+        server_id: ServerId,
+    ) -> Result<TestServer, _> {
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?

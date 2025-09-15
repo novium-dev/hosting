@@ -3,6 +3,7 @@ use crate::service::error_auth_invalid::FromAuthInvalid;
 use http::request::Parts;
 use redis::RedisError;
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
+use zelus::types::DocumentedType;
 
 mod user;
 
@@ -21,3 +22,5 @@ impl<E: From<RedisError> + FromAuthInvalid + Send + Sync> FromRequestParts<E> fo
         )
     }
 }
+
+impl DocumentedType for Authentication {}
