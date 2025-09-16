@@ -183,7 +183,7 @@ impl Session {
 }
 
 impl Credentials for Session {
-    const SCHEME: &'static str = "";
+    const SCHEME: &'static str = "Session";
 
     fn decode(value: &HeaderValue) -> Option<Self> {
         Self::from_str(value.to_str().ok()?).ok()
