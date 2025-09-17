@@ -23,7 +23,7 @@ pub(crate) impl ServerAdminService for Backend {
     /// Creates a new server
     ///
     /// # Permissions
-    /// Requires [`ManagementPermissions::SERVER_MANAGE`]
+    /// Requires [`ManagementPermissions::SERVER_MANAGE`].
     #[route("/", method = PUT)]
     #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found storage_not_found) node(not_found failure) template(not_found unavailable corrupted port_definition_unknown input_invalid))]
     #[example("../examples/server.create.json")]

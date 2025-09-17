@@ -23,9 +23,17 @@ impl Authentication {
         &self,
         permission: AccessPermission,
     ) -> Result<(), E> {
+        if self.has(permission) {
+            Ok(())
+        } else {
+            Err(E::from())
+        }
+    }
+
+    pub fn has(&self, permission: AccessPermission) -> bool {
         match self {
-            Self::User(auth) => auth.require(permission),
-            Self::None => Err(E::from()),
+            Self::User(auth) => auth.has(permission),
+            Self::None => false,
         }
     }
 }

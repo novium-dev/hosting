@@ -35,24 +35,32 @@ pub struct UserAuthentication {
 }
 
 impl UserAuthentication {
-    pub fn require<E: FromAuthPermissionDenied>(
-        &self,
-        permission: AccessPermission,
-    ) -> Result<(), E> {
+    pub fn has(&self, permission: AccessPermission) -> bool {
         match permission {
             AccessPermission::Server(id, perms)
                 if (self.servers.get(&id).copied().unwrap_or_default()
                     | ServerPermissions::from_bits_retain(self.permissions))
                 .contains(perms) =>
             {
-                Ok(())
+                true
             }
             AccessPermission::Management(perms)
                 if ManagementPermissions::from_bits_retain(self.permissions).contains(perms) =>
             {
-                Ok(())
+                true
             }
-            _ => Err(E::from()),
+            _ => false,
+        }
+    }
+
+    pub fn require<E: FromAuthPermissionDenied>(
+        &self,
+        permission: AccessPermission,
+    ) -> Result<(), E> {
+        if self.has(permission) {
+            Ok(())
+        } else {
+            Err(E::from())
         }
     }
 }
