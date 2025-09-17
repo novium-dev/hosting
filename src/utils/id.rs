@@ -169,7 +169,7 @@ impl<T> PartialSchema for GenericNanoId<T> {
                     nanoid::alphabet::SAFE.iter().rev().collect::<String>()
                 )))
                 .schema_type(SchemaType::Type(Type::String))
-                .examples(vec![serde_json::json!({"value": "A1b2C3"})])
+                .examples(vec![serde_json::json!("A1b2C3")])
                 .build(),
         ))
     }
