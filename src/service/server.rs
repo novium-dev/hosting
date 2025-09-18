@@ -3,7 +3,9 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{AccessPermission, ServerPermissions};
 use crate::db::server::ServerId;
-use crate::service::server::server_service_error::{ConnectionTestError, ServerTerminalError};
+use crate::service::server::server_service_error::{
+    ConnectionTestError, ServerStatsError, ServerTerminalError,
+};
 use serde::{Deserialize, Serialize};
 use zelus::responses::Redirect;
 use zelus::service;
@@ -81,6 +83,35 @@ pub(crate) impl ServerService for Backend {
                         ServerPermissions::TERMINAL_WRITE,
                     )),
                 )
+                .as_str(),
+        ))
+    }
+
+    /// Redirects to an websocket url with stats updates (status and resource usage)
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::VIEW`].
+    #[route("/stats", method = GET, raw)]
+    #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found))]
+    async fn server_stats(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+    ) -> Result<Redirect<307>, _> {
+        auth.require::<ServerStatsError>(AccessPermission::Server(
+            server_id,
+            ServerPermissions::VIEW,
+        ))?;
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(ServerStatsError::ServerNotFound)?;
+
+        Ok(Redirect::new(
+            server
+                .node
+                .services
+                .server_stats_user_url_signed(server.node_server_id)
                 .as_str(),
         ))
     }
