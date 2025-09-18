@@ -67,12 +67,8 @@ bitflags! {
 impl AccessPermission {
     pub fn with_dependencies(self) -> Self {
         match self {
-            AccessPermission::Server(server_id, perms) => {
-                AccessPermission::Server(server_id, perms.with_dependencies())
-            }
-            AccessPermission::Management(perms) => {
-                AccessPermission::Management(perms.with_dependencies())
-            }
+            Self::Server(server_id, perms) => Self::Server(server_id, perms.with_dependencies()),
+            Self::Management(perms) => Self::Management(perms.with_dependencies()),
         }
     }
 }
@@ -80,7 +76,7 @@ impl AccessPermission {
 impl ServerPermissions {
     pub fn with_dependencies(mut self) -> Self {
         if !self.is_empty() {
-            self |= ServerPermissions::VIEW;
+            self |= Self::VIEW;
         }
         self.with_dependency(Self::TERMINAL_WRITE, Self::TERMINAL_READ);
         self.with_dependency(Self::BUILD_EDIT, Self::BUILD_VIEW);

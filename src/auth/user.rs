@@ -19,7 +19,7 @@ use rand::rand_core::OsError;
 use rand::rngs::OsRng;
 use redis::{AsyncTypedCommands as _, RedisError};
 use serde::Serializer as _;
-use sqlx::query;
+use sqlx::{query, query_scalar};
 use std::collections::HashMap;
 use std::io;
 use std::io::ErrorKind;
@@ -89,11 +89,17 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync>
                 return Ok(None);
             };
 
+            let mut conn = backend
+                .database
+                .acquire()
+                .await
+                .inspect_err(|err| error!("Unable to acquire database connection: {err:?}"))?;
+
             let Some(user) = query!(
                 "SELECT `permissions`,`role` AS `role: u8` FROM `users` WHERE `id` = ?",
                 id
             )
-            .fetch_optional(&*backend.database)
+            .fetch_optional(&mut *conn)
             .await
             .inspect_err(|err| {
                 error!("Unable to fetch permissions for user {id}: {err:?}");
@@ -102,13 +108,27 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync>
                 session.invalidate(&mut backend).await?;
                 return Ok(None);
             };
-            let servers = query!("SELECT `server` AS `server: ServerId`,`permissions` FROM `server_users` WHERE `user` = ?", id)
-                .fetch_all(&*backend.database)
+            let owned_servers: HashMap<_, _> = query_scalar!(
+                "SELECT `id` AS `id: ServerId` FROM `servers` WHERE `owner` = ?",
+                id
+            )
+            .fetch_all(&mut *conn)
+            .await
+            .inspect_err(|err| {
+                error!("Unable to fetch permissions for user {id}: {err:?}");
+            })?
+            .into_iter()
+            .map(|id| (id, ServerPermissions::all()))
+            .collect();
+
+            let mut servers: HashMap<ServerId, ServerPermissions> = query!("SELECT `server` AS `server: ServerId`,`permissions` FROM `server_users` WHERE `user` = ?", id)
+                .fetch_all(&mut *conn)
                 .await
                 .inspect_err(|err| error!("Unable to fetch server permissions for user {id}: {err:?}"))?
                 .into_iter()
                 .map(|record| (record.server, ServerPermissions::from_bits_truncate(record.permissions)))
                 .collect();
+            servers.extend(owned_servers);
 
             let role = Role::try_from(user.role).ok();
 
