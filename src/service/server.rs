@@ -1,10 +1,10 @@
 use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::{AccessPermission, ServerPermissions};
+use crate::auth::permissions::ServerPermissions;
 use crate::db::server::ServerId;
 use crate::service::server::server_service_error::{
-    ConnectionTestError, ServerStatsError, ServerTerminalError,
+    ServerInfoError, ServerStatsError, ServerTerminalError,
 };
 use serde::{Deserialize, Serialize};
 use zelus::responses::Redirect;
@@ -29,19 +29,16 @@ pub(crate) impl ServerService for Backend {
     /// Requires [`ServerPermissions::VIEW`].
     #[route("", method = GET)]
     #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found))]
-    async fn connection_test(
+    async fn server_info(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<TestServer, _> {
-        auth.require::<ConnectionTestError>(AccessPermission::Server(
-            server_id,
-            ServerPermissions::VIEW,
-        ))?;
+        auth.require::<_, ServerInfoError>(server_id, ServerPermissions::VIEW)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
-            .ok_or(ConnectionTestError::ServerNotFound)?;
+            .ok_or(ServerInfoError::ServerNotFound)?;
 
         Ok(TestServer {
             id: server.id,
@@ -61,10 +58,7 @@ pub(crate) impl ServerService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<Redirect<307>, _> {
-        auth.require::<ServerTerminalError>(AccessPermission::Server(
-            server_id,
-            ServerPermissions::TERMINAL_READ,
-        ))?;
+        auth.require::<_, ServerTerminalError>(server_id, ServerPermissions::TERMINAL_READ)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
@@ -78,10 +72,7 @@ pub(crate) impl ServerService for Backend {
                     server.node_server_id,
                     None,
                     None, // Subject to potential change
-                    auth.has(AccessPermission::Server(
-                        server_id,
-                        ServerPermissions::TERMINAL_WRITE,
-                    )),
+                    auth.has(server_id, ServerPermissions::TERMINAL_WRITE),
                 )
                 .as_str(),
         ))
@@ -98,10 +89,7 @@ pub(crate) impl ServerService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<Redirect<307>, _> {
-        auth.require::<ServerStatsError>(AccessPermission::Server(
-            server_id,
-            ServerPermissions::VIEW,
-        ))?;
+        auth.require::<_, ServerStatsError>(server_id, ServerPermissions::VIEW)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?

@@ -1,8 +1,7 @@
 use crate::Backend;
-use crate::auth::permissions::{AccessPermission, ManagementPermissions, Role, ServerPermissions};
+use crate::auth::permissions::{HasPermission, Permission, Role, ServerPermissions};
 use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
-use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use axum::Extension;
 use axum_extra::TypedHeader;
 use axum_extra::headers::Authorization;
@@ -35,33 +34,12 @@ pub struct UserAuthentication {
 }
 
 impl UserAuthentication {
-    pub fn has(&self, permission: AccessPermission) -> bool {
-        match permission.with_dependencies() {
-            AccessPermission::Server(id, perms)
-                if (self.servers.get(&id).copied().unwrap_or_default()
-                    | ServerPermissions::from_bits_retain(self.permissions))
-                .contains(perms) =>
-            {
-                true
-            }
-            AccessPermission::Management(perms)
-                if ManagementPermissions::from_bits_retain(self.permissions).contains(perms) =>
-            {
-                true
-            }
-            _ => false,
-        }
+    pub fn has<P: HasPermission>(&self, extra: P::Extra, permission: P) -> bool {
+        permission.has(extra, self.permissions, &self.servers)
     }
 
-    pub fn require<E: FromAuthPermissionDenied>(
-        &self,
-        permission: AccessPermission,
-    ) -> Result<(), E> {
-        if self.has(permission) {
-            Ok(())
-        } else {
-            Err(E::from())
-        }
+    pub fn require<P: Permission<E>, E>(&self, extra: P::Extra, permission: P) -> Result<(), E> {
+        permission.require(extra, self.permissions, &self.servers)
     }
 }
 

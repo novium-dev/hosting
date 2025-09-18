@@ -1,11 +1,32 @@
 use crate::db::server::ServerId;
+use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
+use crate::service::server::error_server_not_found::FromServerNotFound;
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum AccessPermission {
-    Server(ServerId, ServerPermissions),
-    Management(ManagementPermissions),
+pub trait HasPermission {
+    type Extra;
+
+    fn has(
+        self,
+        extra: Self::Extra,
+        permissions: i64,
+        servers: &HashMap<ServerId, ServerPermissions>,
+    ) -> bool
+    where
+        Self: Sized;
+}
+
+pub trait Permission<E>: HasPermission {
+    fn require(
+        self,
+        extra: Self::Extra,
+        permissions: i64,
+        servers: &HashMap<ServerId, ServerPermissions>,
+    ) -> Result<(), E>
+    where
+        Self: Sized;
 }
 
 bitflags! {
@@ -153,19 +174,79 @@ bitflags! {
     }
 }
 
-// TODO: Permission handling of databases and networks
+impl HasPermission for ServerPermissions {
+    type Extra = ServerId;
 
-impl AccessPermission {
-    pub fn with_dependencies(self) -> Self {
-        match self {
-            Self::Server(server_id, perms) => Self::Server(server_id, perms.with_dependencies()),
-            Self::Management(perms) => Self::Management(perms.with_dependencies()),
+    fn has(
+        self,
+        extra: Self::Extra,
+        permissions: i64,
+        servers: &HashMap<ServerId, ServerPermissions>,
+    ) -> bool
+    where
+        Self: Sized,
+    {
+        (servers.get(&extra).copied().unwrap_or_default() | Self::from_bits_retain(permissions))
+            .contains(self.with_dependencies())
+    }
+}
+impl<E: FromAuthPermissionDenied + FromServerNotFound> Permission<E> for ServerPermissions {
+    fn require(
+        self,
+        extra: Self::Extra,
+        permissions: i64,
+        servers: &HashMap<ServerId, ServerPermissions>,
+    ) -> Result<(), E>
+    where
+        Self: Sized,
+    {
+        if self.has(extra, permissions, servers) {
+            Ok(())
+        } else if Self::VIEW.has(extra, permissions, servers) {
+            Err(<E as FromAuthPermissionDenied>::from())
+        } else {
+            Err(<E as FromServerNotFound>::from())
         }
     }
 }
 
+impl HasPermission for ManagementPermissions {
+    type Extra = ();
+
+    fn has(
+        self,
+        _extra: Self::Extra,
+        permissions: i64,
+        _servers: &HashMap<ServerId, ServerPermissions>,
+    ) -> bool
+    where
+        Self: Sized,
+    {
+        Self::from_bits_retain(permissions).contains(self.with_dependencies())
+    }
+}
+impl<E: FromAuthPermissionDenied> Permission<E> for ManagementPermissions {
+    fn require(
+        self,
+        extra: Self::Extra,
+        permissions: i64,
+        servers: &HashMap<ServerId, ServerPermissions>,
+    ) -> Result<(), E>
+    where
+        Self: Sized,
+    {
+        if self.has(extra, permissions, servers) {
+            Ok(())
+        } else {
+            Err(E::from())
+        }
+    }
+}
+
+// TODO: Permission handling of databases and networks
+
 impl ServerPermissions {
-    pub fn with_dependencies(mut self) -> Self {
+    fn with_dependencies(mut self) -> Self {
         if !self.is_empty() {
             self |= Self::VIEW;
         }
@@ -190,7 +271,7 @@ impl ServerPermissions {
 }
 
 impl ManagementPermissions {
-    pub fn with_dependencies(mut self) -> Self {
+    fn with_dependencies(mut self) -> Self {
         self.with_dependency(Self::USER_MANAGE, Self::USER_VIEW);
         self.with_dependency(Self::API_KEYS_MANAGE, Self::API_KEYS_VIEW);
         self.with_dependency(Self::NODES_MANAGE, Self::NODES_VIEW);

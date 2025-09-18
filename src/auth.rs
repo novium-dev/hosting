@@ -1,4 +1,4 @@
-use crate::auth::permissions::AccessPermission;
+use crate::auth::permissions::{HasPermission, Permission};
 use crate::auth::user::UserAuthentication;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
@@ -19,20 +19,20 @@ pub enum Authentication {
 }
 
 impl Authentication {
-    pub fn require<E: FromAuthPermissionDenied>(
+    pub fn require<P: Permission<E>, E: FromAuthPermissionDenied>(
         &self,
-        permission: AccessPermission,
+        extra: P::Extra,
+        permission: P,
     ) -> Result<(), E> {
-        if self.has(permission) {
-            Ok(())
-        } else {
-            Err(E::from())
+        match self {
+            Self::User(auth) => auth.require(extra, permission),
+            Self::None => Err(E::from()),
         }
     }
 
-    pub fn has(&self, permission: AccessPermission) -> bool {
+    pub fn has<P: HasPermission>(&self, extra: P::Extra, permission: P) -> bool {
         match self {
-            Self::User(auth) => auth.has(permission),
+            Self::User(auth) => auth.has(extra, permission),
             Self::None => false,
         }
     }

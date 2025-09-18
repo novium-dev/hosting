@@ -1,6 +1,6 @@
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::{AccessPermission, ManagementPermissions};
+use crate::auth::permissions::ManagementPermissions;
 use crate::db::server::ports::{NetworkPort, merge_ports};
 use crate::db::server::{ServerId, ServerInfo};
 use crate::service::admin::server::server_admin_service_error::CreateServerError;
@@ -42,9 +42,7 @@ pub(crate) impl ServerAdminService for Backend {
         internet_access: bool,
         backup_limit: Option<u32>,
     ) -> Result<ServerInfo, _> {
-        auth.require::<CreateServerError>(AccessPermission::Management(
-            ManagementPermissions::SERVER_MANAGE,
-        ))?;
+        auth.require::<_, CreateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
 
         let nodes = self.nodes.read().await;
         let Some(node) = nodes.get(&node).cloned() else {
