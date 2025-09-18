@@ -237,8 +237,7 @@ default-features = false
 features = ["sdk", "backend"]
 
 [dependencies.zelus]
-# git = "https://github.com/MarkusTieger/zelus.git"
-path = "../zelus/zelus"
+git = "https://github.com/MarkusTieger/zelus.git"
 default-features = false
 features = ["error", "http2", "io", "sqlx", "redis", "rustls-tls-webpki-roots-no-provider"]
 
