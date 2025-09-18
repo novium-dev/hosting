@@ -18,47 +18,102 @@ bitflags! {
         const TERMINAL_READ = 1 << 2;
         const TERMINAL_WRITE = 1 << 3;
 
-        const FILES_READ = 1 << 4;
-        const FILES_WRITE = 1 << 5;
+        const BUILD_VIEW = 1 << 4;
+        const BUILD_EDIT = 1 << 5;
 
-        const DATABASE_VIEW = 1 << 8;
-        const DATABASE_MANAGE = 1 << 9;
+        const FILES_READ = 1 << 6;
+        const FILES_WRITE = 1 << 7;
 
-        const BACKUP_VIEW = 1 << 13;
-        const BACKUP_DOWNLOAD = 1 << 14;
-        const BACKUP_CREATE = 1 << 15;
-        const BACKUP_DELETE = 1 << 16;
-        const BACKUP_RESTORE = 1 << 17;
+        const BACKUP_VIEW = 1 << 8;
+        const BACKUP_DOWNLOAD = 1 << 9;
+        const BACKUP_CREATE = 1 << 10;
+        const BACKUP_DELETE = 1 << 11;
+        const BACKUP_RESTORE = 1 << 12;
 
-        const USER_VIEW = 1 << 18;
-        const USER_EDIT = 1 << 19;
+        const USER_VIEW = 1 << 13;
+        const USER_EDIT = 1 << 14;
 
-        const ADMIN_MANAGEMENT = 1 << 20;
+        const ADMIN_MANAGEMENT = 1 << 15;
     }
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct ManagementPermissions: i64 {
-        const SERVER_VIEW = 1 << 22;
-        const SERVER_MANAGE = 1 << 31;
-        const SERVER_SUSPEND = 1 << 36;
+        const SERVER_MANAGE = 1 << 32;
+        const SERVER_SUSPEND = 1 << 33;
+        const SERVER_DELETE = 1 << 34;
 
-        const USER_VIEW = 1 << 23;
-        const USER_MANAGE = 1 << 24;
+        const USER_VIEW = 1 << 35;
+        const USER_MANAGE = 1 << 36;
 
-        const API_KEYS_VIEW = 1 << 27;
-        const API_KEYS_MANAGE = 1 << 28;
+        const API_KEYS_VIEW = 1 << 37;
+        const API_KEYS_MANAGE = 1 << 38;
 
-        const DATABASE_VIEW = 1 << 25;
-        const DATABASE_MANAGE = 1 << 26;
+        const NODES_VIEW = 1 << 39;
+        const NODES_MANAGE = 1 << 40;
 
-        const NODES_VIEW = 1 << 29;
-        const NODES_MANAGE = 1 << 30;
+        const BACKUP_STORAGE_SELECT = 1 << 41;
 
-        const NETWORK_VIEW = 1 << 33;
-        const NETWORK_MANAGE = 1 << 34;
+        const NETWORK_CREATE = 1 << 42;
+        const NETWORK_DELETE = 1 << 43;
 
-        const BACKUP_STORAGE_SELECT = 1 << 35;
+        const DATABASE_CREATE = 1 << 44;
+        const DATABASE_DELETE = 1 << 45;
+
+        const LIMITS_BYPASS = 1 << 46;
+    }
+}
+
+impl AccessPermission {
+    pub fn with_dependencies(self) -> Self {
+        match self {
+            AccessPermission::Server(server_id, perms) => {
+                AccessPermission::Server(server_id, perms.with_dependencies())
+            }
+            AccessPermission::Management(perms) => {
+                AccessPermission::Management(perms.with_dependencies())
+            }
+        }
+    }
+}
+
+impl ServerPermissions {
+    pub fn with_dependencies(mut self) -> Self {
+        if !self.is_empty() {
+            self |= ServerPermissions::VIEW;
+        }
+        self.with_dependency(Self::TERMINAL_WRITE, Self::TERMINAL_READ);
+        self.with_dependency(Self::BUILD_EDIT, Self::BUILD_VIEW);
+        self.with_dependency(Self::FILES_WRITE, Self::FILES_READ);
+
+        self.with_dependency(Self::BACKUP_DOWNLOAD, Self::BACKUP_VIEW);
+        self.with_dependency(Self::BACKUP_CREATE, Self::BACKUP_VIEW);
+        self.with_dependency(Self::BACKUP_DELETE, Self::BACKUP_VIEW);
+        self.with_dependency(Self::BACKUP_RESTORE, Self::BACKUP_VIEW);
+
+        self.with_dependency(Self::USER_EDIT, Self::USER_VIEW);
+        self
+    }
+
+    fn with_dependency(&mut self, base: Self, dependencies: Self) {
+        if self.contains(base) {
+            *self |= dependencies;
+        }
+    }
+}
+
+impl ManagementPermissions {
+    pub fn with_dependencies(mut self) -> Self {
+        self.with_dependency(Self::USER_MANAGE, Self::USER_VIEW);
+        self.with_dependency(Self::API_KEYS_MANAGE, Self::API_KEYS_VIEW);
+        self.with_dependency(Self::NODES_MANAGE, Self::NODES_VIEW);
+        self
+    }
+
+    fn with_dependency(&mut self, base: Self, dependencies: Self) {
+        if self.contains(base) {
+            *self |= dependencies;
+        }
     }
 }
 
@@ -90,16 +145,11 @@ impl Role {
         match self {
             Self::Admin => ManagementPermissions::all(),
             Self::ServerManager => {
-                ManagementPermissions::SERVER_VIEW
-                    | ManagementPermissions::SERVER_MANAGE
+                ManagementPermissions::SERVER_MANAGE
                     | ManagementPermissions::SERVER_SUSPEND
-                    | ManagementPermissions::DATABASE_VIEW
-                    | ManagementPermissions::DATABASE_MANAGE
                     | ManagementPermissions::BACKUP_STORAGE_SELECT
             }
-            Self::Moderator => {
-                ManagementPermissions::SERVER_VIEW | ManagementPermissions::USER_VIEW
-            }
+            Self::Moderator => ManagementPermissions::USER_VIEW,
             Self::User => ManagementPermissions::empty(),
         }
     }
@@ -114,8 +164,6 @@ impl Role {
                     | ServerPermissions::TERMINAL_WRITE
                     | ServerPermissions::FILES_READ
                     | ServerPermissions::FILES_WRITE
-                    | ServerPermissions::DATABASE_VIEW
-                    | ServerPermissions::DATABASE_MANAGE
                     | ServerPermissions::BACKUP_VIEW
                     | ServerPermissions::BACKUP_CREATE
                     | ServerPermissions::BACKUP_RESTORE

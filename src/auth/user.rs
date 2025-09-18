@@ -36,7 +36,7 @@ pub struct UserAuthentication {
 
 impl UserAuthentication {
     pub fn has(&self, permission: AccessPermission) -> bool {
-        match permission {
+        match permission.with_dependencies() {
             AccessPermission::Server(id, perms)
                 if (self.servers.get(&id).copied().unwrap_or_default()
                     | ServerPermissions::from_bits_retain(self.permissions))
