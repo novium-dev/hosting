@@ -25,6 +25,9 @@ struct ServerInfo {
 
 #[service(path = "/server/{server_id}", tag = "server", no_sdk)]
 pub(crate) impl ServerService for Backend {
+    /// Lists all servers you have access to.
+    ///
+    /// Only servers in which you have the [`ServerPermissions::VIEW`] permission are listed.
     #[route(!"/server", method = GET, raw)]
     #[error(db(failure [sql:*]) cache(failure [redis:*]))]
     async fn list_servers(

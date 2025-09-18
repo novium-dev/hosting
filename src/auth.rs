@@ -61,6 +61,8 @@ impl DocumentedType for Authentication {
                 .schema(Some(RefOr::T(Schema::Object(
                     Object::builder()
                         .schema_type(SchemaType::Type(Type::String))
+                        .min_length(Some(172))
+                        .max_length(Some(172))
                         .pattern(Some("(?:Session (?:[A-Za-z0-9+\\/]{171})=)")) // This pattern was generated *WITHOUT* AI btw.
                         .build(),
                 ))))
