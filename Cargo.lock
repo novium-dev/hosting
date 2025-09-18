@@ -1437,7 +1437,7 @@ dependencies = [
  "utoipa",
  "uuid",
  "x509-parser",
- "zelus",
+ "zelus 0.1.0 (git+https://github.com/MarkusTieger/zelus.git)",
 ]
 
 [[package]]
@@ -2346,7 +2346,7 @@ dependencies = [
  "utoipa-axum",
  "utoipa-swagger-ui",
  "uuid",
- "zelus",
+ "zelus 0.1.0",
 ]
 
 [[package]]
@@ -6937,7 +6937,6 @@ dependencies = [
 [[package]]
 name = "zelus"
 version = "0.1.0"
-source = "git+https://github.com/MarkusTieger/zelus.git#793382a83ce204de6fe02aa9f5c140c681ec21e8"
 dependencies = [
  "async-trait",
  "axum",
@@ -6962,13 +6961,58 @@ dependencies = [
  "urlencoding",
  "utoipa",
  "utoipa-axum",
- "zelus_macros",
+ "zelus_macros 0.1.0",
+]
+
+[[package]]
+name = "zelus"
+version = "0.1.0"
+source = "git+https://github.com/MarkusTieger/zelus.git#b6831960064373c865b0efce88f69ae0b851dd18"
+dependencies = [
+ "async-trait",
+ "axum",
+ "axum-extra",
+ "bytes",
+ "futures-util",
+ "http",
+ "pastey",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "sqlx",
+ "tap",
+ "thiserror 2.0.16",
+ "tokio",
+ "tokio-util",
+ "tower-layer",
+ "tower-service",
+ "url",
+ "urlencoding",
+ "utoipa",
+ "utoipa-axum",
+ "zelus_macros 0.1.0 (git+https://github.com/MarkusTieger/zelus.git)",
 ]
 
 [[package]]
 name = "zelus_macros"
 version = "0.1.0"
-source = "git+https://github.com/MarkusTieger/zelus.git#793382a83ce204de6fe02aa9f5c140c681ec21e8"
+dependencies = [
+ "convert_case 0.8.0",
+ "either",
+ "indexmap 2.11.3",
+ "itertools 0.14.0",
+ "lazy-regex",
+ "manyhow",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
+name = "zelus_macros"
+version = "0.1.0"
+source = "git+https://github.com/MarkusTieger/zelus.git#b6831960064373c865b0efce88f69ae0b851dd18"
 dependencies = [
  "convert_case 0.8.0",
  "either",

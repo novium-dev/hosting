@@ -4,16 +4,8 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
-[patch.crates-io.reqwest]
-git = "https://github.com/MarkusTieger/reqwest.git"
-default-features = false
-features = [
-    "charset",
-    "http2",
-    "json",
-    "rustls-tls-webpki-roots-no-provider",
-    "stream"
-]
+[patch.crates-io]
+reqwest.git = "https://github.com/MarkusTieger/reqwest.git"
 
 [features]
 embedded_node = ["daemon"]
@@ -245,7 +237,8 @@ default-features = false
 features = ["sdk", "backend"]
 
 [dependencies.zelus]
-git = "https://github.com/MarkusTieger/zelus.git"
+# git = "https://github.com/MarkusTieger/zelus.git"
+path = "../zelus/zelus"
 default-features = false
 features = ["error", "http2", "io", "sqlx", "redis", "rustls-tls-webpki-roots-no-provider"]
 

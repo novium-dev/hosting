@@ -6,7 +6,9 @@ use crate::db::server::ServerId;
 use crate::service::server::server_service_error::{
     ServerInfoError, ServerStatsError, ServerTerminalError,
 };
+use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use serde::{Deserialize, Serialize};
+use sqlx::query;
 use zelus::responses::Redirect;
 use zelus::service;
 
@@ -16,14 +18,36 @@ define_error!(server {
 });
 
 #[derive(Serialize, Deserialize, utoipa::ToSchema)]
-struct TestServer {
+struct ServerInfo {
     id: ServerId,
     name: String,
 }
 
 #[service(path = "/server/{server_id}", tag = "server", no_sdk)]
 pub(crate) impl ServerService for Backend {
-    /// Tests the connection
+    #[route(!"/server", method = GET, raw)]
+    #[error(db(failure [sql:*]) cache(failure [redis:*]))]
+    async fn list_servers(
+        &self,
+        #[special] auth: Authentication,
+        #[special] mut page: Option<PageSplit>,
+    ) -> Result<Paged<ServerInfo>, _> {
+        Ok(
+            query!("SELECT `id` AS `id: ServerId`, `name` FROM `servers`")
+                .fetch_all(&*self.database)
+                .await?
+                .into_iter()
+                .filter(|server| auth.has(server.id, ServerPermissions::VIEW))
+                .apply_pagesplit(&mut page)
+                .map(|server| ServerInfo {
+                    id: server.id,
+                    name: server.name,
+                })
+                .collect_paged(page),
+        )
+    }
+
+    /// Shows information about a specific server.
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::VIEW`].
@@ -33,14 +57,14 @@ pub(crate) impl ServerService for Backend {
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-    ) -> Result<TestServer, _> {
+    ) -> Result<ServerInfo, _> {
         auth.require::<_, ServerInfoError>(server_id, ServerPermissions::VIEW)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(ServerInfoError::ServerNotFound)?;
 
-        Ok(TestServer {
+        Ok(ServerInfo {
             id: server.id,
             name: server.name,
         })

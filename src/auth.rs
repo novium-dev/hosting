@@ -4,8 +4,9 @@ use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use http::request::Parts;
 use redis::RedisError;
-use utoipa::openapi::Required;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
+use utoipa::openapi::schema::SchemaType;
+use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
@@ -57,6 +58,12 @@ impl DocumentedType for Authentication {
                 .name("Authorization")
                 .parameter_in(ParameterIn::Header)
                 .description(Some("The session token or api key"))
+                .schema(Some(RefOr::T(Schema::Object(
+                    Object::builder()
+                        .schema_type(SchemaType::Type(Type::String))
+                        .pattern(Some("(?:Session (?:[A-Za-z0-9+\\/]{171})=)")) // This pattern was generated *WITHOUT* AI btw.
+                        .build(),
+                ))))
                 .required(Required::False),
         )
     }
