@@ -12,23 +12,18 @@ use sqlx::query;
 use zelus::responses::Redirect;
 use zelus::service;
 
-define_error!(server {
-    not_found("Server not found" NOT_FOUND),
-    storage_not_found("The specified storage was not found" BAD_REQUEST),
-});
-
 #[derive(Serialize, Deserialize, utoipa::ToSchema)]
 struct ServerInfo {
     id: ServerId,
     name: String,
 }
 
-#[service(path = "/server/{server_id}", tag = "server", no_sdk)]
+#[service(path = "/server", tag = "server", no_sdk)]
 pub(crate) impl ServerService for Backend {
     /// Lists all servers you have access to.
     ///
     /// Only servers in which you have the [`ServerPermissions::VIEW`] permission are listed.
-    #[route(!"/server", method = GET, raw)]
+    #[route("", method = GET, raw)]
     #[error(db(failure [sql:*]) cache(failure [redis:*]))]
     async fn list_servers(
         &self,
@@ -54,7 +49,7 @@ pub(crate) impl ServerService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::VIEW`].
-    #[route("", method = GET)]
+    #[route("/{server_id}", method = GET)]
     #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found))]
     async fn server_info(
         &self,
@@ -78,7 +73,7 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::TERMINAL_READ`].
     /// Grants Write Permissions, if [`ServerPermissions::TERMINAL_WRITE`] is present.
-    #[route("/terminal", method = GET, raw)]
+    #[route("/{server_id}/terminal", method = GET, raw)]
     #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found))]
     async fn server_terminal(
         &self,
@@ -109,7 +104,7 @@ pub(crate) impl ServerService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::VIEW`].
-    #[route("/stats", method = GET, raw)]
+    #[route("/{server_id}/stats", method = GET, raw)]
     #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found))]
     async fn server_stats(
         &self,

@@ -1,10 +1,11 @@
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::ManagementPermissions;
+use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
 use crate::db::server::ports::{NetworkPort, merge_ports};
 use crate::db::server::{ServerId, ServerInfo};
-use crate::service::admin::server::server_admin_service_error::CreateServerError;
-use crate::service::server::*;
+use crate::service::admin::server::server_admin_service_error::{
+    CreateServerError, DeleteServerError,
+};
 use crate::service::template::*;
 use crate::service::*;
 use crate::templates::TemplateError;
@@ -24,7 +25,7 @@ pub(crate) impl ServerAdminService for Backend {
     ///
     /// # Permissions
     /// Requires [`ManagementPermissions::SERVER_MANAGE`].
-    #[route("/", method = PUT)]
+    #[route("", method = PUT)]
     #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found storage_not_found) node(not_found failure) template(not_found unavailable corrupted port_definition_unknown input_invalid))]
     #[example("../examples/server.create.json")]
     async fn create_server(
@@ -125,14 +126,11 @@ pub(crate) impl ServerAdminService for Backend {
                 )
                 .await
                 .map_err(|err| match err {
-                    DaemonCreateServerError::Communication(_) => {
-                        error!("Failed to communicate with server daemon: {err:?}");
-                        CreateServerError::NodeFailure
-                    }
-                    DaemonCreateServerError::AuthInvalid
+                    err @ (DaemonCreateServerError::Communication(_)
+                    | DaemonCreateServerError::AuthInvalid
                     | DaemonCreateServerError::SqlFailure
                     | DaemonCreateServerError::ServerImageDifferent
-                    | DaemonCreateServerError::ServerImageMissingTag => {
+                    | DaemonCreateServerError::ServerImageMissingTag) => {
                         error!("Failed to create server: {err:?}");
                         CreateServerError::NodeFailure
                     }
@@ -191,5 +189,50 @@ pub(crate) impl ServerAdminService for Backend {
                 .await
         }).await
             .expect("Unable to execute create server task") // tokio::task::spawn only returns an error, if the task panics, so we panic again
+    }
+
+    /// Deletes a server
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
+    #[route("/{server_id}", method = PUT)]
+    #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found unavailable) node(failure))]
+    async fn delete_server(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+    ) -> Result<(), _> {
+        auth.require::<_, DeleteServerError>(server_id, ServerPermissions::VIEW)?;
+        auth.require::<_, DeleteServerError>((), ManagementPermissions::SERVER_DELETE)?;
+
+        let backend = self.clone();
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| Box::pin(async move {
+            use daemon_common::service::server::server_service_error::DeleteServerError as DaemonDeleteServerError;
+
+            let Some(server) = backend.resolve_server(&mut **tx, server_id).await? else {
+                return Err(DeleteServerError::ServerNotFound);
+            };
+
+            query!("DELETE FROM `servers` WHERE `id` = ?", server_id)
+                .execute(&mut **tx)
+                .await
+                .inspect_err(|err| error!("Failed to delete server: {err:?}"))?;
+
+            match tokio::task::spawn(async move { server.node.delete_server(server.node_server_id).await }).await
+                .expect("server deletion task failed") {
+                Ok(()) | Err(DaemonDeleteServerError::ServerNotFound) => Ok(()),
+                Err(DaemonDeleteServerError::ServerMutexLocked) => {
+                    Err(DeleteServerError::ServerUnavailable)
+                },
+                Err(err @ (DaemonDeleteServerError::Communication(_)
+                    | DaemonDeleteServerError::AuthInvalid
+                    | DaemonDeleteServerError::DockerFailure
+                    | DaemonDeleteServerError::SqlFailure)) => {
+                    error!("Failed to delete server: {err:?}");
+                    Err(DeleteServerError::NodeFailure)
+                },
+            }
+        })).await
     }
 }

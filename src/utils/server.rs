@@ -6,7 +6,7 @@ use tracing::warn;
 impl Backend {
     pub async fn resolve_server(
         &self,
-        conn: impl Executor<'_, Database = MySql> + Copy,
+        conn: impl Executor<'_, Database = MySql>,
         id: ServerId,
     ) -> Result<Option<Server>, sqlx::Error> {
         match query!(

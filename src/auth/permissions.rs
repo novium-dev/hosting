@@ -1,6 +1,6 @@
 use crate::db::server::ServerId;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
-use crate::service::server::error_server_not_found::FromServerNotFound;
+use crate::service::error_server_not_found::FromServerNotFound;
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

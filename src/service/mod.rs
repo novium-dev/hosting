@@ -11,6 +11,12 @@ define_error!(auth {
     permission_denied("You don't have the necessary permissions to perform this operation" FORBIDDEN),
 });
 
+define_error!(server {
+    not_found("Server not found" NOT_FOUND),
+    storage_not_found("The specified storage was not found" BAD_REQUEST),
+    unavailable("Server is currently in use" SERVICE_UNAVAILABLE)
+});
+
 define_error!(node {
     not_found("The specified node was not found" BAD_REQUEST),
     failure("Node operation failed" BAD_GATEWAY),
