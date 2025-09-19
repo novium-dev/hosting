@@ -4,11 +4,13 @@ use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
 use crate::db::server::ServerId;
 use crate::service::server::server_service_error::{
-    ServerInfoError, ServerStatsError, ServerTerminalError,
+    KillServerError, RestartServerError, ServerInfoError, ServerStatsError, ServerTerminalError,
+    StartServerError, StopServerError,
 };
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use serde::{Deserialize, Serialize};
 use sqlx::query;
+use tracing::error;
 use zelus::responses::Redirect;
 use zelus::service;
 
@@ -124,5 +126,141 @@ pub(crate) impl ServerService for Backend {
                 .server_stats_user_url_signed(server.node_server_id)
                 .as_str(),
         ))
+    }
+
+    /// Tries to start the server
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::POWER`].
+    #[route("/{server_id}/start", method = GET)]
+    #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found) node(failure))]
+    async fn start_server(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+    ) -> Result<(), _> {
+        use daemon_common::service::server::server_service_error::StartServerError as DaemonStartServerError;
+
+        auth.require::<_, StartServerError>(server_id, ServerPermissions::POWER)?;
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(StartServerError::ServerNotFound)?;
+
+        server
+            .node
+            .start_server(server.node_server_id)
+            .await
+            .map_err(|err| match err {
+                err @ (DaemonStartServerError::Communication(_)
+                | DaemonStartServerError::AuthInvalid
+                | DaemonStartServerError::SqlFailure
+                | DaemonStartServerError::ServerNotFound) => {
+                    error!("Failed to start server: {err:?}");
+                    StartServerError::NodeFailure
+                }
+            })
+    }
+
+    /// Tries to stop the server
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::POWER`].
+    #[route("/{server_id}/stop", method = GET)]
+    #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found) node(failure))]
+    async fn stop_server(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+    ) -> Result<(), _> {
+        use daemon_common::service::server::server_service_error::StopServerError as DaemonStopServerError;
+
+        auth.require::<_, StopServerError>(server_id, ServerPermissions::POWER)?;
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(StopServerError::ServerNotFound)?;
+
+        server
+            .node
+            .stop_server(server.node_server_id)
+            .await
+            .map_err(|err| match err {
+                err @ (DaemonStopServerError::Communication(_)
+                | DaemonStopServerError::AuthInvalid
+                | DaemonStopServerError::SqlFailure
+                | DaemonStopServerError::ServerNotFound) => {
+                    error!("Failed to stop server: {err:?}");
+                    StopServerError::NodeFailure
+                }
+            })
+    }
+
+    /// Tries to restart the server
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::POWER`].
+    #[route("/{server_id}/restart", method = GET)]
+    #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found) node(failure))]
+    async fn restart_server(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+    ) -> Result<(), _> {
+        use daemon_common::service::server::server_service_error::RestartServerError as DaemonRestartServerError;
+
+        auth.require::<_, RestartServerError>(server_id, ServerPermissions::POWER)?;
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(RestartServerError::ServerNotFound)?;
+
+        server
+            .node
+            .restart_server(server.node_server_id)
+            .await
+            .map_err(|err| match err {
+                err @ (DaemonRestartServerError::Communication(_)
+                | DaemonRestartServerError::AuthInvalid
+                | DaemonRestartServerError::SqlFailure
+                | DaemonRestartServerError::ServerNotFound) => {
+                    error!("Failed to restart server: {err:?}");
+                    RestartServerError::NodeFailure
+                }
+            })
+    }
+
+    /// Tries to kill the server
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::POWER`].
+    #[route("/{server_id}/kill", method = GET)]
+    #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found) node(failure))]
+    async fn kill_server(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+    ) -> Result<(), _> {
+        use daemon_common::service::server::server_service_error::KillServerError as DaemonKillServerError;
+
+        auth.require::<_, KillServerError>(server_id, ServerPermissions::POWER)?;
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(KillServerError::ServerNotFound)?;
+
+        server
+            .node
+            .kill_server(server.node_server_id)
+            .await
+            .map_err(|err| match err {
+                err @ (DaemonKillServerError::Communication(_)
+                | DaemonKillServerError::AuthInvalid
+                | DaemonKillServerError::SqlFailure
+                | DaemonKillServerError::ServerNotFound) => {
+                    error!("Failed to restart server: {err:?}");
+                    KillServerError::NodeFailure
+                }
+            })
     }
 }
