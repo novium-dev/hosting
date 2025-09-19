@@ -195,7 +195,7 @@ pub(crate) impl ServerAdminService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
-    #[route("/{server_id}", method = PUT)]
+    #[route("/{server_id}", method = DELETE)]
     #[error(auth(permission_denied) db(failure [sql:*]) cache(failure [redis:*]) server(not_found unavailable) node(failure))]
     async fn delete_server(
         &self,
