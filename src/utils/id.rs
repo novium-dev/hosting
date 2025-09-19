@@ -190,6 +190,5 @@ macro_rules! define_id {
             #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
             pub struct inner_name;
         });
-        pub const DUMMY_ID: $x = $crate::utils::id::GenericNanoId::dummy();
     };
 }

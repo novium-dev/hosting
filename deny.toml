@@ -10,7 +10,10 @@ all-features = true
 # warn when we're shipping multiple versions of the same crate.
 multiple-versions = "warn"
 
-deny = []
+deny = [
+  # We want rustls
+  { name = "openssl-sys" },
+]
 
 [sources]
 unknown-registry = "deny"

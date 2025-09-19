@@ -1,5 +1,5 @@
 [package]
-name = "hosting-system"
+name = "backend"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -8,6 +8,7 @@ publish = false
 reqwest.git = "https://github.com/MarkusTieger/reqwest.git"
 
 [features]
+default = []
 embedded_node = ["daemon"]
 
 [lints.rust]
@@ -212,7 +213,7 @@ axum = "0.8.4"
 axum-extra = "0.10.1"
 axum-server = "0.7.2"
 axum-login = "0.18.0"
-reqwest = "0.12.23"
+reqwest = { version = "0.12.23", default-features = false, features = ["charset", "http2", "json", "rustls-tls-webpki-roots-no-provider", "stream"] }
 
 uuid = "1.18.1"
 
@@ -221,7 +222,7 @@ serde_json = "1.0"
 nanoid = "0.4.0"
 base64 = "0.22.1"
 
-sqlx = { version = "0.8", features = [ "mysql", "runtime-tokio", "tls-native-tls", "uuid" ] }
+sqlx = { version = "0.8", default-features = false, features = [ "mysql", "runtime-tokio", "tls-rustls-aws-lc-rs", "uuid" ] }
 bitflags = "2.9.4"
 arrayvec = "0.7.6"
 concat-idents = "1.1.5"

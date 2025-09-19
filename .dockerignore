@@ -1,0 +1,11 @@
+target/
+
+storage/*
+storages/*
+valkey/*
+mariadb/data/
+mariadb/sockets/
+build/
+
+*.pem
+
