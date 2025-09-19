@@ -13,22 +13,28 @@ use core::fmt::{Display, Formatter};
 use core::str::FromStr;
 use http::HeaderValue;
 use http::request::Parts;
+use lazy_regex::lazy_regex;
 use rand::TryRngCore as _;
 use rand::rand_core::OsError;
 use rand::rngs::OsRng;
 use redis::{AsyncTypedCommands as _, RedisError};
+use regex::Regex;
 use serde::Serializer as _;
 use sqlx::{query, query_scalar};
 use std::collections::HashMap;
 use std::io;
 use std::io::ErrorKind;
 use tracing::error;
+use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
+use utoipa::openapi::schema::SchemaType;
+use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
+use zelus::types::DocumentedType;
 
 #[derive(Debug)]
 pub struct UserAuthentication {
-    id: u32,
-    session: Session,
+    pub id: u32,
+    pub session: Session,
     permissions: i64,
     servers: HashMap<ServerId, ServerPermissions>,
 }
@@ -47,7 +53,7 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync>
     OptionalFromRequestParts<E> for UserAuthentication
 {
     async fn from_request_parts(parts: &mut Parts) -> Result<Option<Self>, E> {
-        let Extension(mut backend) =
+        let Extension(backend) =
             <Extension<Backend> as axum::extract::FromRequestParts<()>>::from_request_parts(
                 parts,
                 &(),
@@ -63,7 +69,7 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync>
         .await
         .map_err(|_err| <E as FromAuthInvalid>::from())?
         {
-            let Some(id) = session.authenticate(&mut backend).await? else {
+            let Some(id) = session.authenticate(&backend).await? else {
                 return Ok(None);
             };
 
@@ -83,7 +89,7 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync>
                 error!("Unable to fetch permissions for user {id}: {err:?}");
             })?
             else {
-                session.invalidate(&mut backend).await?;
+                session.invalidate(&backend).await?;
                 return Ok(None);
             };
             let owned_servers: HashMap<_, _> = query_scalar!(
@@ -137,11 +143,14 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync> Fr
     }
 }
 
+#[expect(clippy::non_std_lazy_statics, reason = "external crate")]
+pub(super) static SESSION_REGEX: lazy_regex::Lazy<Regex> =
+    lazy_regex!("Session\\s{1,}(?:[A-Za-z0-9+\\/]{171})="); // // This pattern was created *WITHOUT* AI btw.
 const SESSION_SIZE: usize = 128;
 
 #[repr(transparent)]
 #[derive(Copy, Clone)]
-struct Session([u8; SESSION_SIZE]);
+pub struct Session([u8; SESSION_SIZE]);
 
 impl Session {
     pub fn generate() -> Result<Self, OsError> {
@@ -154,27 +163,30 @@ impl Session {
         format!("{}session:{self}", crate::CACHE_PREFIX)
     }
 
-    pub async fn invalidate(&self, backend: &mut Backend) -> Result<(), RedisError> {
+    pub async fn invalidate(&self, backend: &Backend) -> Result<(), RedisError> {
         backend
             .cache
+            .clone()
             .del(self.key())
             .await
             .inspect_err(|err| error!("Unable to invalidate session: {err:?}"))?;
         Ok(())
     }
 
-    pub async fn apply(&self, backend: &mut Backend, user: u32) -> Result<(), RedisError> {
+    pub async fn apply(&self, backend: &Backend, user: u32) -> Result<(), RedisError> {
         backend
             .cache
+            .clone()
             .set_ex(self.key(), user, backend.config.session_lifetime)
             .await
             .inspect_err(|err| error!("Unable to apply session: {err:?}"))?;
         Ok(())
     }
 
-    pub async fn authenticate(&self, backend: &mut Backend) -> Result<Option<u32>, RedisError> {
+    pub async fn authenticate(&self, backend: &Backend) -> Result<Option<u32>, RedisError> {
         let Some(user) = backend
             .cache
+            .clone()
             .get_int(self.key())
             .await
             .inspect_err(|err| error!("Unable to retrieve session: {err:?}"))?
@@ -191,8 +203,15 @@ impl Session {
 impl Credentials for Session {
     const SCHEME: &'static str = "Session";
 
+    #[expect(
+        clippy::indexing_slicing,
+        reason = "validated before by `Authorization`"
+    )]
     fn decode(value: &HeaderValue) -> Option<Self> {
-        Self::from_str(value.to_str().ok()?).ok()
+        let bytes = &value.as_bytes()["Session ".len()..];
+        let non_space_pos = bytes.iter().position(|byte| *byte != b' ')?;
+        let bytes = &bytes[non_space_pos..];
+        Self::try_from(bytes).ok()
     }
 
     fn encode(&self) -> HeaderValue {
@@ -219,6 +238,14 @@ impl FromStr for Session {
     type Err = ();
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::try_from(value.as_bytes())
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for Session {
+    type Error = ();
+
+    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         let slice = BASE64_STANDARD.decode(value).map_err(|_err| ())?;
         let mut session = [0u8; SESSION_SIZE];
         if slice.len() != SESSION_SIZE {
@@ -226,5 +253,24 @@ impl FromStr for Session {
         }
         session.copy_from_slice(&slice);
         Ok(Self(session))
+    }
+}
+
+impl DocumentedType for UserAuthentication {
+    fn openapi(operations: OperationBuilder) -> OperationBuilder {
+        operations.parameter(
+            ParameterBuilder::new()
+                .name("Authorization")
+                .parameter_in(ParameterIn::Header)
+                .description(Some("The session token"))
+                .schema(Some(RefOr::T(Schema::Object(
+                    Object::builder()
+                        .schema_type(SchemaType::Type(Type::String))
+                        .min_length(Some(180))
+                        .pattern(Some(SESSION_REGEX.as_str()))
+                        .build(),
+                ))))
+                .required(Required::False),
+        )
     }
 }

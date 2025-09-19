@@ -2,6 +2,7 @@ use zelus::define_path_variable;
 use zelus::error::define_error;
 
 pub(crate) mod admin;
+pub(crate) mod auth;
 pub(crate) mod server;
 pub(crate) mod template;
 
@@ -21,6 +22,10 @@ define_error!(db {
 
 define_error!(cache {
     failure("Cache operation failed" INTERNAL_SERVER_ERROR),
+});
+
+define_error!(os {
+    failure("OS operation failed" INTERNAL_SERVER_ERROR), // For example, "random" function returns an error.
 });
 
 define_path_variable!(

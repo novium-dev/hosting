@@ -1,5 +1,6 @@
 use crate::Backend;
 use crate::service::admin::server::ServerAdminService;
+use crate::service::auth::AuthService;
 use crate::service::server::ServerService;
 use axum::{Extension, Router};
 use axum_server::{Handle, Server};
@@ -18,8 +19,7 @@ impl Backend {
         #[openapi()]
         struct ApiDoc;
 
-        let (router,) =
-            framework_router!(Self self (default,) { ServerService, ServerAdminService });
+        let (router,) = framework_router!(Self self (default,) { ServerService, ServerAdminService, AuthService });
 
         let (mut router, api) = ZelusRouter::with_openapi(ApiDoc::openapi())
             .merge(router)

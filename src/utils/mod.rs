@@ -18,6 +18,15 @@ pub mod id;
 mod serde;
 mod server;
 
+mod header {
+    use http::HeaderName;
+
+    pub(super) const TOTAL_PAGES: HeaderName = HeaderName::from_static("x-total-pages");
+    pub(super) const TOTAL_RECORDS: HeaderName = HeaderName::from_static("x-total-count");
+    pub(super) const PER_PAGE: HeaderName = HeaderName::from_static("x-per-page");
+    pub(super) const PAGE: HeaderName = HeaderName::from_static("x-page");
+}
+
 #[derive(Copy, Clone)]
 pub struct PageSplit {
     pub limit: u32,
@@ -103,21 +112,17 @@ impl<T: Serialize> axum::response::IntoResponse for Paged<T> {
         let mut res = Json(self.data).into_response();
 
         res.headers_mut().insert(
-            http::HeaderName::from_static("X-Total-Pages"),
+            header::TOTAL_PAGES,
             http::HeaderValue::from(self.total_pages),
         );
         res.headers_mut().insert(
-            http::HeaderName::from_static("X-Total-Count"),
+            header::TOTAL_RECORDS,
             http::HeaderValue::from(self.total_records),
         );
-        res.headers_mut().insert(
-            http::HeaderName::from_static("X-Per-Page"),
-            http::HeaderValue::from(self.limit),
-        );
-        res.headers_mut().insert(
-            http::HeaderName::from_static("X-Page"),
-            http::HeaderValue::from(self.page),
-        );
+        res.headers_mut()
+            .insert(header::PER_PAGE, http::HeaderValue::from(self.limit));
+        res.headers_mut()
+            .insert(header::PAGE, http::HeaderValue::from(self.page));
         res
     }
 }
@@ -206,7 +211,7 @@ impl<E: Serialize + ComposeSchema + ToSchema> DocumentedResultResponse for Paged
                     )),
                 )
                 .header(
-                    "X-Total-Pages",
+                    header::TOTAL_PAGES.as_str(),
                     Header::builder()
                         .description(Some("The total number of pages"))
                         .schema(RefOr::T(Schema::Object(
@@ -217,7 +222,7 @@ impl<E: Serialize + ComposeSchema + ToSchema> DocumentedResultResponse for Paged
                         .build(),
                 )
                 .header(
-                    "X-Total-Count",
+                    header::TOTAL_RECORDS.as_str(),
                     Header::builder()
                         .description(Some("The total number of items"))
                         .schema(RefOr::T(Schema::Object(
@@ -228,7 +233,7 @@ impl<E: Serialize + ComposeSchema + ToSchema> DocumentedResultResponse for Paged
                         .build(),
                 )
                 .header(
-                    "X-Per-Page",
+                    header::PER_PAGE.as_str(),
                     Header::builder()
                         .description(Some("The maximum number of items per page"))
                         .schema(RefOr::T(Schema::Object(
@@ -239,7 +244,7 @@ impl<E: Serialize + ComposeSchema + ToSchema> DocumentedResultResponse for Paged
                         .build(),
                 )
                 .header(
-                    "X-Page",
+                    header::PAGE.as_str(),
                     Header::builder()
                         .description(Some("The current page"))
                         .schema(RefOr::T(Schema::Object(
