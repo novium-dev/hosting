@@ -8,7 +8,7 @@ use crate::service::admin::server::server_admin_service_error::{
 };
 use crate::service::template::*;
 use crate::service::*;
-use crate::templates::TemplateError;
+use crate::templates::{TemplateError, ThinTemplateError};
 use daemon_common::service::server::server_service_error::CreateServerError as DaemonCreateServerError;
 use daemon_common::service::server::{
     ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
@@ -58,7 +58,7 @@ pub(crate) impl ServerAdminService for Backend {
         let default_extra = template
             .default_extra(self.cache.clone())
             .await
-            .map_err(TemplateError::into::<CreateServerError>)?;
+            .map_err(ThinTemplateError::into::<CreateServerError>)?;
         let Some(extra) = template
             .variables_to_extra_validated(self.cache.clone(), default_extra, variables)
             .await
@@ -75,7 +75,7 @@ pub(crate) impl ServerAdminService for Backend {
         let port_definitions = template
             .default_ports()
             .await
-            .map_err(TemplateError::into::<CreateServerError>)?;
+            .map_err(ThinTemplateError::into::<CreateServerError>)?;
         for (port, external_port) in &ports {
             let definition = port_definitions
                 .get(port)

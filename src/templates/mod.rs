@@ -20,7 +20,7 @@ use std::io;
 use tracing::{debug, error, info};
 use variable::VariablePayload;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct TemplatePortDefinition {
     pub protocol: NetworkProtocol,
     pub internal_port: u16,
@@ -41,11 +41,13 @@ pub trait Template {
     fn default_extra(
         &self,
         cache: &Self::Cache,
-    ) -> impl Future<Output = Result<Self::Extra, TemplateError>> + Send + Sync;
+    ) -> impl Future<Output = Result<Self::Extra, ThinTemplateError>> + Send + Sync;
 
     fn default_ports(
         &self,
-    ) -> impl Future<Output = Result<HashMap<String, TemplatePortDefinition>, TemplateError>> + Send + Sync;
+    ) -> impl Future<Output = Result<HashMap<String, TemplatePortDefinition>, ThinTemplateError>>
+    + Send
+    + Sync;
 
     fn extra_to_variables(
         &self,
@@ -122,16 +124,25 @@ pub trait TemplateInner {
         extra: Value,
     ) -> Result<ServerBuildPayload, TemplateError>;
 
-    async fn default_ports(&self)
-    -> Result<HashMap<String, TemplatePortDefinition>, TemplateError>;
+    async fn default_ports(
+        &self,
+    ) -> Result<HashMap<String, TemplatePortDefinition>, ThinTemplateError>;
 
-    async fn default_extra(&self, cache_client: ConnectionManager) -> Result<Value, TemplateError>;
+    async fn default_extra(
+        &self,
+        cache_client: ConnectionManager,
+    ) -> Result<Value, ThinTemplateError>;
 
     async fn extra_to_variables(
         &self,
         cache_client: ConnectionManager,
         extra: Value,
     ) -> Result<VariablePayload, TemplateError>;
+
+    async fn default_variables(
+        &self,
+        cache_client: ConnectionManager,
+    ) -> Result<VariablePayload, ThinTemplateError>;
 
     async fn variables_to_extra_validated(
         &self,
@@ -173,13 +184,17 @@ async fn load_cache<'a, T: Readable<'a, LittleEndian> + Send + Sync>(
     }
 }
 
-async fn load_cache_required<'a, T: Readable<'a, LittleEndian> + Send + Sync>(
+async fn load_cache_required<
+    'a,
+    E: From<RedisError> + FromTemplateUnavailable,
+    T: Readable<'a, LittleEndian> + Send + Sync,
+>(
     cache: &mut ConnectionManager,
     id: &'static str,
-) -> Result<T, TemplateError> {
+) -> Result<T, E> {
     load_cache(cache, id)
         .await?
-        .map_or_else(|| Err(TemplateError::Unavailable), Ok)
+        .map_or_else(|| Err(<E as FromTemplateUnavailable>::from()), Ok)
 }
 
 async fn save_cache<T: Writable<LittleEndian> + Send + Sync>(
@@ -202,7 +217,19 @@ pub enum TemplateError {
     Redis(RedisError),
 }
 
+#[derive(Debug)]
+pub enum ThinTemplateError {
+    Unavailable, // Cache missing
+    Redis(RedisError),
+}
+
 impl From<RedisError> for TemplateError {
+    fn from(value: RedisError) -> Self {
+        Self::Redis(value)
+    }
+}
+
+impl From<RedisError> for ThinTemplateError {
     fn from(value: RedisError) -> Self {
         Self::Redis(value)
     }
@@ -215,6 +242,32 @@ impl TemplateError {
             Self::Unavailable => <E as FromTemplateUnavailable>::from(),
             Self::Redis(redis) => <E as From<RedisError>>::from(redis),
         }
+    }
+}
+
+impl ThinTemplateError {
+    pub fn into<E: FromTemplateUnavailable + From<RedisError>>(self) -> E {
+        match self {
+            Self::Unavailable => <E as FromTemplateUnavailable>::from(),
+            Self::Redis(redis) => <E as From<RedisError>>::from(redis),
+        }
+    }
+}
+
+impl FromTemplateUnavailable for TemplateError {
+    fn from() -> Self
+    where
+        Self: Sized,
+    {
+        Self::Unavailable
+    }
+}
+impl FromTemplateUnavailable for ThinTemplateError {
+    fn from() -> Self
+    where
+        Self: Sized,
+    {
+        Self::Unavailable
     }
 }
 
@@ -232,7 +285,7 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         let extra: <Self as Template>::Extra =
             serde_json::from_value(extra).map_err(|_err| TemplateError::Corrupted)?;
         self.extra_to_build_payload(
-            &load_cache_required(&mut cache_client, self.id()).await?,
+            &load_cache_required::<TemplateError, _>(&mut cache_client, self.id()).await?,
             extra,
         )
         .await
@@ -240,18 +293,18 @@ impl<T: Template + Send + Sync> TemplateInner for T {
 
     async fn default_ports(
         &self,
-    ) -> Result<HashMap<String, TemplatePortDefinition>, TemplateError> {
+    ) -> Result<HashMap<String, TemplatePortDefinition>, ThinTemplateError> {
         <Self as Template>::default_ports(self).await
     }
 
     async fn default_extra(
         &self,
         mut cache_client: ConnectionManager,
-    ) -> Result<Value, TemplateError> {
+    ) -> Result<Value, ThinTemplateError> {
         Ok(serde_json::to_value(
             &<Self as Template>::default_extra(
                 self,
-                &load_cache_required(&mut cache_client, self.id()).await?,
+                &load_cache_required::<ThinTemplateError, _>(&mut cache_client, self.id()).await?,
             )
             .await?,
         )
@@ -267,10 +320,31 @@ impl<T: Template + Send + Sync> TemplateInner for T {
             serde_json::from_value(extra).map_err(|_err| TemplateError::Corrupted)?;
         <Self as Template>::extra_to_variables(
             self,
-            &load_cache_required(&mut cache_client, self.id()).await?,
+            &load_cache_required::<TemplateError, _>(&mut cache_client, self.id()).await?,
             extra,
         )
         .await
+    }
+
+    async fn default_variables(
+        &self,
+        mut cache_client: ConnectionManager,
+    ) -> Result<VariablePayload, ThinTemplateError> {
+        let cache =
+            load_cache_required::<ThinTemplateError, _>(&mut cache_client, self.id()).await?;
+        <Self as Template>::extra_to_variables(
+            self,
+            &cache,
+            <Self as Template>::default_extra(self, &cache).await?,
+        ).await
+            .map_err(|err| match err {
+                TemplateError::Redis(redis) => ThinTemplateError::Redis(redis),
+                TemplateError::Unavailable => ThinTemplateError::Unavailable,
+                TemplateError::Corrupted => {
+                    error!("Got corrupted template error on `extra_to_variables`, by using `default_extra`.");
+                    ThinTemplateError::Unavailable
+                },
+            })
     }
 
     async fn variables_to_extra_validated(
@@ -283,7 +357,7 @@ impl<T: Template + Send + Sync> TemplateInner for T {
             serde_json::from_value(old_extra).map_err(|_err| TemplateError::Corrupted)?;
         let Some(extra) = <Self as Template>::variables_to_extra_validated(
             self,
-            &load_cache_required(&mut cache_client, self.id()).await?,
+            &load_cache_required::<TemplateError, _>(&mut cache_client, self.id()).await?,
             extra,
             variables,
         )
@@ -305,7 +379,7 @@ impl<T: Template + Send + Sync> TemplateInner for T {
             serde_json::from_value(extra).map_err(|_err| TemplateError::Corrupted)?;
         <Self as Template>::enabled_features(
             self,
-            &load_cache_required(&mut cache_client, self.id()).await?,
+            &load_cache_required::<TemplateError, _>(&mut cache_client, self.id()).await?,
             extra,
         )
         .await
@@ -321,7 +395,7 @@ impl<T: Template + Send + Sync> TemplateInner for T {
             serde_json::from_value(extra).map_err(|_err| TemplateError::Corrupted)?;
         Ok(<Self as Template>::primary_port(
             self,
-            &load_cache_required(&mut cache_client, self.id()).await?,
+            &load_cache_required::<TemplateError, _>(&mut cache_client, self.id()).await?,
             extra,
             ports,
         )

@@ -15,7 +15,7 @@ pub struct ServerPort {
     pub bind: Option<String>,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 pub enum NetworkProtocol {
     #[serde(rename = "tcp")]
     Tcp,

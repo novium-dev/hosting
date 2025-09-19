@@ -3,30 +3,30 @@
 use core::fmt::Debug;
 use indexmap::{IndexMap, IndexSet};
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashSet;
 
-#[derive(Debug, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, utoipa::ToSchema)]
 pub struct VariablePayload {
     pub groups: Vec<VariableGroup>,
     pub data: Vec<Value>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct VariableGroup {
     pub(crate) name: Option<String>,
     pub(crate) variables: Vec<VariableField>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct VariableField {
     pub(crate) id: String,
     pub(crate) current: Option<String>,
     pub(crate) data: VariableType,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(untagged)]
 pub enum VariableType {
     StaticSet(IndexSet<String>),
@@ -35,7 +35,7 @@ pub enum VariableType {
     Regex { regex: String, placeholder: String },
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum VariableContent {
     NumberRange {
@@ -62,7 +62,7 @@ pub struct VariableDataBuilder<'a, const LAYERS: usize, T: Clone + 'a, E: 'a> {
     current: VariableMapFunction<'a, LAYERS, T, E>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(untagged)]
 enum VariableDataBuilderRecursiveMapEntry {
     Last(VariableContent),

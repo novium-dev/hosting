@@ -266,7 +266,7 @@ features = [
 
 [dependencies.utoipa]
 version = "5.4.0"
-features = ["macros", "preserve_path_order", "uuid"]
+features = ["macros", "preserve_path_order", "uuid", "indexmap"]
 
 [dependencies.utoipa-axum]
 version = "0.2.0"
