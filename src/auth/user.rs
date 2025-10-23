@@ -145,7 +145,7 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync> Fr
 
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
 pub(super) static SESSION_REGEX: lazy_regex::Lazy<Regex> =
-    lazy_regex!("Session\\s{1,}(?:[A-Za-z0-9+\\/]{171})="); // // This pattern was created *WITHOUT* AI btw.
+    lazy_regex!("Session\\s{1,}(?:[A-Za-z0-9+\\/]{171})="); // This pattern was created *WITHOUT* AI btw.
 const SESSION_SIZE: usize = 128;
 
 #[repr(transparent)]
