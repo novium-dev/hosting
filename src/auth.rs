@@ -10,6 +10,7 @@ use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
+mod oauth_flow;
 pub mod permissions;
 pub mod user;
 

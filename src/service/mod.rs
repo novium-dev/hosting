@@ -28,6 +28,7 @@ define_error!(db {
 
 define_error!(cache {
     failure("Cache operation failed" INTERNAL_SERVER_ERROR),
+    unreachable("Cache is unreachable" SERVICE_UNAVAILABLE),
 });
 
 define_error!(os {
