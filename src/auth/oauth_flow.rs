@@ -12,9 +12,6 @@ define_id!(FlowId);
 
 #[derive(Debug, Serialize, Deserialize, Writable, Readable)]
 pub(crate) struct OAuthFlow {
-    /// CSRF state
-    pub(crate) state: String,
-
     /// Where to redirect the user after success
     pub(crate) redirect_url: String,
 }
@@ -35,9 +32,8 @@ impl OAuthFlow {
         let _: () = cache
             .set_ex(key, data, expires.num_seconds().unsigned_abs())
             .await
-            .map_err(|e| {
+            .inspect_err(|e| {
                 error!("Failed to insert OAuthFlow into cache: {:?}", e);
-                e
             })?;
 
         Ok(flow_id.to_string())
@@ -49,9 +45,8 @@ impl OAuthFlow {
     ) -> Result<Option<Self>, RedisError> {
         let key = format!("{}{}:{}", CACHE_KEY_PREFIX, FLOWS_NAMESPACE, id);
 
-        let raw: Option<Vec<u8>> = cache.get(key).await.map_err(|e| {
-            error!("Failed to retrieve OAuthFlow from cache: {:?}", e);
-            e
+        let raw: Option<Vec<u8>> = cache.get(key).await.inspect_err(|e| {
+            error!("Failed to get OAuthFlow from cache: {:?}", e);
         })?;
 
         Ok(raw.map(|bytes| {
@@ -64,9 +59,8 @@ impl OAuthFlow {
     pub(crate) async fn remove(id: &str, cache: &mut ConnectionManager) -> Result<(), RedisError> {
         let key = format!("{}{}:{}", CACHE_KEY_PREFIX, FLOWS_NAMESPACE, id);
 
-        let _: () = cache.del(key).await.map_err(|e| {
+        let _: () = cache.del(key).await.inspect_err(|e| {
             error!("Failed to remove OAuthFlow from cache: {:?}", e);
-            e
         })?;
 
         Ok(())
