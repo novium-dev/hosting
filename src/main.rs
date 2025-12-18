@@ -37,6 +37,7 @@ use tracing::{debug, info};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
 use uuid::Uuid;
+use crate::auth::oauth::AuthService;
 
 const DATABASE_URL: &str = "mysql://root@localhost/backend";
 const CACHE_URL: &str = "valkey://localhost?protocol=resp3";
@@ -48,6 +49,7 @@ pub const CACHE_KEY_PREFIX: &str = "novium:";
 pub(crate) struct Backend {
     pub(crate) database: Arc<MySqlPool>,
     pub(crate) cache: CacheConnectionManager,
+    pub(crate) auth: Arc<AuthService>,
 
     pub(crate) config: Arc<BackendConfig>,
     pub(crate) nodes: Arc<RwLock<HashMap<Uuid, Arc<BackendNode>>>>,
@@ -170,6 +172,10 @@ async fn main0() {
     let backend = Backend {
         database,
         cache,
+        
+        auth: Arc::new(AuthService {
+            config: config.clone(),
+        }),
 
         config: Arc::new(config),
         nodes: Arc::default(),

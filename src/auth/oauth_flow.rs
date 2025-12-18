@@ -1,4 +1,4 @@
-use crate::{CACHE_KEY_PREFIX, define_id};
+use crate::CACHE_KEY_PREFIX;
 use chrono::Duration;
 use redis::aio::ConnectionManager;
 use redis::{AsyncCommands, RedisError};
@@ -8,12 +8,13 @@ use tracing::error;
 
 const FLOWS_NAMESPACE: &str = "oauth_flows";
 
-define_id!(FlowId);
-
 #[derive(Debug, Serialize, Deserialize, Writable, Readable)]
 pub(crate) struct OAuthFlow {
     /// Where to redirect the user after success
     pub(crate) redirect_url: String,
+
+    pub(crate) state: String,
+    pub(crate) verifier: String,
 }
 
 impl OAuthFlow {
@@ -21,9 +22,8 @@ impl OAuthFlow {
         &self,
         expires: Duration,
         cache: &mut ConnectionManager,
-    ) -> Result<String, RedisError> {
-        let flow_id = FlowId::generate();
-        let key = format!("{}{}:{}", CACHE_KEY_PREFIX, FLOWS_NAMESPACE, flow_id);
+    ) -> Result<(), RedisError> {
+        let key = format!("{}{}:{}", CACHE_KEY_PREFIX, FLOWS_NAMESPACE, self.state);
 
         let data = Writable::write_to_vec(self)
             .inspect_err(|e| error!("Failed to serialize OAuthFlow: {:?}", e))
@@ -36,7 +36,7 @@ impl OAuthFlow {
                 error!("Failed to insert OAuthFlow into cache: {:?}", e);
             })?;
 
-        Ok(flow_id.to_string())
+        Ok(())
     }
 
     pub(crate) async fn get(
