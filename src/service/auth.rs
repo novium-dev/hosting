@@ -1,3 +1,4 @@
+use crate::auth::permissions::Role;
 use chrono::Duration;
 use super::*;
 use crate::Backend;

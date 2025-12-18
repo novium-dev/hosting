@@ -16,7 +16,6 @@ pub struct BackendConfig {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthConfig {
     pub url: Url,
-    pub session_lifetime: u64,
     pub client_id: String,
     #[cfg(feature = "embedded_node")]
     pub daemon: EmbeddedNodeConfig,

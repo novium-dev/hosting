@@ -1,4 +1,5 @@
 listeners = ["[::]:3000"]
+public_url = "http://localhost:3000"
 
 # In seconds (= 60*24*30, 30 days)
 session_lifetime = 43200
@@ -6,3 +7,8 @@ session_lifetime = 43200
 # Only relevant if the "embedded_node" feature is set
 [daemon]
 url = "https://localhost:3001"
+
+[auth]
+client_id = "my_client_id_123"
+client_secret = "my_client_secret_456"
+url = "https://auth.example.com"
