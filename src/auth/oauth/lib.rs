@@ -77,10 +77,17 @@ impl OAuthClient for CustomProvider {
         Ok(BasicClient::new(
             ClientId::new(self.client_id.clone()),
             Some(ClientSecret::new(self.client_secret.clone())),
-            AuthUrl::new(self.auth_url.clone()).map_err(|_err| OauthError::AuthUrlCreationFailed)?,
-            Some(TokenUrl::new(self.token_url.clone()).unwrap()),
+            AuthUrl::new(self.auth_url.clone())
+                .map_err(|_err| OauthError::AuthUrlCreationFailed)?,
+            Some(
+                TokenUrl::new(self.token_url.clone())
+                    .map_err(|_err| OauthError::AuthUrlCreationFailed)?,
+            ),
         )
-        .set_redirect_uri(RedirectUrl::new(self.redirect_url.clone()).unwrap()))
+        .set_redirect_uri(
+            RedirectUrl::new(self.redirect_url.clone())
+                .map_err(|_err| OauthError::AuthUrlCreationFailed)?,
+        ))
     }
 
     fn get_state(&self) -> Option<StateAuth> {

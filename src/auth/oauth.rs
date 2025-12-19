@@ -1,11 +1,11 @@
-use reqwest::Client;
-use serde::Deserialize;
-use tracing::error;
 use crate::auth::oauth::lib::CustomProvider;
 use crate::config::BackendConfig;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_misconfigured::FromAuthMisconfigured;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
+use reqwest::Client;
+use serde::Deserialize;
+use tracing::error;
 
 pub(crate) mod lib;
 
@@ -50,9 +50,7 @@ impl AuthService {
         ))
     }
 
-    pub async fn get_user<
-        E: FromAuthMisconfigured + FromAuthPermissionDenied + FromAuthInvalid,
-    >(
+    pub async fn get_user<E: FromAuthMisconfigured + FromAuthPermissionDenied + FromAuthInvalid>(
         &self,
         access_token: &str,
     ) -> Result<AuthUser, E> {
@@ -76,13 +74,10 @@ impl AuthService {
             error!("Permission denied when fetching user info: {:?}", response);
             Err(<E as FromAuthPermissionDenied>::from())
         } else {
-            let user: AuthUser = response
-                .json()
-                .await
-                .map_err(|err| {
-                    error!("Failed to parse user info response: {:?}", err);
-                    <E as FromAuthMisconfigured>::from()
-                })?;
+            let user: AuthUser = response.json().await.map_err(|err| {
+                error!("Failed to parse user info response: {:?}", err);
+                <E as FromAuthMisconfigured>::from()
+            })?;
             Ok(user)
         }
     }

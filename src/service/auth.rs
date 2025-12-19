@@ -71,15 +71,19 @@ pub(crate) impl AuthService for Backend {
                 },
             )
             .await
-            .ok()
-            .unwrap()
+            .expect("Failed to generate OAuth URL")
             .state
             .ok_or(LoginError::AuthMisconfigured)?;
 
         Ok(Redirect::new(
-            Url::parse(state_oauth.url_generated.unwrap().as_str())
-                .map_err(|_err| LoginError::AuthMisconfigured)?
-                .as_str(),
+            Url::parse(
+                state_oauth
+                    .url_generated
+                    .expect("URL should be generated")
+                    .as_str(),
+            )
+            .map_err(|_err| LoginError::AuthMisconfigured)?
+            .as_str(),
         ))
     }
 
