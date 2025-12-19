@@ -3,18 +3,14 @@ use serde::Deserialize;
 
 use crate::auth::oauth::lib::CustomProvider;
 use crate::config::BackendConfig;
+use crate::service::error_auth_invalid::FromAuthInvalid;
+use crate::service::error_auth_missconfigured::FromAuthMissconfigured;
+use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 
 pub(crate) mod lib;
 
 pub(crate) struct AuthService {
     pub(crate) config: BackendConfig,
-}
-
-pub enum AuthServiceError {
-    AuthMissconfigured,
-    InvalidToken,
-    UnknownError,
-    RequestFailed,
 }
 
 #[derive(Deserialize, Debug)]
@@ -30,13 +26,13 @@ pub struct AuthUser {
 }
 
 impl AuthService {
-    pub fn get_client(&self) -> Result<CustomProvider, AuthServiceError> {
+    pub fn get_client<E: FromAuthMissconfigured>(&self) -> Result<CustomProvider, E> {
         let redirect_uri = self
             .config
             .public_url
             .clone()
             .join("/auth/callback")
-            .map_err(|_err| AuthServiceError::AuthMissconfigured)?
+            .map_err(|_| E::from())?
             .to_string();
 
         let base_url = self.config.auth.url.clone().to_string();
@@ -52,7 +48,7 @@ impl AuthService {
         ))
     }
 
-    pub async fn get_user(&self, access_token: &str) -> Result<AuthUser, AuthServiceError> {
+    pub async fn get_user<E: FromAuthMissconfigured + FromAuthPermissionDenied + FromAuthInvalid>(&self, access_token: &str) -> Result<AuthUser, E> {
         let client = Client::new();
         let base_url = &self.config.auth.url;
         let userinfo_url = format!("{base_url}application/o/userinfo/");
@@ -62,18 +58,18 @@ impl AuthService {
             .bearer_auth(access_token)
             .send()
             .await
-            .map_err(|_| AuthServiceError::RequestFailed)?;
+            .map_err(|_| <E as FromAuthInvalid>::from())?;
 
         if response.status() == 401 {
-            return Err(AuthServiceError::InvalidToken);
+            return Err(<E as FromAuthInvalid>::from());
         } else if !response.status().is_success() {
-            return Err(AuthServiceError::RequestFailed);
+            return Err(<E as FromAuthPermissionDenied>::from());
         }
 
         let user: AuthUser = response
             .json()
             .await
-            .map_err(|_| AuthServiceError::RequestFailed)?;
+            .map_err(|_| <E as FromAuthInvalid>::from())?;
         Ok(user)
     }
 }

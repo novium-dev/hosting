@@ -1,12 +1,10 @@
 use super::*;
 use crate::Backend;
-use crate::auth::oauth::AuthServiceError;
 use crate::auth::oauth::lib::OAuthClient;
 use crate::auth::oauth_flow::OAuthFlow;
 use crate::auth::permissions::Role;
 use crate::auth::user::{Session, UserAuthentication};
-use crate::service::auth::auth_service_error::LoginError;
-use crate::service::auth::auth_service_error::{CallbackError, LoginDevError};
+use crate::service::auth::auth_service_error::{CallbackError, LoginDevError, LoginError};
 use chrono::Duration;
 use sqlx::query;
 use tracing::info;
@@ -55,8 +53,7 @@ pub(crate) impl AuthService for Backend {
     async fn login(&self, redirect_url: String) -> Result<Redirect<307>, _> {
         let client = self
             .auth
-            .get_client()
-            .map_err(|_err| LoginError::AuthMissconfigured)?;
+            .get_client::<LoginError>()?;
 
         let state_oauth = client
             .generate_url(
@@ -89,9 +86,8 @@ pub(crate) impl AuthService for Backend {
         ))
     }
 
-    // callback
     #[route("/callback", method = GET, query = [ code, state ], raw)]
-    #[error(cache(failure [redis:*]) os(failure) auth(missconfigured invalid))]
+    #[error(cache(failure [redis:*]) os(failure) auth(missconfigured invalid permission_denied))]
     async fn callback(&self, code: String, state: String) -> Result<Redirect<307>, _> {
         let flow = OAuthFlow::get(&state, &mut self.cache.clone())
             .await?
@@ -99,8 +95,7 @@ pub(crate) impl AuthService for Backend {
 
         let client = self
             .auth
-            .get_client()
-            .map_err(|_err| CallbackError::AuthMissconfigured)?;
+            .get_client::<CallbackError>()?;
 
         let access_token = client
             .generate_token(code, flow.verifier)
@@ -109,14 +104,8 @@ pub(crate) impl AuthService for Backend {
 
         let user = self
             .auth
-            .get_user(&access_token)
-            .await
-            .map_err(|err| match err {
-                AuthServiceError::AuthMissconfigured => CallbackError::AuthMissconfigured,
-                AuthServiceError::InvalidToken => CallbackError::AuthInvalid,
-                AuthServiceError::UnknownError => CallbackError::AuthMissconfigured,
-                AuthServiceError::RequestFailed => CallbackError::AuthInvalid,
-            })?;
+            .get_user::<CallbackError>(&access_token)
+            .await?;
 
         info!("Access Token: {:?}", user);
 
