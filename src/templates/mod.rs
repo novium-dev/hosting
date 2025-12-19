@@ -424,7 +424,6 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         tokio::task::spawn(async move {
             let mut cache_obj = cache_obj;
 
-            #[expect(clippy::infinite_loop, reason = "intended behaviour")]
             loop {
                 if T::cache_update_needed(&cache_obj) {
                     debug!("Updating Cache for {}", id);
