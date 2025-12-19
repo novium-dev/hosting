@@ -36,8 +36,8 @@ impl AuthService {
             .to_string();
 
         let base_url = self.config.auth.url.clone().to_string();
-        let auth_url = format!("{}application/o/authorize/", base_url);
-        let token_url = format!("{}application/o/token/", base_url);
+        let auth_url = format!("{base_url}application/o/authorize/");
+        let token_url = format!("{base_url}application/o/token/");
 
         Ok(CustomProvider::new(
             auth_url,

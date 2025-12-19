@@ -1,7 +1,7 @@
 // Stolen from https://github.com/torto/oauth-axum
 
 use async_trait::async_trait;
-use std::future::Future;
+use core::future::Future;
 
 use oauth2::reqwest::async_http_client;
 use oauth2::{
@@ -119,7 +119,7 @@ impl OAuthClient for CustomProvider {
         let binding = self.get_client();
         let (auth_url, csrf_token) = binding?
             .authorize_url(CsrfToken::new_random)
-            .add_scopes(scopes.into_iter().map(Scope::new).collect::<Vec<Scope>>())
+            .add_scopes(scopes.into_iter().map(Scope::new))
             .set_pkce_challenge(pkce_challenge)
             .url();
 

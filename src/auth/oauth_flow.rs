@@ -1,11 +1,11 @@
 use crate::CACHE_KEY_PREFIX;
+use crate::service::error_cache_failure::FromCacheFailure;
 use chrono::Duration;
 use redis::aio::ConnectionManager;
-use redis::{AsyncCommands, RedisError};
+use redis::{AsyncCommands as _, RedisError};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 use tracing::error;
-use crate::service::error_cache_failure::FromCacheFailure;
 
 const FLOWS_NAMESPACE: &str = "oauth_flows";
 
@@ -58,7 +58,7 @@ impl OAuthFlow {
     }
 
     pub(crate) async fn remove(id: &str, cache: &mut ConnectionManager) -> Result<(), RedisError> {
-        let key = format!("{}{}:{}", CACHE_KEY_PREFIX, FLOWS_NAMESPACE, id);
+        let key = format!("{CACHE_KEY_PREFIX}{FLOWS_NAMESPACE}:{id}");
 
         let _: () = cache.del(key).await.inspect_err(|e| {
             error!("Failed to remove OAuthFlow from cache: {:?}", e);

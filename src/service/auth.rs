@@ -1,6 +1,6 @@
 use super::*;
 use crate::Backend;
-use crate::auth::oauth::lib::OAuthClient;
+use crate::auth::oauth::lib::OAuthClient as _;
 use crate::auth::oauth_flow::OAuthFlow;
 use crate::auth::permissions::Role;
 use crate::auth::user::{Session, UserAuthentication};
@@ -56,19 +56,18 @@ pub(crate) impl AuthService for Backend {
         let state_oauth = client
             .generate_url(
                 Vec::from([
-                    "openid".to_string(),
-                    "profile".to_string(),
-                    "email".to_string(),
+                    "openid".to_owned(),
+                    "profile".to_owned(),
+                    "email".to_owned(),
                 ]),
                 |state_e| async move {
-                    OAuthFlow {
+                    let _ = OAuthFlow {
                         redirect_url: redirect_url.clone(),
                         state: state_e.state,
                         verifier: state_e.verifier,
                     }
                     .insert::<LoginError>(Duration::minutes(30), &mut self.cache.clone())
-                    .await
-                    .ok();
+                    .await;
                 },
             )
             .await
@@ -107,14 +106,13 @@ pub(crate) impl AuthService for Backend {
         let session = Session::generate().map_err(|_err| CallbackError::OsFailure)?;
         session.apply(self, user_id).await?;
 
-        let _ = OAuthFlow::remove(&state, &mut self.cache.clone())
-            .await;
+        let _ = OAuthFlow::remove(&state, &mut self.cache.clone()).await;
 
         let redirect_destination =
             Url::parse(&flow.redirect_url).map_err(|_| CallbackError::AuthMissconfigured)?;
 
         let final_redirect = redirect_destination
-            .join(&format!("?session={}", session))
+            .join(&format!("?session={session}"))
             .map_err(|_| CallbackError::AuthMissconfigured)?;
 
         Ok(Redirect::new(final_redirect.as_str()))
