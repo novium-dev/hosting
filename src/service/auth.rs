@@ -49,7 +49,7 @@ pub(crate) impl AuthService for Backend {
     }
 
     #[route("/login", method = GET, query = [ redirect_url ], raw)]
-    #[error(cache(failure [redis:*]) auth(missconfigured))]
+    #[error(auth::missconfigured, cache::failure <- [redis:*])]
     async fn login(&self, redirect_url: String) -> Result<Redirect<307>, _> {
         let client = self.auth.get_client::<LoginError>()?;
 
@@ -66,7 +66,7 @@ pub(crate) impl AuthService for Backend {
                         state: state_e.state,
                         verifier: state_e.verifier,
                     }
-                    .insert(Duration::minutes(30), &mut self.cache.clone())
+                    .insert::<LoginError>(Duration::minutes(30), &mut self.cache.clone())
                     .await
                     .ok();
                 },
@@ -85,9 +85,9 @@ pub(crate) impl AuthService for Backend {
     }
 
     #[route("/callback", method = GET, query = [ code, state ], raw)]
-    #[error(db(failure [sql:*]) cache(failure [redis:*]) os(failure) auth(missconfigured permission_denied))]
+    #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure, auth::missconfigured, auth::permission_denied)]
     async fn callback(&self, code: String, state: String) -> Result<Redirect<307>, _> {
-        let flow = OAuthFlow::get(&state, &mut self.cache.clone())
+        let flow = OAuthFlow::get::<CallbackError>(&state, &mut self.cache.clone())
             .await?
             .ok_or(CallbackError::AuthMissconfigured)?;
 

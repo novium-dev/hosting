@@ -5,6 +5,7 @@ use redis::{AsyncCommands, RedisError};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 use tracing::error;
+use crate::service::error_cache_failure::FromCacheFailure;
 
 const FLOWS_NAMESPACE: &str = "oauth_flows";
 
@@ -18,42 +19,42 @@ pub(crate) struct OAuthFlow {
 }
 
 impl OAuthFlow {
-    pub(crate) async fn insert(
+    pub(crate) async fn insert<E: From<RedisError> + FromCacheFailure>(
         &self,
         expires: Duration,
         cache: &mut ConnectionManager,
-    ) -> Result<(), RedisError> {
-        let key = format!("{}{}:{}", CACHE_KEY_PREFIX, FLOWS_NAMESPACE, self.state);
+    ) -> Result<(), E> {
+        let key = format!("{CACHE_KEY_PREFIX}{FLOWS_NAMESPACE}:{}", self.state);
 
         let data = Writable::write_to_vec(self)
-            .inspect_err(|e| error!("Failed to serialize OAuthFlow: {:?}", e))
-            .unwrap();
+            .inspect_err(|err| error!("Failed to serialize OAuthFlow: {err:?}"))
+            .map_err(|_err| <E as FromCacheFailure>::from())?;
 
         let _: () = cache
             .set_ex(key, data, expires.num_seconds().unsigned_abs())
             .await
-            .inspect_err(|e| {
-                error!("Failed to insert OAuthFlow into cache: {:?}", e);
-            })?;
+            .inspect_err(|err| error!("Failed to insert OAuthFlow into cache: {err:?}"))?;
 
         Ok(())
     }
 
-    pub(crate) async fn get(
+    pub(crate) async fn get<E: From<RedisError> + FromCacheFailure>(
         id: &str,
         cache: &mut ConnectionManager,
-    ) -> Result<Option<Self>, RedisError> {
-        let key = format!("{}{}:{}", CACHE_KEY_PREFIX, FLOWS_NAMESPACE, id);
+    ) -> Result<Option<Self>, E> {
+        let key = format!("{CACHE_KEY_PREFIX}{FLOWS_NAMESPACE}:{id}");
 
-        let raw: Option<Vec<u8>> = cache.get(key).await.inspect_err(|e| {
-            error!("Failed to get OAuthFlow from cache: {:?}", e);
-        })?;
+        let Some(bytes) = cache
+            .get::<_, Option<Vec<u8>>>(key)
+            .await
+            .inspect_err(|err| error!("Failed to retrieve OAuthFlow from cache: {err:?}"))?
+        else {
+            return Ok(None);
+        };
 
-        Ok(raw.map(|bytes| {
-            Readable::read_from_buffer(&bytes)
-                .inspect_err(|e| error!("Failed to deserialize OAuthFlow: {:?}", e))
-                .unwrap()
-        }))
+        Readable::read_from_buffer(&bytes)
+            .inspect_err(|err| error!("Failed to deserialize OAuthFlow: {err:?}"))
+            .map_err(|_err| <E as FromCacheFailure>::from())
     }
 
     pub(crate) async fn remove(id: &str, cache: &mut ConnectionManager) -> Result<(), RedisError> {
