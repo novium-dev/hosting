@@ -51,9 +51,7 @@ pub(crate) impl AuthService for Backend {
     #[route("/login", method = GET, query = [ redirect_url ], raw)]
     #[error(cache(failure [redis:*]) auth(missconfigured))]
     async fn login(&self, redirect_url: String) -> Result<Redirect<307>, _> {
-        let client = self
-            .auth
-            .get_client::<LoginError>()?;
+        let client = self.auth.get_client::<LoginError>()?;
 
         let state_oauth = client
             .generate_url(
@@ -87,43 +85,36 @@ pub(crate) impl AuthService for Backend {
     }
 
     #[route("/callback", method = GET, query = [ code, state ], raw)]
-    #[error(cache(failure [redis:*]) os(failure) auth(missconfigured invalid permission_denied))]
+    #[error(db(failure [sql:*]) cache(failure [redis:*]) os(failure) auth(missconfigured permission_denied))]
     async fn callback(&self, code: String, state: String) -> Result<Redirect<307>, _> {
         let flow = OAuthFlow::get(&state, &mut self.cache.clone())
             .await?
             .ok_or(CallbackError::AuthMissconfigured)?;
 
-        let client = self
-            .auth
-            .get_client::<CallbackError>()?;
+        let client = self.auth.get_client::<CallbackError>()?;
 
         let access_token = client
             .generate_token(code, flow.verifier)
             .await
             .map_err(|_err| CallbackError::AuthMissconfigured)?;
 
-        let user = self
-            .auth
-            .get_user::<CallbackError>(&access_token)
-            .await?;
+        let user = self.auth.get_user::<CallbackError>(&access_token).await?;
 
         info!("Access Token: {:?}", user);
 
-        // testi testi
-        let user_id = 1;
+        let user_id = self.get_or_create_user(user).await?;
 
         let session = Session::generate().map_err(|_err| CallbackError::OsFailure)?;
         session.apply(self, user_id).await?;
 
-        OAuthFlow::remove(&state, &mut self.cache.clone())
-            .await
-            .ok();
+        let _ = OAuthFlow::remove(&state, &mut self.cache.clone())
+            .await;
 
         let redirect_destination =
             Url::parse(&flow.redirect_url).map_err(|_| CallbackError::AuthMissconfigured)?;
 
         let final_redirect = redirect_destination
-            .join(&format!("?session={}", session.to_string()))
+            .join(&format!("?session={}", session))
             .map_err(|_| CallbackError::AuthMissconfigured)?;
 
         Ok(Redirect::new(final_redirect.as_str()))

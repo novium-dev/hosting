@@ -15,12 +15,12 @@ pub(crate) struct AuthService {
 
 #[derive(Deserialize, Debug)]
 pub struct AuthUser {
-    sub: String,
-    email: String,
+    pub(crate) sub: String,
+    pub(crate) email: String,
     email_verified: bool,
     name: String,
     given_name: String,
-    preferred_username: String,
+    pub(crate) preferred_username: String,
     nickname: String,
     groups: Vec<String>,
 }
@@ -48,7 +48,12 @@ impl AuthService {
         ))
     }
 
-    pub async fn get_user<E: FromAuthMissconfigured + FromAuthPermissionDenied + FromAuthInvalid>(&self, access_token: &str) -> Result<AuthUser, E> {
+    pub async fn get_user<
+        E: FromAuthMissconfigured + FromAuthPermissionDenied + FromAuthInvalid,
+    >(
+        &self,
+        access_token: &str,
+    ) -> Result<AuthUser, E> {
         let client = Client::new();
         let base_url = &self.config.auth.url;
         let userinfo_url = format!("{base_url}application/o/userinfo/");

@@ -1,4 +1,5 @@
 use crate::Backend;
+use crate::auth::oauth::AuthUser;
 use crate::auth::permissions::{HasPermission, Permission, Role, ServerPermissions};
 use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
@@ -272,5 +273,33 @@ impl DocumentedType for UserAuthentication {
                 ))))
                 .required(Required::False),
         )
+    }
+}
+
+impl Backend {
+    pub async fn get_or_create_user(&self, auth_user: AuthUser) -> Result<u32, sqlx::Error> {
+        let mut conn = self.database.acquire().await?;
+        let result = query!(
+            r#"
+    INSERT INTO `users`
+        (`username`, `auth_id`, `permissions`, `role`, `email`)
+    VALUES
+        (?, ?, 0, ?, ?)
+    ON DUPLICATE KEY UPDATE
+        username = VALUES(username),
+        email = VALUES(email),
+        id = LAST_INSERT_ID(id)
+    "#,
+            auth_user.preferred_username,
+            auth_user.sub,
+            Role::User as u8,
+            auth_user.email
+        )
+        .execute(&mut *conn)
+        .await?;
+
+        let user_id: u32 = result.last_insert_id() as u32;
+
+        Ok(user_id)
     }
 }

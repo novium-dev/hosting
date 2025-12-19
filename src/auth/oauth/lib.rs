@@ -5,8 +5,8 @@ use std::future::Future;
 
 use oauth2::reqwest::async_http_client;
 use oauth2::{
-    basic::BasicClient, AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl,
-    Scope, TokenUrl,
+    AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, Scope, TokenUrl,
+    basic::BasicClient,
 };
 use oauth2::{AuthorizationCode, PkceCodeVerifier, TokenResponse};
 
@@ -98,7 +98,7 @@ impl OAuthClient for CustomProvider {
             AuthUrl::new(self.auth_url.clone()).map_err(|_| OauthError::AuthUrlCreationFailed)?,
             Some(TokenUrl::new(self.token_url.clone()).unwrap()),
         )
-            .set_redirect_uri(RedirectUrl::new(self.redirect_url.clone()).unwrap()))
+        .set_redirect_uri(RedirectUrl::new(self.redirect_url.clone()).unwrap()))
     }
 
     fn get_state(&self) -> Option<StateAuth> {
