@@ -60,12 +60,10 @@ impl OAuthFlow {
     pub(crate) async fn remove(id: &str, cache: &mut ConnectionManager) -> Result<(), RedisError> {
         let key = format!("{CACHE_KEY_PREFIX}{FLOWS_NAMESPACE}:{id}");
 
-        let removed: i64 = cache.del(&key).await.inspect_err(|err| {
-            error!("Failed to remove OAuthFlow from cache for key={key}: {err:?}");
-        })?;
+        let removed: i64 = cache.del(&key).await?;
 
         if removed == 0 {
-            error!("No OAuthFlow found to remove for key={key}");
+            error!("OAuthFlow with id {id} was not found in cache to remove");
         }
         Ok(())
     }
