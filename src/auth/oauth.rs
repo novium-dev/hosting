@@ -1,10 +1,10 @@
 use reqwest::Client;
 use serde::Deserialize;
-
+use tracing::error;
 use crate::auth::oauth::lib::CustomProvider;
 use crate::config::BackendConfig;
 use crate::service::error_auth_invalid::FromAuthInvalid;
-use crate::service::error_auth_missconfigured::FromAuthMissconfigured;
+use crate::service::error_auth_misconfigured::FromAuthMisconfigured;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 
 pub(crate) mod lib;
@@ -26,16 +26,18 @@ pub struct AuthUser {
 }
 
 impl AuthService {
-    pub fn get_client<E: FromAuthMissconfigured>(&self) -> Result<CustomProvider, E> {
+    pub fn get_client<E: FromAuthMisconfigured>(&self) -> Result<CustomProvider, E> {
         let redirect_uri = self
             .config
             .public_url
-            .clone()
             .join("/auth/callback")
-            .map_err(|_| E::from())?
+            .map_err(|err| {
+                error!("Failed to create redirect URI: {:?}", err);
+                <E as FromAuthMisconfigured>::from()
+            })?
             .to_string();
 
-        let base_url = self.config.auth.url.clone().to_string();
+        let base_url = self.config.auth.url.to_string();
         let auth_url = format!("{base_url}application/o/authorize/");
         let token_url = format!("{base_url}application/o/token/");
 
@@ -49,7 +51,7 @@ impl AuthService {
     }
 
     pub async fn get_user<
-        E: FromAuthMissconfigured + FromAuthPermissionDenied + FromAuthInvalid,
+        E: FromAuthMisconfigured + FromAuthPermissionDenied + FromAuthInvalid,
     >(
         &self,
         access_token: &str,
@@ -63,18 +65,25 @@ impl AuthService {
             .bearer_auth(access_token)
             .send()
             .await
-            .map_err(|_| <E as FromAuthInvalid>::from())?;
+            .map_err(|err| {
+                error!("Failed to fetch user info: {:?}", err);
+                <E as FromAuthInvalid>::from()
+            })?;
 
         if response.status() == 401 {
-            return Err(<E as FromAuthInvalid>::from());
+            Err(<E as FromAuthInvalid>::from())
         } else if !response.status().is_success() {
-            return Err(<E as FromAuthPermissionDenied>::from());
+            error!("Permission denied when fetching user info: {:?}", response);
+            Err(<E as FromAuthPermissionDenied>::from())
+        } else {
+            let user: AuthUser = response
+                .json()
+                .await
+                .map_err(|err| {
+                    error!("Failed to parse user info response: {:?}", err);
+                    <E as FromAuthMisconfigured>::from()
+                })?;
+            Ok(user)
         }
-
-        let user: AuthUser = response
-            .json()
-            .await
-            .map_err(|_| <E as FromAuthInvalid>::from())?;
-        Ok(user)
     }
 }

@@ -8,7 +8,7 @@ pub(crate) mod template;
 
 define_error!(auth {
     invalid("Invalid authentication credentials" UNAUTHORIZED),
-    missconfigured("Authentication system is misconfigured" INTERNAL_SERVER_ERROR),
+    misconfigured("Authentication system is misconfigured" INTERNAL_SERVER_ERROR),
     permission_denied("You don't have the necessary permissions to perform this operation" FORBIDDEN),
 });
 

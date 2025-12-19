@@ -18,8 +18,6 @@ pub struct AuthConfig {
     pub url: Url,
     pub client_id: String,
     pub client_secret: String,
-    #[cfg(feature = "embedded_node")]
-    pub daemon: EmbeddedNodeConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

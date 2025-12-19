@@ -9,7 +9,9 @@ use oauth2::{
     basic::BasicClient,
 };
 use oauth2::{AuthorizationCode, PkceCodeVerifier, TokenResponse as _};
+use tracing::error;
 
+#[derive(Debug)]
 pub enum OauthError {
     TokenRequestFailed,
     AuthUrlCreationFailed,
@@ -51,20 +53,12 @@ impl CustomProvider {
     }
 }
 
-/// OAuthClient is the main struct of the lib, it will handle all the connection with the provider
 #[async_trait]
 pub trait OAuthClient {
     fn get_client(&self) -> Result<BasicClient, OauthError>;
 
-    /// Get fields data from generated URL
-    /// # Return
-    /// StateAuth - The state, verifier and url_generated
     fn get_state(&self) -> Option<StateAuth>;
 
-    /// Generate the URL to redirect the user to the provider
-    /// # Arguments
-    /// * `scopes` - Vec<String> - The scopes that you want to access in the provider
-    /// * `save` - F - The function that will use to save your state in the db/memory
     async fn generate_url<F, Fut>(
         mut self,
         scopes: Vec<String>,
@@ -74,12 +68,6 @@ pub trait OAuthClient {
         F: FnOnce(StateAuth) -> Fut + Send,
         Fut: Future<Output = ()> + Send;
 
-    /// Generate the token from the code and verifier
-    /// # Arguments
-    /// * `code` - String - The code that the provider will return after the user accept the auth
-    /// * `verifier` - String - The verifier that was generated in the first step
-    /// # Return
-    /// The token generated
     async fn generate_token(&self, code: String, verifier: String) -> Result<String, OauthError>;
 }
 
@@ -89,7 +77,7 @@ impl OAuthClient for CustomProvider {
         Ok(BasicClient::new(
             ClientId::new(self.client_id.clone()),
             Some(ClientSecret::new(self.client_secret.clone())),
-            AuthUrl::new(self.auth_url.clone()).map_err(|_| OauthError::AuthUrlCreationFailed)?,
+            AuthUrl::new(self.auth_url.clone()).map_err(|_err| OauthError::AuthUrlCreationFailed)?,
             Some(TokenUrl::new(self.token_url.clone()).unwrap()),
         )
         .set_redirect_uri(RedirectUrl::new(self.redirect_url.clone()).unwrap()))
@@ -136,7 +124,10 @@ impl OAuthClient for CustomProvider {
             .set_pkce_verifier(PkceCodeVerifier::new(verifier.clone()))
             .request_async(async_http_client)
             .await
-            .map_err(|_| OauthError::TokenRequestFailed)?;
-        Ok(token.access_token().secret().to_string())
+            .map_err(|err| {
+                error!("Token request failed: {:?}", err);
+                OauthError::TokenRequestFailed
+            })?;
+        Ok(token.access_token().secret().clone())
     }
 }
