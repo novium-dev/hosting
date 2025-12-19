@@ -37,7 +37,7 @@ pub(crate) impl TemplateService for Backend {
 
     /// Shows information on a specific template.
     #[route("/{template}", method = GET)]
-    #[error(cache(failure [redis:*]) template(not_found unavailable))]
+    #[error(cache::failure <- [redis:*], template::{not_found, unavailable})]
     async fn template_info(&self, template: String) -> Result<TemplateInfo, _> {
         let Some(template) = self.templates.read().await.get(&template).cloned() else {
             return Err(TemplateInfoError::TemplateNotFound);

@@ -21,14 +21,14 @@ pub(crate) impl AuthService for Backend {
     /// Invalidates the current user session.
     /// This does not work for api keys.
     #[route("/logout", method = GET)]
-    #[error(db(failure [sql:*]) cache(failure [redis:*]))]
+    #[error(db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn logout(&self, #[special] auth: UserAuthentication) -> Result<(), _> {
         auth.session.invalidate(self).await?;
         Ok(())
     }
 
     #[route("/login/dev", method = GET)]
-    #[error(db(failure [sql:*]) cache(failure [redis:*]) os(failure))]
+    #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure)]
     async fn login_dev(&self) -> Result<String, _> {
         let session = Session::generate().map_err(|_err| LoginDevError::OsFailure)?;
 
