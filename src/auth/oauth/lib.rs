@@ -8,7 +8,7 @@ use oauth2::{
     AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, Scope, TokenUrl,
     basic::BasicClient,
 };
-use oauth2::{AuthorizationCode, PkceCodeVerifier, TokenResponse};
+use oauth2::{AuthorizationCode, PkceCodeVerifier, TokenResponse as _};
 
 pub enum OauthError {
     TokenRequestFailed,
@@ -25,12 +25,6 @@ pub struct CustomProvider {
     pub state: Option<StateAuth>,
 }
 
-#[derive(Clone)]
-pub enum MethodExecute {
-    DB,
-    MEMORY,
-}
-
 #[derive(Clone, Debug)]
 pub struct StateAuth {
     pub url_generated: Option<String>,
@@ -39,14 +33,14 @@ pub struct StateAuth {
 }
 
 impl CustomProvider {
-    pub fn new(
+    pub const fn new(
         auth_url: String,
         token_url: String,
         client_id: String,
         client_secret: String,
         redirect_url: String,
     ) -> Self {
-        CustomProvider {
+        Self {
             auth_url,
             token_url,
             client_id,
@@ -125,8 +119,8 @@ impl OAuthClient for CustomProvider {
 
         let state = StateAuth {
             url_generated: Some(auth_url.to_string()),
-            state: csrf_token.secret().to_string(),
-            verifier: pkce_verifier.secret().to_string(),
+            state: csrf_token.secret().clone(),
+            verifier: pkce_verifier.secret().clone(),
         };
 
         self.state = Some(state.clone());
