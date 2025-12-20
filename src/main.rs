@@ -13,6 +13,7 @@ mod shutdown;
 pub(crate) mod templates;
 mod utils;
 
+use crate::auth::oauth::AuthService;
 use crate::config::BackendConfig;
 use crate::db::node::BackendNode;
 #[cfg(feature = "embedded_node")]
@@ -48,6 +49,7 @@ pub const CACHE_KEY_PREFIX: &str = "novium:";
 pub(crate) struct Backend {
     pub(crate) database: Arc<MySqlPool>,
     pub(crate) cache: CacheConnectionManager,
+    pub(crate) auth: Arc<AuthService>,
 
     pub(crate) config: Arc<BackendConfig>,
     pub(crate) nodes: Arc<RwLock<HashMap<Uuid, Arc<BackendNode>>>>,
@@ -170,6 +172,10 @@ async fn main0() {
     let backend = Backend {
         database,
         cache,
+
+        auth: Arc::new(AuthService {
+            config: config.clone(),
+        }),
 
         config: Arc::new(config),
         nodes: Arc::default(),
