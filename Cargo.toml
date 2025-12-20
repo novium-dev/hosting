@@ -267,7 +267,7 @@ features = [
 [dependencies.daemon]
 git = "ssh://git@github.com/novium-dev/daemon.git"
 default-features = false
-features = ["btrfs"]
+features = ["btrfs", "no_tty_size_please"]
 optional = true
 
 [dependencies.sentry]

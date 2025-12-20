@@ -7,4 +7,4 @@ RUN cd / && java -jar /installer.jar install server "$MINECRAFT_VERSION" "$LOADE
 
 RUN rm -f /installer.json /installer.jar
 
-ENTRYPOINT ["java", "-Dloader.gameJarPath=/server.jar", "-Djava.net.preferIPv6Addresses=system", "-XX:MaxRAMPercentage=95.0", "-jar", "/quilt-server-launch.jar"]
+ENTRYPOINT ["java", "-Dloader.gameJarPath=/server.jar", "-Dterminal.jline=false", "-Dterminal.ansi=true", "-Djava.net.preferIPv6Addresses=system", "-XX:MaxRAMPercentage=95.0", "-jar", "/quilt-server-launch.jar"]

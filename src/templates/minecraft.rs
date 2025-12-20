@@ -152,7 +152,7 @@ impl MinecraftServerModification {
 }
 
 impl MinecraftServerExtra {
-    const REL: usize = 1;
+    const REL: usize = 2;
 
     pub(crate) const fn modification(&self) -> MinecraftServerModification {
         match self {

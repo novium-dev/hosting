@@ -7,4 +7,4 @@ RUN cd / && java -jar /installer.jar server -mcversion "$MINECRAFT_VERSION" -loa
 
 RUN rm -f /installer.json /installer.jar
 
-ENTRYPOINT ["java", "-Dfabric.gameJarPath=/server.jar", "-Djava.net.preferIPv6Addresses=system", "-XX:MaxRAMPercentage=95.0", "-jar", "/fabric-server-launch.jar"]
+ENTRYPOINT ["java", "-Dfabric.gameJarPath=/server.jar", "-Dterminal.jline=false", "-Dterminal.ansi=true", "-Djava.net.preferIPv6Addresses=system", "-XX:MaxRAMPercentage=95.0", "-jar", "/fabric-server-launch.jar"]
