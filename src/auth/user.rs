@@ -19,7 +19,7 @@ use rand::TryRngCore as _;
 use rand::rngs::{OsError, OsRng};
 use redis::{AsyncTypedCommands as _, RedisError};
 use regex::Regex;
-use serde::Serializer as _;
+use serde::{Deserialize, Serialize, Serializer as _};
 use sqlx::{query, query_scalar};
 use std::collections::HashMap;
 use std::io;
@@ -39,6 +39,19 @@ pub struct UserAuthentication {
     servers: HashMap<ServerId, ServerPermissions>,
 }
 
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct SerializedUser {
+    pub id: u32,
+    pub username: String,
+    //pub auth_id: String,
+    pub permissions: i64,
+    pub role: Role,
+    pub email: String,
+    //pub language: String,
+    //pub first_name: Option<String>,
+    //pub last_name: Option<String>,
+}
+
 impl UserAuthentication {
     pub fn has<P: HasPermission>(&self, extra: P::Extra, permission: P) -> bool {
         permission.has(extra, self.permissions, &self.servers)
@@ -46,6 +59,25 @@ impl UserAuthentication {
 
     pub fn require<P: Permission<E>, E>(&self, extra: P::Extra, permission: P) -> Result<(), E> {
         permission.require(extra, self.permissions, &self.servers)
+    }
+
+    pub async fn serialized(&self, backend: &Backend) -> Result<SerializedUser, sqlx::Error> {
+        let mut conn = backend.database.acquire().await?;
+
+        let user = query!(
+            "SELECT `username`, `auth_id`, `permissions`, `role` AS `role: u8`, `email` FROM `users` WHERE `id` = ?",
+            self.id
+        )
+            .fetch_one(&mut *conn)
+            .await?;
+
+        Ok(SerializedUser {
+            id: self.id,
+            username: user.username,
+            permissions: user.permissions,
+            role: Role::try_from(user.role).unwrap_or(Role::User),
+            email: user.email,
+        })
     }
 }
 

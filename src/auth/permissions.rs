@@ -285,7 +285,7 @@ impl ManagementPermissions {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[repr(u8)]
 pub enum Role {
     Admin = 3,

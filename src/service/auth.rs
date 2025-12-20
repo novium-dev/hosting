@@ -3,7 +3,7 @@ use crate::Backend;
 use crate::auth::oauth::lib::OAuthClient as _;
 use crate::auth::oauth_flow::OAuthFlow;
 use crate::auth::permissions::Role;
-use crate::auth::user::{Session, UserAuthentication};
+use crate::auth::user::{SerializedUser, Session, UserAuthentication};
 use crate::service::auth::auth_service_error::{CallbackError, LoginDevError, LoginError};
 use chrono::Duration;
 use sqlx::query;
@@ -25,6 +25,14 @@ pub(crate) impl AuthService for Backend {
     async fn logout(&self, #[special] auth: UserAuthentication) -> Result<(), _> {
         auth.session.invalidate(self).await?;
         Ok(())
+    }
+
+    /// Retrieves information about the currently authenticated user.
+    #[route("/me", method = GET)]
+    #[error(db::failure <- [sql:*], cache::failure <- [redis:*])]
+    async fn me(&self, #[special] auth: UserAuthentication) -> Result<SerializedUser, _> {
+        let user = auth.serialized(self).await?;
+        Ok(user)
     }
 
     #[route("/login/dev", method = GET)]
