@@ -31,8 +31,7 @@ pub(crate) impl AuthService for Backend {
     #[route("/me", method = GET)]
     #[error(db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn me(&self, #[special] auth: UserAuthentication) -> Result<SerializedUser, _> {
-        let user = auth.serialized(self).await?;
-        Ok(user)
+        Ok(auth.serialized())
     }
 
     #[route("/login/dev", method = GET)]

@@ -35,7 +35,10 @@ use zelus::types::DocumentedType;
 pub struct UserAuthentication {
     pub id: u32,
     pub session: Session,
+    username: String,
     permissions: i64,
+    role: Role,
+    email: String,
     servers: HashMap<ServerId, ServerPermissions>,
 }
 
@@ -61,23 +64,14 @@ impl UserAuthentication {
         permission.require(extra, self.permissions, &self.servers)
     }
 
-    pub async fn serialized(&self, backend: &Backend) -> Result<SerializedUser, sqlx::Error> {
-        let mut conn = backend.database.acquire().await?;
-
-        let user = query!(
-            "SELECT `username`, `auth_id`, `permissions`, `role` AS `role: u8`, `email` FROM `users` WHERE `id` = ?",
-            self.id
-        )
-            .fetch_one(&mut *conn)
-            .await?;
-
-        Ok(SerializedUser {
+    pub fn serialized(&self) -> SerializedUser {
+        SerializedUser {
             id: self.id,
-            username: user.username,
-            permissions: user.permissions,
-            role: Role::try_from(user.role).unwrap_or(Role::User),
-            email: user.email,
-        })
+            username: self.username.clone(),
+            permissions: self.permissions,
+            role: self.role,
+            email: self.email.clone(),
+        }
     }
 }
 
@@ -111,8 +105,12 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync>
                 .await
                 .inspect_err(|err| error!("Unable to acquire database connection: {err:?}"))?;
 
-            let Some(user) = query!(
+            /*let Some(user) = query!(
                 "SELECT `permissions`,`role` AS `role: u8` FROM `users` WHERE `id` = ?",
+                id
+            )*/
+            let Some(user) = query!(
+                "SELECT `username`, `permissions`, `role` AS `role: u8`, `email` FROM `users` WHERE `id` = ?",
                 id
             )
             .fetch_optional(&mut *conn)
@@ -151,12 +149,15 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync>
             Ok(Some(Self {
                 id,
                 session,
+                username: user.username,
                 permissions: user.permissions
                     | role
                         .map(|role| {
                             role.management_permissions().bits() | role.server_permissions().bits()
                         })
                         .unwrap_or_default(),
+                role: role.unwrap_or(Role::User),
+                email: user.email,
                 servers,
             }))
         } else {
