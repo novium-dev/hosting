@@ -1,17 +1,15 @@
+pub mod minecraft;
 pub mod variable;
+
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use crate::service::template::error_template_corrupted::FromTemplateCorrupted;
 use crate::service::template::error_template_unavailable::FromTemplateUnavailable;
 use async_trait::async_trait;
-use bytes::Bytes;
 use core::future::Future;
 use core::time::Duration;
 pub use daemon_common::service::server::ServerBuildPayload;
-use either::Either;
 pub use redis::aio::ConnectionManager;
 use redis::{AsyncCommands as _, RedisError};
-use reqwest::Response;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use speedy::{LittleEndian, Readable, Writable};
@@ -451,21 +449,5 @@ impl<T: Template + Send + Sync> TemplateInner for T {
 
     fn default_internet_access(&self) -> bool {
         <Self as Template>::default_internet_access(self)
-    }
-}
-
-pub trait ReqwestJsonExtension {
-    fn json_verbose<T: DeserializeOwned>(
-        self,
-    ) -> impl Future<Output = Result<T, Either<(Bytes, serde_json::Error), reqwest::Error>>> + Send;
-}
-
-impl ReqwestJsonExtension for Response {
-    async fn json_verbose<T: DeserializeOwned>(
-        self,
-    ) -> Result<T, Either<(Bytes, serde_json::Error), reqwest::Error>> {
-        let full = self.bytes().await.map_err(Either::Right)?;
-
-        serde_json::from_slice(&full).map_err(|err| Either::Left((full, err)))
     }
 }
