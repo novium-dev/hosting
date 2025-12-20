@@ -122,13 +122,13 @@ pub(crate) impl AuthService for Backend {
 
         let _ = OAuthFlow::remove(&state, &mut self.cache.clone()).await;
 
-        let redirect_destination =
+        let mut redirect_destination =
             Url::parse(&flow.redirect_url).map_err(|_err| CallbackError::AuthMisconfigured)?;
 
-        let final_redirect = redirect_destination
-            .join(&format!("?session={session}"))
-            .map_err(|_err| CallbackError::AuthMisconfigured)?;
+        redirect_destination
+            .query_pairs_mut()
+            .append_pair("session", &session.to_string());
 
-        Ok(Redirect::new(final_redirect.as_str()))
+        Ok(Redirect::new(redirect_destination.as_str()))
     }
 }
