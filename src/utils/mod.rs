@@ -15,7 +15,7 @@ use zelus::special::OptionalFromRequestParts;
 use zelus::types::DocumentedType;
 
 pub mod id;
-mod serde;
+pub mod serde;
 mod server;
 
 mod header {

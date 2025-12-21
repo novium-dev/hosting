@@ -19,6 +19,7 @@ use crate::db::node::BackendNode;
 #[cfg(feature = "embedded_node")]
 use crate::embedded_node::setup_embedded_node;
 use crate::templates::TemplateInner;
+use crate::templates::minecraft::MinecraftTemplate;
 use core::time::Duration;
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
@@ -206,12 +207,28 @@ async fn main0() {
         .await
         .expect("Unable to sync nodes cache");
 
+    info!("Initializing Templates...");
+    {
+        let mut templates = backend.templates.write().await;
+
+        let minecraft = MinecraftTemplate;
+        minecraft
+            .init(backend.cache.clone())
+            .await
+            .expect("Unable to initialize minecraft template");
+        templates.insert(minecraft.id().to_owned(), Arc::new(minecraft));
+    };
+
+    info!("Starting Webserver...");
+
     backend
         .serve_http()
         .await
         .expect("Unable to serve http server");
 
     backend.hook_signals();
+
+    info!("Ready");
 
     backend.await_shutdown().await;
 }

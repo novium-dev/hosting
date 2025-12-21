@@ -411,9 +411,9 @@ dependencies = [
 
 [[package]]
 name = "axum"
-version = "0.8.7"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b098575ebe77cb6d14fc7f32749631a6e44edbef6b796f89b020e99ba20d425"
+checksum = "8b52af3cb4058c895d37317bb27508dccc8e5f2d39454016b297bf4a400597b8"
 dependencies = [
  "axum-core",
  "axum-macros",
@@ -467,9 +467,9 @@ dependencies = [
 
 [[package]]
 name = "axum-extra"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbfe9f610fe4e99cf0cfcd03ccf8c63c28c616fe714d80475ef731f3b13dd21b"
+checksum = "6dfbd6109d91702d55fc56df06aae7ed85c465a7a451db6c0e54a4b9ca5983d1"
 dependencies = [
  "axum",
  "axum-core",
@@ -573,6 +573,7 @@ dependencies = [
  "rustls 0.23.35",
  "sentry",
  "serde",
+ "serde-xml-rs",
  "serde_json",
  "signal-hook",
  "speedy",
@@ -1390,7 +1391,7 @@ dependencies = [
 [[package]]
 name = "daemon"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#fcb52e501a05c035a2313cb780c92ac0e3f7879b"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#2fe6cffd00484a78befa7ec9346a4681bfcd0317"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1465,7 +1466,7 @@ dependencies = [
 [[package]]
 name = "daemon_common"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#fcb52e501a05c035a2313cb780c92ac0e3f7879b"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#2fe6cffd00484a78befa7ec9346a4681bfcd0317"
 dependencies = [
  "asn1-rs",
  "axum",
@@ -3426,9 +3427,9 @@ dependencies = [
 
 [[package]]
 name = "ntapi"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8a3895c6391c39d7fe7ebc444a87eb2991b2a0bc718fdabd071eec617fc68e4"
+checksum = "c70f219e21142367c70c0b30c6a9e3a14d55b4d12a204d897fbec83a0363f081"
 dependencies = [
  "winapi",
 ]
@@ -4927,9 +4928,9 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
 name = "ryu"
-version = "1.0.20"
+version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
+checksum = "62049b2877bf12821e8f9ad256ee38fdc31db7387ec2d3b3f403024de2034aea"
 
 [[package]]
 name = "salsa20"
@@ -5201,6 +5202,18 @@ checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
  "serde_core",
  "serde_derive",
+]
+
+[[package]]
+name = "serde-xml-rs"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc2215ce3e6a77550b80a1c37251b7d294febaf42e36e21b7b411e0bf54d540d"
+dependencies = [
+ "log",
+ "serde",
+ "thiserror 2.0.17",
+ "xml",
 ]
 
 [[package]]
@@ -7309,6 +7322,12 @@ dependencies = [
  "libc",
  "rustix 1.1.2",
 ]
+
+[[package]]
+name = "xml"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2df5825faced2427b2da74d9100f1e2e93c533fff063506a81ede1cf517b2e7e"
 
 [[package]]
 name = "xxhash-rust"
