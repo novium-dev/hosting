@@ -129,10 +129,6 @@ impl MinecraftServerModification {
         }
     }
 
-    const fn is_bukkit(self) -> bool {
-        matches!(self, Self::Paper | Self::Purpur)
-    }
-
     const fn is_paper(self) -> bool {
         matches!(self, Self::Paper | Self::Purpur)
     }
@@ -708,11 +704,8 @@ impl Template for MinecraftTemplate {
         if extra.supports_datapacks() {
             features.insert("minecraft_data_packs");
         }
-        if modification.is_bukkit() {
-            features.insert("minecraft_plugins_bukkit");
-            if modification.is_paper() {
-                features.insert("minecraft_plugins_paper");
-            }
+        if modification.is_paper() {
+            features.insert("minecraft_plugins_paper");
         }
         if modification.is_fabric() {
             features.insert("minecraft_mods_fabric");
