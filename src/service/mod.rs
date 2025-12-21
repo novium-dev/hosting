@@ -3,6 +3,7 @@ use zelus::error::define_error;
 
 pub(crate) mod admin;
 pub(crate) mod auth;
+pub(crate) mod internal;
 pub(crate) mod server;
 pub(crate) mod template;
 

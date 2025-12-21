@@ -30,6 +30,7 @@ use sqlx::{Connection as _, MySqlPool};
 use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt as _;
 use tokio::sync::broadcast::Sender;
@@ -46,6 +47,8 @@ const CACHE_PREFIX: &str = "novium:";
 
 pub const CACHE_KEY_PREFIX: &str = "novium:";
 
+type NodeRegistrationMap = HashMap<String, (Instant, Option<Uuid>)>;
+
 #[derive(Clone)]
 pub(crate) struct Backend {
     pub(crate) database: Arc<MySqlPool>,
@@ -54,6 +57,8 @@ pub(crate) struct Backend {
 
     pub(crate) config: Arc<BackendConfig>,
     pub(crate) nodes: Arc<RwLock<HashMap<Uuid, Arc<BackendNode>>>>,
+
+    pub(crate) node_registrations: Arc<RwLock<NodeRegistrationMap>>,
 
     pub(crate) templates: Arc<RwLock<HashMap<String, Arc<dyn TemplateInner + Send + Sync>>>>,
 
@@ -180,6 +185,8 @@ async fn main0() {
 
         config: Arc::new(config),
         nodes: Arc::default(),
+
+        node_registrations: Arc::default(),
 
         templates: Arc::default(),
 

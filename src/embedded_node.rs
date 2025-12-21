@@ -5,7 +5,7 @@ use daemon_common::key::rcgen::{CertificateSigningRequestParams, KeyPair};
 use daemon_common::key::{DaemonKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
 use rustls::pki_types::PrivateKeyDer;
-use sqlx::{MySql, Pool, query};
+use sqlx::{Connection as _, MySql, Pool, query};
 use std::io;
 use std::io::ErrorKind;
 use std::sync::Arc;
@@ -57,49 +57,51 @@ pub async fn setup_embedded_node(
         Err(err) => return Err(err.into()),
     };
 
-    let mut conn = db.acquire().await?;
+    let daemon_url = backend_config.daemon.url.to_string();
 
-    query!(
-        "INSERT INTO `nodes`
-        (`id`, `display`, `url`, `default_host`, `default_bind`)
-    VALUES
-        (?, 'Embedded', ?, 'localhost', '0.0.0.0')
-    ON DUPLICATE KEY UPDATE `url` = ?",
-        key.id,
-        backend_config.daemon.url.to_string(),
-        backend_config.daemon.url.to_string()
-    )
-    .execute(&mut *conn)
-    .await?;
+    let config = db.acquire().await?
+        .transaction(move |tx| Box::pin(async move {
+                query!(
+                    "INSERT INTO `nodes`
+                    (`id`, `display`, `url`, `default_host`, `default_bind`)
+                VALUES
+                    (?, 'Embedded', ?, 'localhost', '0.0.0.0')
+                ON DUPLICATE KEY UPDATE `url` = ?",
+                    key.id,
+                    daemon_url,
+                    daemon_url,
+                )
+                .execute(&mut **tx)
+                .await?;
 
-    query!("DELETE FROM `node_server_storage` WHERE `node` = ?", key.id)
-        .execute(&mut *conn)
-        .await?;
+                query!("DELETE FROM `node_server_storage` WHERE `node` = ?", key.id)
+                    .execute(&mut **tx)
+                    .await?;
 
-    query!("DELETE FROM `node_backup_storage` WHERE `node` = ?", key.id)
-        .execute(&mut *conn)
-        .await?;
+                query!("DELETE FROM `node_backup_storage` WHERE `node` = ?", key.id)
+                    .execute(&mut **tx)
+                    .await?;
 
-    for (storage, entry) in &config.storage {
-        let (storage_type, group) = match entry {
-            StorageEntry::Directory { .. } => ("directory", None),
-            StorageEntry::Btrfs { group, .. } => ("btrfs", Some(group)),
-        };
-        query!("INSERT INTO `node_server_storage` (`node`, `storage`, `storage_type`, `group`) VALUES (?, ?, ?, ?)", key.id, storage, storage_type, group)
-            .execute(&mut *conn)
-            .await?;
-    }
-    for (storage, entry) in &config.backup {
-        let (storage_type, group) = match entry {
-            BackupEntry::Archive { .. } => ("archive", None),
-            BackupEntry::Btrfs { group, .. } => ("btrfs", Some(group)),
-        };
-        query!("INSERT INTO `node_backup_storage` (`node`, `storage`, `storage_type`, `group`) VALUES (?, ?, ?, ?)", key.id, storage, storage_type, group)
-            .execute(&mut *conn)
-            .await?;
-    }
-
-    drop(conn);
+                for (storage, entry) in &config.storage {
+                    let (storage_type, group) = match entry {
+                        StorageEntry::Directory { .. } => ("directory", None),
+                        StorageEntry::Btrfs { group, .. } => ("btrfs", Some(group)),
+                    };
+                    query!("INSERT INTO `node_server_storage` (`node`, `storage`, `storage_type`, `group`) VALUES (?, ?, ?, ?)", key.id, storage, storage_type, group)
+                        .execute(&mut **tx)
+                        .await?;
+                }
+                for (storage, entry) in &config.backup {
+                    let (storage_type, group) = match entry {
+                        BackupEntry::Archive { .. } => ("archive", None),
+                        BackupEntry::Btrfs { group, .. } => ("btrfs", Some(group)),
+                    };
+                    query!("INSERT INTO `node_backup_storage` (`node`, `storage`, `storage_type`, `group`) VALUES (?, ?, ?, ?)", key.id, storage, storage_type, group)
+                        .execute(&mut **tx)
+                        .await?;
+                }
+                Ok::<_, sqlx::Error>(config)
+        })).await?;
 
     let daemon = Daemon::init_embedded(
         config,
