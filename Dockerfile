@@ -10,8 +10,8 @@ RUN RUSTFLAGS="-C opt-level=0" cargo install sqlx-cli --no-default-features --fe
 
 FROM chef AS dependencies
 
-RUN apk add --no-cache git mariadb mariadb-client musl-dev llvm20 clang20 lld20 curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
-# zlib-dev zlib-static zstd-dev zstd-static llvm20-static llvm20-dev clang20-static
+RUN apk add --no-cache git mariadb mariadb-client musl-dev llvm21 clang21 lld21 curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+# zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21-static
 
 RUN apk upgrade --no-cache gcc --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
 
