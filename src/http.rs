@@ -22,7 +22,14 @@ impl Backend {
         #[openapi()]
         struct ApiDoc;
 
-        let (router,) = framework_router!(Self self (default,) { ServerService, ServerAdminService, NodeAdminService, AuthService, TemplateService, InternalService });
+        let (default_router,) = framework_router!(Self self (default,) { ServerService, ServerAdminService, NodeAdminService, AuthService, TemplateService, InternalService });
+        let (dev_auth_router,) = framework_router!(Self self (dev_auth,) { AuthService });
+
+        let router = if cfg!(feature = "auth_dev") {
+            default_router.merge(dev_auth_router)
+        } else {
+            default_router
+        };
 
         let (mut router, api) = ZelusRouter::with_openapi(ApiDoc::openapi())
             .merge(router)

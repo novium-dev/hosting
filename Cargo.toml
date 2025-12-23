@@ -9,6 +9,7 @@ reqwest.git = "https://github.com/0xIO32/reqwest.git"
 
 [features]
 default = []
+auth_dev = []
 embedded_node = ["daemon"]
 
 [lints.rust]
@@ -207,7 +208,10 @@ bytes = "1.11.0"
 either = "1.15.0"
 anyhow = "1.0"
 signal-hook = "0.3.18"
-rand = "0.10.0-rc.5"
+
+rand_core = "=0.10.0-rc-2"
+rand = "=0.10.0-rc.5"
+chacha20 = "=0.10.0-rc.5"
 chrono = "0.4.42"
 hex = "0.4.3"
 
@@ -215,7 +219,7 @@ axum = "0.8.8"
 axum-extra = { version = "0.12.3", features = ["typed-header"] }
 axum-server = "0.8.0"
 axum-login = "0.18.0"
-reqwest = { version = "0.12.26", default-features = false, features = [
+reqwest = { version = "0.12.27", default-features = false, features = [
     "charset",
     "http2",
     "json",

@@ -239,3 +239,6 @@ async fn main0() {
 
     backend.await_shutdown().await;
 }
+
+#[cfg(all(not(debug_assertions), feature = "auth_dev"))]
+compile_error!("Dev auth cannot be enabled in production builds!");

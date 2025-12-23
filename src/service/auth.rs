@@ -34,7 +34,7 @@ pub(crate) impl AuthService for Backend {
         Ok(auth.serialized())
     }
 
-    #[route("/login/dev", method = GET)]
+    #[route("/login/dev", method = GET, routes = [ dev_auth ])]
     #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure)]
     async fn login_dev(&self) -> Result<String, _> {
         let session = Session::generate().map_err(|_err| LoginDevError::OsFailure)?;
