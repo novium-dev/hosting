@@ -57,7 +57,6 @@ impl OAuthFlow {
         Readable::read_from_buffer(&bytes)
             .inspect_err(|err| {
                 error!("Failed to deserialize OAuthFlow: {err:?}");
-                error!("Data (first 50 bytes): {:?}", &bytes[..bytes.len().min(50)]);
             })
             .map(Some)
             .map_err(|_err| <E as FromCacheFailure>::from())
