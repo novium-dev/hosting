@@ -36,13 +36,11 @@ use tokio::io::AsyncReadExt as _;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinSet;
-use tracing::{debug, info};
+use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
 use uuid::Uuid;
 
-const DATABASE_URL: &str = "mysql://root@localhost/backend";
-const CACHE_URL: &str = "valkey://localhost?protocol=resp3";
 const CACHE_PREFIX: &str = "novium:";
 
 pub const CACHE_KEY_PREFIX: &str = "novium:";
@@ -135,12 +133,12 @@ async fn main0() {
     let database = Arc::new(loop {
         match MySqlPoolOptions::new()
             .max_connections(5)
-            .connect(&env::var("DATABASE_URL").unwrap_or_else(|_| DATABASE_URL.to_owned()))
+            .connect(&config.database_url)
             .await
         {
             Ok(conn) => break conn,
             Err(err) => {
-                debug!("MySQL connection attempt failed: {err:?}");
+                warn!("MySQL connection attempt failed: {err:?}");
             }
         }
         tokio::time::sleep(Duration::from_secs(5)).await;
@@ -152,13 +150,13 @@ async fn main0() {
         .expect("Unable to run migrations");
 
     let cache = loop {
-        let client = redis::Client::open(CACHE_URL).expect("Invalid cache url");
+        let client = redis::Client::open(&*config.cache_url).expect("Invalid cache url");
         match CacheConnectionManager::new(client).await {
             Ok(conn) => {
                 break conn;
             }
             Err(err) => {
-                debug!("Cache connection attempt failed: {err:?}");
+                warn!("Cache connection attempt failed: {err:?}");
             }
         }
         tokio::time::sleep(Duration::from_secs(5)).await;

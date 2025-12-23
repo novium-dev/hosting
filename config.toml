@@ -1,5 +1,7 @@
 listeners = ["[::]:3000"]
 public_url = "http://localhost:3000"
+database_url = "mysql://root@localhost/backend"
+cache_url = "valkey://localhost?protocol=resp3"
 
 # In seconds (= 60*24*30, 30 days)
 session_lifetime = 43200

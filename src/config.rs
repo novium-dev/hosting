@@ -9,6 +9,8 @@ pub struct BackendConfig {
     pub session_lifetime: u64,
     pub auth: AuthConfig,
     pub public_url: Url,
+    pub database_url: String,
+    pub cache_url: String,
     #[cfg(feature = "embedded_node")]
     pub daemon: EmbeddedNodeConfig,
 }
