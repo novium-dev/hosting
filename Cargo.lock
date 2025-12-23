@@ -162,9 +162,12 @@ dependencies = [
 
 [[package]]
 name = "arc-swap"
-version = "1.7.1"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69f7f8c3906b62b754cd5326047894316021dcfe5a194c8ea52bdd94934a3457"
+checksum = "51d03449bb8ca2cc2ef70869af31463d1ae5ccc8fa3e334b307203fbf815207e"
+dependencies = [
+ "rustversion",
+]
 
 [[package]]
 name = "arcstr"
@@ -305,7 +308,7 @@ dependencies = [
  "futures-lite",
  "parking",
  "polling",
- "rustix 1.1.2",
+ "rustix 1.1.3",
  "slab",
  "windows-sys 0.61.2",
 ]
@@ -858,7 +861,7 @@ dependencies = [
  "cap-primitives",
  "io-extras",
  "io-lifetimes",
- "rustix 1.1.2",
+ "rustix 1.1.3",
 ]
 
 [[package]]
@@ -873,7 +876,7 @@ dependencies = [
  "io-lifetimes",
  "ipnet",
  "maybe-owned",
- "rustix 1.1.2",
+ "rustix 1.1.3",
  "rustix-linux-procfs",
  "windows-sys 0.59.0",
  "winx",
@@ -1299,7 +1302,7 @@ dependencies = [
  "futures-core",
  "mio",
  "parking_lot",
- "rustix 1.1.2",
+ "rustix 1.1.3",
  "signal-hook",
  "signal-hook-mio",
  "winapi",
@@ -1406,7 +1409,7 @@ dependencies = [
 [[package]]
 name = "daemon"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#79df96dcab69190528faf082e08b1801af12577e"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#548b91661982bb7707f2ed434cf4db3a0e78de94"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1450,7 +1453,7 @@ dependencies = [
  "ringbuffer",
  "russh",
  "russh-sftp",
- "rustix 1.1.2",
+ "rustix 1.1.3",
  "rustls 0.23.35",
  "rustls-pemfile 2.2.0",
  "serde",
@@ -1481,7 +1484,7 @@ dependencies = [
 [[package]]
 name = "daemon_common"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#79df96dcab69190528faf082e08b1801af12577e"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#548b91661982bb7707f2ed434cf4db3a0e78de94"
 dependencies = [
  "asn1-rs",
  "axum",
@@ -2033,7 +2036,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94e7099f6313ecacbe1256e8ff9d617b75d1bcb16a6fddef94866d225a01a14a"
 dependencies = [
  "io-lifetimes",
- "rustix 1.1.2",
+ "rustix 1.1.3",
  "windows-sys 0.59.0",
 ]
 
@@ -4077,7 +4080,7 @@ dependencies = [
  "concurrent-queue",
  "hermit-abi",
  "pin-project-lite",
- "rustix 1.1.2",
+ "rustix 1.1.3",
  "windows-sys 0.61.2",
 ]
 
@@ -4833,9 +4836,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.1.2"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd15f8a2c5551a84d56efdc1cd049089e409ac19a3072d5037a17fd70719ff3e"
+checksum = "146c9e247ccc180c1f61615433868c99f3de3ae256a30a43b49f67c2d9171f34"
 dependencies = [
  "bitflags 2.10.0",
  "errno",
@@ -4851,7 +4854,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2fc84bf7e9aa16c4f2c758f27412dc9841341e16aa682d9c7ac308fe3ee12056"
 dependencies = [
  "once_cell",
- "rustix 1.1.2",
+ "rustix 1.1.3",
 ]
 
 [[package]]
@@ -7344,7 +7347,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32e45ad4206f6d2479085147f02bc2ef834ac85886624a23575ae137c8aa8156"
 dependencies = [
  "libc",
- "rustix 1.1.2",
+ "rustix 1.1.3",
 ]
 
 [[package]]
