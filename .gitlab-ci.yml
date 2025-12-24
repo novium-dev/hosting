@@ -48,9 +48,7 @@ stages:
     - crates/sqlx-cli/bin/sqlx database create --database-url "$BACKEND_DATABASE_URL"
     - crates/sqlx-cli/bin/sqlx migrate run --database-url "$BACKEND_DATABASE_URL" --source "migrations"
     - eval $(ssh-agent -s)
-    - dos2unix "$DAEMON_SSH_KEY"
-    - chmod 600 "$DAEMON_SSH_KEY"
-    - ssh-add "$DAEMON_SSH_KEY"
+    - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
   services:
     - name: mariadb:latest
       alias: db
@@ -149,9 +147,7 @@ deny:
   script:
     - apk add --no-cache openssh-client-default --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - eval $(ssh-agent -s)
-    - dos2unix "$DAEMON_SSH_KEY"
-    - chmod 600 "$DAEMON_SSH_KEY"
-    - ssh-add "$DAEMON_SSH_KEY"
+    - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
     - mkdir crates/cargo-deny -p
     - cargo install --color always --verbose cargo-deny --root crates/cargo-deny
     - crates/cargo-deny/bin/cargo-deny check
@@ -204,9 +200,7 @@ deploy_backend:
   script:
     - apk add --no-cache openssh-client-default --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - eval $(ssh-agent -s)
-    - dos2unix "$DAEMON_SSH_KEY"
-    - chmod 600 "$DAEMON_SSH_KEY"
-    - ssh-add "$DAEMON_SSH_KEY"
+    - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
     - docker pull $CI_REGISTRY_IMAGE:latest || true
     - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} --tag $CI_REGISTRY_IMAGE:latest --ssh default .
     - docker push $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8}
