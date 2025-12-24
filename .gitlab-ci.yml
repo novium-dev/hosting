@@ -146,6 +146,10 @@ deny:
         - crates/cargo-deny
       policy: pull-push
   script:
+    - apk add --no-cache openssh-client-default --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+    - eval $(ssh-agent -s)
+    - chmod 600 "$DAEMON_SSH_KEY"
+    - ssh-add "$DAEMON_SSH_KEY"
     - mkdir crates/cargo-deny -p
     - cargo install --color always --verbose cargo-deny --root crates/cargo-deny
     - crates/cargo-deny/bin/cargo-deny check
