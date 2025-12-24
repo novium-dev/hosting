@@ -47,6 +47,7 @@ stages:
     - until mariadb-admin ping --host db --user root --skip-ssl-verify-server-cert; do sleep 1; done
     - crates/sqlx-cli/bin/sqlx database create --database-url "$BACKEND_DATABASE_URL"
     - crates/sqlx-cli/bin/sqlx migrate run --database-url "$BACKEND_DATABASE_URL" --source "migrations"
+    - eval $(ssh-agent -s)
     - ssh-add "$DAEMON_SSH_KEY"
   services:
     - name: mariadb:latest
@@ -195,6 +196,7 @@ deploy_backend:
   extends: .docker-deploy-default
   script:
     - apk add --no-cache openssh-client-default --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+    - eval $(ssh-agent -s)
     - ssh-add "$DAEMON_SSH_KEY"
     - docker pull $CI_REGISTRY_IMAGE:latest || true
     - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} --tag $CI_REGISTRY_IMAGE:latest --ssh default .
