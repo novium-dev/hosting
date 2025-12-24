@@ -42,7 +42,7 @@ stages:
   before_script:
     - rustc --version && cargo --version
     - mkdir .cargo_home -p
-    - apk add --no-cache libxml2-utils musl-dev ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21 clang21-static lld21 git mariadb-client curl btrfs-progs-dev --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+    - apk add --no-cache openssh-client-default libxml2-utils musl-dev ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21 clang21-static lld21 git mariadb-client curl btrfs-progs-dev --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - apk upgrade --no-cache gcc --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - until mariadb-admin ping --host db --user root --skip-ssl-verify-server-cert; do sleep 1; done
     - crates/sqlx-cli/bin/sqlx database create --database-url "$BACKEND_DATABASE_URL"
@@ -194,6 +194,7 @@ test:
 deploy_backend:
   extends: .docker-deploy-default
   script:
+    - apk add --no-cache openssh-client-default --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - ssh-add "$DAEMON_SSH_KEY"
     - docker pull $CI_REGISTRY_IMAGE:latest || true
     - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} --tag $CI_REGISTRY_IMAGE:latest --ssh default .
