@@ -48,6 +48,7 @@ stages:
     - crates/sqlx-cli/bin/sqlx database create --database-url "$BACKEND_DATABASE_URL"
     - crates/sqlx-cli/bin/sqlx migrate run --database-url "$BACKEND_DATABASE_URL" --source "migrations"
     - eval $(ssh-agent -s)
+    - dos2unix "$DAEMON_SSH_KEY"
     - chmod 600 "$DAEMON_SSH_KEY"
     - ssh-add "$DAEMON_SSH_KEY"
   services:
@@ -148,6 +149,7 @@ deny:
   script:
     - apk add --no-cache openssh-client-default --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - eval $(ssh-agent -s)
+    - dos2unix "$DAEMON_SSH_KEY"
     - chmod 600 "$DAEMON_SSH_KEY"
     - ssh-add "$DAEMON_SSH_KEY"
     - mkdir crates/cargo-deny -p
@@ -202,6 +204,7 @@ deploy_backend:
   script:
     - apk add --no-cache openssh-client-default --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - eval $(ssh-agent -s)
+    - dos2unix "$DAEMON_SSH_KEY"
     - chmod 600 "$DAEMON_SSH_KEY"
     - ssh-add "$DAEMON_SSH_KEY"
     - docker pull $CI_REGISTRY_IMAGE:latest || true
