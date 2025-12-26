@@ -1,8 +1,4 @@
-// Stolen from https://github.com/torto/oauth-axum
-
-use async_trait::async_trait;
 use core::future::Future;
-
 use oauth2::reqwest::async_http_client;
 use oauth2::{
     AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, Scope, TokenUrl,
@@ -51,29 +47,8 @@ impl CustomProvider {
             state: None,
         }
     }
-}
 
-#[async_trait]
-pub trait OAuthClient {
-    fn get_client(&self) -> Result<BasicClient, OauthError>;
-
-    fn get_state(&self) -> Option<StateAuth>;
-
-    async fn generate_url<F, Fut>(
-        mut self,
-        scopes: Vec<String>,
-        save: F,
-    ) -> Result<Box<Self>, OauthError>
-    where
-        F: FnOnce(StateAuth) -> Fut + Send,
-        Fut: Future<Output = ()> + Send;
-
-    async fn generate_token(&self, code: String, verifier: String) -> Result<String, OauthError>;
-}
-
-#[async_trait]
-impl OAuthClient for CustomProvider {
-    fn get_client(&self) -> Result<BasicClient, OauthError> {
+    pub fn get_client(&self) -> Result<BasicClient, OauthError> {
         Ok(BasicClient::new(
             ClientId::new(self.client_id.clone()),
             Some(ClientSecret::new(self.client_secret.clone())),
@@ -90,23 +65,23 @@ impl OAuthClient for CustomProvider {
         ))
     }
 
-    fn get_state(&self) -> Option<StateAuth> {
+    pub fn get_state(&self) -> Option<StateAuth> {
         self.state.clone()
     }
 
-    async fn generate_url<F, Fut>(
+    pub async fn generate_url<F, Fut>(
         mut self,
         scopes: Vec<String>,
         save: F,
-    ) -> Result<Box<Self>, OauthError>
+    ) -> Result<Self, OauthError>
     where
         F: FnOnce(StateAuth) -> Fut + Send,
         Fut: Future<Output = ()> + Send,
     {
         let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
-        let binding = self.get_client();
-        let (auth_url, csrf_token) = binding?
+        let (auth_url, csrf_token) = self
+            .get_client()?
             .authorize_url(CsrfToken::new_random)
             .add_scopes(scopes.into_iter().map(Scope::new))
             .set_pkce_challenge(pkce_challenge)
@@ -121,20 +96,25 @@ impl OAuthClient for CustomProvider {
         self.state = Some(state.clone());
         save(state).await;
 
-        Ok(Box::new(self.clone()))
+        Ok(self)
     }
 
-    async fn generate_token(&self, code: String, verifier: String) -> Result<String, OauthError> {
+    pub async fn generate_token(
+        &self,
+        code: String,
+        verifier: String,
+    ) -> Result<String, OauthError> {
         let token = self
             .get_client()?
-            .exchange_code(AuthorizationCode::new(code.clone()))
-            .set_pkce_verifier(PkceCodeVerifier::new(verifier.clone()))
+            .exchange_code(AuthorizationCode::new(code))
+            .set_pkce_verifier(PkceCodeVerifier::new(verifier))
             .request_async(async_http_client)
             .await
             .map_err(|err| {
                 error!("Token request failed: {:?}", err);
                 OauthError::TokenRequestFailed
             })?;
+
         Ok(token.access_token().secret().clone())
     }
 }

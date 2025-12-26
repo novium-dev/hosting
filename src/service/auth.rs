@@ -1,6 +1,5 @@
 use super::*;
 use crate::Backend;
-use crate::auth::oauth::lib::OAuthClient as _;
 use crate::auth::oauth_flow::OAuthFlow;
 use crate::auth::permissions::Role;
 use crate::auth::user::{SerializedUser, Session, UserAuthentication};
