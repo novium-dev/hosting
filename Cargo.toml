@@ -207,7 +207,7 @@ async-trait = "0.1.89"
 bytes = "1.11.0"
 either = "1.15.0"
 anyhow = "1.0"
-signal-hook = "0.3.18"
+signal-hook = "0.4.1"
 
 rand_core = "=0.10.0-rc-2"
 rand = "=0.10.0-rc.5"
