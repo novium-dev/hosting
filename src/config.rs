@@ -17,9 +17,10 @@ pub struct BackendConfig {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AuthConfig {
-    pub url: Url,
-    pub client_id: String,
-    pub client_secret: String,
+    pub jwks_url: Url,
+    pub issuer: String,
+    #[serde(default)]
+    pub audiences: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

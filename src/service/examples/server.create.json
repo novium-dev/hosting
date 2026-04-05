@@ -1,6 +1,5 @@
 {
   "name": "Test Server",
-  "owner": 1,
   "node": "043c5ff1-3f42-4fd7-aaa5-4091fdf91ea3",
   "group": null,
   "template": "java",

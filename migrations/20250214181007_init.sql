@@ -43,7 +43,7 @@ CREATE TABLE
     `name` VARCHAR(64) NOT NULL,
     `node` UUID NOT NULL,
     `node_server_id` INT (255) UNSIGNED NOT NULL,
-    `owner` INT (255) UNSIGNED NOT NULL,
+    `owner` VARCHAR(64) NOT NULL,
     `cpu` FLOAT (255, 2),
     `ram` INT UNSIGNED,
     `swap` INT UNSIGNED,
@@ -75,29 +75,8 @@ CREATE TABLE
     ) ENGINE=INNODB;
 
 CREATE TABLE
-    IF NOT EXISTS `server_users` (
-    `user` INT (255) UNSIGNED NOT NULL,
-    `server` CHAR(6) NOT NULL,
-    `permissions` BIGINT NOT NULL,
-    PRIMARY KEY (`user`, `server`)
-);
-
-CREATE TABLE
     IF NOT EXISTS `api_keys` (
     `key` BINARY(128) NOT NULL PRIMARY KEY,
     `name` VARCHAR(64) NOT NULL,
     `permissions` BIGINT NOT NULL
     ) ENGINE=INNODB;
-
-CREATE TABLE
-    IF NOT EXISTS `users` (
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `username` VARCHAR(32) NOT NULL,
-    `auth_id` VARCHAR(255) NOT NULL UNIQUE,
-    `permissions` BIGINT NOT NULL,
-    `role` INT NOT NULL DEFAULT 0,
-    `email` VARCHAR(255) NOT NULL,
-    `language` VARCHAR(255) NOT NULL DEFAULT 'en',
-    `first_name` VARCHAR(255),
-    `last_name` VARCHAR(255)
-    );

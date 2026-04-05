@@ -35,7 +35,6 @@ pub(crate) impl ServerAdminService for Backend {
         &self,
         #[special] auth: Authentication,
         name: String,
-        owner: u32,
         node: Uuid,
         group: Option<String>,
         template: String,
@@ -47,6 +46,10 @@ pub(crate) impl ServerAdminService for Backend {
         backup_limit: Option<u32>,
     ) -> Result<ServerInfo, _> {
         auth.require::<_, CreateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
+        let Authentication::User(auth_user) = &auth else {
+            return Err(CreateServerError::AuthPermissionDenied);
+        };
+        let owner = auth_user.id.clone();
 
         let nodes = self.nodes.read().await;
         let Some(node) = nodes.get(&node).cloned() else {
@@ -145,23 +148,25 @@ pub(crate) impl ServerAdminService for Backend {
             let id = ServerId::generate();
 
             conn.transaction(|tx| Box::pin(async move {
-                query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`group`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        &id,
-                        node.id,
-                        &new_server,
-                        owner,
-                        storage,
-                        resource.cpu,
-                        resource.ram,
-                        resource.swap,
-                        resource.disk,
-                        template.id(),
-                        &extra,
-                        &name,
-                        &group,
-                        internet_access,
-                        backup_limit,
-                    ).execute(&mut **tx).await.inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
+                query("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`group`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                    .bind(id)
+                    .bind(node.id)
+                    .bind(new_server)
+                    .bind(&owner)
+                    .bind(&storage)
+                    .bind(resource.cpu)
+                    .bind(resource.ram)
+                    .bind(resource.swap)
+                    .bind(resource.disk)
+                    .bind(template.id())
+                    .bind(&extra)
+                    .bind(&name)
+                    .bind(&group)
+                    .bind(internet_access)
+                    .bind(backup_limit)
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
                 for port in &ports2 {
                     query!("INSERT INTO `server_ports` (`server`,`host`,`name`,`internal_port`,`external_ip`,`external_port_start`,`external_port_end`,`protocol`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",

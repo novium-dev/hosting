@@ -1,0 +1,5 @@
+ALTER TABLE `servers` MODIFY COLUMN `owner` VARCHAR(64) NOT NULL;
+
+DROP TABLE IF EXISTS `server_users`;
+
+DROP TABLE IF EXISTS `users`;
