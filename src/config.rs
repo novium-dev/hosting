@@ -6,9 +6,7 @@ use url::Url;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BackendConfig {
     pub listeners: HashSet<SocketAddr>,
-    pub session_lifetime: u64,
     pub auth: AuthConfig,
-    pub public_url: Url,
     pub database_url: String,
     pub cache_url: String,
     #[cfg(feature = "embedded_node")]
