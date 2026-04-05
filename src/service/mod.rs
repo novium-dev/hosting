@@ -1,5 +1,5 @@
-use zelus::define_path_variable;
 use zelus::error::define_error;
+use zelus::{define_path_variable, define_query_variable};
 
 pub(crate) mod admin;
 pub(crate) mod internal;
@@ -38,4 +38,8 @@ define_error!(os {
 
 define_path_variable!(
     server_id "The server ID"
+);
+
+define_query_variable!(
+    owner "The server owner"
 );

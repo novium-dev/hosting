@@ -18,6 +18,7 @@ use zelus::service;
 struct ServerInfo {
     id: ServerId,
     name: String,
+    owner: String,
 }
 
 #[service(path = "/server", tag = "server", no_sdk)]
@@ -25,23 +26,32 @@ pub(crate) impl ServerService for Backend {
     /// Lists all servers you have access to.
     ///
     /// Only servers in which you have the [`ServerPermissions::VIEW`] permission are listed.
-    #[route("", method = GET, raw)]
+    #[route("", method = GET, raw, query = [ owner ])]
     #[error(db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn list_servers(
         &self,
+        owner: Option<String>,
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
     ) -> Result<Paged<ServerInfo>, _> {
         Ok(
-            query!("SELECT `id` AS `id: ServerId`, `name` FROM `servers`")
+            query!("SELECT `id` AS `id: ServerId`, `name`, `owner` FROM `servers`")
                 .fetch_all(&*self.database)
                 .await?
                 .into_iter()
+                .filter(|server| {
+                    if let Some(owner) = &owner {
+                        server.owner == *owner
+                    } else {
+                        true
+                    }
+                })
                 .filter(|server| auth.has(server.id, ServerPermissions::VIEW))
                 .apply_pagesplit(&mut page)
                 .map(|server| ServerInfo {
                     id: server.id,
                     name: server.name,
+                    owner: server.owner,
                 })
                 .collect_paged(page),
         )
@@ -67,6 +77,7 @@ pub(crate) impl ServerService for Backend {
         Ok(ServerInfo {
             id: server.id,
             name: server.name,
+            owner: server.owner,
         })
     }
 
