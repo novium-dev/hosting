@@ -15,7 +15,7 @@ pub struct Server {
     pub id: ServerId,
     pub name: String,
     pub node_server_id: u32,
-    pub owner: String, // Organization / project id
+    pub owner: String, // Organization id
     pub template: Arc<dyn TemplateInner + Send + Sync>,
     pub template_extra: Value,
     pub custom_dockerfile: Option<String>,
@@ -35,7 +35,7 @@ pub struct ServerInfo {
     pub id: ServerId,
     pub name: String,
     pub node_server_id: u32,
-    pub owner: String, // Organization / project id
+    pub owner: String, // Organization id
     pub template: String,
     pub template_extra: Value,
     pub custom_dockerfile: Option<String>,

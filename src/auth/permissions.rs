@@ -273,13 +273,13 @@ impl ServerPermissions {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum ProjectRole {
+pub enum OrgRole {
     Owner,
     Admin,
     Member,
 }
 
-impl FromStr for ProjectRole {
+impl FromStr for OrgRole {
     type Err = ();
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -293,7 +293,7 @@ impl FromStr for ProjectRole {
     }
 }
 
-impl ProjectRole {
+impl OrgRole {
     pub fn server_permissions(self) -> ServerPermissions {
         match self {
             Self::Owner | Self::Admin => ServerPermissions::all(),
