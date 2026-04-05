@@ -1,4 +1,5 @@
 use crate::Backend;
+use crate::auth::BEARER_REGEX;
 use crate::auth::permissions::{
     HasPermission, ManagementPermissions, OrgRole, Permission, Role, ServerPermissions,
 };
@@ -12,8 +13,6 @@ use axum_extra::headers::authorization::Bearer;
 use core::str::FromStr;
 use http::request::Parts;
 use jsonwebtoken::{Algorithm, TokenData, Validation, decode, decode_header};
-use lazy_regex::lazy_regex;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sqlx::query;
 use std::collections::HashMap;
@@ -331,9 +330,6 @@ fn grant_server_permissions(
         .and_modify(|existing_permissions| *existing_permissions |= permissions)
         .or_insert(permissions);
 }
-
-#[expect(clippy::non_std_lazy_statics, reason = "external crate")]
-static BEARER_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!("^Bearer\\s+.+$");
 
 impl DocumentedType for UserAuthentication {
     fn openapi(operations: OperationBuilder) -> OperationBuilder {

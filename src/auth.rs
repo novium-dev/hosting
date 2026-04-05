@@ -71,4 +71,4 @@ impl DocumentedType for Authentication {
 }
 
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
-static BEARER_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!("^Bearer\\s+.+$");
+pub static BEARER_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!("^Bearer\\s+.+$");
