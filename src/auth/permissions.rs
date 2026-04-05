@@ -2,10 +2,10 @@ use crate::db::server::ServerId;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::error_server_not_found::FromServerNotFound;
 use bitflags::bitflags;
+use core::str::FromStr;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::str::FromStr;
 
 pub trait HasPermission {
     type Extra;
@@ -294,7 +294,7 @@ impl FromStr for OrgRole {
 }
 
 impl OrgRole {
-    pub fn server_permissions(self) -> ServerPermissions {
+    pub const fn server_permissions(self) -> ServerPermissions {
         match self {
             Self::Owner | Self::Admin => ServerPermissions::all(),
             Self::Member => ServerPermissions::empty(),

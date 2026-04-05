@@ -15,7 +15,6 @@ pub mod jwks_storage;
 pub mod permissions;
 pub mod user;
 
-#[expect(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum Authentication {
     User(UserAuthentication),

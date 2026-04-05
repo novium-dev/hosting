@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use rand::TryRng;
+use rand::TryRng as _;
 use tracing::error;
 
 use serde::{Deserialize, Serialize};
@@ -80,7 +80,7 @@ pub(crate) impl NodeAdminService for Backend {
     async fn list_nodes(&self, #[special] auth: Authentication) -> Result<NodeList, _> {
         auth.require::<_, ListNodesError>((), ManagementPermissions::NODES_VIEW)?;
         Ok(NodeList {
-            nodes: self.nodes.read().await.keys().cloned().collect(),
+            nodes: self.nodes.read().await.keys().copied().collect(),
         })
     }
 }

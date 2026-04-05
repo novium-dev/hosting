@@ -10,7 +10,7 @@ use axum::extract::FromRequestParts as _;
 use axum_extra::TypedHeader;
 use axum_extra::headers::Authorization;
 use axum_extra::headers::authorization::Bearer;
-use core::str::FromStr;
+use core::str::FromStr as _;
 use http::request::Parts;
 use jsonwebtoken::{Algorithm, TokenData, Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
@@ -117,8 +117,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + Send + Sync> OptionalFromRequestPa
         let global_management_permissions = role
             .as_deref()
             .and_then(|value| Role::from_str(value).ok())
-            .map(Role::management_permissions)
-            .unwrap_or_else(ManagementPermissions::empty)
+            .map_or_else(ManagementPermissions::empty, Role::management_permissions)
             .bits();
 
         Ok(Some(Self {
@@ -244,14 +243,14 @@ fn apply_org_claim(org: &OrgClaim, resolved: &mut ResolvedPermissions) {
 
     apply_permissions(
         &org.permissions,
-        PermissionScope::Org(org_id_owned),
+        &PermissionScope::Org(org_id_owned),
         resolved,
     );
 }
 
 fn apply_permissions(
     permissions: &[PermissionClaim],
-    default_scope: PermissionScope,
+    default_scope: &PermissionScope,
     resolved: &mut ResolvedPermissions,
 ) {
     for permission in permissions {

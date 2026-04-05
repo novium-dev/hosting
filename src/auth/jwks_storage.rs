@@ -17,21 +17,25 @@ impl JwksStorage {
     }
 
     pub async fn fetch(&self) -> Result<Arc<Jwks>, JwksFetchError> {
-        let mut guard = self.jwks.lock().await;
-
-        if let Some(cached) = guard.as_ref() {
-            return Ok(Arc::clone(cached));
+        {
+            let guard = self.jwks.lock().await;
+            if let Some(cached) = guard.as_ref() {
+                return Ok(Arc::clone(cached));
+            }
         }
 
         let keyset = self.fetch_from_remote().await?;
+        let mut guard = self.jwks.lock().await;
         *guard = Some(Arc::clone(&keyset));
+        drop(guard);
         Ok(keyset)
     }
 
     pub async fn refresh(&self) -> Result<Arc<Jwks>, JwksFetchError> {
-        let mut guard = self.jwks.lock().await;
         let keyset = self.fetch_from_remote().await?;
+        let mut guard = self.jwks.lock().await;
         *guard = Some(Arc::clone(&keyset));
+        drop(guard);
         Ok(keyset)
     }
 
