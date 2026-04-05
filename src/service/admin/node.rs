@@ -30,7 +30,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermission::NODES_MANAGE`].
     #[route("", method = PUT)]
-    #[error(auth::permission_denied, os::failure, db::failure <- [sql:*], cache::failure <- [redis:*])]
+    #[error(auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn create_node(&self, #[special] auth: Authentication) -> Result<String, _> {
         auth.require::<_, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
@@ -49,7 +49,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermission::NODES_MANAGE`].
     #[route("/{node_id}", method = PATCH)]
-    #[error(node::not_found, auth::permission_denied, os::failure, db::failure <- [sql:*], cache::failure <- [redis:*])]
+    #[error(node::not_found, auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn update_node(
         &self,
         #[special] auth: Authentication,
@@ -76,7 +76,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermission::NODES_VIEW`].
     #[route("", method = GET)]
-    #[error(auth::permission_denied, os::failure, db::failure <- [sql:*], cache::failure <- [redis:*])]
+    #[error(auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn list_nodes(&self, #[special] auth: Authentication) -> Result<NodeList, _> {
         auth.require::<_, ListNodesError>((), ManagementPermissions::NODES_VIEW)?;
         Ok(NodeList {

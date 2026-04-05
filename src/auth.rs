@@ -2,6 +2,7 @@ use crate::auth::permissions::{HasPermission, Permission};
 use crate::auth::user::UserAuthentication;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
+use crate::service::error_auth_unreachable::FromAuthUnreachable;
 use http::request::Parts;
 use lazy_regex::lazy_regex;
 use regex::Regex;
@@ -41,7 +42,9 @@ impl Authentication {
     }
 }
 
-impl<E: From<sqlx::Error> + FromAuthInvalid + Send + Sync> FromRequestParts<E> for Authentication {
+impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync> FromRequestParts<E>
+    for Authentication
+{
     async fn from_request_parts(parts: &mut Parts) -> Result<Self, E> {
         Ok(
             <UserAuthentication as OptionalFromRequestParts<E>>::from_request_parts(parts)

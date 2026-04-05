@@ -5,6 +5,7 @@ use crate::auth::permissions::{
 };
 use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
+use crate::service::error_auth_unreachable::FromAuthUnreachable;
 use axum::Extension;
 use axum::extract::FromRequestParts as _;
 use axum_extra::TypedHeader;
@@ -90,8 +91,8 @@ impl UserAuthentication {
     }
 }
 
-impl<E: From<sqlx::Error> + FromAuthInvalid + Send + Sync> OptionalFromRequestParts<E>
-    for UserAuthentication
+impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
+    OptionalFromRequestParts<E> for UserAuthentication
 {
     async fn from_request_parts(parts: &mut Parts) -> Result<Option<Self>, E> {
         let Extension(backend) =
@@ -131,7 +132,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + Send + Sync> OptionalFromRequestPa
     }
 }
 
-impl<E: From<sqlx::Error> + FromAuthInvalid + Send + Sync> FromRequestParts<E>
+impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync> FromRequestParts<E>
     for UserAuthentication
 {
     async fn from_request_parts(parts: &mut Parts) -> Result<Self, E> {
@@ -141,7 +142,10 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + Send + Sync> FromRequestParts<E>
     }
 }
 
-async fn decode_claims<E: FromAuthInvalid>(token: &str, backend: &Backend) -> Result<Claims, E> {
+async fn decode_claims<E: FromAuthInvalid + FromAuthUnreachable>(
+    token: &str,
+    backend: &Backend,
+) -> Result<Claims, E> {
     let header = decode_header(token).map_err(|err| {
         error!("Unable to decode JWT header: {err}");
         <E as FromAuthInvalid>::from()
@@ -151,18 +155,12 @@ async fn decode_claims<E: FromAuthInvalid>(token: &str, backend: &Backend) -> Re
         return Err(<E as FromAuthInvalid>::from());
     };
 
-    let keyset = backend.jwks_storage.fetch().await.map_err(|err| {
-        error!("Unable to fetch JWKS: {err}");
-        <E as FromAuthInvalid>::from()
-    })?;
+    let keyset = backend.jwks_storage.fetch::<E>().await?;
 
     let decoding_key = if let Some(jwk) = keyset.keys.get(kid) {
         jwk.decoding_key.clone()
     } else {
-        let refreshed = backend.jwks_storage.refresh().await.map_err(|err| {
-            error!("Unable to refresh JWKS: {err}");
-            <E as FromAuthInvalid>::from()
-        })?;
+        let refreshed = backend.jwks_storage.refresh::<E>().await?;
         let Some(jwk) = refreshed.keys.get(kid) else {
             error!("JWT kid not present in JWKS: {kid}");
             return Err(<E as FromAuthInvalid>::from());
