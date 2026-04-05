@@ -46,9 +46,6 @@ pub(crate) impl ServerAdminService for Backend {
         backup_limit: Option<u32>,
     ) -> Result<ServerInfo, _> {
         auth.require::<_, CreateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
-        let Authentication::User(_auth_user) = &auth else {
-            return Err(CreateServerError::AuthPermissionDenied);
-        };
 
         let nodes = self.nodes.read().await;
         let Some(node) = nodes.get(&node).cloned() else {
