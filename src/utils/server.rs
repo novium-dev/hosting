@@ -1,6 +1,6 @@
 use crate::Backend;
 use crate::db::server::{Server, ServerId};
-use sqlx::{Executor, MySql, Row as _, query, types::JsonValue};
+use sqlx::{Executor, MySql, query, types::JsonValue};
 use tracing::warn;
 
 impl Backend {
@@ -9,65 +9,70 @@ impl Backend {
         conn: impl Executor<'_, Database = MySql>,
         id: ServerId,
     ) -> Result<Option<Server>, sqlx::Error> {
-        match query(
+        match query!(
             "SELECT
-                `node`,
-                `node_server_id`,
-                `owner`,
-                `name`,
-                `suspended`,
-                `custom_dockerfile`,
-                `internet_access`,
-                `cpu`,
-                `ram`,
-                `swap`,
-                `disk`,
-                `backup_limit`,
-                `template`,
-                `template_extra`
-            FROM `servers` WHERE `id` = ?",
+                        `id` AS `id: ServerId`,
+                        `node` AS `node: uuid::fmt::Hyphenated`,
+                        `node_server_id`,
+                        `owner`,
+                        `name`,
+                        `suspended` AS `suspended: bool`,
+                        `custom_dockerfile`,
+                        `internet_access` AS `internet_access: bool`,
+                        `cpu`,
+                        `ram`,
+                        `swap`,
+                        `disk`,
+                        `backup_limit`,
+                        `template`,
+                        `template_extra` AS `template_extra: JsonValue`
+                      FROM `servers` WHERE `id` = ?",
+            id
         )
-        .bind(id)
         .fetch_optional(conn)
         .await?
         {
             Some(server) => {
-                let node_id: uuid::Uuid = server.try_get("node")?;
                 let nodes = self.nodes.read().await;
-                let Some(node) = nodes.get(&node_id).cloned() else {
+                let Some(node) = nodes.get(server.node.as_uuid()).cloned() else {
                     warn!(
                         "Found server whose node is not in the nodes cache: {}, node: {}",
-                        id, node_id
+                        server.id, server.node
                     );
                     return Ok(None);
                 };
                 drop(nodes);
 
-                let template_id: String = server.try_get("template")?;
-                let Some(template) = self.templates.read().await.get(&template_id).cloned() else {
+                let Some(template) = self.templates.read().await.get(&server.template).cloned()
+                else {
                     warn!(
                         "Found server whose template is not registred: {}, template: {}",
-                        id, template_id
+                        server.id, server.template
                     );
                     return Ok(None);
                 };
 
                 Ok(Some(Server {
-                    id,
-                    name: server.try_get("name")?,
-                    suspended: server.try_get("suspended")?,
-                    custom_dockerfile: server.try_get("custom_dockerfile")?,
-                    internet_access: server.try_get("internet_access")?,
-                    owner: server.try_get("owner")?,
+                    id: server.id,
+                    name: server.name,
+                    suspended: server.suspended,
+                    custom_dockerfile: server.custom_dockerfile,
+                    internet_access: server.internet_access,
+
+                    owner: server.owner,
+
                     node,
-                    node_server_id: server.try_get("node_server_id")?,
+                    node_server_id: server.node_server_id,
+
                     template,
-                    template_extra: server.try_get::<JsonValue, _>("template_extra")?,
-                    cpu: server.try_get("cpu")?,
-                    ram: server.try_get("ram")?,
-                    swap: server.try_get("swap")?,
-                    disk: server.try_get("disk")?,
-                    backup_limit: server.try_get("backup_limit")?,
+                    template_extra: server.template_extra,
+
+                    cpu: server.cpu,
+                    ram: server.ram,
+                    swap: server.swap,
+                    disk: server.disk,
+
+                    backup_limit: server.backup_limit,
                 }))
             }
             None => Ok(None),

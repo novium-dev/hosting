@@ -39,13 +39,7 @@ pub(crate) impl ServerService for Backend {
                 .fetch_all(&*self.database)
                 .await?
                 .into_iter()
-                .filter(|server| {
-                    if let Some(owner) = &owner {
-                        server.owner == *owner
-                    } else {
-                        true
-                    }
-                })
+                .filter(|server| owner.as_ref().is_none_or(|owner| server.owner == *owner))
                 .filter(|server| auth.has(server.id, ServerPermissions::VIEW))
                 .apply_pagesplit(&mut page)
                 .map(|server| ServerInfo {

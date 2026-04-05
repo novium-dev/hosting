@@ -144,22 +144,8 @@ pub(crate) impl ServerAdminService for Backend {
             let id = ServerId::generate();
 
             conn.transaction(|tx| Box::pin(async move {
-                query("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-                    .bind(id)
-                    .bind(node.id)
-                    .bind(new_server)
-                    .bind(&owner)
-                    .bind(&storage)
-                    .bind(resource.cpu)
-                    .bind(resource.ram)
-                    .bind(resource.swap)
-                    .bind(resource.disk)
-                    .bind(template.id())
-                    .bind(&extra)
-                    .bind(&name)
-                    .bind(internet_access)
-                    .bind(backup_limit)
-                    .execute(&mut **tx)
+                query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        &id, &node.id, &new_server, &owner, &storage, resource.cpu, resource.ram, resource.swap, resource.disk, template.id(), &extra, &name, internet_access, backup_limit)                    .execute(&mut **tx)
                     .await
                     .inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
