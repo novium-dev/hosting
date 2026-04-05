@@ -1,6 +1,6 @@
 use crate::Backend;
 use crate::auth::permissions::{
-    HasPermission, ManagementPermissions, Permission, ServerPermissions,
+    HasPermission, ManagementPermissions, Permission, Role, ServerPermissions,
 };
 use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
@@ -117,13 +117,20 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + Send + Sync> OptionalFromRequestPa
         let claims = decode_claims::<E>(bearer.token(), &backend).await?;
         let mut resolved = resolve_permissions(&claims);
         apply_project_permissions::<E>(&backend, &mut resolved).await?;
+        let role = claims.role;
+        let global_management_permissions = role
+            .as_deref()
+            .and_then(|value| Role::from_str(value).ok())
+            .map(Role::management_permissions)
+            .unwrap_or_else(ManagementPermissions::empty)
+            .bits();
 
         Ok(Some(Self {
             id: claims.id.unwrap_or(claims.sub),
             name: claims.name,
-            role: claims.role,
+            role,
             email: claims.email,
-            permissions: resolved.global,
+            permissions: resolved.global | global_management_permissions,
             projects: resolved.projects.into_iter().collect(),
             servers: resolved.server_permissions,
         }))
@@ -194,27 +201,14 @@ fn resolve_permissions(claims: &Claims) -> ResolvedPermissions {
     }
 
     for org in &claims.orgs {
-        if let Some(project_id) = pick_string(org, &["organizationId", "projectId", "id"]) {
-            resolved.projects.insert(project_id.clone());
-            resolved
-                .project_permissions
-                .entry(project_id)
-                .or_insert(ServerPermissions::VIEW);
-        }
-        apply_permissions_from_object(org, PermissionScope::Global, &mut resolved);
+        let scope = pick_string(org, &["organizationId", "projectId", "id"])
+            .map_or(PermissionScope::Global, PermissionScope::Project);
+        apply_permissions_from_object(org, scope, &mut resolved);
     }
 
     for project in &claims.projects {
         let scope = pick_string(project, &["projectId", "organizationId", "id"])
             .map_or(PermissionScope::Global, PermissionScope::Project);
-        if let PermissionScope::Project(project_id) = &scope {
-            resolved.projects.insert(project_id.clone());
-            resolved
-                .project_permissions
-                .entry(project_id.clone())
-                .or_insert(ServerPermissions::VIEW);
-        }
-
         apply_permissions_from_object(project, scope, &mut resolved);
         apply_nested_server_permissions(project, &mut resolved);
     }
@@ -308,9 +302,8 @@ fn apply_permission(
 
     match scope {
         PermissionScope::Global => {
-            let management = management_permissions_from_action(&action).bits();
             let server = server_permissions_from_action(&action).bits();
-            resolved.global |= management | server;
+            resolved.global |= server;
         }
         PermissionScope::Project(project_id) => {
             resolved.projects.insert(project_id.clone());
@@ -342,20 +335,20 @@ fn permission_scope_and_action(
 ) -> (PermissionScope, String) {
     match permission {
         PermissionClaim::Entry { resource, action } => {
-            let action = normalize_permission(action);
+            let action = action.trim().to_ascii_lowercase();
             if let Some(scope) = scope_from_resource(resource) {
                 return (scope, action);
             }
             (default_scope, action)
         }
-        PermissionClaim::Action(action) => (default_scope, normalize_permission(action)),
+        PermissionClaim::Action(action) => (default_scope, action.trim().to_ascii_lowercase()),
     }
 }
 
 fn scope_from_resource(resource: &str) -> Option<PermissionScope> {
     let resource = resource.trim();
     if resource == "*" {
-        return Some(PermissionScope::Global);
+        return None;
     }
 
     if let Some(project) = strip_prefix_case_insensitive(
@@ -387,48 +380,7 @@ fn scope_from_resource(resource: &str) -> Option<PermissionScope> {
 }
 
 fn server_permissions_from_action(action: &str) -> ServerPermissions {
-    match action {
-        "*" => ServerPermissions::all(),
-        "view" | "read" => ServerPermissions::VIEW,
-        "power" | "start" | "stop" | "restart" | "kill" => ServerPermissions::POWER,
-        "terminal" | "terminal_read" | "console_read" => ServerPermissions::TERMINAL_READ,
-        "terminal_write" | "console_write" => ServerPermissions::TERMINAL_WRITE,
-        "build_view" | "settings_view" => ServerPermissions::BUILD_VIEW,
-        "build_edit" | "settings_edit" => ServerPermissions::BUILD_EDIT,
-        "files_read" | "file_read" => ServerPermissions::FILES_READ,
-        "files_write" | "file_write" => ServerPermissions::FILES_WRITE,
-        "backup_view" => ServerPermissions::BACKUP_VIEW,
-        "backup_download" => ServerPermissions::BACKUP_DOWNLOAD,
-        "backup_create" => ServerPermissions::BACKUP_CREATE,
-        "backup_delete" => ServerPermissions::BACKUP_DELETE,
-        "backup_restore" => ServerPermissions::BACKUP_RESTORE,
-        "user_view" => ServerPermissions::USER_VIEW,
-        "user_edit" | "permissions_edit" => ServerPermissions::USER_EDIT,
-        "admin_manage" | "admin_management" | "manage" => ServerPermissions::ADMIN_MANAGEMENT,
-        _ => ServerPermissions::empty(),
-    }
-}
-
-fn management_permissions_from_action(action: &str) -> ManagementPermissions {
-    match action {
-        "*" => ManagementPermissions::all(),
-        "server_manage" | "server_edit" | "server_update" => ManagementPermissions::SERVER_MANAGE,
-        "server_suspend" => ManagementPermissions::SERVER_SUSPEND,
-        "server_delete" => ManagementPermissions::SERVER_DELETE,
-        "user_view" => ManagementPermissions::USER_VIEW,
-        "user_manage" | "users_manage" => ManagementPermissions::USER_MANAGE,
-        "api_keys_view" | "apikeys_view" => ManagementPermissions::API_KEYS_VIEW,
-        "api_keys_manage" | "apikeys_manage" => ManagementPermissions::API_KEYS_MANAGE,
-        "nodes_view" | "node_view" => ManagementPermissions::NODES_VIEW,
-        "nodes_manage" | "node_manage" => ManagementPermissions::NODES_MANAGE,
-        "backup_storage_select" => ManagementPermissions::BACKUP_STORAGE_SELECT,
-        "network_create" => ManagementPermissions::NETWORK_CREATE,
-        "network_delete" => ManagementPermissions::NETWORK_DELETE,
-        "database_create" => ManagementPermissions::DATABASE_CREATE,
-        "database_delete" => ManagementPermissions::DATABASE_DELETE,
-        "limits_bypass" => ManagementPermissions::LIMITS_BYPASS,
-        _ => ManagementPermissions::empty(),
-    }
+    ServerPermissions::from_claim_action(action).unwrap_or_default()
 }
 
 fn pick_string(value: &Value, keys: &[&str]) -> Option<String> {
@@ -442,19 +394,6 @@ fn pick_string(value: &Value, keys: &[&str]) -> Option<String> {
 fn pick_server_id(value: &Value) -> Option<ServerId> {
     let id = pick_string(value, &["serverId", "id"])?;
     ServerId::from_str(&id).ok()
-}
-
-fn normalize_permission(value: &str) -> String {
-    let mut normalized = String::with_capacity(value.len());
-    for character in value.chars() {
-        match character {
-            'a'..='z' | '0'..='9' | '*' => normalized.push(character),
-            'A'..='Z' => normalized.push(character.to_ascii_lowercase()),
-            '-' | '.' | ':' | '/' | ' ' => normalized.push('_'),
-            _ => {}
-        }
-    }
-    normalized
 }
 
 fn clone_scope(scope: &PermissionScope) -> PermissionScope {

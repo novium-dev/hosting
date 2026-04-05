@@ -3,7 +3,9 @@ use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::error_server_not_found::FromServerNotFound;
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 pub trait HasPermission {
     type Extra;
@@ -342,6 +344,46 @@ impl Role {
                     | ServerPermissions::TERMINAL_READ
             }
             Self::User => ServerPermissions::empty(),
+        }
+    }
+}
+
+impl FromStr for Role {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let value: Cow<'_, str> = Cow::Owned(value.trim().to_ascii_lowercase());
+        match value.as_ref() {
+            "admin" | "owner" => Ok(Self::Admin),
+            "manager" => Ok(Self::ServerManager),
+            "moderator" => Ok(Self::Moderator),
+            "user" => Ok(Self::User),
+            _ => Err(()),
+        }
+    }
+}
+
+impl ServerPermissions {
+    pub fn from_claim_action(action: &str) -> Option<Self> {
+        match action.trim().to_ascii_lowercase().as_str() {
+            "*" => Some(Self::all()),
+            "view" => Some(Self::VIEW),
+            "power" => Some(Self::POWER),
+            "terminal.read" => Some(Self::TERMINAL_READ),
+            "terminal.write" => Some(Self::TERMINAL_WRITE),
+            "build.view" => Some(Self::BUILD_VIEW),
+            "build.edit" => Some(Self::BUILD_EDIT),
+            "files.read" => Some(Self::FILES_READ),
+            "files.write" => Some(Self::FILES_WRITE),
+            "backup.view" => Some(Self::BACKUP_VIEW),
+            "backup.download" => Some(Self::BACKUP_DOWNLOAD),
+            "backup.create" => Some(Self::BACKUP_CREATE),
+            "backup.delete" => Some(Self::BACKUP_DELETE),
+            "backup.restore" => Some(Self::BACKUP_RESTORE),
+            "user.view" => Some(Self::USER_VIEW),
+            "user.edit" => Some(Self::USER_EDIT),
+            "admin.management" => Some(Self::ADMIN_MANAGEMENT),
+            _ => None,
         }
     }
 }

@@ -36,7 +36,7 @@ pub(crate) impl ServerAdminService for Backend {
         #[special] auth: Authentication,
         name: String,
         node: Uuid,
-        group: Option<String>,
+        group: String,
         template: String,
         storage: String,
         resource: ServerResourcePayload,
@@ -46,10 +46,10 @@ pub(crate) impl ServerAdminService for Backend {
         backup_limit: Option<u32>,
     ) -> Result<ServerInfo, _> {
         auth.require::<_, CreateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
-        let Authentication::User(auth_user) = &auth else {
+        let Authentication::User(_auth_user) = &auth else {
             return Err(CreateServerError::AuthPermissionDenied);
         };
-        let owner = auth_user.id.clone();
+        let owner = group.clone();
 
         let nodes = self.nodes.read().await;
         let Some(node) = nodes.get(&node).cloned() else {
@@ -188,7 +188,7 @@ pub(crate) impl ServerAdminService for Backend {
                     ram: resource.ram,
                     swap: resource.swap,
                     disk: resource.disk,
-                    group,
+                    group: Some(group),
                     suspended: false,
                     internet_access,
                     backup_limit,
