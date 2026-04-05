@@ -1,8 +1,6 @@
 use std::time::Instant;
 
-use rand::TryRngCore as _;
-use rand::rngs::OsRng;
-
+use rand::TryRng;
 use tracing::error;
 
 use serde::{Deserialize, Serialize};
@@ -89,7 +87,7 @@ pub(crate) impl NodeAdminService for Backend {
 
 fn gen_code<E: FromOsFailure>() -> Result<String, E> {
     let mut data = [0u8; 8];
-    OsRng
+    rand::rng()
         .try_fill_bytes(&mut data)
         .inspect_err(|err| error!("Unable to generate random bytes: {err:?}"))
         .map_err(|_err| <E as FromOsFailure>::from())?;

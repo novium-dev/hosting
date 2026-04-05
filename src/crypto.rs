@@ -1,8 +1,6 @@
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
-use rand::TryRngCore as _;
-use rand::rngs::OsRng;
 use std::sync::Arc;
 use tokio::fs;
 use tokio::fs::File;
@@ -28,7 +26,7 @@ pub async fn check_and_generate_keys() -> (Arc<DaemonRootKey>, KeyPair, SigningK
             user_key.expect("Private User key is missing"),
         )
     } else {
-        let user_key = SigningKey::generate(&mut OsRng.unwrap_err());
+        let user_key = SigningKey::generate(&mut rand::rng());
 
         let root_privkey = KeyPair::generate().expect("Unable to generate root key");
         let root_key = DaemonRootKey::new(&root_privkey, Some(user_key.verifying_key()))
