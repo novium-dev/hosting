@@ -5,17 +5,25 @@ use rand::rngs::OsRng;
 
 use tracing::error;
 
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use zelus::service;
 
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
-use crate::service::admin::node::node_admin_service_error::{CreateNodeError, UpdateNodeError};
+use crate::service::admin::node::node_admin_service_error::{
+    CreateNodeError, ListNodesError, UpdateNodeError,
+};
 use crate::service::error_os_failure::FromOsFailure;
 use crate::service::*;
 
 define_path_variable!(node_id "The node identifier");
+
+#[derive(Serialize, Deserialize, utoipa::ToSchema)]
+pub struct NodeList {
+    pub nodes: Vec<Uuid>,
+}
 
 #[service(path = "/admin/node", tag = "node", no_sdk)]
 pub(crate) impl NodeAdminService for Backend {
@@ -63,6 +71,19 @@ pub(crate) impl NodeAdminService for Backend {
             .insert(code.clone(), (Instant::now(), Some(node_id)));
 
         Ok(code)
+    }
+
+    /// Lists all nodes.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermission::NODES_VIEW`].
+    #[route("", method = GET)]
+    #[error(auth::permission_denied, os::failure, db::failure <- [sql:*], cache::failure <- [redis:*])]
+    async fn list_nodes(&self, #[special] auth: Authentication) -> Result<NodeList, _> {
+        auth.require::<_, ListNodesError>((), ManagementPermissions::NODES_VIEW)?;
+        Ok(NodeList {
+            nodes: self.nodes.read().await.keys().cloned().collect(),
+        })
     }
 }
 

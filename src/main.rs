@@ -144,6 +144,7 @@ async fn main0() {
         tokio::time::sleep(Duration::from_secs(5)).await;
     });
 
+    #[cfg(not(debug_assertions))]
     sqlx::migrate!("./migrations")
         .run(&*database)
         .await
