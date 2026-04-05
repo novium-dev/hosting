@@ -233,11 +233,18 @@ fn apply_org_claim(org: &OrgClaim, resolved: &mut ResolvedPermissions) {
     }
 
     let org_id_owned = org_id.to_owned();
-    grant_org_permissions(
-        resolved,
-        org_id_owned.clone(),
-        org.role.server_permissions(),
-    );
+
+    let permissions = org.role.server_permissions();
+
+    if permissions.is_empty() {
+        return;
+    }
+
+    resolved
+        .org_permissions
+        .entry(org_id_owned.clone())
+        .and_modify(|existing_permissions| *existing_permissions |= permissions)
+        .or_insert(permissions);
 
     apply_permissions(
         &org.permissions,
@@ -267,10 +274,30 @@ fn apply_permission(
 
     match scope {
         PermissionScope::Org(org_id) => {
-            grant_org_permissions(resolved, org_id, server_permissions_from_action(&action));
+            let permissions = server_permissions_from_action(&action);
+
+            if permissions.is_empty() {
+                return;
+            }
+
+            resolved
+                .org_permissions
+                .entry(org_id)
+                .and_modify(|existing_permissions| *existing_permissions |= permissions)
+                .or_insert(permissions);
         }
         PermissionScope::Server(server_id) => {
-            grant_server_permissions(resolved, server_id, server_permissions_from_action(&action));
+            let permissions = server_permissions_from_action(&action);
+
+            if permissions.is_empty() {
+                return;
+            }
+
+            resolved
+                .server_permissions
+                .entry(server_id)
+                .and_modify(|existing_permissions| *existing_permissions |= permissions)
+                .or_insert(permissions);
         }
     }
 }
@@ -294,38 +321,6 @@ fn permission_scope_and_action(
 
 fn server_permissions_from_action(action: &str) -> ServerPermissions {
     ServerPermissions::from_claim_action(action).unwrap_or_default()
-}
-
-fn grant_org_permissions(
-    resolved: &mut ResolvedPermissions,
-    org_id: String,
-    permissions: ServerPermissions,
-) {
-    if permissions.is_empty() {
-        return;
-    }
-
-    resolved
-        .org_permissions
-        .entry(org_id)
-        .and_modify(|existing_permissions| *existing_permissions |= permissions)
-        .or_insert(permissions);
-}
-
-fn grant_server_permissions(
-    resolved: &mut ResolvedPermissions,
-    server_id: ServerId,
-    permissions: ServerPermissions,
-) {
-    if permissions.is_empty() {
-        return;
-    }
-
-    resolved
-        .server_permissions
-        .entry(server_id)
-        .and_modify(|existing_permissions| *existing_permissions |= permissions)
-        .or_insert(permissions);
 }
 
 impl DocumentedType for UserAuthentication {
