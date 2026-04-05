@@ -19,8 +19,8 @@ use crate::service::*;
 define_path_variable!(node_id "The node identifier");
 
 #[derive(Serialize, Deserialize, utoipa::ToSchema)]
-pub struct NodeList {
-    pub nodes: Vec<Uuid>,
+struct NodeList {
+    nodes: Vec<Uuid>,
 }
 
 #[service(path = "/admin/node", tag = "node", no_sdk)]
