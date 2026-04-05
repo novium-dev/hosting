@@ -271,6 +271,37 @@ impl ServerPermissions {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProjectRole {
+    Owner,
+    Admin,
+    Member,
+}
+
+impl FromStr for ProjectRole {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let value: Cow<'_, str> = Cow::Owned(value.trim().to_ascii_lowercase());
+        match value.as_ref() {
+            "owner" => Ok(Self::Owner),
+            "admin" => Ok(Self::Admin),
+            "member" => Ok(Self::Member),
+            _ => Err(()),
+        }
+    }
+}
+
+impl ProjectRole {
+    pub fn server_permissions(self) -> ServerPermissions {
+        match self {
+            Self::Owner | Self::Admin => ServerPermissions::all(),
+            Self::Member => ServerPermissions::empty(),
+        }
+    }
+}
+
 impl ManagementPermissions {
     fn with_dependencies(mut self) -> Self {
         self.with_dependency(Self::USER_MANAGE, Self::USER_VIEW);

@@ -1,6 +1,6 @@
 use crate::Backend;
 use crate::auth::permissions::{
-    HasPermission, ManagementPermissions, Permission, Role, ServerPermissions,
+    HasPermission, ManagementPermissions, Permission, ProjectRole, Role, ServerPermissions,
 };
 use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
@@ -15,9 +15,8 @@ use jsonwebtoken::{Algorithm, TokenData, Validation, decode, decode_header};
 use lazy_regex::lazy_regex;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use sqlx::query;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use tracing::error;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
 use utoipa::openapi::schema::SchemaType;
@@ -32,7 +31,6 @@ pub struct UserAuthentication {
     role: Option<String>,
     email: Option<String>,
     permissions: i64,
-    projects: Vec<String>,
     servers: HashMap<ServerId, ServerPermissions>,
 }
 
@@ -54,32 +52,31 @@ struct Claims {
     #[serde(default)]
     role: Option<String>,
     #[serde(default)]
-    permissions: Vec<PermissionClaim>,
-    #[serde(default)]
-    projects: Vec<Value>,
-    #[serde(default)]
-    orgs: Vec<Value>,
-    #[serde(default)]
-    servers: Vec<Value>,
+    orgs: Vec<OrgClaim>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-enum PermissionClaim {
-    Entry { resource: String, action: String },
-    Action(String),
+struct PermissionClaim {
+    resource: String,
+    action: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct OrgClaim {
+    id: String,
+    role: ProjectRole,
+    #[serde(default)]
+    permissions: Vec<PermissionClaim>,
 }
 
 #[derive(Default)]
 struct ResolvedPermissions {
-    global: i64,
     project_permissions: HashMap<String, ServerPermissions>,
     server_permissions: HashMap<ServerId, ServerPermissions>,
-    projects: HashSet<String>,
 }
 
+#[derive(Clone)]
 enum PermissionScope {
-    Global,
     Project(String),
     Server(ServerId),
 }
@@ -130,8 +127,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + Send + Sync> OptionalFromRequestPa
             name: claims.name,
             role,
             email: claims.email,
-            permissions: resolved.global | global_management_permissions,
-            projects: resolved.projects.into_iter().collect(),
+            permissions: global_management_permissions,
             servers: resolved.server_permissions,
         }))
     }
@@ -196,28 +192,8 @@ async fn decode_claims<E: FromAuthInvalid>(token: &str, backend: &Backend) -> Re
 fn resolve_permissions(claims: &Claims) -> ResolvedPermissions {
     let mut resolved = ResolvedPermissions::default();
 
-    for permission in &claims.permissions {
-        apply_permission(permission, PermissionScope::Global, &mut resolved);
-    }
-
     for org in &claims.orgs {
-        let scope = pick_string(org, &["organizationId", "projectId", "id"])
-            .map_or(PermissionScope::Global, PermissionScope::Project);
-        apply_permissions_from_object(org, scope, &mut resolved);
-    }
-
-    for project in &claims.projects {
-        let scope = pick_string(project, &["projectId", "organizationId", "id"])
-            .map_or(PermissionScope::Global, PermissionScope::Project);
-        apply_permissions_from_object(project, scope, &mut resolved);
-        apply_nested_server_permissions(project, &mut resolved);
-    }
-
-    for server in &claims.servers {
-        let Some(server_id) = pick_server_id(server) else {
-            continue;
-        };
-        apply_permissions_from_object(server, PermissionScope::Server(server_id), &mut resolved);
+        apply_org_claim(org, &mut resolved);
     }
 
     resolved
@@ -255,38 +231,33 @@ async fn apply_project_permissions<E: From<sqlx::Error> + FromAuthInvalid>(
     Ok(())
 }
 
-fn apply_nested_server_permissions(project: &Value, resolved: &mut ResolvedPermissions) {
-    let Some(object) = project.as_object() else {
+fn apply_org_claim(org: &OrgClaim, resolved: &mut ResolvedPermissions) {
+    let project_id = org.id.trim();
+    if project_id.is_empty() {
         return;
-    };
-    let Some(servers) = object.get("servers").and_then(Value::as_array) else {
-        return;
-    };
-
-    for server in servers {
-        let Some(server_id) = pick_server_id(server) else {
-            continue;
-        };
-        apply_permissions_from_object(server, PermissionScope::Server(server_id), resolved);
     }
+
+    let project_id_owned = project_id.to_owned();
+    grant_project_permissions(
+        resolved,
+        project_id_owned.clone(),
+        org.role.server_permissions(),
+    );
+
+    apply_permissions(
+        &org.permissions,
+        PermissionScope::Project(project_id_owned),
+        resolved,
+    );
 }
 
-fn apply_permissions_from_object(
-    value: &Value,
-    scope: PermissionScope,
+fn apply_permissions(
+    permissions: &[PermissionClaim],
+    default_scope: PermissionScope,
     resolved: &mut ResolvedPermissions,
 ) {
-    let Some(object) = value.as_object() else {
-        return;
-    };
-    let Some(permissions) = object.get("permissions").and_then(Value::as_array) else {
-        return;
-    };
-
     for permission in permissions {
-        if let Ok(permission) = serde_json::from_value::<PermissionClaim>(permission.clone()) {
-            apply_permission(&permission, clone_scope(&scope), resolved);
-        }
+        apply_permission(permission, default_scope.clone(), resolved);
     }
 }
 
@@ -298,30 +269,15 @@ fn apply_permission(
     let (scope, action) = permission_scope_and_action(permission, default_scope);
 
     match scope {
-        PermissionScope::Global => {
-            let server = server_permissions_from_action(&action).bits();
-            resolved.global |= server;
-        }
         PermissionScope::Project(project_id) => {
-            resolved.projects.insert(project_id.clone());
-            let server_permissions = server_permissions_from_action(&action);
-            if !server_permissions.is_empty() {
-                resolved
-                    .project_permissions
-                    .entry(project_id)
-                    .and_modify(|permissions| *permissions |= server_permissions)
-                    .or_insert(server_permissions);
-            }
+            grant_project_permissions(
+                resolved,
+                project_id,
+                server_permissions_from_action(&action),
+            );
         }
         PermissionScope::Server(server_id) => {
-            let server_permissions = server_permissions_from_action(&action);
-            if !server_permissions.is_empty() {
-                resolved
-                    .server_permissions
-                    .entry(server_id)
-                    .and_modify(|permissions| *permissions |= server_permissions)
-                    .or_insert(server_permissions);
-            }
+            grant_server_permissions(resolved, server_id, server_permissions_from_action(&action));
         }
     }
 }
@@ -330,39 +286,17 @@ fn permission_scope_and_action(
     permission: &PermissionClaim,
     default_scope: PermissionScope,
 ) -> (PermissionScope, String) {
-    match permission {
-        PermissionClaim::Entry { resource, action } => {
-            let action = action.trim().to_ascii_lowercase();
-            if let Some(scope) = scope_from_resource(resource) {
-                return (scope, action);
-            }
-            (default_scope, action)
-        }
-        PermissionClaim::Action(action) => (default_scope, action.trim().to_ascii_lowercase()),
+    let action = permission.action.trim().to_ascii_lowercase();
+    if let Some(scope) = scope_from_resource(&permission.resource) {
+        return (scope, action);
     }
+    (default_scope, action)
 }
 
 fn scope_from_resource(resource: &str) -> Option<PermissionScope> {
     let resource = resource.trim();
     if resource == "*" {
         return None;
-    }
-
-    if let Some(project) = strip_prefix_case_insensitive(
-        resource,
-        &[
-            "project:",
-            "project/",
-            "project_",
-            "organization:",
-            "organization/",
-            "organization_",
-            "org:",
-            "org/",
-            "org_",
-        ],
-    ) {
-        return Some(PermissionScope::Project(project.to_owned()));
     }
 
     if let Some(server) =
@@ -380,25 +314,36 @@ fn server_permissions_from_action(action: &str) -> ServerPermissions {
     ServerPermissions::from_claim_action(action).unwrap_or_default()
 }
 
-fn pick_string(value: &Value, keys: &[&str]) -> Option<String> {
-    let object = value.as_object()?;
-    keys.iter()
-        .filter_map(|key| object.get(*key).and_then(Value::as_str))
-        .find(|value| !value.is_empty())
-        .map(str::to_owned)
-}
-
-fn pick_server_id(value: &Value) -> Option<ServerId> {
-    let id = pick_string(value, &["serverId", "id"])?;
-    ServerId::from_str(&id).ok()
-}
-
-fn clone_scope(scope: &PermissionScope) -> PermissionScope {
-    match scope {
-        PermissionScope::Global => PermissionScope::Global,
-        PermissionScope::Project(project) => PermissionScope::Project(project.clone()),
-        PermissionScope::Server(server) => PermissionScope::Server(*server),
+fn grant_project_permissions(
+    resolved: &mut ResolvedPermissions,
+    project_id: String,
+    permissions: ServerPermissions,
+) {
+    if permissions.is_empty() {
+        return;
     }
+
+    resolved
+        .project_permissions
+        .entry(project_id)
+        .and_modify(|existing_permissions| *existing_permissions |= permissions)
+        .or_insert(permissions);
+}
+
+fn grant_server_permissions(
+    resolved: &mut ResolvedPermissions,
+    server_id: ServerId,
+    permissions: ServerPermissions,
+) {
+    if permissions.is_empty() {
+        return;
+    }
+
+    resolved
+        .server_permissions
+        .entry(server_id)
+        .and_modify(|existing_permissions| *existing_permissions |= permissions)
+        .or_insert(permissions);
 }
 
 fn strip_prefix_case_insensitive<'a>(value: &'a str, prefixes: &[&str]) -> Option<&'a str> {
