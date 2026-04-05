@@ -231,20 +231,17 @@ async fn apply_project_permissions<E: From<sqlx::Error> + FromAuthInvalid>(
         return Ok(());
     }
 
-    let records =
-        query!("SELECT `id` AS `id: ServerId`, `group` FROM `servers` WHERE `group` IS NOT NULL")
-            .fetch_all(&*backend.database)
-            .await
-            .map_err(|err| {
-                error!("Unable to expand project permissions: {err:?}");
-                <E as From<sqlx::Error>>::from(err)
-            })?;
+    let records = query!("SELECT `id` AS `id: ServerId`, `owner` FROM `servers`")
+        .fetch_all(&*backend.database)
+        .await
+        .map_err(|err| {
+            error!("Unable to expand project permissions: {err:?}");
+            <E as From<sqlx::Error>>::from(err)
+        })?;
 
     for record in records {
-        let Some(group) = record.group else {
-            continue;
-        };
-        let Some(project_permissions) = resolved.project_permissions.get(&group).copied() else {
+        let Some(project_permissions) = resolved.project_permissions.get(&record.owner).copied()
+        else {
             continue;
         };
 

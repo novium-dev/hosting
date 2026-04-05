@@ -15,7 +15,6 @@ impl Backend {
                 `node_server_id`,
                 `owner`,
                 `name`,
-                `group`,
                 `suspended`,
                 `custom_dockerfile`,
                 `internet_access`,
@@ -56,7 +55,6 @@ impl Backend {
                 Ok(Some(Server {
                     id,
                     name: server.try_get("name")?,
-                    group: server.try_get("group")?,
                     suspended: server.try_get("suspended")?,
                     custom_dockerfile: server.try_get("custom_dockerfile")?,
                     internet_access: server.try_get("internet_access")?,

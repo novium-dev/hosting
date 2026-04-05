@@ -117,7 +117,6 @@ bitflags! {
     pub struct ManagementPermissions: i64 {
         /// Allows the user to change the
         /// - selected template
-        /// - group
         /// - resource quota (cpu, memory, swap and disk)
         /// - internet access
         /// - limits (backup)

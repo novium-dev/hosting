@@ -48,7 +48,6 @@ CREATE TABLE
     `ram` INT UNSIGNED,
     `swap` INT UNSIGNED,
     `disk` BIGINT UNSIGNED,
-    `group` VARCHAR(64),
     `storage` VARCHAR(64) NOT NULL,
     `template` VARCHAR(64) NOT NULL,
     `template_extra` JSON NOT NULL,

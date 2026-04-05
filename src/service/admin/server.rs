@@ -36,7 +36,7 @@ pub(crate) impl ServerAdminService for Backend {
         #[special] auth: Authentication,
         name: String,
         node: Uuid,
-        group: String,
+        owner: String,
         template: String,
         storage: String,
         resource: ServerResourcePayload,
@@ -49,7 +49,6 @@ pub(crate) impl ServerAdminService for Backend {
         let Authentication::User(_auth_user) = &auth else {
             return Err(CreateServerError::AuthPermissionDenied);
         };
-        let owner = group.clone();
 
         let nodes = self.nodes.read().await;
         let Some(node) = nodes.get(&node).cloned() else {
@@ -148,7 +147,7 @@ pub(crate) impl ServerAdminService for Backend {
             let id = ServerId::generate();
 
             conn.transaction(|tx| Box::pin(async move {
-                query("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`group`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                query("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
                     .bind(id)
                     .bind(node.id)
                     .bind(new_server)
@@ -161,7 +160,6 @@ pub(crate) impl ServerAdminService for Backend {
                     .bind(template.id())
                     .bind(&extra)
                     .bind(&name)
-                    .bind(&group)
                     .bind(internet_access)
                     .bind(backup_limit)
                     .execute(&mut **tx)
@@ -188,7 +186,6 @@ pub(crate) impl ServerAdminService for Backend {
                     ram: resource.ram,
                     swap: resource.swap,
                     disk: resource.disk,
-                    group: Some(group),
                     suspended: false,
                     internet_access,
                     backup_limit,
