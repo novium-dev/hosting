@@ -7,7 +7,7 @@ mod neoforge;
 mod paper;
 mod purpur;
 
-use chrono::Utc;
+use chrono::{TimeDelta, TimeZone, Utc};
 use core::fmt::{Debug, Display, Formatter};
 use daemon_common::service::server::{
     Patch, PatchEntry, PatchSet, ServerBuildImage, ServerBuildPayload, ServerFileWrite,
@@ -740,9 +740,8 @@ impl Template for MinecraftTemplate {
         resolve_cache().await
     }
 
-    fn cache_update_needed(_cache: &Self::Cache) -> bool {
-        false
-        //Utc::now() > (Utc.timestamp_millis_opt(cache.1).unwrap() + TimeDelta::hours(8))
+    fn cache_update_needed(cache: &Self::Cache) -> bool {
+        Utc::now() > (Utc.timestamp_millis_opt(cache.1).unwrap() + TimeDelta::hours(8))
     }
 }
 

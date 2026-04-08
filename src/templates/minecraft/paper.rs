@@ -17,10 +17,14 @@ pub(crate) struct PaperAPIVersionGroup {
 
 #[derive(Deserialize, PartialEq, Eq)]
 pub(crate) enum PaperAPIChannel {
-    #[serde(rename = "default")]
-    Default,
-    #[serde(rename = "experimental")]
-    Experimental,
+    #[serde(rename = "ALPHA")]
+    Alpha,
+    #[serde(rename = "BETA")]
+    Beta,
+    #[serde(rename = "STABLE")]
+    Stable,
+    #[serde(rename = "RECOMMENDED")]
+    Recommended,
 }
 
 #[derive(Deserialize)]
@@ -71,7 +75,8 @@ pub(crate) async fn resolve(
 
         let mut map: HashMap<String, HashSet<u16>> = HashMap::new();
         for ver in project.builds {
-            if PaperAPIChannel::Default == ver.channel {
+            if PaperAPIChannel::Recommended == ver.channel || PaperAPIChannel::Stable == ver.channel
+            {
                 map.entry(ver.version.clone())
                     .or_default()
                     .insert(ver.build);
