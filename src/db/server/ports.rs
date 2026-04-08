@@ -23,7 +23,7 @@ pub enum NetworkProtocol {
     Udp,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, utoipa::ToSchema)]
 pub struct NetworkPort {
     pub host: String,
     pub name: String, // only for ux purposes

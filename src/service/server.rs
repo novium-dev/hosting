@@ -1,8 +1,11 @@
+use std::collections::HashSet;
+
 use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
 use crate::db::server::ServerId;
+use crate::db::server::ports::NetworkPort;
 use crate::service::server::server_service_error::{
     KillServerError, RestartServerError, ServerInfoError, ServerStatsError, ServerTerminalError,
     StartServerError, StopServerError,
@@ -11,14 +14,47 @@ use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use serde::{Deserialize, Serialize};
 use sqlx::query;
 use tracing::error;
-use zelus::responses::Redirect;
+use uuid::Uuid;
 use zelus::service;
 
 #[derive(Serialize, Deserialize, utoipa::ToSchema)]
-struct ServerInfo {
+pub(crate) struct ServerListInfo {
     id: ServerId,
     name: String,
     owner: String,
+    node: String, // Name
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct LightNodeInfo {
+    pub(crate) id: u32,
+    pub(crate) uuid: Uuid,
+    pub(crate) display: String,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct PrimaryPortInfo {
+    pub(crate) port: NetworkPort,
+    pub(crate) external_port: u16,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct ServerInfo {
+    pub(crate) id: ServerId,
+    pub(crate) name: String,
+    pub(crate) owner: Uuid,
+    pub(crate) node: LightNodeInfo,
+    pub(crate) template: String,
+    pub(crate) cpu: Option<f32>,
+    pub(crate) ram: Option<u32>,
+    pub(crate) swap: Option<u32>,
+    pub(crate) disk: Option<u64>,
+    //pub(crate) network: Option<ServerNetworkInfo>,
+    //pub(crate) database: Option<Vec<DatabaseAssignmentInfo>>,
+    pub(crate) features: HashSet<&'static str>,
+    pub(crate) group: Option<String>,
+    pub(crate) suspended: bool,
+    pub(crate) primary_port: Option<PrimaryPortInfo>,
 }
 
 #[service(path = "/server", tag = "server", no_sdk)]
@@ -33,22 +69,30 @@ pub(crate) impl ServerService for Backend {
         owner: Option<String>,
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
-    ) -> Result<Paged<ServerInfo>, _> {
-        Ok(
-            query!("SELECT `id` AS `id: ServerId`, `name`, `owner` FROM `servers`")
-                .fetch_all(&*self.database)
-                .await?
-                .into_iter()
-                .filter(|server| owner.as_ref().is_none_or(|owner| server.owner == *owner))
-                .filter(|server| auth.has(server.id, ServerPermissions::VIEW))
-                .apply_pagesplit(&mut page)
-                .map(|server| ServerInfo {
-                    id: server.id,
-                    name: server.name,
-                    owner: server.owner,
-                })
-                .collect_paged(page),
-        )
+    ) -> Result<Paged<ServerListInfo>, _> {
+        let servers = query!("SELECT `id` AS `id: ServerId`, `name`, `owner`, `node` AS `node: uuid::fmt::Hyphenated` FROM `servers`")
+            .fetch_all(&*self.database)
+            .await?
+            .into_iter()
+            .filter(|server| owner.as_ref().is_none_or(|owner| server.owner == *owner))
+            .filter(|server| auth.has(server.id, ServerPermissions::VIEW))
+            .apply_pagesplit(&mut page)
+            .collect::<Vec<_>>();
+
+        let nodes = self.nodes.read().await;
+
+        Ok(servers
+            .into_iter()
+            .map(|server| ServerListInfo {
+                id: server.id,
+                name: server.name,
+                owner: server.owner,
+                node: nodes
+                    .get(&server.node.as_uuid())
+                    .map(|node| node.display.clone())
+                    .unwrap_or_else(|| "Unknown Node".to_string()),
+            })
+            .collect_paged(page))
     }
 
     /// Shows information about a specific server.
@@ -68,10 +112,28 @@ pub(crate) impl ServerService for Backend {
             .await?
             .ok_or(ServerInfoError::ServerNotFound)?;
 
+        let primary_port = server
+            .primary_port(&mut ctx)
+            .await?
+            .map(|(id, port, external_port)| PrimaryPortInfo {
+                port: NetworkPort {
+                    id,
+                    name: port.name,
+                    protocol: port.protocol,
+                    internal_port: port.internal_port,
+                    external_port_start: *port.external_port.start(),
+                    external_port_end: *port.external_port.end(),
+                    host: port.host,
+                    bind: port.bind,
+                },
+                external_port,
+            });
+
         Ok(ServerInfo {
             id: server.id,
             name: server.name,
             owner: server.owner,
+            address: server.node,
         })
     }
 
@@ -86,25 +148,26 @@ pub(crate) impl ServerService for Backend {
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-    ) -> Result<Redirect<307>, _> {
+    ) -> Result<String, _> {
         auth.require::<_, ServerTerminalError>(server_id, ServerPermissions::TERMINAL_READ)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(ServerTerminalError::ServerNotFound)?;
 
-        Ok(Redirect::new(
-            server
-                .node
-                .services
-                .server_terminal_user_url_signed(
-                    server.node_server_id,
-                    None,
-                    None, // Subject to potential change
-                    auth.has(server_id, ServerPermissions::TERMINAL_WRITE),
-                )
-                .as_str(),
-        ))
+        let url = server
+            .node
+            .services
+            .server_terminal_user_url_signed(
+                server.node_server_id,
+                None,
+                None, // Subject to potential change
+                auth.has(server_id, ServerPermissions::TERMINAL_WRITE),
+            )
+            .as_str()
+            .to_string();
+
+        Ok(url)
     }
 
     /// Redirects to an websocket url with stats updates (status and resource usage)
@@ -117,20 +180,21 @@ pub(crate) impl ServerService for Backend {
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-    ) -> Result<Redirect<307>, _> {
+    ) -> Result<String, _> {
         auth.require::<_, ServerStatsError>(server_id, ServerPermissions::VIEW)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(ServerStatsError::ServerNotFound)?;
 
-        Ok(Redirect::new(
-            server
-                .node
-                .services
-                .server_stats_user_url_signed(server.node_server_id)
-                .as_str(),
-        ))
+        let url = server
+            .node
+            .services
+            .server_stats_user_url_signed(server.node_server_id)
+            .as_str()
+            .to_string();
+
+        Ok(url)
     }
 
     /// Tries to start the server
