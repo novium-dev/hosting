@@ -15,7 +15,7 @@ pub struct Server {
     pub id: ServerId,
     pub name: String,
     pub node_server_id: u32,
-    pub owner: String, // Organization id
+    pub owner: Uuid, // Organization id
     pub template: Arc<dyn TemplateInner + Send + Sync>,
     pub template_extra: Value,
     pub custom_dockerfile: Option<String>,
@@ -35,7 +35,7 @@ pub struct ServerInfo {
     pub id: ServerId,
     pub name: String,
     pub node_server_id: u32,
-    pub owner: String, // Organization id
+    pub owner: Uuid, // Organization id
     pub template: String,
     pub template_extra: Value,
     pub custom_dockerfile: Option<String>,
@@ -56,7 +56,7 @@ impl From<&Server> for ServerInfo {
             id: value.id,
             name: value.name.clone(),
             node_server_id: value.node_server_id,
-            owner: value.owner.clone(),
+            owner: value.owner,
             template: value.template.id().to_owned(),
             template_extra: value.template_extra.clone(),
             custom_dockerfile: value.custom_dockerfile.clone(),

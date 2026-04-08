@@ -36,7 +36,7 @@ pub(crate) impl ServerAdminService for Backend {
         #[special] auth: Authentication,
         name: String,
         node: Uuid,
-        owner: String,
+        owner: Uuid,
         template: String,
         storage: String,
         resource: ServerResourcePayload,
@@ -83,6 +83,7 @@ pub(crate) impl ServerAdminService for Backend {
                 .get(port)
                 .ok_or(CreateServerError::TemplatePortDefinitionUnknown)?;
             ports2.push(NetworkPort {
+                id: 0,
                 internal_port: definition.internal_port,
                 name: port.clone(),
                 protocol: definition.protocol,

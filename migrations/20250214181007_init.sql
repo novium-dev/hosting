@@ -43,7 +43,7 @@ CREATE TABLE
         `name` VARCHAR(64) NOT NULL,
         `node` UUID NOT NULL,
         `node_server_id` INT (255) UNSIGNED NOT NULL,
-        `owner` VARCHAR(64) NOT NULL,
+        `owner` UUID NOT NULL,
         `cpu` FLOAT (255, 2),
         `ram` INT UNSIGNED,
         `swap` INT UNSIGNED,

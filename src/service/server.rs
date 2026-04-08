@@ -3,17 +3,19 @@ use std::collections::HashSet;
 use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::ServerPermissions;
+use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
 use crate::db::server::ServerId;
-use crate::db::server::ports::NetworkPort;
+use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
 use crate::service::server::server_service_error::{
     KillServerError, RestartServerError, ServerInfoError, ServerStatsError, ServerTerminalError,
     StartServerError, StopServerError,
 };
+use crate::service::template::*;
+use crate::templates::TemplateError;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use serde::{Deserialize, Serialize};
 use sqlx::query;
-use tracing::error;
+use tracing::{error, warn};
 use uuid::Uuid;
 use zelus::service;
 
@@ -21,14 +23,13 @@ use zelus::service;
 pub(crate) struct ServerListInfo {
     id: ServerId,
     name: String,
-    owner: String,
+    owner: Uuid,
     node: String, // Name
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct LightNodeInfo {
-    pub(crate) id: u32,
-    pub(crate) uuid: Uuid,
+    pub(crate) id: Uuid,
     pub(crate) display: String,
 }
 
@@ -52,7 +53,6 @@ pub(crate) struct ServerInfo {
     //pub(crate) network: Option<ServerNetworkInfo>,
     //pub(crate) database: Option<Vec<DatabaseAssignmentInfo>>,
     pub(crate) features: HashSet<&'static str>,
-    pub(crate) group: Option<String>,
     pub(crate) suspended: bool,
     pub(crate) primary_port: Option<PrimaryPortInfo>,
 }
@@ -66,15 +66,15 @@ pub(crate) impl ServerService for Backend {
     #[error(auth::unreachable, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn list_servers(
         &self,
-        owner: Option<String>,
+        #[no_schema] owner: Option<Uuid>,
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
     ) -> Result<Paged<ServerListInfo>, _> {
-        let servers = query!("SELECT `id` AS `id: ServerId`, `name`, `owner`, `node` AS `node: uuid::fmt::Hyphenated` FROM `servers`")
+        let servers = query!("SELECT `id` AS `id: ServerId`, `name`, `owner` AS `owner: uuid::fmt::Hyphenated`, `node` AS `node: uuid::fmt::Hyphenated` FROM `servers`")
             .fetch_all(&*self.database)
             .await?
             .into_iter()
-            .filter(|server| owner.as_ref().is_none_or(|owner| server.owner == *owner))
+            .filter(|server| owner.as_ref().is_none_or(|owner| *server.owner.as_uuid() == *owner))
             .filter(|server| auth.has(server.id, ServerPermissions::VIEW))
             .apply_pagesplit(&mut page)
             .collect::<Vec<_>>();
@@ -86,11 +86,17 @@ pub(crate) impl ServerService for Backend {
             .map(|server| ServerListInfo {
                 id: server.id,
                 name: server.name,
-                owner: server.owner,
-                node: nodes
-                    .get(&server.node.as_uuid())
-                    .map(|node| node.display.clone())
-                    .unwrap_or_else(|| "Unknown Node".to_string()),
+                owner: server.owner.into_uuid(),
+                node: nodes.get(server.node.as_uuid()).map_or_else(
+                    || {
+                        warn!(
+                            "Found server whose node is not in the nodes cache: {}, node: {}",
+                            server.id, server.node
+                        );
+                        "Unknown Node".to_owned()
+                    },
+                    |node| node.display.clone(),
+                ),
             })
             .collect_paged(page))
     }
@@ -100,7 +106,7 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::VIEW`].
     #[route("/{server_id}", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
+    #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
     async fn server_info(
         &self,
         #[special] auth: Authentication,
@@ -112,9 +118,43 @@ pub(crate) impl ServerService for Backend {
             .await?
             .ok_or(ServerInfoError::ServerNotFound)?;
 
+        let ports = query!(
+            r#"SELECT
+            	`id`,
+            	`name`,
+            	`host`,
+                `protocol` AS `protocol: NetworkProtocol`,
+                `external_ip`,
+                `internal_port`,
+                `external_port_start`,`external_port_end`
+            FROM `server_ports` WHERE `server` = ?"#,
+            server_id
+        )
+        .fetch_all(&*self.database)
+        .await?
+        .into_iter()
+        .map(|record| {
+            (
+                record.id,
+                ServerPort {
+                    host: record.host,
+                    bind: auth
+                        .has((), ManagementPermissions::SERVER_MANAGE)
+                        .then_some(record.external_ip),
+                    name: record.name,
+                    protocol: record.protocol,
+                    internal_port: record.internal_port,
+                    external_port: record.external_port_start..=record.external_port_end,
+                },
+            )
+        })
+        .collect();
+
         let primary_port = server
-            .primary_port(&mut ctx)
-            .await?
+            .template
+            .primary_port(self.cache.clone(), server.template_extra.clone(), &ports)
+            .await
+            .map_err(TemplateError::into::<ServerInfoError>)?
             .map(|(id, port, external_port)| PrimaryPortInfo {
                 port: NetworkPort {
                     id,
@@ -133,7 +173,22 @@ pub(crate) impl ServerService for Backend {
             id: server.id,
             name: server.name,
             owner: server.owner,
-            address: server.node,
+            cpu: server.cpu,
+            ram: server.ram,
+            swap: server.swap,
+            disk: server.disk,
+            template: server.template.id().to_owned(),
+            features: server
+                .template
+                .enabled_features(self.cache.clone(), server.template_extra)
+                .await
+                .map_err(TemplateError::into::<ServerInfoError>)?,
+            primary_port,
+            node: LightNodeInfo {
+                id: server.node.id,
+                display: server.node.display.clone(),
+            },
+            suspended: server.suspended,
         })
     }
 
@@ -164,7 +219,6 @@ pub(crate) impl ServerService for Backend {
                 None, // Subject to potential change
                 auth.has(server_id, ServerPermissions::TERMINAL_WRITE),
             )
-            .as_str()
             .to_string();
 
         Ok(url)
@@ -191,7 +245,6 @@ pub(crate) impl ServerService for Backend {
             .node
             .services
             .server_stats_user_url_signed(server.node_server_id)
-            .as_str()
             .to_string();
 
         Ok(url)

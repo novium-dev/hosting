@@ -14,7 +14,7 @@ impl Backend {
                         `id` AS `id: ServerId`,
                         `node` AS `node: uuid::fmt::Hyphenated`,
                         `node_server_id`,
-                        `owner`,
+                        `owner` AS `owner: uuid::fmt::Hyphenated`,
                         `name`,
                         `suspended` AS `suspended: bool`,
                         `custom_dockerfile`,
@@ -59,7 +59,7 @@ impl Backend {
                     custom_dockerfile: server.custom_dockerfile,
                     internet_access: server.internet_access,
 
-                    owner: server.owner,
+                    owner: server.owner.into_uuid(),
 
                     node,
                     node_server_id: server.node_server_id,

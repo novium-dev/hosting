@@ -7,7 +7,7 @@ mod neoforge;
 mod paper;
 mod purpur;
 
-use chrono::{TimeDelta, TimeZone, Utc};
+use chrono::{TimeDelta, TimeZone as _, Utc};
 use core::fmt::{Debug, Display, Formatter};
 use daemon_common::service::server::{
     Patch, PatchEntry, PatchSet, ServerBuildImage, ServerBuildPayload, ServerFileWrite,

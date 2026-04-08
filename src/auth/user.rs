@@ -21,6 +21,7 @@ use tracing::error;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
 use utoipa::openapi::schema::SchemaType;
 use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
+use uuid::Uuid;
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
@@ -63,7 +64,7 @@ struct PermissionClaim {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct OrgClaim {
-    id: String,
+    id: Uuid,
     role: OrgRole,
     #[serde(default)]
     permissions: Vec<PermissionClaim>,
@@ -71,13 +72,13 @@ struct OrgClaim {
 
 #[derive(Default)]
 struct ResolvedPermissions {
-    org_permissions: HashMap<String, ServerPermissions>,
+    org_permissions: HashMap<Uuid, ServerPermissions>,
     server_permissions: HashMap<ServerId, ServerPermissions>,
 }
 
 #[derive(Clone)]
 enum PermissionScope {
-    Org(String),
+    Org(Uuid),
     Server(ServerId),
 }
 
@@ -203,16 +204,22 @@ async fn apply_org_permissions<E: From<sqlx::Error> + FromAuthInvalid>(
         return Ok(());
     }
 
-    let records = query!("SELECT `id` AS `id: ServerId`, `owner` FROM `servers`")
-        .fetch_all(&*backend.database)
-        .await
-        .map_err(|err| {
-            error!("Unable to expand org permissions: {err:?}");
-            <E as From<sqlx::Error>>::from(err)
-        })?;
+    let records = query!(
+        "SELECT `id` AS `id: ServerId`, `owner` AS `owner: uuid::fmt::Hyphenated` FROM `servers`"
+    )
+    .fetch_all(&*backend.database)
+    .await
+    .map_err(|err| {
+        error!("Unable to expand org permissions: {err:?}");
+        <E as From<sqlx::Error>>::from(err)
+    })?;
 
     for record in records {
-        let Some(org_permissions) = resolved.org_permissions.get(&record.owner).copied() else {
+        let Some(org_permissions) = resolved
+            .org_permissions
+            .get(record.owner.as_uuid())
+            .copied()
+        else {
             continue;
         };
 
@@ -227,13 +234,6 @@ async fn apply_org_permissions<E: From<sqlx::Error> + FromAuthInvalid>(
 }
 
 fn apply_org_claim(org: &OrgClaim, resolved: &mut ResolvedPermissions) {
-    let org_id = org.id.trim();
-    if org_id.is_empty() {
-        return;
-    }
-
-    let org_id_owned = org_id.to_owned();
-
     let permissions = org.role.server_permissions();
 
     if permissions.is_empty() {
@@ -242,15 +242,11 @@ fn apply_org_claim(org: &OrgClaim, resolved: &mut ResolvedPermissions) {
 
     resolved
         .org_permissions
-        .entry(org_id_owned.clone())
+        .entry(org.id)
         .and_modify(|existing_permissions| *existing_permissions |= permissions)
         .or_insert(permissions);
 
-    apply_permissions(
-        &org.permissions,
-        &PermissionScope::Org(org_id_owned),
-        resolved,
-    );
+    apply_permissions(&org.permissions, &PermissionScope::Org(org.id), resolved);
 }
 
 fn apply_permissions(

@@ -120,6 +120,7 @@ bitflags! {
         /// - resource quota (cpu, memory, swap and disk)
         /// - internet access
         /// - limits (backup)
+        /// - network ports
         /// of a server.
         ///
         /// Depends on [`ServerPermissions::VIEW`]

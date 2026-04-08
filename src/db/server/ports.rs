@@ -25,6 +25,7 @@ pub enum NetworkProtocol {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, utoipa::ToSchema)]
 pub struct NetworkPort {
+    pub id: u32,
     pub host: String,
     pub name: String, // only for ux purposes
     pub external_port_start: u16,
