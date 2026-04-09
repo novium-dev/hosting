@@ -2,6 +2,7 @@ use zelus::error::define_error;
 use zelus::{define_path_variable, define_query_variable};
 
 pub(crate) mod admin;
+pub(crate) mod backup;
 pub(crate) mod file;
 pub(crate) mod internal;
 pub(crate) mod server;
@@ -33,6 +34,17 @@ define_error!(file {
     is_directory("The specified file is a directory" BAD_REQUEST),
     quota_exceeded("The file exceeds the server's storage quota" BAD_REQUEST),
     compression_unsupported("The specified compression method is unsupported" BAD_REQUEST),
+});
+
+define_error!(backup {
+    storage_unavailable("Backup storage is currently in use" SERVICE_UNAVAILABLE),
+    not_found("The specified backup was not found" NOT_FOUND),
+    storage_not_found("The specified backup storage was not found" BAD_REQUEST),
+    storage_incompatible("The selected backup storage is incompatible" BAD_REQUEST),
+    no_suitable_storage_found("No suitable backup storage was found" BAD_REQUEST),
+    compression_not_allowed("The selected backup compression is not allowed" BAD_REQUEST),
+    limit_exceeded("The server backup limit has been reached" BAD_REQUEST),
+    quota_exceeded("Restoring this backup would exceed storage quota" BAD_REQUEST),
 });
 
 define_error!(port {
@@ -93,6 +105,14 @@ define_query_variable!(
 
 define_path_variable!(
     file_name "The file name"
+);
+
+define_path_variable!(
+    backup_storage "The backup storage ID"
+);
+
+define_path_variable!(
+    backup_id "The backup ID"
 );
 
 define_query_variable!(
