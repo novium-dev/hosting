@@ -119,12 +119,25 @@ bitflags! {
         /// JWT Claim: user.edit
         const USER_EDIT = 1 << 14;
 
+
+        /// Allows the user to view the server's network configuration, including assigned ports and networks.
+        ///
+        /// Depends on [`ServerPermissions::VIEW`]
+        /// JWT Claim: network.view
+        const NETWORK_VIEW = 1 << 15;
+
+        // Allows the user to modify the server's network configuration, including assigning and unassigning ports and networks.
+        ///
+        /// Depends on [`ServerPermissions::NETWORK_VIEW`]
+        /// JWT Claim: network.manage
+        const NETWORK_MANAGE = 1 << 16;
+
         /// Allows
         /// - the rename of the server
         ///
         /// Depends on [`ServerPermissions::VIEW`]
         /// JWT Claim: admin.management
-        const ADMIN_MANAGEMENT = 1 << 15;
+        const ADMIN_MANAGEMENT = 1 << 17;
     }
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]

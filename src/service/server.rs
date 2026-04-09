@@ -52,11 +52,17 @@ pub(crate) struct ServerInfo {
     pub(crate) ram: Option<u32>,
     pub(crate) swap: Option<u32>,
     pub(crate) disk: Option<u64>,
-    //pub(crate) network: Option<ServerNetworkInfo>,
+    pub(crate) network: Option<ServerNetworkInfo>,
     //pub(crate) database: Option<Vec<DatabaseAssignmentInfo>>,
     pub(crate) features: HashSet<&'static str>,
     pub(crate) suspended: bool,
     pub(crate) primary_port: Option<PrimaryPortInfo>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct ServerNetworkInfo {
+    pub(crate) ports: Vec<NetworkPort>,
+    //pub(crate) networks: Vec<NetworkAssignmentInfo>,
 }
 
 #[service(path = "/server", tag = "server", no_sdk)]
@@ -181,6 +187,26 @@ pub(crate) impl ServerService for Backend {
                 external_port,
             });
 
+        let network = auth
+            .has(server_id, ServerPermissions::NETWORK_VIEW)
+            .then(|| {
+                let ports = ports
+                    .iter()
+                    .map(|(id, port)| NetworkPort {
+                        id: *id,
+                        name: port.name.clone(),
+                        protocol: port.protocol,
+                        internal_port: port.internal_port,
+                        external_port_start: *port.external_port.start(),
+                        external_port_end: *port.external_port.end(),
+                        host: port.host.clone(),
+                        bind: port.bind.clone(),
+                    })
+                    .collect();
+
+                ServerNetworkInfo { ports }
+            });
+
         Ok(ServerInfo {
             id: server.id,
             name: server.name,
@@ -189,6 +215,7 @@ pub(crate) impl ServerService for Backend {
             ram: server.ram,
             swap: server.swap,
             disk: server.disk,
+            network,
             template: server.template.id().to_owned(),
             features: server
                 .template
