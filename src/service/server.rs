@@ -8,10 +8,11 @@ use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
 use crate::service::server::server_service_error::{
     KillServerError, RestartServerError, ServerInfoError, ServerStatsError, ServerTerminalError,
-    StartServerError, StopServerError,
+    ServerVariablesError, StartServerError, StopServerError,
 };
 use crate::service::template::*;
 use crate::templates::TemplateError;
+use crate::templates::variable::VariablePayload;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use serde::Serialize;
 use sqlx::query;
@@ -397,5 +398,26 @@ pub(crate) impl ServerService for Backend {
                     KillServerError::NodeFailure
                 }
             })
+    }
+
+    #[route("/{server_id}/variables", method = GET)]
+    #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
+    async fn server_variables(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+    ) -> Result<VariablePayload, _> {
+        auth.require::<_, ServerVariablesError>(server_id, ServerPermissions::BUILD_VIEW)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(ServerVariablesError::ServerNotFound)?;
+
+        server
+            .template
+            .extra_to_variables(self.cache.clone(), server.template_extra.clone())
+            .await
+            .map_err(TemplateError::into::<ServerVariablesError>)
     }
 }
