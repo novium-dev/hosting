@@ -57,6 +57,8 @@ pub(crate) struct ServerInfo {
     pub(crate) network: Option<ServerNetworkInfo>,
     //pub(crate) database: Option<Vec<DatabaseAssignmentInfo>>,
     pub(crate) features: HashSet<&'static str>,
+    pub(crate) backup_limit: Option<u32>,
+    pub(crate) internet_access: bool,
     pub(crate) suspended: bool,
     pub(crate) primary_port: Option<PrimaryPortInfo>,
 }
@@ -239,6 +241,8 @@ pub(crate) impl ServerService for Backend {
                 .enabled_features(self.cache.clone(), server.template_extra)
                 .await
                 .map_err(TemplateError::into::<ServerInfoError>)?,
+            backup_limit: server.backup_limit,
+            internet_access: server.internet_access,
             primary_port,
             node: LightNodeInfo {
                 id: server.node.id,
