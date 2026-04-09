@@ -5,12 +5,13 @@ use crate::auth::permissions::ServerPermissions;
 use crate::db::server::ServerId;
 
 use crate::service::file::file_service_error::{
-    CopyFileError, DeleteFileError, ListFilesError, RenameFileError,
+    CopyFileError, CreateDirectoryError, DeleteFileError, ListFilesError, RenameFileError,
 };
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use daemon_common::service::files::FileEntry;
 use daemon_common::service::files::files_service_error::{
-    ServerCopyFileError, ServerDeleteFileError, ServerListFilesError, ServerRenameFileError,
+    ServerCopyFileError, ServerCreateDirectoryError, ServerDeleteFileError, ServerListFilesError,
+    ServerRenameFileError,
 };
 use tracing::error;
 use zelus::service;
@@ -183,6 +184,56 @@ pub(crate) impl FileService for Backend {
                 ServerDeleteFileError::FileSandboxViolated => DeleteFileError::FileSandboxViolated,
                 ServerDeleteFileError::FileNotDirectory => DeleteFileError::FileNotDirectory,
                 ServerDeleteFileError::FileIsDirectory => DeleteFileError::FileIsDirectory,
+            })?;
+
+        Ok(())
+    }
+
+    #[route("/mkdir", method = POST, query = [ path, recursive ])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded})]
+    async fn create_directory(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        path: String,
+        recursive: bool,
+    ) -> Result<(), _> {
+        auth.require::<_, CreateDirectoryError>(server_id, ServerPermissions::FILES_WRITE)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(CreateDirectoryError::ServerNotFound)?;
+
+        server
+            .node
+            .server_create_directory(server.node_server_id, path, recursive)
+            .await
+            .map_err(|err| match err {
+                ServerCreateDirectoryError::Communication(_) => {
+                    error!("Failed to request directory creation: {:?}", err);
+                    CreateDirectoryError::NodeFailure
+                }
+                ServerCreateDirectoryError::AuthInvalid
+                | ServerCreateDirectoryError::StorageNotFound
+                | ServerCreateDirectoryError::StorageFailure
+                | ServerCreateDirectoryError::SqlFailure => {
+                    error!("Failed to create directory: {:?}", err);
+                    CreateDirectoryError::NodeFailure
+                }
+                ServerCreateDirectoryError::StorageMutexLocked => {
+                    CreateDirectoryError::FileStorageUnavailable
+                }
+                ServerCreateDirectoryError::FileNotFound => CreateDirectoryError::FileNotFound,
+                ServerCreateDirectoryError::FileSandboxViolated => {
+                    CreateDirectoryError::FileSandboxViolated
+                }
+                ServerCreateDirectoryError::FileAlreadyExists => {
+                    CreateDirectoryError::FileAlreadyExists
+                }
+                ServerCreateDirectoryError::StorageQuotaReached => {
+                    CreateDirectoryError::FileQuotaExceeded
+                }
             })?;
 
         Ok(())
