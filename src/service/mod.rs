@@ -27,6 +27,7 @@ define_error!(file {
     already_exists("A file with the specified name already exists" BAD_REQUEST),
     is_directory("The specified file is a directory" BAD_REQUEST),
     quota_exceeded("The file exceeds the server's storage quota" BAD_REQUEST),
+    compression_unsupported("The specified compression method is unsupported" BAD_REQUEST),
 });
 
 define_error!(node {
@@ -69,4 +70,8 @@ define_query_variable!(
 
 define_query_variable!(
     recursive "Whether the operation should be applied recursively"
+);
+
+define_query_variable!(
+    compression "The compression method to use"
 );

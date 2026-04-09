@@ -5,13 +5,14 @@ use crate::auth::permissions::ServerPermissions;
 use crate::db::server::ServerId;
 
 use crate::service::file::file_service_error::{
-    CopyFileError, CreateDirectoryError, DeleteFileError, ListFilesError, RenameFileError,
+    ArchiveFileError, CopyFileError, CreateDirectoryError, DeleteFileError, ListFilesError,
+    RenameFileError, UnarchiveFileError,
 };
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use daemon_common::service::files::FileEntry;
 use daemon_common::service::files::files_service_error::{
-    ServerCopyFileError, ServerCreateDirectoryError, ServerDeleteFileError, ServerListFilesError,
-    ServerRenameFileError,
+    ServerCopyFileError, ServerCreateArchiveError, ServerCreateDirectoryError,
+    ServerDeleteFileError, ServerListFilesError, ServerRenameFileError, ServerUnpackArchiveError,
 };
 use tracing::error;
 use zelus::service;
@@ -233,6 +234,108 @@ pub(crate) impl FileService for Backend {
                 }
                 ServerCreateDirectoryError::StorageQuotaReached => {
                     CreateDirectoryError::FileQuotaExceeded
+                }
+            })?;
+
+        Ok(())
+    }
+
+    #[route("/archive", method = POST, query = [ from, to, compression ])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, is_directory, quota_exceeded, compression_unsupported})]
+    async fn archive_file(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        from: String,
+        to: String,
+        compression: String,
+    ) -> Result<(), _> {
+        auth.require::<_, ArchiveFileError>(server_id, ServerPermissions::FILES_WRITE)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(ArchiveFileError::ServerNotFound)?;
+
+        server
+            .node
+            .server_create_archive(server.node_server_id, from, to, compression)
+            .await
+            .map_err(|err| match err {
+                ServerCreateArchiveError::Communication(_) => {
+                    error!("Failed to request archive creation: {:?}", err);
+                    ArchiveFileError::NodeFailure
+                }
+                ServerCreateArchiveError::AuthInvalid
+                | ServerCreateArchiveError::StorageNotFound
+                | ServerCreateArchiveError::StorageFailure
+                | ServerCreateArchiveError::SqlFailure => {
+                    error!("Failed to create archive: {:?}", err);
+                    ArchiveFileError::NodeFailure
+                }
+                ServerCreateArchiveError::StorageMutexLocked => {
+                    ArchiveFileError::FileStorageUnavailable
+                }
+                ServerCreateArchiveError::StorageQuotaReached => {
+                    ArchiveFileError::FileQuotaExceeded
+                }
+                ServerCreateArchiveError::FileNotFound => ArchiveFileError::FileNotFound,
+                ServerCreateArchiveError::FileSandboxViolated => {
+                    ArchiveFileError::FileSandboxViolated
+                }
+                ServerCreateArchiveError::FileIsDirectory => ArchiveFileError::FileIsDirectory,
+                ServerCreateArchiveError::CompressionUnsupported => {
+                    ArchiveFileError::FileCompressionUnsupported
+                }
+            })?;
+
+        Ok(())
+    }
+
+    #[route("/unarchive", method = POST, query = [ from, to ])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded, compression_unsupported})]
+    async fn unarchive_file(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        from: String,
+        to: String,
+    ) -> Result<(), _> {
+        auth.require::<_, UnarchiveFileError>(server_id, ServerPermissions::FILES_WRITE)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(UnarchiveFileError::ServerNotFound)?;
+
+        server
+            .node
+            .server_unpack_archive(server.node_server_id, from, to)
+            .await
+            .map_err(|err| match err {
+                ServerUnpackArchiveError::Communication(_) => {
+                    error!("Failed to request archive extraction: {:?}", err);
+                    UnarchiveFileError::NodeFailure
+                }
+                ServerUnpackArchiveError::AuthInvalid
+                | ServerUnpackArchiveError::StorageNotFound
+                | ServerUnpackArchiveError::StorageFailure
+                | ServerUnpackArchiveError::SqlFailure => {
+                    error!("Failed to extract archive: {:?}", err);
+                    UnarchiveFileError::NodeFailure
+                }
+                ServerUnpackArchiveError::StorageMutexLocked => {
+                    UnarchiveFileError::FileStorageUnavailable
+                }
+                ServerUnpackArchiveError::StorageQuotaReached => {
+                    UnarchiveFileError::FileQuotaExceeded
+                }
+                ServerUnpackArchiveError::FileNotFound => UnarchiveFileError::FileNotFound,
+                ServerUnpackArchiveError::FileSandboxViolated => {
+                    UnarchiveFileError::FileSandboxViolated
+                }
+                ServerUnpackArchiveError::CompressionUnsupported => {
+                    UnarchiveFileError::FileCompressionUnsupported
                 }
             })?;
 
