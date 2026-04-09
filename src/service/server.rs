@@ -13,17 +13,18 @@ use crate::service::server::server_service_error::{
 use crate::service::template::*;
 use crate::templates::TemplateError;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sqlx::query;
 use tracing::{error, warn};
 use uuid::Uuid;
 use zelus::service;
 
-#[derive(Serialize, Deserialize, utoipa::ToSchema)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ServerListInfo {
     id: ServerId,
     name: String,
     owner: Uuid,
+    template: String,
     node: String, // Name
 }
 
@@ -70,7 +71,7 @@ pub(crate) impl ServerService for Backend {
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
     ) -> Result<Paged<ServerListInfo>, _> {
-        let servers = query!("SELECT `id` AS `id: ServerId`, `name`, `owner` AS `owner: uuid::fmt::Hyphenated`, `node` AS `node: uuid::fmt::Hyphenated` FROM `servers`")
+        let servers = query!("SELECT `id` AS `id: ServerId`, `name`, `owner` AS `owner: uuid::fmt::Hyphenated`, `node` AS `node: uuid::fmt::Hyphenated`, `template` FROM `servers`")
             .fetch_all(&*self.database)
             .await?
             .into_iter()
@@ -81,12 +82,24 @@ pub(crate) impl ServerService for Backend {
 
         let nodes = self.nodes.read().await;
 
+        let templates = self.templates.read().await;
+
         Ok(servers
             .into_iter()
             .map(|server| ServerListInfo {
                 id: server.id,
                 name: server.name,
                 owner: server.owner.into_uuid(),
+                template: templates
+                    .get(&server.template)
+                    .map(|template| template.id().to_owned())
+                    .unwrap_or_else(|| {
+                        warn!(
+                            "Found server whose template is not in the templates cache: {}, template: {}",
+                            server.id, server.template
+                        );
+                        "Unknown Template".to_owned()
+                    }),
                 node: nodes.get(server.node.as_uuid()).map_or_else(
                     || {
                         warn!(
