@@ -420,7 +420,7 @@ pub(crate) impl ServerService for Backend {
     }
 
     #[route("/{server_id}/variables", method = PATCH)]
-    #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
+    #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable, input_invalid}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
     async fn update_variables(
         &self,
         #[special] auth: Authentication,
@@ -448,7 +448,7 @@ pub(crate) impl ServerService for Backend {
             .template
             .extra_to_build_payload(
                 self.cache.clone(),
-                new_extra.ok_or(UpdateVariablesError::TemplateCorrupted)?,
+                new_extra.ok_or(UpdateVariablesError::TemplateInputInvalid)?,
             )
             .await
             .map_err(TemplateError::into::<UpdateVariablesError>)?;
