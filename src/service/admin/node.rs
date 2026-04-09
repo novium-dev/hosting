@@ -2,9 +2,12 @@ use std::time::Instant;
 
 use indexmap::IndexSet;
 use rand::TryRng as _;
+use serde::Deserialize;
 use tracing::error;
 
 use serde::Serialize;
+use sqlx::{Connection, query};
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use zelus::service;
 
@@ -12,8 +15,10 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::node::NodePortAllocation;
+use crate::db::server::ports::NetworkProtocol;
 use crate::service::admin::node::node_admin_service_error::{
-    CreateNodeError, ListNodesError, UpdateNodeError,
+    AddPortError, AvailablePortsError, CreateNodeError, DeletePortError, ListNodesError,
+    MetricsNodeError, UpdateNodeError,
 };
 use crate::service::error_os_failure::FromOsFailure;
 use crate::service::*;
@@ -29,6 +34,20 @@ pub(crate) struct NodeInfo {
     pub(crate) server_storages: IndexSet<String>,
     pub(crate) backup_storages: IndexSet<String>,
     pub(crate) ports: Vec<NodePortAllocation>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct PortRange {
+    pub(crate) start: u16,
+    pub(crate) end: u16,
+    pub(crate) exclude: HashSet<u16>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub(crate) struct PortAddPayload {
+    pub(crate) start: u16,
+    pub(crate) end: u16,
+    pub(crate) protocol: String,
 }
 
 #[service(path = "/admin/node", tag = "node", no_sdk)]
@@ -102,6 +121,160 @@ pub(crate) impl NodeAdminService for Backend {
                 ports: node.ports.clone(),
             })
             .collect())
+    }
+
+    #[route("/{node_id}/metrics", method = GET)]
+    #[error(node::not_found, node::failure, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*])]
+    async fn metrics_node(
+        &self,
+        #[special] auth: Authentication,
+        #[no_schema] node_id: Uuid,
+    ) -> Result<daemon_common::service::resource::ResourceResponse, _> {
+        use daemon_common::service::resource::resource_service_error::ResourceInfoError;
+
+        auth.require::<_, MetricsNodeError>((), ManagementPermissions::NODES_VIEW)?;
+
+        let node = self
+            .nodes
+            .read()
+            .await
+            .get(&node_id)
+            .cloned()
+            .ok_or(MetricsNodeError::NodeNotFound)?;
+
+        node.resource_info().await.map_err(|err| match err {
+            ResourceInfoError::Communication(_) => {
+                error!("Failed to request resource info: {err:?}");
+                MetricsNodeError::NodeFailure
+            }
+            ResourceInfoError::AuthInvalid
+            | ResourceInfoError::SqlFailure
+            | ResourceInfoError::Resource => {
+                error!("Failed to get resource info: {err:?}");
+                MetricsNodeError::NodeFailure
+            }
+        })
+    }
+
+    #[route("/{node_id}/ports", method = GET)]
+    #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*])]
+    async fn available_ports(
+        &self,
+        #[special] auth: Authentication,
+        #[no_schema] node_id: Uuid,
+    ) -> Result<HashMap<String, Vec<PortRange>>, _> {
+        auth.require::<_, AvailablePortsError>((), ManagementPermissions::NODES_VIEW)?;
+
+        let node = self
+            .nodes
+            .read()
+            .await
+            .get(&node_id)
+            .cloned()
+            .ok_or(AvailablePortsError::NodeNotFound)?;
+
+        let used: HashSet<u16> = query!(
+            "SELECT `server_ports`.`external_port_start`, `server_ports`.`external_port_end` FROM `servers` JOIN `server_ports` ON `server_ports`.`server` = `servers`.`id` WHERE `servers`.`node` = ?",
+            node_id
+        )
+        .fetch_all(&*self.database)
+        .await?
+        .into_iter()
+        .flat_map(|row| row.external_port_start..=row.external_port_end)
+        .collect();
+
+        let mut result: HashMap<String, Vec<PortRange>> = HashMap::new();
+        for port in &node.ports {
+            let exclude = (port.start..=port.end)
+                .filter(|candidate| used.contains(candidate))
+                .collect();
+            result
+                .entry(port.protocol.to_string())
+                .or_default()
+                .push(PortRange {
+                    start: port.start,
+                    end: port.end,
+                    exclude,
+                });
+        }
+
+        Ok(result)
+    }
+
+    #[route("/{node_id}/ports", method = PUT)]
+    #[error(node::not_found, port::invalid, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*])]
+    async fn add_port(
+        &self,
+        #[special] auth: Authentication,
+        #[no_schema] node_id: Uuid,
+        port: PortAddPayload,
+    ) -> Result<u32, _> {
+        auth.require::<_, AddPortError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        let protocol = NetworkProtocol::by_name(&port.protocol);
+        if port.start > port.end {
+            return Err(AddPortError::PortInvalid);
+        }
+
+        if self.nodes.read().await.get(&node_id).is_none() {
+            return Err(AddPortError::NodeNotFound);
+        }
+
+        let mut conn = self.database.acquire().await?;
+        let backend = self.clone();
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let id = query!(
+                    "INSERT INTO `node_ports` (`node`, `protocol`, `start`, `end`) VALUES (?, ?, ?, ?)",
+                    node_id,
+                    protocol.to_string(),
+                    port.start,
+                    port.end,
+                )
+                .execute(&mut **tx)
+                .await?
+                .last_insert_id() as u32;
+
+                backend.sync_nodes(tx).await?;
+
+                Ok::<_, AddPortError>(id)
+            })
+        })
+        .await
+    }
+
+    #[route("/{node_id}/ports/{port_id}", method = DELETE)]
+    #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*])]
+    async fn delete_port(
+        &self,
+        #[special] auth: Authentication,
+        #[no_schema] node_id: Uuid,
+        port_id: u32,
+    ) -> Result<(), _> {
+        auth.require::<_, DeletePortError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        if self.nodes.read().await.get(&node_id).is_none() {
+            return Err(DeletePortError::NodeNotFound);
+        }
+
+        let mut conn = self.database.acquire().await?;
+        let backend = self.clone();
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                query!(
+                    "DELETE FROM `node_ports` WHERE `id` = ? AND `node` = ?",
+                    port_id,
+                    node_id,
+                )
+                .execute(&mut **tx)
+                .await?;
+
+                backend.sync_nodes(tx).await?;
+
+                Ok::<_, DeletePortError>(())
+            })
+        })
+        .await
     }
 }
 
