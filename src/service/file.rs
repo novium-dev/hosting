@@ -19,11 +19,18 @@ use daemon_common::service::files::files_service_error::{
     ServerWriteFileByTemplateError,
 };
 use daemon_common::service::server::ServerFileWrite;
+use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use tokio_util::io::SyncIoBridge;
 use tracing::error;
+use url::Url;
 use zelus::service;
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+struct UrlResponse {
+    url: Url,
+}
 
 #[service(path = "/file/{server_id}", tag = "file", no_sdk)]
 pub(crate) impl FileService for Backend {
@@ -333,7 +340,7 @@ pub(crate) impl FileService for Backend {
         server_id: ServerId,
         path: String,
         limit: Option<u64>,
-    ) -> Result<String, _> {
+    ) -> Result<UrlResponse, _> {
         auth.require::<_, DownloadUserError>(server_id, ServerPermissions::FILES_READ)?;
 
         let server = self
@@ -341,10 +348,13 @@ pub(crate) impl FileService for Backend {
             .await?
             .ok_or(DownloadUserError::ServerNotFound)?;
 
-        Ok(server
-            .node
-            .server_download_file_user_url_signed(server.node_server_id, path, limit)
-            .to_string())
+        Ok(UrlResponse {
+            url: server.node.server_download_file_user_url_signed(
+                server.node_server_id,
+                path,
+                limit,
+            ),
+        })
     }
 
     #[route("/upload", method = GET, query = [ path ])]
@@ -354,7 +364,7 @@ pub(crate) impl FileService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
         path: String,
-    ) -> Result<String, _> {
+    ) -> Result<UrlResponse, _> {
         auth.require::<_, UploadUserError>(server_id, ServerPermissions::FILES_WRITE)?;
 
         let server = self
@@ -362,10 +372,11 @@ pub(crate) impl FileService for Backend {
             .await?
             .ok_or(UploadUserError::ServerNotFound)?;
 
-        Ok(server
-            .node
-            .server_upload_file_user_url_signed(server.node_server_id, path)
-            .to_string())
+        Ok(UrlResponse {
+            url: server
+                .node
+                .server_upload_file_user_url_signed(server.node_server_id, path),
+        })
     }
 
     #[route("/archive", method = POST, query = [ from, to, compression ])]
