@@ -165,12 +165,12 @@ bitflags! {
         /// Allows the user to see api keys on this instance.
         /// The api keys are only visible on creation and therefore not accessible to anyone with this permission.
         ///
-        /// JWT Claim: api_keys.view (or api-keys.view)
+        /// JWT Claim: api-keys.view
         const API_KEYS_VIEW = 1 << 37;
         /// Allows the user to create, edit and delete api keys on this instance.
         ///
         /// Depends on [`ManagementPermissions::API_KEYS_VIEW`]
-        /// JWT Claim: api_keys.manage (or api-keys.manage)
+        /// JWT Claim: api-keys.manage
         const API_KEYS_MANAGE = 1 << 38;
 
         /// Allows the user to view all registered nodes on this instance.
@@ -332,8 +332,8 @@ impl ManagementPermissions {
             "server.delete" => Some(Self::SERVER_DELETE),
             "user.view" => Some(Self::USER_VIEW),
             "user.manage" => Some(Self::USER_MANAGE),
-            "api_keys.view" | "api-keys.view" => Some(Self::API_KEYS_VIEW),
-            "api_keys.manage" | "api-keys.manage" => Some(Self::API_KEYS_MANAGE),
+            "api-keys.view" => Some(Self::API_KEYS_VIEW),
+            "api-keys.manage" => Some(Self::API_KEYS_MANAGE),
             "nodes.view" => Some(Self::NODES_VIEW),
             "nodes.manage" => Some(Self::NODES_MANAGE),
             "backup.storage.select" => Some(Self::BACKUP_STORAGE_SELECT),

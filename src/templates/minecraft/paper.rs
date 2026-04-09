@@ -16,14 +16,11 @@ pub(crate) struct PaperAPIVersionGroup {
 }
 
 #[derive(Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "UPPERCASE")]
 pub(crate) enum PaperAPIChannel {
-    #[serde(rename = "ALPHA")]
     Alpha,
-    #[serde(rename = "BETA")]
     Beta,
-    #[serde(rename = "STABLE")]
     Stable,
-    #[serde(rename = "RECOMMENDED")]
     Recommended,
 }
 

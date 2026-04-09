@@ -9,6 +9,7 @@ pub struct BackendConfig {
     pub auth: AuthConfig,
     pub database_url: String,
     pub cache_url: String,
+    pub trusted_urls: Vec<Url>,
     #[cfg(feature = "embedded_node")]
     pub daemon: EmbeddedNodeConfig,
 }

@@ -26,8 +26,10 @@ impl Backend {
         let (router,) = framework_router!(Self self (default,) { ServerService, FileService, ServerAdminService, NodeAdminService, TemplateService, InternalService });
 
         let cors = tower_http::cors::CorsLayer::new()
-            .allow_origin(tower_http::cors::AllowOrigin::exact(
-                "http://localhost:3000".parse::<HeaderValue>().unwrap(),
+            .allow_origin(tower_http::cors::AllowOrigin::list(
+                self.config.trusted_urls.iter().map(|url| {
+                    HeaderValue::from_str(url.as_str()).expect("invalid trusted URL header value")
+                }),
             ))
             .allow_methods([axum::http::Method::GET])
             .allow_headers(tower_http::cors::AllowHeaders::any());

@@ -92,15 +92,13 @@ pub(crate) impl ServerService for Backend {
                 name: server.name,
                 owner: server.owner.into_uuid(),
                 template: templates
-                    .get(&server.template)
-                    .map(|template| template.id().to_owned())
-                    .unwrap_or_else(|| {
+                  .get(&server.template).map_or_else(|| {
                         warn!(
-                            "Found server whose template is not in the templates cache: {}, template: {}",
+                        "Found server whose template is not in the templates cache: {}, template: {}",
                             server.id, server.template
-                        );
+                         );
                         "Unknown Template".to_owned()
-                    }),
+                   }, |template| template.id().to_owned()),
                 node: nodes.get(server.node.as_uuid()).map_or_else(
                     || {
                         warn!(
