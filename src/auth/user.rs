@@ -27,7 +27,7 @@ use zelus::types::DocumentedType;
 
 #[derive(Debug)]
 pub struct UserAuthentication {
-    pub id: String,
+    pub id: Uuid,
     name: Option<String>,
     email: Option<String>,
     permissions: i64,
@@ -36,13 +36,13 @@ pub struct UserAuthentication {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Claims {
-    sub: String,
+    sub: Uuid,
     iss: String,
     exp: usize,
     #[serde(default)]
     iat: Option<usize>,
     #[serde(default)]
-    id: Option<String>,
+    id: Option<Uuid>,
     #[serde(default)]
     name: Option<String>,
     #[serde(default)]
