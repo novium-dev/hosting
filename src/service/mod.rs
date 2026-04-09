@@ -30,6 +30,11 @@ define_error!(file {
     compression_unsupported("The specified compression method is unsupported" BAD_REQUEST),
 });
 
+define_error!(port {
+    invalid("The specified port range is invalid" BAD_REQUEST),
+    not_allocated("The specified port range is not allocated to the server" BAD_REQUEST),
+});
+
 define_error!(node {
     not_found("The specified node was not found" BAD_REQUEST),
     failure("Node operation failed" BAD_GATEWAY),
@@ -58,6 +63,10 @@ define_query_variable!(
 
 define_query_variable!(
     path "The file path"
+);
+
+define_path_variable!(
+    port_id "The port ID"
 );
 
 define_query_variable!(

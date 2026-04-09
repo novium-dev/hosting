@@ -209,7 +209,7 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::TERMINAL_READ`].
     /// Grants Write Permissions, if [`ServerPermissions::TERMINAL_WRITE`] is present.
-    #[route("/{server_id}/terminal", method = GET, raw)]
+    #[route("/{server_id}/terminal", method = GET)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
     async fn server_terminal(
         &self,
@@ -240,7 +240,7 @@ pub(crate) impl ServerService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::VIEW`].
-    #[route("/{server_id}/stats", method = GET, raw)]
+    #[route("/{server_id}/stats", method = GET)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
     async fn server_stats(
         &self,

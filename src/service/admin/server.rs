@@ -1,10 +1,10 @@
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
-use crate::db::server::ports::{NetworkPort, merge_ports};
+use crate::db::server::ports::{NetworkPort, NetworkProtocol, merge_ports};
 use crate::db::server::{ServerId, ServerInfo};
 use crate::service::admin::server::server_admin_service_error::{
-    CreateServerError, DeleteServerError,
+    CreatePortError, CreateServerError, DeleteServerError,
 };
 use crate::service::template::*;
 use crate::service::*;
@@ -13,11 +13,36 @@ use daemon_common::service::server::server_service_error::CreateServerError as D
 use daemon_common::service::server::{
     ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
 };
-use sqlx::{Connection as _, query};
+use serde::Deserialize;
+use sqlx::{Connection as _, query, query_scalar};
 use std::collections::HashMap;
 use tracing::error;
 use uuid::Uuid;
 use zelus::service;
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub(crate) struct PortCreate {
+    pub(crate) name: String,
+    pub(crate) protocol: NetworkProtocol,
+    pub(crate) internal_port: u16,
+    pub(crate) external_port: PortRange,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub(crate) struct PortUpdate {
+    pub(crate) name: Option<String>,
+    pub(crate) protocol: Option<NetworkProtocol>,
+    pub(crate) internal_port: Option<u16>,
+    pub(crate) external_port: Option<PortRange>,
+    pub(crate) host: Option<String>,
+    pub(crate) bind: Option<String>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub(crate) struct PortRange {
+    pub(crate) start: u16,
+    pub(crate) end: u16,
+}
 
 #[service(path = "/admin/server", tag = "server", no_sdk)]
 pub(crate) impl ServerAdminService for Backend {
@@ -223,5 +248,129 @@ pub(crate) impl ServerAdminService for Backend {
                 },
             }
         })).await
+    }
+
+    #[route("/{server_id}/ports", method = PUT, raw)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*],
+        server::{not_found, unavailable},
+        node::failure,
+        port::{invalid, not_allocated})]
+    async fn create_port(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        port: PortCreate,
+    ) -> Result<u32, _> {
+        if port.external_port.start > port.external_port.end {
+            return Err(CreatePortError::PortInvalid);
+        }
+
+        let external = port.external_port.start..=port.external_port.end;
+
+        if ((port.internal_port as u32) + ((external.end() - external.start()) as u32))
+            > u16::MAX as u32
+        {
+            return Err(CreatePortError::PortInvalid);
+        }
+
+        auth.require::<_, CreatePortError>(server_id, ServerPermissions::VIEW)?;
+        auth.require::<_, CreatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(CreatePortError::ServerNotFound)?;
+
+        let mut conn = self.database.acquire().await?;
+
+        conn.transaction(|tx| {
+        Box::pin(async move {
+            let allocated = query_scalar!(
+                r#"SELECT (COUNT(*) > 0) as `exists: bool`
+                   FROM node_ports
+                   WHERE node = ?
+                   AND protocol = ?
+                   AND ? <= end
+                   AND ? >= start"#,
+                server.node.id,
+                port.protocol.to_string(),
+                external.start(),
+                external.end()
+            )
+            .fetch_one(&mut **tx)
+            .await?;
+
+            if !allocated {
+                return Err(CreatePortError::PortNotAllocated);
+            }
+
+            let collision = query_scalar!(
+                r#"SELECT (COUNT(*) > 0) as `exists: bool`
+                   FROM server_ports
+                   JOIN servers ON server_ports.server = servers.id
+                   WHERE servers.node = ?
+                   AND server_ports.protocol = ?
+                   AND ? <= external_port_end
+                   AND ? >= external_port_start"#,
+                server.node.id,
+                port.protocol.to_string(),
+                external.start(),
+                external.end()
+            )
+            .fetch_one(&mut **tx)
+            .await?;
+
+            if collision {
+                return Err(CreatePortError::PortInvalid);
+            }
+
+            let id = query!(
+                "INSERT INTO server_ports (server, host, name, protocol, internal_port, external_port_start, external_port_end, external_ip)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                server.id,
+                server.node.default_host(),
+                port.name,
+                port.protocol.to_string(),
+                port.internal_port,
+                external.start(),
+                external.end(),
+                server.node.default_bind()
+            )
+            .execute(&mut **tx)
+            .await?
+            .last_insert_id() as u32;
+
+
+            let rows = query!(
+                "SELECT internal_port, external_port_start, external_port_end, protocol, external_ip
+                 FROM server_ports WHERE server = ? FOR UPDATE",
+                server.id
+            )
+            .fetch_all(&mut **tx)
+            .await?;
+
+            let mut payload = Vec::new();
+
+            for p in rows {
+                for ext in p.external_port_start..=p.external_port_end {
+                    payload.push(ServerPortEntryPayload {
+                        external_port: ext,
+                        internal_port: p.internal_port,
+                        protocol: p.protocol.clone(),
+                        external_ip: p.external_ip.clone(),
+                    });
+                }
+            }
+
+            server
+                .node
+                .update_server(server.node_server_id, None, None, Some(payload), None)
+                .await
+                .map_err(|_| CreatePortError::NodeFailure)?;
+
+            Ok(id)
+        })
+    })
+    .await
     }
 }
