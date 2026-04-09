@@ -1,7 +1,7 @@
 use crate::Backend;
 use crate::auth::BEARER_REGEX;
 use crate::auth::permissions::{
-    HasPermission, ManagementPermissions, OrgRole, Permission, Role, ServerPermissions,
+    HasPermission, ManagementPermissions, Permission, ServerPermissions,
 };
 use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
@@ -29,7 +29,6 @@ use zelus::types::DocumentedType;
 pub struct UserAuthentication {
     pub id: String,
     name: Option<String>,
-    role: Option<String>,
     email: Option<String>,
     permissions: i64,
     servers: HashMap<ServerId, ServerPermissions>,
@@ -51,23 +50,22 @@ struct Claims {
     #[serde(default, rename = "emailVerified")]
     email_verified: Option<bool>,
     #[serde(default)]
-    role: Option<String>,
+    permissions: Vec<String>,
     #[serde(default)]
     orgs: Vec<OrgClaim>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct OrgClaim {
+    id: Uuid,
+    #[serde(default)]
+    permissions: Vec<PermissionClaim>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct PermissionClaim {
     resource: String,
     action: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct OrgClaim {
-    id: Uuid,
-    role: OrgRole,
-    #[serde(default)]
-    permissions: Vec<PermissionClaim>,
 }
 
 #[derive(Default)]
@@ -115,19 +113,13 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         let claims = decode_claims::<E>(bearer.token(), &backend).await?;
         let mut resolved = resolve_permissions(&claims);
         apply_org_permissions::<E>(&backend, &mut resolved).await?;
-        let role = claims.role;
-        let global_management_permissions = role
-            .as_deref()
-            .and_then(|value| Role::from_str(value).ok())
-            .map_or_else(ManagementPermissions::empty, Role::management_permissions)
-            .bits();
+        let global_permissions = global_permissions_from_claims(&claims.permissions).bits();
 
         Ok(Some(Self {
             id: claims.id.unwrap_or(claims.sub),
             name: claims.name,
-            role,
             email: claims.email,
-            permissions: global_management_permissions,
+            permissions: global_permissions,
             servers: resolved.server_permissions,
         }))
     }
@@ -234,18 +226,6 @@ async fn apply_org_permissions<E: From<sqlx::Error> + FromAuthInvalid>(
 }
 
 fn apply_org_claim(org: &OrgClaim, resolved: &mut ResolvedPermissions) {
-    let permissions = org.role.server_permissions();
-
-    if permissions.is_empty() {
-        return;
-    }
-
-    resolved
-        .org_permissions
-        .entry(org.id)
-        .and_modify(|existing_permissions| *existing_permissions |= permissions)
-        .or_insert(permissions);
-
     apply_permissions(&org.permissions, &PermissionScope::Org(org.id), resolved);
 }
 
@@ -303,6 +283,10 @@ fn permission_scope_and_action(
     default_scope: PermissionScope,
 ) -> Option<(PermissionScope, String)> {
     let action = permission.action.trim().to_ascii_lowercase();
+    if action.is_empty() {
+        return None;
+    }
+
     let resource = permission.resource.trim();
     if resource == "*" {
         return Some((default_scope, action));
@@ -317,6 +301,19 @@ fn permission_scope_and_action(
 
 fn server_permissions_from_action(action: &str) -> ServerPermissions {
     ServerPermissions::from_claim_action(action).unwrap_or_default()
+}
+
+fn global_permissions_from_claims(claim_permissions: &[String]) -> ManagementPermissions {
+    claim_permissions.iter().fold(
+        ManagementPermissions::empty(),
+        |mut permissions, claim_permission| {
+            if let Some(permission) = ManagementPermissions::from_claim_action(claim_permission) {
+                permissions |= permission;
+            }
+
+            permissions
+        },
+    )
 }
 
 impl DocumentedType for UserAuthentication {
