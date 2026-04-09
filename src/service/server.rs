@@ -7,15 +7,15 @@ use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
 use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
 use crate::service::server::server_service_error::{
-    KillServerError, RestartServerError, ServerInfoError, ServerStatsError, ServerTerminalError,
-    ServerVariablesError, StartServerError, StopServerError, UpdateVariablesError,
+    KillServerError, RestartServerError, ServerInfoError, ServerStatsError, ServerTerminalError, ServerVariablesError, StartServerError, StopServerError, UpdateServerError, UpdateVariablesError
 };
 use crate::service::template::*;
 use crate::templates::TemplateError;
 use crate::templates::variable::VariablePayload;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
-use serde::Serialize;
-use sqlx::query;
+use daemon_common::service::server::{ServerNetworkPayload, ServerResourcePayload};
+use serde::{Deserialize, Serialize};
+use sqlx::{Connection, query};
 use tracing::{error, warn};
 use uuid::Uuid;
 use zelus::service;
@@ -63,6 +63,21 @@ pub(crate) struct ServerInfo {
 pub(crate) struct ServerNetworkInfo {
     pub(crate) ports: Vec<NetworkPort>,
     //pub(crate) networks: Vec<NetworkAssignmentInfo>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub(crate) struct ServerUpdate {
+    pub(crate) name: Option<String>,
+    pub(crate) resource: Option<ServerResourcePayload>,
+    pub(crate) custom_dockerfile: Option<String>, // empty string clears custom dockerfile
+    pub(crate) suspended: Option<bool>,
+    pub(crate) internet_access: Option<bool>,
+    pub(crate) limits: Option<ServerLimits>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub(crate) struct ServerLimits {
+    pub(crate) backup: Option<u32>,
 }
 
 #[service(path = "/server", tag = "server", no_sdk)]
@@ -229,6 +244,180 @@ pub(crate) impl ServerService for Backend {
             },
             suspended: server.suspended,
         })
+    }
+
+    /// Updates server metadata and runtime limits.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::VIEW`].
+    /// Requires [`ServerPermissions::ADMIN_MANAGEMENT`] to rename a server.
+    /// Requires [`ManagementPermissions::SERVER_MANAGE`] to update resources, internet access,
+    /// backup limits or custom dockerfile.
+    /// Requires [`ManagementPermissions::SERVER_SUSPEND`] to (un)suspend a server.
+    #[route("/{server_id}", method = PATCH)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
+    async fn update_server(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        payload: ServerUpdate,
+    ) -> Result<ServerInfo, _> {
+        auth.require::<_, UpdateServerError>(server_id, ServerPermissions::VIEW)?;
+
+        if payload.name.is_some() {
+            auth.require::<_, UpdateServerError>(server_id, ServerPermissions::ADMIN_MANAGEMENT)?;
+        }
+
+        if payload.resource.is_some()
+            || payload.internet_access.is_some()
+            || payload.custom_dockerfile.is_some()
+            || payload.limits.is_some()
+        {
+            auth.require::<_, UpdateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
+        }
+
+        if payload.suspended.is_some() {
+            auth.require::<_, UpdateServerError>((), ManagementPermissions::SERVER_SUSPEND)?;
+        }
+
+        let ServerUpdate {
+            name,
+            resource,
+            custom_dockerfile,
+            suspended,
+            internet_access,
+            limits,
+        } = payload;
+
+        let backup_limit = limits.map(|limits| limits.backup);
+        let custom_dockerfile = custom_dockerfile.map(|dockerfile| {
+            if dockerfile.is_empty() {
+                None
+            } else {
+                Some(dockerfile)
+            }
+        });
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(UpdateServerError::ServerNotFound)?;
+
+        if resource.is_some() || internet_access.is_some() {
+            server
+                .node
+                .update_server(
+                    server.node_server_id,
+                    resource.clone(),
+                    None,
+                    None,
+                    internet_access.map(|internet_access| ServerNetworkPayload {
+                        internet_access,
+                        networks: Vec::new(),
+                    }),
+                )
+                .await
+                .map_err(|err| {
+                    error!("Failed to update server: {err:?}");
+                    UpdateServerError::NodeFailure
+                })?;
+        }
+
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                if let Some(name) = name {
+                    query!("UPDATE `servers` SET `name` = ? WHERE `id` = ?", name, server_id)
+                        .execute(&mut **tx)
+                        .await
+                        .inspect_err(|err| error!("Failed to update server (name): {err:?}"))?;
+                }
+
+                if let Some(resource) = resource {
+                    query!(
+                        "UPDATE `servers` SET `cpu` = ?, `ram` = ?, `swap` = ?, `disk` = ? WHERE `id` = ?",
+                        resource.cpu,
+                        resource.ram,
+                        resource.swap,
+                        resource.disk,
+                        server_id
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to update server (resource): {err:?}"))?;
+                }
+
+                if let Some(custom_dockerfile) = custom_dockerfile {
+                    query!(
+                        "UPDATE `servers` SET `custom_dockerfile` = ? WHERE `id` = ?",
+                        custom_dockerfile,
+                        server_id
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| {
+                        error!("Failed to update server (custom_dockerfile): {err:?}")
+                    })?;
+                }
+
+                if let Some(suspended) = suspended {
+                    query!(
+                        "UPDATE `servers` SET `suspended` = ? WHERE `id` = ?",
+                        suspended,
+                        server_id
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| {
+                        error!("Failed to update server (suspended): {err:?}")
+                    })?;
+                }
+
+                if let Some(internet_access) = internet_access {
+                    query!(
+                        "UPDATE `servers` SET `internet_access` = ? WHERE `id` = ?",
+                        internet_access,
+                        server_id
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| {
+                        error!("Failed to update server (internet_access): {err:?}")
+                    })?;
+                }
+
+                if let Some(backup_limit) = backup_limit {
+                    query!(
+                        "UPDATE `servers` SET `backup_limit` = ? WHERE `id` = ?",
+                        backup_limit,
+                        server_id
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| {
+                        error!("Failed to update server (backup_limit): {err:?}")
+                    })?;
+                }
+
+                Ok::<(), UpdateServerError>(())
+            })
+        })
+        .await?;
+
+        if suspended == Some(true) {
+            let _ =
+                tokio::task::spawn(
+                    async move { server.node.stop_server(server.node_server_id).await },
+                )
+                .await;
+        }
+
+        let updated = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(UpdateServerError::ServerNotFound)?;
+
+        Ok(ServerInfo::from(&updated))
     }
 
     /// Redirects to an websocket url with terminal access
