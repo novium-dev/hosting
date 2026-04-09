@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use super::*;
 use crate::Backend;
@@ -8,7 +8,7 @@ use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
 use crate::service::server::server_service_error::{
     KillServerError, RestartServerError, ServerInfoError, ServerStatsError, ServerTerminalError,
-    ServerVariablesError, StartServerError, StopServerError,
+    ServerVariablesError, StartServerError, StopServerError, UpdateVariablesError,
 };
 use crate::service::template::*;
 use crate::templates::TemplateError;
@@ -419,5 +419,48 @@ pub(crate) impl ServerService for Backend {
             .extra_to_variables(self.cache.clone(), server.template_extra.clone())
             .await
             .map_err(TemplateError::into::<ServerVariablesError>)
+    }
+
+    #[route("/{server_id}/variables", method = PATCH)]
+    #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
+    async fn update_variables(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        variables: HashMap<String, String>,
+    ) -> Result<(), _> {
+        auth.require::<_, UpdateVariablesError>(server_id, ServerPermissions::BUILD_EDIT)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(UpdateVariablesError::ServerNotFound)?;
+
+        let new_extra = server
+            .template
+            .variables_to_extra_validated(
+                self.cache.clone(),
+                server.template_extra.clone(),
+                variables,
+            )
+            .await
+            .map_err(TemplateError::into::<UpdateVariablesError>)?;
+
+        let new_build = server
+            .template
+            .extra_to_build_payload(self.cache.clone(), new_extra.clone().unwrap())
+            .await
+            .map_err(TemplateError::into::<UpdateVariablesError>)?;
+
+        server
+            .node
+            .update_server(server.node_server_id, None, Some(new_build), None, None)
+            .await
+            .map_err(|err| {
+                error!("Failed to update server variables: {err:?}");
+                UpdateVariablesError::NodeFailure
+            })?;
+
+        Ok(())
     }
 }
