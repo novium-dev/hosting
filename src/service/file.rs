@@ -4,11 +4,13 @@ use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
 use crate::db::server::ServerId;
 
-use crate::service::file::file_service_error::{CopyFileError, ListFilesError, RenameFileError};
+use crate::service::file::file_service_error::{
+    CopyFileError, DeleteFileError, ListFilesError, RenameFileError,
+};
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use daemon_common::service::files::FileEntry;
 use daemon_common::service::files::files_service_error::{
-    ServerCopyFileError, ServerListFilesError, ServerRenameFileError,
+    ServerCopyFileError, ServerDeleteFileError, ServerListFilesError, ServerRenameFileError,
 };
 use tracing::error;
 use zelus::service;
@@ -137,6 +139,50 @@ pub(crate) impl FileService for Backend {
                 ServerCopyFileError::FileSandboxViolated => CopyFileError::FileSandboxViolated,
                 ServerCopyFileError::FileIsDirectory => CopyFileError::FileIsDirectory,
                 ServerCopyFileError::StorageQuotaReached => CopyFileError::FileQuotaExceeded,
+            })?;
+
+        Ok(())
+    }
+
+    #[route("/delete", method = POST, query = [ path, recursive ])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, not_directory, is_directory})]
+    async fn delete_file(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        path: String,
+        recursive: bool,
+    ) -> Result<(), _> {
+        auth.require::<_, DeleteFileError>(server_id, ServerPermissions::FILES_WRITE)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(DeleteFileError::ServerNotFound)?;
+
+        server
+            .node
+            .server_delete_file(server.node_server_id, path, recursive)
+            .await
+            .map_err(|err| match err {
+                ServerDeleteFileError::Communication(_) => {
+                    error!("Failed to request file delete: {:?}", err);
+                    DeleteFileError::NodeFailure
+                }
+                ServerDeleteFileError::AuthInvalid
+                | ServerDeleteFileError::StorageNotFound
+                | ServerDeleteFileError::StorageFailure
+                | ServerDeleteFileError::SqlFailure => {
+                    error!("Failed to delete file: {:?}", err);
+                    DeleteFileError::NodeFailure
+                }
+                ServerDeleteFileError::StorageMutexLocked => {
+                    DeleteFileError::FileStorageUnavailable
+                }
+                ServerDeleteFileError::FileNotFound => DeleteFileError::FileNotFound,
+                ServerDeleteFileError::FileSandboxViolated => DeleteFileError::FileSandboxViolated,
+                ServerDeleteFileError::FileNotDirectory => DeleteFileError::FileNotDirectory,
+                ServerDeleteFileError::FileIsDirectory => DeleteFileError::FileIsDirectory,
             })?;
 
         Ok(())

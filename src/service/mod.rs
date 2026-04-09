@@ -66,3 +66,7 @@ define_query_variable!(
 define_query_variable!(
     to "The name to rename to"
 );
+
+define_query_variable!(
+    recursive "Whether the operation should be applied recursively"
+);
