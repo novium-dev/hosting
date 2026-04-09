@@ -1,6 +1,6 @@
 backend_url = "http://localhost:8080"
 listeners = ["[::]:3001"]
-origin = "http://localhost:3002"
+origin = "http://localhost:3000"
 database = "mysql://root@localhost/daemon"
 mounts = []
 
