@@ -446,7 +446,10 @@ pub(crate) impl ServerService for Backend {
 
         let new_build = server
             .template
-            .extra_to_build_payload(self.cache.clone(), new_extra.clone().unwrap())
+            .extra_to_build_payload(
+                self.cache.clone(),
+                new_extra.ok_or(UpdateVariablesError::TemplateCorrupted)?,
+            )
             .await
             .map_err(TemplateError::into::<UpdateVariablesError>)?;
 
