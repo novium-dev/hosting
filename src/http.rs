@@ -1,12 +1,14 @@
 use crate::Backend;
 use crate::service::admin::node::NodeAdminService;
 use crate::service::admin::server::ServerAdminService;
+use crate::service::file::FileService;
 use crate::service::internal::InternalService;
 use crate::service::server::ServerService;
 use crate::service::template::TemplateService;
 use axum::{Extension, Router};
 use axum_server::{Handle, Server};
 use core::time::Duration;
+use http::HeaderValue;
 use tokio::sync::broadcast::error::RecvError;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
@@ -21,10 +23,18 @@ impl Backend {
         #[openapi()]
         struct ApiDoc;
 
-        let (router,) = framework_router!(Self self (default,) { ServerService, ServerAdminService, NodeAdminService, TemplateService, InternalService });
+        let (router,) = framework_router!(Self self (default,) { ServerService, FileService, ServerAdminService, NodeAdminService, TemplateService, InternalService });
+
+        let cors = tower_http::cors::CorsLayer::new()
+            .allow_origin(tower_http::cors::AllowOrigin::exact(
+                "http://localhost:3000".parse::<HeaderValue>().unwrap(),
+            ))
+            .allow_methods([axum::http::Method::GET])
+            .allow_headers(tower_http::cors::AllowHeaders::any());
 
         let (mut router, api) = ZelusRouter::with_openapi(ApiDoc::openapi())
             .merge(router)
+            .layer(cors)
             .layer(Extension(self.clone()))
             .into_openapi()
             .split_for_parts();

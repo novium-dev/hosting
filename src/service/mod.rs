@@ -2,6 +2,7 @@ use zelus::error::define_error;
 use zelus::{define_path_variable, define_query_variable};
 
 pub(crate) mod admin;
+pub(crate) mod file;
 pub(crate) mod internal;
 pub(crate) mod server;
 pub(crate) mod template;
@@ -16,6 +17,13 @@ define_error!(server {
     not_found("Server not found" NOT_FOUND),
     storage_not_found("The specified storage was not found" BAD_REQUEST),
     unavailable("Server is currently in use" SERVICE_UNAVAILABLE)
+});
+
+define_error!(file {
+    storage_unavailable("Storage is currently in use" SERVICE_UNAVAILABLE),
+    not_found("The specified file was not found" NOT_FOUND),
+    sandbox_violated("The specified file violates the sandbox" BAD_REQUEST),
+    not_directory("The specified file is not a directory" BAD_REQUEST),
 });
 
 define_error!(node {
@@ -42,4 +50,8 @@ define_path_variable!(
 
 define_query_variable!(
     owner "The server owner"
+);
+
+define_query_variable!(
+    path "The file path"
 );
