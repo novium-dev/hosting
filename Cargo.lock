@@ -639,6 +639,7 @@ dependencies = [
  "hex",
  "http",
  "indexmap 2.13.1",
+ "java-properties",
  "jsonwebtoken",
  "jwks",
  "lazy-regex",
@@ -653,11 +654,13 @@ dependencies = [
  "serde",
  "serde-xml-rs",
  "serde_json",
+ "serde_yaml",
  "signal-hook 0.4.4",
  "speedy",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-util",
  "toml 0.9.12+spec-1.1.0",
  "tower-http",
  "tracing",
@@ -5960,6 +5963,19 @@ dependencies = [
  "serde_core",
  "serde_json",
  "time",
+]
+
+[[package]]
+name = "serde_yaml"
+version = "0.9.34+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
+dependencies = [
+ "indexmap 2.13.1",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
 ]
 
 [[package]]

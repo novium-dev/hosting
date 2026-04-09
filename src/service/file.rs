@@ -5,15 +5,23 @@ use crate::auth::permissions::ServerPermissions;
 use crate::db::server::ServerId;
 
 use crate::service::file::file_service_error::{
-    ArchiveFileError, CopyFileError, CreateDirectoryError, DeleteFileError, ListFilesError,
-    RenameFileError, UnarchiveFileError,
+    ArchiveFileError, CopyFileError, CreateDirectoryError, DeleteFileError, DownloadUserError,
+    GetConfigError, ListFilesError, RenameFileError, SetConfigError, StatFileError,
+    SymlinkFileError, UnarchiveFileError, UploadUserError,
 };
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
+use daemon_common::service::DataStream;
 use daemon_common::service::files::FileEntry;
 use daemon_common::service::files::files_service_error::{
     ServerCopyFileError, ServerCreateArchiveError, ServerCreateDirectoryError,
-    ServerDeleteFileError, ServerListFilesError, ServerRenameFileError, ServerUnpackArchiveError,
+    ServerDeleteFileError, ServerDownloadFileError, ServerListFilesError, ServerRenameFileError,
+    ServerStatFileError, ServerSymlinkError, ServerUnpackArchiveError,
+    ServerWriteFileByTemplateError,
 };
+use daemon_common::service::server::ServerFileWrite;
+use serde_json::Value;
+use std::collections::HashMap;
+use tokio_util::io::SyncIoBridge;
 use tracing::error;
 use zelus::service;
 
@@ -59,6 +67,43 @@ pub(crate) impl FileService for Backend {
             .into_iter()
             .apply_pagesplit(&mut page)
             .collect_paged(page))
+    }
+
+    #[route("/stat", method = GET, query = [ path ])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated})]
+    async fn stat_file(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        path: String,
+    ) -> Result<FileEntry, _> {
+        auth.require::<_, StatFileError>(server_id, ServerPermissions::FILES_READ)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(StatFileError::ServerNotFound)?;
+
+        server
+            .node
+            .server_stat_file(server.node_server_id, path)
+            .await
+            .map_err(|err| match err {
+                ServerStatFileError::Communication(_) => {
+                    error!("Failed to request file stat: {:?}", err);
+                    StatFileError::NodeFailure
+                }
+                ServerStatFileError::AuthInvalid
+                | ServerStatFileError::StorageNotFound
+                | ServerStatFileError::StorageFailure
+                | ServerStatFileError::SqlFailure => {
+                    error!("Failed to stat file: {:?}", err);
+                    StatFileError::NodeFailure
+                }
+                ServerStatFileError::StorageMutexLocked => StatFileError::FileStorageUnavailable,
+                ServerStatFileError::FileNotFound => StatFileError::FileNotFound,
+                ServerStatFileError::FileSandboxViolated => StatFileError::FileSandboxViolated,
+            })
     }
 
     #[route("/rename", method = POST, query = [ from, to ])]
@@ -240,6 +285,89 @@ pub(crate) impl FileService for Backend {
         Ok(())
     }
 
+    #[route("/symlink", method = POST, query = [ path, content ])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded})]
+    async fn symlink_file(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        path: String,
+        content: String,
+    ) -> Result<(), _> {
+        auth.require::<_, SymlinkFileError>(server_id, ServerPermissions::FILES_WRITE)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(SymlinkFileError::ServerNotFound)?;
+
+        server
+            .node
+            .server_symlink(server.node_server_id, path, content)
+            .await
+            .map_err(|err| match err {
+                ServerSymlinkError::Communication(_) => {
+                    error!("Failed to request symlink: {:?}", err);
+                    SymlinkFileError::NodeFailure
+                }
+                ServerSymlinkError::AuthInvalid
+                | ServerSymlinkError::StorageNotFound
+                | ServerSymlinkError::StorageFailure
+                | ServerSymlinkError::SqlFailure => {
+                    error!("Failed to symlink: {:?}", err);
+                    SymlinkFileError::NodeFailure
+                }
+                ServerSymlinkError::StorageMutexLocked => SymlinkFileError::FileStorageUnavailable,
+                ServerSymlinkError::StorageQuotaReached => SymlinkFileError::FileQuotaExceeded,
+                ServerSymlinkError::FileNotFound => SymlinkFileError::FileNotFound,
+                ServerSymlinkError::FileSandboxViolated => SymlinkFileError::FileSandboxViolated,
+                ServerSymlinkError::FileAlreadyExists => SymlinkFileError::FileAlreadyExists,
+            })
+    }
+
+    #[route("/download", method = GET, query = [ path, limit ])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
+    async fn download_user(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        path: String,
+        limit: Option<u64>,
+    ) -> Result<String, _> {
+        auth.require::<_, DownloadUserError>(server_id, ServerPermissions::FILES_READ)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(DownloadUserError::ServerNotFound)?;
+
+        Ok(server
+            .node
+            .server_download_file_user_url_signed(server.node_server_id, path, limit)
+            .to_string())
+    }
+
+    #[route("/upload", method = GET, query = [ path ])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
+    async fn upload_user(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        path: String,
+    ) -> Result<String, _> {
+        auth.require::<_, UploadUserError>(server_id, ServerPermissions::FILES_WRITE)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(UploadUserError::ServerNotFound)?;
+
+        Ok(server
+            .node
+            .server_upload_file_user_url_signed(server.node_server_id, path)
+            .to_string())
+    }
+
     #[route("/archive", method = POST, query = [ from, to, compression ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, is_directory, quota_exceeded, compression_unsupported})]
     async fn archive_file(
@@ -340,5 +468,216 @@ pub(crate) impl FileService for Backend {
             })?;
 
         Ok(())
+    }
+
+    #[route("/config/{file_name}", method = GET)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory}, payload::invalid)]
+    async fn get_config(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        file_name: String,
+    ) -> Result<Value, _> {
+        auth.require::<_, GetConfigError>(server_id, ServerPermissions::FILES_READ)?;
+
+        let ext = file_name
+            .rsplit('.')
+            .next()
+            .unwrap_or_default()
+            .to_lowercase();
+        if !["properties", "json", "yaml", "yml"].contains(&ext.as_str()) {
+            return Err(GetConfigError::PayloadInvalid);
+        }
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(GetConfigError::ServerNotFound)?;
+
+        let (data, empty) = match server
+            .node
+            .server_download_file(server.node_server_id, file_name.clone(), Some(131_072))
+            .await
+        {
+            Ok(response) => (response.1, false),
+            Err(ServerDownloadFileError::FileNotFound) => {
+                (DataStream::Stream(Box::pin(futures::stream::empty())), true)
+            }
+            Err(ServerDownloadFileError::FileLimitReached) => {
+                return Err(GetConfigError::ServerConfigInvalid);
+            }
+            Err(err) => {
+                return Err(match err {
+                    ServerDownloadFileError::Communication(_) => {
+                        error!("Failed to request file download: {:?}", err);
+                        GetConfigError::NodeFailure
+                    }
+                    ServerDownloadFileError::AuthInvalid
+                    | ServerDownloadFileError::StorageNotFound
+                    | ServerDownloadFileError::StorageFailure
+                    | ServerDownloadFileError::SqlFailure => {
+                        error!("Failed to download file: {:?}", err);
+                        GetConfigError::NodeFailure
+                    }
+                    ServerDownloadFileError::StorageMutexLocked => {
+                        GetConfigError::FileStorageUnavailable
+                    }
+                    ServerDownloadFileError::FileSandboxViolated => {
+                        GetConfigError::FileSandboxViolated
+                    }
+                    ServerDownloadFileError::FileIsDirectory => GetConfigError::FileIsDirectory,
+                    ServerDownloadFileError::FileNotFound
+                    | ServerDownloadFileError::FileLimitReached => {
+                        GetConfigError::ServerConfigInvalid
+                    }
+                });
+            }
+        };
+
+        match ext.as_str() {
+            "properties" => {
+                let parsed = tokio::task::spawn_blocking(move || {
+                    java_properties::read(SyncIoBridge::new(data.reader())).map_err(|err| {
+                        error!("Failed to read properties file {}: {:?}", file_name, err);
+                        GetConfigError::ServerConfigInvalid
+                    })
+                })
+                .await
+                .map_err(|err| {
+                    error!("Properties parsing task failed: {:?}", err);
+                    GetConfigError::ServerConfigInvalid
+                })??;
+
+                serde_json::to_value(parsed).map_err(|err| {
+                    error!("Failed to serialize properties map: {:?}", err);
+                    GetConfigError::ServerConfigInvalid
+                })
+            }
+            "json" => {
+                if empty {
+                    Ok(Value::Object(Default::default()))
+                } else {
+                    tokio::task::spawn_blocking(move || {
+                        serde_json::from_reader::<_, Value>(SyncIoBridge::new(data.reader()))
+                            .map_err(|err| {
+                                error!("Failed to parse JSON config {}: {:?}", file_name, err);
+                                GetConfigError::ServerConfigInvalid
+                            })
+                    })
+                    .await
+                    .map_err(|err| {
+                        error!("JSON parsing task failed: {:?}", err);
+                        GetConfigError::ServerConfigInvalid
+                    })?
+                }
+            }
+            "yaml" | "yml" => {
+                let yaml_value: serde_yaml::Value = tokio::task::spawn_blocking(move || {
+                    serde_yaml::from_reader::<_, serde_yaml::Value>(SyncIoBridge::new(
+                        data.reader(),
+                    ))
+                    .map_err(|err| {
+                        error!("Failed to parse YAML config {}: {:?}", file_name, err);
+                        GetConfigError::ServerConfigInvalid
+                    })
+                })
+                .await
+                .map_err(|err| {
+                    error!("YAML parsing task failed: {:?}", err);
+                    GetConfigError::ServerConfigInvalid
+                })??;
+
+                serde_json::to_value(yaml_value).map_err(|err| {
+                    error!("Failed to serialize YAML value: {:?}", err);
+                    GetConfigError::ServerConfigInvalid
+                })
+            }
+            _ => Err(GetConfigError::PayloadInvalid),
+        }
+    }
+
+    #[route("/config/{file_name}", method = POST, raw)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded}, payload::invalid)]
+    async fn set_config(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        file_name: String,
+        payload: Value,
+    ) -> Result<(), _> {
+        auth.require::<_, SetConfigError>(server_id, ServerPermissions::FILES_WRITE)?;
+
+        let ext = file_name
+            .rsplit('.')
+            .next()
+            .unwrap_or_default()
+            .to_lowercase();
+        if !["properties", "json", "yaml", "yml"].contains(&ext.as_str()) {
+            return Err(SetConfigError::PayloadInvalid);
+        }
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(SetConfigError::ServerNotFound)?;
+
+        let write = match ext.as_str() {
+            "properties" => {
+                let object = payload.as_object().ok_or(SetConfigError::PayloadInvalid)?;
+                let mut content = HashMap::with_capacity(object.len());
+                for (key, value) in object {
+                    let Some(value) = value.as_str() else {
+                        return Err(SetConfigError::PayloadInvalid);
+                    };
+                    content.insert(key.clone(), value.to_owned());
+                }
+                ServerFileWrite::JavaProperties { content }
+            }
+            "json" => ServerFileWrite::Json {
+                set: serde_json::from_value(payload).map_err(|err| {
+                    error!("Invalid JSON payload for config set: {:?}", err);
+                    SetConfigError::PayloadInvalid
+                })?,
+            },
+            "yaml" | "yml" => ServerFileWrite::Yaml {
+                set: serde_json::from_value(payload).map_err(|err| {
+                    error!("Invalid YAML payload for config set: {:?}", err);
+                    SetConfigError::PayloadInvalid
+                })?,
+            },
+            _ => return Err(SetConfigError::PayloadInvalid),
+        };
+
+        server
+            .node
+            .server_write_file_by_template(server.node_server_id, file_name, write)
+            .await
+            .map_err(|err| match err {
+                ServerWriteFileByTemplateError::Communication(_) => {
+                    error!("Failed to request file upload (by template): {:?}", err);
+                    SetConfigError::NodeFailure
+                }
+                ServerWriteFileByTemplateError::AuthInvalid
+                | ServerWriteFileByTemplateError::StorageNotFound
+                | ServerWriteFileByTemplateError::StorageFailure
+                | ServerWriteFileByTemplateError::SqlFailure => {
+                    error!("Failed to upload file (by template): {:?}", err);
+                    SetConfigError::NodeFailure
+                }
+                ServerWriteFileByTemplateError::StorageMutexLocked => {
+                    SetConfigError::FileStorageUnavailable
+                }
+                ServerWriteFileByTemplateError::StorageQuotaReached => {
+                    SetConfigError::FileQuotaExceeded
+                }
+                ServerWriteFileByTemplateError::FileNotFound => SetConfigError::FileNotFound,
+                ServerWriteFileByTemplateError::FileSandboxViolated => {
+                    SetConfigError::FileSandboxViolated
+                }
+                ServerWriteFileByTemplateError::FileIsDirectory => SetConfigError::FileIsDirectory,
+                ServerWriteFileByTemplateError::StoragePatchFailed => {
+                    SetConfigError::ServerConfigInvalid
+                }
+            })
     }
 }

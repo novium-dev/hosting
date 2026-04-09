@@ -16,7 +16,12 @@ define_error!(auth {
 define_error!(server {
     not_found("Server not found" NOT_FOUND),
     storage_not_found("The specified storage was not found" BAD_REQUEST),
-    unavailable("Server is currently in use" SERVICE_UNAVAILABLE)
+    unavailable("Server is currently in use" SERVICE_UNAVAILABLE),
+    config_invalid("The server config file is invalid" BAD_REQUEST)
+});
+
+define_error!(payload {
+    invalid("The request payload is invalid" BAD_REQUEST)
 });
 
 define_error!(file {
@@ -84,4 +89,16 @@ define_query_variable!(
 
 define_query_variable!(
     compression "The compression method to use"
+);
+
+define_path_variable!(
+    file_name "The file name"
+);
+
+define_query_variable!(
+    content "The symlink target path"
+);
+
+define_query_variable!(
+    limit "The optional response size limit"
 );
