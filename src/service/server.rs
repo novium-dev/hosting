@@ -7,7 +7,9 @@ use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
 use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
 use crate::service::server::server_service_error::{
-    KillServerError, RestartServerError, ServerInfoError, ServerStatsError, ServerTerminalError, ServerVariablesError, StartServerError, StopServerError, UpdateServerError, UpdateVariablesError
+    KillServerError, RestartServerError, ServerInfoError, ServerStatsError, ServerTerminalError,
+    ServerVariablesError, StartServerError, StopServerError, UpdateServerError,
+    UpdateVariablesError,
 };
 use crate::service::template::*;
 use crate::templates::TemplateError;
@@ -261,7 +263,7 @@ pub(crate) impl ServerService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
         payload: ServerUpdate,
-    ) -> Result<ServerInfo, _> {
+    ) -> Result<(), _> {
         auth.require::<_, UpdateServerError>(server_id, ServerPermissions::VIEW)?;
 
         if payload.name.is_some() {
@@ -412,12 +414,7 @@ pub(crate) impl ServerService for Backend {
                 .await;
         }
 
-        let updated = self
-            .resolve_server(&*self.database, server_id)
-            .await?
-            .ok_or(UpdateServerError::ServerNotFound)?;
-
-        Ok(ServerInfo::from(&updated))
+        Ok(())
     }
 
     /// Redirects to an websocket url with terminal access
