@@ -4,7 +4,7 @@ use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, merge_ports};
 use crate::db::server::{ServerId, ServerInfo};
 use crate::service::admin::server::server_admin_service_error::{
-    CreatePortError, CreateServerError, DeleteServerError, UpdatePortError,
+    CreatePortError, CreateServerError, DeletePortError, DeleteServerError, UpdatePortError,
 };
 use crate::service::template::*;
 use crate::service::*;
@@ -471,7 +471,7 @@ pub(crate) impl ServerAdminService for Backend {
             if collision {
                 return Err(UpdatePortError::PortCollision);
             }
-            
+
             if let Some(name) = update.name {
                 query!(
                     "UPDATE server_ports SET name=? WHERE id=? AND server=?",
@@ -570,5 +570,75 @@ pub(crate) impl ServerAdminService for Backend {
         })
     })
     .await
+    }
+
+    #[route("/{server_id}/ports/{port_id}", method = DELETE)]
+    #[error(
+    auth::{permission_denied, unreachable},
+    db::failure <- [sql:*],
+    server::{not_found},
+    node::failure
+)]
+    async fn delete_port(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        port_id: u32,
+    ) -> Result<(), DeletePortError> {
+        auth.require::<_, DeletePortError>(server_id, ServerPermissions::VIEW)?;
+        auth.require::<_, DeletePortError>((), ManagementPermissions::SERVER_MANAGE)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(DeletePortError::ServerNotFound)?;
+
+        let mut conn = self.database.acquire().await?;
+
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let result = query!(
+                    "DELETE FROM server_ports WHERE id=? AND server=?",
+                    port_id,
+                    server.id
+                )
+                .execute(&mut **tx)
+                .await?;
+
+                if result.rows_affected() == 0 {
+                    return Err(DeletePortError::ServerNotFound);
+                }
+
+                let rows = query!(
+                "SELECT internal_port, external_port_start, external_port_end, protocol, external_ip
+                 FROM server_ports WHERE server = ? FOR UPDATE",
+                server.id
+            )
+                .fetch_all(&mut **tx)
+                .await?;
+
+                let mut payload = Vec::new();
+
+                for p in rows {
+                    for ext in p.external_port_start..=p.external_port_end {
+                        payload.push(ServerPortEntryPayload {
+                            external_port: ext,
+                            internal_port: p.internal_port,
+                            protocol: p.protocol.clone(),
+                            external_ip: p.external_ip.clone(),
+                        });
+                    }
+                }
+
+                server
+                    .node
+                    .update_server(server.node_server_id, None, None, Some(payload), None)
+                    .await
+                    .map_err(|_| DeletePortError::NodeFailure)?;
+
+                Ok(())
+            })
+        })
+        .await
     }
 }
