@@ -4,7 +4,7 @@ use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, merge_ports};
 use crate::db::server::{ServerId, ServerInfo};
 use crate::service::admin::server::server_admin_service_error::{
-    CreatePortError, CreateServerError, DeleteServerError,
+    CreatePortError, CreateServerError, DeleteServerError, UpdatePortError,
 };
 use crate::service::template::*;
 use crate::service::*;
@@ -260,7 +260,7 @@ pub(crate) impl ServerAdminService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
         port: PortCreate,
-    ) -> Result<u32, _> {
+    ) -> Result<(), _> {
         if port.external_port.start > port.external_port.end {
             return Err(CreatePortError::PortInvalid);
         }
@@ -324,7 +324,7 @@ pub(crate) impl ServerAdminService for Backend {
                 return Err(CreatePortError::PortInvalid);
             }
 
-            let id = query!(
+            query!(
                 "INSERT INTO server_ports (server, host, name, protocol, internal_port, external_port_start, external_port_end, external_ip)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 server.id,
@@ -368,7 +368,205 @@ pub(crate) impl ServerAdminService for Backend {
                 .await
                 .map_err(|_| CreatePortError::NodeFailure)?;
 
-            Ok(id)
+            Ok(())
+        })
+    })
+    .await
+    }
+
+    #[route("/{server_id}/ports/{port_id}", method = POST)]
+    #[error(
+    auth::{permission_denied, unreachable},
+    db::failure <- [sql:*],
+    server::{not_found},
+    node::failure,
+    port::{invalid, not_allocated, collision}
+)]
+    async fn update_port(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        port_id: u32,
+        update: PortUpdate,
+    ) -> Result<(), UpdatePortError> {
+        auth.require::<_, UpdatePortError>(server_id, ServerPermissions::VIEW)?;
+        auth.require::<_, UpdatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(UpdatePortError::ServerNotFound)?;
+
+        let mut conn = self.database.acquire().await?;
+
+        conn.transaction(|tx| {
+        Box::pin(async move {
+            let current = query!(
+                "SELECT protocol, internal_port, external_port_start, external_port_end
+                 FROM server_ports WHERE id = ? AND server = ?",
+                port_id,
+                server.id
+            )
+            .fetch_optional(&mut **tx)
+            .await?
+            .ok_or(UpdatePortError::ServerNotFound)?;
+
+            let protocol = update
+                .protocol
+                .unwrap_or_else(|| NetworkProtocol::by_name(current.protocol.as_str()));
+
+            let internal = update.internal_port.unwrap_or(current.internal_port);
+
+            let (start, end) = update
+                .external_port
+                .as_ref()
+                .map(|r| (r.start, r.end))
+                .unwrap_or((current.external_port_start, current.external_port_end));
+
+            if start > end {
+                return Err(UpdatePortError::PortInvalid);
+            }
+
+            if ((internal as u32) + ((end - start) as u32)) > u16::MAX as u32 {
+                return Err(UpdatePortError::PortInvalid);
+            }
+
+            let allocated = query_scalar!(
+                r#"SELECT (COUNT(*) > 0) as `exists: bool`
+                   FROM node_ports
+                   WHERE node = ?
+                   AND protocol = ?
+                   AND ? <= end
+                   AND ? >= start"#,
+                server.node.id,
+                protocol.to_string(),
+                start,
+                end
+            )
+            .fetch_one(&mut **tx)
+            .await?;
+
+            if !allocated {
+                return Err(UpdatePortError::PortNotAllocated);
+            }
+
+            let collision = query_scalar!(
+                r#"SELECT (COUNT(*) > 0) as `exists: bool`
+                   FROM server_ports
+                   JOIN servers ON server_ports.server = servers.id
+                   WHERE servers.node = ?
+                   AND server_ports.protocol = ?
+                   AND server_ports.id != ?
+                   AND ? <= external_port_end
+                   AND ? >= external_port_start"#,
+                server.node.id,
+                protocol.to_string(),
+                port_id,
+                start,
+                end
+            )
+            .fetch_one(&mut **tx)
+            .await?;
+
+            if collision {
+                return Err(UpdatePortError::PortCollision);
+            }
+            
+            if let Some(name) = update.name {
+                query!(
+                    "UPDATE server_ports SET name=? WHERE id=? AND server=?",
+                    name,
+                    port_id,
+                    server.id
+                )
+                .execute(&mut **tx)
+                .await?;
+            }
+
+            if let Some(protocol) = update.protocol {
+                query!(
+                    "UPDATE server_ports SET protocol=? WHERE id=? AND server=?",
+                    protocol.to_string(),
+                    port_id,
+                    server.id
+                )
+                .execute(&mut **tx)
+                .await?;
+            }
+
+            if let Some(internal) = update.internal_port {
+                query!(
+                    "UPDATE server_ports SET internal_port=? WHERE id=? AND server=?",
+                    internal,
+                    port_id,
+                    server.id
+                )
+                .execute(&mut **tx)
+                .await?;
+            }
+
+            if let Some(range) = update.external_port.as_ref() {
+                query!(
+                    "UPDATE server_ports SET external_port_start=?, external_port_end=? WHERE id=? AND server=?",
+                    range.start,
+                    range.end,
+                    port_id,
+                    server.id
+                )
+                .execute(&mut **tx)
+                .await?;
+            }
+
+            if let Some(host) = update.host {
+                query!(
+                    "UPDATE server_ports SET host=? WHERE id=? AND server=?",
+                    host,
+                    port_id,
+                    server.id
+                )
+                .execute(&mut **tx)
+                .await?;
+            }
+
+            if let Some(bind) = update.bind {
+                query!(
+                    "UPDATE server_ports SET external_ip=? WHERE id=? AND server=?",
+                    bind,
+                    port_id,
+                    server.id
+                )
+                .execute(&mut **tx)
+                .await?;
+            }
+
+            let rows = query!(
+                "SELECT internal_port, external_port_start, external_port_end, protocol, external_ip
+                 FROM server_ports WHERE server = ? FOR UPDATE",
+                server.id
+            )
+            .fetch_all(&mut **tx)
+            .await?;
+
+            let mut payload = Vec::new();
+
+            for p in rows {
+                for ext in p.external_port_start..=p.external_port_end {
+                    payload.push(ServerPortEntryPayload {
+                        external_port: ext,
+                        internal_port: p.internal_port,
+                        protocol: p.protocol.clone(),
+                        external_ip: p.external_ip.clone(),
+                    });
+                }
+            }
+
+            server
+                .node
+                .update_server(server.node_server_id, None, None, Some(payload), None)
+                .await
+                .map_err(|_| UpdatePortError::NodeFailure)?;
+
+            Ok(())
         })
     })
     .await

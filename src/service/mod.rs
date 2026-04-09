@@ -33,6 +33,7 @@ define_error!(file {
 define_error!(port {
     invalid("The specified port range is invalid" BAD_REQUEST),
     not_allocated("The specified port range is not allocated to the server" BAD_REQUEST),
+    collision("The specified port range collides with another server's ports" BAD_REQUEST),
 });
 
 define_error!(node {
