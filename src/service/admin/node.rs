@@ -6,7 +6,7 @@ use serde::Deserialize;
 use tracing::error;
 
 use serde::Serialize;
-use sqlx::{Connection, query};
+use sqlx::{Connection as _, query};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use zelus::service;

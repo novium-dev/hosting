@@ -17,7 +17,7 @@ use crate::templates::variable::VariablePayload;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use daemon_common::service::server::{ServerNetworkPayload, ServerResourcePayload};
 use serde::{Deserialize, Serialize};
-use sqlx::{Connection, query};
+use sqlx::{Connection as _, query};
 use tracing::{error, warn};
 use uuid::Uuid;
 use zelus::service;
@@ -358,7 +358,7 @@ pub(crate) impl ServerService for Backend {
                     .execute(&mut **tx)
                     .await
                     .inspect_err(|err| {
-                        error!("Failed to update server (custom_dockerfile): {err:?}")
+                        error!("Failed to update server (custom_dockerfile): {err:?}");
                     })?;
                 }
 
@@ -371,7 +371,7 @@ pub(crate) impl ServerService for Backend {
                     .execute(&mut **tx)
                     .await
                     .inspect_err(|err| {
-                        error!("Failed to update server (suspended): {err:?}")
+                        error!("Failed to update server (suspended): {err:?}");
                     })?;
                 }
 
@@ -384,7 +384,7 @@ pub(crate) impl ServerService for Backend {
                     .execute(&mut **tx)
                     .await
                     .inspect_err(|err| {
-                        error!("Failed to update server (internet_access): {err:?}")
+                        error!("Failed to update server (internet_access): {err:?}");
                     })?;
                 }
 
@@ -397,7 +397,7 @@ pub(crate) impl ServerService for Backend {
                     .execute(&mut **tx)
                     .await
                     .inspect_err(|err| {
-                        error!("Failed to update server (backup_limit): {err:?}")
+                        error!("Failed to update server (backup_limit): {err:?}");
                     })?;
                 }
 

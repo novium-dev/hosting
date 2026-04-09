@@ -267,8 +267,8 @@ pub(crate) impl ServerAdminService for Backend {
 
         let external = port.external_port.start..=port.external_port.end;
 
-        if ((port.internal_port as u32) + ((external.end() - external.start()) as u32))
-            > u16::MAX as u32
+        if (u32::from(port.internal_port) + u32::from(external.end() - external.start()))
+            > u32::from(u16::MAX)
         {
             return Err(CreatePortError::PortInvalid);
         }
@@ -351,13 +351,13 @@ pub(crate) impl ServerAdminService for Backend {
 
             let mut payload = Vec::new();
 
-            for p in rows {
-                for ext in p.external_port_start..=p.external_port_end {
+            for port_row in rows {
+                for ext in port_row.external_port_start..=port_row.external_port_end {
                     payload.push(ServerPortEntryPayload {
                         external_port: ext,
-                        internal_port: p.internal_port,
-                        protocol: p.protocol.clone(),
-                        external_ip: p.external_ip.clone(),
+                        internal_port: port_row.internal_port,
+                        protocol: port_row.protocol.clone(),
+                        external_ip: port_row.external_ip.clone(),
                     });
                 }
             }
@@ -366,7 +366,7 @@ pub(crate) impl ServerAdminService for Backend {
                 .node
                 .update_server(server.node_server_id, None, None, Some(payload), None)
                 .await
-                .map_err(|_| CreatePortError::NodeFailure)?;
+                .map_err(|_err| CreatePortError::NodeFailure)?;
 
             Ok(())
         })
@@ -420,14 +420,15 @@ pub(crate) impl ServerAdminService for Backend {
             let (start, end) = update
                 .external_port
                 .as_ref()
-                .map(|r| (r.start, r.end))
-                .unwrap_or((current.external_port_start, current.external_port_end));
+                .map_or((current.external_port_start, current.external_port_end), |range| {
+                    (range.start, range.end)
+                });
 
             if start > end {
                 return Err(UpdatePortError::PortInvalid);
             }
 
-            if ((internal as u32) + ((end - start) as u32)) > u16::MAX as u32 {
+            if (u32::from(internal) + u32::from(end - start)) > u32::from(u16::MAX) {
                 return Err(UpdatePortError::PortInvalid);
             }
 
@@ -549,13 +550,13 @@ pub(crate) impl ServerAdminService for Backend {
 
             let mut payload = Vec::new();
 
-            for p in rows {
-                for ext in p.external_port_start..=p.external_port_end {
+            for port_row in rows {
+                for ext in port_row.external_port_start..=port_row.external_port_end {
                     payload.push(ServerPortEntryPayload {
                         external_port: ext,
-                        internal_port: p.internal_port,
-                        protocol: p.protocol.clone(),
-                        external_ip: p.external_ip.clone(),
+                        internal_port: port_row.internal_port,
+                        protocol: port_row.protocol.clone(),
+                        external_ip: port_row.external_ip.clone(),
                     });
                 }
             }
@@ -564,7 +565,7 @@ pub(crate) impl ServerAdminService for Backend {
                 .node
                 .update_server(server.node_server_id, None, None, Some(payload), None)
                 .await
-                .map_err(|_| UpdatePortError::NodeFailure)?;
+                .map_err(|_err| UpdatePortError::NodeFailure)?;
 
             Ok(())
         })
@@ -619,13 +620,13 @@ pub(crate) impl ServerAdminService for Backend {
 
                 let mut payload = Vec::new();
 
-                for p in rows {
-                    for ext in p.external_port_start..=p.external_port_end {
+                for port_row in rows {
+                    for ext in port_row.external_port_start..=port_row.external_port_end {
                         payload.push(ServerPortEntryPayload {
                             external_port: ext,
-                            internal_port: p.internal_port,
-                            protocol: p.protocol.clone(),
-                            external_ip: p.external_ip.clone(),
+                            internal_port: port_row.internal_port,
+                            protocol: port_row.protocol.clone(),
+                            external_ip: port_row.external_ip.clone(),
                         });
                     }
                 }
@@ -634,7 +635,7 @@ pub(crate) impl ServerAdminService for Backend {
                     .node
                     .update_server(server.node_server_id, None, None, Some(payload), None)
                     .await
-                    .map_err(|_| DeletePortError::NodeFailure)?;
+                    .map_err(|_err| DeletePortError::NodeFailure)?;
 
                 Ok(())
             })

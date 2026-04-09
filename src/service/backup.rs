@@ -103,7 +103,7 @@ pub(crate) impl BackupService for Backend {
                 })?
                 .len();
 
-            if (current as u64) >= (limit as u64) {
+            if (current as u64) >= u64::from(limit) {
                 return Err(CreateBackupError::BackupLimitExceeded);
             }
         }
@@ -180,7 +180,7 @@ pub(crate) impl BackupService for Backend {
                 })?
                 .len();
 
-            if (current as u64) >= (limit as u64) {
+            if (current as u64) >= u64::from(limit) {
                 return Err(CreateBackupWithStorageError::BackupLimitExceeded);
             }
         }

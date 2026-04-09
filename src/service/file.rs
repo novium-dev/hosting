@@ -507,7 +507,7 @@ pub(crate) impl FileService for Backend {
 
         let (data, empty) = match server
             .node
-            .server_download_file(server.node_server_id, file_name.clone(), Some(131_072))
+            .server_download_file(server.node_server_id, file_name.clone(), Some(0x0002_0000))
             .await
         {
             Ok(response) => (response.1, false),
@@ -566,7 +566,7 @@ pub(crate) impl FileService for Backend {
             }
             "json" => {
                 if empty {
-                    Ok(Value::Object(Default::default()))
+                    Ok(Value::Object(serde_json::Map::default()))
                 } else {
                     tokio::task::spawn_blocking(move || {
                         serde_json::from_reader::<_, Value>(SyncIoBridge::new(data.reader()))
