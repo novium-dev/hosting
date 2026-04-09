@@ -24,7 +24,7 @@ pub struct BackendNode {
     pub ports: Vec<NodePortAllocation>,
 }
 
-#[derive(Clone, Debug, Serialize, sqlx::FromRow)]
+#[derive(Clone, Debug, Serialize, sqlx::FromRow, utoipa::ToSchema)]
 pub struct NodePortAllocation {
     pub id: u32,
     pub node: Uuid,

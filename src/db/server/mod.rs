@@ -15,7 +15,7 @@ pub struct Server {
     pub id: ServerId,
     pub name: String,
     pub node_server_id: u32,
-    pub owner: u32,
+    pub owner: Uuid, // Organization id
     pub template: Arc<dyn TemplateInner + Send + Sync>,
     pub template_extra: Value,
     pub custom_dockerfile: Option<String>,
@@ -23,7 +23,6 @@ pub struct Server {
     pub ram: Option<u32>,
     pub swap: Option<u32>,
     pub disk: Option<u64>,
-    pub group: Option<String>,
     pub suspended: bool,
     pub internet_access: bool,
 
@@ -36,7 +35,7 @@ pub struct ServerInfo {
     pub id: ServerId,
     pub name: String,
     pub node_server_id: u32,
-    pub owner: u32,
+    pub owner: Uuid, // Organization id
     pub template: String,
     pub template_extra: Value,
     pub custom_dockerfile: Option<String>,
@@ -44,7 +43,6 @@ pub struct ServerInfo {
     pub ram: Option<u32>,
     pub swap: Option<u32>,
     pub disk: Option<u64>,
-    pub group: Option<String>,
     pub suspended: bool,
     pub internet_access: bool,
 
@@ -66,7 +64,6 @@ impl From<&Server> for ServerInfo {
             ram: value.ram,
             swap: value.swap,
             disk: value.disk,
-            group: value.group.clone(),
             suspended: value.suspended,
             internet_access: value.internet_access,
             backup_limit: value.backup_limit,

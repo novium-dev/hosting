@@ -1,58 +1,83 @@
 use crate::Backend;
-use crate::auth::oauth::AuthUser;
-use crate::auth::permissions::{HasPermission, Permission, Role, ServerPermissions};
+use crate::auth::BEARER_REGEX;
+use crate::auth::permissions::{
+    HasPermission, ManagementPermissions, Permission, ServerPermissions,
+};
 use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
+use crate::service::error_auth_unreachable::FromAuthUnreachable;
 use axum::Extension;
+use axum::extract::FromRequestParts as _;
 use axum_extra::TypedHeader;
 use axum_extra::headers::Authorization;
-use axum_extra::headers::authorization::Credentials;
-use base64::Engine as _;
-use base64::prelude::BASE64_STANDARD;
-use core::fmt::Debug;
-use core::fmt::{Display, Formatter};
-use core::str::FromStr;
-use http::HeaderValue;
+use axum_extra::headers::authorization::Bearer;
+use core::str::FromStr as _;
 use http::request::Parts;
-use lazy_regex::lazy_regex;
-use rand::TryRngCore as _;
-use rand::rngs::{OsError, OsRng};
-use redis::{AsyncTypedCommands as _, RedisError};
-use regex::Regex;
-use serde::{Deserialize, Serialize, Serializer as _};
-use sqlx::{query, query_scalar};
+use jsonwebtoken::{Algorithm, TokenData, Validation, decode, decode_header};
+use serde::{Deserialize, Serialize};
+use sqlx::query;
 use std::collections::HashMap;
-use std::io;
-use std::io::ErrorKind;
 use tracing::error;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
 use utoipa::openapi::schema::SchemaType;
 use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
+use uuid::Uuid;
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
 #[derive(Debug)]
 pub struct UserAuthentication {
-    pub id: u32,
-    pub session: Session,
-    username: String,
+    pub id: Uuid,
+    name: Option<String>,
+    email: Option<String>,
     permissions: i64,
-    role: Role,
-    email: String,
     servers: HashMap<ServerId, ServerPermissions>,
 }
 
-#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct SerializedUser {
-    pub id: u32,
-    pub username: String,
-    //pub auth_id: String,
-    pub permissions: i64,
-    pub role: Role,
-    pub email: String,
-    //pub language: String,
-    //pub first_name: Option<String>,
-    //pub last_name: Option<String>,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Claims {
+    sub: Uuid,
+    iss: String,
+    exp: usize,
+    #[serde(default)]
+    iat: Option<usize>,
+    #[serde(default)]
+    id: Option<Uuid>,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    email: Option<String>,
+    #[serde(default, rename = "emailVerified")]
+    email_verified: Option<bool>,
+    #[serde(default)]
+    permissions: Vec<String>,
+    #[serde(default)]
+    orgs: Vec<OrgClaim>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct OrgClaim {
+    id: Uuid,
+    #[serde(default)]
+    permissions: Vec<PermissionClaim>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct PermissionClaim {
+    resource: String,
+    action: String,
+}
+
+#[derive(Default)]
+struct ResolvedPermissions {
+    org_permissions: HashMap<Uuid, ServerPermissions>,
+    server_permissions: HashMap<ServerId, ServerPermissions>,
+}
+
+#[derive(Clone)]
+enum PermissionScope {
+    Org(Uuid),
+    Server(ServerId),
 }
 
 impl UserAuthentication {
@@ -63,19 +88,9 @@ impl UserAuthentication {
     pub fn require<P: Permission<E>, E>(&self, extra: P::Extra, permission: P) -> Result<(), E> {
         permission.require(extra, self.permissions, &self.servers)
     }
-
-    pub fn serialized(&self) -> SerializedUser {
-        SerializedUser {
-            id: self.id,
-            username: self.username.clone(),
-            permissions: self.permissions,
-            role: self.role,
-            email: self.email.clone(),
-        }
-    }
 }
 
-impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync>
+impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
     OptionalFromRequestParts<E> for UserAuthentication
 {
     async fn from_request_parts(parts: &mut Parts) -> Result<Option<Self>, E> {
@@ -87,86 +102,30 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync>
             .await
             .expect("Extension not registered");
 
-        if let Some(TypedHeader(Authorization(session))) = <Option<
-            TypedHeader<Authorization<Session>>,
-        > as axum::extract::FromRequestParts<()>>::from_request_parts(
-            parts, &()
-        )
-        .await
-        .map_err(|_err| <E as FromAuthInvalid>::from())?
-        {
-            let Some(id) = session.authenticate(&backend).await? else {
-                return Ok(None);
-            };
-
-            let mut conn = backend
-                .database
-                .acquire()
+        let Some(TypedHeader(Authorization(bearer))) =
+            <Option<TypedHeader<Authorization<Bearer>>>>::from_request_parts(parts, &())
                 .await
-                .inspect_err(|err| error!("Unable to acquire database connection: {err:?}"))?;
+                .map_err(|_err| <E as FromAuthInvalid>::from())?
+        else {
+            return Ok(None);
+        };
 
-            /*let Some(user) = query!(
-                "SELECT `permissions`,`role` AS `role: u8` FROM `users` WHERE `id` = ?",
-                id
-            )*/
-            let Some(user) = query!(
-                "SELECT `username`, `permissions`, `role` AS `role: u8`, `email` FROM `users` WHERE `id` = ?",
-                id
-            )
-            .fetch_optional(&mut *conn)
-            .await
-            .inspect_err(|err| {
-                error!("Unable to fetch permissions for user {id}: {err:?}");
-            })?
-            else {
-                session.invalidate(&backend).await?;
-                return Ok(None);
-            };
-            let owned_servers: HashMap<_, _> = query_scalar!(
-                "SELECT `id` AS `id: ServerId` FROM `servers` WHERE `owner` = ?",
-                id
-            )
-            .fetch_all(&mut *conn)
-            .await
-            .inspect_err(|err| {
-                error!("Unable to fetch permissions for user {id}: {err:?}");
-            })?
-            .into_iter()
-            .map(|id| (id, ServerPermissions::all()))
-            .collect();
+        let claims = decode_claims::<E>(bearer.token(), &backend).await?;
+        let mut resolved = resolve_permissions(&claims);
+        apply_org_permissions::<E>(&backend, &mut resolved).await?;
+        let global_permissions = global_permissions_from_claims(&claims.permissions).bits();
 
-            let mut servers: HashMap<ServerId, ServerPermissions> = query!("SELECT `server` AS `server: ServerId`,`permissions` FROM `server_users` WHERE `user` = ?", id)
-                .fetch_all(&mut *conn)
-                .await
-                .inspect_err(|err| error!("Unable to fetch server permissions for user {id}: {err:?}"))?
-                .into_iter()
-                .map(|record| (record.server, ServerPermissions::from_bits_truncate(record.permissions)))
-                .collect();
-            servers.extend(owned_servers);
-
-            let role = Role::try_from(user.role).ok();
-
-            Ok(Some(Self {
-                id,
-                session,
-                username: user.username,
-                permissions: user.permissions
-                    | role
-                        .map(|role| {
-                            role.management_permissions().bits() | role.server_permissions().bits()
-                        })
-                        .unwrap_or_default(),
-                role: role.unwrap_or(Role::User),
-                email: user.email,
-                servers,
-            }))
-        } else {
-            Ok(None)
-        }
+        Ok(Some(Self {
+            id: claims.id.unwrap_or(claims.sub),
+            name: claims.name,
+            email: claims.email,
+            permissions: global_permissions,
+            servers: resolved.server_permissions,
+        }))
     }
 }
 
-impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync> FromRequestParts<E>
+impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync> FromRequestParts<E>
     for UserAuthentication
 {
     async fn from_request_parts(parts: &mut Parts) -> Result<Self, E> {
@@ -176,117 +135,185 @@ impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync> Fr
     }
 }
 
-#[expect(clippy::non_std_lazy_statics, reason = "external crate")]
-pub(super) static SESSION_REGEX: lazy_regex::Lazy<Regex> =
-    lazy_regex!("Session\\s{1,}(?:[A-Za-z0-9+\\/]{171})="); // This pattern was created *WITHOUT* AI btw.
-const SESSION_SIZE: usize = 128;
+async fn decode_claims<E: FromAuthInvalid + FromAuthUnreachable>(
+    token: &str,
+    backend: &Backend,
+) -> Result<Claims, E> {
+    let header = decode_header(token).map_err(|err| {
+        error!("Unable to decode JWT header: {err}");
+        <E as FromAuthInvalid>::from()
+    })?;
+    let Some(kid) = header.kid.as_deref() else {
+        error!("Missing kid in JWT header");
+        return Err(<E as FromAuthInvalid>::from());
+    };
 
-#[repr(transparent)]
-#[derive(Copy, Clone)]
-pub struct Session([u8; SESSION_SIZE]);
+    let keyset = backend.jwks_storage.fetch::<E>().await?;
 
-impl Session {
-    pub fn generate() -> Result<Self, OsError> {
-        let mut slice = [0; 128];
-        OsRng.try_fill_bytes(&mut slice)?;
-        Ok(Self(slice))
-    }
-
-    fn key(&self) -> String {
-        format!("{}session:{self}", crate::CACHE_PREFIX)
-    }
-
-    pub async fn invalidate(&self, backend: &Backend) -> Result<(), RedisError> {
-        backend
-            .cache
-            .clone()
-            .del(self.key())
-            .await
-            .inspect_err(|err| error!("Unable to invalidate session: {err:?}"))?;
-        Ok(())
-    }
-
-    pub async fn apply(&self, backend: &Backend, user: u32) -> Result<(), RedisError> {
-        backend
-            .cache
-            .clone()
-            .set_ex(self.key(), user, backend.config.session_lifetime)
-            .await
-            .inspect_err(|err| error!("Unable to apply session: {err:?}"))?;
-        Ok(())
-    }
-
-    pub async fn authenticate(&self, backend: &Backend) -> Result<Option<u32>, RedisError> {
-        let Some(user) = backend
-            .cache
-            .clone()
-            .get_int(self.key())
-            .await
-            .inspect_err(|err| error!("Unable to retrieve session: {err:?}"))?
-        else {
-            return Ok(None);
+    let decoding_key = if let Some(jwk) = keyset.keys.get(kid) {
+        jwk.decoding_key.clone()
+    } else {
+        let refreshed = backend.jwks_storage.refresh::<E>().await?;
+        let Some(jwk) = refreshed.keys.get(kid) else {
+            error!("JWT kid not present in JWKS: {kid}");
+            return Err(<E as FromAuthInvalid>::from());
         };
-        let user = u32::try_from(user)
-            .map_err(|err| RedisError::from(io::Error::new(ErrorKind::InvalidData, err)))?;
-        self.apply(backend, user).await?; // refresh the session
-        Ok(Some(user))
+        jwk.decoding_key.clone()
+    };
+
+    let mut validation = Validation::new(Algorithm::EdDSA);
+    validation.validate_exp = true;
+    validation.validate_nbf = false;
+    validation.set_issuer(&[backend.config.auth.issuer.as_str()]);
+    if !backend.config.auth.audiences.is_empty() {
+        validation.set_audience(&backend.config.auth.audiences);
+    }
+
+    let decoded_token: TokenData<Claims> = decode::<Claims>(token, &decoding_key, &validation)
+        .map_err(|err| {
+            error!("Unable to decode JWT: {err}");
+            <E as FromAuthInvalid>::from()
+        })?;
+
+    Ok(decoded_token.claims)
+}
+
+fn resolve_permissions(claims: &Claims) -> ResolvedPermissions {
+    let mut resolved = ResolvedPermissions::default();
+
+    for org in &claims.orgs {
+        apply_org_claim(org, &mut resolved);
+    }
+
+    resolved
+}
+
+async fn apply_org_permissions<E: From<sqlx::Error> + FromAuthInvalid>(
+    backend: &Backend,
+    resolved: &mut ResolvedPermissions,
+) -> Result<(), E> {
+    if resolved.org_permissions.is_empty() {
+        return Ok(());
+    }
+
+    let records = query!(
+        "SELECT `id` AS `id: ServerId`, `owner` AS `owner: uuid::fmt::Hyphenated` FROM `servers`"
+    )
+    .fetch_all(&*backend.database)
+    .await
+    .map_err(|err| {
+        error!("Unable to expand org permissions: {err:?}");
+        <E as From<sqlx::Error>>::from(err)
+    })?;
+
+    for record in records {
+        let Some(org_permissions) = resolved
+            .org_permissions
+            .get(record.owner.as_uuid())
+            .copied()
+        else {
+            continue;
+        };
+
+        resolved
+            .server_permissions
+            .entry(record.id)
+            .and_modify(|permissions| *permissions |= org_permissions)
+            .or_insert(org_permissions);
+    }
+
+    Ok(())
+}
+
+fn apply_org_claim(org: &OrgClaim, resolved: &mut ResolvedPermissions) {
+    apply_permissions(&org.permissions, &PermissionScope::Org(org.id), resolved);
+}
+
+fn apply_permissions(
+    permissions: &[PermissionClaim],
+    default_scope: &PermissionScope,
+    resolved: &mut ResolvedPermissions,
+) {
+    for permission in permissions {
+        apply_permission(permission, default_scope.clone(), resolved);
     }
 }
 
-impl Credentials for Session {
-    const SCHEME: &'static str = "Session";
+fn apply_permission(
+    permission: &PermissionClaim,
+    default_scope: PermissionScope,
+    resolved: &mut ResolvedPermissions,
+) {
+    let Some((scope, action)) = permission_scope_and_action(permission, default_scope) else {
+        return;
+    };
 
-    #[expect(
-        clippy::indexing_slicing,
-        reason = "validated before by `Authorization`"
-    )]
-    fn decode(value: &HeaderValue) -> Option<Self> {
-        let bytes = &value.as_bytes()["Session ".len()..];
-        let non_space_pos = bytes.iter().position(|byte| *byte != b' ')?;
-        let bytes = &bytes[non_space_pos..];
-        Self::try_from(bytes).ok()
-    }
+    match scope {
+        PermissionScope::Org(org_id) => {
+            let permissions = server_permissions_from_action(&action);
 
-    fn encode(&self) -> HeaderValue {
-        HeaderValue::try_from(self.to_string()).expect("Unable to encode session")
-    }
-}
+            if permissions.is_empty() {
+                return;
+            }
 
-impl Display for Session {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
-        formatter.serialize_str(&BASE64_STANDARD.encode(self.0))
-    }
-}
-
-impl Debug for Session {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
-        formatter
-            .debug_tuple("Session")
-            .field(&BASE64_STANDARD.encode(self.0))
-            .finish()
-    }
-}
-
-impl FromStr for Session {
-    type Err = ();
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Self::try_from(value.as_bytes())
-    }
-}
-
-impl<'a> TryFrom<&'a [u8]> for Session {
-    type Error = ();
-
-    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-        let slice = BASE64_STANDARD.decode(value).map_err(|_err| ())?;
-        let mut session = [0u8; SESSION_SIZE];
-        if slice.len() != SESSION_SIZE {
-            return Err(());
+            resolved
+                .org_permissions
+                .entry(org_id)
+                .and_modify(|existing_permissions| *existing_permissions |= permissions)
+                .or_insert(permissions);
         }
-        session.copy_from_slice(&slice);
-        Ok(Self(session))
+        PermissionScope::Server(server_id) => {
+            let permissions = server_permissions_from_action(&action);
+
+            if permissions.is_empty() {
+                return;
+            }
+
+            resolved
+                .server_permissions
+                .entry(server_id)
+                .and_modify(|existing_permissions| *existing_permissions |= permissions)
+                .or_insert(permissions);
+        }
     }
+}
+
+fn permission_scope_and_action(
+    permission: &PermissionClaim,
+    default_scope: PermissionScope,
+) -> Option<(PermissionScope, String)> {
+    let action = permission.action.trim().to_ascii_lowercase();
+    if action.is_empty() {
+        return None;
+    }
+
+    let resource = permission.resource.trim();
+    if resource == "*" {
+        return Some((default_scope, action));
+    }
+
+    let Ok(server_id) = ServerId::from_str(resource) else {
+        return None;
+    };
+
+    Some((PermissionScope::Server(server_id), action))
+}
+
+fn server_permissions_from_action(action: &str) -> ServerPermissions {
+    ServerPermissions::from_claim_action(action).unwrap_or_default()
+}
+
+fn global_permissions_from_claims(claim_permissions: &[String]) -> ManagementPermissions {
+    claim_permissions.iter().fold(
+        ManagementPermissions::empty(),
+        |mut permissions, claim_permission| {
+            if let Some(permission) = ManagementPermissions::from_claim_action(claim_permission) {
+                permissions |= permission;
+            }
+
+            permissions
+        },
+    )
 }
 
 impl DocumentedType for UserAuthentication {
@@ -295,43 +322,14 @@ impl DocumentedType for UserAuthentication {
             ParameterBuilder::new()
                 .name("Authorization")
                 .parameter_in(ParameterIn::Header)
-                .description(Some("The session token"))
+                .description(Some("Bearer JWT token"))
                 .schema(Some(RefOr::T(Schema::Object(
                     Object::builder()
                         .schema_type(SchemaType::Type(Type::String))
-                        .min_length(Some(180))
-                        .pattern(Some(SESSION_REGEX.as_str()))
+                        .pattern(Some(BEARER_REGEX.as_str().to_owned()))
                         .build(),
                 ))))
                 .required(Required::False),
         )
-    }
-}
-
-impl Backend {
-    pub async fn get_or_create_user(&self, auth_user: AuthUser) -> Result<u32, sqlx::Error> {
-        let mut conn = self.database.acquire().await?;
-        let result = query!(
-            r#"
-    INSERT INTO `users`
-        (`username`, `auth_id`, `permissions`, `role`, `email`)
-    VALUES
-        (?, ?, 0, ?, ?)
-    ON DUPLICATE KEY UPDATE
-        username = VALUES(username),
-        email = VALUES(email),
-        id = LAST_INSERT_ID(id)
-    "#,
-            auth_user.preferred_username,
-            auth_user.sub,
-            Role::User as u8,
-            auth_user.email
-        )
-        .execute(&mut *conn)
-        .await?;
-
-        let user_id: u32 = result.last_insert_id() as u32;
-
-        Ok(user_id)
     }
 }

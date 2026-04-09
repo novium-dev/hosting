@@ -4,7 +4,7 @@ use axum::extract::Query;
 use std::collections::HashMap;
 use utoipa::__dev::ComposeSchema;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
-use utoipa::openapi::schema::{RefBuilder, SchemaType};
+use utoipa::openapi::schema::SchemaType;
 use utoipa::openapi::{
     Content, Header, Object, RefOr, Required, Response, ResponsesBuilder, Schema, Type,
 };
@@ -197,19 +197,13 @@ impl<E: Serialize + ComposeSchema + ToSchema> DocumentedResultResponse for Paged
         schemas: &mut HashMap<String, RefOr<Schema>>,
     ) -> ResponsesBuilder {
         let mut vals = Vec::new();
-        vals.push((<Vec<E>>::name().to_string(), <Vec<E>>::schema()));
         <Vec<E>>::schemas(&mut vals);
         schemas.extend(vals);
         responses.response(
             "200",
             Response::builder()
                 .description(SUCCESS_DESCRIPTION)
-                .content(
-                    "application/json",
-                    Content::new(Some(
-                        RefBuilder::new().ref_location_from_schema_name(<Vec<E>>::name()),
-                    )),
-                )
+                .content("application/json", Content::new(Some(<Vec<E>>::schema())))
                 .header(
                     header::TOTAL_PAGES.as_str(),
                     Header::builder()

@@ -2,20 +2,20 @@ use crate::auth::permissions::{HasPermission, Permission};
 use crate::auth::user::UserAuthentication;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
+use crate::service::error_auth_unreachable::FromAuthUnreachable;
 use http::request::Parts;
-use redis::RedisError;
+use lazy_regex::lazy_regex;
+use regex::Regex;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
 use utoipa::openapi::schema::SchemaType;
 use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
-pub mod oauth;
-pub mod oauth_flow;
+pub mod jwks_storage;
 pub mod permissions;
 pub mod user;
 
-#[expect(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum Authentication {
     User(UserAuthentication),
@@ -42,7 +42,7 @@ impl Authentication {
     }
 }
 
-impl<E: From<RedisError> + From<sqlx::Error> + FromAuthInvalid + Send + Sync> FromRequestParts<E>
+impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync> FromRequestParts<E>
     for Authentication
 {
     async fn from_request_parts(parts: &mut Parts) -> Result<Self, E> {
@@ -60,14 +60,17 @@ impl DocumentedType for Authentication {
             ParameterBuilder::new()
                 .name("Authorization")
                 .parameter_in(ParameterIn::Header)
-                .description(Some("The session token or api key"))
+                .description(Some("A JWT bearer token"))
                 .schema(Some(RefOr::T(Schema::Object(
                     Object::builder()
                         .schema_type(SchemaType::Type(Type::String))
-                        .pattern(Some(format!("(?:{})", user::SESSION_REGEX.as_str())))
+                        .pattern(Some(BEARER_REGEX.as_str().to_owned()))
                         .build(),
                 ))))
                 .required(Required::False),
         )
     }
 }
+
+#[expect(clippy::non_std_lazy_statics, reason = "external crate")]
+pub static BEARER_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!("^Bearer\\s+.+$");

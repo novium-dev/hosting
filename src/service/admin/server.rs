@@ -26,7 +26,7 @@ pub(crate) impl ServerAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::SERVER_MANAGE`].
     #[route("", method = PUT)]
-    #[error(auth::permission_denied, db::failure <- [sql:*], cache::failure <- [redis:*],
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*],
         server::{not_found, storage_not_found},
         node::{not_found, failure},
         template::{not_found, unavailable, corrupted, port_definition_unknown, input_invalid})]
@@ -35,9 +35,8 @@ pub(crate) impl ServerAdminService for Backend {
         &self,
         #[special] auth: Authentication,
         name: String,
-        owner: u32,
         node: Uuid,
-        group: Option<String>,
+        owner: Uuid,
         template: String,
         storage: String,
         resource: ServerResourcePayload,
@@ -84,6 +83,7 @@ pub(crate) impl ServerAdminService for Backend {
                 .get(port)
                 .ok_or(CreateServerError::TemplatePortDefinitionUnknown)?;
             ports2.push(NetworkPort {
+                id: 0,
                 internal_port: definition.internal_port,
                 name: port.clone(),
                 protocol: definition.protocol,
@@ -145,23 +145,10 @@ pub(crate) impl ServerAdminService for Backend {
             let id = ServerId::generate();
 
             conn.transaction(|tx| Box::pin(async move {
-                query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`group`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        &id,
-                        node.id,
-                        &new_server,
-                        owner,
-                        storage,
-                        resource.cpu,
-                        resource.ram,
-                        resource.swap,
-                        resource.disk,
-                        template.id(),
-                        &extra,
-                        &name,
-                        &group,
-                        internet_access,
-                        backup_limit,
-                    ).execute(&mut **tx).await.inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
+                query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        &id, &node.id, &new_server, &owner, &storage, resource.cpu, resource.ram, resource.swap, resource.disk, template.id(), &extra, &name, internet_access, backup_limit)                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
                 for port in &ports2 {
                     query!("INSERT INTO `server_ports` (`server`,`host`,`name`,`internal_port`,`external_ip`,`external_port_start`,`external_port_end`,`protocol`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -183,7 +170,6 @@ pub(crate) impl ServerAdminService for Backend {
                     ram: resource.ram,
                     swap: resource.swap,
                     disk: resource.disk,
-                    group,
                     suspended: false,
                     internet_access,
                     backup_limit,
@@ -199,7 +185,7 @@ pub(crate) impl ServerAdminService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
     #[route("/{server_id}", method = DELETE)]
-    #[error(auth::permission_denied, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn delete_server(
         &self,
         #[special] auth: Authentication,

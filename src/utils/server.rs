@@ -14,9 +14,8 @@ impl Backend {
                         `id` AS `id: ServerId`,
                         `node` AS `node: uuid::fmt::Hyphenated`,
                         `node_server_id`,
-                        `owner`,
+                        `owner` AS `owner: uuid::fmt::Hyphenated`,
                         `name`,
-                        `group`,
                         `suspended` AS `suspended: bool`,
                         `custom_dockerfile`,
                         `internet_access` AS `internet_access: bool`,
@@ -56,12 +55,11 @@ impl Backend {
                 Ok(Some(Server {
                     id: server.id,
                     name: server.name,
-                    group: server.group,
                     suspended: server.suspended,
                     custom_dockerfile: server.custom_dockerfile,
                     internet_access: server.internet_access,
 
-                    owner: server.owner,
+                    owner: server.owner.into_uuid(),
 
                     node,
                     node_server_id: server.node_server_id,
