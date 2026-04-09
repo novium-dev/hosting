@@ -24,6 +24,9 @@ define_error!(file {
     not_found("The specified file was not found" NOT_FOUND),
     sandbox_violated("The specified file violates the sandbox" BAD_REQUEST),
     not_directory("The specified file is not a directory" BAD_REQUEST),
+    already_exists("A file with the specified name already exists" BAD_REQUEST),
+    is_directory("The specified file is a directory" BAD_REQUEST),
+    quota_exceeded("The file exceeds the server's storage quota" BAD_REQUEST),
 });
 
 define_error!(node {
@@ -54,4 +57,12 @@ define_query_variable!(
 
 define_query_variable!(
     path "The file path"
+);
+
+define_query_variable!(
+    from "The name to rename from"
+);
+
+define_query_variable!(
+    to "The name to rename to"
 );
