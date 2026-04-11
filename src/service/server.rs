@@ -69,17 +69,7 @@ pub(crate) struct ServerNetworkInfo {
     //pub(crate) networks: Vec<NetworkAssignmentInfo>,
 }
 
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub(crate) struct ServerUpdate {
-    pub(crate) name: Option<String>,
-    pub(crate) resource: Option<ServerResourcePayload>,
-    pub(crate) custom_dockerfile: Option<String>, // empty string clears custom dockerfile
-    pub(crate) suspended: Option<bool>,
-    pub(crate) internet_access: Option<bool>,
-    pub(crate) limits: Option<ServerLimits>,
-}
-
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToSchema)]
 pub(crate) struct ServerLimits {
     pub(crate) backup: Option<u32>,
 }
@@ -266,34 +256,30 @@ pub(crate) impl ServerService for Backend {
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        payload: ServerUpdate,
+        name: Option<String>,
+        resource: Option<ServerResourcePayload>,
+        custom_dockerfile: Option<String>,
+        suspended: Option<bool>,
+        internet_access: Option<bool>,
+        limits: Option<ServerLimits>,
     ) -> Result<(), _> {
         auth.require::<_, UpdateServerError>(server_id, ServerPermissions::VIEW)?;
 
-        if payload.name.is_some() {
+        if name.is_some() {
             auth.require::<_, UpdateServerError>(server_id, ServerPermissions::ADMIN_MANAGEMENT)?;
         }
 
-        if payload.resource.is_some()
-            || payload.internet_access.is_some()
-            || payload.custom_dockerfile.is_some()
-            || payload.limits.is_some()
+        if resource.is_some()
+            || internet_access.is_some()
+            || custom_dockerfile.is_some()
+            || limits.is_some()
         {
             auth.require::<_, UpdateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
         }
 
-        if payload.suspended.is_some() {
+        if suspended.is_some() {
             auth.require::<_, UpdateServerError>((), ManagementPermissions::SERVER_SUSPEND)?;
         }
-
-        let ServerUpdate {
-            name,
-            resource,
-            custom_dockerfile,
-            suspended,
-            internet_access,
-            limits,
-        } = payload;
 
         let backup_limit = limits.map(|limits| limits.backup);
         let custom_dockerfile = custom_dockerfile.map(|dockerfile| {
