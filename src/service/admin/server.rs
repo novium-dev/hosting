@@ -13,32 +13,14 @@ use daemon_common::service::server::server_service_error::CreateServerError as D
 use daemon_common::service::server::{
     ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
 use std::collections::HashMap;
 use tracing::error;
 use uuid::Uuid;
 use zelus::service;
 
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub(crate) struct PortCreate {
-    pub(crate) name: String,
-    pub(crate) protocol: NetworkProtocol,
-    pub(crate) internal_port: u16,
-    pub(crate) external_port: PortRange,
-}
-
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub(crate) struct PortUpdate {
-    pub(crate) name: Option<String>,
-    pub(crate) protocol: Option<NetworkProtocol>,
-    pub(crate) internal_port: Option<u16>,
-    pub(crate) external_port: Option<PortRange>,
-    pub(crate) host: Option<String>,
-    pub(crate) bind: Option<String>,
-}
-
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToSchema)]
 pub(crate) struct PortRange {
     pub(crate) start: u16,
     pub(crate) end: u16,
@@ -259,15 +241,18 @@ pub(crate) impl ServerAdminService for Backend {
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        port: PortCreate,
+        name: String,
+        protocol: String,
+        internal_port: u16,
+        external_port: PortRange,
     ) -> Result<(), _> {
-        if port.external_port.start > port.external_port.end {
+        if external_port.start > external_port.end {
             return Err(CreatePortError::PortInvalid);
         }
 
-        let external = port.external_port.start..=port.external_port.end;
+        let external = external_port.start..=external_port.end;
 
-        if (u32::from(port.internal_port) + u32::from(external.end() - external.start()))
+        if (u32::from(internal_port) + u32::from(external.end() - external.start()))
             > u32::from(u16::MAX)
         {
             return Err(CreatePortError::PortInvalid);
@@ -293,7 +278,7 @@ pub(crate) impl ServerAdminService for Backend {
                    AND ? <= end
                    AND ? >= start"#,
                 server.node.id,
-                port.protocol.to_string(),
+                protocol.clone(),
                 external.start(),
                 external.end()
             )
@@ -313,7 +298,7 @@ pub(crate) impl ServerAdminService for Backend {
                    AND ? <= external_port_end
                    AND ? >= external_port_start"#,
                 server.node.id,
-                port.protocol.to_string(),
+                protocol.clone(),
                 external.start(),
                 external.end()
             )
@@ -329,9 +314,9 @@ pub(crate) impl ServerAdminService for Backend {
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 server.id,
                 server.node.default_host(),
-                port.name,
-                port.protocol.to_string(),
-                port.internal_port,
+                name,
+                protocol.clone(),
+                internal_port,
                 external.start(),
                 external.end(),
                 server.node.default_bind()
@@ -387,7 +372,12 @@ pub(crate) impl ServerAdminService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
         port_id: u32,
-        update: PortUpdate,
+        name: Option<String>,
+        protocol: Option<NetworkProtocol>,
+        internal_port: Option<u16>,
+        external_port: Option<PortRange>,
+        host: Option<String>,
+        bind: Option<String>,
     ) -> Result<(), UpdatePortError> {
         auth.require::<_, UpdatePortError>(server_id, ServerPermissions::VIEW)?;
         auth.require::<_, UpdatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
@@ -411,14 +401,12 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(UpdatePortError::ServerNotFound)?;
 
-            let protocol = update
-                .protocol
+            let protocol_parsed = protocol
                 .unwrap_or_else(|| NetworkProtocol::by_name(current.protocol.as_str()));
 
-            let internal = update.internal_port.unwrap_or(current.internal_port);
+            let internal = internal_port.unwrap_or(current.internal_port);
 
-            let (start, end) = update
-                .external_port
+            let (start, end) = external_port
                 .as_ref()
                 .map_or((current.external_port_start, current.external_port_end), |range| {
                     (range.start, range.end)
@@ -440,7 +428,7 @@ pub(crate) impl ServerAdminService for Backend {
                    AND ? <= end
                    AND ? >= start"#,
                 server.node.id,
-                protocol.to_string(),
+                protocol_parsed.to_string(),
                 start,
                 end
             )
@@ -461,7 +449,7 @@ pub(crate) impl ServerAdminService for Backend {
                    AND ? <= external_port_end
                    AND ? >= external_port_start"#,
                 server.node.id,
-                protocol.to_string(),
+                protocol_parsed.to_string(),
                 port_id,
                 start,
                 end
@@ -473,7 +461,7 @@ pub(crate) impl ServerAdminService for Backend {
                 return Err(UpdatePortError::PortCollision);
             }
 
-            if let Some(name) = update.name {
+            if let Some(name) = name {
                 query!(
                     "UPDATE server_ports SET name=? WHERE id=? AND server=?",
                     name,
@@ -484,7 +472,7 @@ pub(crate) impl ServerAdminService for Backend {
                 .await?;
             }
 
-            if let Some(protocol) = update.protocol {
+            if let Some(protocol) = protocol {
                 query!(
                     "UPDATE server_ports SET protocol=? WHERE id=? AND server=?",
                     protocol.to_string(),
@@ -495,7 +483,7 @@ pub(crate) impl ServerAdminService for Backend {
                 .await?;
             }
 
-            if let Some(internal) = update.internal_port {
+            if let Some(internal) = internal_port {
                 query!(
                     "UPDATE server_ports SET internal_port=? WHERE id=? AND server=?",
                     internal,
@@ -506,7 +494,7 @@ pub(crate) impl ServerAdminService for Backend {
                 .await?;
             }
 
-            if let Some(range) = update.external_port.as_ref() {
+            if let Some(range) = external_port.as_ref() {
                 query!(
                     "UPDATE server_ports SET external_port_start=?, external_port_end=? WHERE id=? AND server=?",
                     range.start,
@@ -518,7 +506,7 @@ pub(crate) impl ServerAdminService for Backend {
                 .await?;
             }
 
-            if let Some(host) = update.host {
+            if let Some(host) = host {
                 query!(
                     "UPDATE server_ports SET host=? WHERE id=? AND server=?",
                     host,
@@ -529,7 +517,7 @@ pub(crate) impl ServerAdminService for Backend {
                 .await?;
             }
 
-            if let Some(bind) = update.bind {
+            if let Some(bind) = bind {
                 query!(
                     "UPDATE server_ports SET external_ip=? WHERE id=? AND server=?",
                     bind,

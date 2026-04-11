@@ -21,10 +21,6 @@ define_error!(server {
     config_invalid("The server config file is invalid" BAD_REQUEST)
 });
 
-define_error!(payload {
-    invalid("The request payload is invalid" BAD_REQUEST)
-});
-
 define_error!(file {
     storage_unavailable("Storage is currently in use" SERVICE_UNAVAILABLE),
     not_found("The specified file was not found" NOT_FOUND),
@@ -34,6 +30,8 @@ define_error!(file {
     is_directory("The specified file is a directory" BAD_REQUEST),
     quota_exceeded("The file exceeds the server's storage quota" BAD_REQUEST),
     compression_unsupported("The specified compression method is unsupported" BAD_REQUEST),
+    unsupported_type("The specified file type is unsupported" BAD_REQUEST),
+    content_invalid("The specified content is invalid" BAD_REQUEST),
 });
 
 define_error!(backup {

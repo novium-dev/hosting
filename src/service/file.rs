@@ -482,7 +482,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/config/{file_name}", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory}, payload::invalid)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, unsupported_type})]
     async fn get_config(
         &self,
         #[special] auth: Authentication,
@@ -497,7 +497,7 @@ pub(crate) impl FileService for Backend {
             .unwrap_or_default()
             .to_lowercase();
         if !["properties", "json", "yaml", "yml"].contains(&ext.as_str()) {
-            return Err(GetConfigError::PayloadInvalid);
+            return Err(GetConfigError::FileUnsupportedType);
         }
 
         let server = self
@@ -603,12 +603,12 @@ pub(crate) impl FileService for Backend {
                     GetConfigError::ServerConfigInvalid
                 })
             }
-            _ => Err(GetConfigError::PayloadInvalid),
+            _ => Err(GetConfigError::FileUnsupportedType),
         }
     }
 
     #[route("/config/{file_name}", method = POST, raw)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded}, payload::invalid)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, unsupported_type, content_invalid})]
     async fn set_config(
         &self,
         #[special] auth: Authentication,
@@ -624,7 +624,7 @@ pub(crate) impl FileService for Backend {
             .unwrap_or_default()
             .to_lowercase();
         if !["properties", "json", "yaml", "yml"].contains(&ext.as_str()) {
-            return Err(SetConfigError::PayloadInvalid);
+            return Err(SetConfigError::FileUnsupportedType);
         }
 
         let server = self
@@ -634,11 +634,11 @@ pub(crate) impl FileService for Backend {
 
         let write = match ext.as_str() {
             "properties" => {
-                let object = payload.as_object().ok_or(SetConfigError::PayloadInvalid)?;
+                let object = payload.as_object().ok_or(SetConfigError::FileContentInvalid)?;
                 let mut content = HashMap::with_capacity(object.len());
                 for (key, value) in object {
                     let Some(value) = value.as_str() else {
-                        return Err(SetConfigError::PayloadInvalid);
+                        return Err(SetConfigError::FileContentInvalid);
                     };
                     content.insert(key.clone(), value.to_owned());
                 }
@@ -647,16 +647,16 @@ pub(crate) impl FileService for Backend {
             "json" => ServerFileWrite::Json {
                 set: serde_json::from_value(payload).map_err(|err| {
                     error!("Invalid JSON payload for config set: {:?}", err);
-                    SetConfigError::PayloadInvalid
+                    SetConfigError::FileContentInvalid
                 })?,
             },
             "yaml" | "yml" => ServerFileWrite::Yaml {
                 set: serde_json::from_value(payload).map_err(|err| {
                     error!("Invalid YAML payload for config set: {:?}", err);
-                    SetConfigError::PayloadInvalid
+                    SetConfigError::FileContentInvalid
                 })?,
             },
-            _ => return Err(SetConfigError::PayloadInvalid),
+            _ => return Err(SetConfigError::FileUnsupportedType),
         };
 
         server

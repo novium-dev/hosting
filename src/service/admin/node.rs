@@ -2,7 +2,6 @@ use std::time::Instant;
 
 use indexmap::IndexSet;
 use rand::TryRng as _;
-use serde::Deserialize;
 use tracing::error;
 
 use serde::Serialize;
@@ -41,13 +40,6 @@ pub(crate) struct PortRange {
     pub(crate) start: u16,
     pub(crate) end: u16,
     pub(crate) exclude: HashSet<u16>,
-}
-
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub(crate) struct PortAddPayload {
-    pub(crate) start: u16,
-    pub(crate) end: u16,
-    pub(crate) protocol: String,
 }
 
 #[service(path = "/admin/node", tag = "node", no_sdk)]
@@ -207,12 +199,14 @@ pub(crate) impl NodeAdminService for Backend {
         &self,
         #[special] auth: Authentication,
         #[no_schema] node_id: Uuid,
-        port: PortAddPayload,
+        start: u16,
+        end: u16,
+        protocol: String,
     ) -> Result<u32, _> {
         auth.require::<_, AddPortError>((), ManagementPermissions::NODES_MANAGE)?;
 
-        let protocol = NetworkProtocol::by_name(&port.protocol);
-        if port.start > port.end {
+        let protocol = NetworkProtocol::by_name(&protocol);
+        if start > end {
             return Err(AddPortError::PortInvalid);
         }
 
@@ -228,8 +222,8 @@ pub(crate) impl NodeAdminService for Backend {
                     "INSERT INTO `node_ports` (`node`, `protocol`, `start`, `end`) VALUES (?, ?, ?, ?)",
                     node_id,
                     protocol.to_string(),
-                    port.start,
-                    port.end,
+                    start,
+                    end,
                 )
                 .execute(&mut **tx)
                 .await?
