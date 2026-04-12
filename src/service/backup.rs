@@ -25,7 +25,7 @@ pub(crate) struct BackupUpdatePayload {
 #[service(path = "/backup/{server_id}", tag = "backup", no_sdk)]
 pub(crate) impl BackupService for Backend {
     #[route("", method = GET, raw)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, backup::storage_unavailable)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::storage_unavailable)]
     async fn list_backups(
         &self,
         #[special] auth: Authentication,
@@ -65,7 +65,7 @@ pub(crate) impl BackupService for Backend {
     }
 
     #[route("", method = PUT)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, backup::{storage_unavailable, no_suitable_storage_found, limit_exceeded})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, no_suitable_storage_found, limit_exceeded})]
     async fn create_backup(
         &self,
         #[special] auth: Authentication,
@@ -134,7 +134,7 @@ pub(crate) impl BackupService for Backend {
     }
 
     #[route("/{backup_storage}", method = PUT)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, backup::{storage_unavailable, storage_not_found, storage_incompatible, limit_exceeded})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, storage_not_found, storage_incompatible, limit_exceeded})]
     async fn create_backup_with_storage(
         &self,
         #[special] auth: Authentication,
@@ -214,7 +214,7 @@ pub(crate) impl BackupService for Backend {
     }
 
     #[route("/{backup_storage}/{backup_id}", method = DELETE)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, backup::{storage_unavailable, not_found, storage_not_found})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, not_found, storage_not_found})]
     async fn delete_backup(
         &self,
         #[special] auth: Authentication,
@@ -256,7 +256,7 @@ pub(crate) impl BackupService for Backend {
     }
 
     #[route("/{backup_storage}/{backup_id}/restore", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, backup::{storage_unavailable, not_found, storage_not_found, quota_exceeded})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, not_found, storage_not_found, quota_exceeded})]
     async fn restore_backup(
         &self,
         #[special] auth: Authentication,
@@ -301,7 +301,7 @@ pub(crate) impl BackupService for Backend {
     }
 
     #[route("/{backup_storage}/{backup_id}", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn download_backup(
         &self,
         #[special] auth: Authentication,
@@ -327,7 +327,7 @@ pub(crate) impl BackupService for Backend {
     }
 
     #[route("/rt", method = GET, query = [ compression ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found}, backup::compression_not_allowed)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found}, backup::compression_not_allowed)]
     async fn realtime_download_backup(
         &self,
         #[special] auth: Authentication,
@@ -353,7 +353,7 @@ pub(crate) impl BackupService for Backend {
     }
 
     #[route("/{backup_storage}/{backup_id}", method = PATCH)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, backup::{storage_unavailable, not_found, storage_not_found})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, not_found, storage_not_found})]
     async fn update_backup(
         &self,
         #[special] auth: Authentication,

@@ -80,7 +80,7 @@ pub(crate) impl ServerService for Backend {
     ///
     /// Only servers in which you have the [`ServerPermissions::VIEW`] permission are listed.
     #[route("", method = GET, raw, query = [ owner ])]
-    #[error(auth::unreachable, db::failure <- [sql:*], cache::failure <- [redis:*])]
+    #[error(auth::unreachable, db::failure <- [sql:*])]
     async fn list_servers(
         &self,
         #[no_schema] owner: Option<Uuid>,
@@ -413,7 +413,7 @@ pub(crate) impl ServerService for Backend {
     /// Requires [`ServerPermissions::TERMINAL_READ`].
     /// Grants Write Permissions, if [`ServerPermissions::TERMINAL_WRITE`] is present.
     #[route("/{server_id}/terminal", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn server_terminal(
         &self,
         #[special] auth: Authentication,
@@ -444,7 +444,7 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::VIEW`].
     #[route("/{server_id}/stats", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn server_stats(
         &self,
         #[special] auth: Authentication,
@@ -470,7 +470,7 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::POWER`].
     #[route("/{server_id}/start", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure)]
     async fn start_server(
         &self,
         #[special] auth: Authentication,
@@ -504,7 +504,7 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::POWER`].
     #[route("/{server_id}/stop", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure)]
     async fn stop_server(
         &self,
         #[special] auth: Authentication,
@@ -538,7 +538,7 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::POWER`].
     #[route("/{server_id}/restart", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure)]
     async fn restart_server(
         &self,
         #[special] auth: Authentication,
@@ -572,7 +572,7 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::POWER`].
     #[route("/{server_id}/kill", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure)]
     async fn kill_server(
         &self,
         #[special] auth: Authentication,

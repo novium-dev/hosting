@@ -35,7 +35,7 @@ struct UrlResponse {
 #[service(path = "/file/{server_id}", tag = "file", no_sdk)]
 pub(crate) impl FileService for Backend {
     #[route("", method = GET, raw, query = [ path ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, not_directory})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, not_directory})]
     async fn list_files(
         &self,
         #[special] auth: Authentication,
@@ -77,7 +77,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/stat", method = GET, query = [ path ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated})]
     async fn stat_file(
         &self,
         #[special] auth: Authentication,
@@ -114,7 +114,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/rename", method = POST, query = [ from, to ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists})]
     async fn rename_file(
         &self,
         #[special] auth: Authentication,
@@ -157,7 +157,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/copy", method = POST, query = [ from, to ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, is_directory, quota_exceeded})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, is_directory, quota_exceeded})]
     async fn copy_file(
         &self,
         #[special] auth: Authentication,
@@ -199,7 +199,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/delete", method = POST, query = [ path, recursive ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, not_directory, is_directory})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, not_directory, is_directory})]
     async fn delete_file(
         &self,
         #[special] auth: Authentication,
@@ -243,7 +243,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/mkdir", method = POST, query = [ path, recursive ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded})]
     async fn create_directory(
         &self,
         #[special] auth: Authentication,
@@ -293,7 +293,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/symlink", method = POST, query = [ path, content ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded})]
     async fn symlink_file(
         &self,
         #[special] auth: Authentication,
@@ -333,7 +333,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/download", method = GET, query = [ path, limit ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn download_user(
         &self,
         #[special] auth: Authentication,
@@ -358,7 +358,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/upload", method = GET, query = [ path ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn upload_user(
         &self,
         #[special] auth: Authentication,
@@ -380,7 +380,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/archive", method = POST, query = [ from, to, compression ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, is_directory, quota_exceeded, compression_unsupported})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, is_directory, quota_exceeded, compression_unsupported})]
     async fn archive_file(
         &self,
         #[special] auth: Authentication,
@@ -432,7 +432,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/unarchive", method = POST, query = [ from, to ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded, compression_unsupported})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded, compression_unsupported})]
     async fn unarchive_file(
         &self,
         #[special] auth: Authentication,
@@ -482,7 +482,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/config/{file_name}", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, unsupported_type})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, unsupported_type})]
     async fn get_config(
         &self,
         #[special] auth: Authentication,
@@ -608,7 +608,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/config/{file_name}", method = POST, raw)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, unsupported_type, content_invalid})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, unsupported_type, content_invalid})]
     async fn set_config(
         &self,
         #[special] auth: Authentication,

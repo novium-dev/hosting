@@ -192,7 +192,7 @@ pub(crate) impl ServerAdminService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
     #[route("/{server_id}", method = DELETE)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found, unavailable}, node::failure)]
     async fn delete_server(
         &self,
         #[special] auth: Authentication,
@@ -233,7 +233,7 @@ pub(crate) impl ServerAdminService for Backend {
     }
 
     #[route("/{server_id}/ports", method = PUT, raw)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*],
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*],
         server::{not_found, unavailable},
         node::failure,
         port::{invalid, not_allocated})]
