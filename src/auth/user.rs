@@ -111,15 +111,20 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         };
 
         let claims = decode_claims::<E>(bearer.token(), &backend).await?;
+        let global_permissions = global_permissions_from_claims(&claims.permissions);
         let mut resolved = resolve_permissions(&claims);
-        apply_org_permissions::<E>(&backend, &mut resolved).await?;
-        let global_permissions = global_permissions_from_claims(&claims.permissions).bits();
+        apply_server_permission_restrictions::<E>(
+            &backend,
+            &mut resolved,
+            global_permissions.contains(ManagementPermissions::SERVER_MANAGE),
+        )
+        .await?;
 
         Ok(Some(Self {
             id: claims.id.unwrap_or(claims.sub),
             name: claims.name,
             email: claims.email,
-            permissions: global_permissions,
+            permissions: global_permissions.bits(),
             servers: resolved.server_permissions,
         }))
     }
@@ -188,38 +193,45 @@ fn resolve_permissions(claims: &Claims) -> ResolvedPermissions {
     resolved
 }
 
-async fn apply_org_permissions<E: From<sqlx::Error> + FromAuthInvalid>(
+async fn apply_server_permission_restrictions<E: From<sqlx::Error> + FromAuthInvalid>(
     backend: &Backend,
     resolved: &mut ResolvedPermissions,
+    can_manage_servers: bool,
 ) -> Result<(), E> {
-    if resolved.org_permissions.is_empty() {
+    if resolved.org_permissions.is_empty() && resolved.server_permissions.is_empty() {
         return Ok(());
     }
 
     let records = query!(
-        "SELECT `id` AS `id: ServerId`, `owner` AS `owner: uuid::fmt::Hyphenated` FROM `servers`"
+        "SELECT `id` AS `id: ServerId`, `owner` AS `owner: uuid::fmt::Hyphenated`, `suspended` FROM `servers`"
     )
     .fetch_all(&*backend.database)
     .await
     .map_err(|err| {
-        error!("Unable to expand org permissions: {err:?}");
+        error!("Unable to resolve server permission restrictions: {err:?}");
         <E as From<sqlx::Error>>::from(err)
     })?;
 
     for record in records {
-        let Some(org_permissions) = resolved
+        if let Some(org_permissions) = resolved
             .org_permissions
             .get(record.owner.as_uuid())
             .copied()
-        else {
-            continue;
-        };
+        {
+            resolved
+                .server_permissions
+                .entry(record.id)
+                .and_modify(|permissions| *permissions |= org_permissions)
+                .or_insert(org_permissions);
+        }
 
-        resolved
-            .server_permissions
-            .entry(record.id)
-            .and_modify(|permissions| *permissions |= org_permissions)
-            .or_insert(org_permissions);
+        if can_manage_servers || record.suspended == 0 {
+            continue;
+        }
+
+        if let Some(permissions) = resolved.server_permissions.get_mut(&record.id) {
+            *permissions = ServerPermissions::VIEW;
+        }
     }
 
     Ok(())
