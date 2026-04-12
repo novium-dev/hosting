@@ -17,7 +17,7 @@ use crate::db::node::NodePortAllocation;
 use crate::db::server::ports::NetworkProtocol;
 use crate::service::admin::node::node_admin_service_error::{
     AddPortError, AvailablePortsError, CreateNodeError, DeletePortError, ListNodesError,
-    MetricsNodeError, UpdateNodeError,
+    MetricsNodeError, UpdateMaintenanceError, UpdateNodeError,
 };
 use crate::service::error_os_failure::FromOsFailure;
 use crate::service::*;
@@ -28,6 +28,7 @@ define_path_variable!(node_id "The node identifier");
 pub(crate) struct NodeInfo {
     pub(crate) id: Uuid,
     pub(crate) display: String,
+    pub(crate) maintenance: bool,
     pub(crate) default_bind: String,
     pub(crate) default_host: String,
     pub(crate) server_storages: IndexSet<String>,
@@ -106,6 +107,7 @@ pub(crate) impl NodeAdminService for Backend {
             .map(|node| NodeInfo {
                 id: node.id,
                 display: node.display.clone(),
+                maintenance: node.maintenance,
                 default_bind: node.default_bind.clone(),
                 default_host: node.default_host.clone(),
                 server_storages: node.server_storages.keys().cloned().collect(),
@@ -113,6 +115,44 @@ pub(crate) impl NodeAdminService for Backend {
                 ports: node.ports.clone(),
             })
             .collect())
+    }
+
+    /// Updates maintenance mode for a node.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermission::NODES_MANAGE`].
+    #[route("/{node_id}/maintenance", method = PATCH)]
+    #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn update_maintenance(
+        &self,
+        #[special] auth: Authentication,
+        #[no_schema] node_id: Uuid,
+        maintenance: bool,
+    ) -> Result<(), _> {
+        auth.require::<_, UpdateMaintenanceError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        if self.nodes.read().await.get(&node_id).is_none() {
+            return Err(UpdateMaintenanceError::NodeNotFound);
+        }
+
+        let mut conn = self.database.acquire().await?;
+        let backend = self.clone();
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                query!(
+                    "UPDATE `nodes` SET `maintenance` = ? WHERE `id` = ?",
+                    maintenance,
+                    node_id
+                )
+                .execute(&mut **tx)
+                .await?;
+
+                backend.sync_nodes(tx).await?;
+
+                Ok::<_, UpdateMaintenanceError>(())
+            })
+        })
+        .await
     }
 
     #[route("/{node_id}/metrics", method = GET)]

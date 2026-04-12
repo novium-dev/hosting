@@ -35,6 +35,7 @@ pub(crate) struct ServerListInfo {
 pub(crate) struct LightNodeInfo {
     pub(crate) id: Uuid,
     pub(crate) display: String,
+    pub(crate) maintenance: bool,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -237,6 +238,7 @@ pub(crate) impl ServerService for Backend {
             node: LightNodeInfo {
                 id: server.node.id,
                 display: server.node.display.clone(),
+                maintenance: server.node.maintenance,
             },
             suspended: server.suspended,
         })

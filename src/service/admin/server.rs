@@ -1,8 +1,8 @@
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
+use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, merge_ports};
-use crate::db::server::{ServerId, ServerInfo};
 use crate::service::admin::server::server_admin_service_error::{
     CreatePortError, CreateServerError, DeletePortError, DeleteServerError, UpdatePortError,
 };
@@ -51,7 +51,7 @@ pub(crate) impl ServerAdminService for Backend {
         variables: HashMap<String, String>,
         internet_access: bool,
         backup_limit: Option<u32>,
-    ) -> Result<ServerInfo, _> {
+    ) -> Result<ServerId, _> {
         auth.require::<_, CreateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
 
         let nodes = self.nodes.read().await;
@@ -164,23 +164,7 @@ pub(crate) impl ServerAdminService for Backend {
                         .await
                         .inspect_err(|err| error!("Failed to insert server (ports): {err:?}"))?;
                 }
-                Ok(ServerInfo {
-                    node: node.id,
-                    id,
-                    name,
-                    node_server_id: new_server,
-                    owner,
-                    template: template.id().to_owned(),
-                    template_extra: extra,
-                    custom_dockerfile: None,
-                    cpu: resource.cpu,
-                    ram: resource.ram,
-                    swap: resource.swap,
-                    disk: resource.disk,
-                    suspended: false,
-                    internet_access,
-                    backup_limit,
-                })
+                Ok(id)
             }))
                 .await
         }).await

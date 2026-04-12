@@ -203,7 +203,13 @@ async fn apply_server_permission_restrictions<E: From<sqlx::Error> + FromAuthInv
     }
 
     let records = query!(
-        "SELECT `id` AS `id: ServerId`, `owner` AS `owner: uuid::fmt::Hyphenated`, `suspended` FROM `servers`"
+        "SELECT
+            `servers`.`id` AS `id: ServerId`,
+            `servers`.`owner` AS `owner: uuid::fmt::Hyphenated`,
+            `servers`.`suspended` AS `suspended: bool`,
+            `nodes`.`maintenance` AS `maintenance: bool`
+        FROM `servers`
+        JOIN `nodes` ON `nodes`.`id` = `servers`.`node`"
     )
     .fetch_all(&*backend.database)
     .await
@@ -213,23 +219,24 @@ async fn apply_server_permission_restrictions<E: From<sqlx::Error> + FromAuthInv
     })?;
 
     for record in records {
-        if let Some(org_permissions) = resolved
-            .org_permissions
-            .get(record.owner.as_uuid())
-            .copied()
-        {
+        let server_id = record.id;
+        let owner = record.owner.into_uuid();
+        let suspended = record.suspended;
+        let maintenance = record.maintenance;
+
+        if let Some(org_permissions) = resolved.org_permissions.get(&owner).copied() {
             resolved
                 .server_permissions
-                .entry(record.id)
+                .entry(server_id)
                 .and_modify(|permissions| *permissions |= org_permissions)
                 .or_insert(org_permissions);
         }
 
-        if can_manage_servers || record.suspended == 0 {
+        if can_manage_servers || (!suspended && !maintenance) {
             continue;
         }
 
-        if let Some(permissions) = resolved.server_permissions.get_mut(&record.id) {
+        if let Some(permissions) = resolved.server_permissions.get_mut(&server_id) {
             *permissions = ServerPermissions::VIEW;
         }
     }
