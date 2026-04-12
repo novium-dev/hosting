@@ -67,22 +67,13 @@ impl Backend {
         use daemon_common::service::DaemonServices as _;
 
         let mut nodes = HashMap::new();
-        for node in query!(
-            "SELECT
-                `id` AS `id: uuid::fmt::Hyphenated`,
-                `url`,
-                `display`,
-                `maintenance` AS `maintenance: bool`,
-                `default_host`,
-                `default_bind`
-            FROM `nodes`"
-        )
-        .fetch_all(&*self.database)
-        .await?
-        {
+        for node in query!("SELECT `id` AS `id: uuid::fmt::Hyphenated`,`url`,`display`,`maintenance` AS `maintenance: bool`,`default_host`,`default_bind` FROM `nodes`")
+            .fetch_all(&*self.database)
+            .await? {
+
             let server_storages = query!(
                 "SELECT * FROM `node_server_storage` WHERE `node` = ?",
-                node.id.as_uuid()
+                node.id
             )
             .fetch_all(&mut **tx)
             .await
@@ -99,7 +90,7 @@ impl Backend {
             .collect();
             let backup_storages = query!(
                 "SELECT * FROM `node_backup_storage` WHERE `node` = ?",
-                node.id.as_uuid()
+                node.id
             )
             .fetch_all(&mut **tx)
             .await
@@ -117,29 +108,24 @@ impl Backend {
             let ports = query_as!(
                 NodePortAllocation,
                 "SELECT `id`,`node` AS `node: uuid::fmt::Hyphenated`,`protocol` AS `protocol: NetworkProtocol`, `start`, `end` FROM `node_ports` WHERE `node` = ?",
-                node.id.as_uuid()
+                node.id
             )
             .fetch_all(&mut **tx)
             .await.inspect_err(|err| error!("Failed to select allocated ports: {err:?}"))?;
 
             let id = node.id.into_uuid();
 
-            let sdk = Arc::new(
-                DaemonSDK::builder()
-                    .with_identifier(id)
-                    .with_root_key(Arc::clone(&self.root_key))
-                    .with_backend_key(Arc::clone(&self.key))
-                    .with_url(
-                        Url::parse(&node.url).map_err(|err| sqlx::Error::Decode(Box::new(err)))?,
-                    )
-                    .with_user_key(self.user_key.clone())
-                    .build(),
-            );
+            let sdk = Arc::new(DaemonSDK::builder()
+                .with_identifier(id)
+                .with_root_key(Arc::clone(&self.root_key))
+                .with_backend_key(Arc::clone(&self.key))
+                .with_url(Url::parse(&node.url)
+                    .map_err(|err| sqlx::Error::Decode(Box::new(err)))?)
+                .with_user_key(self.user_key.clone())
+                .build());
 
             #[cfg(feature = "embedded_node")]
-            let services: Arc<
-                dyn DaemonServicesURLWithUserKey + Send + Sync + 'static,
-            > = if id == self.embedded.id() {
+            let services: Arc<dyn DaemonServicesURLWithUserKey + Send + Sync + 'static> = if id == self.embedded.id() {
                 Arc::new(self.embedded.clone())
             } else {
                 sdk
@@ -148,20 +134,17 @@ impl Backend {
             #[cfg(not(feature = "embedded_node"))]
             let services = sdk;
 
-            nodes.insert(
-                node.id.into_uuid(),
-                Arc::new(BackendNode {
-                    id,
-                    services,
-                    display: node.display,
-                    maintenance: node.maintenance,
-                    default_host: node.default_host,
-                    default_bind: node.default_bind,
-                    server_storages,
-                    backup_storages,
-                    ports,
-                }),
-            );
+            nodes.insert(id, Arc::new(BackendNode {
+                id,
+                services,
+                display: node.display,
+                maintenance: node.maintenance,
+                default_host: node.default_host,
+                default_bind: node.default_bind,
+                server_storages,
+                backup_storages,
+                ports,
+            }));
         }
 
         *self.nodes.write().await = nodes;
