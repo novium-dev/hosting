@@ -80,57 +80,58 @@ impl Backend {
         .fetch_all(&*self.database)
         .await?
         {
-            let id = node.id.into_uuid();
-            let url = node.url;
-            let display = node.display;
-            let maintenance = node.maintenance;
-            let default_host = node.default_host;
-            let default_bind = node.default_bind;
-
-            let server_storages =
-                query!("SELECT * FROM `node_server_storage` WHERE `node` = ?", id)
-                    .fetch_all(&mut **tx)
-                    .await
-                    .inspect_err(|err| error!("Failed to select server storages: {err:?}"))?
-                    .into_iter()
-                    .map(|storage| match storage.storage_type.as_str() {
-                        "btrfs" => (
-                            storage.storage,
-                            ServerStorage::Btrfs(storage.group.unwrap_or_default()),
-                        ),
-                        "directory" => (storage.storage, ServerStorage::Directory),
-                        _ => unreachable!(),
-                    })
-                    .collect();
-            let backup_storages =
-                query!("SELECT * FROM `node_backup_storage` WHERE `node` = ?", id)
-                    .fetch_all(&mut **tx)
-                    .await
-                    .inspect_err(|err| error!("Failed to select backup storages: {err:?}"))?
-                    .into_iter()
-                    .map(|storage| match storage.storage_type.as_str() {
-                        "btrfs" => (
-                            storage.storage,
-                            BackupStorage::Btrfs(storage.group.unwrap_or_default()),
-                        ),
-                        "archive" => (storage.storage, BackupStorage::Archive),
-                        _ => unreachable!(),
-                    })
-                    .collect();
+            let server_storages = query!(
+                "SELECT * FROM `node_server_storage` WHERE `node` = ?",
+                node.id.as_uuid()
+            )
+            .fetch_all(&mut **tx)
+            .await
+            .inspect_err(|err| error!("Failed to select server storages: {err:?}"))?
+            .into_iter()
+            .map(|storage| match storage.storage_type.as_str() {
+                "btrfs" => (
+                    storage.storage,
+                    ServerStorage::Btrfs(storage.group.unwrap_or_default()),
+                ),
+                "directory" => (storage.storage, ServerStorage::Directory),
+                _ => unreachable!(),
+            })
+            .collect();
+            let backup_storages = query!(
+                "SELECT * FROM `node_backup_storage` WHERE `node` = ?",
+                node.id.as_uuid()
+            )
+            .fetch_all(&mut **tx)
+            .await
+            .inspect_err(|err| error!("Failed to select backup storages: {err:?}"))?
+            .into_iter()
+            .map(|storage| match storage.storage_type.as_str() {
+                "btrfs" => (
+                    storage.storage,
+                    BackupStorage::Btrfs(storage.group.unwrap_or_default()),
+                ),
+                "archive" => (storage.storage, BackupStorage::Archive),
+                _ => unreachable!(),
+            })
+            .collect();
             let ports = query_as!(
                 NodePortAllocation,
                 "SELECT `id`,`node` AS `node: uuid::fmt::Hyphenated`,`protocol` AS `protocol: NetworkProtocol`, `start`, `end` FROM `node_ports` WHERE `node` = ?",
-                id
+                node.id.as_uuid()
             )
             .fetch_all(&mut **tx)
             .await.inspect_err(|err| error!("Failed to select allocated ports: {err:?}"))?;
+
+            let id = node.id.into_uuid();
 
             let sdk = Arc::new(
                 DaemonSDK::builder()
                     .with_identifier(id)
                     .with_root_key(Arc::clone(&self.root_key))
                     .with_backend_key(Arc::clone(&self.key))
-                    .with_url(Url::parse(&url).map_err(|err| sqlx::Error::Decode(Box::new(err)))?)
+                    .with_url(
+                        Url::parse(&node.url).map_err(|err| sqlx::Error::Decode(Box::new(err)))?,
+                    )
                     .with_user_key(self.user_key.clone())
                     .build(),
             );
@@ -148,14 +149,14 @@ impl Backend {
             let services = sdk;
 
             nodes.insert(
-                id,
+                node.id.into_uuid(),
                 Arc::new(BackendNode {
                     id,
                     services,
-                    display,
-                    maintenance,
-                    default_host,
-                    default_bind,
+                    display: node.display,
+                    maintenance: node.maintenance,
+                    default_host: node.default_host,
+                    default_bind: node.default_bind,
                     server_storages,
                     backup_storages,
                     ports,
