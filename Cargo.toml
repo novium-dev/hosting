@@ -232,7 +232,7 @@ uuid = "1.19.0"
 
 serde = "1.0"
 serde_json = "1.0"
-serde_yaml = "0.9.34+deprecated"
+serde_yaml_ng = "0.10"
 
 java-properties = "2.0.0"
 serde-xml-rs = "0.8.2"

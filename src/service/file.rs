@@ -583,8 +583,8 @@ pub(crate) impl FileService for Backend {
                 }
             }
             "yaml" | "yml" => {
-                let yaml_value: serde_yaml::Value = tokio::task::spawn_blocking(move || {
-                    serde_yaml::from_reader::<_, serde_yaml::Value>(SyncIoBridge::new(
+                let yaml_value: serde_yaml_ng::Value = tokio::task::spawn_blocking(move || {
+                    serde_yaml_ng::from_reader::<_, serde_yaml_ng::Value>(SyncIoBridge::new(
                         data.reader(),
                     ))
                     .map_err(|err| {
