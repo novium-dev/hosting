@@ -634,7 +634,9 @@ pub(crate) impl FileService for Backend {
 
         let write = match ext.as_str() {
             "properties" => {
-                let object = payload.as_object().ok_or(SetConfigError::FileContentInvalid)?;
+                let object = payload
+                    .as_object()
+                    .ok_or(SetConfigError::FileContentInvalid)?;
                 let mut content = HashMap::with_capacity(object.len());
                 for (key, value) in object {
                     let Some(value) = value.as_str() else {
