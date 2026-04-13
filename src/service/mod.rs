@@ -39,6 +39,7 @@ define_error!(resource {
     provider_unavailable("The resource provider is currently unavailable" SERVICE_UNAVAILABLE),
     resource_missing("The specified resource is missing" NOT_FOUND),
     provider_error("The resource provider returned an error" BAD_GATEWAY),
+    wrong_template("The resource is not compatible with the server template" BAD_REQUEST),
 });
 
 define_error!(backup {

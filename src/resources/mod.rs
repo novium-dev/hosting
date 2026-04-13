@@ -1,16 +1,20 @@
 use reqwest::{Client, Url};
 use serde::Deserialize;
 
-use crate::service::{
-    error_resource_invalid_payload::FromResourceInvalidPayload,
-    error_resource_provider_error::FromResourceProviderError,
-    error_resource_provider_unavailable::FromResourceProviderUnavailable,
-    error_resource_resource_missing::FromResourceResourceMissing,
+use crate::{
+    service::{
+        error_resource_invalid_payload::FromResourceInvalidPayload,
+        error_resource_provider_error::FromResourceProviderError,
+        error_resource_provider_unavailable::FromResourceProviderUnavailable,
+        error_resource_resource_missing::FromResourceResourceMissing,
+        error_resource_wrong_template::FromResourceWrongTemplate,
+    },
+    templates::{Template as _, minecraft::MinecraftTemplate},
 };
 
 mod modrinth;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 #[serde(tag = "provider")]
 pub enum Resource {
     #[serde(rename = "modrinth")]
@@ -24,15 +28,20 @@ pub enum Resource {
 impl Resource {
     pub(crate) async fn resolve_to_url<
         E: FromResourceInvalidPayload
+            + FromResourceWrongTemplate
             + FromResourceProviderUnavailable
             + FromResourceProviderError
             + FromResourceResourceMissing,
     >(
         &self,
+        template: &str,
         client: &Client,
     ) -> Result<(Url, String), E> {
         match self {
             Self::Modrinth { version, .. } => {
+                if template != MinecraftTemplate::ID {
+                    return Err(<E as FromResourceWrongTemplate>::from());
+                }
                 modrinth::resolve_to_url(client, version.clone()).await
             }
         }
@@ -44,7 +53,7 @@ impl Resource {
     }
 }
 
-#[derive(Deserialize, Copy, Clone)]
+#[derive(Deserialize, Copy, Clone, utoipa::ToSchema)]
 pub enum ResourceType {
     #[serde(rename = "plugin")]
     Plugin,
