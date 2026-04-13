@@ -11,6 +11,7 @@ mod http;
 pub(crate) mod service;
 mod shutdown;
 pub(crate) mod templates;
+pub(crate) mod resources;
 mod utils;
 
 use crate::auth::jwks_storage::JwksStorage;

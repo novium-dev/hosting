@@ -34,6 +34,13 @@ define_error!(file {
     content_invalid("The specified content is invalid" BAD_REQUEST),
 });
 
+define_error!(resource {
+    invalid_payload("The resource payload is invalid" BAD_REQUEST),
+    provider_unavailable("The resource provider is currently unavailable" SERVICE_UNAVAILABLE),
+    resource_missing("The specified resource is missing" NOT_FOUND),
+    provider_error("The resource provider returned an error" BAD_GATEWAY),
+});
+
 define_error!(backup {
     storage_unavailable("Backup storage is currently in use" SERVICE_UNAVAILABLE),
     not_found("The specified backup was not found" NOT_FOUND),
