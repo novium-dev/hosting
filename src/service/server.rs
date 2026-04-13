@@ -87,7 +87,7 @@ pub(crate) impl ServerService for Backend {
     /// Lists all servers you have access to.
     ///
     /// Only servers in which you have the [`ServerPermissions::VIEW`] permission are listed.
-    #[route("", method = GET, raw, query = [ owner ])]
+    #[route("", method = GET, raw)]
     #[error(auth::unreachable, db::failure <- [sql:*])]
     async fn list_servers(
         &self,
