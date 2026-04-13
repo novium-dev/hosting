@@ -31,7 +31,7 @@ pub(crate) async fn resolve_to_url<
     client: &Client,
     version: String,
 ) -> Result<(Url, String), E> {
-    let regex = Regex::new("[A-Za-z0-9]+").unwrap();
+    let regex = Regex::new("[A-Za-z0-9]+").expect("Failed to compile regex");
     if !regex.is_match(&version) {
         return Err(<E as FromResourceInvalidPayload>::from());
     }
@@ -52,11 +52,10 @@ pub(crate) async fn resolve_to_url<
         .files
         .iter()
         .find(|file| file.primary)
-        .map(Some)
-        .unwrap_or_else(|| response.files.first())
+        .map_or_else(|| response.files.first(), Some)
         .cloned()
         .map(|file| (file.url, file.filename))
-        .ok_or(<E as FromResourceResourceMissing>::from())?;
+        .ok_or_else(|| <E as FromResourceResourceMissing>::from())?;
     let url = url
         .parse()
         .map_err(|_err| <E as FromResourceProviderError>::from())?;

@@ -93,15 +93,15 @@ pub(crate) impl ServerService for Backend {
         &self,
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
-        filters: ServerListFilters,
+        filters: Option<ServerListFilters>,
     ) -> Result<Paged<ServerListInfo>, _> {
         let servers = query!("SELECT `id` AS `id: ServerId`, `name`, `owner` AS `owner: uuid::fmt::Hyphenated`, `node` AS `node: uuid::fmt::Hyphenated`, `template` FROM `servers`")
             .fetch_all(&*self.database)
             .await?
             .into_iter()
-            .filter(|server| filters.owner.as_ref().is_none_or(|owner| *server.owner.as_uuid() == *owner))
-            .filter(|server| filters.node.as_ref().is_none_or(|node| *server.node.as_uuid() == *node))
-            .filter(|server| filters.template.as_ref().is_none_or(|template| server.template == *template))
+            .filter(|server| filters.as_ref().is_none_or(|server_filters| server_filters.owner.as_ref().is_none_or(|owner| *server.owner.as_uuid() == *owner)))
+            .filter(|server| filters.as_ref().is_none_or(|server_filters| server_filters.node.as_ref().is_none_or(|node| *server.node.as_uuid() == *node)))
+            .filter(|server| filters.as_ref().is_none_or(|server_filters| server_filters.template.as_ref().is_none_or(|template| server.template == *template)))
             .filter(|server| auth.has(server.id, ServerPermissions::VIEW))
             .apply_pagesplit(&mut page)
             .collect::<Vec<_>>();
