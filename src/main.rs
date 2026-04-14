@@ -8,10 +8,10 @@ mod embedded_node;
 
 mod auth;
 mod http;
+pub(crate) mod resources;
 pub(crate) mod service;
 mod shutdown;
 pub(crate) mod templates;
-pub(crate) mod resources;
 mod utils;
 
 use crate::auth::jwks_storage::JwksStorage;
