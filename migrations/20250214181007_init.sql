@@ -39,7 +39,7 @@ CREATE TABLE
 
 CREATE TABLE
     IF NOT EXISTS `users` (
-        `id` UUID NOT NULL PRIMARY KEY,
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
         `username` VARCHAR(32) NOT NULL,
         `auth_id` VARCHAR(255) NOT NULL UNIQUE,
         `permissions` BIGINT NOT NULL,
@@ -51,12 +51,30 @@ CREATE TABLE
     ) ENGINE = INNODB;
 
 CREATE TABLE
+    IF NOT EXISTS `projects` (
+        `id` UUID NOT NULL PRIMARY KEY,
+        `name` VARCHAR(64) NOT NULL,
+        `owner` INT UNSIGNED NOT NULL,
+        FOREIGN KEY (`owner`) REFERENCES `users` (`id`) ON DELETE CASCADE
+    ) ENGINE = INNODB;
+
+CREATE TABLE
+    IF NOT EXISTS `project_users` (
+        `user` INT UNSIGNED NOT NULL,
+        `project` UUID NOT NULL,
+        `permissions` BIGINT NOT NULL,
+        PRIMARY KEY (`user`, `project`),
+        FOREIGN KEY (`user`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+        FOREIGN KEY (`project`) REFERENCES `projects` (`id`) ON DELETE CASCADE
+    ) ENGINE = INNODB;
+
+CREATE TABLE
     IF NOT EXISTS `servers` (
         `id` CHAR(6) NOT NULL PRIMARY KEY,
         `name` VARCHAR(64) NOT NULL,
         `node` UUID NOT NULL,
         `node_server_id` INT (255) UNSIGNED NOT NULL,
-        `owner` UUID NOT NULL,
+        `project` UUID NOT NULL,
         `cpu` FLOAT (255, 2),
         `ram` INT UNSIGNED,
         `swap` INT UNSIGNED,
@@ -69,6 +87,7 @@ CREATE TABLE
         `internet_access` BOOLEAN NOT NULL DEFAULT TRUE,
         `backup_limit` INT UNSIGNED DEFAULT NULL,
         FOREIGN KEY (`node`) REFERENCES `nodes` (`id`),
+        FOREIGN KEY (`project`) REFERENCES `projects` (`id`) ON DELETE CASCADE,
         UNIQUE (`node`, `node_server_id`)
     ) ENGINE = INNODB;
 
@@ -83,15 +102,6 @@ CREATE TABLE
         `external_port_start` SMALLINT (5) UNSIGNED NOT NULL,
         `external_port_end` SMALLINT (5) UNSIGNED NOT NULL,
         `protocol` ENUM ('tcp', 'udp') NOT NULL,
-        FOREIGN KEY (`server`) REFERENCES `servers` (`id`) ON DELETE CASCADE
-    ) ENGINE = INNODB;
-
-CREATE TABLE
-    IF NOT EXISTS `server_users` (
-        `user` UUID NOT NULL,
-        `server` CHAR(6) NOT NULL,
-        `permissions` BIGINT NOT NULL,
-        PRIMARY KEY (`user`, `server`),
         FOREIGN KEY (`server`) REFERENCES `servers` (`id`) ON DELETE CASCADE
     ) ENGINE = INNODB;
 

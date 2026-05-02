@@ -8,7 +8,6 @@ use chrono::Duration;
 use sqlx::query;
 use tracing::error;
 use url::Url;
-use uuid::Uuid;
 use zelus::responses::Redirect;
 use zelus::{define_query_variable, service};
 
@@ -37,7 +36,7 @@ pub(crate) impl AuthService for Backend {
     #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure)]
     async fn login_dev(&self) -> Result<String, _> {
         let session = Session::generate().map_err(|_err| LoginDevError::OsFailure)?;
-        let dev_user = Uuid::nil();
+        let dev_user = 1_u32;
 
         query!(
             "INSERT INTO `users`
@@ -45,7 +44,7 @@ pub(crate) impl AuthService for Backend {
                 VALUES
                     (?, 'dev', 'dev', 0, ?, 'dev@example.com')
                 ON DUPLICATE KEY UPDATE `auth_id` = 'dev'",
-            &dev_user,
+            dev_user,
             Role::Admin as u8
         )
         .execute(&*self.database)

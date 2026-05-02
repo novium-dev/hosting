@@ -1,11 +1,13 @@
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
+use crate::auth::user::UserAuthentication;
 use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, merge_ports};
 use crate::service::admin::server::server_admin_service_error::{
     CreatePortError, CreateServerError, DeletePortError, DeleteServerError, UpdatePortError,
 };
+use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::template::*;
 use crate::service::*;
 use crate::templates::{TemplateError, ThinTemplateError};
@@ -35,15 +37,16 @@ pub(crate) impl ServerAdminService for Backend {
     #[route("", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*],
         server::{not_found, storage_not_found},
+        project::not_found,
         node::{not_found, failure},
         template::{not_found, unavailable, corrupted, port_definition_unknown, input_invalid})]
     #[example("../examples/server.create.json")]
     async fn create_server(
         &self,
-        #[special] auth: Authentication,
+        #[special] auth: UserAuthentication,
         name: String,
         node: Uuid,
-        owner: Uuid,
+        project: Uuid,
         template: String,
         storage: String,
         resource: ServerResourcePayload,
@@ -52,7 +55,21 @@ pub(crate) impl ServerAdminService for Backend {
         internet_access: bool,
         backup_limit: Option<u32>,
     ) -> Result<ServerId, _> {
-        auth.require::<_, CreateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
+        if !auth.has((), ManagementPermissions::SERVER_MANAGE)
+            && !auth.has_project(project, ServerPermissions::ADMIN_MANAGEMENT)
+        {
+            return Err(<CreateServerError as FromAuthPermissionDenied>::from());
+        }
+
+        let project_exists = query_scalar!(
+            "SELECT (COUNT(*) > 0) AS `exists: bool` FROM `projects` WHERE `id` = ?",
+            &project
+        )
+        .fetch_one(&*self.database)
+        .await?;
+        if !project_exists {
+            return Err(CreateServerError::ProjectNotFound);
+        }
 
         let nodes = self.nodes.read().await;
         let Some(node) = nodes.get(&node).cloned() else {
@@ -152,8 +169,8 @@ pub(crate) impl ServerAdminService for Backend {
             let id = ServerId::generate();
 
             conn.transaction(|tx| Box::pin(async move {
-                query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        &id, &node.id, &new_server, &owner, &storage, resource.cpu, resource.ram, resource.swap, resource.disk, template.id(), &extra, &name, internet_access, backup_limit)                    .execute(&mut **tx)
+                query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`project`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        &id, &node.id, &new_server, &project, &storage, resource.cpu, resource.ram, resource.swap, resource.disk, template.id(), &extra, &name, internet_access, backup_limit)                    .execute(&mut **tx)
                     .await
                     .inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 

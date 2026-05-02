@@ -27,24 +27,24 @@ use tracing::error;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
 use utoipa::openapi::schema::SchemaType;
 use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
-use uuid::Uuid;
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
 #[derive(Debug)]
 pub struct UserAuthentication {
-    pub id: Uuid,
+    pub id: u32,
     pub session: Session,
     username: String,
     permissions: i64,
     role: Role,
     email: String,
+    projects: HashMap<uuid::Uuid, ServerPermissions>,
     servers: HashMap<ServerId, ServerPermissions>,
 }
 
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SerializedUser {
-    pub id: Uuid,
+    pub id: u32,
     pub username: String,
     pub permissions: i64,
     pub role: Role,
@@ -58,6 +58,17 @@ impl UserAuthentication {
 
     pub fn require<P: Permission<E>, E>(&self, extra: P::Extra, permission: P) -> Result<(), E> {
         permission.require(extra, self.permissions, &self.servers)
+    }
+
+    pub fn has_project(&self, project: uuid::Uuid, permission: ServerPermissions) -> bool {
+        let permissions = self.projects.get(&project).copied().unwrap_or_default()
+            | ServerPermissions::from_bits_retain(self.permissions);
+        permissions.grants(permission)
+    }
+
+    pub fn project_permissions(&self, project: uuid::Uuid) -> ServerPermissions {
+        self.projects.get(&project).copied().unwrap_or_default()
+            | ServerPermissions::from_bits_retain(self.permissions)
     }
 
     pub fn serialized(&self) -> SerializedUser {
@@ -118,8 +129,8 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             return Ok(None);
         };
 
-        let owned_servers: HashMap<_, _> = query_scalar!(
-            "SELECT `id` AS `id: ServerId` FROM `servers` WHERE `owner` = ?",
+        let owned_projects: HashMap<_, _> = query_scalar!(
+            "SELECT `id` AS `id: uuid::fmt::Hyphenated` FROM `projects` WHERE `owner` = ?",
             &id
         )
         .fetch_all(&mut *conn)
@@ -128,25 +139,52 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             error!("Unable to fetch owned servers for user {id}: {err:?}");
         })?
         .into_iter()
-        .map(|id| (id, ServerPermissions::all()))
+        .map(|id| (id.into_uuid(), ServerPermissions::all()))
         .collect();
 
-        let mut servers: HashMap<ServerId, ServerPermissions> = query!(
-            "SELECT `server` AS `server: ServerId`, `permissions` FROM `server_users` WHERE `user` = ?",
+        let mut projects: HashMap<uuid::Uuid, ServerPermissions> = query!(
+            "SELECT `project` AS `project: uuid::fmt::Hyphenated`, `permissions`
+             FROM `project_users`
+             WHERE `user` = ?",
+            &id
+        )
+        .fetch_all(&mut *conn)
+        .await
+        .inspect_err(|err| error!("Unable to fetch project permissions for user {id}: {err:?}"))?
+        .into_iter()
+        .map(|record| {
+            (
+                record.project.into_uuid(),
+                ServerPermissions::from_bits_truncate(record.permissions),
+            )
+        })
+        .collect();
+        projects.extend(owned_projects);
+
+        let servers: HashMap<ServerId, ServerPermissions> = query!(
+            "SELECT
+                `servers`.`id` AS `server: ServerId`,
+                `servers`.`project` AS `project: uuid::fmt::Hyphenated`
+             FROM `servers`
+             JOIN `projects` ON `projects`.`id` = `servers`.`project`
+             LEFT JOIN `project_users`
+                ON `project_users`.`project` = `servers`.`project`
+                AND `project_users`.`user` = ?
+             WHERE `projects`.`owner` = ? OR `project_users`.`user` IS NOT NULL",
+            &id,
             &id
         )
         .fetch_all(&mut *conn)
         .await
         .inspect_err(|err| error!("Unable to fetch server permissions for user {id}: {err:?}"))?
         .into_iter()
-        .map(|record| {
-            (
-                record.server,
-                ServerPermissions::from_bits_truncate(record.permissions),
-            )
+        .filter_map(|record| {
+            projects
+                .get(record.project.as_uuid())
+                .copied()
+                .map(|permissions| (record.server, permissions))
         })
         .collect();
-        servers.extend(owned_servers);
 
         let role = Role::try_from(user.role).ok();
 
@@ -162,6 +200,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
                     .unwrap_or_default(),
             role: role.unwrap_or(Role::User),
             email: user.email,
+            projects,
             servers,
         }))
     }
@@ -207,15 +246,11 @@ impl Session {
         Ok(())
     }
 
-    pub async fn apply(&self, backend: &Backend, user: Uuid) -> Result<(), RedisError> {
+    pub async fn apply(&self, backend: &Backend, user: u32) -> Result<(), RedisError> {
         let _: () = backend
             .cache
             .clone()
-            .set_ex(
-                self.key(),
-                user.to_string(),
-                backend.config.session_lifetime,
-            )
+            .set_ex(self.key(), user, backend.config.session_lifetime)
             .await
             .inspect_err(|err| error!("Unable to apply session: {err:?}"))?;
         Ok(())
@@ -224,11 +259,11 @@ impl Session {
     pub async fn authenticate<E: FromAuthUnreachable>(
         &self,
         backend: &Backend,
-    ) -> Result<Option<Uuid>, E> {
+    ) -> Result<Option<u32>, E> {
         let Some(user) = backend
             .cache
             .clone()
-            .get::<_, Option<String>>(self.key())
+            .get::<_, Option<u32>>(self.key())
             .await
             .inspect_err(|err| error!("Unable to retrieve session: {err:?}"))
             .map_err(|_err| <E as FromAuthUnreachable>::from())?
@@ -236,10 +271,6 @@ impl Session {
             return Ok(None);
         };
 
-        let user = Uuid::parse_str(&user).map_err(|err| {
-            error!("Invalid session user id: {err:?}");
-            <E as FromAuthUnreachable>::from()
-        })?;
         self.apply(backend, user).await.map_err(|err| {
             error!("Unable to refresh session: {err:?}");
             <E as FromAuthUnreachable>::from()
@@ -324,20 +355,18 @@ impl DocumentedType for UserAuthentication {
 }
 
 impl Backend {
-    pub async fn get_or_create_user(&self, auth_user: AuthUser) -> Result<Uuid, sqlx::Error> {
-        let id = Uuid::new_v4();
-
-        query!(
+    pub async fn get_or_create_user(&self, auth_user: AuthUser) -> Result<u32, sqlx::Error> {
+        let result = query!(
             r#"
     INSERT INTO `users`
-        (`id`, `username`, `auth_id`, `permissions`, `role`, `email`)
+        (`username`, `auth_id`, `permissions`, `role`, `email`)
     VALUES
-        (?, ?, ?, 0, ?, ?)
+        (?, ?, 0, ?, ?)
     ON DUPLICATE KEY UPDATE
         `username` = VALUES(`username`),
-        `email` = VALUES(`email`)
+        `email` = VALUES(`email`),
+        `id` = LAST_INSERT_ID(`id`)
     "#,
-            &id,
             auth_user.preferred_username,
             auth_user.sub,
             Role::User as u8,
@@ -346,13 +375,6 @@ impl Backend {
         .execute(&*self.database)
         .await?;
 
-        let id = query_scalar!(
-            "SELECT `id` AS `id: uuid::fmt::Hyphenated` FROM `users` WHERE `auth_id` = ?",
-            auth_user.sub
-        )
-        .fetch_one(&*self.database)
-        .await?;
-
-        Ok(id.into_uuid())
+        Ok(result.last_insert_id() as u32)
     }
 }

@@ -1,7 +1,7 @@
 {
 	"name": "Test Server",
 	"node": "043c5ff1-3f42-4fd7-aaa5-4091fdf91ea3",
-	"owner": "6f5d4977-eb42-4133-b873-ccf8ee3633b0",
+	"project": "6f5d4977-eb42-4133-b873-ccf8ee3633b0",
 	"template": "java",
 	"storage": "local",
 	"resource": {

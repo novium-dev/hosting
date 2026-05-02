@@ -113,7 +113,7 @@ bitflags! {
         /// JWT Claim: user.view
         const USER_VIEW = 1 << 13;
         /// Allows the user to modify the permissions of other users.
-        /// It cannot take away an permissions from the server owner.
+        /// It cannot take away permissions from the project owner.
         ///
         /// Depends on [`ServerPermissions::USER_EDIT`]
         /// JWT Claim: user.edit
@@ -358,7 +358,6 @@ impl ManagementPermissions {
 #[repr(u8)]
 pub enum Role {
     Admin = 3,
-    ServerManager = 2,
     Moderator = 1,
     User = 0,
 }
@@ -370,7 +369,6 @@ impl TryFrom<u8> for Role {
         match value {
             0 => Ok(Self::User),
             1 => Ok(Self::Moderator),
-            2 => Ok(Self::ServerManager),
             3 => Ok(Self::Admin),
             _ => Err(()),
         }
@@ -381,11 +379,6 @@ impl Role {
     pub fn management_permissions(self) -> ManagementPermissions {
         match self {
             Self::Admin => ManagementPermissions::all(),
-            Self::ServerManager => {
-                ManagementPermissions::SERVER_MANAGE
-                    | ManagementPermissions::SERVER_SUSPEND
-                    | ManagementPermissions::BACKUP_STORAGE_SELECT
-            }
             Self::Moderator => ManagementPermissions::USER_VIEW,
             Self::User => ManagementPermissions::empty(),
         }
@@ -394,17 +387,6 @@ impl Role {
     pub fn server_permissions(self) -> ServerPermissions {
         match self {
             Self::Admin => ServerPermissions::all(),
-            Self::ServerManager => {
-                ServerPermissions::VIEW
-                    | ServerPermissions::POWER
-                    | ServerPermissions::TERMINAL_READ
-                    | ServerPermissions::TERMINAL_WRITE
-                    | ServerPermissions::FILES_READ
-                    | ServerPermissions::FILES_WRITE
-                    | ServerPermissions::BACKUP_VIEW
-                    | ServerPermissions::BACKUP_CREATE
-                    | ServerPermissions::BACKUP_RESTORE
-            }
             Self::Moderator => {
                 ServerPermissions::VIEW
                     | ServerPermissions::POWER
@@ -416,6 +398,10 @@ impl Role {
 }
 
 impl ServerPermissions {
+    pub fn grants(self, permission: Self) -> bool {
+        self.contains(permission.with_dependencies())
+    }
+
     pub fn from_claim_action(action: &str) -> Option<Self> {
         match action.trim().to_ascii_lowercase().as_str() {
             "*" => Some(Self::all()),
