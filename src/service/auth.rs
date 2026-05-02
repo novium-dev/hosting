@@ -1,15 +1,16 @@
 use super::*;
 use crate::Backend;
-use crate::auth::oauth_flow::OAuthFlow;
 use crate::auth::permissions::Role;
 use crate::auth::user::{SerializedUser, Session, UserAuthentication};
 use crate::service::auth::auth_service_error::{CallbackError, LoginDevError, LoginError};
 use chrono::Duration;
+use oauth2::{AuthorizationCode, PkceCodeVerifier, Scope};
 use sqlx::query;
 use tracing::error;
 use url::Url;
 use zelus::responses::Redirect;
 use zelus::{define_query_variable, service};
+use crate::auth::oauth::flow::OAuthFlow;
 
 define_query_variable!(redirect_url "The URL to redirect to after login");
 define_query_variable!(code "The authorization code returned by the OAuth provider");
@@ -59,40 +60,22 @@ pub(crate) impl AuthService for Backend {
     #[route("/login", method = GET, query = [ redirect_url ], raw)]
     #[error(auth::misconfigured, cache::failure <- [redis:*])]
     async fn login(&self, redirect_url: String) -> Result<Redirect<307>, _> {
-        let client = self.auth.get_client::<LoginError>()?;
+        let (url, csrf_token, pkce_verifier) = self.auth.generate_url(
+            ["openid", "profile", "email"]
+                .into_iter()
+                .map(String::from)
+                .map(Scope::new),
+        );
 
-        let state_oauth = client
-            .generate_url(
-                Vec::from([
-                    "openid".to_owned(),
-                    "profile".to_owned(),
-                    "email".to_owned(),
-                ]),
-                |state_e| async move {
-                    let _ = OAuthFlow {
-                        redirect_url: redirect_url.clone(),
-                        state: state_e.state,
-                        verifier: state_e.verifier,
-                    }
-                    .insert::<LoginError>(Duration::minutes(30), &mut self.cache.clone())
-                    .await;
-                },
-            )
-            .await
-            .expect("Failed to generate OAuth URL")
-            .state
-            .ok_or(LoginError::AuthMisconfigured)?;
+        OAuthFlow {
+            redirect_url: redirect_url.to_string(),
+            state: csrf_token.into_secret(),
+            verifier: pkce_verifier.into_secret(),
+        }
+            .insert::<LoginError>(Duration::minutes(30), &mut self.cache.clone())
+            .await?;
 
-        Ok(Redirect::new(
-            Url::parse(
-                state_oauth
-                    .url_generated
-                    .expect("URL should be generated")
-                    .as_str(),
-            )
-            .map_err(|_err| LoginError::AuthMisconfigured)?
-            .as_str(),
-        ))
+        Ok(Redirect::new(url.as_str()))
     }
 
     /// Handles the OAuth callback after user authentication.
@@ -103,10 +86,12 @@ pub(crate) impl AuthService for Backend {
             .await?
             .ok_or(CallbackError::AuthMisconfigured)?;
 
-        let client = self.auth.get_client::<CallbackError>()?;
-
-        let access_token = client
-            .generate_token(code, flow.verifier)
+        let access_token = self
+            .auth
+            .request_token(
+                AuthorizationCode::new(code),
+                PkceCodeVerifier::new(flow.verifier),
+            )
             .await
             .map_err(|err| {
                 error!("Failed to generate access token: {err:?}");

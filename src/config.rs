@@ -1,6 +1,7 @@
 use core::net::SocketAddr;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use oauth2::{ClientId, ClientSecret, RedirectUrl, AuthUrl, TokenUrl};
 use url::Url;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -18,9 +19,12 @@ pub struct BackendConfig {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AuthConfig {
-    pub url: Url,
-    pub client_id: String,
-    pub client_secret: String,
+    pub auth_url: AuthUrl,
+    pub token_url: TokenUrl,
+    pub redirect_url: RedirectUrl,
+    pub userinfo_url: Url,
+    pub client_id: ClientId,
+    pub client_secret: ClientSecret,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

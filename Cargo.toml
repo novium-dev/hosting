@@ -250,7 +250,7 @@ concat-idents = "1.1.5"
 http = "1.4.0"
 url = "2.5.7"
 lazy-regex = "3.4.2"
-oauth2 = "4.4.2"
+oauth2 = "5.0.0"
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3

@@ -11,7 +11,6 @@ use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
 pub mod oauth;
-pub mod oauth_flow;
 pub mod permissions;
 pub mod user;
 

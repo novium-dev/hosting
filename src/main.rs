@@ -177,10 +177,8 @@ async fn main0() {
     let backend = Backend {
         database,
         cache,
-        auth: Arc::new(AuthService {
-            config: config.clone(),
-        }),
-
+        auth: Arc::new(AuthService::new(&config.auth).expect("Unable to build AuthService")),
+        
         config: Arc::new(config),
         nodes: Arc::default(),
 
