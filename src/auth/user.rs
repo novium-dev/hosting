@@ -5,6 +5,7 @@ use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_unreachable::FromAuthUnreachable;
 use axum::Extension;
+use axum::extract::FromRequestParts as _;
 use axum_extra::TypedHeader;
 use axum_extra::headers::Authorization;
 use axum_extra::headers::authorization::Credentials;
@@ -16,19 +17,16 @@ use core::str::FromStr;
 use http::HeaderValue;
 use http::request::Parts;
 use lazy_regex::lazy_regex;
-use rand::TryRngCore as _;
-use rand::rngs::{OsError, OsRng};
+use rand::TryRng as _;
 use redis::{AsyncCommands as _, RedisError};
 use regex::Regex;
 use serde::{Deserialize, Serialize, Serializer as _};
 use sqlx::{query, query_scalar};
 use std::collections::HashMap;
-use std::io;
-use std::io::ErrorKind;
 use tracing::error;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
 use utoipa::openapi::schema::SchemaType;
-use utoipa::{Object, RefOr, Required, Schema, Type};
+use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
 use uuid::Uuid;
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
@@ -189,9 +187,9 @@ const SESSION_SIZE: usize = 128;
 pub struct Session([u8; SESSION_SIZE]);
 
 impl Session {
-    pub fn generate() -> Result<Self, OsError> {
+    pub fn generate() -> Result<Self, core::convert::Infallible> {
         let mut slice = [0; SESSION_SIZE];
-        OsRng.try_fill_bytes(&mut slice)?;
+        rand::rng().try_fill_bytes(&mut slice)?;
         Ok(Self(slice))
     }
 

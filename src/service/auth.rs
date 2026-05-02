@@ -20,7 +20,7 @@ define_query_variable!(state "The state parameter to prevent CSRF attacks");
 pub(crate) impl AuthService for Backend {
     /// Invalidates the current user session.
     #[route("/logout", method = GET)]
-    #[error(cache::failure <- [redis:*], auth::{invalid, unreachable})]
+    #[error(db::failure <- [sql:*], cache::failure <- [redis:*], auth::unreachable)]
     async fn logout(&self, #[special] auth: UserAuthentication) -> Result<(), _> {
         auth.session.invalidate(self).await?;
         Ok(())
@@ -28,7 +28,7 @@ pub(crate) impl AuthService for Backend {
 
     /// Retrieves information about the currently authenticated user.
     #[route("/me", method = GET)]
-    #[error(db::failure <- [sql:*], auth::{invalid, unreachable})]
+    #[error(db::failure <- [sql:*], auth::unreachable)]
     async fn me(&self, #[special] auth: UserAuthentication) -> Result<SerializedUser, _> {
         Ok(auth.serialized())
     }
@@ -98,7 +98,7 @@ pub(crate) impl AuthService for Backend {
 
     /// Handles the OAuth callback after user authentication.
     #[route("/callback", method = GET, query = [ code, state ], raw)]
-    #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure, auth::{misconfigured, invalid, permission_denied})]
+    #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure, auth::{misconfigured, permission_denied})]
     async fn callback(&self, code: String, state: String) -> Result<Redirect<307>, _> {
         let flow = OAuthFlow::get::<CallbackError>(&state, &mut self.cache.clone())
             .await?

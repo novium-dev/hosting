@@ -1,6 +1,5 @@
 use crate::auth::oauth::lib::CustomProvider;
 use crate::config::BackendConfig;
-use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_misconfigured::FromAuthMisconfigured;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use reqwest::Client;
@@ -45,7 +44,7 @@ impl AuthService {
         ))
     }
 
-    pub async fn get_user<E: FromAuthMisconfigured + FromAuthPermissionDenied + FromAuthInvalid>(
+    pub async fn get_user<E: FromAuthMisconfigured + FromAuthPermissionDenied>(
         &self,
         access_token: &str,
     ) -> Result<AuthUser, E> {
@@ -60,11 +59,11 @@ impl AuthService {
             .await
             .map_err(|err| {
                 error!("Failed to fetch user info: {err:?}");
-                <E as FromAuthInvalid>::from()
+                <E as FromAuthMisconfigured>::from()
             })?;
 
         if response.status() == 401 {
-            Err(<E as FromAuthInvalid>::from())
+            Err(<E as FromAuthPermissionDenied>::from())
         } else if !response.status().is_success() {
             error!("Permission denied when fetching user info: {response:?}");
             Err(<E as FromAuthPermissionDenied>::from())
