@@ -53,6 +53,7 @@ CREATE TABLE
 CREATE TABLE
     IF NOT EXISTS `projects` (
         `id` UUID NOT NULL PRIMARY KEY,
+        `slug` VARCHAR(64) NOT NULL UNIQUE,
         `name` VARCHAR(64) NOT NULL,
         `owner` INT UNSIGNED NOT NULL,
         FOREIGN KEY (`owner`) REFERENCES `users` (`id`) ON DELETE CASCADE

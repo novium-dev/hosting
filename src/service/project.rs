@@ -17,6 +17,7 @@ use zelus::service;
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ProjectInfo {
     pub(crate) id: Uuid,
+    pub(crate) slug: String,
     pub(crate) name: String,
     pub(crate) owner: u32,
     pub(crate) permissions: i64,
@@ -32,8 +33,15 @@ pub(crate) struct ProjectUserInfo {
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub(crate) struct ProjectUpdate {
+    pub(crate) slug: Option<String>,
     pub(crate) name: Option<String>,
     pub(crate) owner: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub(crate) struct ProjectCreate {
+    pub(crate) slug: String,
+    pub(crate) name: String,
 }
 
 #[service(path = "/project", tag = "project", no_sdk)]
@@ -50,6 +58,7 @@ pub(crate) impl ProjectService for Backend {
         Ok(query!(
             "SELECT
                 `projects`.`id` AS `id: uuid::fmt::Hyphenated`,
+                `projects`.`slug`,
                 `projects`.`name`,
                 `projects`.`owner`,
                 `project_users`.`permissions`
@@ -69,6 +78,7 @@ pub(crate) impl ProjectService for Backend {
             let id = project.id.into_uuid();
             ProjectInfo {
                 id,
+                slug: project.slug,
                 name: project.name,
                 owner: project.owner,
                 permissions: auth.project_permissions(id).bits(),
@@ -83,14 +93,15 @@ pub(crate) impl ProjectService for Backend {
     async fn create_project(
         &self,
         #[special] auth: UserAuthentication,
-        name: String,
+        project: ProjectCreate,
     ) -> Result<String, _> {
         let id = Uuid::new_v4();
 
         query!(
-            "INSERT INTO `projects` (`id`, `name`, `owner`) VALUES (?, ?, ?)",
+            "INSERT INTO `projects` (`id`, `slug`, `name`, `owner`) VALUES (?, ?, ?, ?)",
             &id,
-            name,
+            project.slug,
+            project.name,
             auth.id
         )
         .execute(&*self.database)
@@ -110,7 +121,7 @@ pub(crate) impl ProjectService for Backend {
         require_project::<GetProjectError>(&auth, project_id, ServerPermissions::VIEW)?;
 
         let project = query!(
-            "SELECT `id` AS `id: uuid::fmt::Hyphenated`, `name`, `owner`
+            "SELECT `id` AS `id: uuid::fmt::Hyphenated`, `slug`, `name`, `owner`
              FROM `projects`
              WHERE `id` = ?",
             &project_id
@@ -121,6 +132,7 @@ pub(crate) impl ProjectService for Backend {
 
         Ok(ProjectInfo {
             id: project.id.into_uuid(),
+            slug: project.slug,
             name: project.name,
             owner: project.owner,
             permissions: auth.project_permissions(project_id).bits(),
@@ -149,6 +161,16 @@ pub(crate) impl ProjectService for Backend {
             query!(
                 "UPDATE `projects` SET `owner` = ? WHERE `id` = ?",
                 owner,
+                &project_id
+            )
+            .execute(&*self.database)
+            .await?;
+        }
+
+        if let Some(slug) = update.slug {
+            query!(
+                "UPDATE `projects` SET `slug` = ? WHERE `id` = ?",
+                slug,
                 &project_id
             )
             .execute(&*self.database)
@@ -302,7 +324,7 @@ fn require_project<E: FromAuthPermissionDenied>(
     }
 }
 
-async fn ensure_project_exists<E: From<sqlx::Error> + FromProjectNotFound>(
+pub(crate) async fn ensure_project_exists<E: From<sqlx::Error> + FromProjectNotFound>(
     backend: &Backend,
     project_id: Uuid,
 ) -> Result<(), E> {
@@ -320,7 +342,7 @@ async fn ensure_project_exists<E: From<sqlx::Error> + FromProjectNotFound>(
     }
 }
 
-async fn ensure_user_exists<E: From<sqlx::Error> + FromUserNotFound>(
+pub(crate) async fn ensure_user_exists<E: From<sqlx::Error> + FromUserNotFound>(
     backend: &Backend,
     user_id: u32,
 ) -> Result<(), E> {
