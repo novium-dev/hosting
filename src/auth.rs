@@ -4,15 +4,14 @@ use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::error_auth_unreachable::FromAuthUnreachable;
 use http::request::Parts;
-use lazy_regex::lazy_regex;
-use regex::Regex;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
 use utoipa::openapi::schema::SchemaType;
 use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
-pub mod jwks_storage;
+pub mod oauth;
+pub mod oauth_flow;
 pub mod permissions;
 pub mod user;
 
@@ -60,17 +59,14 @@ impl DocumentedType for Authentication {
             ParameterBuilder::new()
                 .name("Authorization")
                 .parameter_in(ParameterIn::Header)
-                .description(Some("A JWT bearer token"))
+                .description(Some("The session token or api key"))
                 .schema(Some(RefOr::T(Schema::Object(
                     Object::builder()
                         .schema_type(SchemaType::Type(Type::String))
-                        .pattern(Some(BEARER_REGEX.as_str().to_owned()))
+                        .pattern(Some(format!("(?:{})", user::SESSION_REGEX.as_str())))
                         .build(),
                 ))))
                 .required(Required::False),
         )
     }
 }
-
-#[expect(clippy::non_std_lazy_statics, reason = "external crate")]
-pub static BEARER_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!("^Bearer\\s+.+$");

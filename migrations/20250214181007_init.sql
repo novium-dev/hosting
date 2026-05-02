@@ -38,6 +38,19 @@ CREATE TABLE
     ) ENGINE = INNODB;
 
 CREATE TABLE
+    IF NOT EXISTS `users` (
+        `id` UUID NOT NULL PRIMARY KEY,
+        `username` VARCHAR(32) NOT NULL,
+        `auth_id` VARCHAR(255) NOT NULL UNIQUE,
+        `permissions` BIGINT NOT NULL,
+        `role` INT NOT NULL DEFAULT 0,
+        `email` VARCHAR(255) NOT NULL,
+        `language` VARCHAR(255) NOT NULL DEFAULT 'en',
+        `first_name` VARCHAR(255),
+        `last_name` VARCHAR(255)
+    ) ENGINE = INNODB;
+
+CREATE TABLE
     IF NOT EXISTS `servers` (
         `id` CHAR(6) NOT NULL PRIMARY KEY,
         `name` VARCHAR(64) NOT NULL,
@@ -70,6 +83,15 @@ CREATE TABLE
         `external_port_start` SMALLINT (5) UNSIGNED NOT NULL,
         `external_port_end` SMALLINT (5) UNSIGNED NOT NULL,
         `protocol` ENUM ('tcp', 'udp') NOT NULL,
+        FOREIGN KEY (`server`) REFERENCES `servers` (`id`) ON DELETE CASCADE
+    ) ENGINE = INNODB;
+
+CREATE TABLE
+    IF NOT EXISTS `server_users` (
+        `user` UUID NOT NULL,
+        `server` CHAR(6) NOT NULL,
+        `permissions` BIGINT NOT NULL,
+        PRIMARY KEY (`user`, `server`),
         FOREIGN KEY (`server`) REFERENCES `servers` (`id`) ON DELETE CASCADE
     ) ENGINE = INNODB;
 

@@ -4,11 +4,14 @@ database_url = "mysql://root@localhost/backend"
 cache_url = "valkey://localhost?protocol=resp3"
 trusted_urls = ["http://localhost:3000"]
 
+# In seconds (= 60*24*30, 30 days)
+session_lifetime = 43200
+
 # Only relevant if the "embedded_node" feature is set
 [daemon]
 url = "https://localhost:3001"
 
 [auth]
-jwks_url = "http://localhost:3000/api/auth/jwks"
-issuer = "http://localhost:3000"
-audiences = ["http://localhost:3000"]
+client_id = "YipvF4WFDTR6f3H8tc9QaSUTAP4f37KVBBkiilcz"
+client_secret = "dJ5HPGNyVLk721DlJLe9OJF6MjNWk6qBsGGALSOBYifID5rjHP3ip3E7qA96uV2yTwhakcCGPrBeOayqcVpHZpZGhPt1QMt6E0lVVznTvlXl9Rvf9rFiKI699XIeqofM"
+url = "https://auth.novium.world"

@@ -354,6 +354,67 @@ impl ManagementPermissions {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
+#[repr(u8)]
+pub enum Role {
+    Admin = 3,
+    ServerManager = 2,
+    Moderator = 1,
+    User = 0,
+}
+
+impl TryFrom<u8> for Role {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::User),
+            1 => Ok(Self::Moderator),
+            2 => Ok(Self::ServerManager),
+            3 => Ok(Self::Admin),
+            _ => Err(()),
+        }
+    }
+}
+
+impl Role {
+    pub fn management_permissions(self) -> ManagementPermissions {
+        match self {
+            Self::Admin => ManagementPermissions::all(),
+            Self::ServerManager => {
+                ManagementPermissions::SERVER_MANAGE
+                    | ManagementPermissions::SERVER_SUSPEND
+                    | ManagementPermissions::BACKUP_STORAGE_SELECT
+            }
+            Self::Moderator => ManagementPermissions::USER_VIEW,
+            Self::User => ManagementPermissions::empty(),
+        }
+    }
+
+    pub fn server_permissions(self) -> ServerPermissions {
+        match self {
+            Self::Admin => ServerPermissions::all(),
+            Self::ServerManager => {
+                ServerPermissions::VIEW
+                    | ServerPermissions::POWER
+                    | ServerPermissions::TERMINAL_READ
+                    | ServerPermissions::TERMINAL_WRITE
+                    | ServerPermissions::FILES_READ
+                    | ServerPermissions::FILES_WRITE
+                    | ServerPermissions::BACKUP_VIEW
+                    | ServerPermissions::BACKUP_CREATE
+                    | ServerPermissions::BACKUP_RESTORE
+            }
+            Self::Moderator => {
+                ServerPermissions::VIEW
+                    | ServerPermissions::POWER
+                    | ServerPermissions::TERMINAL_READ
+            }
+            Self::User => ServerPermissions::empty(),
+        }
+    }
+}
+
 impl ServerPermissions {
     pub fn from_claim_action(action: &str) -> Option<Self> {
         match action.trim().to_ascii_lowercase().as_str() {

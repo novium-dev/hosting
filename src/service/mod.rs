@@ -2,6 +2,7 @@ use zelus::error::define_error;
 use zelus::{define_path_variable, define_query_variable};
 
 pub(crate) mod admin;
+pub(crate) mod auth;
 pub(crate) mod backup;
 pub(crate) mod file;
 pub(crate) mod internal;
@@ -10,7 +11,8 @@ pub(crate) mod template;
 
 define_error!(auth {
     invalid("Invalid authentication credentials" UNAUTHORIZED),
-    unreachable("JWKS is unreachable" INTERNAL_SERVER_ERROR),
+    misconfigured("Authentication is misconfigured" INTERNAL_SERVER_ERROR),
+    unreachable("Authentication storage is unreachable" INTERNAL_SERVER_ERROR),
     permission_denied("You don't have the necessary permissions to perform this operation" FORBIDDEN),
 });
 

@@ -6,7 +6,9 @@ use url::Url;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BackendConfig {
     pub listeners: HashSet<SocketAddr>,
+    pub session_lifetime: u64,
     pub auth: AuthConfig,
+    pub public_url: Url,
     pub database_url: String,
     pub cache_url: String,
     pub trusted_urls: Vec<Url>,
@@ -16,10 +18,9 @@ pub struct BackendConfig {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AuthConfig {
-    pub jwks_url: Url,
-    pub issuer: String,
-    #[serde(default)]
-    pub audiences: Vec<String>,
+    pub url: Url,
+    pub client_id: String,
+    pub client_secret: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
