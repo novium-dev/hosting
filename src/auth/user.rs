@@ -1,6 +1,7 @@
 use crate::Backend;
 use crate::auth::oauth::AuthUser;
 use crate::auth::permissions::{HasPermission, Permission, Role, ServerPermissions};
+use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_unreachable::FromAuthUnreachable;
@@ -38,7 +39,7 @@ pub struct UserAuthentication {
     permissions: i64,
     role: Role,
     email: String,
-    projects: HashMap<uuid::Uuid, ServerPermissions>,
+    projects: HashMap<ProjectId, ServerPermissions>,
     servers: HashMap<ServerId, ServerPermissions>,
 }
 
@@ -60,13 +61,13 @@ impl UserAuthentication {
         permission.require(extra, self.permissions, &self.servers)
     }
 
-    pub fn has_project(&self, project: uuid::Uuid, permission: ServerPermissions) -> bool {
+    pub fn has_project(&self, project: ProjectId, permission: ServerPermissions) -> bool {
         let permissions = self.projects.get(&project).copied().unwrap_or_default()
             | ServerPermissions::from_bits_retain(self.permissions);
         permissions.grants(permission)
     }
 
-    pub fn project_permissions(&self, project: uuid::Uuid) -> ServerPermissions {
+    pub fn project_permissions(&self, project: ProjectId) -> ServerPermissions {
         self.projects.get(&project).copied().unwrap_or_default()
             | ServerPermissions::from_bits_retain(self.permissions)
     }
@@ -130,7 +131,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         };
 
         let owned_projects: HashMap<_, _> = query_scalar!(
-            "SELECT `id` AS `id: uuid::fmt::Hyphenated` FROM `projects` WHERE `owner` = ?",
+            "SELECT `id` AS `id: ProjectId` FROM `projects` WHERE `owner` = ?",
             &id
         )
         .fetch_all(&mut *conn)
@@ -139,11 +140,11 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             error!("Unable to fetch owned servers for user {id}: {err:?}");
         })?
         .into_iter()
-        .map(|id| (id.into_uuid(), ServerPermissions::all()))
+        .map(|id| (id, ServerPermissions::all()))
         .collect();
 
-        let mut projects: HashMap<uuid::Uuid, ServerPermissions> = query!(
-            "SELECT `project` AS `project: uuid::fmt::Hyphenated`, `permissions`
+        let mut projects: HashMap<ProjectId, ServerPermissions> = query!(
+            "SELECT `project` AS `project: ProjectId`, `permissions`
              FROM `project_users`
              WHERE `user` = ?",
             &id
@@ -154,7 +155,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         .into_iter()
         .map(|record| {
             (
-                record.project.into_uuid(),
+                record.project,
                 ServerPermissions::from_bits_truncate(record.permissions),
             )
         })
@@ -164,7 +165,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         let servers: HashMap<ServerId, ServerPermissions> = query!(
             "SELECT
                 `servers`.`id` AS `server: ServerId`,
-                `servers`.`project` AS `project: uuid::fmt::Hyphenated`
+                `servers`.`project` AS `project: ProjectId`
              FROM `servers`
              JOIN `projects` ON `projects`.`id` = `servers`.`project`
              LEFT JOIN `project_users`
@@ -180,7 +181,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         .into_iter()
         .filter_map(|record| {
             projects
-                .get(record.project.as_uuid())
+                .get(&record.project)
                 .copied()
                 .map(|permissions| (record.server, permissions))
         })

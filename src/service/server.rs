@@ -4,6 +4,7 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
+use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
 use crate::service::server::server_service_error::{
@@ -26,7 +27,7 @@ use zelus::service;
 pub(crate) struct ServerListInfo {
     id: ServerId,
     name: String,
-    project: Uuid,
+    project: ProjectId,
     template: String,
     node: String, // Name
 }
@@ -48,7 +49,7 @@ pub(crate) struct PrimaryPortInfo {
 pub(crate) struct ServerInfo {
     pub(crate) id: ServerId,
     pub(crate) name: String,
-    pub(crate) project: Uuid,
+    pub(crate) project: ProjectId,
     pub(crate) node: LightNodeInfo,
     pub(crate) template: String,
     pub(crate) cpu: Option<f32>,
@@ -77,7 +78,7 @@ pub(crate) struct ServerLimits {
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub(crate) struct ServerListFilters {
-    pub project: Option<Uuid>,
+    pub project: Option<ProjectId>,
     pub node: Option<Uuid>,
     pub template: Option<String>,
 }
@@ -95,11 +96,11 @@ pub(crate) impl ServerService for Backend {
         #[special] mut page: Option<PageSplit>,
         filters: Option<ServerListFilters>,
     ) -> Result<Paged<ServerListInfo>, _> {
-        let servers = query!("SELECT `id` AS `id: ServerId`, `name`, `project` AS `project: uuid::fmt::Hyphenated`, `node` AS `node: uuid::fmt::Hyphenated`, `template` FROM `servers`")
+        let servers = query!("SELECT `id` AS `id: ServerId`, `name`, `project` AS `project: ProjectId`, `node` AS `node: uuid::fmt::Hyphenated`, `template` FROM `servers`")
             .fetch_all(&*self.database)
             .await?
             .into_iter()
-            .filter(|server| filters.as_ref().is_none_or(|server_filters| server_filters.project.as_ref().is_none_or(|project| *server.project.as_uuid() == *project)))
+            .filter(|server| filters.as_ref().is_none_or(|server_filters| server_filters.project.as_ref().is_none_or(|project| server.project == *project)))
             .filter(|server| filters.as_ref().is_none_or(|server_filters| server_filters.node.as_ref().is_none_or(|node| *server.node.as_uuid() == *node)))
             .filter(|server| filters.as_ref().is_none_or(|server_filters| server_filters.template.as_ref().is_none_or(|template| server.template == *template)))
             .filter(|server| auth.has(server.id, ServerPermissions::VIEW))
@@ -115,7 +116,7 @@ pub(crate) impl ServerService for Backend {
             .map(|server| ServerListInfo {
                 id: server.id,
                 name: server.name,
-                project: server.project.into_uuid(),
+                project: server.project,
                 template: templates
                   .get(&server.template).map_or_else(|| {
                         warn!(

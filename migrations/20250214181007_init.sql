@@ -52,7 +52,7 @@ CREATE TABLE
 
 CREATE TABLE
     IF NOT EXISTS `projects` (
-        `id` UUID NOT NULL PRIMARY KEY,
+        `id` CHAR(6) NOT NULL PRIMARY KEY,
         `slug` VARCHAR(64) NOT NULL UNIQUE,
         `name` VARCHAR(64) NOT NULL,
         `owner` INT UNSIGNED NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE
 CREATE TABLE
     IF NOT EXISTS `project_users` (
         `user` INT UNSIGNED NOT NULL,
-        `project` UUID NOT NULL,
+        `project` CHAR(6) NOT NULL,
         `permissions` BIGINT NOT NULL,
         PRIMARY KEY (`user`, `project`),
         FOREIGN KEY (`user`) REFERENCES `users` (`id`) ON DELETE CASCADE,
@@ -75,7 +75,7 @@ CREATE TABLE
         `name` VARCHAR(64) NOT NULL,
         `node` UUID NOT NULL,
         `node_server_id` INT (255) UNSIGNED NOT NULL,
-        `project` UUID NOT NULL,
+        `project` CHAR(6) NOT NULL,
         `cpu` FLOAT (255, 2),
         `ram` INT UNSIGNED,
         `swap` INT UNSIGNED,

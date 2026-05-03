@@ -1,9 +1,9 @@
 use crate::db::node::BackendNode;
+use crate::db::project::ProjectId;
 use crate::define_id;
 use crate::templates::TemplateInner;
 use serde_json::Value;
 use std::sync::Arc;
-use uuid::Uuid;
 
 pub mod ports;
 
@@ -14,7 +14,7 @@ pub struct Server {
     pub id: ServerId,
     pub name: String,
     pub node_server_id: u32,
-    pub project: Uuid,
+    pub project: ProjectId,
     pub template: Arc<dyn TemplateInner + Send + Sync>,
     pub template_extra: Value,
     pub custom_dockerfile: Option<String>,

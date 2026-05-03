@@ -2,6 +2,7 @@ use super::*;
 use crate::Backend;
 use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
 use crate::auth::user::UserAuthentication;
+use crate::db::project::ProjectId;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::error_project_not_found::FromProjectNotFound;
 use crate::service::error_user_not_found::FromUserNotFound;
@@ -11,12 +12,11 @@ use crate::service::project::project_service_error::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{query, query_scalar};
-use uuid::Uuid;
 use zelus::service;
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ProjectInfo {
-    pub(crate) id: Uuid,
+    pub(crate) id: ProjectId,
     pub(crate) slug: String,
     pub(crate) name: String,
     pub(crate) owner: u32,
@@ -57,7 +57,7 @@ pub(crate) impl ProjectService for Backend {
 
         Ok(query!(
             "SELECT
-                `projects`.`id` AS `id: uuid::fmt::Hyphenated`,
+                `projects`.`id` AS `id: ProjectId`,
                 `projects`.`slug`,
                 `projects`.`name`,
                 `projects`.`owner`,
@@ -75,7 +75,7 @@ pub(crate) impl ProjectService for Backend {
         .await?
         .into_iter()
         .map(|project| {
-            let id = project.id.into_uuid();
+            let id = project.id;
             ProjectInfo {
                 id,
                 slug: project.slug,
@@ -95,11 +95,11 @@ pub(crate) impl ProjectService for Backend {
         #[special] auth: UserAuthentication,
         project: ProjectCreate,
     ) -> Result<String, _> {
-        let id = Uuid::new_v4();
+        let id = ProjectId::generate();
 
         query!(
             "INSERT INTO `projects` (`id`, `slug`, `name`, `owner`) VALUES (?, ?, ?, ?)",
-            &id,
+            id,
             project.slug,
             project.name,
             auth.id
@@ -116,22 +116,22 @@ pub(crate) impl ProjectService for Backend {
     async fn get_project(
         &self,
         #[special] auth: UserAuthentication,
-        #[no_schema] project_id: Uuid,
+        project_id: ProjectId,
     ) -> Result<ProjectInfo, _> {
         require_project::<GetProjectError>(&auth, project_id, ServerPermissions::VIEW)?;
 
         let project = query!(
-            "SELECT `id` AS `id: uuid::fmt::Hyphenated`, `slug`, `name`, `owner`
+            "SELECT `id` AS `id: ProjectId`, `slug`, `name`, `owner`
              FROM `projects`
              WHERE `id` = ?",
-            &project_id
+            project_id
         )
         .fetch_optional(&*self.database)
         .await?
         .ok_or(GetProjectError::ProjectNotFound)?;
 
         Ok(ProjectInfo {
-            id: project.id.into_uuid(),
+            id: project.id,
             slug: project.slug,
             name: project.name,
             owner: project.owner,
@@ -145,7 +145,7 @@ pub(crate) impl ProjectService for Backend {
     async fn update_project(
         &self,
         #[special] auth: UserAuthentication,
-        #[no_schema] project_id: Uuid,
+        project_id: ProjectId,
         update: ProjectUpdate,
     ) -> Result<(), _> {
         require_project::<UpdateProjectError>(
@@ -161,7 +161,7 @@ pub(crate) impl ProjectService for Backend {
             query!(
                 "UPDATE `projects` SET `owner` = ? WHERE `id` = ?",
                 owner,
-                &project_id
+                project_id
             )
             .execute(&*self.database)
             .await?;
@@ -171,7 +171,7 @@ pub(crate) impl ProjectService for Backend {
             query!(
                 "UPDATE `projects` SET `slug` = ? WHERE `id` = ?",
                 slug,
-                &project_id
+                project_id
             )
             .execute(&*self.database)
             .await?;
@@ -181,7 +181,7 @@ pub(crate) impl ProjectService for Backend {
             query!(
                 "UPDATE `projects` SET `name` = ? WHERE `id` = ?",
                 name,
-                &project_id
+                project_id
             )
             .execute(&*self.database)
             .await?;
@@ -196,7 +196,7 @@ pub(crate) impl ProjectService for Backend {
     async fn delete_project(
         &self,
         #[special] auth: UserAuthentication,
-        #[no_schema] project_id: Uuid,
+        project_id: ProjectId,
     ) -> Result<(), _> {
         require_project::<DeleteProjectError>(
             &auth,
@@ -206,7 +206,7 @@ pub(crate) impl ProjectService for Backend {
 
         let server_count = query_scalar!(
             "SELECT COUNT(*) AS `count` FROM `servers` WHERE `project` = ?",
-            &project_id
+            project_id
         )
         .fetch_one(&*self.database)
         .await?;
@@ -215,7 +215,7 @@ pub(crate) impl ProjectService for Backend {
             return Err(DeleteProjectError::ProjectNotEmpty);
         }
 
-        let result = query!("DELETE FROM `projects` WHERE `id` = ?", &project_id)
+        let result = query!("DELETE FROM `projects` WHERE `id` = ?", project_id)
             .execute(&*self.database)
             .await?;
 
@@ -232,7 +232,7 @@ pub(crate) impl ProjectService for Backend {
     async fn list_project_users(
         &self,
         #[special] auth: UserAuthentication,
-        #[no_schema] project_id: Uuid,
+        project_id: ProjectId,
     ) -> Result<Vec<ProjectUserInfo>, _> {
         require_project::<ListProjectUsersError>(&auth, project_id, ServerPermissions::USER_VIEW)?;
         ensure_project_exists::<ListProjectUsersError>(self, project_id).await?;
@@ -245,8 +245,8 @@ pub(crate) impl ProjectService for Backend {
                 `project_users`.`permissions`
              FROM `project_users`
              JOIN `users` ON `users`.`id` = `project_users`.`user`
-             WHERE `project_users`.`project` = ?",
-            &project_id
+            WHERE `project_users`.`project` = ?",
+            project_id
         )
         .fetch_all(&*self.database)
         .await?
@@ -266,7 +266,7 @@ pub(crate) impl ProjectService for Backend {
     async fn set_project_user(
         &self,
         #[special] auth: UserAuthentication,
-        #[no_schema] project_id: Uuid,
+        project_id: ProjectId,
         user_id: u32,
         permissions: i64,
     ) -> Result<(), _> {
@@ -277,9 +277,9 @@ pub(crate) impl ProjectService for Backend {
         query!(
             "INSERT INTO `project_users` (`user`, `project`, `permissions`)
              VALUES (?, ?, ?)
-             ON DUPLICATE KEY UPDATE `permissions` = VALUES(`permissions`)",
+            ON DUPLICATE KEY UPDATE `permissions` = VALUES(`permissions`)",
             user_id,
-            &project_id,
+            project_id,
             permissions
         )
         .execute(&*self.database)
@@ -294,7 +294,7 @@ pub(crate) impl ProjectService for Backend {
     async fn remove_project_user(
         &self,
         #[special] auth: UserAuthentication,
-        #[no_schema] project_id: Uuid,
+        project_id: ProjectId,
         user_id: u32,
     ) -> Result<(), _> {
         require_project::<RemoveProjectUserError>(&auth, project_id, ServerPermissions::USER_EDIT)?;
@@ -302,7 +302,7 @@ pub(crate) impl ProjectService for Backend {
 
         query!(
             "DELETE FROM `project_users` WHERE `project` = ? AND `user` = ?",
-            &project_id,
+            project_id,
             user_id
         )
         .execute(&*self.database)
@@ -314,7 +314,7 @@ pub(crate) impl ProjectService for Backend {
 
 fn require_project<E: FromAuthPermissionDenied>(
     auth: &UserAuthentication,
-    project_id: Uuid,
+    project_id: ProjectId,
     permission: ServerPermissions,
 ) -> Result<(), E> {
     if auth.has_project(project_id, permission) {
@@ -326,11 +326,11 @@ fn require_project<E: FromAuthPermissionDenied>(
 
 pub(crate) async fn ensure_project_exists<E: From<sqlx::Error> + FromProjectNotFound>(
     backend: &Backend,
-    project_id: Uuid,
+    project_id: ProjectId,
 ) -> Result<(), E> {
     let exists = query_scalar!(
         "SELECT (COUNT(*) > 0) AS `exists: bool` FROM `projects` WHERE `id` = ?",
-        &project_id
+        project_id
     )
     .fetch_one(&*backend.database)
     .await?;

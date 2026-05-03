@@ -2,6 +2,7 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
 use crate::auth::user::UserAuthentication;
+use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, merge_ports};
 use crate::service::admin::server::server_admin_service_error::{
@@ -46,7 +47,7 @@ pub(crate) impl ServerAdminService for Backend {
         #[special] auth: UserAuthentication,
         name: String,
         node: Uuid,
-        project: Uuid,
+        project: ProjectId,
         template: String,
         storage: String,
         resource: ServerResourcePayload,
@@ -63,7 +64,7 @@ pub(crate) impl ServerAdminService for Backend {
 
         let project_exists = query_scalar!(
             "SELECT (COUNT(*) > 0) AS `exists: bool` FROM `projects` WHERE `id` = ?",
-            &project
+            project
         )
         .fetch_one(&*self.database)
         .await?;
@@ -170,7 +171,7 @@ pub(crate) impl ServerAdminService for Backend {
 
             conn.transaction(|tx| Box::pin(async move {
                 query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`project`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        &id, &node.id, &new_server, &project, &storage, resource.cpu, resource.ram, resource.swap, resource.disk, template.id(), &extra, &name, internet_access, backup_limit)                    .execute(&mut **tx)
+                        &id, &node.id, &new_server, project, &storage, resource.cpu, resource.ram, resource.swap, resource.disk, template.id(), &extra, &name, internet_access, backup_limit)                    .execute(&mut **tx)
                     .await
                     .inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
