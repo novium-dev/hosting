@@ -14,4 +14,7 @@ url = "https://localhost:3001"
 [auth]
 client_id = "YipvF4WFDTR6f3H8tc9QaSUTAP4f37KVBBkiilcz"
 client_secret = "dJ5HPGNyVLk721DlJLe9OJF6MjNWk6qBsGGALSOBYifID5rjHP3ip3E7qA96uV2yTwhakcCGPrBeOayqcVpHZpZGhPt1QMt6E0lVVznTvlXl9Rvf9rFiKI699XIeqofM"
-url = "https://auth.novium.world"
+auth_url = "https://auth.novium.team/application/o/authorize/"
+token_url = "https://auth.novium.team/application/o/token/"
+userinfo_url = "https://auth.novium.team/application/o/userinfo/"
+redirect_url = "http://localhost:8080/auth/callback"
