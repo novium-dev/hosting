@@ -42,7 +42,6 @@ CREATE TABLE
         `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
         `username` VARCHAR(32) NOT NULL,
         `auth_id` VARCHAR(255) NOT NULL UNIQUE,
-        `permissions` BIGINT NOT NULL,
         `role` INT NOT NULL DEFAULT 0,
         `email` VARCHAR(255) NOT NULL,
         `language` VARCHAR(255) NOT NULL DEFAULT 'en',

@@ -41,9 +41,9 @@ pub(crate) impl AuthService for Backend {
 
         query!(
             "INSERT INTO `users`
-                    (`id`, `username`, `auth_id`, `permissions`, `role`, `email`)
+                    (`id`, `username`, `auth_id`, `role`, `email`)
                 VALUES
-                    (?, 'dev', 'dev', 0, ?, 'dev@example.com')
+                    (?, 'dev', 'dev', ?, 'dev@example.com')
                 ON DUPLICATE KEY UPDATE `auth_id` = 'dev'",
             dev_user,
             Role::Admin as u8

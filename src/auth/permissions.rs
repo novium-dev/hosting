@@ -303,7 +303,7 @@ impl ManagementPermissions {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[repr(u8)]
 pub enum Role {
-    Admin = 3,
+    Admin = 2,
     Moderator = 1,
     User = 0,
 }
@@ -315,7 +315,7 @@ impl TryFrom<u8> for Role {
         match value {
             0 => Ok(Self::User),
             1 => Ok(Self::Moderator),
-            3 => Ok(Self::Admin),
+            2 => Ok(Self::Admin),
             _ => Err(()),
         }
     }

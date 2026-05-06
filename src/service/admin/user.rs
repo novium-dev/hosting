@@ -14,7 +14,6 @@ pub(crate) struct AdminUserInfo {
     pub(crate) id: u32,
     pub(crate) username: String,
     pub(crate) auth_id: String,
-    pub(crate) permissions: i64,
     pub(crate) role: u8,
     pub(crate) email: String,
 }
@@ -23,7 +22,6 @@ pub(crate) struct AdminUserInfo {
 pub(crate) struct CreateUser {
     pub(crate) username: String,
     pub(crate) auth_id: String,
-    pub(crate) permissions: i64,
     pub(crate) role: u8,
     pub(crate) email: String,
 }
@@ -32,7 +30,6 @@ pub(crate) struct CreateUser {
 pub(crate) struct UpdateUser {
     pub(crate) username: Option<String>,
     pub(crate) auth_id: Option<String>,
-    pub(crate) permissions: Option<i64>,
     pub(crate) role: Option<u8>,
     pub(crate) email: Option<String>,
 }
@@ -46,7 +43,7 @@ pub(crate) impl UserAdminService for Backend {
         auth.require::<_, ListUsersError>((), ManagementPermissions::USER_VIEW)?;
 
         Ok(query!(
-            "SELECT `id`, `username`, `auth_id`, `permissions`, `role` AS `role: u8`, `email`
+            "SELECT `id`, `username`, `auth_id`, `role` AS `role: u8`, `email`
              FROM `users`
              ORDER BY `id`"
         )
@@ -57,7 +54,6 @@ pub(crate) impl UserAdminService for Backend {
             id: user.id,
             username: user.username,
             auth_id: user.auth_id,
-            permissions: user.permissions,
             role: user.role,
             email: user.email,
         })
@@ -77,11 +73,10 @@ pub(crate) impl UserAdminService for Backend {
         let role = Role::try_from(user.role).map_err(|()| CreateUserError::DbFailure)?;
 
         let result = query!(
-            "INSERT INTO `users` (`username`, `auth_id`, `permissions`, `role`, `email`)
-             VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO `users` (`username`, `auth_id`, `role`, `email`)
+             VALUES (?, ?, ?, ?)",
             user.username,
             user.auth_id,
-            user.permissions,
             role as u8,
             user.email
         )
@@ -102,7 +97,7 @@ pub(crate) impl UserAdminService for Backend {
         auth.require::<_, GetUserError>((), ManagementPermissions::USER_VIEW)?;
 
         let user = query!(
-            "SELECT `id`, `username`, `auth_id`, `permissions`, `role` AS `role: u8`, `email`
+            "SELECT `id`, `username`, `auth_id`, `role` AS `role: u8`, `email`
              FROM `users`
              WHERE `id` = ?",
             user_id
@@ -115,7 +110,6 @@ pub(crate) impl UserAdminService for Backend {
             id: user.id,
             username: user.username,
             auth_id: user.auth_id,
-            permissions: user.permissions,
             role: user.role,
             email: user.email,
         })
@@ -147,16 +141,6 @@ pub(crate) impl UserAdminService for Backend {
             query!(
                 "UPDATE `users` SET `auth_id` = ? WHERE `id` = ?",
                 auth_id,
-                user_id
-            )
-            .execute(&*self.database)
-            .await?;
-        }
-
-        if let Some(permissions) = update.permissions {
-            query!(
-                "UPDATE `users` SET `permissions` = ? WHERE `id` = ?",
-                permissions,
                 user_id
             )
             .execute(&*self.database)

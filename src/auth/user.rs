@@ -114,7 +114,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .inspect_err(|err| error!("Unable to acquire database connection: {err:?}"))?;
 
         let Some(user) = query!(
-            "SELECT `username`, `permissions`, `role` AS `role: u8`, `email` FROM `users` WHERE `id` = ?",
+            "SELECT `username`, `role` AS `role: u8`, `email` FROM `users` WHERE `id` = ?",
             &id
         )
         .fetch_optional(&mut *conn)
@@ -193,12 +193,9 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             id,
             session,
             username: user.username,
-            permissions: user.permissions
-                | role
-                    .map(|role| {
-                        role.management_permissions().bits() | role.server_permissions().bits()
-                    })
-                    .unwrap_or_default(),
+            permissions: role
+                .map(|role| role.management_permissions().bits() | role.server_permissions().bits())
+                .unwrap_or_default(),
             role: role.unwrap_or(Role::User),
             email: user.email,
             projects,
@@ -360,9 +357,9 @@ impl Backend {
         let result = query!(
             r#"
     INSERT INTO `users`
-        (`username`, `auth_id`, `permissions`, `role`, `email`)
+        (`username`, `auth_id`, `role`, `email`)
     VALUES
-        (?, ?, 0, ?, ?)
+        (?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
         `username` = VALUES(`username`),
         `email` = VALUES(`email`),
