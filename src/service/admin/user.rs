@@ -60,32 +60,6 @@ pub(crate) impl UserAdminService for Backend {
         .collect())
     }
 
-    /// Creates a user.
-    #[route("", method = PUT)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
-    async fn create_user(
-        &self,
-        #[special] auth: Authentication,
-        user: CreateUser,
-    ) -> Result<u32, _> {
-        auth.require::<_, CreateUserError>((), ManagementPermissions::USER_MANAGE)?;
-
-        let role = Role::try_from(user.role).map_err(|()| CreateUserError::DbFailure)?;
-
-        let result = query!(
-            "INSERT INTO `users` (`username`, `auth_id`, `role`, `email`)
-             VALUES (?, ?, ?, ?)",
-            user.username,
-            user.auth_id,
-            role as u8,
-            user.email
-        )
-        .execute(&*self.database)
-        .await?;
-
-        Ok(result.last_insert_id() as u32)
-    }
-
     /// Shows a user.
     #[route("/{user_id}", method = GET)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::not_found)]
