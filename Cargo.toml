@@ -235,7 +235,7 @@ serde_yaml_ng = "0.10"
 
 java-properties = "2.0.0"
 serde-xml-rs = "0.8.2"
-nanoid = "0.4.0"
+nanoid = "0.5.0"
 base64 = "0.22.1"
 
 sqlx = { version = "0.8", default-features = false, features = [
@@ -272,7 +272,7 @@ features = ["btrfs", "no_tty_size_please"]
 optional = true
 
 [dependencies.sentry]
-version = "0.46.0"
+version = "0.48.1"
 default-features = false
 features = [
     "backtrace",
@@ -315,7 +315,7 @@ features = [
 ]
 
 [dependencies.toml]
-version = "0.9.10"
+version = "1.1.2+spec-1.1.0"
 features = ["serde", "preserve_order"]
 
 [dependencies.speedy]

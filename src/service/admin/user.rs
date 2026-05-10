@@ -2,7 +2,7 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, Role};
 use crate::service::admin::user::user_admin_service_error::{
-    CreateUserError, DeleteUserError, GetUserError, ListUsersError, UpdateUserError,
+    DeleteUserError, GetUserError, ListUsersError, UpdateUserError,
 };
 use crate::service::*;
 use serde::{Deserialize, Serialize};
