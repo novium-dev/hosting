@@ -2,6 +2,7 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
 use crate::auth::user::UserAuthentication;
+use crate::db::node::NodePortAllocation;
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, merge_ports};
@@ -40,6 +41,7 @@ pub(crate) impl ServerAdminService for Backend {
         server::{not_found, storage_not_found},
         project::not_found,
         node::{not_found, failure},
+        port::not_allocated,
         template::{not_found, unavailable, corrupted, port_definition_unknown, input_invalid})]
     #[example("../examples/server.create.json")]
     async fn create_server(
@@ -119,6 +121,17 @@ pub(crate) impl ServerAdminService for Backend {
             });
         }
         merge_ports(&mut ports2);
+
+        for port in &ports2 {
+            if !port_range_allocated(
+                &node.ports,
+                port.protocol,
+                port.external_port_start,
+                port.external_port_end,
+            ) {
+                return Err(CreateServerError::PortNotAllocated);
+            }
+        }
 
         let mut node_ports = Vec::with_capacity(ports2.len());
         for port in &ports2 {
@@ -277,8 +290,8 @@ pub(crate) impl ServerAdminService for Backend {
                    FROM node_ports
                    WHERE node = ?
                    AND protocol = ?
-                   AND ? <= end
-                   AND ? >= start"#,
+                   AND start <= ?
+                   AND end >= ?"#,
                 server.node.id,
                 protocol.clone(),
                 external.start(),
@@ -427,8 +440,8 @@ pub(crate) impl ServerAdminService for Backend {
                    FROM node_ports
                    WHERE node = ?
                    AND protocol = ?
-                   AND ? <= end
-                   AND ? >= start"#,
+                   AND start <= ?
+                   AND end >= ?"#,
                 server.node.id,
                 protocol_parsed.to_string(),
                 start,
@@ -632,4 +645,15 @@ pub(crate) impl ServerAdminService for Backend {
         })
         .await
     }
+}
+
+fn port_range_allocated(
+    allocations: &[NodePortAllocation],
+    protocol: NetworkProtocol,
+    start: u16,
+    end: u16,
+) -> bool {
+    allocations.iter().any(|allocation| {
+        allocation.protocol == protocol && allocation.start <= start && allocation.end >= end
+    })
 }
