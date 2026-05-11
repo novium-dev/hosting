@@ -1,5 +1,6 @@
 use super::*;
 use crate::Backend;
+use crate::auth::oauth::flow::OAuthFlow;
 use crate::auth::permissions::Role;
 use crate::auth::user::{SerializedUser, Session, UserAuthentication};
 use crate::service::auth::auth_service_error::{CallbackError, LoginDevError, LoginError};
@@ -10,7 +11,6 @@ use tracing::error;
 use url::Url;
 use zelus::responses::Redirect;
 use zelus::{define_query_variable, service};
-use crate::auth::oauth::flow::OAuthFlow;
 
 define_query_variable!(redirect_url "The URL to redirect to after login");
 define_query_variable!(code "The authorization code returned by the OAuth provider");
@@ -72,8 +72,8 @@ pub(crate) impl AuthService for Backend {
             state: csrf_token.into_secret(),
             verifier: pkce_verifier.into_secret(),
         }
-            .insert::<LoginError>(Duration::minutes(30), &mut self.cache.clone())
-            .await?;
+        .insert::<LoginError>(Duration::minutes(30), &mut self.cache.clone())
+        .await?;
 
         Ok(Redirect::new(url.as_str()))
     }

@@ -19,6 +19,7 @@ use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use daemon_common::service::server::{ServerNetworkPayload, ServerResourcePayload};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query};
+use std::str::FromStr as _;
 use tracing::{error, warn};
 use uuid::Uuid;
 use zelus::service;
@@ -76,33 +77,41 @@ pub(crate) struct ServerLimits {
     pub(crate) backup: Option<u32>,
 }
 
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub(crate) struct ServerListFilters {
-    pub project: Option<ProjectId>,
-    pub node: Option<Uuid>,
-    pub template: Option<String>,
-}
-
 #[service(path = "/server", tag = "server", no_sdk)]
 pub(crate) impl ServerService for Backend {
     /// Lists all servers you have access to.
     ///
     /// Only servers in which you have the [`ServerPermissions::VIEW`] permission are listed.
-    #[route("", method = GET, raw)]
+    #[route("", method = GET, raw, query = [project, node, template])]
     #[error(auth::unreachable, db::failure <- [sql:*])]
     async fn list_servers(
         &self,
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
-        filters: Option<ServerListFilters>,
+        project: Option<String>,
+        node: Option<String>,
+        template: Option<String>,
     ) -> Result<Paged<ServerListInfo>, _> {
+        let project_filter = project
+            .as_deref()
+            .map(ProjectId::from_str)
+            .transpose()
+            .ok()
+            .flatten();
+        let node_filter = node
+            .as_deref()
+            .map(Uuid::parse_str)
+            .transpose()
+            .ok()
+            .flatten();
+
         let servers = query!("SELECT `id` AS `id: ServerId`, `name`, `project` AS `project: ProjectId`, `node` AS `node: uuid::fmt::Hyphenated`, `template` FROM `servers`")
             .fetch_all(&*self.database)
             .await?
             .into_iter()
-            .filter(|server| filters.as_ref().is_none_or(|server_filters| server_filters.project.as_ref().is_none_or(|project| server.project == *project)))
-            .filter(|server| filters.as_ref().is_none_or(|server_filters| server_filters.node.as_ref().is_none_or(|node| *server.node.as_uuid() == *node)))
-            .filter(|server| filters.as_ref().is_none_or(|server_filters| server_filters.template.as_ref().is_none_or(|template| server.template == *template)))
+            .filter(|server| project.is_none() || project_filter.as_ref().is_some_and(|project| server.project == *project))
+            .filter(|server| node.is_none() || node_filter.as_ref().is_some_and(|node| *server.node.as_uuid() == *node))
+            .filter(|server| template.as_ref().is_none_or(|template| server.template == *template))
             .filter(|server| auth.has(server.id, ServerPermissions::VIEW))
             .apply_pagesplit(&mut page)
             .collect::<Vec<_>>();

@@ -99,6 +99,14 @@ define_query_variable!(
 );
 
 define_query_variable!(
+    node "The node"
+);
+
+define_query_variable!(
+    template "The template"
+);
+
+define_query_variable!(
     path "The file path"
 );
 
