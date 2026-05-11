@@ -11,8 +11,8 @@ use uuid::Uuid;
 use zelus::service;
 
 use crate::Backend;
+use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
-use crate::auth::user::UserAuthentication;
 use crate::db::node::NodePortAllocation;
 use crate::db::server::ports::NetworkProtocol;
 use crate::service::admin::node::node_admin_service_error::{
@@ -51,7 +51,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// Requires [`ManagementPermission::NODES_MANAGE`].
     #[route("", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*])]
-    async fn create_node(&self, #[special] auth: UserAuthentication) -> Result<String, _> {
+    async fn create_node(&self, #[special] auth: Authentication) -> Result<String, _> {
         auth.require::<_, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
         let code = gen_code::<CreateNodeError>()?;
@@ -72,7 +72,7 @@ pub(crate) impl NodeAdminService for Backend {
     #[error(node::not_found, auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*])]
     async fn update_node(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         #[no_schema] node_id: Uuid,
     ) -> Result<String, _> {
         auth.require::<_, UpdateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
@@ -97,7 +97,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// Requires [`ManagementPermission::NODES_VIEW`].
     #[route("", method = GET)]
     #[error(auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*])]
-    async fn list_nodes(&self, #[special] auth: UserAuthentication) -> Result<Vec<NodeInfo>, _> {
+    async fn list_nodes(&self, #[special] auth: Authentication) -> Result<Vec<NodeInfo>, _> {
         auth.require::<_, ListNodesError>((), ManagementPermissions::NODES_VIEW)?;
         Ok(self
             .nodes
@@ -125,7 +125,7 @@ pub(crate) impl NodeAdminService for Backend {
     #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn update_maintenance(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         #[no_schema] node_id: Uuid,
         maintenance: bool,
     ) -> Result<(), _> {
@@ -159,7 +159,7 @@ pub(crate) impl NodeAdminService for Backend {
     #[error(node::not_found, node::failure, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn metrics_node(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         #[no_schema] node_id: Uuid,
     ) -> Result<daemon_common::service::resource::ResourceResponse, _> {
         use daemon_common::service::resource::resource_service_error::ResourceInfoError;
@@ -192,7 +192,7 @@ pub(crate) impl NodeAdminService for Backend {
     #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn available_ports(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         #[no_schema] node_id: Uuid,
     ) -> Result<HashMap<String, Vec<PortRange>>, _> {
         auth.require::<_, AvailablePortsError>((), ManagementPermissions::NODES_VIEW)?;
@@ -237,7 +237,7 @@ pub(crate) impl NodeAdminService for Backend {
     #[error(node::not_found, port::invalid, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn add_port(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         #[no_schema] node_id: Uuid,
         start: u16,
         end: u16,
@@ -281,7 +281,7 @@ pub(crate) impl NodeAdminService for Backend {
     #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn delete_port(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         #[no_schema] node_id: Uuid,
         port_id: u32,
     ) -> Result<(), _> {

@@ -1,16 +1,17 @@
 use super::*;
 use crate::Backend;
-use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
+use crate::auth::Authentication;
+use crate::auth::permissions::{ManagementPermissions, ProjectPermissions};
 use crate::auth::user::UserAuthentication;
 use crate::db::project::ProjectId;
-use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::error_project_not_found::FromProjectNotFound;
 use crate::service::error_user_not_found::FromUserNotFound;
 use crate::service::project::project_service_error::{
     DeleteProjectError, GetProjectError, ListProjectUsersError, RemoveProjectUserError,
     SetProjectUserError, UpdateProjectError,
 };
-use serde::{Deserialize, Serialize};
+use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
+use serde::Serialize;
 use sqlx::{query, query_scalar};
 use zelus::service;
 
@@ -31,28 +32,16 @@ pub(crate) struct ProjectUserInfo {
     pub(crate) permissions: i64,
 }
 
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub(crate) struct ProjectUpdate {
-    pub(crate) slug: Option<String>,
-    pub(crate) name: Option<String>,
-    pub(crate) owner: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub(crate) struct ProjectCreate {
-    pub(crate) slug: String,
-    pub(crate) name: String,
-}
-
 #[service(path = "/project", tag = "project", no_sdk)]
 pub(crate) impl ProjectService for Backend {
     /// Lists projects the current user can access.
-    #[route("", method = GET)]
+    #[route("", method = GET, raw)]
     #[error(db::failure <- [sql:*], auth::unreachable)]
     async fn list_projects(
         &self,
         #[special] auth: UserAuthentication,
-    ) -> Result<Vec<ProjectInfo>, _> {
+        #[special] mut page: Option<PageSplit>,
+    ) -> Result<Paged<ProjectInfo>, _> {
         let can_manage = auth.has((), ManagementPermissions::SERVER_MANAGE);
 
         Ok(query!(
@@ -84,7 +73,8 @@ pub(crate) impl ProjectService for Backend {
                 permissions: auth.project_permissions(id).bits(),
             }
         })
-        .collect())
+        .apply_pagesplit(&mut page)
+        .collect_paged(page))
     }
 
     /// Creates a new project owned by the current user.
@@ -93,15 +83,16 @@ pub(crate) impl ProjectService for Backend {
     async fn create_project(
         &self,
         #[special] auth: UserAuthentication,
-        project: ProjectCreate,
+        slug: String,
+        name: String,
     ) -> Result<String, _> {
         let id = ProjectId::generate();
 
         query!(
             "INSERT INTO `projects` (`id`, `slug`, `name`, `owner`) VALUES (?, ?, ?, ?)",
             id,
-            project.slug,
-            project.name,
+            slug,
+            name,
             auth.id
         )
         .execute(&*self.database)
@@ -112,13 +103,13 @@ pub(crate) impl ProjectService for Backend {
 
     /// Shows a project.
     #[route("/{project_id}", method = GET)]
-    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found)]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found <- [sql:not_found])]
     async fn get_project(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         project_id: ProjectId,
     ) -> Result<ProjectInfo, _> {
-        require_project::<GetProjectError>(&auth, project_id, ServerPermissions::VIEW)?;
+        auth.require::<_, GetProjectError>(project_id, ProjectPermissions::VIEW)?;
 
         let project = query!(
             "SELECT `id` AS `id: ProjectId`, `slug`, `name`, `owner`
@@ -126,9 +117,8 @@ pub(crate) impl ProjectService for Backend {
              WHERE `id` = ?",
             project_id
         )
-        .fetch_optional(&*self.database)
-        .await?
-        .ok_or(GetProjectError::ProjectNotFound)?;
+        .fetch_one(&*self.database)
+        .await?;
 
         Ok(ProjectInfo {
             id: project.id,
@@ -141,79 +131,70 @@ pub(crate) impl ProjectService for Backend {
 
     /// Updates project metadata.
     #[route("/{project_id}", method = PATCH)]
-    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found, user::not_found)]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found <- [sql:not_found], user::not_found <- [sql:foreign_key])]
     async fn update_project(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         project_id: ProjectId,
-        update: ProjectUpdate,
+        slug: Option<String>,
+        name: Option<String>,
+        owner: Option<u32>,
     ) -> Result<(), _> {
-        require_project::<UpdateProjectError>(
-            &auth,
-            project_id,
-            ServerPermissions::ADMIN_MANAGEMENT,
-        )?;
+        auth.require::<_, UpdateProjectError>(project_id, ProjectPermissions::ADMIN_MANAGEMENT)?;
 
-        ensure_project_exists::<UpdateProjectError>(self, project_id).await?;
+        let mut tx = self.database.begin().await?;
 
-        if let Some(owner) = update.owner {
-            ensure_user_exists::<UpdateProjectError>(self, owner).await?;
+        if let Some(owner) = owner {
             query!(
                 "UPDATE `projects` SET `owner` = ? WHERE `id` = ?",
                 owner,
                 project_id
             )
-            .execute(&*self.database)
+            .execute(&mut *tx)
             .await?;
         }
 
-        if let Some(slug) = update.slug {
+        if let Some(slug) = slug {
             query!(
                 "UPDATE `projects` SET `slug` = ? WHERE `id` = ?",
                 slug,
                 project_id
             )
-            .execute(&*self.database)
+            .execute(&mut *tx)
             .await?;
         }
 
-        if let Some(name) = update.name {
+        if let Some(name) = name {
             query!(
                 "UPDATE `projects` SET `name` = ? WHERE `id` = ?",
                 name,
                 project_id
             )
-            .execute(&*self.database)
+            .execute(&mut *tx)
             .await?;
         }
+
+        query!(
+            "SELECT `id` AS `id: ProjectId` FROM `projects` WHERE `id` = ?",
+            project_id
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
 
         Ok(())
     }
 
-    /// Deletes a project and its servers.
+    /// Deletes an empty project.
     #[route("/{project_id}", method = DELETE)]
-    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found, not_empty})]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found, not_empty <- [sql:foreign_key]})]
     async fn delete_project(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         project_id: ProjectId,
     ) -> Result<(), _> {
-        require_project::<DeleteProjectError>(
-            &auth,
-            project_id,
-            ServerPermissions::ADMIN_MANAGEMENT,
-        )?;
-
-        let server_count = query_scalar!(
-            "SELECT COUNT(*) AS `count` FROM `servers` WHERE `project` = ?",
-            project_id
-        )
-        .fetch_one(&*self.database)
-        .await?;
-
-        if server_count > 0 {
-            return Err(DeleteProjectError::ProjectNotEmpty);
-        }
+        auth.require::<_, DeleteProjectError>(project_id, ProjectPermissions::ADMIN_MANAGEMENT)?;
 
         let result = query!("DELETE FROM `projects` WHERE `id` = ?", project_id)
             .execute(&*self.database)
@@ -227,14 +208,15 @@ pub(crate) impl ProjectService for Backend {
     }
 
     /// Lists project members.
-    #[route("/{project_id}/users", method = GET)]
+    #[route("/{project_id}/users", method = GET, raw)]
     #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found)]
     async fn list_project_users(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
+        #[special] mut page: Option<PageSplit>,
         project_id: ProjectId,
-    ) -> Result<Vec<ProjectUserInfo>, _> {
-        require_project::<ListProjectUsersError>(&auth, project_id, ServerPermissions::USER_VIEW)?;
+    ) -> Result<Paged<ProjectUserInfo>, _> {
+        auth.require::<_, ListProjectUsersError>(project_id, ProjectPermissions::USER_VIEW)?;
         ensure_project_exists::<ListProjectUsersError>(self, project_id).await?;
 
         Ok(query!(
@@ -257,22 +239,22 @@ pub(crate) impl ProjectService for Backend {
             email: user.email,
             permissions: user.permissions,
         })
-        .collect())
+        .apply_pagesplit(&mut page)
+        .collect_paged(page))
     }
 
     /// Sets project permissions for a user.
     #[route("/{project_id}/users/{user_id}", method = PUT)]
-    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found, user::not_found)]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found, user::not_found <- [sql:foreign_key])]
     async fn set_project_user(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         project_id: ProjectId,
         user_id: u32,
         permissions: i64,
     ) -> Result<(), _> {
-        require_project::<SetProjectUserError>(&auth, project_id, ServerPermissions::USER_EDIT)?;
+        auth.require::<_, SetProjectUserError>(project_id, ProjectPermissions::USER_EDIT)?;
         ensure_project_exists::<SetProjectUserError>(self, project_id).await?;
-        ensure_user_exists::<SetProjectUserError>(self, user_id).await?;
 
         query!(
             "INSERT INTO `project_users` (`user`, `project`, `permissions`)
@@ -293,11 +275,11 @@ pub(crate) impl ProjectService for Backend {
     #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found)]
     async fn remove_project_user(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         project_id: ProjectId,
         user_id: u32,
     ) -> Result<(), _> {
-        require_project::<RemoveProjectUserError>(&auth, project_id, ServerPermissions::USER_EDIT)?;
+        auth.require::<_, RemoveProjectUserError>(project_id, ProjectPermissions::USER_EDIT)?;
         ensure_project_exists::<RemoveProjectUserError>(self, project_id).await?;
 
         query!(
@@ -309,18 +291,6 @@ pub(crate) impl ProjectService for Backend {
         .await?;
 
         Ok(())
-    }
-}
-
-fn require_project<E: FromAuthPermissionDenied>(
-    auth: &UserAuthentication,
-    project_id: ProjectId,
-    permission: ServerPermissions,
-) -> Result<(), E> {
-    if auth.has_project(project_id, permission) {
-        Ok(())
-    } else {
-        Err(E::from())
     }
 }
 

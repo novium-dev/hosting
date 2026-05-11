@@ -1,6 +1,5 @@
 use crate::Backend;
 use crate::service::admin::node::NodeAdminService;
-use crate::service::admin::project::ProjectAdminService;
 use crate::service::admin::server::ServerAdminService;
 use crate::service::admin::user::UserAdminService;
 use crate::service::auth::AuthService;
@@ -28,7 +27,7 @@ impl Backend {
         #[openapi()]
         struct ApiDoc;
 
-        let (default_router,) = framework_router!(Self self (default,) { ServerService, FileService, BackupService, ServerAdminService, NodeAdminService, UserAdminService, ProjectAdminService, AuthService, ProjectService, TemplateService, InternalService });
+        let (default_router,) = framework_router!(Self self (default,) { ServerService, FileService, BackupService, ServerAdminService, NodeAdminService, UserAdminService, AuthService, ProjectService, TemplateService, InternalService });
         let (dev_auth_router,) = framework_router!(Self self (dev_auth,) { AuthService });
 
         let router = if cfg!(feature = "auth_dev") {

@@ -38,6 +38,16 @@ impl Authentication {
             Self::None => false,
         }
     }
+
+    pub fn project_permissions(
+        &self,
+        project: crate::db::project::ProjectId,
+    ) -> crate::auth::permissions::ServerPermissions {
+        match self {
+            Self::User(auth) => auth.project_permissions(project),
+            Self::None => crate::auth::permissions::ServerPermissions::empty(),
+        }
+    }
 }
 
 impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync> FromRequestParts<E>

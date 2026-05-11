@@ -54,11 +54,11 @@ pub struct SerializedUser {
 
 impl UserAuthentication {
     pub fn has<P: HasPermission>(&self, extra: P::Extra, permission: P) -> bool {
-        permission.has(extra, self.permissions, &self.servers)
+        permission.has(extra, self.permissions, &self.projects, &self.servers)
     }
 
     pub fn require<P: Permission<E>, E>(&self, extra: P::Extra, permission: P) -> Result<(), E> {
-        permission.require(extra, self.permissions, &self.servers)
+        permission.require(extra, self.permissions, &self.projects, &self.servers)
     }
 
     pub fn has_project(&self, project: ProjectId, permission: ServerPermissions) -> bool {

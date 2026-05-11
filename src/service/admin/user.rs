@@ -5,8 +5,9 @@ use crate::service::admin::user::user_admin_service_error::{
     DeleteUserError, GetUserError, ListUsersError, UpdateUserError,
 };
 use crate::service::*;
-use serde::{Deserialize, Serialize};
-use sqlx::{query, query_scalar};
+use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
+use serde::Serialize;
+use sqlx::query;
 use zelus::service;
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -18,28 +19,16 @@ pub(crate) struct AdminUserInfo {
     pub(crate) email: String,
 }
 
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub(crate) struct CreateUser {
-    pub(crate) username: String,
-    pub(crate) auth_id: String,
-    pub(crate) role: u8,
-    pub(crate) email: String,
-}
-
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub(crate) struct UpdateUser {
-    pub(crate) username: Option<String>,
-    pub(crate) auth_id: Option<String>,
-    pub(crate) role: Option<u8>,
-    pub(crate) email: Option<String>,
-}
-
 #[service(path = "/admin/user", tag = "user", no_sdk)]
 pub(crate) impl UserAdminService for Backend {
     /// Lists all users.
-    #[route("", method = GET)]
+    #[route("", method = GET, raw)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
-    async fn list_users(&self, #[special] auth: Authentication) -> Result<Vec<AdminUserInfo>, _> {
+    async fn list_users(
+        &self,
+        #[special] auth: Authentication,
+        #[special] mut page: Option<PageSplit>,
+    ) -> Result<Paged<AdminUserInfo>, _> {
         auth.require::<_, ListUsersError>((), ManagementPermissions::USER_VIEW)?;
 
         Ok(query!(
@@ -57,12 +46,13 @@ pub(crate) impl UserAdminService for Backend {
             role: user.role,
             email: user.email,
         })
-        .collect())
+        .apply_pagesplit(&mut page)
+        .collect_paged(page))
     }
 
     /// Shows a user.
     #[route("/{user_id}", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::not_found)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::not_found <- [sql:not_found])]
     async fn get_user(
         &self,
         #[special] auth: Authentication,
@@ -76,9 +66,8 @@ pub(crate) impl UserAdminService for Backend {
              WHERE `id` = ?",
             user_id
         )
-        .fetch_optional(&*self.database)
-        .await?
-        .ok_or(GetUserError::UserNotFound)?;
+        .fetch_one(&*self.database)
+        .await?;
 
         Ok(AdminUserInfo {
             id: user.id,
@@ -91,102 +80,84 @@ pub(crate) impl UserAdminService for Backend {
 
     /// Updates a user.
     #[route("/{user_id}", method = PATCH)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::not_found)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::not_found <- [sql:not_found])]
     async fn update_user(
         &self,
         #[special] auth: Authentication,
         user_id: u32,
-        update: UpdateUser,
+        username: Option<String>,
+        auth_id: Option<String>,
+        role: Option<u8>,
+        email: Option<String>,
     ) -> Result<(), _> {
         auth.require::<_, UpdateUserError>((), ManagementPermissions::USER_MANAGE)?;
-        ensure_user_exists::<UpdateUserError>(self, user_id).await?;
 
-        if let Some(username) = update.username {
+        let mut tx = self.database.begin().await?;
+
+        if let Some(username) = username {
             query!(
                 "UPDATE `users` SET `username` = ? WHERE `id` = ?",
                 username,
                 user_id
             )
-            .execute(&*self.database)
+            .execute(&mut *tx)
             .await?;
         }
 
-        if let Some(auth_id) = update.auth_id {
+        if let Some(auth_id) = auth_id {
             query!(
                 "UPDATE `users` SET `auth_id` = ? WHERE `id` = ?",
                 auth_id,
                 user_id
             )
-            .execute(&*self.database)
+            .execute(&mut *tx)
             .await?;
         }
 
-        if let Some(role) = update.role {
+        if let Some(role) = role {
             let role = Role::try_from(role).map_err(|()| UpdateUserError::DbFailure)?;
             query!(
                 "UPDATE `users` SET `role` = ? WHERE `id` = ?",
                 role as u8,
                 user_id
             )
-            .execute(&*self.database)
+            .execute(&mut *tx)
             .await?;
         }
 
-        if let Some(email) = update.email {
+        if let Some(email) = email {
             query!(
                 "UPDATE `users` SET `email` = ? WHERE `id` = ?",
                 email,
                 user_id
             )
-            .execute(&*self.database)
+            .execute(&mut *tx)
             .await?;
         }
+
+        query!("SELECT `id` FROM `users` WHERE `id` = ?", user_id)
+            .fetch_one(&mut *tx)
+            .await?;
+
+        tx.commit().await?;
 
         Ok(())
     }
 
     /// Deletes a user if they do not own projects.
     #[route("/{user_id}", method = DELETE)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::{not_found, owns_project})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::{not_found, owns_project <- [sql:foreign_key]})]
     async fn delete_user(&self, #[special] auth: Authentication, user_id: u32) -> Result<(), _> {
         auth.require::<_, DeleteUserError>((), ManagementPermissions::USER_MANAGE)?;
-        ensure_user_exists::<DeleteUserError>(self, user_id).await?;
 
-        let owns_projects = query_scalar!(
-            "SELECT (COUNT(*) > 0) AS `exists: bool` FROM `projects` WHERE `owner` = ?",
-            user_id
-        )
-        .fetch_one(&*self.database)
-        .await?;
-
-        if owns_projects {
-            return Err(DeleteUserError::UserOwnsProject);
-        }
-
-        query!("DELETE FROM `users` WHERE `id` = ?", user_id)
+        let result = query!("DELETE FROM `users` WHERE `id` = ?", user_id)
             .execute(&*self.database)
             .await?;
 
-        Ok(())
-    }
-}
+        if result.rows_affected() == 0 {
+            return Err(DeleteUserError::UserNotFound);
+        }
 
-async fn ensure_user_exists<
-    E: From<sqlx::Error> + crate::service::error_user_not_found::FromUserNotFound,
->(
-    backend: &Backend,
-    user_id: u32,
-) -> Result<(), E> {
-    let exists = query_scalar!(
-        "SELECT (COUNT(*) > 0) AS `exists: bool` FROM `users` WHERE `id` = ?",
-        user_id
-    )
-    .fetch_one(&*backend.database)
-    .await?;
-
-    if exists {
         Ok(())
-    } else {
-        Err(<E as crate::service::error_user_not_found::FromUserNotFound>::from())
     }
 }

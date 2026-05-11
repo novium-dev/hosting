@@ -22,7 +22,11 @@ use sqlx::{Connection as _, query};
 use std::str::FromStr as _;
 use tracing::{error, warn};
 use uuid::Uuid;
-use zelus::service;
+use zelus::{define_query_variable, service};
+
+define_query_variable!(project "The project");
+define_query_variable!(node "The node");
+define_query_variable!(template "The template");
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ServerListInfo {

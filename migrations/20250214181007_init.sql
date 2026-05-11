@@ -55,7 +55,7 @@ CREATE TABLE
         `slug` VARCHAR(64) NOT NULL UNIQUE,
         `name` VARCHAR(64) NOT NULL,
         `owner` INT UNSIGNED NOT NULL,
-        FOREIGN KEY (`owner`) REFERENCES `users` (`id`) ON DELETE CASCADE
+        FOREIGN KEY (`owner`) REFERENCES `users` (`id`)
     ) ENGINE = INNODB;
 
 CREATE TABLE
@@ -87,7 +87,7 @@ CREATE TABLE
         `internet_access` BOOLEAN NOT NULL DEFAULT TRUE,
         `backup_limit` INT UNSIGNED DEFAULT NULL,
         FOREIGN KEY (`node`) REFERENCES `nodes` (`id`),
-        FOREIGN KEY (`project`) REFERENCES `projects` (`id`) ON DELETE CASCADE,
+        FOREIGN KEY (`project`) REFERENCES `projects` (`id`),
         UNIQUE (`node`, `node_server_id`)
     ) ENGINE = INNODB;
 

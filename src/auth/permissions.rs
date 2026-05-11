@@ -1,5 +1,7 @@
+use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
+use crate::service::error_project_not_found::FromProjectNotFound;
 use crate::service::error_server_not_found::FromServerNotFound;
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
@@ -12,6 +14,7 @@ pub trait HasPermission {
         self,
         extra: Self::Extra,
         permissions: i64,
+        projects: &HashMap<ProjectId, ServerPermissions>,
         servers: &HashMap<ServerId, ServerPermissions>,
     ) -> bool
     where
@@ -23,6 +26,7 @@ pub trait Permission<E>: HasPermission {
         self,
         extra: Self::Extra,
         permissions: i64,
+        projects: &HashMap<ProjectId, ServerPermissions>,
         servers: &HashMap<ServerId, ServerPermissions>,
     ) -> Result<(), E>
     where
@@ -30,6 +34,20 @@ pub trait Permission<E>: HasPermission {
 }
 
 bitflags! {
+    /// Permission set on a per-project basis.
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Default)]
+    #[repr(transparent)]
+    pub struct ProjectPermissions: i64 {
+        /// Allows the user to see the project.
+        const VIEW = ServerPermissions::VIEW.bits();
+        /// Allows the user to view project members.
+        const USER_VIEW = ServerPermissions::USER_VIEW.bits();
+        /// Allows the user to modify project members.
+        const USER_EDIT = ServerPermissions::USER_EDIT.bits();
+        /// Allows the user to manage project metadata and servers.
+        const ADMIN_MANAGEMENT = ServerPermissions::ADMIN_MANAGEMENT.bits();
+    }
+
     /// Permission set on a per-server basis
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Default)]
     #[repr(transparent)]
@@ -196,6 +214,7 @@ impl HasPermission for ServerPermissions {
         self,
         extra: Self::Extra,
         permissions: i64,
+        _projects: &HashMap<ProjectId, ServerPermissions>,
         servers: &HashMap<ServerId, ServerPermissions>,
     ) -> bool
     where
@@ -210,17 +229,59 @@ impl<E: FromAuthPermissionDenied + FromServerNotFound> Permission<E> for ServerP
         self,
         extra: Self::Extra,
         permissions: i64,
+        projects: &HashMap<ProjectId, ServerPermissions>,
         servers: &HashMap<ServerId, ServerPermissions>,
     ) -> Result<(), E>
     where
         Self: Sized,
     {
-        if self.has(extra, permissions, servers) {
+        if self.has(extra, permissions, projects, servers) {
             Ok(())
-        } else if Self::VIEW.has(extra, permissions, servers) {
+        } else if Self::VIEW.has(extra, permissions, projects, servers) {
             Err(<E as FromAuthPermissionDenied>::from())
         } else {
             Err(<E as FromServerNotFound>::from())
+        }
+    }
+}
+
+impl HasPermission for ProjectPermissions {
+    type Extra = ProjectId;
+
+    fn has(
+        self,
+        extra: Self::Extra,
+        permissions: i64,
+        projects: &HashMap<ProjectId, ServerPermissions>,
+        _servers: &HashMap<ServerId, ServerPermissions>,
+    ) -> bool
+    where
+        Self: Sized,
+    {
+        let permissions = projects.get(&extra).copied().unwrap_or_default()
+            | ServerPermissions::from_bits_retain(permissions);
+        permissions.contains(ServerPermissions::from_bits_retain(
+            self.with_dependencies().bits(),
+        ))
+    }
+}
+impl<E: FromAuthPermissionDenied + FromProjectNotFound> Permission<E> for ProjectPermissions {
+    fn require(
+        self,
+        extra: Self::Extra,
+        permissions: i64,
+        projects: &HashMap<ProjectId, ServerPermissions>,
+        servers: &HashMap<ServerId, ServerPermissions>,
+    ) -> Result<(), E>
+    where
+        Self: Sized,
+    {
+        if self.has(extra, permissions, projects, servers) {
+            Ok(())
+        } else if Self::VIEW.has(extra, permissions, projects, servers) {
+            Err(<E as FromAuthPermissionDenied>::from())
+        } else {
+            Err(<E as FromProjectNotFound>::from())
         }
     }
 }
@@ -232,6 +293,7 @@ impl HasPermission for ManagementPermissions {
         self,
         _extra: Self::Extra,
         permissions: i64,
+        _projects: &HashMap<ProjectId, ServerPermissions>,
         _servers: &HashMap<ServerId, ServerPermissions>,
     ) -> bool
     where
@@ -245,12 +307,13 @@ impl<E: FromAuthPermissionDenied> Permission<E> for ManagementPermissions {
         self,
         extra: Self::Extra,
         permissions: i64,
+        projects: &HashMap<ProjectId, ServerPermissions>,
         servers: &HashMap<ServerId, ServerPermissions>,
     ) -> Result<(), E>
     where
         Self: Sized,
     {
-        if self.has(extra, permissions, servers) {
+        if self.has(extra, permissions, projects, servers) {
             Ok(())
         } else {
             Err(E::from())
@@ -281,6 +344,22 @@ impl ServerPermissions {
     fn with_dependency(&mut self, base: Self, dependencies: Self) {
         if self.contains(base) {
             *self |= dependencies;
+        }
+    }
+}
+
+impl ProjectPermissions {
+    fn with_dependencies(mut self) -> Self {
+        if !self.is_empty() {
+            self |= Self::VIEW;
+        }
+        self.with_dependency(Self::USER_EDIT, Self::USER_VIEW);
+        self
+    }
+
+    fn with_dependency(&mut self, permission: Self, dependency: Self) {
+        if self.contains(permission) {
+            *self |= dependency;
         }
     }
 }
