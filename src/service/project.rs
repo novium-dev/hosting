@@ -1,13 +1,13 @@
 use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::{ManagementPermissions, ProjectPermissions};
+use crate::auth::permissions::ProjectPermissions;
 use crate::auth::user::UserAuthentication;
 use crate::db::project::ProjectId;
 use crate::service::error_project_not_found::FromProjectNotFound;
 use crate::service::project::project_service_error::{
-    DeleteProjectError, GetProjectError, ListProjectUsersError, RemoveProjectUserError,
-    SetProjectUserError, UpdateProjectError,
+    DeleteProjectError, GetProjectError, ListProjectUsersError, ListProjectsError,
+    RemoveProjectUserError, SetProjectUserError, UpdateProjectError,
 };
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use serde::Serialize;
@@ -35,39 +35,28 @@ pub(crate) struct ProjectUserInfo {
 pub(crate) impl ProjectService for Backend {
     /// Lists projects the current user can access.
     #[route("", method = GET, raw)]
-    #[error(db::failure <- [sql:*], auth::unreachable)]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found)]
     async fn list_projects(
         &self,
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
     ) -> Result<Paged<ProjectInfo>, _> {
-        let can_manage = auth.has((), ManagementPermissions::SERVER_MANAGE);
-
-        let auth_id = match auth {
-            Authentication::User(ref user_auth) => Some(user_auth.id),
-            Authentication::None => None, // this can't happen
-            // TODO: we add here api key support
-        };
-
         Ok(query!(
             "SELECT
-                `projects`.`id` AS `id: ProjectId`,
-                `projects`.`slug`,
-                `projects`.`name`,
-                `projects`.`owner`,
-                `project_users`.`permissions`
+                `id` AS `id: ProjectId`,
+                `slug`,
+                `name`,
+                `owner`
              FROM `projects`
-             LEFT JOIN `project_users`
-                ON `project_users`.`project` = `projects`.`id`
-                AND `project_users`.`user` = ?
-             WHERE ? OR `projects`.`owner` = ? OR `project_users`.`user` IS NOT NULL",
-            auth_id,
-            can_manage,
-            auth_id
+             ORDER BY `slug`"
         )
         .fetch_all(&*self.database)
         .await?
         .into_iter()
+        .filter(|project| {
+            auth.require::<_, ListProjectsError>(project.id, ProjectPermissions::VIEW)
+                .is_ok()
+        })
         .map(|project| {
             let id = project.id;
             ProjectInfo {
