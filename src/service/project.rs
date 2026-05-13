@@ -1,7 +1,7 @@
 use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::ProjectPermissions;
+use crate::auth::permissions::{ProjectPermissions, ServerPermissions};
 use crate::auth::user::UserAuthentication;
 use crate::db::project::ProjectId;
 use crate::service::error_project_not_found::FromProjectNotFound;
@@ -219,7 +219,20 @@ pub(crate) impl ProjectService for Backend {
         auth.require::<_, ListProjectUsersError>(project_id, ProjectPermissions::USER_VIEW)?;
         ensure_project_exists::<ListProjectUsersError>(self, project_id).await?;
 
-        Ok(query!(
+        let owner = query!(
+            "SELECT
+                `users`.`id`,
+                `users`.`username`,
+                `users`.`email`
+             FROM `projects`
+             JOIN `users` ON `users`.`id` = `projects`.`owner`
+             WHERE `projects`.`id` = ?",
+            project_id
+        )
+        .fetch_one(&*self.database)
+        .await?;
+
+        let project_users = query!(
             "SELECT
                 `users`.`id`,
                 `users`.`username`,
@@ -227,18 +240,26 @@ pub(crate) impl ProjectService for Backend {
                 `project_users`.`permissions`
              FROM `project_users`
              JOIN `users` ON `users`.`id` = `project_users`.`user`
-            WHERE `project_users`.`project` = ?",
-            project_id
+             JOIN `projects` ON `projects`.`id` = `project_users`.`project`
+            WHERE `project_users`.`project` = ?
+              AND `project_users`.`user` != `projects`.`owner`",
+            project_id,
         )
         .fetch_all(&*self.database)
-        .await?
-        .into_iter()
-        .map(|user| ProjectUserInfo {
+        .await?;
+
+        Ok(core::iter::once(ProjectUserInfo {
+            id: owner.id,
+            username: owner.username,
+            email: owner.email,
+            permissions: ServerPermissions::all().bits(),
+        })
+        .chain(project_users.into_iter().map(|user| ProjectUserInfo {
             id: user.id,
             username: user.username,
             email: user.email,
             permissions: user.permissions,
-        })
+        }))
         .apply_pagesplit(&mut page)
         .collect_paged(page))
     }
