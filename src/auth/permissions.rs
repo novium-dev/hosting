@@ -410,14 +410,14 @@ impl Role {
         }
     }
 
-    pub fn server_permissions(self) -> ServerPermissions {
+    pub const fn server_permissions(self) -> ServerPermissions {
         match self {
             Self::Admin => ServerPermissions::all(),
-            Self::Moderator => {
-                ServerPermissions::VIEW
-                    | ServerPermissions::POWER
-                    | ServerPermissions::TERMINAL_READ
-            }
+            Self::Moderator => ServerPermissions::from_bits_retain(
+                ServerPermissions::VIEW.bits()
+                    | ServerPermissions::POWER.bits()
+                    | ServerPermissions::TERMINAL_READ.bits(),
+            ),
             Self::User => ServerPermissions::empty(),
         }
     }
