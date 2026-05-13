@@ -1,6 +1,9 @@
 pub mod flow;
 
 use crate::config::AuthConfig;
+use crate::service::error_auth_invalid::FromAuthInvalid;
+use crate::service::error_auth_misconfigured::FromAuthMisconfigured;
+use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use http::StatusCode;
 use oauth2::basic::{BasicClient, BasicRequestTokenError};
 use oauth2::{
@@ -11,9 +14,6 @@ use reqwest::redirect::Policy;
 use serde::Deserialize;
 use tracing::error;
 use url::Url;
-use crate::service::error_auth_invalid::FromAuthInvalid;
-use crate::service::error_auth_misconfigured::FromAuthMisconfigured;
-use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 
 #[derive(Clone)]
 pub(crate) struct AuthService {
@@ -52,8 +52,10 @@ pub struct AuthUser {
 }
 
 impl AuthService {
-    pub async fn get_user<E: FromAuthMisconfigured + FromAuthPermissionDenied + FromAuthInvalid>(&self, access_token: &str) -> Result<AuthUser, E> {
-
+    pub async fn get_user<E: FromAuthMisconfigured + FromAuthPermissionDenied + FromAuthInvalid>(
+        &self,
+        access_token: &str,
+    ) -> Result<AuthUser, E> {
         let response = self
             .http_client
             .get(self.userinfo_url.clone())

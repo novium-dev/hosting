@@ -25,9 +25,9 @@ pub enum Authentication {
 }
 
 impl Authentication {
-    pub fn require<P: Permission<E>, E: FromAuthPermissionDenied>(
+    pub fn require<P: Permission<Extra, E>, Extra, E: FromAuthPermissionDenied>(
         &self,
-        extra: P::Extra,
+        extra: Extra,
         permission: P,
     ) -> Result<(), E> {
         match self {
@@ -36,7 +36,7 @@ impl Authentication {
         }
     }
 
-    pub fn has<P: HasPermission>(&self, extra: P::Extra, permission: P) -> bool {
+    pub fn has<P: HasPermission<Extra>, Extra>(&self, extra: Extra, permission: P) -> bool {
         match self {
             Self::User(auth) => auth.has(extra, permission),
             Self::None => false,
@@ -46,10 +46,10 @@ impl Authentication {
     pub fn project_permissions(
         &self,
         project: crate::db::project::ProjectId,
-    ) -> crate::auth::permissions::ServerPermissions {
+    ) -> crate::auth::permissions::ProjectPermissions {
         match self {
             Self::User(auth) => auth.project_permissions(project),
-            Self::None => crate::auth::permissions::ServerPermissions::empty(),
+            Self::None => crate::auth::permissions::ProjectPermissions::empty(),
         }
     }
 

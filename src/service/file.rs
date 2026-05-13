@@ -45,7 +45,7 @@ pub(crate) impl FileService for Backend {
         server_id: ServerId,
         path: String,
     ) -> Result<Paged<FileEntry>, _> {
-        auth.require::<_, ListFilesError>(server_id, ServerPermissions::FILES_READ)?;
+        auth.require::<_, _, ListFilesError>(server_id, ServerPermissions::FILES_READ)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -86,7 +86,7 @@ pub(crate) impl FileService for Backend {
         server_id: ServerId,
         path: String,
     ) -> Result<FileEntry, _> {
-        auth.require::<_, StatFileError>(server_id, ServerPermissions::FILES_READ)?;
+        auth.require::<_, _, StatFileError>(server_id, ServerPermissions::FILES_READ)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -124,7 +124,7 @@ pub(crate) impl FileService for Backend {
         from: String,
         to: String,
     ) -> Result<(), _> {
-        auth.require::<_, RenameFileError>(server_id, ServerPermissions::FILES_WRITE)?;
+        auth.require::<_, _, RenameFileError>(server_id, ServerPermissions::FILES_WRITE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -167,7 +167,7 @@ pub(crate) impl FileService for Backend {
         from: String,
         to: String,
     ) -> Result<(), _> {
-        auth.require::<_, CopyFileError>(server_id, ServerPermissions::FILES_WRITE)?;
+        auth.require::<_, _, CopyFileError>(server_id, ServerPermissions::FILES_WRITE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -209,7 +209,7 @@ pub(crate) impl FileService for Backend {
         path: String,
         recursive: bool,
     ) -> Result<(), _> {
-        auth.require::<_, DeleteFileError>(server_id, ServerPermissions::FILES_WRITE)?;
+        auth.require::<_, _, DeleteFileError>(server_id, ServerPermissions::FILES_WRITE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -253,7 +253,7 @@ pub(crate) impl FileService for Backend {
         path: String,
         recursive: bool,
     ) -> Result<(), _> {
-        auth.require::<_, CreateDirectoryError>(server_id, ServerPermissions::FILES_WRITE)?;
+        auth.require::<_, _, CreateDirectoryError>(server_id, ServerPermissions::FILES_WRITE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -303,7 +303,7 @@ pub(crate) impl FileService for Backend {
         path: String,
         content: String,
     ) -> Result<(), _> {
-        auth.require::<_, SymlinkFileError>(server_id, ServerPermissions::FILES_WRITE)?;
+        auth.require::<_, _, SymlinkFileError>(server_id, ServerPermissions::FILES_WRITE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -343,7 +343,7 @@ pub(crate) impl FileService for Backend {
         path: String,
         limit: Option<u64>,
     ) -> Result<UrlResponse, _> {
-        auth.require::<_, DownloadUserError>(server_id, ServerPermissions::FILES_READ)?;
+        auth.require::<_, _, DownloadUserError>(server_id, ServerPermissions::FILES_READ)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -367,7 +367,7 @@ pub(crate) impl FileService for Backend {
         server_id: ServerId,
         path: String,
     ) -> Result<UrlResponse, _> {
-        auth.require::<_, UploadUserError>(server_id, ServerPermissions::FILES_WRITE)?;
+        auth.require::<_, _, UploadUserError>(server_id, ServerPermissions::FILES_WRITE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -391,7 +391,7 @@ pub(crate) impl FileService for Backend {
         to: String,
         compression: String,
     ) -> Result<(), _> {
-        auth.require::<_, ArchiveFileError>(server_id, ServerPermissions::FILES_WRITE)?;
+        auth.require::<_, _, ArchiveFileError>(server_id, ServerPermissions::FILES_WRITE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -442,7 +442,7 @@ pub(crate) impl FileService for Backend {
         from: String,
         to: String,
     ) -> Result<(), _> {
-        auth.require::<_, UnarchiveFileError>(server_id, ServerPermissions::FILES_WRITE)?;
+        auth.require::<_, _, UnarchiveFileError>(server_id, ServerPermissions::FILES_WRITE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -491,7 +491,7 @@ pub(crate) impl FileService for Backend {
         server_id: ServerId,
         file_name: String,
     ) -> Result<Value, _> {
-        auth.require::<_, GetConfigError>(server_id, ServerPermissions::FILES_READ)?;
+        auth.require::<_, _, GetConfigError>(server_id, ServerPermissions::FILES_READ)?;
 
         let ext = file_name
             .rsplit('.')
@@ -618,7 +618,7 @@ pub(crate) impl FileService for Backend {
         file_name: String,
         payload: Value,
     ) -> Result<(), _> {
-        auth.require::<_, SetConfigError>(server_id, ServerPermissions::FILES_WRITE)?;
+        auth.require::<_, _, SetConfigError>(server_id, ServerPermissions::FILES_WRITE)?;
 
         let ext = file_name
             .rsplit('.')
@@ -704,7 +704,7 @@ pub(crate) impl FileService for Backend {
         server_id: ServerId,
         resource: Resource,
     ) -> Result<(), _> {
-        auth.require::<_, GetResourceError>(server_id, ServerPermissions::FILES_WRITE)?;
+        auth.require::<_, _, GetResourceError>(server_id, ServerPermissions::FILES_WRITE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)

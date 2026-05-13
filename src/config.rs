@@ -1,7 +1,7 @@
 use core::net::SocketAddr;
+use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use oauth2::{ClientId, ClientSecret, RedirectUrl, AuthUrl, TokenUrl};
 use url::Url;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

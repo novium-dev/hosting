@@ -52,7 +52,7 @@ pub(crate) impl NodeAdminService for Backend {
     #[route("", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*])]
     async fn create_node(&self, #[special] auth: Authentication) -> Result<String, _> {
-        auth.require::<_, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
+        auth.require::<_, _, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
         let code = gen_code::<CreateNodeError>()?;
 
@@ -75,7 +75,7 @@ pub(crate) impl NodeAdminService for Backend {
         #[special] auth: Authentication,
         #[no_schema] node_id: Uuid,
     ) -> Result<String, _> {
-        auth.require::<_, UpdateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
+        auth.require::<_, _, UpdateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
         if self.nodes.read().await.get(&node_id).is_none() {
             return Err(UpdateNodeError::NodeNotFound);
@@ -98,7 +98,7 @@ pub(crate) impl NodeAdminService for Backend {
     #[route("", method = GET)]
     #[error(auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*])]
     async fn list_nodes(&self, #[special] auth: Authentication) -> Result<Vec<NodeInfo>, _> {
-        auth.require::<_, ListNodesError>((), ManagementPermissions::NODES_VIEW)?;
+        auth.require::<_, _, ListNodesError>((), ManagementPermissions::NODES_VIEW)?;
         Ok(self
             .nodes
             .read()
@@ -129,7 +129,7 @@ pub(crate) impl NodeAdminService for Backend {
         #[no_schema] node_id: Uuid,
         maintenance: bool,
     ) -> Result<(), _> {
-        auth.require::<_, UpdateMaintenanceError>((), ManagementPermissions::NODES_MANAGE)?;
+        auth.require::<_, _, UpdateMaintenanceError>((), ManagementPermissions::NODES_MANAGE)?;
 
         if self.nodes.read().await.get(&node_id).is_none() {
             return Err(UpdateMaintenanceError::NodeNotFound);
@@ -164,7 +164,7 @@ pub(crate) impl NodeAdminService for Backend {
     ) -> Result<daemon_common::service::resource::ResourceResponse, _> {
         use daemon_common::service::resource::resource_service_error::ResourceInfoError;
 
-        auth.require::<_, MetricsNodeError>((), ManagementPermissions::NODES_VIEW)?;
+        auth.require::<_, _, MetricsNodeError>((), ManagementPermissions::NODES_VIEW)?;
 
         let node = self
             .nodes
@@ -195,7 +195,7 @@ pub(crate) impl NodeAdminService for Backend {
         #[special] auth: Authentication,
         #[no_schema] node_id: Uuid,
     ) -> Result<HashMap<String, Vec<PortRange>>, _> {
-        auth.require::<_, AvailablePortsError>((), ManagementPermissions::NODES_VIEW)?;
+        auth.require::<_, _, AvailablePortsError>((), ManagementPermissions::NODES_VIEW)?;
 
         let node = self
             .nodes
@@ -243,7 +243,7 @@ pub(crate) impl NodeAdminService for Backend {
         end: u16,
         protocol: String,
     ) -> Result<u32, _> {
-        auth.require::<_, AddPortError>((), ManagementPermissions::NODES_MANAGE)?;
+        auth.require::<_, _, AddPortError>((), ManagementPermissions::NODES_MANAGE)?;
 
         let protocol = NetworkProtocol::by_name(&protocol);
         if start > end {
@@ -285,7 +285,7 @@ pub(crate) impl NodeAdminService for Backend {
         #[no_schema] node_id: Uuid,
         port_id: u32,
     ) -> Result<(), _> {
-        auth.require::<_, DeletePortError>((), ManagementPermissions::NODES_MANAGE)?;
+        auth.require::<_, _, DeletePortError>((), ManagementPermissions::NODES_MANAGE)?;
 
         if self.nodes.read().await.get(&node_id).is_none() {
             return Err(DeletePortError::NodeNotFound);

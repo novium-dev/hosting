@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
+use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
@@ -16,10 +16,10 @@ use crate::service::template::*;
 use crate::templates::TemplateError;
 use crate::templates::variable::VariablePayload;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
+use core::str::FromStr as _;
 use daemon_common::service::server::{ServerNetworkPayload, ServerResourcePayload};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query};
-use core::str::FromStr as _;
 use tracing::{error, warn};
 use uuid::Uuid;
 use zelus::{define_query_variable, service};
@@ -85,7 +85,7 @@ pub(crate) struct ServerLimits {
 pub(crate) impl ServerService for Backend {
     /// Lists all servers you have access to.
     ///
-    /// Only servers in which you have the [`ServerPermissions::VIEW`] permission are listed.
+    /// Only servers in which you have the [`ProjectPermissions::VIEW`] permission are listed.
     #[route("", method = GET, raw, query = [project, node, template])]
     #[error(auth::unreachable, db::failure <- [sql:*])]
     async fn list_servers(
@@ -117,7 +117,7 @@ pub(crate) impl ServerService for Backend {
             .filter(|server| project_filter.is_none_or(|owner| *server.project == *owner))
             .filter(|server| node_filter.as_ref().is_none_or(|node| *server.node.as_uuid() == *node))
             .filter(|server| template.as_ref().is_none_or(|template| server.template == *template))
-            .filter(|server| auth.has(server.id, ServerPermissions::VIEW))
+            .filter(|server| auth.has(server.id, ProjectPermissions::VIEW))
             .apply_pagesplit(&mut page)
             .collect::<Vec<_>>();
 
@@ -156,7 +156,7 @@ pub(crate) impl ServerService for Backend {
     /// Shows information about a specific server.
     ///
     /// # Permissions
-    /// Requires [`ServerPermissions::VIEW`].
+    /// Requires [`ProjectPermissions::VIEW`].
     #[route("/{server_id}", method = GET)]
     #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
     async fn server_info(
@@ -164,7 +164,7 @@ pub(crate) impl ServerService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<ServerInfo, _> {
-        auth.require::<_, ServerInfoError>(server_id, ServerPermissions::VIEW)?;
+        auth.require::<_, _, ServerInfoError>(server_id, ProjectPermissions::VIEW)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
@@ -271,8 +271,8 @@ pub(crate) impl ServerService for Backend {
     /// Updates server metadata and runtime limits.
     ///
     /// # Permissions
-    /// Requires [`ServerPermissions::VIEW`].
-    /// Requires [`ServerPermissions::ADMIN_MANAGEMENT`] to rename a server.
+    /// Requires [`ProjectPermissions::VIEW`].
+    /// Requires [`ProjectPermissions::ADMIN_MANAGEMENT`] to rename a server.
     /// Requires [`ManagementPermissions::SERVER_MANAGE`] to update resources, internet access,
     /// backup limits or custom dockerfile.
     /// Requires [`ManagementPermissions::SERVER_SUSPEND`] to (un)suspend a server.
@@ -289,10 +289,13 @@ pub(crate) impl ServerService for Backend {
         internet_access: Option<bool>,
         limits: Option<ServerLimits>,
     ) -> Result<(), _> {
-        auth.require::<_, UpdateServerError>(server_id, ServerPermissions::VIEW)?;
+        auth.require::<_, _, UpdateServerError>(server_id, ProjectPermissions::VIEW)?;
 
         if name.is_some() {
-            auth.require::<_, UpdateServerError>(server_id, ServerPermissions::ADMIN_MANAGEMENT)?;
+            auth.require::<_, _, UpdateServerError>(
+                server_id,
+                ProjectPermissions::ADMIN_MANAGEMENT,
+            )?;
         }
 
         if resource.is_some()
@@ -300,11 +303,11 @@ pub(crate) impl ServerService for Backend {
             || custom_dockerfile.is_some()
             || limits.is_some()
         {
-            auth.require::<_, UpdateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
+            auth.require::<_, _, UpdateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
         }
 
         if suspended.is_some() {
-            auth.require::<_, UpdateServerError>((), ManagementPermissions::SERVER_SUSPEND)?;
+            auth.require::<_, _, UpdateServerError>((), ManagementPermissions::SERVER_SUSPEND)?;
         }
 
         let backup_limit = limits.map(|limits| limits.backup);
@@ -445,7 +448,7 @@ pub(crate) impl ServerService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<String, _> {
-        auth.require::<_, ServerTerminalError>(server_id, ServerPermissions::TERMINAL_READ)?;
+        auth.require::<_, _, ServerTerminalError>(server_id, ServerPermissions::TERMINAL_READ)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
@@ -468,7 +471,7 @@ pub(crate) impl ServerService for Backend {
     /// Redirects to an websocket url with stats updates (status and resource usage)
     ///
     /// # Permissions
-    /// Requires [`ServerPermissions::VIEW`].
+    /// Requires [`ProjectPermissions::VIEW`].
     #[route("/{server_id}/stats", method = GET)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn server_stats(
@@ -476,7 +479,7 @@ pub(crate) impl ServerService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<String, _> {
-        auth.require::<_, ServerStatsError>(server_id, ServerPermissions::VIEW)?;
+        auth.require::<_, _, ServerStatsError>(server_id, ProjectPermissions::VIEW)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
@@ -504,7 +507,7 @@ pub(crate) impl ServerService for Backend {
     ) -> Result<(), _> {
         use daemon_common::service::server::server_service_error::StartServerError as DaemonStartServerError;
 
-        auth.require::<_, StartServerError>(server_id, ServerPermissions::POWER)?;
+        auth.require::<_, _, StartServerError>(server_id, ServerPermissions::POWER)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
@@ -538,7 +541,7 @@ pub(crate) impl ServerService for Backend {
     ) -> Result<(), _> {
         use daemon_common::service::server::server_service_error::StopServerError as DaemonStopServerError;
 
-        auth.require::<_, StopServerError>(server_id, ServerPermissions::POWER)?;
+        auth.require::<_, _, StopServerError>(server_id, ServerPermissions::POWER)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
@@ -572,7 +575,7 @@ pub(crate) impl ServerService for Backend {
     ) -> Result<(), _> {
         use daemon_common::service::server::server_service_error::RestartServerError as DaemonRestartServerError;
 
-        auth.require::<_, RestartServerError>(server_id, ServerPermissions::POWER)?;
+        auth.require::<_, _, RestartServerError>(server_id, ServerPermissions::POWER)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
@@ -606,7 +609,7 @@ pub(crate) impl ServerService for Backend {
     ) -> Result<(), _> {
         use daemon_common::service::server::server_service_error::KillServerError as DaemonKillServerError;
 
-        auth.require::<_, KillServerError>(server_id, ServerPermissions::POWER)?;
+        auth.require::<_, _, KillServerError>(server_id, ServerPermissions::POWER)?;
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
@@ -634,7 +637,7 @@ pub(crate) impl ServerService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<VariablePayload, _> {
-        auth.require::<_, ServerVariablesError>(server_id, ServerPermissions::BUILD_VIEW)?;
+        auth.require::<_, _, ServerVariablesError>(server_id, ServerPermissions::BUILD_VIEW)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -656,7 +659,7 @@ pub(crate) impl ServerService for Backend {
         server_id: ServerId,
         variables: HashMap<String, String>,
     ) -> Result<(), _> {
-        auth.require::<_, UpdateVariablesError>(server_id, ServerPermissions::BUILD_EDIT)?;
+        auth.require::<_, _, UpdateVariablesError>(server_id, ServerPermissions::BUILD_EDIT)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)

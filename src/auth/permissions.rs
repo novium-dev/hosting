@@ -7,27 +7,25 @@ use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub trait HasPermission {
-    type Extra;
-
+pub trait HasPermission<Extra> {
     fn has(
         self,
-        extra: Self::Extra,
+        extra: Extra,
         permissions: i64,
-        projects: &HashMap<ProjectId, ServerPermissions>,
-        servers: &HashMap<ServerId, ServerPermissions>,
+        projects: &HashMap<ProjectId, i64>,
+        servers: &HashMap<ServerId, i64>,
     ) -> bool
     where
         Self: Sized;
 }
 
-pub trait Permission<E>: HasPermission {
+pub trait Permission<Extra, E>: HasPermission<Extra> {
     fn require(
         self,
-        extra: Self::Extra,
+        extra: Extra,
         permissions: i64,
-        projects: &HashMap<ProjectId, ServerPermissions>,
-        servers: &HashMap<ServerId, ServerPermissions>,
+        projects: &HashMap<ProjectId, i64>,
+        servers: &HashMap<ServerId, i64>,
     ) -> Result<(), E>
     where
         Self: Sized;
@@ -38,32 +36,28 @@ bitflags! {
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Default)]
     #[repr(transparent)]
     pub struct ProjectPermissions: i64 {
-        /// Allows the user to see the project.
-        const VIEW = ServerPermissions::VIEW.bits();
+        /// Allows the user to see the project and its servers.
+        const VIEW = 1 << 0;
         /// Allows the user to view project members.
-        const USER_VIEW = ServerPermissions::USER_VIEW.bits();
+        const USER_VIEW = 1 << 13;
         /// Allows the user to modify project members.
-        const USER_EDIT = ServerPermissions::USER_EDIT.bits();
+        const USER_EDIT = 1 << 14;
         /// Allows the user to manage project metadata and servers.
-        const ADMIN_MANAGEMENT = ServerPermissions::ADMIN_MANAGEMENT.bits();
+        const ADMIN_MANAGEMENT = 1 << 16;
     }
 
     /// Permission set on a per-server basis
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Default)]
     #[repr(transparent)]
     pub struct ServerPermissions: i64 {
-        /// Allows the user to see the server.
-        /// Any action not covered by other permissions will be granted with this permission.
-        ///
-        const VIEW = 1 << 0;
         /// Allows the user to start, stop, restart and kill the server.
         ///
-        /// Depends on [`ServerPermissions::VIEW`]
+        /// Depends on [`ProjectPermissions::VIEW`]
         const POWER = 1 << 1;
 
         /// Allows the user to see the content on the server terminal.
         ///
-        /// Depends on [`ServerPermissions::VIEW`]
+        /// Depends on [`ProjectPermissions::VIEW`]
         const TERMINAL_READ = 1 << 2;
         /// Allows the user to write contents into the console, assuming the server software allows it.
         ///
@@ -72,7 +66,7 @@ bitflags! {
 
         /// Allows the user to view the server settings that are set for the selected template.
         ///
-        /// Depends on [`ServerPermissions::VIEW`]
+        /// Depends on [`ProjectPermissions::VIEW`]
         const BUILD_VIEW = 1 << 4;
         /// Allows the user to modify the server settings.
         /// It does not allow the change of the selected template.
@@ -83,7 +77,7 @@ bitflags! {
         /// Allows the user to access files.
         /// It does not allow modification of the files in any way.
         ///
-        /// Depends on [`ServerPermissions::VIEW`]
+        /// Depends on [`ProjectPermissions::VIEW`]
         const FILES_READ = 1 << 6;
         /// Allows the user to modify files.
         ///
@@ -93,7 +87,7 @@ bitflags! {
         /// Allows the user to view existing backups.
         /// It does not allow to view the contents of the backup.
         ///
-        /// Depends on [`ServerPermissions::VIEW`]
+        /// Depends on [`ProjectPermissions::VIEW`]
         const BACKUP_VIEW = 1 << 8;
         /// Allows the user to download existing backups or access them via sftp.
         ///
@@ -112,27 +106,10 @@ bitflags! {
         /// Depends on [`ServerPermissions::BACKUP_VIEW`]
         const BACKUP_RESTORE = 1 << 12;
 
-        /// Allows the user to view the permissions of other users.
-        ///
-        /// Depends on [`ServerPermissions::VIEW`]
-        const USER_VIEW = 1 << 13;
-        /// Allows the user to modify the permissions of other users.
-        /// It cannot take away permissions from the project owner.
-        ///
-        /// Depends on [`ServerPermissions::USER_EDIT`]
-        const USER_EDIT = 1 << 14;
-
-
         /// Allows the user to view the server's network configuration, including assigned ports and networks.
         ///
-        /// Depends on [`ServerPermissions::VIEW`]
+        /// Depends on [`ProjectPermissions::VIEW`]
         const NETWORK_VIEW = 1 << 15;
-
-        /// Allows
-        /// - the rename of the server
-        ///
-        /// Depends on [`ServerPermissions::VIEW`]
-        const ADMIN_MANAGEMENT = 1 << 16;
     }
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -147,15 +124,15 @@ bitflags! {
         /// of a server.
         /// Also allows the user to create and delete servers.
         ///
-        /// Depends on [`ServerPermissions::VIEW`]
+        /// Depends on [`ProjectPermissions::VIEW`]
         const SERVER_MANAGE = 1 << 32;
         /// Allows the user to suspend a server.
         ///
-        /// Depends on [`ServerPermissions::VIEW`]
+        /// Depends on [`ProjectPermissions::VIEW`]
         const SERVER_SUSPEND = 1 << 33;
         /// Allows the user to delete a server.
         ///
-        /// Depends on [`ServerPermissions::VIEW`]
+        /// Depends on [`ProjectPermissions::VIEW`]
         const SERVER_DELETE = 1 << 34;
 
         /// Allows the user to view all the users on this instance.
@@ -208,37 +185,41 @@ bitflags! {
     }
 }
 
-impl HasPermission for ServerPermissions {
-    type Extra = ServerId;
-
+impl HasPermission<ServerId> for ServerPermissions {
     fn has(
         self,
-        extra: Self::Extra,
+        extra: ServerId,
         permissions: i64,
-        _projects: &HashMap<ProjectId, ServerPermissions>,
-        servers: &HashMap<ServerId, ServerPermissions>,
+        projects: &HashMap<ProjectId, i64>,
+        servers: &HashMap<ServerId, i64>,
     ) -> bool
     where
         Self: Sized,
     {
-        (servers.get(&extra).copied().unwrap_or_default() | Self::from_bits_retain(permissions))
+        let has_project_view =
+            self.is_empty() || ProjectPermissions::VIEW.has(extra, permissions, projects, servers);
+        has_project_view
+            && (Self::from_bits_retain(servers.get(&extra).copied().unwrap_or_default())
+                | Self::from_bits_retain(permissions))
             .contains(self.with_dependencies())
     }
 }
-impl<E: FromAuthPermissionDenied + FromServerNotFound> Permission<E> for ServerPermissions {
+impl<E: FromAuthPermissionDenied + FromServerNotFound> Permission<ServerId, E>
+    for ServerPermissions
+{
     fn require(
         self,
-        extra: Self::Extra,
+        extra: ServerId,
         permissions: i64,
-        projects: &HashMap<ProjectId, ServerPermissions>,
-        servers: &HashMap<ServerId, ServerPermissions>,
+        projects: &HashMap<ProjectId, i64>,
+        servers: &HashMap<ServerId, i64>,
     ) -> Result<(), E>
     where
         Self: Sized,
     {
         if self.has(extra, permissions, projects, servers) {
             Ok(())
-        } else if Self::VIEW.has(extra, permissions, projects, servers) {
+        } else if ProjectPermissions::VIEW.has(extra, permissions, projects, servers) {
             Err(<E as FromAuthPermissionDenied>::from())
         } else {
             Err(<E as FromServerNotFound>::from())
@@ -246,33 +227,49 @@ impl<E: FromAuthPermissionDenied + FromServerNotFound> Permission<E> for ServerP
     }
 }
 
-impl HasPermission for ProjectPermissions {
-    type Extra = ProjectId;
-
+impl HasPermission<ProjectId> for ProjectPermissions {
     fn has(
         self,
-        extra: Self::Extra,
+        extra: ProjectId,
         permissions: i64,
-        projects: &HashMap<ProjectId, ServerPermissions>,
-        _servers: &HashMap<ServerId, ServerPermissions>,
+        projects: &HashMap<ProjectId, i64>,
+        _servers: &HashMap<ServerId, i64>,
     ) -> bool
     where
         Self: Sized,
     {
-        let permissions = projects.get(&extra).copied().unwrap_or_default()
-            | ServerPermissions::from_bits_retain(permissions);
-        permissions.contains(ServerPermissions::from_bits_retain(
-            self.with_dependencies().bits(),
-        ))
+        (Self::from_bits_retain(projects.get(&extra).copied().unwrap_or_default())
+            | Self::from_bits_retain(permissions))
+        .contains(self.with_dependencies())
     }
 }
-impl<E: FromAuthPermissionDenied + FromProjectNotFound> Permission<E> for ProjectPermissions {
+
+impl HasPermission<ServerId> for ProjectPermissions {
+    fn has(
+        self,
+        extra: ServerId,
+        permissions: i64,
+        _projects: &HashMap<ProjectId, i64>,
+        servers: &HashMap<ServerId, i64>,
+    ) -> bool
+    where
+        Self: Sized,
+    {
+        (Self::from_bits_retain(servers.get(&extra).copied().unwrap_or_default())
+            | Self::from_bits_retain(permissions))
+        .contains(self.with_dependencies())
+    }
+}
+
+impl<E: FromAuthPermissionDenied + FromProjectNotFound> Permission<ProjectId, E>
+    for ProjectPermissions
+{
     fn require(
         self,
-        extra: Self::Extra,
+        extra: ProjectId,
         permissions: i64,
-        projects: &HashMap<ProjectId, ServerPermissions>,
-        servers: &HashMap<ServerId, ServerPermissions>,
+        projects: &HashMap<ProjectId, i64>,
+        servers: &HashMap<ServerId, i64>,
     ) -> Result<(), E>
     where
         Self: Sized,
@@ -287,15 +284,36 @@ impl<E: FromAuthPermissionDenied + FromProjectNotFound> Permission<E> for Projec
     }
 }
 
-impl HasPermission for ManagementPermissions {
-    type Extra = ();
+impl<E: FromAuthPermissionDenied + FromServerNotFound> Permission<ServerId, E>
+    for ProjectPermissions
+{
+    fn require(
+        self,
+        extra: ServerId,
+        permissions: i64,
+        projects: &HashMap<ProjectId, i64>,
+        servers: &HashMap<ServerId, i64>,
+    ) -> Result<(), E>
+    where
+        Self: Sized,
+    {
+        if self.has(extra, permissions, projects, servers) {
+            Ok(())
+        } else if Self::VIEW.has(extra, permissions, projects, servers) {
+            Err(<E as FromAuthPermissionDenied>::from())
+        } else {
+            Err(<E as FromServerNotFound>::from())
+        }
+    }
+}
 
+impl HasPermission<()> for ManagementPermissions {
     fn has(
         self,
-        _extra: Self::Extra,
+        _extra: (),
         permissions: i64,
-        _projects: &HashMap<ProjectId, ServerPermissions>,
-        _servers: &HashMap<ServerId, ServerPermissions>,
+        _projects: &HashMap<ProjectId, i64>,
+        _servers: &HashMap<ServerId, i64>,
     ) -> bool
     where
         Self: Sized,
@@ -303,13 +321,13 @@ impl HasPermission for ManagementPermissions {
         Self::from_bits_retain(permissions).contains(self.with_dependencies())
     }
 }
-impl<E: FromAuthPermissionDenied> Permission<E> for ManagementPermissions {
+impl<E: FromAuthPermissionDenied> Permission<(), E> for ManagementPermissions {
     fn require(
         self,
-        extra: Self::Extra,
+        extra: (),
         permissions: i64,
-        projects: &HashMap<ProjectId, ServerPermissions>,
-        servers: &HashMap<ServerId, ServerPermissions>,
+        projects: &HashMap<ProjectId, i64>,
+        servers: &HashMap<ServerId, i64>,
     ) -> Result<(), E>
     where
         Self: Sized,
@@ -326,9 +344,6 @@ impl<E: FromAuthPermissionDenied> Permission<E> for ManagementPermissions {
 
 impl ServerPermissions {
     fn with_dependencies(mut self) -> Self {
-        if !self.is_empty() {
-            self |= Self::VIEW;
-        }
         self.with_dependency(Self::TERMINAL_WRITE, Self::TERMINAL_READ);
         self.with_dependency(Self::BUILD_EDIT, Self::BUILD_VIEW);
         self.with_dependency(Self::FILES_WRITE, Self::FILES_READ);
@@ -338,7 +353,6 @@ impl ServerPermissions {
         self.with_dependency(Self::BACKUP_DELETE, Self::BACKUP_VIEW);
         self.with_dependency(Self::BACKUP_RESTORE, Self::BACKUP_VIEW);
 
-        self.with_dependency(Self::USER_EDIT, Self::USER_VIEW);
         self
     }
 
@@ -410,13 +424,19 @@ impl Role {
         }
     }
 
+    pub const fn project_permissions(self) -> ProjectPermissions {
+        match self {
+            Self::Admin => ProjectPermissions::all(),
+            Self::Moderator => ProjectPermissions::VIEW,
+            Self::User => ProjectPermissions::empty(),
+        }
+    }
+
     pub const fn server_permissions(self) -> ServerPermissions {
         match self {
             Self::Admin => ServerPermissions::all(),
             Self::Moderator => ServerPermissions::from_bits_retain(
-                ServerPermissions::VIEW.bits()
-                    | ServerPermissions::POWER.bits()
-                    | ServerPermissions::TERMINAL_READ.bits(),
+                ServerPermissions::POWER.bits() | ServerPermissions::TERMINAL_READ.bits(),
             ),
             Self::User => ServerPermissions::empty(),
         }

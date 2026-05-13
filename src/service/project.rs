@@ -60,7 +60,7 @@ pub(crate) impl ProjectService for Backend {
         .into_iter()
         .filter(|project| !own || auth.is_project_member(project.id))
         .filter(|project| {
-            auth.require::<_, ListProjectsError>(project.id, ProjectPermissions::VIEW)
+            auth.require::<_, _, ListProjectsError>(project.id, ProjectPermissions::VIEW)
                 .is_ok()
         })
         .map(|project| {
@@ -109,7 +109,7 @@ pub(crate) impl ProjectService for Backend {
         #[special] auth: Authentication,
         project_id: ProjectId,
     ) -> Result<ProjectInfo, _> {
-        auth.require::<_, GetProjectError>(project_id, ProjectPermissions::VIEW)?;
+        auth.require::<_, _, GetProjectError>(project_id, ProjectPermissions::VIEW)?;
 
         let project = query!(
             "SELECT `id` AS `id: ProjectId`, `slug`, `name`, `owner`
@@ -140,7 +140,7 @@ pub(crate) impl ProjectService for Backend {
         name: Option<String>,
         owner: Option<u32>,
     ) -> Result<(), _> {
-        auth.require::<_, UpdateProjectError>(project_id, ProjectPermissions::ADMIN_MANAGEMENT)?;
+        auth.require::<_, _, UpdateProjectError>(project_id, ProjectPermissions::ADMIN_MANAGEMENT)?;
 
         let mut tx = self.database.begin().await?;
 
@@ -194,7 +194,7 @@ pub(crate) impl ProjectService for Backend {
         #[special] auth: Authentication,
         project_id: ProjectId,
     ) -> Result<(), _> {
-        auth.require::<_, DeleteProjectError>(project_id, ProjectPermissions::ADMIN_MANAGEMENT)?;
+        auth.require::<_, _, DeleteProjectError>(project_id, ProjectPermissions::ADMIN_MANAGEMENT)?;
 
         let result = query!("DELETE FROM `projects` WHERE `id` = ?", project_id)
             .execute(&*self.database)
@@ -216,7 +216,7 @@ pub(crate) impl ProjectService for Backend {
         #[special] mut page: Option<PageSplit>,
         project_id: ProjectId,
     ) -> Result<Paged<ProjectUserInfo>, _> {
-        auth.require::<_, ListProjectUsersError>(project_id, ProjectPermissions::USER_VIEW)?;
+        auth.require::<_, _, ListProjectUsersError>(project_id, ProjectPermissions::USER_VIEW)?;
         ensure_project_exists::<ListProjectUsersError>(self, project_id).await?;
 
         let owner = query!(
@@ -252,7 +252,7 @@ pub(crate) impl ProjectService for Backend {
             id: owner.id,
             username: owner.username,
             email: owner.email,
-            permissions: ServerPermissions::all().bits(),
+            permissions: ProjectPermissions::all().bits() | ServerPermissions::all().bits(),
         })
         .chain(project_users.into_iter().map(|user| ProjectUserInfo {
             id: user.id,
@@ -274,7 +274,7 @@ pub(crate) impl ProjectService for Backend {
         user_id: u32,
         permissions: i64,
     ) -> Result<(), _> {
-        auth.require::<_, SetProjectUserError>(project_id, ProjectPermissions::USER_EDIT)?;
+        auth.require::<_, _, SetProjectUserError>(project_id, ProjectPermissions::USER_EDIT)?;
         ensure_project_exists::<SetProjectUserError>(self, project_id).await?;
 
         query!(
@@ -300,7 +300,7 @@ pub(crate) impl ProjectService for Backend {
         project_id: ProjectId,
         user_id: u32,
     ) -> Result<(), _> {
-        auth.require::<_, RemoveProjectUserError>(project_id, ProjectPermissions::USER_EDIT)?;
+        auth.require::<_, _, RemoveProjectUserError>(project_id, ProjectPermissions::USER_EDIT)?;
         ensure_project_exists::<RemoveProjectUserError>(self, project_id).await?;
 
         query!(

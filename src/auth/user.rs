@@ -1,6 +1,8 @@
 use crate::Backend;
 use crate::auth::oauth::AuthUser;
-use crate::auth::permissions::{HasPermission, Permission, Role, ServerPermissions};
+use crate::auth::permissions::{
+    HasPermission, Permission, ProjectPermissions, Role, ServerPermissions,
+};
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
@@ -39,8 +41,8 @@ pub struct UserAuthentication {
     permissions: i64,
     role: Role,
     email: String,
-    projects: HashMap<ProjectId, ServerPermissions>,
-    servers: HashMap<ServerId, ServerPermissions>,
+    projects: HashMap<ProjectId, i64>,
+    servers: HashMap<ServerId, i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
@@ -53,17 +55,22 @@ pub struct SerializedUser {
 }
 
 impl UserAuthentication {
-    pub fn has<P: HasPermission>(&self, extra: P::Extra, permission: P) -> bool {
+    pub fn has<P: HasPermission<Extra>, Extra>(&self, extra: Extra, permission: P) -> bool {
         permission.has(extra, self.permissions, &self.projects, &self.servers)
     }
 
-    pub fn require<P: Permission<E>, E>(&self, extra: P::Extra, permission: P) -> Result<(), E> {
+    pub fn require<P: Permission<Extra, E>, Extra, E>(
+        &self,
+        extra: Extra,
+        permission: P,
+    ) -> Result<(), E> {
         permission.require(extra, self.permissions, &self.projects, &self.servers)
     }
 
-    pub fn project_permissions(&self, project: ProjectId) -> ServerPermissions {
-        self.projects.get(&project).copied().unwrap_or_default()
-            | ServerPermissions::from_bits_retain(self.permissions)
+    pub fn project_permissions(&self, project: ProjectId) -> ProjectPermissions {
+        ProjectPermissions::from_bits_retain(
+            self.projects.get(&project).copied().unwrap_or_default(),
+        ) | ProjectPermissions::from_bits_retain(self.permissions)
     }
 
     pub fn is_project_member(&self, project: ProjectId) -> bool {
@@ -138,10 +145,15 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             error!("Unable to fetch owned servers for user {id}: {err:?}");
         })?
         .into_iter()
-        .map(|id| (id, ServerPermissions::all()))
+        .map(|id| {
+            (
+                id,
+                ProjectPermissions::all().bits() | ServerPermissions::all().bits(),
+            )
+        })
         .collect();
 
-        let mut projects: HashMap<ProjectId, ServerPermissions> = query!(
+        let mut projects: HashMap<ProjectId, i64> = query!(
             "SELECT `project` AS `project: ProjectId`, `permissions`
              FROM `project_users`
              WHERE `user` = ?",
@@ -151,16 +163,11 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         .await
         .inspect_err(|err| error!("Unable to fetch project permissions for user {id}: {err:?}"))?
         .into_iter()
-        .map(|record| {
-            (
-                record.project,
-                ServerPermissions::from_bits_truncate(record.permissions),
-            )
-        })
+        .map(|record| (record.project, record.permissions))
         .collect();
         projects.extend(owned_projects);
 
-        let servers: HashMap<ServerId, ServerPermissions> = query!(
+        let servers: HashMap<ServerId, i64> = query!(
             "SELECT
                 `servers`.`id` AS `server: ServerId`,
                 `servers`.`project` AS `project: ProjectId`
@@ -192,7 +199,11 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             session,
             username: user.username,
             permissions: role
-                .map(|role| role.management_permissions().bits() | role.server_permissions().bits())
+                .map(|role| {
+                    role.management_permissions().bits()
+                        | role.project_permissions().bits()
+                        | role.server_permissions().bits()
+                })
                 .unwrap_or_default(),
             role: role.unwrap_or(Role::User),
             email: user.email,

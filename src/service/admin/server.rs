@@ -1,6 +1,6 @@
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
+use crate::auth::permissions::{ManagementPermissions, ProjectPermissions};
 use crate::db::node::NodePortAllocation;
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
@@ -202,7 +202,7 @@ pub(crate) impl ServerAdminService for Backend {
     /// Deletes a server
     ///
     /// # Permissions
-    /// Requires [`ServerPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
+    /// Requires [`ProjectPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
     #[route("/{server_id}", method = DELETE)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found, unavailable}, node::failure)]
     async fn delete_server(
@@ -210,8 +210,8 @@ pub(crate) impl ServerAdminService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<(), _> {
-        auth.require::<_, DeleteServerError>(server_id, ServerPermissions::VIEW)?;
-        auth.require::<_, DeleteServerError>((), ManagementPermissions::SERVER_DELETE)?;
+        auth.require::<_, _, DeleteServerError>(server_id, ProjectPermissions::VIEW)?;
+        auth.require::<_, _, DeleteServerError>((), ManagementPermissions::SERVER_DELETE)?;
 
         let backend = self.clone();
         let mut conn = self.database.acquire().await?;
@@ -270,8 +270,8 @@ pub(crate) impl ServerAdminService for Backend {
             return Err(CreatePortError::PortInvalid);
         }
 
-        auth.require::<_, CreatePortError>(server_id, ServerPermissions::VIEW)?;
-        auth.require::<_, CreatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
+        auth.require::<_, _, CreatePortError>(server_id, ProjectPermissions::VIEW)?;
+        auth.require::<_, _, CreatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -391,8 +391,8 @@ pub(crate) impl ServerAdminService for Backend {
         host: Option<String>,
         bind: Option<String>,
     ) -> Result<(), UpdatePortError> {
-        auth.require::<_, UpdatePortError>(server_id, ServerPermissions::VIEW)?;
-        auth.require::<_, UpdatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
+        auth.require::<_, _, UpdatePortError>(server_id, ProjectPermissions::VIEW)?;
+        auth.require::<_, _, UpdatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -586,8 +586,8 @@ pub(crate) impl ServerAdminService for Backend {
         server_id: ServerId,
         port_id: u32,
     ) -> Result<(), DeletePortError> {
-        auth.require::<_, DeletePortError>(server_id, ServerPermissions::VIEW)?;
-        auth.require::<_, DeletePortError>((), ManagementPermissions::SERVER_MANAGE)?;
+        auth.require::<_, _, DeletePortError>(server_id, ProjectPermissions::VIEW)?;
+        auth.require::<_, _, DeletePortError>((), ManagementPermissions::SERVER_MANAGE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)

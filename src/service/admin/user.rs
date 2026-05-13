@@ -29,7 +29,7 @@ pub(crate) impl UserAdminService for Backend {
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
     ) -> Result<Paged<AdminUserInfo>, _> {
-        auth.require::<_, ListUsersError>((), ManagementPermissions::USER_VIEW)?;
+        auth.require::<_, _, ListUsersError>((), ManagementPermissions::USER_VIEW)?;
 
         Ok(query!(
             "SELECT `id`, `username`, `auth_id`, `role` AS `role: u8`, `email`
@@ -58,7 +58,7 @@ pub(crate) impl UserAdminService for Backend {
         #[special] auth: Authentication,
         user_id: u32,
     ) -> Result<AdminUserInfo, _> {
-        auth.require::<_, GetUserError>((), ManagementPermissions::USER_VIEW)?;
+        auth.require::<_, _, GetUserError>((), ManagementPermissions::USER_VIEW)?;
 
         let user = query!(
             "SELECT `id`, `username`, `auth_id`, `role` AS `role: u8`, `email`
@@ -90,7 +90,7 @@ pub(crate) impl UserAdminService for Backend {
         role: Option<u8>,
         email: Option<String>,
     ) -> Result<(), _> {
-        auth.require::<_, UpdateUserError>((), ManagementPermissions::USER_MANAGE)?;
+        auth.require::<_, _, UpdateUserError>((), ManagementPermissions::USER_MANAGE)?;
 
         let mut tx = self.database.begin().await?;
 
@@ -148,7 +148,7 @@ pub(crate) impl UserAdminService for Backend {
     #[route("/{user_id}", method = DELETE)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::{not_found, owns_project <- [sql:foreign_key]})]
     async fn delete_user(&self, #[special] auth: Authentication, user_id: u32) -> Result<(), _> {
-        auth.require::<_, DeleteUserError>((), ManagementPermissions::USER_MANAGE)?;
+        auth.require::<_, _, DeleteUserError>((), ManagementPermissions::USER_MANAGE)?;
 
         let result = query!("DELETE FROM `users` WHERE `id` = ?", user_id)
             .execute(&*self.database)
