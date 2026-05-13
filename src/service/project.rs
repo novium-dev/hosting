@@ -39,10 +39,16 @@ pub(crate) impl ProjectService for Backend {
     #[error(db::failure <- [sql:*], auth::unreachable)]
     async fn list_projects(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
     ) -> Result<Paged<ProjectInfo>, _> {
         let can_manage = auth.has((), ManagementPermissions::SERVER_MANAGE);
+
+        let auth_id = match auth {
+            Authentication::User(ref user_auth) => Some(user_auth.id),
+            Authentication::None => None, // this can't happen
+            // TODO: we add here api key support
+        };
 
         Ok(query!(
             "SELECT
@@ -56,9 +62,9 @@ pub(crate) impl ProjectService for Backend {
                 ON `project_users`.`project` = `projects`.`id`
                 AND `project_users`.`user` = ?
              WHERE ? OR `projects`.`owner` = ? OR `project_users`.`user` IS NOT NULL",
-            auth.id,
+            auth_id,
             can_manage,
-            auth.id
+            auth_id
         )
         .fetch_all(&*self.database)
         .await?
@@ -82,7 +88,7 @@ pub(crate) impl ProjectService for Backend {
     #[error(db::failure <- [sql:*], auth::unreachable)]
     async fn create_project(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: UserAuthentication, // we only want users to create projects, not api
         slug: String,
         name: String,
     ) -> Result<String, _> {
