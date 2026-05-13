@@ -60,13 +60,7 @@ impl UserAuthentication {
     pub fn require<P: Permission<E>, E>(&self, extra: P::Extra, permission: P) -> Result<(), E> {
         permission.require(extra, self.permissions, &self.projects, &self.servers)
     }
-
-    pub fn has_project(&self, project: ProjectId, permission: ServerPermissions) -> bool {
-        let permissions = self.projects.get(&project).copied().unwrap_or_default()
-            | ServerPermissions::from_bits_retain(self.permissions);
-        permissions.grants(permission)
-    }
-
+    
     pub fn project_permissions(&self, project: ProjectId) -> ServerPermissions {
         self.projects.get(&project).copied().unwrap_or_default()
             | ServerPermissions::from_bits_retain(self.permissions)

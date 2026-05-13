@@ -21,7 +21,6 @@ use zelus::framework_router;
 use zelus::router::ZelusRouter;
 
 impl Backend {
-    #[expect(clippy::needless_for_each, reason = "caused by OpenApi derive macro")]
     pub fn router(&self) -> Router {
         #[derive(OpenApi)]
         #[openapi()]

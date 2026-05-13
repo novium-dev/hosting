@@ -19,7 +19,7 @@ use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use daemon_common::service::server::{ServerNetworkPayload, ServerResourcePayload};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query};
-use std::str::FromStr as _;
+use core::str::FromStr as _;
 use tracing::{error, warn};
 use uuid::Uuid;
 use zelus::{define_query_variable, service};
@@ -113,8 +113,9 @@ pub(crate) impl ServerService for Backend {
             .fetch_all(&*self.database)
             .await?
             .into_iter()
-            .filter(|server| project.is_none() || project_filter.as_ref().is_some_and(|project| server.project == *project))
-            .filter(|server| node.is_none() || node_filter.as_ref().is_some_and(|node| *server.node.as_uuid() == *node))
+
+            .filter(|server| project_filter.is_none_or(|owner| *server.project == *owner))
+            .filter(|server| node_filter.as_ref().is_none_or(|node| *server.node.as_uuid() == *node))
             .filter(|server| template.as_ref().is_none_or(|template| server.template == *template))
             .filter(|server| auth.has(server.id, ServerPermissions::VIEW))
             .apply_pagesplit(&mut page)

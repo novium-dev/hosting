@@ -37,7 +37,7 @@ pub(crate) impl AuthService for Backend {
     #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure)]
     async fn login_dev(&self) -> Result<String, _> {
         let session = Session::generate().map_err(|_err| LoginDevError::OsFailure)?;
-        let dev_user = 1_u32;
+        let dev_user = 1u32;
 
         query!(
             "INSERT INTO `users`
@@ -68,7 +68,7 @@ pub(crate) impl AuthService for Backend {
         );
 
         OAuthFlow {
-            redirect_url: redirect_url.to_string(),
+            redirect_url: redirect_url.clone(),
             state: csrf_token.into_secret(),
             verifier: pkce_verifier.into_secret(),
         }

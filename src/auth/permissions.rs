@@ -401,7 +401,7 @@ impl TryFrom<u8> for Role {
 }
 
 impl Role {
-    pub fn management_permissions(self) -> ManagementPermissions {
+    pub const fn management_permissions(self) -> ManagementPermissions {
         match self {
             Self::Admin => ManagementPermissions::all(),
             Self::Moderator => ManagementPermissions::USER_VIEW,

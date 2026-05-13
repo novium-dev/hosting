@@ -15,6 +15,7 @@ pub mod permissions;
 pub mod user;
 
 #[derive(Debug)]
+#[expect(clippy::large_enum_variant, reason = "Authentication is only used as a request guard, so the larger size of the User variant is not a concern")]
 pub enum Authentication {
     User(UserAuthentication),
     None,

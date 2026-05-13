@@ -1,7 +1,6 @@
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
-use crate::auth::user::UserAuthentication;
 use crate::db::node::NodePortAllocation;
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
@@ -46,7 +45,7 @@ pub(crate) impl ServerAdminService for Backend {
     #[example("../examples/server.create.json")]
     async fn create_server(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         name: String,
         node: Uuid,
         project: ProjectId,
@@ -58,9 +57,7 @@ pub(crate) impl ServerAdminService for Backend {
         internet_access: bool,
         backup_limit: Option<u32>,
     ) -> Result<ServerId, _> {
-        if !auth.has((), ManagementPermissions::SERVER_MANAGE)
-            && !auth.has_project(project, ServerPermissions::ADMIN_MANAGEMENT)
-        {
+        if !auth.has((), ManagementPermissions::SERVER_MANAGE) {
             return Err(<CreateServerError as FromAuthPermissionDenied>::from());
         }
 
