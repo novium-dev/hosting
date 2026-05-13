@@ -12,7 +12,9 @@ use crate::service::project::project_service_error::{
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use serde::Serialize;
 use sqlx::{query, query_scalar};
-use zelus::service;
+use zelus::{define_query_variable, service};
+
+define_query_variable!(own "Only include projects owned by or shared with the current user");
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ProjectInfo {
@@ -34,13 +36,16 @@ pub(crate) struct ProjectUserInfo {
 #[service(path = "/project", tag = "project", no_sdk)]
 pub(crate) impl ProjectService for Backend {
     /// Lists projects the current user can access.
-    #[route("", method = GET, raw)]
+    #[route("", method = GET, raw, query = [own])]
     #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found)]
     async fn list_projects(
         &self,
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
+        own: Option<bool>,
     ) -> Result<Paged<ProjectInfo>, _> {
+        let own = own.unwrap_or_default();
+
         Ok(query!(
             "SELECT
                 `id` AS `id: ProjectId`,
@@ -53,6 +58,7 @@ pub(crate) impl ProjectService for Backend {
         .fetch_all(&*self.database)
         .await?
         .into_iter()
+        .filter(|project| !own || auth.is_project_member(project.id))
         .filter(|project| {
             auth.require::<_, ListProjectsError>(project.id, ProjectPermissions::VIEW)
                 .is_ok()

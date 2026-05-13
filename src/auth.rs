@@ -15,7 +15,10 @@ pub mod permissions;
 pub mod user;
 
 #[derive(Debug)]
-#[expect(clippy::large_enum_variant, reason = "Authentication is only used as a request guard, so the larger size of the User variant is not a concern")]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Authentication is only used as a request guard, so the larger size of the User variant is not a concern"
+)]
 pub enum Authentication {
     User(UserAuthentication),
     None,
@@ -47,6 +50,13 @@ impl Authentication {
         match self {
             Self::User(auth) => auth.project_permissions(project),
             Self::None => crate::auth::permissions::ServerPermissions::empty(),
+        }
+    }
+
+    pub fn is_project_member(&self, project: crate::db::project::ProjectId) -> bool {
+        match self {
+            Self::User(auth) => auth.is_project_member(project),
+            Self::None => false,
         }
     }
 }
