@@ -145,6 +145,7 @@ bitflags! {
         /// - limits (backup)
         /// - network ports
         /// of a server.
+        /// Also allows the user to create and delete servers.
         ///
         /// Depends on [`ServerPermissions::VIEW`]
         const SERVER_MANAGE = 1 << 32;

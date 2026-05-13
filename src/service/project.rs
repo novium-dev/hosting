@@ -5,7 +5,6 @@ use crate::auth::permissions::{ManagementPermissions, ProjectPermissions};
 use crate::auth::user::UserAuthentication;
 use crate::db::project::ProjectId;
 use crate::service::error_project_not_found::FromProjectNotFound;
-use crate::service::error_user_not_found::FromUserNotFound;
 use crate::service::project::project_service_error::{
     DeleteProjectError, GetProjectError, ListProjectUsersError, RemoveProjectUserError,
     SetProjectUserError, UpdateProjectError,
@@ -300,7 +299,7 @@ pub(crate) impl ProjectService for Backend {
     }
 }
 
-pub(crate) async fn ensure_project_exists<E: From<sqlx::Error> + FromProjectNotFound>(
+async fn ensure_project_exists<E: From<sqlx::Error> + FromProjectNotFound>(
     backend: &Backend,
     project_id: ProjectId,
 ) -> Result<(), E> {
@@ -315,23 +314,5 @@ pub(crate) async fn ensure_project_exists<E: From<sqlx::Error> + FromProjectNotF
         Ok(())
     } else {
         Err(<E as FromProjectNotFound>::from())
-    }
-}
-
-pub(crate) async fn ensure_user_exists<E: From<sqlx::Error> + FromUserNotFound>(
-    backend: &Backend,
-    user_id: u32,
-) -> Result<(), E> {
-    let exists = query_scalar!(
-        "SELECT (COUNT(*) > 0) AS `exists: bool` FROM `users` WHERE `id` = ?",
-        user_id
-    )
-    .fetch_one(&*backend.database)
-    .await?;
-
-    if exists {
-        Ok(())
-    } else {
-        Err(<E as FromUserNotFound>::from())
     }
 }
