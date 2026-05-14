@@ -217,6 +217,8 @@ impl HasPermission<ServerId> for ServerPermissions {
             ProjectPermissions::permissions(extra, permissions, projects, servers);
         let server_permissions = servers.get(&extra).copied().unwrap_or_default();
 
+        // Restricted servers keep project view, but must ignore global server permissions
+        // that are OR'd into the effective permission set below.
         if !<ProjectPermissions as HasPermission<ServerId>>::contains_permission(
             project_permissions,
             ProjectPermissions::VIEW,
