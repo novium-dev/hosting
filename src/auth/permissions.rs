@@ -17,7 +17,7 @@ pub trait HasPermission<Extra>: Default {
     where
         Self: Sized;
 
-    fn grants(self, permission: Self) -> bool
+    fn contains_permission(self, permission: Self) -> bool
     where
         Self: Sized;
 
@@ -31,7 +31,7 @@ pub trait HasPermission<Extra>: Default {
     where
         Self: Sized,
     {
-        Self::permissions(extra, permissions, projects, servers).grants(self)
+        Self::permissions(extra, permissions, projects, servers).contains_permission(self)
     }
 }
 
@@ -219,7 +219,7 @@ impl HasPermission<ServerId> for ServerPermissions {
         }
     }
 
-    fn grants(self, permission: Self) -> bool
+    fn contains_permission(self, permission: Self) -> bool
     where
         Self: Sized,
     {
@@ -263,7 +263,7 @@ impl HasPermission<ProjectId> for ProjectPermissions {
             | Self::from_bits_retain(permissions)
     }
 
-    fn grants(self, permission: Self) -> bool
+    fn contains_permission(self, permission: Self) -> bool
     where
         Self: Sized,
     {
@@ -285,7 +285,7 @@ impl HasPermission<ServerId> for ProjectPermissions {
             | Self::from_bits_retain(permissions)
     }
 
-    fn grants(self, permission: Self) -> bool
+    fn contains_permission(self, permission: Self) -> bool
     where
         Self: Sized,
     {
@@ -352,7 +352,7 @@ impl HasPermission<()> for ManagementPermissions {
         Self::from_bits_retain(permissions)
     }
 
-    fn grants(self, permission: Self) -> bool
+    fn contains_permission(self, permission: Self) -> bool
     where
         Self: Sized,
     {
