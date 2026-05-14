@@ -6,7 +6,7 @@ use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, merge_ports};
 use crate::service::admin::server::server_admin_service_error::{
-    CreatePortError, CreateServerError, DeletePortError, DeleteServerError, UpdatePortError,
+    AddPortError, CreateServerError, DeletePortError, DeleteServerError, UpdatePortError,
 };
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::template::*;
@@ -249,7 +249,7 @@ pub(crate) impl ServerAdminService for Backend {
         server::{not_found, unavailable},
         node::failure,
         port::{invalid, not_allocated})]
-    async fn create_port(
+    async fn add_port(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
@@ -259,7 +259,7 @@ pub(crate) impl ServerAdminService for Backend {
         external_port: PortRange,
     ) -> Result<(), _> {
         if external_port.start > external_port.end {
-            return Err(CreatePortError::PortInvalid);
+            return Err(AddPortError::PortInvalid);
         }
 
         let external = external_port.start..=external_port.end;
@@ -267,16 +267,16 @@ pub(crate) impl ServerAdminService for Backend {
         if (u32::from(internal_port) + u32::from(external.end() - external.start()))
             > u32::from(u16::MAX)
         {
-            return Err(CreatePortError::PortInvalid);
+            return Err(AddPortError::PortInvalid);
         }
 
-        auth.require::<_, _, CreatePortError>(server_id, ProjectPermissions::VIEW)?;
-        auth.require::<_, _, CreatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
+        auth.require::<_, _, AddPortError>(server_id, ProjectPermissions::VIEW)?;
+        auth.require::<_, _, AddPortError>((), ManagementPermissions::SERVER_MANAGE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
-            .ok_or(CreatePortError::ServerNotFound)?;
+            .ok_or(AddPortError::ServerNotFound)?;
 
         let mut conn = self.database.acquire().await?;
 
@@ -298,7 +298,7 @@ pub(crate) impl ServerAdminService for Backend {
             .await?;
 
             if !allocated {
-                return Err(CreatePortError::PortNotAllocated);
+                return Err(AddPortError::PortNotAllocated);
             }
 
             let collision = query_scalar!(
@@ -318,7 +318,7 @@ pub(crate) impl ServerAdminService for Backend {
             .await?;
 
             if collision {
-                return Err(CreatePortError::PortInvalid);
+                return Err(AddPortError::PortInvalid);
             }
 
             query!(
@@ -363,7 +363,7 @@ pub(crate) impl ServerAdminService for Backend {
                 .node
                 .update_server(server.node_server_id, None, None, Some(payload), None)
                 .await
-                .map_err(|_err| CreatePortError::NodeFailure)?;
+                .map_err(|_err| AddPortError::NodeFailure)?;
 
             Ok(())
         })
