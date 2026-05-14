@@ -70,7 +70,7 @@ pub(crate) impl ProjectService for Backend {
                 slug: project.slug,
                 name: project.name,
                 owner: project.owner,
-                permissions: auth.project_permissions(id).bits(),
+                permissions: auth.permissions::<ProjectPermissions, _>(id).bits(),
             }
         })
         .apply_pagesplit(&mut page)
@@ -125,7 +125,7 @@ pub(crate) impl ProjectService for Backend {
             slug: project.slug,
             name: project.name,
             owner: project.owner,
-            permissions: auth.project_permissions(project_id).bits(),
+            permissions: auth.permissions::<ProjectPermissions, _>(project_id).bits(),
         })
     }
 

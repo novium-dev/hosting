@@ -7,7 +7,20 @@ use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub trait HasPermission<Extra> {
+pub trait HasPermission<Extra>: Default {
+    fn permissions(
+        extra: Extra,
+        permissions: i64,
+        projects: &HashMap<ProjectId, i64>,
+        servers: &HashMap<ServerId, i64>,
+    ) -> Self
+    where
+        Self: Sized;
+
+    fn grants(self, permission: Self) -> bool
+    where
+        Self: Sized;
+
     fn has(
         self,
         extra: Extra,
@@ -16,7 +29,10 @@ pub trait HasPermission<Extra> {
         servers: &HashMap<ServerId, i64>,
     ) -> bool
     where
-        Self: Sized;
+        Self: Sized,
+    {
+        Self::permissions(extra, permissions, projects, servers).grants(self)
+    }
 }
 
 pub trait Permission<Extra, E>: HasPermission<Extra> {
@@ -112,7 +128,7 @@ bitflags! {
         const NETWORK_VIEW = 1 << 15;
     }
 
-    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct ManagementPermissions: i64 {
         /// Allows the user to change the
@@ -186,22 +202,28 @@ bitflags! {
 }
 
 impl HasPermission<ServerId> for ServerPermissions {
-    fn has(
-        self,
+    fn permissions(
         extra: ServerId,
         permissions: i64,
         projects: &HashMap<ProjectId, i64>,
         servers: &HashMap<ServerId, i64>,
-    ) -> bool
+    ) -> Self
     where
         Self: Sized,
     {
-        let has_project_view =
-            self.is_empty() || ProjectPermissions::VIEW.has(extra, permissions, projects, servers);
-        has_project_view
-            && (Self::from_bits_retain(servers.get(&extra).copied().unwrap_or_default())
-                | Self::from_bits_retain(permissions))
-            .contains(self.with_dependencies())
+        if ProjectPermissions::VIEW.has(extra, permissions, projects, servers) {
+            Self::from_bits_retain(servers.get(&extra).copied().unwrap_or_default())
+                | Self::from_bits_retain(permissions)
+        } else {
+            Self::empty()
+        }
+    }
+
+    fn grants(self, permission: Self) -> bool
+    where
+        Self: Sized,
+    {
+        self.contains(permission.with_dependencies())
     }
 }
 impl<E: FromAuthPermissionDenied + FromServerNotFound> Permission<ServerId, E>
@@ -228,36 +250,46 @@ impl<E: FromAuthPermissionDenied + FromServerNotFound> Permission<ServerId, E>
 }
 
 impl HasPermission<ProjectId> for ProjectPermissions {
-    fn has(
-        self,
+    fn permissions(
         extra: ProjectId,
         permissions: i64,
         projects: &HashMap<ProjectId, i64>,
         _servers: &HashMap<ServerId, i64>,
-    ) -> bool
+    ) -> Self
     where
         Self: Sized,
     {
-        (Self::from_bits_retain(projects.get(&extra).copied().unwrap_or_default())
-            | Self::from_bits_retain(permissions))
-        .contains(self.with_dependencies())
+        Self::from_bits_retain(projects.get(&extra).copied().unwrap_or_default())
+            | Self::from_bits_retain(permissions)
+    }
+
+    fn grants(self, permission: Self) -> bool
+    where
+        Self: Sized,
+    {
+        self.contains(permission.with_dependencies())
     }
 }
 
 impl HasPermission<ServerId> for ProjectPermissions {
-    fn has(
-        self,
+    fn permissions(
         extra: ServerId,
         permissions: i64,
         _projects: &HashMap<ProjectId, i64>,
         servers: &HashMap<ServerId, i64>,
-    ) -> bool
+    ) -> Self
     where
         Self: Sized,
     {
-        (Self::from_bits_retain(servers.get(&extra).copied().unwrap_or_default())
-            | Self::from_bits_retain(permissions))
-        .contains(self.with_dependencies())
+        Self::from_bits_retain(servers.get(&extra).copied().unwrap_or_default())
+            | Self::from_bits_retain(permissions)
+    }
+
+    fn grants(self, permission: Self) -> bool
+    where
+        Self: Sized,
+    {
+        self.contains(permission.with_dependencies())
     }
 }
 
@@ -308,17 +340,23 @@ impl<E: FromAuthPermissionDenied + FromServerNotFound> Permission<ServerId, E>
 }
 
 impl HasPermission<()> for ManagementPermissions {
-    fn has(
-        self,
+    fn permissions(
         _extra: (),
         permissions: i64,
         _projects: &HashMap<ProjectId, i64>,
         _servers: &HashMap<ServerId, i64>,
-    ) -> bool
+    ) -> Self
     where
         Self: Sized,
     {
-        Self::from_bits_retain(permissions).contains(self.with_dependencies())
+        Self::from_bits_retain(permissions)
+    }
+
+    fn grants(self, permission: Self) -> bool
+    where
+        Self: Sized,
+    {
+        self.contains(permission.with_dependencies())
     }
 }
 impl<E: FromAuthPermissionDenied> Permission<(), E> for ManagementPermissions {

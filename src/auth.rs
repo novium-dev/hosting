@@ -43,13 +43,10 @@ impl Authentication {
         }
     }
 
-    pub fn project_permissions(
-        &self,
-        project: crate::db::project::ProjectId,
-    ) -> crate::auth::permissions::ProjectPermissions {
+    pub fn permissions<P: HasPermission<Extra>, Extra>(&self, extra: Extra) -> P {
         match self {
-            Self::User(auth) => auth.project_permissions(project),
-            Self::None => crate::auth::permissions::ProjectPermissions::empty(),
+            Self::User(auth) => auth.permissions(extra),
+            Self::None => P::default(),
         }
     }
 

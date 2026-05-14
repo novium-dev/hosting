@@ -59,18 +59,16 @@ impl UserAuthentication {
         permission.has(extra, self.permissions, &self.projects, &self.servers)
     }
 
+    pub fn permissions<P: HasPermission<Extra>, Extra>(&self, extra: Extra) -> P {
+        P::permissions(extra, self.permissions, &self.projects, &self.servers)
+    }
+
     pub fn require<P: Permission<Extra, E>, Extra, E>(
         &self,
         extra: Extra,
         permission: P,
     ) -> Result<(), E> {
         permission.require(extra, self.permissions, &self.projects, &self.servers)
-    }
-
-    pub fn project_permissions(&self, project: ProjectId) -> ProjectPermissions {
-        ProjectPermissions::from_bits_retain(
-            self.projects.get(&project).copied().unwrap_or_default(),
-        ) | ProjectPermissions::from_bits_retain(self.permissions)
     }
 
     pub fn is_project_member(&self, project: ProjectId) -> bool {
