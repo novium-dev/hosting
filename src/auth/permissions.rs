@@ -7,6 +7,8 @@ use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub const RESTRICTED_SERVER_PERMISSIONS: i64 = 1_i64 << 62;
+
 pub trait HasPermission<Extra>: Default {
     fn permissions(
         extra: Extra,
@@ -211,11 +213,18 @@ impl HasPermission<ServerId> for ServerPermissions {
     where
         Self: Sized,
     {
-        if ProjectPermissions::VIEW.has(extra, permissions, projects, servers) {
-            Self::from_bits_retain(servers.get(&extra).copied().unwrap_or_default())
-                | Self::from_bits_retain(permissions)
-        } else {
+        let project_permissions =
+            ProjectPermissions::permissions(extra, permissions, projects, servers);
+        let server_permissions = servers.get(&extra).copied().unwrap_or_default();
+
+        if !<ProjectPermissions as HasPermission<ServerId>>::contains_permission(
+            project_permissions,
+            ProjectPermissions::VIEW,
+        ) || server_permissions & RESTRICTED_SERVER_PERMISSIONS != 0
+        {
             Self::empty()
+        } else {
+            Self::from_bits_retain(server_permissions) | Self::from_bits_retain(permissions)
         }
     }
 
@@ -281,8 +290,20 @@ impl HasPermission<ServerId> for ProjectPermissions {
     where
         Self: Sized,
     {
-        Self::from_bits_retain(servers.get(&extra).copied().unwrap_or_default())
-            | Self::from_bits_retain(permissions)
+        let server_permissions = servers.get(&extra).copied().unwrap_or_default();
+        let permissions =
+            Self::from_bits_retain(server_permissions) | Self::from_bits_retain(permissions);
+
+        if server_permissions & RESTRICTED_SERVER_PERMISSIONS != 0
+            && <ProjectPermissions as HasPermission<ServerId>>::contains_permission(
+                permissions,
+                Self::VIEW,
+            )
+        {
+            Self::VIEW
+        } else {
+            permissions
+        }
     }
 
     fn contains_permission(self, permission: Self) -> bool

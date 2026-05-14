@@ -1,7 +1,8 @@
 use crate::Backend;
 use crate::auth::oauth::AuthUser;
 use crate::auth::permissions::{
-    HasPermission, Permission, ProjectPermissions, Role, ServerPermissions,
+    HasPermission, ManagementPermissions, Permission, ProjectPermissions,
+    RESTRICTED_SERVER_PERMISSIONS, Role, ServerPermissions,
 };
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
@@ -133,6 +134,15 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             return Ok(None);
         };
 
+        let role = Role::try_from(user.role).ok();
+        let user_permissions = role
+            .map(|role| {
+                role.management_permissions().bits()
+                    | role.project_permissions().bits()
+                    | role.server_permissions().bits()
+            })
+            .unwrap_or_default();
+
         let owned_projects: HashMap<_, _> = query_scalar!(
             "SELECT `id` AS `id: ProjectId` FROM `projects` WHERE `owner` = ?",
             &id
@@ -168,41 +178,54 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         let servers: HashMap<ServerId, i64> = query!(
             "SELECT
                 `servers`.`id` AS `server: ServerId`,
-                `servers`.`project` AS `project: ProjectId`
+                `servers`.`project` AS `project: ProjectId`,
+                `servers`.`suspended` AS `suspended: bool`,
+                `nodes`.`maintenance` AS `maintenance: bool`
              FROM `servers`
+             JOIN `nodes` ON `nodes`.`id` = `servers`.`node`
              JOIN `projects` ON `projects`.`id` = `servers`.`project`
              LEFT JOIN `project_users`
                 ON `project_users`.`project` = `servers`.`project`
                 AND `project_users`.`user` = ?
-             WHERE `projects`.`owner` = ? OR `project_users`.`user` IS NOT NULL",
+             WHERE `projects`.`owner` = ?
+                OR `project_users`.`user` IS NOT NULL
+                OR ?",
             &id,
-            &id
+            &id,
+            ProjectPermissions::from_bits_retain(user_permissions)
+                .contains(ProjectPermissions::VIEW),
         )
         .fetch_all(&mut *conn)
         .await
         .inspect_err(|err| error!("Unable to fetch server permissions for user {id}: {err:?}"))?
         .into_iter()
         .filter_map(|record| {
-            projects
+            let mut permissions = projects
                 .get(&record.project)
                 .copied()
-                .map(|permissions| (record.server, permissions))
+                .unwrap_or(user_permissions);
+
+            if (record.suspended
+                && !ManagementPermissions::from_bits_retain(user_permissions)
+                    .contains(ManagementPermissions::SERVER_SUSPEND))
+                || (record.maintenance
+                    && !ManagementPermissions::from_bits_retain(user_permissions)
+                        .contains(ManagementPermissions::SERVER_MANAGE))
+            {
+                permissions = ProjectPermissions::VIEW.bits() | RESTRICTED_SERVER_PERMISSIONS;
+            }
+
+            ProjectPermissions::from_bits_retain(permissions)
+                .contains(ProjectPermissions::VIEW)
+                .then_some((record.server, permissions))
         })
         .collect();
-
-        let role = Role::try_from(user.role).ok();
 
         Ok(Some(Self {
             id,
             session,
             username: user.username,
-            permissions: role
-                .map(|role| {
-                    role.management_permissions().bits()
-                        | role.project_permissions().bits()
-                        | role.server_permissions().bits()
-                })
-                .unwrap_or_default(),
+            permissions: user_permissions,
             role: role.unwrap_or(Role::User),
             email: user.email,
             projects,

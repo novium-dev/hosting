@@ -13,7 +13,6 @@ use daemon_common::service::backup::backup_service_error::{
     ServerCreateBackupError, ServerCreateBackupOrderError, ServerDeleteBackupError,
     ServerListBackupsError, ServerRestoreBackupError, ServerSetBackupNameError,
 };
-use serde::Deserialize;
 use tracing::error;
 use zelus::service;
 
@@ -369,12 +368,7 @@ pub(crate) impl BackupService for Backend {
 
         server
             .node
-            .server_set_backup_name(
-                server.node_server_id,
-                backup_storage,
-                backup_id,
-                name,
-            )
+            .server_set_backup_name(server.node_server_id, backup_storage, backup_id, name)
             .await
             .map_err(|err| match err {
                 ServerSetBackupNameError::Communication(_) => {
