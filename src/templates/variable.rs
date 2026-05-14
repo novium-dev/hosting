@@ -22,6 +22,7 @@ pub struct VariableGroup {
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct VariableField {
     pub(crate) id: String,
+    pub(crate) name: String,
     pub(crate) current: Option<String>,
     pub(crate) data: VariableType,
 }
@@ -33,6 +34,7 @@ pub enum VariableType {
     Checkbox { label: String },
     Hierarchy { field_index: u8, data_index: u8 },
     Regex { regex: String, placeholder: String },
+    StringInput { max_length: u16, secret: bool },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -179,6 +181,7 @@ impl VariableGroupBuilder {
     pub fn static_variable(
         mut self,
         id: impl Into<String>,
+        name: impl Into<String>,
         current: Option<impl Into<String>>,
         values: IndexSet<impl Into<String>>,
     ) -> Self {
@@ -193,6 +196,7 @@ impl VariableGroupBuilder {
         }
         self.0.variables.push(VariableField {
             id: id.into(),
+            name: name.into(),
             current,
             data: VariableType::StaticSet(values),
         });
@@ -202,11 +206,13 @@ impl VariableGroupBuilder {
     pub fn checkbox_variable(
         mut self,
         id: impl Into<String>,
+        name: impl Into<String>,
         current: Option<bool>,
         label: String,
     ) -> Self {
         self.0.variables.push(VariableField {
             id: id.into(),
+            name: name.into(),
             current: current.map(|value| value.to_string()),
             data: VariableType::Checkbox { label },
         });
@@ -216,12 +222,14 @@ impl VariableGroupBuilder {
     pub fn hierarchy_variable(
         mut self,
         id: impl Into<String>,
+        name: impl Into<String>,
         current: Option<impl Into<String>>,
         index: u8,
         data: u8,
     ) -> Self {
         self.0.variables.push(VariableField {
             id: id.into(),
+            name: name.into(),
             current: current.map(Into::into),
             data: VariableType::Hierarchy {
                 field_index: index,
@@ -234,6 +242,7 @@ impl VariableGroupBuilder {
     pub fn regex_variable(
         mut self,
         id: impl Into<String>,
+        name: impl Into<String>,
         current: Option<impl Into<String>>,
         regex: impl Into<String>,
         placeholder: impl Into<String>,
@@ -242,11 +251,29 @@ impl VariableGroupBuilder {
         debug_assert!(Regex::new(&regex).is_ok(), "Invalid regex value: {regex:?}");
         self.0.variables.push(VariableField {
             id: id.into(),
+            name: name.into(),
             current: current.map(Into::into),
             data: VariableType::Regex {
                 regex,
                 placeholder: placeholder.into(),
             },
+        });
+        self
+    }
+
+    pub fn string_variable(
+        mut self,
+        id: impl Into<String>,
+        name: impl Into<String>,
+        current: Option<impl Into<String>>,
+        max_length: u16,
+        secret: bool,
+    ) -> Self {
+        self.0.variables.push(VariableField {
+            id: id.into(),
+            name: name.into(),
+            current: current.map(Into::into),
+            data: VariableType::StringInput { max_length, secret },
         });
         self
     }

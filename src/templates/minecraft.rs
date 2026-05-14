@@ -538,13 +538,26 @@ impl Template for MinecraftTemplate {
             )
             .group(
                 VariableGroupBuilder::new(Some("Minecraft version"))
-                    .hierarchy_variable("software", Some(extra.modification().to_string()), 0, 0)
-                    .hierarchy_variable("minecraft_version", Some(extra.minecraft_version()), 1, 0)
-                    .hierarchy_variable("mod_build", extra.mod_build(), 2, 0),
+                    .hierarchy_variable(
+                        "software",
+                        "Software",
+                        Some(extra.modification().to_string()),
+                        0,
+                        0,
+                    )
+                    .hierarchy_variable(
+                        "minecraft_version",
+                        "Minecraft version",
+                        Some(extra.minecraft_version()),
+                        1,
+                        0,
+                    )
+                    .hierarchy_variable("mod_build", "Software build", extra.mod_build(), 2, 0),
             )
             .group(
                 VariableGroupBuilder::new(Some("Java Runtime Environment")).static_variable(
                     "java",
+                    "Java",
                     Some(match recommended_java {
                         Some(java) if java_versions.contains(&java) && java != extra.java() => {
                             format!("Java {}", extra.java())
