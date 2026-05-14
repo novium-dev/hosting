@@ -17,11 +17,6 @@ use serde::Deserialize;
 use tracing::error;
 use zelus::service;
 
-#[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub(crate) struct BackupUpdatePayload {
-    pub(crate) name: Option<String>,
-}
-
 #[service(path = "/backup/{server_id}", tag = "backup", no_sdk)]
 pub(crate) impl BackupService for Backend {
     #[route("", method = GET, raw)]
@@ -363,7 +358,7 @@ pub(crate) impl BackupService for Backend {
         server_id: ServerId,
         backup_storage: String,
         backup_id: i64,
-        update: BackupUpdatePayload,
+        name: Option<String>,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateBackupError>(server_id, ServerPermissions::BACKUP_RESTORE)?;
 
@@ -378,7 +373,7 @@ pub(crate) impl BackupService for Backend {
                 server.node_server_id,
                 backup_storage,
                 backup_id,
-                update.name,
+                name,
             )
             .await
             .map_err(|err| match err {
