@@ -2,15 +2,18 @@ use zelus::error::define_error;
 use zelus::{define_path_variable, define_query_variable};
 
 pub(crate) mod admin;
+pub(crate) mod auth;
 pub(crate) mod backup;
 pub(crate) mod file;
 pub(crate) mod internal;
+pub(crate) mod project;
 pub(crate) mod server;
 pub(crate) mod template;
 
 define_error!(auth {
     invalid("Invalid authentication credentials" UNAUTHORIZED),
-    unreachable("JWKS is unreachable" INTERNAL_SERVER_ERROR),
+    misconfigured("Authentication is misconfigured" INTERNAL_SERVER_ERROR),
+    unreachable("Authentication storage is unreachable" INTERNAL_SERVER_ERROR),
     permission_denied("You don't have the necessary permissions to perform this operation" FORBIDDEN),
 });
 
@@ -19,6 +22,16 @@ define_error!(server {
     storage_not_found("The specified storage was not found" BAD_REQUEST),
     unavailable("Server is currently in use" SERVICE_UNAVAILABLE),
     config_invalid("The server config file is invalid" BAD_REQUEST)
+});
+
+define_error!(project {
+    not_found("Project not found" NOT_FOUND),
+    not_empty("Project still has servers" BAD_REQUEST),
+});
+
+define_error!(user {
+    not_found("User not found" NOT_FOUND),
+    owns_project("User still owns projects" BAD_REQUEST),
 });
 
 define_error!(file {
@@ -82,15 +95,19 @@ define_path_variable!(
 );
 
 define_query_variable!(
-    owner "The server owner"
-);
-
-define_query_variable!(
     path "The file path"
 );
 
 define_path_variable!(
     port_id "The port ID"
+);
+
+define_path_variable!(
+    project_id "The project ID"
+);
+
+define_path_variable!(
+    user_id "The user ID"
 );
 
 define_query_variable!(

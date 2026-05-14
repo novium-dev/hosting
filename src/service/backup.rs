@@ -32,7 +32,7 @@ pub(crate) impl BackupService for Backend {
         #[special] mut page: Option<PageSplit>,
         server_id: ServerId,
     ) -> Result<Paged<BackupResponseEntry>, _> {
-        auth.require::<_, ListBackupsError>(server_id, ServerPermissions::BACKUP_VIEW)?;
+        auth.require::<_, _, ListBackupsError>(server_id, ServerPermissions::BACKUP_VIEW)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -71,7 +71,7 @@ pub(crate) impl BackupService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<i64, _> {
-        auth.require::<_, CreateBackupError>(server_id, ServerPermissions::BACKUP_CREATE)?;
+        auth.require::<_, _, CreateBackupError>(server_id, ServerPermissions::BACKUP_CREATE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -141,11 +141,11 @@ pub(crate) impl BackupService for Backend {
         server_id: ServerId,
         backup_storage: String,
     ) -> Result<i64, _> {
-        auth.require::<_, CreateBackupWithStorageError>(
+        auth.require::<_, _, CreateBackupWithStorageError>(
             server_id,
             ServerPermissions::BACKUP_CREATE,
         )?;
-        auth.require::<_, CreateBackupWithStorageError>(
+        auth.require::<_, _, CreateBackupWithStorageError>(
             (),
             ManagementPermissions::BACKUP_STORAGE_SELECT,
         )?;
@@ -222,7 +222,7 @@ pub(crate) impl BackupService for Backend {
         backup_storage: String,
         backup_id: i64,
     ) -> Result<(), _> {
-        auth.require::<_, DeleteBackupError>(server_id, ServerPermissions::BACKUP_DELETE)?;
+        auth.require::<_, _, DeleteBackupError>(server_id, ServerPermissions::BACKUP_DELETE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -264,7 +264,7 @@ pub(crate) impl BackupService for Backend {
         backup_storage: String,
         backup_id: i64,
     ) -> Result<(), _> {
-        auth.require::<_, RestoreBackupError>(server_id, ServerPermissions::BACKUP_RESTORE)?;
+        auth.require::<_, _, RestoreBackupError>(server_id, ServerPermissions::BACKUP_RESTORE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -309,7 +309,7 @@ pub(crate) impl BackupService for Backend {
         backup_storage: String,
         backup_id: i64,
     ) -> Result<String, _> {
-        auth.require::<_, DownloadBackupError>(server_id, ServerPermissions::BACKUP_DOWNLOAD)?;
+        auth.require::<_, _, DownloadBackupError>(server_id, ServerPermissions::BACKUP_DOWNLOAD)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -334,7 +334,10 @@ pub(crate) impl BackupService for Backend {
         server_id: ServerId,
         compression: String,
     ) -> Result<String, _> {
-        auth.require::<_, RealtimeDownloadBackupError>(server_id, ServerPermissions::FILES_READ)?;
+        auth.require::<_, _, RealtimeDownloadBackupError>(
+            server_id,
+            ServerPermissions::FILES_READ,
+        )?;
 
         let allowed = ["tar", "tar.gz", "tar.xz", "tar.zst", "zip"];
         if !allowed.contains(&compression.as_str()) {
@@ -362,7 +365,7 @@ pub(crate) impl BackupService for Backend {
         backup_id: i64,
         update: BackupUpdatePayload,
     ) -> Result<(), _> {
-        auth.require::<_, UpdateBackupError>(server_id, ServerPermissions::BACKUP_RESTORE)?;
+        auth.require::<_, _, UpdateBackupError>(server_id, ServerPermissions::BACKUP_RESTORE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)

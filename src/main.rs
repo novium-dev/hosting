@@ -14,7 +14,7 @@ mod shutdown;
 pub(crate) mod templates;
 mod utils;
 
-use crate::auth::jwks_storage::JwksStorage;
+use crate::auth::oauth::AuthService;
 use crate::config::BackendConfig;
 use crate::db::node::BackendNode;
 #[cfg(feature = "embedded_node")]
@@ -52,7 +52,7 @@ type NodeRegistrationMap = HashMap<String, (Instant, Option<Uuid>)>;
 pub(crate) struct Backend {
     pub(crate) database: Arc<MySqlPool>,
     pub(crate) cache: CacheConnectionManager,
-    pub(crate) jwks_storage: Arc<JwksStorage>,
+    pub(crate) auth: Arc<AuthService>,
 
     pub(crate) config: Arc<BackendConfig>,
     pub(crate) nodes: Arc<RwLock<HashMap<Uuid, Arc<BackendNode>>>>,
@@ -177,7 +177,7 @@ async fn main0() {
     let backend = Backend {
         database,
         cache,
-        jwks_storage: Arc::new(JwksStorage::new(config.auth.jwks_url.as_str())),
+        auth: Arc::new(AuthService::new(&config.auth).expect("Unable to build AuthService")),
 
         config: Arc::new(config),
         nodes: Arc::default(),

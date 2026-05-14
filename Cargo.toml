@@ -219,7 +219,6 @@ hex = "0.4.3"
 axum = "0.8.8"
 axum-extra = { version = "0.12.3", features = ["typed-header"] }
 axum-server = "0.8.0"
-axum-login = "0.18.0"
 reqwest = { version = "0.12.27", default-features = false, features = [
     "charset",
     "http2",
@@ -236,10 +235,8 @@ serde_yaml_ng = "0.10"
 
 java-properties = "2.0.0"
 serde-xml-rs = "0.8.2"
-nanoid = "0.4.0"
+nanoid = "0.5.0"
 base64 = "0.22.1"
-jsonwebtoken = "10.3.0"
-jwks = "0.5.3"
 
 sqlx = { version = "0.8", default-features = false, features = [
     "mysql",
@@ -253,6 +250,7 @@ concat-idents = "1.1.5"
 http = "1.4.0"
 url = "2.5.7"
 lazy-regex = "3.4.2"
+oauth2 = "5.0.0"
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
@@ -274,7 +272,7 @@ features = ["btrfs", "no_tty_size_please"]
 optional = true
 
 [dependencies.sentry]
-version = "0.46.0"
+version = "0.48.1"
 default-features = false
 features = [
     "backtrace",
@@ -317,7 +315,7 @@ features = [
 ]
 
 [dependencies.toml]
-version = "0.9.10"
+version = "1.1.2+spec-1.1.0"
 features = ["serde", "preserve_order"]
 
 [dependencies.speedy]

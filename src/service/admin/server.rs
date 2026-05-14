@@ -1,11 +1,14 @@
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::{ManagementPermissions, ServerPermissions};
+use crate::auth::permissions::{ManagementPermissions, ProjectPermissions};
+use crate::db::node::NodePortAllocation;
+use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, merge_ports};
 use crate::service::admin::server::server_admin_service_error::{
     CreatePortError, CreateServerError, DeletePortError, DeleteServerError, UpdatePortError,
 };
+use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::template::*;
 use crate::service::*;
 use crate::templates::{TemplateError, ThinTemplateError};
@@ -35,7 +38,9 @@ pub(crate) impl ServerAdminService for Backend {
     #[route("", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*],
         server::{not_found, storage_not_found},
+        project::not_found,
         node::{not_found, failure},
+        port::not_allocated,
         template::{not_found, unavailable, corrupted, port_definition_unknown, input_invalid})]
     #[example("../examples/server.create.json")]
     async fn create_server(
@@ -43,7 +48,7 @@ pub(crate) impl ServerAdminService for Backend {
         #[special] auth: Authentication,
         name: String,
         node: Uuid,
-        owner: Uuid,
+        project: ProjectId,
         template: String,
         storage: String,
         resource: ServerResourcePayload,
@@ -52,7 +57,19 @@ pub(crate) impl ServerAdminService for Backend {
         internet_access: bool,
         backup_limit: Option<u32>,
     ) -> Result<ServerId, _> {
-        auth.require::<_, CreateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
+        if !auth.has((), ManagementPermissions::SERVER_MANAGE) {
+            return Err(<CreateServerError as FromAuthPermissionDenied>::from());
+        }
+
+        let project_exists = query_scalar!(
+            "SELECT (COUNT(*) > 0) AS `exists: bool` FROM `projects` WHERE `id` = ?",
+            project
+        )
+        .fetch_one(&*self.database)
+        .await?;
+        if !project_exists {
+            return Err(CreateServerError::ProjectNotFound);
+        }
 
         let nodes = self.nodes.read().await;
         let Some(node) = nodes.get(&node).cloned() else {
@@ -101,6 +118,17 @@ pub(crate) impl ServerAdminService for Backend {
             });
         }
         merge_ports(&mut ports2);
+
+        for port in &ports2 {
+            if !port_range_allocated(
+                &node.ports,
+                port.protocol,
+                port.external_port_start,
+                port.external_port_end,
+            ) {
+                return Err(CreateServerError::PortNotAllocated);
+            }
+        }
 
         let mut node_ports = Vec::with_capacity(ports2.len());
         for port in &ports2 {
@@ -152,8 +180,8 @@ pub(crate) impl ServerAdminService for Backend {
             let id = ServerId::generate();
 
             conn.transaction(|tx| Box::pin(async move {
-                query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`owner`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        &id, &node.id, &new_server, &owner, &storage, resource.cpu, resource.ram, resource.swap, resource.disk, template.id(), &extra, &name, internet_access, backup_limit)                    .execute(&mut **tx)
+                query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`project`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        &id, &node.id, &new_server, project, &storage, resource.cpu, resource.ram, resource.swap, resource.disk, template.id(), &extra, &name, internet_access, backup_limit)                    .execute(&mut **tx)
                     .await
                     .inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
@@ -174,7 +202,7 @@ pub(crate) impl ServerAdminService for Backend {
     /// Deletes a server
     ///
     /// # Permissions
-    /// Requires [`ServerPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
+    /// Requires [`ProjectPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
     #[route("/{server_id}", method = DELETE)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found, unavailable}, node::failure)]
     async fn delete_server(
@@ -182,8 +210,8 @@ pub(crate) impl ServerAdminService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<(), _> {
-        auth.require::<_, DeleteServerError>(server_id, ServerPermissions::VIEW)?;
-        auth.require::<_, DeleteServerError>((), ManagementPermissions::SERVER_DELETE)?;
+        auth.require::<_, _, DeleteServerError>(server_id, ProjectPermissions::VIEW)?;
+        auth.require::<_, _, DeleteServerError>((), ManagementPermissions::SERVER_DELETE)?;
 
         let backend = self.clone();
         let mut conn = self.database.acquire().await?;
@@ -242,8 +270,8 @@ pub(crate) impl ServerAdminService for Backend {
             return Err(CreatePortError::PortInvalid);
         }
 
-        auth.require::<_, CreatePortError>(server_id, ServerPermissions::VIEW)?;
-        auth.require::<_, CreatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
+        auth.require::<_, _, CreatePortError>(server_id, ProjectPermissions::VIEW)?;
+        auth.require::<_, _, CreatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -259,8 +287,8 @@ pub(crate) impl ServerAdminService for Backend {
                    FROM node_ports
                    WHERE node = ?
                    AND protocol = ?
-                   AND ? <= end
-                   AND ? >= start"#,
+                   AND start <= ?
+                   AND end >= ?"#,
                 server.node.id,
                 protocol.clone(),
                 external.start(),
@@ -363,8 +391,8 @@ pub(crate) impl ServerAdminService for Backend {
         host: Option<String>,
         bind: Option<String>,
     ) -> Result<(), UpdatePortError> {
-        auth.require::<_, UpdatePortError>(server_id, ServerPermissions::VIEW)?;
-        auth.require::<_, UpdatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
+        auth.require::<_, _, UpdatePortError>(server_id, ProjectPermissions::VIEW)?;
+        auth.require::<_, _, UpdatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -409,8 +437,8 @@ pub(crate) impl ServerAdminService for Backend {
                    FROM node_ports
                    WHERE node = ?
                    AND protocol = ?
-                   AND ? <= end
-                   AND ? >= start"#,
+                   AND start <= ?
+                   AND end >= ?"#,
                 server.node.id,
                 protocol_parsed.to_string(),
                 start,
@@ -558,8 +586,8 @@ pub(crate) impl ServerAdminService for Backend {
         server_id: ServerId,
         port_id: u32,
     ) -> Result<(), DeletePortError> {
-        auth.require::<_, DeletePortError>(server_id, ServerPermissions::VIEW)?;
-        auth.require::<_, DeletePortError>((), ManagementPermissions::SERVER_MANAGE)?;
+        auth.require::<_, _, DeletePortError>(server_id, ProjectPermissions::VIEW)?;
+        auth.require::<_, _, DeletePortError>((), ManagementPermissions::SERVER_MANAGE)?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -614,4 +642,15 @@ pub(crate) impl ServerAdminService for Backend {
         })
         .await
     }
+}
+
+fn port_range_allocated(
+    allocations: &[NodePortAllocation],
+    protocol: NetworkProtocol,
+    start: u16,
+    end: u16,
+) -> bool {
+    allocations.iter().any(|allocation| {
+        allocation.protocol == protocol && allocation.start <= start && allocation.end >= end
+    })
 }

@@ -1,4 +1,5 @@
 use crate::Backend;
+use crate::db::project::ProjectId;
 use crate::db::server::{Server, ServerId};
 use sqlx::{Executor, MySql, query, types::JsonValue};
 use tracing::warn;
@@ -14,7 +15,7 @@ impl Backend {
                         `id` AS `id: ServerId`,
                         `node` AS `node: uuid::fmt::Hyphenated`,
                         `node_server_id`,
-                        `owner` AS `owner: uuid::fmt::Hyphenated`,
+                        `project` AS `project: ProjectId`,
                         `name`,
                         `suspended` AS `suspended: bool`,
                         `custom_dockerfile`,
@@ -59,7 +60,7 @@ impl Backend {
                     custom_dockerfile: server.custom_dockerfile,
                     internet_access: server.internet_access,
 
-                    owner: server.owner.into_uuid(),
+                    project: server.project,
 
                     node,
                     node_server_id: server.node_server_id,

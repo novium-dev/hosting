@@ -1,9 +1,12 @@
 use crate::Backend;
 use crate::service::admin::node::NodeAdminService;
 use crate::service::admin::server::ServerAdminService;
+use crate::service::admin::user::UserAdminService;
+use crate::service::auth::AuthService;
 use crate::service::backup::BackupService;
 use crate::service::file::FileService;
 use crate::service::internal::InternalService;
+use crate::service::project::ProjectService;
 use crate::service::server::ServerService;
 use crate::service::template::TemplateService;
 use axum::{Extension, Router};
@@ -18,13 +21,19 @@ use zelus::framework_router;
 use zelus::router::ZelusRouter;
 
 impl Backend {
-    #[expect(clippy::needless_for_each, reason = "caused by OpenApi derive macro")]
     pub fn router(&self) -> Router {
         #[derive(OpenApi)]
         #[openapi()]
         struct ApiDoc;
 
-        let (router,) = framework_router!(Self self (default,) { ServerService, FileService, BackupService, ServerAdminService, NodeAdminService, TemplateService, InternalService });
+        let (default_router,) = framework_router!(Self self (default,) { ServerService, FileService, BackupService, ServerAdminService, NodeAdminService, UserAdminService, AuthService, ProjectService, TemplateService, InternalService });
+        let (dev_auth_router,) = framework_router!(Self self (dev_auth,) { AuthService });
+
+        let router = if cfg!(feature = "auth_dev") {
+            default_router.merge(dev_auth_router)
+        } else {
+            default_router
+        };
 
         let cors = tower_http::cors::CorsLayer::new()
             .allow_origin(tower_http::cors::AllowOrigin::list(

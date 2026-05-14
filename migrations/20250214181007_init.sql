@@ -38,12 +38,43 @@ CREATE TABLE
     ) ENGINE = INNODB;
 
 CREATE TABLE
+    IF NOT EXISTS `users` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        `username` VARCHAR(32) NOT NULL,
+        `auth_id` VARCHAR(255) NOT NULL UNIQUE,
+        `role` INT NOT NULL DEFAULT 0,
+        `email` VARCHAR(255) NOT NULL,
+        `language` VARCHAR(255) NOT NULL DEFAULT 'en',
+        `first_name` VARCHAR(255),
+        `last_name` VARCHAR(255)
+    ) ENGINE = INNODB;
+
+CREATE TABLE
+    IF NOT EXISTS `projects` (
+        `id` CHAR(6) NOT NULL PRIMARY KEY,
+        `slug` VARCHAR(64) NOT NULL UNIQUE,
+        `name` VARCHAR(64) NOT NULL,
+        `owner` INT UNSIGNED NOT NULL,
+        FOREIGN KEY (`owner`) REFERENCES `users` (`id`)
+    ) ENGINE = INNODB;
+
+CREATE TABLE
+    IF NOT EXISTS `project_users` (
+        `user` INT UNSIGNED NOT NULL,
+        `project` CHAR(6) NOT NULL,
+        `permissions` BIGINT NOT NULL,
+        PRIMARY KEY (`user`, `project`),
+        FOREIGN KEY (`user`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+        FOREIGN KEY (`project`) REFERENCES `projects` (`id`) ON DELETE CASCADE
+    ) ENGINE = INNODB;
+
+CREATE TABLE
     IF NOT EXISTS `servers` (
         `id` CHAR(6) NOT NULL PRIMARY KEY,
         `name` VARCHAR(64) NOT NULL,
         `node` UUID NOT NULL,
         `node_server_id` INT (255) UNSIGNED NOT NULL,
-        `owner` UUID NOT NULL,
+        `project` CHAR(6) NOT NULL,
         `cpu` FLOAT (255, 2),
         `ram` INT UNSIGNED,
         `swap` INT UNSIGNED,
@@ -56,6 +87,7 @@ CREATE TABLE
         `internet_access` BOOLEAN NOT NULL DEFAULT TRUE,
         `backup_limit` INT UNSIGNED DEFAULT NULL,
         FOREIGN KEY (`node`) REFERENCES `nodes` (`id`),
+        FOREIGN KEY (`project`) REFERENCES `projects` (`id`),
         UNIQUE (`node`, `node_server_id`)
     ) ENGINE = INNODB;
 
