@@ -1,41 +1,69 @@
 pub mod flow;
 
-use crate::config::AuthConfig;
+use crate::config::{AuthConfig, OAuthProviderConfig};
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_misconfigured::FromAuthMisconfigured;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use http::StatusCode;
-use oauth2::basic::{BasicClient, BasicRequestTokenError};
+use oauth2::basic::BasicClient;
 use oauth2::{
-    AuthorizationCode, Client, CsrfToken, EndpointNotSet, EndpointSet, HttpClientError,
-    PkceCodeChallenge, PkceCodeVerifier, Scope, TokenResponse as _,
+    AuthorizationCode, Client, CsrfToken, EndpointNotSet, EndpointSet, PkceCodeChallenge,
+    PkceCodeVerifier, Scope, TokenResponse as _,
 };
 use reqwest::redirect::Policy;
 use serde::Deserialize;
+use std::collections::HashMap;
 use tracing::error;
 use url::Url;
 
+type OAuthClient =
+    BasicClient<EndpointSet, EndpointNotSet, EndpointNotSet, EndpointNotSet, EndpointSet>;
+
 #[derive(Clone)]
 pub(crate) struct AuthService {
-    pub(crate) auth_client:
-        BasicClient<EndpointSet, EndpointNotSet, EndpointNotSet, EndpointNotSet, EndpointSet>,
+    providers: HashMap<String, OAuthProvider>,
     pub(crate) http_client: reqwest::Client,
+}
+
+#[derive(Clone)]
+struct OAuthProvider {
+    auth_client: OAuthClient,
     userinfo_url: Url,
 }
 
 impl AuthService {
     pub fn new(config: &AuthConfig) -> Result<Self, anyhow::Error> {
+        let providers = config
+            .providers
+            .iter()
+            .map(|(name, config)| (name.clone(), OAuthProvider::new(config)))
+            .collect();
+
         Ok(Self {
+            providers,
+            http_client: reqwest::ClientBuilder::new()
+                .redirect(Policy::none())
+                .build()?,
+        })
+    }
+
+    fn provider<E: FromAuthMisconfigured>(&self, provider: &str) -> Result<&OAuthProvider, E> {
+        self.providers
+            .get(provider)
+            .ok_or_else(<E as FromAuthMisconfigured>::from)
+    }
+}
+
+impl OAuthProvider {
+    fn new(config: &OAuthProviderConfig) -> Self {
+        Self {
             auth_client: Client::new(config.client_id.clone())
                 .set_client_secret(config.client_secret.clone())
                 .set_auth_uri(config.auth_url.clone())
                 .set_token_uri(config.token_url.clone())
                 .set_redirect_uri(config.redirect_url.clone()),
-            http_client: reqwest::ClientBuilder::new()
-                .redirect(Policy::none())
-                .build()?,
             userinfo_url: config.userinfo_url.clone(),
-        })
+        }
     }
 }
 
@@ -54,11 +82,14 @@ pub struct AuthUser {
 impl AuthService {
     pub async fn get_user<E: FromAuthMisconfigured + FromAuthPermissionDenied + FromAuthInvalid>(
         &self,
+        provider: &str,
         access_token: &str,
     ) -> Result<AuthUser, E> {
+        let provider = self.provider::<E>(provider)?;
+
         let response = self
             .http_client
-            .get(self.userinfo_url.clone())
+            .get(provider.userinfo_url.clone())
             .bearer_auth(access_token)
             .send()
             .await
@@ -79,32 +110,39 @@ impl AuthService {
         }
     }
 
-    pub fn generate_url(
+    pub fn generate_url<E: FromAuthMisconfigured>(
         &self,
+        provider: &str,
         scopes: impl IntoIterator<Item = Scope>,
-    ) -> (Url, CsrfToken, PkceCodeVerifier) {
+    ) -> Result<(Url, CsrfToken, PkceCodeVerifier), E> {
+        let provider = self.provider::<E>(provider)?;
         let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
-        let (auth_url, csrf_token) = self
+        let (auth_url, csrf_token) = provider
             .auth_client
             .authorize_url(CsrfToken::new_random)
             .add_scopes(scopes)
             .set_pkce_challenge(pkce_challenge)
             .url();
-        (auth_url, csrf_token, pkce_verifier)
+        Ok((auth_url, csrf_token, pkce_verifier))
     }
 
-    pub async fn request_token(
+    pub async fn request_token<E: FromAuthMisconfigured>(
         &self,
+        provider: &str,
         code: AuthorizationCode,
         verifier: PkceCodeVerifier,
-    ) -> Result<String, BasicRequestTokenError<HttpClientError<reqwest::Error>>> {
-        Ok(self
+    ) -> Result<String, E> {
+        let provider = self.provider::<E>(provider)?;
+
+        Ok(provider
             .auth_client
             .exchange_code(code)
             .set_pkce_verifier(verifier)
             .request_async(&self.http_client)
-            .await?
+            .await
+            .inspect_err(|err| error!("Failed to generate access token: {err:?}"))
+            .map_err(|_err| <E as FromAuthMisconfigured>::from())?
             .access_token()
             .secret()
             .clone())

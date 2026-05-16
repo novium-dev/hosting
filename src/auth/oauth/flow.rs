@@ -11,6 +11,7 @@ const FLOWS_NAMESPACE: &str = "oauth_flows";
 
 #[derive(Debug, Serialize, Deserialize, Writable, Readable)]
 pub(crate) struct OAuthFlow {
+    pub(crate) provider: String,
     pub(crate) redirect_url: String,
     pub(crate) state: String,
     pub(crate) verifier: String,

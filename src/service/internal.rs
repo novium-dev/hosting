@@ -39,13 +39,13 @@ define_error!(internal_daemon {
 
 const REGISTRATION_TIMEOUT: Duration = Duration::from_mins(10);
 
-#[service(path = "/api/internal", tag = "internal", no_sdk)]
+#[service(path = "/internal", tag = "internal", no_sdk)]
 pub(crate) impl InternalService for Backend {
     /// Returns the public daemon root key as pem.
     ///
     /// This route should only be used directly by the daemon.
-    #[route("/daemon/root_key")]
-    #[error()]
+    #[route("/daemon/root_key", no_auth)]
+    #[error(auth::invalid)]
     async fn daemon_root_key(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
@@ -66,8 +66,8 @@ pub(crate) impl InternalService for Backend {
     /// Registers a new daemon.
     ///
     /// This route should only be used directly by the daemon.
-    #[route("/daemon/register", method = POST, raw)]
-    #[error(internal_daemon::{key_invalid, unreachable, sign_failed}, db::failure <- [sql:*])]
+    #[route("/daemon/register", method = POST, raw, no_auth)]
+    #[error(internal_daemon::{key_invalid, unreachable, sign_failed}, db::failure <- [sql:*], auth::invalid)]
     async fn daemon_register(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
@@ -142,8 +142,8 @@ pub(crate) impl InternalService for Backend {
     /// Updates an existing daemon.
     ///
     /// This route should only be used directly by the daemon.
-    #[route("/daemon/update", method = POST)]
-    #[error(internal_daemon::{key_invalid, unreachable}, db::failure <- [sql:*])]
+    #[route("/daemon/update", method = POST, no_auth)]
+    #[error(internal_daemon::{key_invalid, unreachable}, db::failure <- [sql:*], auth::invalid)]
     async fn daemon_update(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,

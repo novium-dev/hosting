@@ -7,11 +7,11 @@ use crate::service::auth::auth_service_error::{CallbackError, LoginDevError, Log
 use chrono::Duration;
 use oauth2::{AuthorizationCode, PkceCodeVerifier, Scope};
 use sqlx::query;
-use tracing::error;
 use url::Url;
 use zelus::responses::Redirect;
-use zelus::{define_query_variable, service};
+use zelus::{define_path_variable, define_query_variable, service};
 
+define_path_variable!(provider "The OAuth provider");
 define_query_variable!(redirect_url "The URL to redirect to after login");
 define_query_variable!(code "The authorization code returned by the OAuth provider");
 define_query_variable!(state "The state parameter to prevent CSRF attacks");
@@ -57,17 +57,19 @@ pub(crate) impl AuthService for Backend {
     }
 
     /// Initiates the OAuth login process.
-    #[route("/login", method = GET, query = [ redirect_url ], raw)]
+    #[route("/login/{provider}", method = GET, query = [ redirect_url ], raw)]
     #[error(auth::misconfigured, cache::failure <- [redis:*])]
-    async fn login(&self, redirect_url: String) -> Result<Redirect<307>, _> {
-        let (url, csrf_token, pkce_verifier) = self.auth.generate_url(
+    async fn login(&self, provider: String, redirect_url: String) -> Result<Redirect<307>, _> {
+        let (url, csrf_token, pkce_verifier) = self.auth.generate_url::<LoginError>(
+            &provider,
             ["openid", "profile", "email"]
                 .into_iter()
                 .map(String::from)
                 .map(Scope::new),
-        );
+        )?;
 
         OAuthFlow {
+            provider,
             redirect_url: redirect_url.clone(),
             state: csrf_token.into_secret(),
             verifier: pkce_verifier.into_secret(),
@@ -88,17 +90,18 @@ pub(crate) impl AuthService for Backend {
 
         let access_token = self
             .auth
-            .request_token(
+            .request_token::<CallbackError>(
+                &flow.provider,
                 AuthorizationCode::new(code),
                 PkceCodeVerifier::new(flow.verifier),
             )
-            .await
-            .map_err(|err| {
-                error!("Failed to generate access token: {err:?}");
-                CallbackError::AuthMisconfigured
-            })?;
+            .await?;
 
-        let user = self.auth.get_user::<CallbackError>(&access_token).await?;
+        let mut user = self
+            .auth
+            .get_user::<CallbackError>(&flow.provider, &access_token)
+            .await?;
+        user.sub = format!("{}:{}", flow.provider, user.sub);
         let user_id = self.get_or_create_user(user).await?;
 
         let session = Session::generate().map_err(|_err| CallbackError::OsFailure)?;
