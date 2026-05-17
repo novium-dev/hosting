@@ -258,7 +258,7 @@ opt-level = 3
 [dependencies.daemon_common]
 git = "ssh://git@github.com/novium-dev/daemon.git"
 default-features = false
-features = ["sdk", "backend"]
+features = ["sdk", "backend", "ssh"]
 
 [dependencies.zelus]
 git = "https://github.com/0xIO32/zelus.git"
