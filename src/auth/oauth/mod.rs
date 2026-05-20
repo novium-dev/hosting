@@ -2,7 +2,7 @@ pub mod flow;
 
 use crate::config::{AuthConfig, OAuthProviderConfig};
 use crate::service::error_auth_invalid::FromAuthInvalid;
-use crate::service::error_auth_misconfigured::FromAuthMisconfigured;
+use crate::service::error_auth_failure::FromAuthFailure;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use http::StatusCode;
 use oauth2::basic::BasicClient;
@@ -47,10 +47,10 @@ impl AuthService {
         })
     }
 
-    fn provider<E: FromAuthMisconfigured>(&self, provider: &str) -> Result<&OAuthProvider, E> {
+    fn provider<E: FromAuthFailure>(&self, provider: &str) -> Result<&OAuthProvider, E> {
         self.providers
             .get(provider)
-            .ok_or_else(<E as FromAuthMisconfigured>::from)
+            .ok_or_else(<E as FromAuthFailure>::from)
     }
 }
 
@@ -80,7 +80,7 @@ pub struct AuthUser {
 }
 
 impl AuthService {
-    pub async fn get_user<E: FromAuthMisconfigured + FromAuthPermissionDenied + FromAuthInvalid>(
+    pub async fn get_user<E: FromAuthFailure + FromAuthPermissionDenied + FromAuthInvalid>(
         &self,
         provider: &str,
         access_token: &str,
@@ -94,7 +94,7 @@ impl AuthService {
             .send()
             .await
             .inspect_err(|err| error!("Failed to fetch user info: {err:?}"))
-            .map_err(|_err| <E as FromAuthMisconfigured>::from())?;
+            .map_err(|_err| <E as FromAuthFailure>::from())?;
 
         if response.status() == StatusCode::UNAUTHORIZED {
             Err(<E as FromAuthPermissionDenied>::from())
@@ -104,13 +104,13 @@ impl AuthService {
         } else {
             let user: AuthUser = response.json().await.map_err(|err| {
                 error!("Failed to parse user info response: {err:?}");
-                <E as FromAuthMisconfigured>::from()
+                <E as FromAuthFailure>::from()
             })?;
             Ok(user)
         }
     }
 
-    pub fn generate_url<E: FromAuthMisconfigured>(
+    pub fn generate_url<E: FromAuthFailure>(
         &self,
         provider: &str,
         scopes: impl IntoIterator<Item = Scope>,
@@ -127,7 +127,7 @@ impl AuthService {
         Ok((auth_url, csrf_token, pkce_verifier))
     }
 
-    pub async fn request_token<E: FromAuthMisconfigured>(
+    pub async fn request_token<E: FromAuthFailure>(
         &self,
         provider: &str,
         code: AuthorizationCode,
@@ -142,7 +142,7 @@ impl AuthService {
             .request_async(&self.http_client)
             .await
             .inspect_err(|err| error!("Failed to generate access token: {err:?}"))
-            .map_err(|_err| <E as FromAuthMisconfigured>::from())?
+            .map_err(|_err| <E as FromAuthFailure>::from())?
             .access_token()
             .secret()
             .clone())

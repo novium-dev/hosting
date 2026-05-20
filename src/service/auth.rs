@@ -58,7 +58,7 @@ pub(crate) impl AuthService for Backend {
 
     /// Initiates the OAuth login process.
     #[route("/login/{provider}", method = GET, query = [ redirect_url ], raw)]
-    #[error(auth::misconfigured, cache::failure <- [redis:*])]
+    #[error(auth::failure, cache::failure <- [redis:*])]
     async fn login(&self, provider: String, redirect_url: String) -> Result<Redirect<307>, _> {
         let (url, csrf_token, pkce_verifier) = self.auth.generate_url::<LoginError>(
             &provider,
@@ -82,11 +82,11 @@ pub(crate) impl AuthService for Backend {
 
     /// Handles the OAuth callback after user authentication.
     #[route("/callback", method = GET, query = [ code, state ], raw)]
-    #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure, auth::{misconfigured, permission_denied})]
+    #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure, auth::{failure, permission_denied})]
     async fn callback(&self, code: String, state: String) -> Result<Redirect<307>, _> {
         let flow = OAuthFlow::get::<CallbackError>(&state, &mut self.cache.clone())
             .await?
-            .ok_or(CallbackError::AuthMisconfigured)?;
+            .ok_or(CallbackError::AuthFailure)?;
 
         let access_token = self
             .auth
@@ -110,7 +110,7 @@ pub(crate) impl AuthService for Backend {
         let _ = OAuthFlow::remove(&state, &mut self.cache.clone()).await;
 
         let mut redirect_destination =
-            Url::parse(&flow.redirect_url).map_err(|_err| CallbackError::AuthMisconfigured)?;
+            Url::parse(&flow.redirect_url).map_err(|_err| CallbackError::AuthFailure)?;
 
         redirect_destination
             .query_pairs_mut()
