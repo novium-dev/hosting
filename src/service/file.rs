@@ -381,6 +381,8 @@ pub(crate) impl FileService for Backend {
         })
     }
 
+
+
     #[route("/archive", method = POST, query = [ from, to, compression ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, is_directory, quota_exceeded, compression_unsupported})]
     async fn archive_file(
@@ -483,17 +485,17 @@ pub(crate) impl FileService for Backend {
         Ok(())
     }
 
-    #[route("/config/{file_name}", method = GET)]
+    #[route("/config", method = GET, query = [ path ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, unsupported_type})]
     async fn get_config(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        file_name: String,
+        path: String,
     ) -> Result<Value, _> {
         auth.require::<_, _, GetConfigError>(server_id, ServerPermissions::FILES_READ)?;
 
-        let ext = file_name
+        let ext = path
             .rsplit('.')
             .next()
             .unwrap_or_default()
@@ -509,7 +511,7 @@ pub(crate) impl FileService for Backend {
 
         let (data, empty) = match server
             .node
-            .server_download_file(server.node_server_id, file_name.clone(), Some(0x0002_0000))
+            .server_download_file(server.node_server_id, path.clone(), Some(0x0002_0000))
             .await
         {
             Ok(response) => (response.1, false),
@@ -551,7 +553,7 @@ pub(crate) impl FileService for Backend {
             "properties" => {
                 let parsed = tokio::task::spawn_blocking(move || {
                     java_properties::read(SyncIoBridge::new(data.reader())).map_err(|err| {
-                        error!("Failed to read properties file {}: {:?}", file_name, err);
+                        error!("Failed to read properties file {}: {:?}", path, err);
                         GetConfigError::ServerConfigInvalid
                     })
                 })
@@ -573,7 +575,7 @@ pub(crate) impl FileService for Backend {
                     tokio::task::spawn_blocking(move || {
                         serde_json::from_reader::<_, Value>(SyncIoBridge::new(data.reader()))
                             .map_err(|err| {
-                                error!("Failed to parse JSON config {}: {:?}", file_name, err);
+                                error!("Failed to parse JSON config {}: {:?}", path, err);
                                 GetConfigError::ServerConfigInvalid
                             })
                     })
@@ -590,7 +592,7 @@ pub(crate) impl FileService for Backend {
                         data.reader(),
                     ))
                     .map_err(|err| {
-                        error!("Failed to parse YAML config {}: {:?}", file_name, err);
+                        error!("Failed to parse YAML config {}: {:?}", path, err);
                         GetConfigError::ServerConfigInvalid
                     })
                 })
@@ -609,18 +611,18 @@ pub(crate) impl FileService for Backend {
         }
     }
 
-    #[route("/config/{file_name}", method = POST, raw)]
+    #[route("/config", method = POST, raw, query = [ path ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, unsupported_type, content_invalid})]
     async fn set_config(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        file_name: String,
+        path: String,
         payload: Value,
     ) -> Result<(), _> {
         auth.require::<_, _, SetConfigError>(server_id, ServerPermissions::FILES_WRITE)?;
 
-        let ext = file_name
+        let ext = path
             .rsplit('.')
             .next()
             .unwrap_or_default()
@@ -665,7 +667,7 @@ pub(crate) impl FileService for Backend {
 
         server
             .node
-            .server_write_file_by_template(server.node_server_id, file_name, write)
+            .server_write_file_by_template(server.node_server_id, path, write)
             .await
             .map_err(|err| match err {
                 ServerWriteFileByTemplateError::Communication(_) => {
