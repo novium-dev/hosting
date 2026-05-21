@@ -441,7 +441,7 @@ impl<T: Template + Send + Sync> TemplateInner for T {
                         }
                     }
                 }
-                tokio::time::sleep(Duration::from_secs(60 * 10)).await;
+                tokio::time::sleep(Duration::from_mins(10)).await;
             }
         });
         Ok(())

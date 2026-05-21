@@ -215,13 +215,13 @@ impl HasPermission<ServerId> for ServerPermissions {
             ProjectPermissions::permissions(extra, permissions, projects, servers);
         let server_permissions = servers.get(&extra).copied().unwrap_or(permissions);
 
-        if !<ProjectPermissions as HasPermission<ServerId>>::contains_permission(
+        if <ProjectPermissions as HasPermission<ServerId>>::contains_permission(
             project_permissions,
             ProjectPermissions::VIEW,
         ) {
-            Self::empty()
-        } else {
             Self::from_bits_retain(server_permissions)
+        } else {
+            Self::empty()
         }
     }
 

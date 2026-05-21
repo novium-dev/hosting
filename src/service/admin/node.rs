@@ -255,7 +255,6 @@ pub(crate) impl NodeAdminService for Backend {
         }
 
         let mut conn = self.database.acquire().await?;
-        let backend = self.clone();
         conn.transaction(|tx| {
             Box::pin(async move {
                 let id = query!(

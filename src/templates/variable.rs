@@ -31,10 +31,18 @@ pub struct VariableField {
 #[serde(untagged)]
 pub enum VariableType {
     StaticSet(IndexSet<String>),
-    Checkbox { label: String },
-    Hierarchy { field_index: u8, data_index: u8 },
-    Regex { regex: String, placeholder: String },
-    StringInput { max_length: u16, secret: bool },
+    Checkbox {
+        label: String,
+    },
+    Hierarchy {
+        field_index: u8,
+        data_index: u8,
+    },
+    Regex {
+        regex: String,
+        placeholder: String,
+        secret: bool,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -246,6 +254,7 @@ impl VariableGroupBuilder {
         current: Option<impl Into<String>>,
         regex: impl Into<String>,
         placeholder: impl Into<String>,
+        secret: bool,
     ) -> Self {
         let regex = regex.into();
         debug_assert!(Regex::new(&regex).is_ok(), "Invalid regex value: {regex:?}");
@@ -256,24 +265,8 @@ impl VariableGroupBuilder {
             data: VariableType::Regex {
                 regex,
                 placeholder: placeholder.into(),
+                secret,
             },
-        });
-        self
-    }
-
-    pub fn string_variable(
-        mut self,
-        id: impl Into<String>,
-        name: impl Into<String>,
-        current: Option<impl Into<String>>,
-        max_length: u16,
-        secret: bool,
-    ) -> Self {
-        self.0.variables.push(VariableField {
-            id: id.into(),
-            name: name.into(),
-            current: current.map(Into::into),
-            data: VariableType::StringInput { max_length, secret },
         });
         self
     }
