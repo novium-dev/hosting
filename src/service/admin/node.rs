@@ -241,11 +241,10 @@ pub(crate) impl NodeAdminService for Backend {
         #[no_schema] node_id: Uuid,
         start: u16,
         end: u16,
-        protocol: String,
+        protocol: NetworkProtocol,
     ) -> Result<u32, _> {
         auth.require::<_, _, AddPortError>((), ManagementPermissions::NODES_MANAGE)?;
 
-        let protocol = NetworkProtocol::by_name(&protocol);
         if start > end {
             return Err(AddPortError::PortInvalid);
         }

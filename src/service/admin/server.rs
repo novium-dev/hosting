@@ -254,7 +254,7 @@ pub(crate) impl ServerAdminService for Backend {
         #[special] auth: Authentication,
         server_id: ServerId,
         name: String,
-        protocol: String,
+        protocol: NetworkProtocol,
         internal_port: u16,
         external_port: PortRange,
     ) -> Result<(), _> {
