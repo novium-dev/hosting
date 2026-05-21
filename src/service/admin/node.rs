@@ -269,8 +269,6 @@ pub(crate) impl NodeAdminService for Backend {
                 .await?
                 .last_insert_id() as u32;
 
-                backend.sync_nodes(tx).await?;
-
                 Ok::<_, AddPortError>(id)
             })
         })
@@ -303,8 +301,6 @@ pub(crate) impl NodeAdminService for Backend {
                 .fetch_optional(&mut **tx)
                 .await?
                 else {
-                    backend.sync_nodes(tx).await?;
-
                     return Ok::<_, DeletePortError>(());
                 };
 

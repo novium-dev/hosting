@@ -46,7 +46,7 @@ pub(crate) async fn resolve_to_url<
         .json::<VersionResponse>()
         .await
         .inspect_err(|err| error!("Failed to parse version details: {:?}", err))
-        .map_err(|_err| <E as FromResourceProviderError>::from())?;
+        .map_err(|_err| <E as FromResourceMissing>::from())?;
     let (url, filename) = response
         .files
         .iter()
