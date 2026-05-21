@@ -381,8 +381,6 @@ pub(crate) impl FileService for Backend {
         })
     }
 
-
-
     #[route("/archive", method = POST, query = [ from, to, compression ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, is_directory, quota_exceeded, compression_unsupported})]
     async fn archive_file(
@@ -495,11 +493,7 @@ pub(crate) impl FileService for Backend {
     ) -> Result<Value, _> {
         auth.require::<_, _, GetConfigError>(server_id, ServerPermissions::FILES_READ)?;
 
-        let ext = path
-            .rsplit('.')
-            .next()
-            .unwrap_or_default()
-            .to_lowercase();
+        let ext = path.rsplit('.').next().unwrap_or_default().to_lowercase();
         if !["properties", "json", "yaml", "yml"].contains(&ext.as_str()) {
             return Err(GetConfigError::FileUnsupportedType);
         }
@@ -622,11 +616,7 @@ pub(crate) impl FileService for Backend {
     ) -> Result<(), _> {
         auth.require::<_, _, SetConfigError>(server_id, ServerPermissions::FILES_WRITE)?;
 
-        let ext = path
-            .rsplit('.')
-            .next()
-            .unwrap_or_default()
-            .to_lowercase();
+        let ext = path.rsplit('.').next().unwrap_or_default().to_lowercase();
         if !["properties", "json", "yaml", "yml"].contains(&ext.as_str()) {
             return Err(SetConfigError::FileUnsupportedType);
         }

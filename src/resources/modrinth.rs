@@ -1,5 +1,4 @@
 use lazy_regex::lazy_regex;
-use regex::Regex;
 use reqwest::{Client, Url};
 use serde::Deserialize;
 use tracing::{debug, error};

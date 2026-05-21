@@ -1,8 +1,8 @@
 pub mod flow;
 
 use crate::config::{AuthConfig, OAuthProviderConfig};
-use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_failure::FromAuthFailure;
+use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use http::StatusCode;
 use oauth2::basic::BasicClient;

@@ -70,6 +70,7 @@ define_error!(port {
     invalid("The specified port range is invalid" BAD_REQUEST),
     not_allocated("The specified port range is not allocated to the server" BAD_REQUEST),
     collision("The specified port range collides with another server's ports" BAD_REQUEST),
+    in_use("The specified port range is still in use by a server" BAD_REQUEST),
 });
 
 define_error!(node {

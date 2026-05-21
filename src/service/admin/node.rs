@@ -5,7 +5,7 @@ use rand::TryRng as _;
 use tracing::error;
 
 use serde::Serialize;
-use sqlx::{Connection as _, query};
+use sqlx::{Connection as _, query, query_scalar};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use zelus::service;
@@ -278,7 +278,7 @@ pub(crate) impl NodeAdminService for Backend {
     }
 
     #[route("/{node_id}/ports/{port_id}", method = DELETE)]
-    #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    #[error(node::not_found, port::in_use, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn delete_port(
         &self,
         #[special] auth: Authentication,
@@ -295,6 +295,39 @@ pub(crate) impl NodeAdminService for Backend {
         let backend = self.clone();
         conn.transaction(|tx| {
             Box::pin(async move {
+                let Some(port) = query!(
+                    "SELECT `protocol` AS `protocol: NetworkProtocol`, `start`, `end` FROM `node_ports` WHERE `id` = ? AND `node` = ? FOR UPDATE",
+                    port_id,
+                    node_id,
+                )
+                .fetch_optional(&mut **tx)
+                .await?
+                else {
+                    backend.sync_nodes(tx).await?;
+
+                    return Ok::<_, DeletePortError>(());
+                };
+
+                let in_use = query_scalar!(
+                    r#"SELECT (COUNT(*) > 0) AS `exists: bool`
+                       FROM `server_ports`
+                       JOIN `servers` ON `server_ports`.`server` = `servers`.`id`
+                       WHERE `servers`.`node` = ?
+                       AND `server_ports`.`protocol` = ?
+                       AND ? <= `server_ports`.`external_port_end`
+                       AND ? >= `server_ports`.`external_port_start`"#,
+                    node_id,
+                    port.protocol,
+                    port.start,
+                    port.end,
+                )
+                .fetch_one(&mut **tx)
+                .await?;
+
+                if in_use {
+                    return Err(DeletePortError::PortInUse);
+                }
+
                 query!(
                     "DELETE FROM `node_ports` WHERE `id` = ? AND `node` = ?",
                     port_id,

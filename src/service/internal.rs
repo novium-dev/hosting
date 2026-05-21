@@ -1,4 +1,5 @@
 use super::*;
+use crate::service::internal::internal_service_error::{AuthPasswordError, AuthPublickeyError};
 use crate::{
     Backend,
     service::internal::{
@@ -7,11 +8,13 @@ use crate::{
         internal_service_error::{DaemonRegisterError, DaemonRootKeyError, DaemonUpdateError},
     },
 };
+use axum_extra::headers::authorization::Basic;
 use axum_extra::{
     TypedHeader,
     headers::{Authorization, authorization::Bearer},
 };
 use core::time::Duration;
+use daemon_common::ssh::DaemonBackendAuthResponse;
 use daemon_common::{
     key::rcgen::{CertificateSigningRequestParams, DnType, DnValue},
     node::{BackupStorage, NodeRegistrationRequest, NodeUpdateRequest, ServerStorage},
@@ -24,13 +27,10 @@ use rustls::{
 };
 use sqlx::{Connection as _, MySql, Transaction, query};
 use std::{collections::HashMap, sync::Arc};
-use axum_extra::headers::authorization::Basic;
-use daemon_common::ssh::DaemonBackendAuthResponse;
 use tracing::{debug, error, info};
 use url::Url;
 use uuid::Uuid;
 use zelus::{define_header_variable, service};
-use crate::service::internal::internal_service_error::{AuthPasswordError, AuthPublickeyError};
 
 define_header_variable!(generated_arg_1 "The authorization code for the registration");
 define_header_variable!(generated_arg_2 "The authorizations credentials of the user");
@@ -228,7 +228,9 @@ pub(crate) impl InternalService for Backend {
         node: String,
         TypedHeader(Authorization(_auth)): TypedHeader<Authorization<Basic>>,
     ) -> Result<DaemonBackendAuthResponse, _> {
-        info!("Received password auth request for node {node}, but password auth is not yet implemented");
+        info!(
+            "Received password auth request for node {node}, but password auth is not yet implemented"
+        );
         Err(AuthPasswordError::AuthInvalid)
     }
 
@@ -239,7 +241,9 @@ pub(crate) impl InternalService for Backend {
         node: String,
         TypedHeader(Authorization(_auth)): TypedHeader<Authorization<Basic>>,
     ) -> Result<DaemonBackendAuthResponse, _> {
-        info!("Received SSH public key auth request for node {node}, but SSH is not yet implemented");
+        info!(
+            "Received SSH public key auth request for node {node}, but SSH is not yet implemented"
+        );
         Err(AuthPublickeyError::AuthInvalid)
     }
 }
