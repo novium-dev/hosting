@@ -4,9 +4,9 @@ use serde::Deserialize;
 use crate::{
     service::{
         error_resource_invalid_payload::FromResourceInvalidPayload,
+        error_resource_missing::FromResourceMissing,
         error_resource_provider_error::FromResourceProviderError,
         error_resource_provider_unavailable::FromResourceProviderUnavailable,
-        error_resource_missing::FromResourceMissing,
         error_resource_wrong_template::FromResourceWrongTemplate,
     },
     templates::{Template as _, minecraft::MinecraftTemplate},

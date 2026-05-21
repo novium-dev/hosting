@@ -1,8 +1,7 @@
 use crate::Backend;
 use crate::auth::oauth::AuthUser;
 use crate::auth::permissions::{
-    HasPermission, ManagementPermissions, Permission, ProjectPermissions,
-    RESTRICTED_SERVER_PERMISSIONS, Role, ServerPermissions,
+    HasPermission, ManagementPermissions, Permission, ProjectPermissions, Role, ServerPermissions,
 };
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
@@ -175,7 +174,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         .collect();
         projects.extend(owned_projects);
 
-        let servers: HashMap<ServerId, i64> = query!(
+        let server_records = query!(
             "SELECT
                 `servers`.`id` AS `server: ServerId`,
                 `servers`.`project` AS `project: ProjectId`,
@@ -197,9 +196,10 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         )
         .fetch_all(&mut *conn)
         .await
-        .inspect_err(|err| error!("Unable to fetch server permissions for user {id}: {err:?}"))?
-        .into_iter()
-        .filter_map(|record| {
+        .inspect_err(|err| error!("Unable to fetch server permissions for user {id}: {err:?}"))?;
+
+        let mut servers = HashMap::new();
+        for record in server_records {
             let mut permissions = projects
                 .get(&record.project)
                 .copied()
@@ -212,14 +212,14 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
                     && !ManagementPermissions::from_bits_retain(user_permissions)
                         .contains(ManagementPermissions::SERVER_MANAGE))
             {
-                permissions = ProjectPermissions::VIEW.bits() | RESTRICTED_SERVER_PERMISSIONS;
+                permissions = ProjectPermissions::VIEW.bits();
             }
 
-            ProjectPermissions::from_bits_retain(permissions)
-                .contains(ProjectPermissions::VIEW)
-                .then_some((record.server, permissions))
-        })
-        .collect();
+            if ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW)
+            {
+                servers.insert(record.server, permissions);
+            }
+        }
 
         Ok(Some(Self {
             id,
