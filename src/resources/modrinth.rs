@@ -23,9 +23,6 @@ struct VersionFile {
     primary: bool,
 }
 
-#[expect(clippy::non_std_lazy_statics, reason = "external crate")]
-pub static VERSION_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!(r"^[A-Za-z0-9]+$");
-
 pub(crate) async fn resolve_to_url<
     E: FromResourceInvalidPayload
         + FromResourceProviderUnavailable
@@ -35,7 +32,7 @@ pub(crate) async fn resolve_to_url<
     client: &Client,
     version: String,
 ) -> Result<(Url, String), E> {
-    if !VERSION_REGEX.is_match(&version) {
+    if !lazy_regex!(r"^[A-Za-z0-9]+$").is_match(&version) {
         return Err(<E as FromResourceInvalidPayload>::from());
     }
     let response = client
