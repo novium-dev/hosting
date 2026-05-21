@@ -7,7 +7,7 @@ use crate::service::{
     error_resource_invalid_payload::FromResourceInvalidPayload,
     error_resource_provider_error::FromResourceProviderError,
     error_resource_provider_unavailable::FromResourceProviderUnavailable,
-    error_resource_resource_missing::FromResourceResourceMissing,
+    error_resource_missing::FromResourceMissing,
 };
 
 #[derive(Debug, Deserialize)]
@@ -26,7 +26,7 @@ pub(crate) async fn resolve_to_url<
     E: FromResourceInvalidPayload
         + FromResourceProviderUnavailable
         + FromResourceProviderError
-        + FromResourceResourceMissing,
+        + FromResourceMissing,
 >(
     client: &Client,
     version: String,
@@ -42,7 +42,7 @@ pub(crate) async fn resolve_to_url<
         .map_err(|_err| <E as FromResourceProviderUnavailable>::from())?
         .error_for_status()
         .inspect_err(|err| debug!("Resource does not exist: {:?}", err))
-        .map_err(|_err| <E as FromResourceResourceMissing>::from())?
+        .map_err(|_err| <E as FromResourceMissing>::from())?
         .json::<VersionResponse>()
         .await
         .inspect_err(|err| error!("Failed to parse version details: {:?}", err))
@@ -54,7 +54,7 @@ pub(crate) async fn resolve_to_url<
         .map_or_else(|| response.files.first(), Some)
         .cloned()
         .map(|file| (file.url, file.filename))
-        .ok_or_else(|| <E as FromResourceResourceMissing>::from())?;
+        .ok_or_else(|| <E as FromResourceMissing>::from())?;
     let url = url
         .parse()
         .map_err(|_err| <E as FromResourceProviderError>::from())?;

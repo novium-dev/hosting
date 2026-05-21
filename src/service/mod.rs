@@ -50,7 +50,7 @@ define_error!(file {
 define_error!(resource {
     invalid_payload("The resource payload is invalid" BAD_REQUEST),
     provider_unavailable("The resource provider is currently unavailable" SERVICE_UNAVAILABLE),
-    resource_missing("The specified resource is missing" NOT_FOUND),
+    missing("The specified resource is missing" NOT_FOUND),
     provider_error("The resource provider returned an error" BAD_GATEWAY),
     wrong_template("The resource is not compatible with the server template" BAD_REQUEST),
 });

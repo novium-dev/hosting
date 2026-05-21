@@ -689,7 +689,7 @@ pub(crate) impl FileService for Backend {
     }
 
     #[route("/resource", method = POST)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, resource::{invalid_payload,provider_unavailable, resource_missing, provider_error, wrong_template}, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, already_exists})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, resource::{invalid_payload,provider_unavailable, missing, provider_error, wrong_template}, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, already_exists})]
     async fn get_resource(
         &self,
         #[special] auth: Authentication,
