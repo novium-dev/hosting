@@ -73,7 +73,7 @@ pub(crate) impl NodeAdminService for Backend {
     async fn update_node(
         &self,
         #[special] auth: Authentication,
-        #[no_schema] node_id: Uuid,
+        node_id: Uuid,
     ) -> Result<String, _> {
         auth.require::<_, _, UpdateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
@@ -126,7 +126,7 @@ pub(crate) impl NodeAdminService for Backend {
     async fn update_maintenance(
         &self,
         #[special] auth: Authentication,
-        #[no_schema] node_id: Uuid,
+        node_id: Uuid,
         maintenance: bool,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateMaintenanceError>((), ManagementPermissions::NODES_MANAGE)?;
@@ -160,7 +160,7 @@ pub(crate) impl NodeAdminService for Backend {
     async fn metrics_node(
         &self,
         #[special] auth: Authentication,
-        #[no_schema] node_id: Uuid,
+        node_id: Uuid,
     ) -> Result<daemon_common::service::resource::ResourceResponse, _> {
         use daemon_common::service::resource::resource_service_error::ResourceInfoError;
 
@@ -193,7 +193,7 @@ pub(crate) impl NodeAdminService for Backend {
     async fn available_ports(
         &self,
         #[special] auth: Authentication,
-        #[no_schema] node_id: Uuid,
+        node_id: Uuid,
     ) -> Result<HashMap<String, Vec<PortRange>>, _> {
         auth.require::<_, _, AvailablePortsError>((), ManagementPermissions::NODES_VIEW)?;
 
@@ -238,7 +238,7 @@ pub(crate) impl NodeAdminService for Backend {
     async fn add_port(
         &self,
         #[special] auth: Authentication,
-        #[no_schema] node_id: Uuid,
+        node_id: Uuid,
         start: u16,
         end: u16,
         protocol: NetworkProtocol,
@@ -278,7 +278,7 @@ pub(crate) impl NodeAdminService for Backend {
     async fn delete_port(
         &self,
         #[special] auth: Authentication,
-        #[no_schema] node_id: Uuid,
+        node_id: Uuid,
         port_id: u32,
     ) -> Result<(), _> {
         auth.require::<_, _, DeletePortError>((), ManagementPermissions::NODES_MANAGE)?;
