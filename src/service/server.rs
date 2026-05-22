@@ -16,7 +16,6 @@ use crate::service::template::*;
 use crate::templates::TemplateError;
 use crate::templates::variable::VariablePayload;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
-use core::str::FromStr as _;
 use daemon_common::service::server::{ServerNetworkPayload, ServerResourcePayload};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query};
@@ -92,30 +91,17 @@ pub(crate) impl ServerService for Backend {
         &self,
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
-        project: Option<String>,
-        node: Option<String>,
+        project: Option<ProjectId>,
+        node: Option<Uuid>,
         template: Option<String>,
     ) -> Result<Paged<ServerListInfo>, _> {
-        let project_filter = project
-            .as_deref()
-            .map(ProjectId::from_str)
-            .transpose()
-            .ok()
-            .flatten();
-        let node_filter = node
-            .as_deref()
-            .map(Uuid::parse_str)
-            .transpose()
-            .ok()
-            .flatten();
-
         let servers = query!("SELECT `id` AS `id: ServerId`, `name`, `project` AS `project: ProjectId`, `node` AS `node: uuid::fmt::Hyphenated`, `template` FROM `servers`")
             .fetch_all(&*self.database)
             .await?
             .into_iter()
 
-            .filter(|server| project_filter.is_none_or(|owner| *server.project == *owner))
-            .filter(|server| node_filter.as_ref().is_none_or(|node| *server.node.as_uuid() == *node))
+            .filter(|server| project.is_none_or(|owner| *server.project == *owner))
+            .filter(|server| node.as_ref().is_none_or(|node| *server.node.as_uuid() == *node))
             .filter(|server| template.as_ref().is_none_or(|template| server.template == *template))
             .filter(|server| auth.has(server.id, ProjectPermissions::VIEW))
             .apply_pagesplit(&mut page)
