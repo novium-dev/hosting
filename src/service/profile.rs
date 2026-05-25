@@ -101,10 +101,7 @@ pub(crate) impl ProfileService for Backend {
     /// Gets the current user's daemon password.
     #[route("/daemon-password", method = GET)]
     #[error(db::failure <- [sql:*], auth::unreachable)]
-    async fn daemon_password(
-        &self,
-        #[special] auth: UserAuthentication,
-    ) -> Result<String, _> {
+    async fn daemon_password(&self, #[special] auth: UserAuthentication) -> Result<String, _> {
         let password = ensure_daemon_password(self, auth.id).await?;
         Ok(password)
     }

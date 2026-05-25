@@ -260,23 +260,23 @@ async fn auth_servers_for_public_key(
         return Err(AuthPublickeyError::AuthInvalid);
     }
 
-    let user_records = sqlx::query(
+    let Some(user) = sqlx::query(
         "SELECT DISTINCT `users`.`id`, `users`.`role`
          FROM `users`
          JOIN `user_ssh_keys` ON `user_ssh_keys`.`user` = `users`.`id`
          WHERE `users`.`username` = ?
-           AND `user_ssh_keys`.`fingerprint_sha512` = ?",
+           AND `user_ssh_keys`.`fingerprint_sha512` = ?
+         LIMIT 1",
     )
     .bind(username)
     .bind(fingerprint_sha512)
-    .fetch_all(&*backend.database)
-    .await?;
-
-    if user_records.is_empty() {
+    .fetch_optional(&*backend.database)
+    .await?
+    else {
         return Err(AuthPublickeyError::AuthInvalid);
-    }
+    };
 
-    auth_servers_for_users(backend, node, user_records).await
+    auth_servers_for_user(backend, node, user).await
 }
 
 async fn auth_servers_for_password(
@@ -289,103 +289,97 @@ async fn auth_servers_for_password(
         return Err(AuthPasswordError::AuthInvalid);
     }
 
-    let user_records = sqlx::query(
+    let Some(user) = sqlx::query(
         "SELECT `id`, `role`
          FROM `users`
          WHERE `username` = ?
-           AND `daemon_password` = ?",
+           AND `daemon_password` = ?
+         LIMIT 1",
     )
     .bind(username)
     .bind(password)
-    .fetch_all(&*backend.database)
-    .await?;
-
-    if user_records.is_empty() {
+    .fetch_optional(&*backend.database)
+    .await?
+    else {
         return Err(AuthPasswordError::AuthInvalid);
-    }
+    };
 
-    auth_servers_for_users(backend, node, user_records).await
+    auth_servers_for_user(backend, node, user).await
 }
 
-async fn auth_servers_for_users<E>(
+async fn auth_servers_for_user<E>(
     backend: &Backend,
     node: Uuid,
-    user_records: Vec<sqlx::mysql::MySqlRow>,
+    user: sqlx::mysql::MySqlRow,
 ) -> Result<DaemonBackendAuthResponse, E>
 where
     E: From<sqlx::Error>,
 {
     let mut response = Vec::new();
-    for user in user_records {
-        let user_id: u32 = user.get("id");
-        let role_value: i32 = user.get("role");
-        let role = Role::try_from(role_value as u8).unwrap_or(Role::User);
-        let role_permissions = role.project_permissions().bits() | role.server_permissions().bits();
+    let user_id: u32 = user.get("id");
+    let role_value: i32 = user.get("role");
+    let role = Role::try_from(role_value as u8).unwrap_or(Role::User);
+    let role_permissions = role.project_permissions().bits() | role.server_permissions().bits();
 
-        let server_records = sqlx::query(
-            "SELECT
-                `servers`.`name`,
-                `servers`.`node_server_id`,
-                `servers`.`suspended`,
-                `nodes`.`maintenance`,
-                `projects`.`owner`,
-                `project_users`.`permissions`
-             FROM `servers`
-             JOIN `nodes` ON `nodes`.`id` = `servers`.`node`
-             JOIN `projects` ON `projects`.`id` = `servers`.`project`
-             LEFT JOIN `project_users`
-                ON `project_users`.`project` = `servers`.`project`
-                AND `project_users`.`user` = ?
-             WHERE `servers`.`node` = ?
-                AND (
-                    `projects`.`owner` = ?
-                    OR `project_users`.`user` IS NOT NULL
-                    OR ?
-                )
-             ORDER BY `servers`.`node_server_id`",
-        )
-        .bind(user_id)
-        .bind(node)
-        .bind(user_id)
-        .bind(
-            ProjectPermissions::from_bits_retain(role_permissions)
-                .contains(ProjectPermissions::VIEW),
-        )
-        .fetch_all(&*backend.database)
-        .await?;
+    let server_records = sqlx::query(
+        "SELECT
+            `servers`.`name`,
+            `servers`.`node_server_id`,
+            `servers`.`suspended`,
+            `nodes`.`maintenance`,
+            `projects`.`owner`,
+            `project_users`.`permissions`
+         FROM `servers`
+         JOIN `nodes` ON `nodes`.`id` = `servers`.`node`
+         JOIN `projects` ON `projects`.`id` = `servers`.`project`
+         LEFT JOIN `project_users`
+            ON `project_users`.`project` = `servers`.`project`
+            AND `project_users`.`user` = ?
+         WHERE `servers`.`node` = ?
+            AND (
+                `projects`.`owner` = ?
+                OR `project_users`.`user` IS NOT NULL
+                OR ?
+            )
+         ORDER BY `servers`.`node_server_id`",
+    )
+    .bind(user_id)
+    .bind(node)
+    .bind(user_id)
+    .bind(ProjectPermissions::from_bits_retain(role_permissions).contains(ProjectPermissions::VIEW))
+    .fetch_all(&*backend.database)
+    .await?;
 
-        for server in server_records {
-            let project_permissions: Option<i64> = server.get("permissions");
-            let owner: u32 = server.get("owner");
-            let suspended: bool = server.get("suspended");
-            let maintenance: bool = server.get("maintenance");
+    for server in server_records {
+        let project_permissions: Option<i64> = server.get("permissions");
+        let owner: u32 = server.get("owner");
+        let suspended: bool = server.get("suspended");
+        let maintenance: bool = server.get("maintenance");
 
-            let mut permissions = if owner == user_id {
-                ProjectPermissions::all().bits() | ServerPermissions::all().bits()
-            } else {
-                project_permissions.unwrap_or(role_permissions)
-            };
+        let mut permissions = if owner == user_id {
+            ProjectPermissions::all().bits() | ServerPermissions::all().bits()
+        } else {
+            project_permissions.unwrap_or(role_permissions)
+        };
 
-            if (suspended
+        if (suspended
+            && !role
+                .management_permissions()
+                .contains(ManagementPermissions::SERVER_SUSPEND))
+            || (maintenance
                 && !role
                     .management_permissions()
-                    .contains(ManagementPermissions::SERVER_SUSPEND))
-                || (maintenance
-                    && !role
-                        .management_permissions()
-                        .contains(ManagementPermissions::SERVER_MANAGE))
-            {
-                permissions = ProjectPermissions::VIEW.bits();
-            }
+                    .contains(ManagementPermissions::SERVER_MANAGE))
+        {
+            permissions = ProjectPermissions::VIEW.bits();
+        }
 
-            if ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW)
-            {
-                response.push(DaemonBackendAuthServer {
-                    id: server.get("node_server_id"),
-                    name: server.get("name"),
-                    permissions: daemon_auth_permissions(permissions),
-                });
-            }
+        if ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW) {
+            response.push(DaemonBackendAuthServer {
+                id: server.get("node_server_id"),
+                name: server.get("name"),
+                permissions: daemon_auth_permissions(permissions),
+            });
         }
     }
 
