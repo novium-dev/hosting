@@ -2,11 +2,9 @@ use super::*;
 use crate::Backend;
 use crate::auth::user::{UserAuthentication, generate_daemon_password};
 use crate::service::profile::profile_service_error::{AddSshKeyError, DeleteSshKeyError};
-use base64::Engine as _;
-use base64::prelude::BASE64_STANDARD;
 use serde::Serialize;
-use sha2::{Digest as _, Sha512};
 use sqlx::query;
+use ssh_key::{HashAlg, PublicKey};
 use zelus::{define_path_variable, service};
 
 define_path_variable!(key_id "The SSH key ID");
@@ -56,8 +54,8 @@ pub(crate) impl ProfileService for Backend {
         name: String,
         public_key: String,
     ) -> Result<u32, _> {
-        let fingerprint = ssh_key_fingerprint_sha512(&public_key)
-            .map_err(|()| AddSshKeyError::ProfileSshKeyInvalid)?;
+        let (public_key, fingerprint) =
+            parse_ssh_public_key(&public_key).map_err(|()| AddSshKeyError::ProfileSshKeyInvalid)?;
 
         let result = query!(
             "INSERT INTO `user_ssh_keys` (`user`, `name`, `public_key`, `fingerprint_sha512`)
@@ -152,27 +150,10 @@ async fn ensure_daemon_password(backend: &Backend, user_id: u32) -> Result<Strin
     Ok(password)
 }
 
-pub(crate) fn ssh_key_fingerprint_sha512(public_key: &str) -> Result<String, ()> {
-    let mut parts = public_key.split_whitespace();
-    let Some(key_type) = parts.next() else {
-        return Err(());
-    };
-    let Some(encoded_key) = parts.next() else {
-        return Err(());
-    };
+pub(crate) fn parse_ssh_public_key(public_key: &str) -> Result<(String, String), ()> {
+    let public_key = PublicKey::from_openssh(public_key).map_err(|_err| ())?;
+    let fingerprint = public_key.fingerprint(HashAlg::Sha512);
+    let public_key = public_key.to_openssh().map_err(|_err| ())?;
 
-    if !key_type.starts_with("ssh-")
-        && !key_type.starts_with("ecdsa-")
-        && !key_type.starts_with("sk-")
-    {
-        return Err(());
-    }
-
-    let mut encoded_key = encoded_key.to_owned();
-    while encoded_key.len() % 4 != 0 {
-        encoded_key.push('=');
-    }
-
-    let key_blob = BASE64_STANDARD.decode(encoded_key).map_err(|_err| ())?;
-    Ok(hex::encode(Sha512::digest(key_blob)))
+    Ok((public_key, hex::encode(fingerprint.as_bytes())))
 }
