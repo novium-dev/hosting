@@ -27,7 +27,7 @@ use rustls::{
     RootCertStore,
     pki_types::{CertificateDer, CertificateSigningRequestDer},
 };
-use sqlx::{Connection as _, MySql, Row as _, Transaction, query};
+use sqlx::{Connection as _, MySql, Transaction, query};
 use std::{collections::HashMap, sync::Arc};
 use tracing::{debug, error};
 use url::Url;
@@ -260,23 +260,23 @@ async fn auth_servers_for_public_key(
         return Err(AuthPublickeyError::AuthInvalid);
     }
 
-    let Some(user) = sqlx::query(
+    let Some(user) = query!(
         "SELECT DISTINCT `users`.`id`, `users`.`role`
          FROM `users`
          JOIN `user_ssh_keys` ON `user_ssh_keys`.`user` = `users`.`id`
          WHERE `users`.`username` = ?
            AND `user_ssh_keys`.`fingerprint_sha512` = ?
          LIMIT 1",
+        username,
+        fingerprint_sha512
     )
-    .bind(username)
-    .bind(fingerprint_sha512)
     .fetch_optional(&*backend.database)
     .await?
     else {
         return Err(AuthPublickeyError::AuthInvalid);
     };
 
-    auth_servers_for_user(backend, node, user).await
+    auth_servers_for_user(backend, node, user.id, user.role).await
 }
 
 async fn auth_servers_for_password(
@@ -289,44 +289,43 @@ async fn auth_servers_for_password(
         return Err(AuthPasswordError::AuthInvalid);
     }
 
-    let Some(user) = sqlx::query(
+    let Some(user) = query!(
         "SELECT `id`, `role`
          FROM `users`
          WHERE `username` = ?
            AND `daemon_password` = ?
          LIMIT 1",
+        username,
+        password
     )
-    .bind(username)
-    .bind(password)
     .fetch_optional(&*backend.database)
     .await?
     else {
         return Err(AuthPasswordError::AuthInvalid);
     };
 
-    auth_servers_for_user(backend, node, user).await
+    auth_servers_for_user(backend, node, user.id, user.role).await
 }
 
 async fn auth_servers_for_user<E>(
     backend: &Backend,
     node: Uuid,
-    user: sqlx::mysql::MySqlRow,
+    user_id: u32,
+    role_value: i32,
 ) -> Result<DaemonBackendAuthResponse, E>
 where
     E: From<sqlx::Error>,
 {
     let mut response = Vec::new();
-    let user_id: u32 = user.get("id");
-    let role_value: i32 = user.get("role");
     let role = Role::try_from(role_value as u8).unwrap_or(Role::User);
     let role_permissions = role.project_permissions().bits() | role.server_permissions().bits();
 
-    let server_records = sqlx::query(
+    let server_records = query!(
         "SELECT
             `servers`.`name`,
             `servers`.`node_server_id`,
-            `servers`.`suspended`,
-            `nodes`.`maintenance`,
+            `servers`.`suspended` AS `suspended: bool`,
+            `nodes`.`maintenance` AS `maintenance: bool`,
             `projects`.`owner`,
             `project_users`.`permissions`
          FROM `servers`
@@ -342,19 +341,19 @@ where
                 OR ?
             )
          ORDER BY `servers`.`node_server_id`",
+        user_id,
+        node,
+        user_id,
+        ProjectPermissions::from_bits_retain(role_permissions).contains(ProjectPermissions::VIEW)
     )
-    .bind(user_id)
-    .bind(node)
-    .bind(user_id)
-    .bind(ProjectPermissions::from_bits_retain(role_permissions).contains(ProjectPermissions::VIEW))
     .fetch_all(&*backend.database)
     .await?;
 
     for server in server_records {
-        let project_permissions: Option<i64> = server.get("permissions");
-        let owner: u32 = server.get("owner");
-        let suspended: bool = server.get("suspended");
-        let maintenance: bool = server.get("maintenance");
+        let project_permissions = server.permissions;
+        let owner = server.owner;
+        let suspended = server.suspended;
+        let maintenance = server.maintenance;
 
         let mut permissions = if owner == user_id {
             ProjectPermissions::all().bits() | ServerPermissions::all().bits()
@@ -376,8 +375,8 @@ where
 
         if ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW) {
             response.push(DaemonBackendAuthServer {
-                id: server.get("node_server_id"),
-                name: server.get("name"),
+                id: server.node_server_id,
+                name: server.name,
                 permissions: daemon_auth_permissions(permissions),
             });
         }

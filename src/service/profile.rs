@@ -6,7 +6,7 @@ use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
 use serde::Serialize;
 use sha2::{Digest as _, Sha512};
-use sqlx::{Row as _, query};
+use sqlx::query;
 use zelus::{define_path_variable, service};
 
 define_path_variable!(key_id "The SSH key ID");
@@ -32,17 +32,17 @@ pub(crate) impl ProfileService for Backend {
         &self,
         #[special] auth: UserAuthentication,
     ) -> Result<Vec<SshKeyInfo>, _> {
-        Ok(query(
+        Ok(query!(
             "SELECT `id`, `name`, `public_key` FROM `user_ssh_keys` WHERE `user` = ? ORDER BY `id`",
+            auth.id
         )
-        .bind(auth.id)
         .fetch_all(&*self.database)
         .await?
         .into_iter()
         .map(|row| SshKeyInfo {
-            id: row.get("id"),
-            name: row.get("name"),
-            public_key: row.get("public_key"),
+            id: row.id,
+            name: row.name,
+            public_key: row.public_key,
         })
         .collect())
     }
@@ -59,18 +59,18 @@ pub(crate) impl ProfileService for Backend {
         let fingerprint = ssh_key_fingerprint_sha512(&public_key)
             .map_err(|()| AddSshKeyError::ProfileSshKeyInvalid)?;
 
-        let result = query(
+        let result = query!(
             "INSERT INTO `user_ssh_keys` (`user`, `name`, `public_key`, `fingerprint_sha512`)
              VALUES (?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 `name` = VALUES(`name`),
                 `public_key` = VALUES(`public_key`),
                 `id` = LAST_INSERT_ID(`id`)",
+            auth.id,
+            name,
+            public_key,
+            fingerprint
         )
-        .bind(auth.id)
-        .bind(name)
-        .bind(public_key)
-        .bind(fingerprint)
         .execute(&*self.database)
         .await?;
 
@@ -85,11 +85,13 @@ pub(crate) impl ProfileService for Backend {
         #[special] auth: UserAuthentication,
         key_id: u32,
     ) -> Result<(), _> {
-        let result = query("DELETE FROM `user_ssh_keys` WHERE `id` = ? AND `user` = ?")
-            .bind(key_id)
-            .bind(auth.id)
-            .execute(&*self.database)
-            .await?;
+        let result = query!(
+            "DELETE FROM `user_ssh_keys` WHERE `id` = ? AND `user` = ?",
+            key_id,
+            auth.id
+        )
+        .execute(&*self.database)
+        .await?;
 
         if result.rows_affected() == 0 {
             return Err(DeleteSshKeyError::ProfileSshKeyNotFound);
@@ -114,33 +116,38 @@ pub(crate) impl ProfileService for Backend {
         #[special] auth: UserAuthentication,
     ) -> Result<String, _> {
         let password = generate_daemon_password();
-        query("UPDATE `users` SET `daemon_password` = ? WHERE `id` = ?")
-            .bind(&password)
-            .bind(auth.id)
-            .execute(&*self.database)
-            .await?;
+        query!(
+            "UPDATE `users` SET `daemon_password` = ? WHERE `id` = ?",
+            password,
+            auth.id
+        )
+        .execute(&*self.database)
+        .await?;
 
         Ok(password)
     }
 }
 
 async fn ensure_daemon_password(backend: &Backend, user_id: u32) -> Result<String, sqlx::Error> {
-    let row = query("SELECT `daemon_password` FROM `users` WHERE `id` = ?")
-        .bind(user_id)
-        .fetch_one(&*backend.database)
-        .await?;
+    let row = query!(
+        "SELECT `daemon_password` FROM `users` WHERE `id` = ?",
+        user_id
+    )
+    .fetch_one(&*backend.database)
+    .await?;
 
-    let password: Option<String> = row.get("daemon_password");
-    if let Some(password) = password {
+    if let Some(password) = row.daemon_password {
         return Ok(password);
     }
 
     let password = generate_daemon_password();
-    query("UPDATE `users` SET `daemon_password` = ? WHERE `id` = ?")
-        .bind(&password)
-        .bind(user_id)
-        .execute(&*backend.database)
-        .await?;
+    query!(
+        "UPDATE `users` SET `daemon_password` = ? WHERE `id` = ?",
+        password,
+        user_id
+    )
+    .execute(&*backend.database)
+    .await?;
 
     Ok(password)
 }

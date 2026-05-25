@@ -387,7 +387,7 @@ impl DocumentedType for UserAuthentication {
 impl Backend {
     pub async fn get_or_create_user(&self, auth_user: AuthUser) -> Result<u32, sqlx::Error> {
         let daemon_password = generate_daemon_password();
-        let result = sqlx::query(
+        let result = query!(
             r#"
     INSERT INTO `users`
         (`username`, `auth_id`, `role`, `email`, `daemon_password`)
@@ -398,12 +398,12 @@ impl Backend {
         `email` = VALUES(`email`),
         `id` = LAST_INSERT_ID(`id`)
     "#,
+            auth_user.preferred_username,
+            auth_user.sub,
+            Role::User as u8,
+            auth_user.email,
+            daemon_password
         )
-        .bind(auth_user.preferred_username)
-        .bind(auth_user.sub)
-        .bind(Role::User as u8)
-        .bind(auth_user.email)
-        .bind(daemon_password)
         .execute(&*self.database)
         .await?;
 

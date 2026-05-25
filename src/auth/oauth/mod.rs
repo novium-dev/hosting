@@ -73,10 +73,7 @@ pub struct AuthUser {
     pub(crate) email: String,
     email_verified: bool,
     name: String,
-    given_name: String,
     pub(crate) preferred_username: String,
-    nickname: String,
-    groups: Vec<String>,
 }
 
 impl AuthService {
