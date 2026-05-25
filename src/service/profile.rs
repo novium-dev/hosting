@@ -23,11 +23,6 @@ pub(crate) struct SshKeyInfo {
     pub(crate) public_key: String,
 }
 
-#[derive(Debug, Serialize, utoipa::ToSchema)]
-pub(crate) struct DaemonPassword {
-    pub(crate) password: String,
-}
-
 #[service(path = "/profile", tag = "profile", no_sdk)]
 pub(crate) impl ProfileService for Backend {
     /// Lists SSH public keys on the current user's profile.
@@ -109,9 +104,9 @@ pub(crate) impl ProfileService for Backend {
     async fn daemon_password(
         &self,
         #[special] auth: UserAuthentication,
-    ) -> Result<DaemonPassword, _> {
+    ) -> Result<String, _> {
         let password = ensure_daemon_password(self, auth.id).await?;
-        Ok(DaemonPassword { password })
+        Ok(password)
     }
 
     /// Replaces the current user's daemon password.
@@ -120,7 +115,7 @@ pub(crate) impl ProfileService for Backend {
     async fn reroll_daemon_password(
         &self,
         #[special] auth: UserAuthentication,
-    ) -> Result<DaemonPassword, _> {
+    ) -> Result<String, _> {
         let password = generate_daemon_password();
         query("UPDATE `users` SET `daemon_password` = ? WHERE `id` = ?")
             .bind(&password)
@@ -128,7 +123,7 @@ pub(crate) impl ProfileService for Backend {
             .execute(&*self.database)
             .await?;
 
-        Ok(DaemonPassword { password })
+        Ok(password)
     }
 }
 
