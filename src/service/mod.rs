@@ -6,6 +6,7 @@ pub(crate) mod auth;
 pub(crate) mod backup;
 pub(crate) mod file;
 pub(crate) mod internal;
+pub(crate) mod profile;
 pub(crate) mod project;
 pub(crate) mod server;
 pub(crate) mod template;

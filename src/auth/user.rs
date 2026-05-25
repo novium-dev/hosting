@@ -33,6 +33,8 @@ use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
+const DAEMON_PASSWORD_LENGTH: usize = 32;
+
 #[derive(Debug)]
 pub struct UserAuthentication {
     pub id: u32,
@@ -384,12 +386,13 @@ impl DocumentedType for UserAuthentication {
 
 impl Backend {
     pub async fn get_or_create_user(&self, auth_user: AuthUser) -> Result<u32, sqlx::Error> {
+        let daemon_password = generate_daemon_password();
         let result = query!(
             r#"
     INSERT INTO `users`
-        (`username`, `auth_id`, `role`, `email`)
+        (`username`, `auth_id`, `role`, `email`, `daemon_password`)
     VALUES
-        (?, ?, ?, ?)
+        (?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
         `username` = VALUES(`username`),
         `email` = VALUES(`email`),
@@ -398,11 +401,20 @@ impl Backend {
             auth_user.preferred_username,
             auth_user.sub,
             Role::User as u8,
-            auth_user.email
+            auth_user.email,
+            daemon_password
         )
         .execute(&*self.database)
         .await?;
 
         Ok(result.last_insert_id() as u32)
     }
+}
+
+pub(crate) fn generate_daemon_password() -> String {
+    nanoid::format(
+        nanoid::rngs::default,
+        &nanoid::alphabet::SAFE,
+        DAEMON_PASSWORD_LENGTH,
+    )
 }
