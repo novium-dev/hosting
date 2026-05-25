@@ -6,6 +6,7 @@ use crate::service::auth::AuthService;
 use crate::service::backup::BackupService;
 use crate::service::file::FileService;
 use crate::service::internal::InternalService;
+use crate::service::profile::ProfileService;
 use crate::service::project::ProjectService;
 use crate::service::server::ServerService;
 use crate::service::template::TemplateService;
@@ -26,7 +27,7 @@ impl Backend {
         #[openapi()]
         struct ApiDoc;
 
-        let (default_router,) = framework_router!(Self self (default,) { ServerService, FileService, BackupService, ServerAdminService, NodeAdminService, UserAdminService, AuthService, ProjectService, TemplateService, InternalService });
+        let (default_router,) = framework_router!(Self self (default,) { ServerService, FileService, BackupService, ServerAdminService, NodeAdminService, UserAdminService, AuthService, ProfileService, ProjectService, TemplateService, InternalService });
         let (dev_auth_router,) = framework_router!(Self self (dev_auth,) { AuthService });
 
         let router = if cfg!(feature = "auth_dev") {
@@ -41,7 +42,13 @@ impl Backend {
                     HeaderValue::from_str(url.as_str()).expect("invalid trusted URL header value")
                 }),
             ))
-            .allow_methods([axum::http::Method::GET])
+            .allow_methods([
+                axum::http::Method::GET,
+                axum::http::Method::POST,
+                axum::http::Method::PUT,
+                axum::http::Method::PATCH,
+                axum::http::Method::DELETE,
+            ])
             .allow_headers(tower_http::cors::AllowHeaders::any());
 
         let (mut router, api) = ZelusRouter::with_openapi(ApiDoc::openapi())

@@ -2,6 +2,7 @@ use super::*;
 use crate::service::internal::internal_service_error::{AuthPasswordError, AuthPublickeyError};
 use crate::{
     Backend,
+    auth::permissions::{ManagementPermissions, ProjectPermissions, Role, ServerPermissions},
     service::internal::{
         error_internal_daemon_key_invalid::FromInternalDaemonKeyInvalid,
         error_internal_daemon_unreachable::FromInternalDaemonUnreachable,
@@ -14,7 +15,8 @@ use axum_extra::{
     headers::{Authorization, authorization::Bearer},
 };
 use core::time::Duration;
-use daemon_common::ssh::DaemonBackendAuthResponse;
+use daemon_common::node::BackendAuthServerPermissions;
+use daemon_common::ssh::{DaemonBackendAuthResponse, DaemonBackendAuthServer};
 use daemon_common::{
     key::rcgen::{CertificateSigningRequestParams, DnType, DnValue},
     node::{BackupStorage, NodeRegistrationRequest, NodeUpdateRequest, ServerStorage},
@@ -25,7 +27,7 @@ use rustls::{
     RootCertStore,
     pki_types::{CertificateDer, CertificateSigningRequestDer},
 };
-use sqlx::{Connection as _, MySql, Transaction, query};
+use sqlx::{Connection as _, MySql, Row as _, Transaction, query};
 use std::{collections::HashMap, sync::Arc};
 use tracing::{debug, error, info};
 use url::Url;
@@ -235,17 +237,151 @@ pub(crate) impl InternalService for Backend {
     }
 
     #[route("/auth/publickey", no_auth, query = [ node ])]
-    #[error(auth::invalid)]
+    #[error(auth::invalid, db::failure <- [sql:*])]
     async fn auth_publickey(
         &self,
         node: String,
-        TypedHeader(Authorization(_auth)): TypedHeader<Authorization<Basic>>,
+        TypedHeader(Authorization(auth)): TypedHeader<Authorization<Basic>>,
     ) -> Result<DaemonBackendAuthResponse, _> {
-        info!(
-            "Received SSH public key auth request for node {node}, but SSH is not yet implemented"
-        );
-        Err(AuthPublickeyError::AuthInvalid)
+        let node = Uuid::parse_str(&node).map_err(|_err| AuthPublickeyError::AuthInvalid)?;
+        auth_servers_for_public_key(self, node, auth.username(), auth.password()).await
     }
+}
+
+async fn auth_servers_for_public_key(
+    backend: &Backend,
+    node: Uuid,
+    username: &str,
+    fingerprint_sha512: &str,
+) -> Result<DaemonBackendAuthResponse, AuthPublickeyError> {
+    if fingerprint_sha512.len() != 128
+        || !fingerprint_sha512
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(AuthPublickeyError::AuthInvalid);
+    }
+
+    let user_records = sqlx::query(
+        "SELECT DISTINCT `users`.`id`, `users`.`role`
+         FROM `users`
+         JOIN `user_ssh_keys` ON `user_ssh_keys`.`user` = `users`.`id`
+         WHERE `users`.`username` = ?
+           AND `user_ssh_keys`.`fingerprint_sha512` = ?",
+    )
+    .bind(username)
+    .bind(fingerprint_sha512)
+    .fetch_all(&*backend.database)
+    .await?;
+
+    if user_records.is_empty() {
+        return Err(AuthPublickeyError::AuthInvalid);
+    }
+
+    let mut response = Vec::new();
+    for user in user_records {
+        let user_id: u32 = user.get("id");
+        let role_value: i32 = user.get("role");
+        let role = Role::try_from(role_value as u8).unwrap_or(Role::User);
+        let role_permissions = role.project_permissions().bits() | role.server_permissions().bits();
+
+        let server_records = sqlx::query(
+            "SELECT
+                `servers`.`name`,
+                `servers`.`node_server_id`,
+                `servers`.`suspended`,
+                `nodes`.`maintenance`,
+                `projects`.`owner`,
+                `project_users`.`permissions`
+             FROM `servers`
+             JOIN `nodes` ON `nodes`.`id` = `servers`.`node`
+             JOIN `projects` ON `projects`.`id` = `servers`.`project`
+             LEFT JOIN `project_users`
+                ON `project_users`.`project` = `servers`.`project`
+                AND `project_users`.`user` = ?
+             WHERE `servers`.`node` = ?
+                AND (
+                    `projects`.`owner` = ?
+                    OR `project_users`.`user` IS NOT NULL
+                    OR ?
+                )
+             ORDER BY `servers`.`node_server_id`",
+        )
+        .bind(user_id)
+        .bind(node)
+        .bind(user_id)
+        .bind(
+            ProjectPermissions::from_bits_retain(role_permissions)
+                .contains(ProjectPermissions::VIEW),
+        )
+        .fetch_all(&*backend.database)
+        .await?;
+
+        for server in server_records {
+            let project_permissions: Option<i64> = server.get("permissions");
+            let owner: u32 = server.get("owner");
+            let suspended: bool = server.get("suspended");
+            let maintenance: bool = server.get("maintenance");
+
+            let mut permissions = if owner == user_id {
+                ProjectPermissions::all().bits() | ServerPermissions::all().bits()
+            } else {
+                project_permissions.unwrap_or(role_permissions)
+            };
+
+            if (suspended
+                && !role
+                    .management_permissions()
+                    .contains(ManagementPermissions::SERVER_SUSPEND))
+                || (maintenance
+                    && !role
+                        .management_permissions()
+                        .contains(ManagementPermissions::SERVER_MANAGE))
+            {
+                permissions = ProjectPermissions::VIEW.bits();
+            }
+
+            if ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW)
+            {
+                response.push(DaemonBackendAuthServer {
+                    id: server.get("node_server_id"),
+                    name: server.get("name"),
+                    permissions: daemon_auth_permissions(permissions),
+                });
+            }
+        }
+    }
+
+    Ok(response)
+}
+
+fn daemon_auth_permissions(permissions: i64) -> BackendAuthServerPermissions {
+    let project_permissions = ProjectPermissions::from_bits_retain(permissions);
+    let server_permissions = ServerPermissions::from_bits_retain(permissions);
+
+    let mut daemon_permissions = BackendAuthServerPermissions::empty();
+    if project_permissions.contains(ProjectPermissions::VIEW) {
+        daemon_permissions |= BackendAuthServerPermissions::CONTROL_VIEW;
+    }
+    if server_permissions.grants(ServerPermissions::POWER) {
+        daemon_permissions |= BackendAuthServerPermissions::CONTROL_POWER;
+    }
+    if server_permissions.grants(ServerPermissions::TERMINAL_READ) {
+        daemon_permissions |= BackendAuthServerPermissions::TERMINAL_READ;
+    }
+    if server_permissions.grants(ServerPermissions::TERMINAL_WRITE) {
+        daemon_permissions |= BackendAuthServerPermissions::TERMINAL_WRITE;
+    }
+    if server_permissions.grants(ServerPermissions::FILES_READ) {
+        daemon_permissions |= BackendAuthServerPermissions::FILES_READ;
+    }
+    if server_permissions.grants(ServerPermissions::FILES_WRITE) {
+        daemon_permissions |= BackendAuthServerPermissions::FILES_WRITE;
+    }
+    if server_permissions.grants(ServerPermissions::BACKUP_DOWNLOAD) {
+        daemon_permissions |= BackendAuthServerPermissions::BACKUP_DOWNLOAD;
+    }
+    daemon_permissions
 }
 
 async fn insert_storages(

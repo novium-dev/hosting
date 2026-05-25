@@ -621,6 +621,7 @@ dependencies = [
  "serde-xml-rs",
  "serde_json",
  "serde_yaml_ng 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha2 0.10.9",
  "signal-hook 0.4.4",
  "speedy",
  "sqlx 0.9.0",
