@@ -29,7 +29,7 @@ use rustls::{
 };
 use sqlx::{Connection as _, MySql, Row as _, Transaction, query};
 use std::{collections::HashMap, sync::Arc};
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 use url::Url;
 use uuid::Uuid;
 use zelus::{define_header_variable, service};
@@ -224,16 +224,14 @@ pub(crate) impl InternalService for Backend {
     }
 
     #[route("/auth/password", no_auth, query = [ node ])]
-    #[error(auth::invalid)]
+    #[error(auth::invalid, db::failure <- [sql:*])]
     async fn auth_password(
         &self,
         node: String,
-        TypedHeader(Authorization(_auth)): TypedHeader<Authorization<Basic>>,
+        TypedHeader(Authorization(auth)): TypedHeader<Authorization<Basic>>,
     ) -> Result<DaemonBackendAuthResponse, _> {
-        info!(
-            "Received password auth request for node {node}, but password auth is not yet implemented"
-        );
-        Err(AuthPasswordError::AuthInvalid)
+        let node = Uuid::parse_str(&node).map_err(|_err| AuthPasswordError::AuthInvalid)?;
+        auth_servers_for_password(self, node, auth.username(), auth.password()).await
     }
 
     #[route("/auth/publickey", no_auth, query = [ node ])]
@@ -278,6 +276,45 @@ async fn auth_servers_for_public_key(
         return Err(AuthPublickeyError::AuthInvalid);
     }
 
+    auth_servers_for_users(backend, node, user_records).await
+}
+
+async fn auth_servers_for_password(
+    backend: &Backend,
+    node: Uuid,
+    username: &str,
+    password: &str,
+) -> Result<DaemonBackendAuthResponse, AuthPasswordError> {
+    if password.len() != 32 {
+        return Err(AuthPasswordError::AuthInvalid);
+    }
+
+    let user_records = sqlx::query(
+        "SELECT `id`, `role`
+         FROM `users`
+         WHERE `username` = ?
+           AND `daemon_password` = ?",
+    )
+    .bind(username)
+    .bind(password)
+    .fetch_all(&*backend.database)
+    .await?;
+
+    if user_records.is_empty() {
+        return Err(AuthPasswordError::AuthInvalid);
+    }
+
+    auth_servers_for_users(backend, node, user_records).await
+}
+
+async fn auth_servers_for_users<E>(
+    backend: &Backend,
+    node: Uuid,
+    user_records: Vec<sqlx::mysql::MySqlRow>,
+) -> Result<DaemonBackendAuthResponse, E>
+where
+    E: From<sqlx::Error>,
+{
     let mut response = Vec::new();
     for user in user_records {
         let user_id: u32 = user.get("id");

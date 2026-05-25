@@ -1,6 +1,6 @@
 use super::*;
 use crate::Backend;
-use crate::auth::user::UserAuthentication;
+use crate::auth::user::{UserAuthentication, generate_daemon_password};
 use crate::service::profile::profile_service_error::{AddSshKeyError, DeleteSshKeyError};
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
@@ -21,6 +21,11 @@ pub(crate) struct SshKeyInfo {
     pub(crate) id: u32,
     pub(crate) name: String,
     pub(crate) public_key: String,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct DaemonPassword {
+    pub(crate) password: String,
 }
 
 #[service(path = "/profile", tag = "profile", no_sdk)]
@@ -97,6 +102,55 @@ pub(crate) impl ProfileService for Backend {
 
         Ok(())
     }
+
+    /// Gets the current user's daemon password.
+    #[route("/daemon-password", method = GET)]
+    #[error(db::failure <- [sql:*], auth::unreachable)]
+    async fn daemon_password(
+        &self,
+        #[special] auth: UserAuthentication,
+    ) -> Result<DaemonPassword, _> {
+        let password = ensure_daemon_password(self, auth.id).await?;
+        Ok(DaemonPassword { password })
+    }
+
+    /// Replaces the current user's daemon password.
+    #[route("/daemon-password/reroll", method = POST)]
+    #[error(db::failure <- [sql:*], auth::unreachable)]
+    async fn reroll_daemon_password(
+        &self,
+        #[special] auth: UserAuthentication,
+    ) -> Result<DaemonPassword, _> {
+        let password = generate_daemon_password();
+        query("UPDATE `users` SET `daemon_password` = ? WHERE `id` = ?")
+            .bind(&password)
+            .bind(auth.id)
+            .execute(&*self.database)
+            .await?;
+
+        Ok(DaemonPassword { password })
+    }
+}
+
+async fn ensure_daemon_password(backend: &Backend, user_id: u32) -> Result<String, sqlx::Error> {
+    let row = query("SELECT `daemon_password` FROM `users` WHERE `id` = ?")
+        .bind(user_id)
+        .fetch_one(&*backend.database)
+        .await?;
+
+    let password: Option<String> = row.get("daemon_password");
+    if let Some(password) = password {
+        return Ok(password);
+    }
+
+    let password = generate_daemon_password();
+    query("UPDATE `users` SET `daemon_password` = ? WHERE `id` = ?")
+        .bind(&password)
+        .bind(user_id)
+        .execute(&*backend.database)
+        .await?;
+
+    Ok(password)
 }
 
 pub(crate) fn ssh_key_fingerprint_sha512(public_key: &str) -> Result<String, ()> {
