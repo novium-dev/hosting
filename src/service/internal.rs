@@ -1,4 +1,5 @@
 use super::*;
+use crate::service::internal::internal_service_error::{AuthPasswordError, AuthPublickeyError};
 use crate::{
     Backend,
     service::internal::{
@@ -7,11 +8,13 @@ use crate::{
         internal_service_error::{DaemonRegisterError, DaemonRootKeyError, DaemonUpdateError},
     },
 };
+use axum_extra::headers::authorization::Basic;
 use axum_extra::{
     TypedHeader,
     headers::{Authorization, authorization::Bearer},
 };
 use core::time::Duration;
+use daemon_common::ssh::DaemonBackendAuthResponse;
 use daemon_common::{
     key::rcgen::{CertificateSigningRequestParams, DnType, DnValue},
     node::{BackupStorage, NodeRegistrationRequest, NodeUpdateRequest, ServerStorage},
@@ -24,12 +27,13 @@ use rustls::{
 };
 use sqlx::{Connection as _, MySql, Transaction, query};
 use std::{collections::HashMap, sync::Arc};
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 use url::Url;
 use uuid::Uuid;
 use zelus::{define_header_variable, service};
 
 define_header_variable!(generated_arg_1 "The authorization code for the registration");
+define_header_variable!(generated_arg_2 "The authorizations credentials of the user");
 
 define_error!(internal_daemon {
     key_invalid("Invalid key for certificate request" BAD_REQUEST),
@@ -37,15 +41,19 @@ define_error!(internal_daemon {
     sign_failed("Unable to sign daemon key" INTERNAL_SERVER_ERROR)
 });
 
+define_query_variable!(
+    node "The node ID"
+);
+
 const REGISTRATION_TIMEOUT: Duration = Duration::from_mins(10);
 
-#[service(path = "/api/internal", tag = "internal", no_sdk)]
+#[service(path = "/internal", tag = "internal", no_sdk)]
 pub(crate) impl InternalService for Backend {
     /// Returns the public daemon root key as pem.
     ///
     /// This route should only be used directly by the daemon.
-    #[route("/daemon/root_key")]
-    #[error()]
+    #[route("/daemon/root_key", no_auth)]
+    #[error(auth::invalid)]
     async fn daemon_root_key(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
@@ -66,8 +74,8 @@ pub(crate) impl InternalService for Backend {
     /// Registers a new daemon.
     ///
     /// This route should only be used directly by the daemon.
-    #[route("/daemon/register", method = POST, raw)]
-    #[error(internal_daemon::{key_invalid, unreachable, sign_failed}, db::failure <- [sql:*])]
+    #[route("/daemon/register", method = POST, raw, no_auth)]
+    #[error(internal_daemon::{key_invalid, unreachable, sign_failed}, db::failure <- [sql:*], auth::invalid)]
     async fn daemon_register(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
@@ -142,8 +150,8 @@ pub(crate) impl InternalService for Backend {
     /// Updates an existing daemon.
     ///
     /// This route should only be used directly by the daemon.
-    #[route("/daemon/update", method = POST)]
-    #[error(internal_daemon::{key_invalid, unreachable}, db::failure <- [sql:*])]
+    #[route("/daemon/update", method = POST, no_auth)]
+    #[error(internal_daemon::{key_invalid, unreachable}, db::failure <- [sql:*], auth::invalid)]
     async fn daemon_update(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
@@ -211,6 +219,32 @@ pub(crate) impl InternalService for Backend {
         } else {
             Err(DaemonUpdateError::AuthInvalid)
         }
+    }
+
+    #[route("/auth/password", no_auth, query = [ node ])]
+    #[error(auth::invalid)]
+    async fn auth_password(
+        &self,
+        node: String,
+        TypedHeader(Authorization(_auth)): TypedHeader<Authorization<Basic>>,
+    ) -> Result<DaemonBackendAuthResponse, _> {
+        info!(
+            "Received password auth request for node {node}, but password auth is not yet implemented"
+        );
+        Err(AuthPasswordError::AuthInvalid)
+    }
+
+    #[route("/auth/publickey", no_auth, query = [ node ])]
+    #[error(auth::invalid)]
+    async fn auth_publickey(
+        &self,
+        node: String,
+        TypedHeader(Authorization(_auth)): TypedHeader<Authorization<Basic>>,
+    ) -> Result<DaemonBackendAuthResponse, _> {
+        info!(
+            "Received SSH public key auth request for node {node}, but SSH is not yet implemented"
+        );
+        Err(AuthPublickeyError::AuthInvalid)
     }
 }
 

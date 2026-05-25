@@ -2,21 +2,36 @@ use zelus::error::define_error;
 use zelus::{define_path_variable, define_query_variable};
 
 pub(crate) mod admin;
+pub(crate) mod auth;
+pub(crate) mod backup;
 pub(crate) mod file;
 pub(crate) mod internal;
+pub(crate) mod project;
 pub(crate) mod server;
 pub(crate) mod template;
 
 define_error!(auth {
     invalid("Invalid authentication credentials" UNAUTHORIZED),
-    unreachable("JWKS is unreachable" INTERNAL_SERVER_ERROR),
+    failure("Authentication is failure" INTERNAL_SERVER_ERROR),
+    unreachable("Authentication storage is unreachable" INTERNAL_SERVER_ERROR),
     permission_denied("You don't have the necessary permissions to perform this operation" FORBIDDEN),
 });
 
 define_error!(server {
     not_found("Server not found" NOT_FOUND),
     storage_not_found("The specified storage was not found" BAD_REQUEST),
-    unavailable("Server is currently in use" SERVICE_UNAVAILABLE)
+    unavailable("Server is currently in use" SERVICE_UNAVAILABLE),
+    config_invalid("The server config file is invalid" BAD_REQUEST)
+});
+
+define_error!(project {
+    not_found("Project not found" NOT_FOUND),
+    not_empty("Project still has servers" BAD_REQUEST),
+});
+
+define_error!(user {
+    not_found("User not found" NOT_FOUND),
+    owns_project("User still owns projects" BAD_REQUEST),
 });
 
 define_error!(file {
@@ -28,6 +43,34 @@ define_error!(file {
     is_directory("The specified file is a directory" BAD_REQUEST),
     quota_exceeded("The file exceeds the server's storage quota" BAD_REQUEST),
     compression_unsupported("The specified compression method is unsupported" BAD_REQUEST),
+    unsupported_type("The specified file type is unsupported" BAD_REQUEST),
+    content_invalid("The specified content is invalid" BAD_REQUEST),
+});
+
+define_error!(resource {
+    invalid_payload("The resource payload is invalid" BAD_REQUEST),
+    provider_unavailable("The resource provider is currently unavailable" SERVICE_UNAVAILABLE),
+    missing("The specified resource is missing" NOT_FOUND),
+    provider_error("The resource provider returned an error" BAD_GATEWAY),
+    wrong_template("The resource is not compatible with the server template" BAD_REQUEST),
+});
+
+define_error!(backup {
+    storage_unavailable("Backup storage is currently in use" SERVICE_UNAVAILABLE),
+    not_found("The specified backup was not found" NOT_FOUND),
+    storage_not_found("The specified backup storage was not found" BAD_REQUEST),
+    storage_incompatible("The selected backup storage is incompatible" BAD_REQUEST),
+    no_suitable_storage_found("No suitable backup storage was found" BAD_REQUEST),
+    compression_not_allowed("The selected backup compression is not allowed" BAD_REQUEST),
+    limit_exceeded("The server backup limit has been reached" BAD_REQUEST),
+    quota_exceeded("Restoring this backup would exceed storage quota" BAD_REQUEST),
+});
+
+define_error!(port {
+    invalid("The specified port range is invalid" BAD_REQUEST),
+    not_allocated("The specified port range is not allocated to the server" BAD_REQUEST),
+    collision("The specified port range collides with another server's ports" BAD_REQUEST),
+    in_use("The specified port range is still in use by a server" BAD_REQUEST),
 });
 
 define_error!(node {
@@ -53,11 +96,19 @@ define_path_variable!(
 );
 
 define_query_variable!(
-    owner "The server owner"
+    path "The file path"
 );
 
-define_query_variable!(
-    path "The file path"
+define_path_variable!(
+    port_id "The port ID"
+);
+
+define_path_variable!(
+    project_id "The project ID"
+);
+
+define_path_variable!(
+    user_id "The user ID"
 );
 
 define_query_variable!(
@@ -74,4 +125,24 @@ define_query_variable!(
 
 define_query_variable!(
     compression "The compression method to use"
+);
+
+define_path_variable!(
+    file_name "The file name"
+);
+
+define_path_variable!(
+    backup_storage "The backup storage ID"
+);
+
+define_path_variable!(
+    backup_id "The backup ID"
+);
+
+define_query_variable!(
+    content "The symlink target path"
+);
+
+define_query_variable!(
+    limit "The optional response size limit"
 );

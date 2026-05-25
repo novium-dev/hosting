@@ -72,7 +72,7 @@ impl<T> sqlx::Type<MySql> for GenericNanoId<T> {
 impl<'q, T> sqlx::Encode<'q, MySql> for GenericNanoId<T> {
     fn encode_by_ref(
         &self,
-        buf: &mut <MySql as Database>::ArgumentBuffer<'q>,
+        buf: &mut <MySql as Database>::ArgumentBuffer,
     ) -> Result<IsNull, BoxDynError> {
         let str = self.as_str();
         <&str as Encode<'_, MySql>>::encode_by_ref(&str, buf)

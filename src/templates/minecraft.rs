@@ -538,13 +538,26 @@ impl Template for MinecraftTemplate {
             )
             .group(
                 VariableGroupBuilder::new(Some("Minecraft version"))
-                    .hierarchy_variable("software", Some(extra.modification().to_string()), 0, 0)
-                    .hierarchy_variable("minecraft_version", Some(extra.minecraft_version()), 1, 0)
-                    .hierarchy_variable("mod_build", extra.mod_build(), 2, 0),
+                    .hierarchy_variable(
+                        "software",
+                        "Software",
+                        Some(extra.modification().to_string()),
+                        0,
+                        0,
+                    )
+                    .hierarchy_variable(
+                        "minecraft_version",
+                        "Minecraft version",
+                        Some(extra.minecraft_version()),
+                        1,
+                        0,
+                    )
+                    .hierarchy_variable("mod_build", "Software build", extra.mod_build(), 2, 0),
             )
             .group(
                 VariableGroupBuilder::new(Some("Java Runtime Environment")).static_variable(
                     "java",
+                    "Java",
                     Some(match recommended_java {
                         Some(java) if java_versions.contains(&java) && java != extra.java() => {
                             format!("Java {}", extra.java())
@@ -591,6 +604,7 @@ impl Template for MinecraftTemplate {
         };
         let java = match java_raw.as_str() {
             "Recommended" => *recommended_java,
+            "Java 25" => 25,
             "Java 21" => 21,
             "Java 17" => 17,
             "Java 11" => 11,
@@ -808,11 +822,12 @@ pub(crate) async fn resolve_cache() -> Result<VersionCache, ()> {
         .await
         .inspect_err(|err| error!("Unable to receive minecraft manifest v2 response: {err:?}"))
         .map_err(|_err| ())?;
-    let mut recommended_java = 21;
+    let mut recommended_java = 25;
     let mut data_pack = true;
     for (index, ver) in manifest.versions.into_iter().enumerate() {
         if MinecraftVersionType::Release == ver.r#type {
             match ver.id.as_str() {
+                "1.21.11" => recommended_java = 21,
                 "1.20.4" => recommended_java = 17,
                 "1.16.5" => recommended_java = 8,
                 "1.12.2" => data_pack = false,

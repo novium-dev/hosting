@@ -17,6 +17,7 @@ pub struct BackendNode {
     pub id: Uuid,
     pub services: Arc<dyn DaemonServicesURLWithUserKey + Send + Sync + 'static>,
     pub display: String,
+    pub maintenance: bool,
     pub default_host: String,
     pub default_bind: String,
     pub server_storages: HashMap<String, ServerStorage>,
@@ -54,6 +55,7 @@ impl BackendNode {
 pub struct NodeInfo {
     pub uuid: Uuid,
     pub display: String,
+    pub maintenance: bool,
 
     pub default_host: String,
     pub default_bind: String,
@@ -65,7 +67,7 @@ impl Backend {
         use daemon_common::service::DaemonServices as _;
 
         let mut nodes = HashMap::new();
-        for node in query!("SELECT `id` AS `id: uuid::fmt::Hyphenated`,`url`,`display`,`default_host`,`default_bind` FROM `nodes`")
+        for node in query!("SELECT `id` AS `id: uuid::fmt::Hyphenated`,`url`,`display`,`maintenance` AS `maintenance: bool`,`default_host`,`default_bind` FROM `nodes`")
             .fetch_all(&*self.database)
             .await? {
 
@@ -136,6 +138,7 @@ impl Backend {
                 id,
                 services,
                 display: node.display,
+                maintenance: node.maintenance,
                 default_host: node.default_host,
                 default_bind: node.default_bind,
                 server_storages,

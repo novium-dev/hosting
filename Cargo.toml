@@ -201,13 +201,14 @@ thiserror = "2.0.17"
 futures = "0.3.31"
 ed25519-dalek = "3.0.0-pre.6"
 rustls = "0.23.35"
-indexmap = "2.12.1"
+indexmap = "2.14.0"
 regex = "1.12.2"
 async-trait = "0.1.89"
 bytes = "1.11.0"
-either = "1.15.0"
+either = "1.16.0"
 anyhow = "1.0"
 signal-hook = "0.4.1"
+tokio-util = { version = "0.7", features = ["io"] }
 
 rand_core = "0.10.0"
 rand = "0.10.0"
@@ -218,8 +219,7 @@ hex = "0.4.3"
 axum = "0.8.8"
 axum-extra = { version = "0.12.3", features = ["typed-header"] }
 axum-server = "0.8.0"
-axum-login = "0.18.0"
-reqwest = { version = "0.12.27", default-features = false, features = [
+reqwest = { version = "0.12.28", default-features = false, features = [
     "charset",
     "http2",
     "json",
@@ -231,13 +231,14 @@ uuid = "1.19.0"
 
 serde = "1.0"
 serde_json = "1.0"
-serde-xml-rs = "0.8.2"
-nanoid = "0.4.0"
-base64 = "0.22.1"
-jsonwebtoken = "10.3.0"
-jwks = "0.5.3"
+serde_yaml_ng = "0.10"
 
-sqlx = { version = "0.8", default-features = false, features = [
+java-properties = "2.0.0"
+serde-xml-rs = "0.8.2"
+nanoid = "0.5.0"
+base64 = "0.22.1"
+
+sqlx = { version = "0.9.0", default-features = false, features = [
     "mysql",
     "runtime-tokio",
     "tls-rustls-aws-lc-rs",
@@ -247,8 +248,9 @@ bitflags = "2.10.0"
 arrayvec = "0.7.6"
 concat-idents = "1.1.5"
 http = "1.4.0"
-url = "2.5.7"
-lazy-regex = "3.4.2"
+url = "2.5.8"
+lazy-regex = "3.6.0"
+oauth2 = "5.0.0"
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
@@ -256,7 +258,7 @@ opt-level = 3
 [dependencies.daemon_common]
 git = "ssh://git@github.com/novium-dev/daemon.git"
 default-features = false
-features = ["sdk", "backend"]
+features = ["sdk", "backend", "ssh"]
 
 [dependencies.zelus]
 git = "https://github.com/0xIO32/zelus.git"
@@ -270,7 +272,7 @@ features = ["btrfs", "no_tty_size_please"]
 optional = true
 
 [dependencies.sentry]
-version = "0.46.0"
+version = "0.48.1"
 default-features = false
 features = [
     "backtrace",
@@ -301,7 +303,7 @@ version = "0.6.8"
 features = ["cors", "auth", "trace"]
 
 [dependencies.redis]
-version = "1.0.1"
+version = "1.2.1"
 default-features = false
 features = [
     "uuid",
@@ -313,7 +315,7 @@ features = [
 ]
 
 [dependencies.toml]
-version = "0.9.10"
+version = "1.1.2+spec-1.1.0"
 features = ["serde", "preserve_order"]
 
 [dependencies.speedy]
