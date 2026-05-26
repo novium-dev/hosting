@@ -42,7 +42,7 @@ stages:
   before_script:
     - rustc --version && cargo --version
     - mkdir .cargo_home -p
-    - apk add --no-cache openssh-client-default libxml2-utils musl-dev ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21 clang21-static lld21 git postgresql16-client curl btrfs-progs-dev --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+    - apk add --no-cache openssh-client-default libxml2-utils musl-dev ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21 clang21-static lld21 git postgresql18-client curl btrfs-progs-dev --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - apk upgrade --no-cache gcc --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - until pg_isready --host db --username postgres --dbname postgres; do sleep 1; done
     - crates/sqlx-cli/bin/sqlx database create --database-url "$BACKEND_DATABASE_URL"
@@ -50,7 +50,7 @@ stages:
     - eval $(ssh-agent -s)
     - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
   services:
-    - name: postgres:16-alpine
+    - name: postgres:18-alpine
       alias: db
       pull_policy: always
 
