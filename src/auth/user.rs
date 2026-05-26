@@ -135,7 +135,9 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             return Ok(None);
         };
 
-        let role = Role::try_from(user.role as u8).ok();
+        let role = u8::try_from(user.role)
+            .ok()
+            .and_then(|role| Role::try_from(role).ok());
         let user_permissions = role
             .map(|role| {
                 role.management_permissions().bits()
@@ -202,20 +204,22 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
 
         let mut servers = HashMap::new();
         for record in server_records {
-            let mut permissions = projects
+            let permissions = projects
                 .get(&record.project)
                 .copied()
                 .unwrap_or(user_permissions);
 
-            if (record.suspended
+            let permissions = if (record.suspended
                 && !ManagementPermissions::from_bits_retain(user_permissions)
                     .contains(ManagementPermissions::SERVER_SUSPEND))
                 || (record.maintenance
                     && !ManagementPermissions::from_bits_retain(user_permissions)
                         .contains(ManagementPermissions::SERVER_MANAGE))
             {
-                permissions = ProjectPermissions::VIEW.bits();
-            }
+                ProjectPermissions::VIEW.bits()
+            } else {
+                permissions
+            };
 
             if ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW)
             {

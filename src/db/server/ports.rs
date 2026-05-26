@@ -45,7 +45,7 @@ impl sqlx::Type<Postgres> for NetworkProtocol {
     }
 }
 
-impl<'q> sqlx::Encode<'q, Postgres> for NetworkProtocol {
+impl sqlx::Encode<'_, Postgres> for NetworkProtocol {
     fn encode_by_ref(
         &self,
         buf: &mut <Postgres as Database>::ArgumentBuffer,

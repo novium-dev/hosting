@@ -69,7 +69,7 @@ impl<T> sqlx::Type<Postgres> for GenericNanoId<T> {
     }
 }
 
-impl<'q, T> sqlx::Encode<'q, Postgres> for GenericNanoId<T> {
+impl<T> sqlx::Encode<'_, Postgres> for GenericNanoId<T> {
     fn encode_by_ref(
         &self,
         buf: &mut <Postgres as Database>::ArgumentBuffer,

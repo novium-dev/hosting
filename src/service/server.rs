@@ -101,7 +101,7 @@ pub(crate) impl ServerService for Backend {
             .into_iter()
 
             .filter(|server| project.is_none_or(|owner| *server.project == *owner))
-            .filter(|server| node.as_ref().is_none_or(|node| *&server.node == *node))
+            .filter(|server| node.as_ref().is_none_or(|node| server.node == *node))
             .filter(|server| template.as_ref().is_none_or(|template| server.template == *template))
             .filter(|server| auth.has(server.id, ProjectPermissions::VIEW))
             .apply_pagesplit(&mut page)
@@ -173,7 +173,7 @@ pub(crate) impl ServerService for Backend {
         .into_iter()
         .map(|record| {
             (
-                record.id as u32,
+                record.id.cast_unsigned(),
                 ServerPort {
                     host: record.host,
                     bind: auth
@@ -181,9 +181,12 @@ pub(crate) impl ServerService for Backend {
                         .then_some(record.external_ip),
                     name: record.name,
                     protocol: record.protocol,
-                    internal_port: record.internal_port as u16,
-                    external_port: record.external_port_start as u16
-                        ..=record.external_port_end as u16,
+                    internal_port: u16::try_from(record.internal_port)
+                        .expect("database port constraints ensure a u16 value"),
+                    external_port: u16::try_from(record.external_port_start)
+                        .expect("database port constraints ensure a u16 value")
+                        ..=u16::try_from(record.external_port_end)
+                            .expect("database port constraints ensure a u16 value"),
                 },
             )
         })
@@ -351,9 +354,9 @@ pub(crate) impl ServerService for Backend {
                     query!(
                         "UPDATE servers SET cpu = $1, ram = $2, swap = $3, disk = $4 WHERE id = $5",
                         resource.cpu,
-                        resource.ram.map(|value| value as i32),
-                        resource.swap.map(|value| value as i32),
-                        resource.disk.map(|value| value as i64),
+                        resource.ram.map(u32::cast_signed),
+                        resource.swap.map(u32::cast_signed),
+                        resource.disk.map(u64::cast_signed),
                         server_id.as_str()
                     )
                     .execute(&mut **tx)
@@ -403,7 +406,7 @@ pub(crate) impl ServerService for Backend {
                 if let Some(backup_limit) = backup_limit {
                     query!(
                         "UPDATE servers SET backup_limit = $1 WHERE id = $2",
-                        backup_limit.map(|value| value as i32),
+                        backup_limit.map(u32::cast_signed),
                         server_id.as_str()
                     )
                     .execute(&mut **tx)

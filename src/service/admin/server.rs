@@ -181,7 +181,7 @@ pub(crate) impl ServerAdminService for Backend {
 
             conn.transaction(|tx| Box::pin(async move {
                 query!("INSERT INTO servers (id,node,node_server_id,project,storage,cpu,ram,swap,disk,template,template_extra,name,internet_access,backup_limit) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
-                        id.as_str(), &node.id, new_server as i32, project.as_str(), &storage, resource.cpu, resource.ram.map(|value| value as i32), resource.swap.map(|value| value as i32), resource.disk.map(|value| value as i64), template.id(), &extra, &name, internet_access, backup_limit.map(|value| value as i32))                    .execute(&mut **tx)
+                        id.as_str(), &node.id, new_server.cast_signed(), project.as_str(), &storage, resource.cpu, resource.ram.map(u32::cast_signed), resource.swap.map(u32::cast_signed), resource.disk.map(u64::cast_signed), template.id(), &extra, &name, internet_access, backup_limit.map(u32::cast_signed))                    .execute(&mut **tx)
                     .await
                     .inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
@@ -335,8 +335,7 @@ pub(crate) impl ServerAdminService for Backend {
                 server.node.default_bind()
             )
             .fetch_one(&mut **tx)
-            .await?
-            .id as u32;
+            .await?;
 
 
             let rows = query!(
@@ -352,8 +351,8 @@ pub(crate) impl ServerAdminService for Backend {
             for port_row in rows {
                 for ext in port_row.external_port_start..=port_row.external_port_end {
                     payload.push(ServerPortEntryPayload {
-                        external_port: ext as u16,
-                        internal_port: port_row.internal_port as u16,
+                        external_port: u16::try_from(ext).expect("database port constraints ensure a u16 value"),
+                        internal_port: u16::try_from(port_row.internal_port).expect("database port constraints ensure a u16 value"),
                         protocol: port_row.protocol.clone(),
                         external_ip: port_row.external_ip.clone(),
                     });
@@ -417,13 +416,24 @@ pub(crate) impl ServerAdminService for Backend {
             let protocol_parsed = protocol
                 .unwrap_or_else(|| NetworkProtocol::by_name(current.protocol.as_str()));
 
-            let internal = internal_port.unwrap_or(current.internal_port as u16);
+            let internal = internal_port.unwrap_or_else(|| {
+                u16::try_from(current.internal_port)
+                    .expect("database port constraints ensure a u16 value")
+            });
 
             let (start, end) = external_port
                 .as_ref()
-                .map_or((current.external_port_start as u16, current.external_port_end as u16), |range| {
-                    (range.start, range.end)
-                });
+                .map_or_else(
+                    || {
+                        (
+                            u16::try_from(current.external_port_start)
+                                .expect("database port constraints ensure a u16 value"),
+                            u16::try_from(current.external_port_end)
+                                .expect("database port constraints ensure a u16 value"),
+                        )
+                    },
+                    |range| (range.start, range.end),
+                );
 
             if start > end {
                 return Err(UpdatePortError::PortInvalid);
@@ -554,8 +564,8 @@ pub(crate) impl ServerAdminService for Backend {
             for port_row in rows {
                 for ext in port_row.external_port_start..=port_row.external_port_end {
                     payload.push(ServerPortEntryPayload {
-                        external_port: ext as u16,
-                        internal_port: port_row.internal_port as u16,
+                        external_port: u16::try_from(ext).expect("database port constraints ensure a u16 value"),
+                        internal_port: u16::try_from(port_row.internal_port).expect("database port constraints ensure a u16 value"),
                         protocol: port_row.protocol.clone(),
                         external_ip: port_row.external_ip.clone(),
                     });
@@ -624,8 +634,10 @@ pub(crate) impl ServerAdminService for Backend {
                 for port_row in rows {
                     for ext in port_row.external_port_start..=port_row.external_port_end {
                         payload.push(ServerPortEntryPayload {
-                            external_port: ext as u16,
-                            internal_port: port_row.internal_port as u16,
+                            external_port: u16::try_from(ext)
+                                .expect("database port constraints ensure a u16 value"),
+                            internal_port: u16::try_from(port_row.internal_port)
+                                .expect("database port constraints ensure a u16 value"),
                             protocol: port_row.protocol.clone(),
                             external_ip: port_row.external_ip.clone(),
                         });

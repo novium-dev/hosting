@@ -63,17 +63,17 @@ impl Backend {
                     project: server.project,
 
                     node,
-                    node_server_id: server.node_server_id as u32,
+                    node_server_id: server.node_server_id.cast_unsigned(),
 
                     template,
                     template_extra: server.template_extra,
 
                     cpu: server.cpu,
-                    ram: server.ram.map(|value| value as u32),
-                    swap: server.swap.map(|value| value as u32),
-                    disk: server.disk.map(|value| value as u64),
+                    ram: server.ram.map(i32::cast_unsigned),
+                    swap: server.swap.map(i32::cast_unsigned),
+                    disk: server.disk.map(i64::cast_unsigned),
 
-                    backup_limit: server.backup_limit.map(|value| value as u32),
+                    backup_limit: server.backup_limit.map(i32::cast_unsigned),
                 }))
             }
             None => Ok(None),

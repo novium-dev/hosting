@@ -311,7 +311,10 @@ where
     E: From<sqlx::Error>,
 {
     let mut response = Vec::new();
-    let role = Role::try_from(role_value as u8).unwrap_or(Role::User);
+    let role = u8::try_from(role_value)
+        .ok()
+        .and_then(|role| Role::try_from(role).ok())
+        .unwrap_or(Role::User);
     let role_permissions = role.project_permissions().bits() | role.server_permissions().bits();
 
     let server_records = query!(
@@ -349,13 +352,13 @@ where
         let suspended = server.suspended;
         let maintenance = server.maintenance;
 
-        let mut permissions = if owner == user_id {
+        let permissions = if owner == user_id {
             ProjectPermissions::all().bits() | ServerPermissions::all().bits()
         } else {
             project_permissions.unwrap_or(role_permissions)
         };
 
-        if (suspended
+        let permissions = if (suspended
             && !role
                 .management_permissions()
                 .contains(ManagementPermissions::SERVER_SUSPEND))
@@ -364,12 +367,14 @@ where
                     .management_permissions()
                     .contains(ManagementPermissions::SERVER_MANAGE))
         {
-            permissions = ProjectPermissions::VIEW.bits();
-        }
+            ProjectPermissions::VIEW.bits()
+        } else {
+            permissions
+        };
 
         if ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW) {
             response.push(DaemonBackendAuthServer {
-                id: server.node_server_id as u32,
+                id: server.node_server_id.cast_unsigned(),
                 name: server.name,
                 permissions: daemon_auth_permissions(permissions),
             });

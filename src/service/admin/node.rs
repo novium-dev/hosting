@@ -227,8 +227,10 @@ pub(crate) impl NodeAdminService for Backend {
                 .entry(port.protocol.to_string())
                 .or_default()
                 .push(PortRange {
-                    start: port.start as u16,
-                    end: port.end as u16,
+                    start: u16::try_from(port.start)
+                        .expect("database port constraints ensure a u16 value"),
+                    end: u16::try_from(port.end)
+                        .expect("database port constraints ensure a u16 value"),
                     exclude,
                 });
         }
