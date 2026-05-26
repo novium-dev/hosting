@@ -12,10 +12,10 @@ use zelus::service;
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct AdminUserInfo {
-    pub(crate) id: u32,
+    pub(crate) id: i32,
     pub(crate) username: String,
     pub(crate) auth_id: String,
-    pub(crate) role: u8,
+    pub(crate) role: i32,
     pub(crate) email: String,
 }
 
@@ -32,9 +32,9 @@ pub(crate) impl UserAdminService for Backend {
         auth.require::<_, _, ListUsersError>((), ManagementPermissions::USER_VIEW)?;
 
         Ok(query!(
-            "SELECT `id`, `username`, `auth_id`, `role` AS `role: u8`, `email`
-             FROM `users`
-             ORDER BY `id`"
+            r#"SELECT id, username, auth_id, role AS "role: i32", email
+             FROM users
+             ORDER BY id"#
         )
         .fetch_all(&*self.database)
         .await?
@@ -56,14 +56,14 @@ pub(crate) impl UserAdminService for Backend {
     async fn get_user(
         &self,
         #[special] auth: Authentication,
-        user_id: u32,
+        user_id: i32,
     ) -> Result<AdminUserInfo, _> {
         auth.require::<_, _, GetUserError>((), ManagementPermissions::USER_VIEW)?;
 
         let user = query!(
-            "SELECT `id`, `username`, `auth_id`, `role` AS `role: u8`, `email`
-             FROM `users`
-             WHERE `id` = ?",
+            r#"SELECT id, username, auth_id, role AS "role: i32", email
+             FROM users
+             WHERE id = $1"#,
             user_id
         )
         .fetch_one(&*self.database)
@@ -84,7 +84,7 @@ pub(crate) impl UserAdminService for Backend {
     async fn update_user(
         &self,
         #[special] auth: Authentication,
-        user_id: u32,
+        user_id: i32,
         username: Option<String>,
         auth_id: Option<String>,
         role: Option<u8>,
@@ -96,7 +96,7 @@ pub(crate) impl UserAdminService for Backend {
 
         if let Some(username) = username {
             query!(
-                "UPDATE `users` SET `username` = ? WHERE `id` = ?",
+                "UPDATE users SET username = $1 WHERE id = $2",
                 username,
                 user_id
             )
@@ -106,7 +106,7 @@ pub(crate) impl UserAdminService for Backend {
 
         if let Some(auth_id) = auth_id {
             query!(
-                "UPDATE `users` SET `auth_id` = ? WHERE `id` = ?",
+                "UPDATE users SET auth_id = $1 WHERE id = $2",
                 auth_id,
                 user_id
             )
@@ -117,8 +117,8 @@ pub(crate) impl UserAdminService for Backend {
         if let Some(role) = role {
             let role = Role::try_from(role).map_err(|()| UpdateUserError::DbFailure)?;
             query!(
-                "UPDATE `users` SET `role` = ? WHERE `id` = ?",
-                role as u8,
+                "UPDATE users SET role = $1 WHERE id = $2",
+                role as i32,
                 user_id
             )
             .execute(&mut *tx)
@@ -126,16 +126,12 @@ pub(crate) impl UserAdminService for Backend {
         }
 
         if let Some(email) = email {
-            query!(
-                "UPDATE `users` SET `email` = ? WHERE `id` = ?",
-                email,
-                user_id
-            )
-            .execute(&mut *tx)
-            .await?;
+            query!("UPDATE users SET email = $1 WHERE id = $2", email, user_id)
+                .execute(&mut *tx)
+                .await?;
         }
 
-        query!("SELECT `id` FROM `users` WHERE `id` = ?", user_id)
+        query!("SELECT id FROM users WHERE id = $1", user_id)
             .fetch_one(&mut *tx)
             .await?;
 
@@ -147,10 +143,10 @@ pub(crate) impl UserAdminService for Backend {
     /// Deletes a user if they do not own projects.
     #[route("/{user_id}", method = DELETE)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::{not_found, owns_project <- [sql:foreign_key]})]
-    async fn delete_user(&self, #[special] auth: Authentication, user_id: u32) -> Result<(), _> {
+    async fn delete_user(&self, #[special] auth: Authentication, user_id: i32) -> Result<(), _> {
         auth.require::<_, _, DeleteUserError>((), ManagementPermissions::USER_MANAGE)?;
 
-        let result = query!("DELETE FROM `users` WHERE `id` = ?", user_id)
+        let result = query!("DELETE FROM users WHERE id = $1", user_id)
             .execute(&*self.database)
             .await?;
 

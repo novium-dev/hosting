@@ -14,6 +14,6 @@ fn main() {
     if let Ok(env) = std::env::var("BACKEND_DATABASE_URL") {
         println!("cargo:rustc-env=DATABASE_URL={env}");
     } else {
-        println!("cargo:rustc-env=DATABASE_URL=mysql://root@localhost/backend");
+        println!("cargo:rustc-env=DATABASE_URL=postgres://postgres:postgres@localhost/backend");
     }
 }

@@ -8,7 +8,7 @@ use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sqlx::encode::IsNull;
 use sqlx::error::BoxDynError;
-use sqlx::{Database, Decode, Encode, MySql};
+use sqlx::{Database, Decode, Encode, Postgres};
 use std::borrow::Cow;
 use std::io;
 use std::io::ErrorKind;
@@ -59,37 +59,37 @@ impl<T> FromStr for GenericNanoId<T> {
     }
 }
 
-impl<T> sqlx::Type<MySql> for GenericNanoId<T> {
-    fn type_info() -> <sqlx::MySql as sqlx::Database>::TypeInfo {
-        <&str as sqlx::Type<MySql>>::type_info()
+impl<T> sqlx::Type<Postgres> for GenericNanoId<T> {
+    fn type_info() -> <sqlx::Postgres as sqlx::Database>::TypeInfo {
+        <&str as sqlx::Type<Postgres>>::type_info()
     }
 
-    fn compatible(ty: &<sqlx::MySql as sqlx::Database>::TypeInfo) -> bool {
-        <&str as sqlx::Type<MySql>>::compatible(ty)
+    fn compatible(ty: &<sqlx::Postgres as sqlx::Database>::TypeInfo) -> bool {
+        <&str as sqlx::Type<Postgres>>::compatible(ty)
     }
 }
 
-impl<'q, T> sqlx::Encode<'q, MySql> for GenericNanoId<T> {
+impl<'q, T> sqlx::Encode<'q, Postgres> for GenericNanoId<T> {
     fn encode_by_ref(
         &self,
-        buf: &mut <MySql as Database>::ArgumentBuffer,
+        buf: &mut <Postgres as Database>::ArgumentBuffer,
     ) -> Result<IsNull, BoxDynError> {
         let str = self.as_str();
-        <&str as Encode<'_, MySql>>::encode_by_ref(&str, buf)
+        <&str as Encode<'_, Postgres>>::encode_by_ref(&str, buf)
     }
 
-    fn produces(&self) -> Option<<sqlx::MySql as sqlx::Database>::TypeInfo> {
-        <&str as Encode<'_, MySql>>::produces(&self.as_str())
+    fn produces(&self) -> Option<<sqlx::Postgres as sqlx::Database>::TypeInfo> {
+        <&str as Encode<'_, Postgres>>::produces(&self.as_str())
     }
 
     fn size_hint(&self) -> usize {
-        <&str as Encode<'_, MySql>>::size_hint(&self.as_str())
+        <&str as Encode<'_, Postgres>>::size_hint(&self.as_str())
     }
 }
 
-impl<'r, T> sqlx::Decode<'r, MySql> for GenericNanoId<T> {
-    fn decode(value: <MySql as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let value = <&str as Decode<'r, MySql>>::decode(value)?;
+impl<'r, T> sqlx::Decode<'r, Postgres> for GenericNanoId<T> {
+    fn decode(value: <Postgres as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let value = <&str as Decode<'r, Postgres>>::decode(value)?;
 
         Self::from_str(value)
             .map_err(|()| io::Error::new(ErrorKind::InvalidData, "Invalid nano id").into())

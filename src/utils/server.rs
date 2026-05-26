@@ -1,41 +1,41 @@
 use crate::Backend;
 use crate::db::project::ProjectId;
 use crate::db::server::{Server, ServerId};
-use sqlx::{Executor, MySql, query, types::JsonValue};
+use sqlx::{Executor, Postgres, query, types::JsonValue};
 use tracing::warn;
 
 impl Backend {
     pub async fn resolve_server(
         &self,
-        conn: impl Executor<'_, Database = MySql>,
+        conn: impl Executor<'_, Database = Postgres>,
         id: ServerId,
     ) -> Result<Option<Server>, sqlx::Error> {
         match query!(
-            "SELECT
-                        `id` AS `id: ServerId`,
-                        `node` AS `node: uuid::fmt::Hyphenated`,
-                        `node_server_id`,
-                        `project` AS `project: ProjectId`,
-                        `name`,
-                        `suspended` AS `suspended: bool`,
-                        `custom_dockerfile`,
-                        `internet_access` AS `internet_access: bool`,
-                        `cpu`,
-                        `ram`,
-                        `swap`,
-                        `disk`,
-                        `backup_limit`,
-                        `template`,
-                        `template_extra` AS `template_extra: JsonValue`
-                      FROM `servers` WHERE `id` = ?",
-            id
+            r#"SELECT
+                        id AS "id: ServerId",
+                        node,
+                        node_server_id,
+                        project AS "project: ProjectId",
+                        name,
+                        suspended AS "suspended: bool",
+                        custom_dockerfile,
+                        internet_access AS "internet_access: bool",
+                        cpu,
+                        ram,
+                        swap,
+                        disk,
+                        backup_limit,
+                        template,
+                        template_extra AS "template_extra: JsonValue"
+                      FROM servers WHERE id = $1"#,
+            id.as_str()
         )
         .fetch_optional(conn)
         .await?
         {
             Some(server) => {
                 let nodes = self.nodes.read().await;
-                let Some(node) = nodes.get(server.node.as_uuid()).cloned() else {
+                let Some(node) = nodes.get(&server.node).cloned() else {
                     warn!(
                         "Found server whose node is not in the nodes cache: {}, node: {}",
                         server.id, server.node
@@ -63,17 +63,17 @@ impl Backend {
                     project: server.project,
 
                     node,
-                    node_server_id: server.node_server_id,
+                    node_server_id: server.node_server_id as u32,
 
                     template,
                     template_extra: server.template_extra,
 
                     cpu: server.cpu,
-                    ram: server.ram,
-                    swap: server.swap,
-                    disk: server.disk,
+                    ram: server.ram.map(|value| value as u32),
+                    swap: server.swap.map(|value| value as u32),
+                    disk: server.disk.map(|value| value as u64),
 
-                    backup_limit: server.backup_limit,
+                    backup_limit: server.backup_limit.map(|value| value as u32),
                 }))
             }
             None => Ok(None),

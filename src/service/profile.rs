@@ -16,7 +16,7 @@ define_error!(profile {
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct SshKeyInfo {
-    pub(crate) id: u32,
+    pub(crate) id: i32,
     pub(crate) name: String,
     pub(crate) public_key: String,
 }
@@ -31,7 +31,7 @@ pub(crate) impl ProfileService for Backend {
         #[special] auth: UserAuthentication,
     ) -> Result<Vec<SshKeyInfo>, _> {
         Ok(query!(
-            "SELECT `id`, `name`, `public_key` FROM `user_ssh_keys` WHERE `user` = ? ORDER BY `id`",
+            r#"SELECT id, name, public_key FROM user_ssh_keys WHERE "user" = $1 ORDER BY id"#,
             auth.id
         )
         .fetch_all(&*self.database)
@@ -53,26 +53,26 @@ pub(crate) impl ProfileService for Backend {
         #[special] auth: UserAuthentication,
         name: String,
         public_key: String,
-    ) -> Result<u32, _> {
+    ) -> Result<i32, _> {
         let (public_key, fingerprint) =
             parse_ssh_public_key(&public_key).map_err(|()| AddSshKeyError::ProfileSshKeyInvalid)?;
 
-        let result = query!(
-            "INSERT INTO `user_ssh_keys` (`user`, `name`, `public_key`, `fingerprint_sha512`)
-             VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE
-                `name` = VALUES(`name`),
-                `public_key` = VALUES(`public_key`),
-                `id` = LAST_INSERT_ID(`id`)",
+        let record = query!(
+            r#"INSERT INTO user_ssh_keys ("user", name, public_key, fingerprint_sha512)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT ("user", fingerprint_sha512) DO UPDATE SET
+                name = EXCLUDED.name,
+                public_key = EXCLUDED.public_key
+             RETURNING id"#,
             auth.id,
             name,
             public_key,
             fingerprint
         )
-        .execute(&*self.database)
+        .fetch_one(&*self.database)
         .await?;
 
-        Ok(result.last_insert_id() as u32)
+        Ok(record.id)
     }
 
     /// Deletes an SSH public key from the current user's profile.
@@ -81,10 +81,10 @@ pub(crate) impl ProfileService for Backend {
     async fn delete_ssh_key(
         &self,
         #[special] auth: UserAuthentication,
-        key_id: u32,
+        key_id: i32,
     ) -> Result<(), _> {
         let result = query!(
-            "DELETE FROM `user_ssh_keys` WHERE `id` = ? AND `user` = ?",
+            r#"DELETE FROM user_ssh_keys WHERE id = $1 AND "user" = $2"#,
             key_id,
             auth.id
         )
@@ -115,7 +115,7 @@ pub(crate) impl ProfileService for Backend {
     ) -> Result<String, _> {
         let password = generate_daemon_password();
         query!(
-            "UPDATE `users` SET `daemon_password` = ? WHERE `id` = ?",
+            "UPDATE users SET daemon_password = $1 WHERE id = $2",
             password,
             auth.id
         )
@@ -126,13 +126,10 @@ pub(crate) impl ProfileService for Backend {
     }
 }
 
-async fn ensure_daemon_password(backend: &Backend, user_id: u32) -> Result<String, sqlx::Error> {
-    let row = query!(
-        "SELECT `daemon_password` FROM `users` WHERE `id` = ?",
-        user_id
-    )
-    .fetch_one(&*backend.database)
-    .await?;
+async fn ensure_daemon_password(backend: &Backend, user_id: i32) -> Result<String, sqlx::Error> {
+    let row = query!("SELECT daemon_password FROM users WHERE id = $1", user_id)
+        .fetch_one(&*backend.database)
+        .await?;
 
     if let Some(password) = row.daemon_password {
         return Ok(password);
@@ -140,7 +137,7 @@ async fn ensure_daemon_password(backend: &Backend, user_id: u32) -> Result<Strin
 
     let password = generate_daemon_password();
     query!(
-        "UPDATE `users` SET `daemon_password` = ? WHERE `id` = ?",
+        "UPDATE users SET daemon_password = $1 WHERE id = $2",
         password,
         user_id
     )

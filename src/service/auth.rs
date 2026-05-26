@@ -37,16 +37,16 @@ pub(crate) impl AuthService for Backend {
     #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure)]
     async fn login_dev(&self) -> Result<String, _> {
         let session = Session::generate().map_err(|_err| LoginDevError::OsFailure)?;
-        let dev_user = 1u32;
+        let dev_user = 1i32;
 
         query!(
-            "INSERT INTO `users`
-                    (`id`, `username`, `auth_id`, `role`, `email`)
+            "INSERT INTO users
+                    (id, username, auth_id, role, email)
                 VALUES
-                    (?, 'dev', 'dev', ?, 'dev@example.com')
-                ON DUPLICATE KEY UPDATE `auth_id` = 'dev'",
+                    ($1, 'dev', 'dev', $2, 'dev@example.com')
+                ON CONFLICT (id) DO UPDATE SET auth_id = EXCLUDED.auth_id",
             dev_user,
-            Role::Admin as u8
+            Role::Admin as i32
         )
         .execute(&*self.database)
         .await?;

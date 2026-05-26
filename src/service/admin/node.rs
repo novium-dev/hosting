@@ -140,7 +140,7 @@ pub(crate) impl NodeAdminService for Backend {
         conn.transaction(|tx| {
             Box::pin(async move {
                 query!(
-                    "UPDATE `nodes` SET `maintenance` = ? WHERE `id` = ?",
+                    "UPDATE nodes SET maintenance = $1 WHERE id = $2",
                     maintenance,
                     node_id
                 )
@@ -206,26 +206,29 @@ pub(crate) impl NodeAdminService for Backend {
             .ok_or(AvailablePortsError::NodeNotFound)?;
 
         let used: HashSet<u16> = query!(
-            "SELECT `server_ports`.`external_port_start`, `server_ports`.`external_port_end` FROM `servers` JOIN `server_ports` ON `server_ports`.`server` = `servers`.`id` WHERE `servers`.`node` = ?",
+            "SELECT server_ports.external_port_start, server_ports.external_port_end FROM servers JOIN server_ports ON server_ports.server = servers.id WHERE servers.node = $1",
             node_id
         )
         .fetch_all(&*self.database)
         .await?
         .into_iter()
-        .flat_map(|row| row.external_port_start..=row.external_port_end)
+        .flat_map(|row| {
+            (row.external_port_start..=row.external_port_end).filter_map(|port| port.try_into().ok())
+        })
         .collect();
 
         let mut result: HashMap<String, Vec<PortRange>> = HashMap::new();
         for port in &node.ports {
             let exclude = (port.start..=port.end)
+                .filter_map(|candidate| candidate.try_into().ok())
                 .filter(|candidate| used.contains(candidate))
                 .collect();
             result
                 .entry(port.protocol.to_string())
                 .or_default()
                 .push(PortRange {
-                    start: port.start,
-                    end: port.end,
+                    start: port.start as u16,
+                    end: port.end as u16,
                     exclude,
                 });
         }
@@ -242,7 +245,7 @@ pub(crate) impl NodeAdminService for Backend {
         start: u16,
         end: u16,
         protocol: NetworkProtocol,
-    ) -> Result<u32, _> {
+    ) -> Result<i32, _> {
         auth.require::<_, _, AddPortError>((), ManagementPermissions::NODES_MANAGE)?;
 
         if start > end {
@@ -257,15 +260,15 @@ pub(crate) impl NodeAdminService for Backend {
         conn.transaction(|tx| {
             Box::pin(async move {
                 let id = query!(
-                    "INSERT INTO `node_ports` (`node`, `protocol`, `start`, `end`) VALUES (?, ?, ?, ?)",
+                    r#"INSERT INTO node_ports (node, protocol, start, "end") VALUES ($1, $2, $3, $4) RETURNING id"#,
                     node_id,
                     protocol.to_string(),
-                    start,
-                    end,
+                    i32::from(start),
+                    i32::from(end),
                 )
-                .execute(&mut **tx)
+                .fetch_one(&mut **tx)
                 .await?
-                .last_insert_id() as u32;
+                .id;
 
                 Ok::<_, AddPortError>(id)
             })
@@ -279,7 +282,7 @@ pub(crate) impl NodeAdminService for Backend {
         &self,
         #[special] auth: Authentication,
         node_id: Uuid,
-        port_id: u32,
+        port_id: i32,
     ) -> Result<(), _> {
         auth.require::<_, _, DeletePortError>((), ManagementPermissions::NODES_MANAGE)?;
 
@@ -292,7 +295,7 @@ pub(crate) impl NodeAdminService for Backend {
         conn.transaction(|tx| {
             Box::pin(async move {
                 let Some(port) = query!(
-                    "SELECT `protocol` AS `protocol: NetworkProtocol`, `start`, `end` FROM `node_ports` WHERE `id` = ? AND `node` = ? FOR UPDATE",
+                    r#"SELECT protocol AS "protocol: NetworkProtocol", start, "end" FROM node_ports WHERE id = $1 AND node = $2 FOR UPDATE"#,
                     port_id,
                     node_id,
                 )
@@ -303,15 +306,15 @@ pub(crate) impl NodeAdminService for Backend {
                 };
 
                 let in_use = query_scalar!(
-                    r#"SELECT (COUNT(*) > 0) AS `exists: bool`
-                       FROM `server_ports`
-                       JOIN `servers` ON `server_ports`.`server` = `servers`.`id`
-                       WHERE `servers`.`node` = ?
-                       AND `server_ports`.`protocol` = ?
-                       AND ? <= `server_ports`.`external_port_end`
-                       AND ? >= `server_ports`.`external_port_start`"#,
+                    r#"SELECT (COUNT(*) > 0) AS "exists!"
+                       FROM server_ports
+                       JOIN servers ON server_ports.server = servers.id
+                       WHERE servers.node = $1
+                       AND server_ports.protocol = $2
+                       AND $3 <= server_ports.external_port_end
+                       AND $4 >= server_ports.external_port_start"#,
                     node_id,
-                    port.protocol,
+                    port.protocol.to_string(),
                     port.start,
                     port.end,
                 )
@@ -323,7 +326,7 @@ pub(crate) impl NodeAdminService for Backend {
                 }
 
                 query!(
-                    "DELETE FROM `node_ports` WHERE `id` = ? AND `node` = ?",
+                    "DELETE FROM node_ports WHERE id = $1 AND node = $2",
                     port_id,
                     node_id,
                 )

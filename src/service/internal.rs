@@ -27,7 +27,7 @@ use rustls::{
     RootCertStore,
     pki_types::{CertificateDer, CertificateSigningRequestDer},
 };
-use sqlx::{Connection as _, MySql, Transaction, query};
+use sqlx::{Connection as _, Postgres, Transaction, query};
 use std::{collections::HashMap, sync::Arc};
 use tracing::{debug, error};
 use url::Url;
@@ -130,7 +130,7 @@ pub(crate) impl InternalService for Backend {
             let backend = self.clone();
             self.database.acquire().await?
                 .transaction(move |tx| Box::pin(async move {
-                    query!("INSERT INTO `nodes` (`id`,`display`,`url`,`default_bind`,`default_host`) VALUES (?, 'New node', ?, ?, ?)", &uuid, base_url.as_str(), &default_bind, &default_host)
+                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host) VALUES ($1, 'New node', $2, $3, $4)", &uuid, base_url.as_str(), &default_bind, &default_host)
                         .execute(&mut **tx)
                         .await
                         .inspect_err(|err| error!("Failed to insert node: {err:?}"))?;
@@ -182,7 +182,7 @@ pub(crate) impl InternalService for Backend {
                 .transaction(move |tx| {
                     Box::pin(async move {
                         query!(
-                            "UPDATE `nodes` SET `url` = ? WHERE `id` = ?",
+                            "UPDATE nodes SET url = $1 WHERE id = $2",
                             base_url.as_str(),
                             node_id
                         )
@@ -190,25 +190,19 @@ pub(crate) impl InternalService for Backend {
                         .await
                         .inspect_err(|err| error!("Unable to update base_url of node: {err:?}"))?;
 
-                        query!(
-                            "DELETE FROM `node_server_storage` WHERE `node` = ?",
-                            node_id
-                        )
-                        .execute(&mut **tx)
-                        .await
-                        .inspect_err(|err| {
-                            error!("Unable to delete prior server storages: {err:?}");
-                        })?;
+                        query!("DELETE FROM node_server_storage WHERE node = $1", node_id)
+                            .execute(&mut **tx)
+                            .await
+                            .inspect_err(|err| {
+                                error!("Unable to delete prior server storages: {err:?}");
+                            })?;
 
-                        query!(
-                            "DELETE FROM `node_backup_storage` WHERE `node` = ?",
-                            node_id
-                        )
-                        .execute(&mut **tx)
-                        .await
-                        .inspect_err(|err| {
-                            error!("Unable to delete prior backup storages: {err:?}");
-                        })?;
+                        query!("DELETE FROM node_backup_storage WHERE node = $1", node_id)
+                            .execute(&mut **tx)
+                            .await
+                            .inspect_err(|err| {
+                                error!("Unable to delete prior backup storages: {err:?}");
+                            })?;
 
                         insert_storages(tx, &node_id, storages, backups).await?;
 
@@ -261,12 +255,12 @@ async fn auth_servers_for_public_key(
     }
 
     let Some(user) = query!(
-        "SELECT DISTINCT `users`.`id`, `users`.`role`
-         FROM `users`
-         JOIN `user_ssh_keys` ON `user_ssh_keys`.`user` = `users`.`id`
-         WHERE `users`.`username` = ?
-           AND `user_ssh_keys`.`fingerprint_sha512` = ?
-         LIMIT 1",
+        r#"SELECT DISTINCT users.id, users.role
+         FROM users
+         JOIN user_ssh_keys ON user_ssh_keys."user" = users.id
+         WHERE users.username = $1
+           AND user_ssh_keys.fingerprint_sha512 = $2
+         LIMIT 1"#,
         username,
         fingerprint_sha512
     )
@@ -290,10 +284,10 @@ async fn auth_servers_for_password(
     }
 
     let Some(user) = query!(
-        "SELECT `id`, `role`
-         FROM `users`
-         WHERE `username` = ?
-           AND `daemon_password` = ?
+        "SELECT id, role
+         FROM users
+         WHERE username = $1
+           AND daemon_password = $2
          LIMIT 1",
         username,
         password
@@ -310,7 +304,7 @@ async fn auth_servers_for_password(
 async fn auth_servers_for_user<E>(
     backend: &Backend,
     node: Uuid,
-    user_id: u32,
+    user_id: i32,
     role_value: i32,
 ) -> Result<DaemonBackendAuthResponse, E>
 where
@@ -321,26 +315,26 @@ where
     let role_permissions = role.project_permissions().bits() | role.server_permissions().bits();
 
     let server_records = query!(
-        "SELECT
-            `servers`.`name`,
-            `servers`.`node_server_id`,
-            `servers`.`suspended` AS `suspended: bool`,
-            `nodes`.`maintenance` AS `maintenance: bool`,
-            `projects`.`owner`,
-            `project_users`.`permissions`
-         FROM `servers`
-         JOIN `nodes` ON `nodes`.`id` = `servers`.`node`
-         JOIN `projects` ON `projects`.`id` = `servers`.`project`
-         LEFT JOIN `project_users`
-            ON `project_users`.`project` = `servers`.`project`
-            AND `project_users`.`user` = ?
-         WHERE `servers`.`node` = ?
+        r#"SELECT
+            servers.name,
+            servers.node_server_id,
+            servers.suspended AS "suspended: bool",
+            nodes.maintenance AS "maintenance: bool",
+            projects.owner,
+            project_users.permissions
+         FROM servers
+         JOIN nodes ON nodes.id = servers.node
+         JOIN projects ON projects.id = servers.project
+         LEFT JOIN project_users
+            ON project_users.project = servers.project
+            AND project_users."user" = $1
+         WHERE servers.node = $2
             AND (
-                `projects`.`owner` = ?
-                OR `project_users`.`user` IS NOT NULL
-                OR ?
+                projects.owner = $3
+                OR project_users."user" IS NOT NULL
+                OR $4
             )
-         ORDER BY `servers`.`node_server_id`",
+         ORDER BY servers.node_server_id"#,
         user_id,
         node,
         user_id,
@@ -375,7 +369,7 @@ where
 
         if ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW) {
             response.push(DaemonBackendAuthServer {
-                id: server.node_server_id,
+                id: server.node_server_id as u32,
                 name: server.name,
                 permissions: daemon_auth_permissions(permissions),
             });
@@ -415,7 +409,7 @@ fn daemon_auth_permissions(permissions: i64) -> BackendAuthServerPermissions {
 }
 
 async fn insert_storages(
-    tx: &mut Transaction<'_, MySql>,
+    tx: &mut Transaction<'_, Postgres>,
     id: &Uuid,
     storages: HashMap<String, ServerStorage>,
     backups: HashMap<String, BackupStorage>,
@@ -429,7 +423,7 @@ async fn insert_storages(
             ServerStorage::Btrfs(group) => Some(group),
             ServerStorage::Directory => None,
         };
-        query!("INSERT INTO `node_server_storage` (`node`,`storage`,`storage_type`,`group`) VALUES (?, ?, ?, ?)", id, storage_id, storage_type, group)
+        query!(r#"INSERT INTO node_server_storage (node,storage,storage_type,"group") VALUES ($1, $2, $3, $4)"#, id, storage_id, storage_type, group)
             .execute(&mut **tx)
             .await
             .inspect_err(|err| {
@@ -447,7 +441,7 @@ async fn insert_storages(
             BackupStorage::Btrfs(group) => Some(group),
             BackupStorage::Archive => None,
         };
-        query!("INSERT INTO `node_backup_storage` (`node`,`storage`,`storage_type`,`group`) VALUES (?, ?, ?, ?)", id, storage_id, storage_type, group)
+        query!(r#"INSERT INTO node_backup_storage (node,storage,storage_type,"group") VALUES ($1, $2, $3, $4)"#, id, storage_id, storage_type, group)
                 .execute(&mut **tx)
                 .await
                 .inspect_err(|err| error!("Failed to insert node (server_storage, insertion): {err:?}"))?;

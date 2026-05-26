@@ -1,10 +1,13 @@
 #!/bin/sh
+set -eu
 
-mkdir /run/mysqld -p
-mariadbd --user=root --skip-name-resolve --skip-networking=0 --silent-startup &
-until mariadb-admin ping --user root; do sleep 0.250; done
+mkdir -p /run/postgresql /var/lib/postgresql/data
+chown -R postgres:postgres /run/postgresql /var/lib/postgresql
+su postgres -c "initdb -D /var/lib/postgresql/data --auth=trust" >/dev/null
+su postgres -c "pg_ctl -D /var/lib/postgresql/data -o '-h 127.0.0.1 -k /run/postgresql' -w start"
+createdb --host=127.0.0.1 --username=postgres backend
 
-export BACKEND_DATABASE_URL="mysql://root@localhost/backend?socket=/run/mysqld/mysqld.sock"
+export BACKEND_DATABASE_URL="postgres://postgres@127.0.0.1/backend"
 
 cargo sqlx database create --database-url "$BACKEND_DATABASE_URL"
 cargo sqlx migrate run --database-url "$BACKEND_DATABASE_URL"

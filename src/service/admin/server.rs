@@ -62,8 +62,8 @@ pub(crate) impl ServerAdminService for Backend {
         }
 
         let project_exists = query_scalar!(
-            "SELECT (COUNT(*) > 0) AS `exists: bool` FROM `projects` WHERE `id` = ?",
-            project
+            r#"SELECT (COUNT(*) > 0) AS "exists!" FROM projects WHERE id = $1"#,
+            project.as_str()
         )
         .fetch_one(&*self.database)
         .await?;
@@ -180,14 +180,14 @@ pub(crate) impl ServerAdminService for Backend {
             let id = ServerId::generate();
 
             conn.transaction(|tx| Box::pin(async move {
-                query!("INSERT INTO `servers` (`id`,`node`,`node_server_id`,`project`,`storage`,`cpu`,`ram`,`swap`,`disk`,`template`,`template_extra`,`name`,`internet_access`,`backup_limit`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        &id, &node.id, &new_server, project, &storage, resource.cpu, resource.ram, resource.swap, resource.disk, template.id(), &extra, &name, internet_access, backup_limit)                    .execute(&mut **tx)
+                query!("INSERT INTO servers (id,node,node_server_id,project,storage,cpu,ram,swap,disk,template,template_extra,name,internet_access,backup_limit) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+                        id.as_str(), &node.id, new_server as i32, project.as_str(), &storage, resource.cpu, resource.ram.map(|value| value as i32), resource.swap.map(|value| value as i32), resource.disk.map(|value| value as i64), template.id(), &extra, &name, internet_access, backup_limit.map(|value| value as i32))                    .execute(&mut **tx)
                     .await
                     .inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
                 for port in &ports2 {
-                    query!("INSERT INTO `server_ports` (`server`,`host`,`name`,`internal_port`,`external_ip`,`external_port_start`,`external_port_end`,`protocol`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                            &id, &port.host, port.name,port.internal_port, port.bind.as_deref().unwrap_or_else(|| node.default_bind()), port.external_port_start, port.external_port_end, &port.protocol)
+                    query!("INSERT INTO server_ports (server,host,name,internal_port,external_ip,external_port_start,external_port_end,protocol) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                            id.as_str(), &port.host, port.name, i32::from(port.internal_port), port.bind.as_deref().unwrap_or_else(|| node.default_bind()), i32::from(port.external_port_start), i32::from(port.external_port_end), port.protocol.to_string())
                         .execute(&mut **tx)
                         .await
                         .inspect_err(|err| error!("Failed to insert server (ports): {err:?}"))?;
@@ -222,7 +222,7 @@ pub(crate) impl ServerAdminService for Backend {
                 return Err(DeleteServerError::ServerNotFound);
             };
 
-            query!("DELETE FROM `servers` WHERE `id` = ?", server_id)
+            query!("DELETE FROM servers WHERE id = $1", server_id.as_str())
                 .execute(&mut **tx)
                 .await
                 .inspect_err(|err| error!("Failed to delete server: {err:?}"))?;
@@ -283,16 +283,16 @@ pub(crate) impl ServerAdminService for Backend {
         conn.transaction(|tx| {
         Box::pin(async move {
             let allocated = query_scalar!(
-                r#"SELECT (COUNT(*) > 0) as `exists: bool`
+                r#"SELECT (COUNT(*) > 0) as "exists!"
                    FROM node_ports
-                   WHERE node = ?
-                   AND protocol = ?
-                   AND start <= ?
-                   AND end >= ?"#,
+                   WHERE node = $1
+                   AND protocol = $2
+                   AND start <= $3
+                   AND "end" >= $4"#,
                 server.node.id,
-                protocol.clone(),
-                external.start(),
-                external.end()
+                protocol.to_string(),
+                i32::from(*external.start()),
+                i32::from(*external.end())
             )
             .fetch_one(&mut **tx)
             .await?;
@@ -302,17 +302,17 @@ pub(crate) impl ServerAdminService for Backend {
             }
 
             let collision = query_scalar!(
-                r#"SELECT (COUNT(*) > 0) as `exists: bool`
+                r#"SELECT (COUNT(*) > 0) as "exists!"
                    FROM server_ports
                    JOIN servers ON server_ports.server = servers.id
-                   WHERE servers.node = ?
-                   AND server_ports.protocol = ?
-                   AND ? <= external_port_end
-                   AND ? >= external_port_start"#,
+                   WHERE servers.node = $1
+                   AND server_ports.protocol = $2
+                   AND $3 <= external_port_end
+                   AND $4 >= external_port_start"#,
                 server.node.id,
-                protocol.clone(),
-                external.start(),
-                external.end()
+                protocol.to_string(),
+                i32::from(*external.start()),
+                i32::from(*external.end())
             )
             .fetch_one(&mut **tx)
             .await?;
@@ -323,25 +323,26 @@ pub(crate) impl ServerAdminService for Backend {
 
             query!(
                 "INSERT INTO server_ports (server, host, name, protocol, internal_port, external_port_start, external_port_end, external_ip)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                server.id,
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 RETURNING id",
+                server.id.as_str(),
                 server.node.default_host(),
                 name,
-                protocol.clone(),
-                internal_port,
-                external.start(),
-                external.end(),
+                protocol.to_string(),
+                i32::from(internal_port),
+                i32::from(*external.start()),
+                i32::from(*external.end()),
                 server.node.default_bind()
             )
-            .execute(&mut **tx)
+            .fetch_one(&mut **tx)
             .await?
-            .last_insert_id() as u32;
+            .id as u32;
 
 
             let rows = query!(
                 "SELECT internal_port, external_port_start, external_port_end, protocol, external_ip
-                 FROM server_ports WHERE server = ? FOR UPDATE",
-                server.id
+                 FROM server_ports WHERE server = $1 FOR UPDATE",
+                server.id.as_str()
             )
             .fetch_all(&mut **tx)
             .await?;
@@ -351,8 +352,8 @@ pub(crate) impl ServerAdminService for Backend {
             for port_row in rows {
                 for ext in port_row.external_port_start..=port_row.external_port_end {
                     payload.push(ServerPortEntryPayload {
-                        external_port: ext,
-                        internal_port: port_row.internal_port,
+                        external_port: ext as u16,
+                        internal_port: port_row.internal_port as u16,
                         protocol: port_row.protocol.clone(),
                         external_ip: port_row.external_ip.clone(),
                     });
@@ -383,7 +384,7 @@ pub(crate) impl ServerAdminService for Backend {
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        port_id: u32,
+        port_id: i32,
         name: Option<String>,
         protocol: Option<NetworkProtocol>,
         internal_port: Option<u16>,
@@ -405,9 +406,9 @@ pub(crate) impl ServerAdminService for Backend {
         Box::pin(async move {
             let current = query!(
                 "SELECT protocol, internal_port, external_port_start, external_port_end
-                 FROM server_ports WHERE id = ? AND server = ?",
+                 FROM server_ports WHERE id = $1 AND server = $2",
                 port_id,
-                server.id
+                server.id.as_str()
             )
             .fetch_optional(&mut **tx)
             .await?
@@ -416,11 +417,11 @@ pub(crate) impl ServerAdminService for Backend {
             let protocol_parsed = protocol
                 .unwrap_or_else(|| NetworkProtocol::by_name(current.protocol.as_str()));
 
-            let internal = internal_port.unwrap_or(current.internal_port);
+            let internal = internal_port.unwrap_or(current.internal_port as u16);
 
             let (start, end) = external_port
                 .as_ref()
-                .map_or((current.external_port_start, current.external_port_end), |range| {
+                .map_or((current.external_port_start as u16, current.external_port_end as u16), |range| {
                     (range.start, range.end)
                 });
 
@@ -433,16 +434,16 @@ pub(crate) impl ServerAdminService for Backend {
             }
 
             let allocated = query_scalar!(
-                r#"SELECT (COUNT(*) > 0) as `exists: bool`
+                r#"SELECT (COUNT(*) > 0) as "exists!"
                    FROM node_ports
-                   WHERE node = ?
-                   AND protocol = ?
-                   AND start <= ?
-                   AND end >= ?"#,
+                   WHERE node = $1
+                   AND protocol = $2
+                   AND start <= $3
+                   AND "end" >= $4"#,
                 server.node.id,
                 protocol_parsed.to_string(),
-                start,
-                end
+                i32::from(start),
+                i32::from(end)
             )
             .fetch_one(&mut **tx)
             .await?;
@@ -452,19 +453,19 @@ pub(crate) impl ServerAdminService for Backend {
             }
 
             let collision = query_scalar!(
-                r#"SELECT (COUNT(*) > 0) as `exists: bool`
+                r#"SELECT (COUNT(*) > 0) as "exists!"
                    FROM server_ports
                    JOIN servers ON server_ports.server = servers.id
-                   WHERE servers.node = ?
-                   AND server_ports.protocol = ?
-                   AND server_ports.id != ?
-                   AND ? <= external_port_end
-                   AND ? >= external_port_start"#,
+                   WHERE servers.node = $1
+                   AND server_ports.protocol = $2
+                   AND server_ports.id != $3
+                   AND $4 <= external_port_end
+                   AND $5 >= external_port_start"#,
                 server.node.id,
                 protocol_parsed.to_string(),
                 port_id,
-                start,
-                end
+                i32::from(start),
+                i32::from(end)
             )
             .fetch_one(&mut **tx)
             .await?;
@@ -475,10 +476,10 @@ pub(crate) impl ServerAdminService for Backend {
 
             if let Some(name) = name {
                 query!(
-                    "UPDATE server_ports SET name=? WHERE id=? AND server=?",
+                    "UPDATE server_ports SET name=$1 WHERE id=$2 AND server=$3",
                     name,
                     port_id,
-                    server.id
+                    server.id.as_str()
                 )
                 .execute(&mut **tx)
                 .await?;
@@ -486,10 +487,10 @@ pub(crate) impl ServerAdminService for Backend {
 
             if let Some(protocol) = protocol {
                 query!(
-                    "UPDATE server_ports SET protocol=? WHERE id=? AND server=?",
+                    "UPDATE server_ports SET protocol=$1 WHERE id=$2 AND server=$3",
                     protocol.to_string(),
                     port_id,
-                    server.id
+                    server.id.as_str()
                 )
                 .execute(&mut **tx)
                 .await?;
@@ -497,10 +498,10 @@ pub(crate) impl ServerAdminService for Backend {
 
             if let Some(internal) = internal_port {
                 query!(
-                    "UPDATE server_ports SET internal_port=? WHERE id=? AND server=?",
-                    internal,
+                    "UPDATE server_ports SET internal_port=$1 WHERE id=$2 AND server=$3",
+                    i32::from(internal),
                     port_id,
-                    server.id
+                    server.id.as_str()
                 )
                 .execute(&mut **tx)
                 .await?;
@@ -508,11 +509,11 @@ pub(crate) impl ServerAdminService for Backend {
 
             if let Some(range) = external_port.as_ref() {
                 query!(
-                    "UPDATE server_ports SET external_port_start=?, external_port_end=? WHERE id=? AND server=?",
-                    range.start,
-                    range.end,
+                    "UPDATE server_ports SET external_port_start=$1, external_port_end=$2 WHERE id=$3 AND server=$4",
+                    i32::from(range.start),
+                    i32::from(range.end),
                     port_id,
-                    server.id
+                    server.id.as_str()
                 )
                 .execute(&mut **tx)
                 .await?;
@@ -520,10 +521,10 @@ pub(crate) impl ServerAdminService for Backend {
 
             if let Some(host) = host {
                 query!(
-                    "UPDATE server_ports SET host=? WHERE id=? AND server=?",
+                    "UPDATE server_ports SET host=$1 WHERE id=$2 AND server=$3",
                     host,
                     port_id,
-                    server.id
+                    server.id.as_str()
                 )
                 .execute(&mut **tx)
                 .await?;
@@ -531,10 +532,10 @@ pub(crate) impl ServerAdminService for Backend {
 
             if let Some(bind) = bind {
                 query!(
-                    "UPDATE server_ports SET external_ip=? WHERE id=? AND server=?",
+                    "UPDATE server_ports SET external_ip=$1 WHERE id=$2 AND server=$3",
                     bind,
                     port_id,
-                    server.id
+                    server.id.as_str()
                 )
                 .execute(&mut **tx)
                 .await?;
@@ -542,8 +543,8 @@ pub(crate) impl ServerAdminService for Backend {
 
             let rows = query!(
                 "SELECT internal_port, external_port_start, external_port_end, protocol, external_ip
-                 FROM server_ports WHERE server = ? FOR UPDATE",
-                server.id
+                 FROM server_ports WHERE server = $1 FOR UPDATE",
+                server.id.as_str()
             )
             .fetch_all(&mut **tx)
             .await?;
@@ -553,8 +554,8 @@ pub(crate) impl ServerAdminService for Backend {
             for port_row in rows {
                 for ext in port_row.external_port_start..=port_row.external_port_end {
                     payload.push(ServerPortEntryPayload {
-                        external_port: ext,
-                        internal_port: port_row.internal_port,
+                        external_port: ext as u16,
+                        internal_port: port_row.internal_port as u16,
                         protocol: port_row.protocol.clone(),
                         external_ip: port_row.external_ip.clone(),
                     });
@@ -584,7 +585,7 @@ pub(crate) impl ServerAdminService for Backend {
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        port_id: u32,
+        port_id: i32,
     ) -> Result<(), DeletePortError> {
         auth.require::<_, _, DeletePortError>(server_id, ProjectPermissions::VIEW)?;
         auth.require::<_, _, DeletePortError>((), ManagementPermissions::SERVER_MANAGE)?;
@@ -599,9 +600,9 @@ pub(crate) impl ServerAdminService for Backend {
         conn.transaction(|tx| {
             Box::pin(async move {
                 let result = query!(
-                    "DELETE FROM server_ports WHERE id=? AND server=?",
+                    "DELETE FROM server_ports WHERE id=$1 AND server=$2",
                     port_id,
-                    server.id
+                    server.id.as_str()
                 )
                 .execute(&mut **tx)
                 .await?;
@@ -612,8 +613,8 @@ pub(crate) impl ServerAdminService for Backend {
 
                 let rows = query!(
                 "SELECT internal_port, external_port_start, external_port_end, protocol, external_ip
-                 FROM server_ports WHERE server = ? FOR UPDATE",
-                server.id
+                 FROM server_ports WHERE server = $1 FOR UPDATE",
+                server.id.as_str()
             )
                 .fetch_all(&mut **tx)
                 .await?;
@@ -623,8 +624,8 @@ pub(crate) impl ServerAdminService for Backend {
                 for port_row in rows {
                     for ext in port_row.external_port_start..=port_row.external_port_end {
                         payload.push(ServerPortEntryPayload {
-                            external_port: ext,
-                            internal_port: port_row.internal_port,
+                            external_port: ext as u16,
+                            internal_port: port_row.internal_port as u16,
                             protocol: port_row.protocol.clone(),
                             external_ip: port_row.external_ip.clone(),
                         });
@@ -651,6 +652,8 @@ fn port_range_allocated(
     end: u16,
 ) -> bool {
     allocations.iter().any(|allocation| {
-        allocation.protocol == protocol && allocation.start <= start && allocation.end >= end
+        allocation.protocol == protocol
+            && allocation.start <= i32::from(start)
+            && allocation.end >= i32::from(end)
     })
 }

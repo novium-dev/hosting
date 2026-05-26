@@ -95,13 +95,13 @@ pub(crate) impl ServerService for Backend {
         node: Option<Uuid>,
         template: Option<String>,
     ) -> Result<Paged<ServerListInfo>, _> {
-        let servers = query!("SELECT `id` AS `id: ServerId`, `name`, `project` AS `project: ProjectId`, `node` AS `node: uuid::fmt::Hyphenated`, `template` FROM `servers`")
+        let servers = query!(r#"SELECT id AS "id: ServerId", name, project AS "project: ProjectId", node, template FROM servers"#)
             .fetch_all(&*self.database)
             .await?
             .into_iter()
 
             .filter(|server| project.is_none_or(|owner| *server.project == *owner))
-            .filter(|server| node.as_ref().is_none_or(|node| *server.node.as_uuid() == *node))
+            .filter(|server| node.as_ref().is_none_or(|node| *&server.node == *node))
             .filter(|server| template.as_ref().is_none_or(|template| server.template == *template))
             .filter(|server| auth.has(server.id, ProjectPermissions::VIEW))
             .apply_pagesplit(&mut page)
@@ -125,7 +125,7 @@ pub(crate) impl ServerService for Backend {
                          );
                         "Unknown Template".to_owned()
                    }, |template| template.id().to_owned()),
-                node: nodes.get(server.node.as_uuid()).map_or_else(
+                node: nodes.get(&server.node).map_or_else(
                     || {
                         warn!(
                             "Found server whose node is not in the nodes cache: {}, node: {}",
@@ -158,22 +158,22 @@ pub(crate) impl ServerService for Backend {
 
         let ports = query!(
             r#"SELECT
-            	`id`,
-            	`name`,
-            	`host`,
-                `protocol` AS `protocol: NetworkProtocol`,
-                `external_ip`,
-                `internal_port`,
-                `external_port_start`,`external_port_end`
-            FROM `server_ports` WHERE `server` = ?"#,
-            server_id
+            	id,
+            	name,
+            	host,
+                protocol AS "protocol: NetworkProtocol",
+                external_ip,
+                internal_port,
+                external_port_start,external_port_end
+            FROM server_ports WHERE server = $1"#,
+            server_id.as_str()
         )
         .fetch_all(&*self.database)
         .await?
         .into_iter()
         .map(|record| {
             (
-                record.id,
+                record.id as u32,
                 ServerPort {
                     host: record.host,
                     bind: auth
@@ -181,8 +181,9 @@ pub(crate) impl ServerService for Backend {
                         .then_some(record.external_ip),
                     name: record.name,
                     protocol: record.protocol,
-                    internal_port: record.internal_port,
-                    external_port: record.external_port_start..=record.external_port_end,
+                    internal_port: record.internal_port as u16,
+                    external_port: record.external_port_start as u16
+                        ..=record.external_port_end as u16,
                 },
             )
         })
@@ -336,20 +337,24 @@ pub(crate) impl ServerService for Backend {
         conn.transaction(|tx| {
             Box::pin(async move {
                 if let Some(name) = name {
-                    query!("UPDATE `servers` SET `name` = ? WHERE `id` = ?", name, server_id)
-                        .execute(&mut **tx)
-                        .await
-                        .inspect_err(|err| error!("Failed to update server (name): {err:?}"))?;
+                    query!(
+                        "UPDATE servers SET name = $1 WHERE id = $2",
+                        name,
+                        server_id.as_str()
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to update server (name): {err:?}"))?;
                 }
 
                 if let Some(resource) = resource {
                     query!(
-                        "UPDATE `servers` SET `cpu` = ?, `ram` = ?, `swap` = ?, `disk` = ? WHERE `id` = ?",
+                        "UPDATE servers SET cpu = $1, ram = $2, swap = $3, disk = $4 WHERE id = $5",
                         resource.cpu,
-                        resource.ram,
-                        resource.swap,
-                        resource.disk,
-                        server_id
+                        resource.ram.map(|value| value as i32),
+                        resource.swap.map(|value| value as i32),
+                        resource.disk.map(|value| value as i64),
+                        server_id.as_str()
                     )
                     .execute(&mut **tx)
                     .await
@@ -358,9 +363,9 @@ pub(crate) impl ServerService for Backend {
 
                 if let Some(custom_dockerfile) = custom_dockerfile {
                     query!(
-                        "UPDATE `servers` SET `custom_dockerfile` = ? WHERE `id` = ?",
+                        "UPDATE servers SET custom_dockerfile = $1 WHERE id = $2",
                         custom_dockerfile,
-                        server_id
+                        server_id.as_str()
                     )
                     .execute(&mut **tx)
                     .await
@@ -371,9 +376,9 @@ pub(crate) impl ServerService for Backend {
 
                 if let Some(suspended) = suspended {
                     query!(
-                        "UPDATE `servers` SET `suspended` = ? WHERE `id` = ?",
+                        "UPDATE servers SET suspended = $1 WHERE id = $2",
                         suspended,
-                        server_id
+                        server_id.as_str()
                     )
                     .execute(&mut **tx)
                     .await
@@ -384,9 +389,9 @@ pub(crate) impl ServerService for Backend {
 
                 if let Some(internet_access) = internet_access {
                     query!(
-                        "UPDATE `servers` SET `internet_access` = ? WHERE `id` = ?",
+                        "UPDATE servers SET internet_access = $1 WHERE id = $2",
                         internet_access,
-                        server_id
+                        server_id.as_str()
                     )
                     .execute(&mut **tx)
                     .await
@@ -397,9 +402,9 @@ pub(crate) impl ServerService for Backend {
 
                 if let Some(backup_limit) = backup_limit {
                     query!(
-                        "UPDATE `servers` SET `backup_limit` = ? WHERE `id` = ?",
-                        backup_limit,
-                        server_id
+                        "UPDATE servers SET backup_limit = $1 WHERE id = $2",
+                        backup_limit.map(|value| value as i32),
+                        server_id.as_str()
                     )
                     .execute(&mut **tx)
                     .await

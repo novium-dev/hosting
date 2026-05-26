@@ -5,7 +5,7 @@ use daemon_common::node::{BackupStorage, ServerStorage};
 use daemon_common::sdk::DaemonSDK;
 use daemon_common::service::DaemonServicesURLWithUserKey;
 use serde::Serialize;
-use sqlx::{MySql, Transaction, query, query_as};
+use sqlx::{Postgres, Transaction, query, query_as};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::error;
@@ -27,11 +27,11 @@ pub struct BackendNode {
 
 #[derive(Clone, Debug, Serialize, sqlx::FromRow, utoipa::ToSchema)]
 pub struct NodePortAllocation {
-    pub id: u32,
+    pub id: i32,
     pub node: Uuid,
     pub protocol: NetworkProtocol,
-    pub start: u16,
-    pub end: u16,
+    pub start: i32,
+    pub end: i32,
 }
 
 impl Deref for BackendNode {
@@ -62,17 +62,17 @@ pub struct NodeInfo {
 }
 
 impl Backend {
-    pub async fn sync_nodes(&self, tx: &mut Transaction<'_, MySql>) -> Result<(), sqlx::Error> {
+    pub async fn sync_nodes(&self, tx: &mut Transaction<'_, Postgres>) -> Result<(), sqlx::Error> {
         #[cfg(feature = "embedded_node")]
         use daemon_common::service::DaemonServices as _;
 
         let mut nodes = HashMap::new();
-        for node in query!("SELECT `id` AS `id: uuid::fmt::Hyphenated`,`url`,`display`,`maintenance` AS `maintenance: bool`,`default_host`,`default_bind` FROM `nodes`")
+        for node in query!(r#"SELECT id,url,display,maintenance AS "maintenance: bool",default_host,default_bind FROM nodes"#)
             .fetch_all(&*self.database)
             .await? {
 
             let server_storages = query!(
-                "SELECT * FROM `node_server_storage` WHERE `node` = ?",
+                "SELECT * FROM node_server_storage WHERE node = $1",
                 node.id
             )
             .fetch_all(&mut **tx)
@@ -89,7 +89,7 @@ impl Backend {
             })
             .collect();
             let backup_storages = query!(
-                "SELECT * FROM `node_backup_storage` WHERE `node` = ?",
+                "SELECT * FROM node_backup_storage WHERE node = $1",
                 node.id
             )
             .fetch_all(&mut **tx)
@@ -107,13 +107,13 @@ impl Backend {
             .collect();
             let ports = query_as!(
                 NodePortAllocation,
-                "SELECT `id`,`node` AS `node: uuid::fmt::Hyphenated`,`protocol` AS `protocol: NetworkProtocol`, `start`, `end` FROM `node_ports` WHERE `node` = ?",
+                r#"SELECT id,node,protocol AS "protocol: NetworkProtocol", start, "end" FROM node_ports WHERE node = $1"#,
                 node.id
             )
             .fetch_all(&mut **tx)
             .await.inspect_err(|err| error!("Failed to select allocated ports: {err:?}"))?;
 
-            let id = node.id.into_uuid();
+            let id = node.id;
 
             let sdk = Arc::new(DaemonSDK::builder()
                 .with_identifier(id)

@@ -6,19 +6,14 @@ ENV RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=lld $FLAGS"
 
 FROM chef AS utils
 
-RUN RUSTFLAGS="-C opt-level=0" cargo install sqlx-cli --no-default-features --features mysql,rustls --locked
+RUN RUSTFLAGS="-C opt-level=0" cargo install sqlx-cli --no-default-features --features postgres,rustls --locked
 
 FROM chef AS dependencies
 
-RUN apk add --no-cache git mariadb mariadb-client musl-dev llvm21 clang21 lld21 curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+RUN apk add --no-cache git postgresql16 postgresql16-client musl-dev llvm21 clang21 lld21 curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
 # zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21-static
 
 RUN apk upgrade --no-cache gcc --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
-
-FROM dependencies AS mariadb
-
-RUN mariadb-install-db --user=root --ldata=/var/lib/mysql
-RUN echo "USE mysql;FLUSH PRIVILEGES ;GRANT ALL ON *.* TO 'root'@'%' identified by '' WITH GRANT OPTION ;GRANT ALL ON *.* TO 'root'@'localhost' identified by '' WITH GRANT OPTION ;SET PASSWORD FOR 'root'@'localhost'=PASSWORD('') ;DROP DATABASE IF EXISTS test ;FLUSH PRIVILEGES ;" mariadbd --user=root --bootstrap --verbose=0 --skip-name-resolve --skip-networking=0
 
 FROM chef AS planner
 COPY . .
@@ -36,7 +31,6 @@ ARG FEATURES="default"
 RUN --mount=type=ssh cargo chef cook --release --recipe-path recipe.json --no-default-features --features "$FEATURES" --target x86_64-unknown-linux-musl
 
 COPY --from=utils /usr/local/cargo/bin/cargo-sqlx /usr/local/cargo/bin/cargo-sqlx
-COPY --from=mariadb /var/lib/mysql /var/lib/mysql
 COPY . .
 
 # build

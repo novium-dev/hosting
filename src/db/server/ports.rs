@@ -3,7 +3,7 @@ use core::ops::RangeInclusive;
 use serde::{Deserialize, Serialize};
 use sqlx::encode::IsNull;
 use sqlx::error::BoxDynError;
-use sqlx::{Database, Decode, Encode, MySql};
+use sqlx::{Database, Decode, Encode, Postgres};
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct ServerPort {
@@ -35,37 +35,37 @@ pub struct NetworkPort {
     pub bind: Option<String>, // Only visible to admins
 }
 
-impl sqlx::Type<MySql> for NetworkProtocol {
-    fn type_info() -> <sqlx::MySql as sqlx::Database>::TypeInfo {
-        <&str as sqlx::Type<MySql>>::type_info()
+impl sqlx::Type<Postgres> for NetworkProtocol {
+    fn type_info() -> <sqlx::Postgres as sqlx::Database>::TypeInfo {
+        <&str as sqlx::Type<Postgres>>::type_info()
     }
 
-    fn compatible(ty: &<sqlx::MySql as sqlx::Database>::TypeInfo) -> bool {
-        <&str as sqlx::Type<MySql>>::compatible(ty)
+    fn compatible(ty: &<sqlx::Postgres as sqlx::Database>::TypeInfo) -> bool {
+        <&str as sqlx::Type<Postgres>>::compatible(ty)
     }
 }
 
-impl<'q> sqlx::Encode<'q, MySql> for NetworkProtocol {
+impl<'q> sqlx::Encode<'q, Postgres> for NetworkProtocol {
     fn encode_by_ref(
         &self,
-        buf: &mut <MySql as Database>::ArgumentBuffer,
+        buf: &mut <Postgres as Database>::ArgumentBuffer,
     ) -> Result<IsNull, BoxDynError> {
         let str = self.to_string();
-        <&str as Encode<'_, MySql>>::encode_by_ref(&&*str, buf)
+        <&str as Encode<'_, Postgres>>::encode_by_ref(&&*str, buf)
     }
 
-    fn produces(&self) -> Option<<sqlx::MySql as sqlx::Database>::TypeInfo> {
-        <&str as Encode<'_, MySql>>::produces(&&*self.to_string())
+    fn produces(&self) -> Option<<sqlx::Postgres as sqlx::Database>::TypeInfo> {
+        <&str as Encode<'_, Postgres>>::produces(&&*self.to_string())
     }
 
     fn size_hint(&self) -> usize {
-        <&str as Encode<'_, MySql>>::size_hint(&&*self.to_string())
+        <&str as Encode<'_, Postgres>>::size_hint(&&*self.to_string())
     }
 }
 
-impl<'r> sqlx::Decode<'r, MySql> for NetworkProtocol {
-    fn decode(value: <MySql as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
-        let value = <&str as Decode<'r, MySql>>::decode(value)?;
+impl<'r> sqlx::Decode<'r, Postgres> for NetworkProtocol {
+    fn decode(value: <Postgres as Database>::ValueRef<'r>) -> Result<Self, BoxDynError> {
+        let value = <&str as Decode<'r, Postgres>>::decode(value)?;
         Ok(Self::by_name(value))
     }
 }
