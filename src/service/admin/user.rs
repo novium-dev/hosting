@@ -17,6 +17,8 @@ pub(crate) struct AdminUserInfo {
     pub(crate) auth_id: String,
     pub(crate) role: i32,
     pub(crate) email: String,
+    pub(crate) first_name: Option<String>,
+    pub(crate) last_name: Option<String>,
 }
 
 #[service(path = "/admin/user", tag = "user", no_sdk)]
@@ -32,7 +34,7 @@ pub(crate) impl UserAdminService for Backend {
         auth.require::<_, _, ListUsersError>((), ManagementPermissions::USER_VIEW)?;
 
         Ok(query!(
-            r#"SELECT id, username, auth_id, role AS "role: i32", email
+            r#"SELECT id, username, auth_id, role AS "role: i32", email, first_name, last_name
              FROM users
              ORDER BY id"#
         )
@@ -45,6 +47,8 @@ pub(crate) impl UserAdminService for Backend {
             auth_id: user.auth_id,
             role: user.role,
             email: user.email,
+            first_name: user.first_name,
+            last_name: user.last_name,
         })
         .apply_pagesplit(&mut page)
         .collect_paged(page))
@@ -61,7 +65,7 @@ pub(crate) impl UserAdminService for Backend {
         auth.require::<_, _, GetUserError>((), ManagementPermissions::USER_VIEW)?;
 
         let user = query!(
-            r#"SELECT id, username, auth_id, role AS "role: i32", email
+            r#"SELECT id, username, auth_id, role AS "role: i32", email, first_name, last_name
              FROM users
              WHERE id = $1"#,
             user_id
@@ -75,6 +79,8 @@ pub(crate) impl UserAdminService for Backend {
             auth_id: user.auth_id,
             role: user.role,
             email: user.email,
+            first_name: user.first_name,
+            last_name: user.last_name,
         })
     }
 

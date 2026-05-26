@@ -43,6 +43,8 @@ pub struct UserAuthentication {
     permissions: i64,
     role: Role,
     email: String,
+    first_name: Option<String>,
+    last_name: Option<String>,
     projects: HashMap<ProjectId, i64>,
     servers: HashMap<ServerId, i64>,
 }
@@ -54,6 +56,8 @@ pub struct SerializedUser {
     pub permissions: i64,
     pub role: Role,
     pub email: String,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
 }
 
 impl UserAuthentication {
@@ -84,6 +88,8 @@ impl UserAuthentication {
             permissions: self.permissions,
             role: self.role,
             email: self.email.clone(),
+            first_name: self.first_name.clone(),
+            last_name: self.last_name.clone(),
         }
     }
 }
@@ -119,7 +125,9 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .inspect_err(|err| error!("Unable to acquire database connection: {err:?}"))?;
 
         let Some(user) = query!(
-            r#"SELECT username, role AS "role: i32", email FROM users WHERE id = $1"#,
+            r#"SELECT username, role AS "role: i32", email, first_name, last_name
+             FROM users
+             WHERE id = $1"#,
             &id
         )
         .fetch_optional(&mut *conn)
@@ -234,6 +242,8 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             permissions: user_permissions,
             role: role.unwrap_or(Role::User),
             email: user.email,
+            first_name: user.first_name,
+            last_name: user.last_name,
             projects,
             servers,
         }))
@@ -394,18 +404,22 @@ impl Backend {
         let record = query!(
             r#"
     INSERT INTO users
-        (username, auth_id, role, email, daemon_password)
+        (username, auth_id, role, email, first_name, last_name, daemon_password)
     VALUES
-        ($1, $2, $3, $4, $5)
+        ($1, $2, $3, $4, $5, $6, $7)
     ON CONFLICT (auth_id) DO UPDATE SET
         username = EXCLUDED.username,
-        email = EXCLUDED.email
+        email = EXCLUDED.email,
+        first_name = EXCLUDED.first_name,
+        last_name = EXCLUDED.last_name
     RETURNING id
     "#,
             auth_user.preferred_username,
             auth_user.sub,
             Role::User as i32,
             auth_user.email,
+            auth_user.given_name,
+            auth_user.family_name,
             daemon_password
         )
         .fetch_one(&*self.database)

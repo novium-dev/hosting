@@ -73,6 +73,10 @@ pub struct AuthUser {
     pub(crate) email: String,
     email_verified: bool,
     name: String,
+    #[serde(default)]
+    pub(crate) given_name: Option<String>,
+    #[serde(default)]
+    pub(crate) family_name: Option<String>,
     pub(crate) preferred_username: String,
 }
 
