@@ -28,8 +28,8 @@ stages:
   parallel:
   interruptible: true
   variables:
-    BACKEND_DATABASE_URL: 'mysql://root@db/backend'
-    MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: '1'
+    BACKEND_DATABASE_URL: 'postgres://postgres:postgres@db/backend'
+    POSTGRES_PASSWORD: 'postgres'
 
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo_home"
     CARGO_TERM_COLOR: "always"
@@ -42,15 +42,15 @@ stages:
   before_script:
     - rustc --version && cargo --version
     - mkdir .cargo_home -p
-    - apk add --no-cache openssh-client-default libxml2-utils musl-dev ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21 clang21-static lld21 git mariadb-client curl btrfs-progs-dev --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+    - apk add --no-cache openssh-client-default libxml2-utils musl-dev ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21 clang21-static lld21 git postgresql16-client curl btrfs-progs-dev --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - apk upgrade --no-cache gcc --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
-    - until mariadb-admin ping --host db --user root --skip-ssl-verify-server-cert; do sleep 1; done
+    - until pg_isready --host db --username postgres --dbname postgres; do sleep 1; done
     - crates/sqlx-cli/bin/sqlx database create --database-url "$BACKEND_DATABASE_URL"
     - crates/sqlx-cli/bin/sqlx migrate run --database-url "$BACKEND_DATABASE_URL" --source "migrations"
     - eval $(ssh-agent -s)
     - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
   services:
-    - name: mariadb:latest
+    - name: postgres:16-alpine
       alias: db
       pull_policy: always
 
@@ -88,7 +88,7 @@ cli_shared:
     expire_in: 1 week
   script:
     - mkdir crates/sqlx-cli -p
-    - cargo install --color always --verbose --no-default-features --features mysql,rustls sqlx-cli --root crates/sqlx-cli
+    - cargo install --color always --verbose --no-default-features --features postgres,rustls sqlx-cli --root crates/sqlx-cli
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED != "true"
       when: never
@@ -205,4 +205,3 @@ deploy_backend:
     - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $CI_REGISTRY_IMAGE:backend-latest --tag $CI_REGISTRY_IMAGE:backend-${CI_COMMIT_SHA:0:8} --tag $CI_REGISTRY_IMAGE:backend-latest --ssh default .
     - docker push $CI_REGISTRY_IMAGE:backend-${CI_COMMIT_SHA:0:8}
     - docker push $CI_REGISTRY_IMAGE:backend-latest
-

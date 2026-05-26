@@ -4,6 +4,7 @@ mariadb/data/
 mariadb/sockets/
 valkey/data/
 valkey/sockets/
+postgres/data/
 /storage/
 /storages/
 /backups/

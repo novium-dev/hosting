@@ -1,4 +1,15 @@
 services:
+  mariadb:
+    image: mariadb:latest
+    container_name: backend_mariadb
+    network_mode: bridge
+    ports:
+      - 3306:3306
+    environment:
+      - MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1
+    volumes:
+      - ../mariadb/sockets:/var/run/mysqld
+      - ../mariadb/data:/var/lib/mysql
   postgres:
     image: postgres:16-alpine
     container_name: backend_postgres
