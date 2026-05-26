@@ -36,6 +36,14 @@ pub(crate) struct ServerListInfo {
     node: String, // Name
 }
 
+struct ServerListRecord {
+    id: ServerId,
+    name: String,
+    project: ProjectId,
+    template: String,
+    node: Uuid,
+}
+
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct LightNodeInfo {
     pub(crate) id: Uuid,
@@ -95,14 +103,34 @@ pub(crate) impl ServerService for Backend {
         node: Option<Uuid>,
         template: Option<String>,
     ) -> Result<Paged<ServerListInfo>, _> {
-        let servers = query!(r#"SELECT id AS "id: ServerId", name, project AS "project: ProjectId", node, template FROM servers"#)
+        let servers = if let Some(project) = project {
+            sqlx::query_as!(
+                ServerListRecord,
+                r#"SELECT id AS "id: ServerId", name, project AS "project: ProjectId", node, template
+                   FROM servers
+                   WHERE project = $1"#,
+                project.as_str()
+            )
             .fetch_all(&*self.database)
             .await?
-            .into_iter()
+        } else {
+            sqlx::query_as!(
+                ServerListRecord,
+                r#"SELECT id AS "id: ServerId", name, project AS "project: ProjectId", node, template
+                   FROM servers"#
+            )
+            .fetch_all(&*self.database)
+            .await?
+        };
 
-            .filter(|server| project.is_none_or(|owner| *server.project == *owner))
+        let servers = servers
+            .into_iter()
             .filter(|server| node.as_ref().is_none_or(|node| server.node == *node))
-            .filter(|server| template.as_ref().is_none_or(|template| server.template == *template))
+            .filter(|server| {
+                template
+                    .as_ref()
+                    .is_none_or(|template| server.template == *template)
+            })
             .filter(|server| auth.has(server.id, ProjectPermissions::VIEW))
             .apply_pagesplit(&mut page)
             .collect::<Vec<_>>();
