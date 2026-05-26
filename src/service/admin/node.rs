@@ -16,7 +16,7 @@ use crate::auth::permissions::ManagementPermissions;
 use crate::db::node::NodePortAllocation;
 use crate::db::server::ports::NetworkProtocol;
 use crate::service::admin::node::node_admin_service_error::{
-    AddPortError, AvailablePortsError, CreateNodeError, DeletePortError, ListNodesError,
+    AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodePortError, ListNodesError,
     MetricsNodeError, UpdateMaintenanceError, UpdateNodeError,
 };
 use crate::service::error_os_failure::FromOsFailure;
@@ -240,7 +240,7 @@ pub(crate) impl NodeAdminService for Backend {
 
     #[route("/{node_id}/ports", method = PUT)]
     #[error(node::not_found, port::invalid, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
-    async fn add_port(
+    async fn add_node_port(
         &self,
         #[special] auth: Authentication,
         node_id: Uuid,
@@ -248,14 +248,14 @@ pub(crate) impl NodeAdminService for Backend {
         end: u16,
         protocol: NetworkProtocol,
     ) -> Result<i32, _> {
-        auth.require::<_, _, AddPortError>((), ManagementPermissions::NODES_MANAGE)?;
+        auth.require::<_, _, AddNodePortError>((), ManagementPermissions::NODES_MANAGE)?;
 
         if start > end {
-            return Err(AddPortError::PortInvalid);
+            return Err(AddNodePortError::PortInvalid);
         }
 
         if self.nodes.read().await.get(&node_id).is_none() {
-            return Err(AddPortError::NodeNotFound);
+            return Err(AddNodePortError::NodeNotFound);
         }
 
         let mut conn = self.database.acquire().await?;
@@ -272,7 +272,7 @@ pub(crate) impl NodeAdminService for Backend {
                 .await?
                 .id;
 
-                Ok::<_, AddPortError>(id)
+                Ok::<_, AddNodePortError>(id)
             })
         })
         .await
@@ -280,16 +280,16 @@ pub(crate) impl NodeAdminService for Backend {
 
     #[route("/{node_id}/ports/{port_id}", method = DELETE)]
     #[error(node::not_found, port::in_use, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
-    async fn delete_port(
+    async fn delete_node_port(
         &self,
         #[special] auth: Authentication,
         node_id: Uuid,
         port_id: i32,
     ) -> Result<(), _> {
-        auth.require::<_, _, DeletePortError>((), ManagementPermissions::NODES_MANAGE)?;
+        auth.require::<_, _, DeleteNodePortError>((), ManagementPermissions::NODES_MANAGE)?;
 
         if self.nodes.read().await.get(&node_id).is_none() {
-            return Err(DeletePortError::NodeNotFound);
+            return Err(DeleteNodePortError::NodeNotFound);
         }
 
         let mut conn = self.database.acquire().await?;
@@ -304,7 +304,7 @@ pub(crate) impl NodeAdminService for Backend {
                 .fetch_optional(&mut **tx)
                 .await?
                 else {
-                    return Ok::<_, DeletePortError>(());
+                    return Ok::<_, DeleteNodePortError>(());
                 };
 
                 let in_use = query_scalar!(
@@ -324,7 +324,7 @@ pub(crate) impl NodeAdminService for Backend {
                 .await?;
 
                 if in_use {
-                    return Err(DeletePortError::PortInUse);
+                    return Err(DeleteNodePortError::PortInUse);
                 }
 
                 query!(
@@ -337,7 +337,7 @@ pub(crate) impl NodeAdminService for Backend {
 
                 backend.sync_nodes(tx).await?;
 
-                Ok::<_, DeletePortError>(())
+                Ok::<_, DeleteNodePortError>(())
             })
         })
         .await
