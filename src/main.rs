@@ -41,6 +41,7 @@ use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
 use uuid::Uuid;
+use crate::templates::generic::go::GoTemplate;
 
 const CACHE_PREFIX: &str = "novium:";
 
@@ -220,6 +221,12 @@ async fn main0() {
             .await
             .expect("Unable to initialize minecraft template");
         templates.insert(minecraft.id().to_owned(), Arc::new(minecraft));
+
+        let go = GoTemplate;
+        go.init(backend.cache.clone())
+            .await
+            .expect("Unable to initialize go template");
+        templates.insert(go.id().to_owned(), Arc::new(go));
     };
 
     info!("Starting Webserver...");

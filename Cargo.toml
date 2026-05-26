@@ -247,6 +247,8 @@ url = "2.5.8"
 lazy-regex = "3.6.0"
 oauth2 = "5.0.0"
 ssh-key = "0.6.7"
+either = "1.16.0"
+bytes = "1.11.1"
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
