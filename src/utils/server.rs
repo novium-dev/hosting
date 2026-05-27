@@ -28,7 +28,7 @@ impl Backend {
                         template,
                         template_extra AS "template_extra: JsonValue"
                       FROM servers WHERE id = $1"#,
-            id.as_str()
+            &id
         )
         .fetch_optional(conn)
         .await?

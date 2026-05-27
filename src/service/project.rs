@@ -90,7 +90,7 @@ pub(crate) impl ProjectService for Backend {
 
         query!(
             "INSERT INTO projects (id, slug, name, owner) VALUES ($1, $2, $3, $4)",
-            id.as_str(),
+            &id,
             slug,
             name,
             auth.id
@@ -115,7 +115,7 @@ pub(crate) impl ProjectService for Backend {
             r#"SELECT id AS "id: ProjectId", slug, name, owner
              FROM projects
              WHERE id = $1"#,
-            project_id.as_str()
+            &project_id
         )
         .fetch_one(&*self.database)
         .await?;
@@ -148,7 +148,7 @@ pub(crate) impl ProjectService for Backend {
             query!(
                 "UPDATE projects SET owner = $1 WHERE id = $2",
                 owner,
-                project_id.as_str()
+                &project_id
             )
             .execute(&mut *tx)
             .await?;
@@ -158,7 +158,7 @@ pub(crate) impl ProjectService for Backend {
             query!(
                 "UPDATE projects SET slug = $1 WHERE id = $2",
                 slug,
-                project_id.as_str()
+                &project_id
             )
             .execute(&mut *tx)
             .await?;
@@ -168,7 +168,7 @@ pub(crate) impl ProjectService for Backend {
             query!(
                 "UPDATE projects SET name = $1 WHERE id = $2",
                 name,
-                project_id.as_str()
+                &project_id
             )
             .execute(&mut *tx)
             .await?;
@@ -176,7 +176,7 @@ pub(crate) impl ProjectService for Backend {
 
         query!(
             r#"SELECT id AS "id: ProjectId" FROM projects WHERE id = $1"#,
-            project_id.as_str()
+            &project_id
         )
         .fetch_one(&mut *tx)
         .await?;
@@ -196,7 +196,7 @@ pub(crate) impl ProjectService for Backend {
     ) -> Result<(), _> {
         auth.require::<_, _, DeleteProjectError>(project_id, ProjectPermissions::ADMIN_MANAGEMENT)?;
 
-        let result = query!("DELETE FROM projects WHERE id = $1", project_id.as_str())
+        let result = query!("DELETE FROM projects WHERE id = $1", &project_id)
             .execute(&*self.database)
             .await?;
 
@@ -227,7 +227,7 @@ pub(crate) impl ProjectService for Backend {
              FROM projects
              JOIN users ON users.id = projects.owner
              WHERE projects.id = $1",
-            project_id.as_str()
+            &project_id
         )
         .fetch_one(&*self.database)
         .await?;
@@ -243,7 +243,7 @@ pub(crate) impl ProjectService for Backend {
              JOIN projects ON projects.id = project_users.project
             WHERE project_users.project = $1
               AND project_users."user" != projects.owner"#,
-            project_id.as_str(),
+            &project_id,
         )
         .fetch_all(&*self.database)
         .await?;
@@ -283,7 +283,7 @@ pub(crate) impl ProjectService for Backend {
              ON CONFLICT ("user", project) DO UPDATE SET
                 permissions = EXCLUDED.permissions"#,
             user_id,
-            project_id.as_str(),
+            &project_id,
             permissions
         )
         .execute(&*self.database)
@@ -306,7 +306,7 @@ pub(crate) impl ProjectService for Backend {
 
         query!(
             r#"DELETE FROM project_users WHERE project = $1 AND "user" = $2"#,
-            project_id.as_str(),
+            &project_id,
             user_id
         )
         .execute(&*self.database)
@@ -322,7 +322,7 @@ async fn ensure_project_exists<E: From<sqlx::Error> + FromProjectNotFound>(
 ) -> Result<(), E> {
     let exists = query_scalar!(
         r#"SELECT (COUNT(*) > 0) AS "exists!" FROM projects WHERE id = $1"#,
-        project_id.as_str()
+        &project_id
     )
     .fetch_one(&*backend.database)
     .await?;

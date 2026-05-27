@@ -109,7 +109,7 @@ pub(crate) impl ServerService for Backend {
                 r#"SELECT id AS "id: ServerId", name, project AS "project: ProjectId", node, template
                    FROM servers
                    WHERE project = $1"#,
-                project.as_str()
+                &project
             )
             .fetch_all(&*self.database)
             .await?
@@ -194,7 +194,7 @@ pub(crate) impl ServerService for Backend {
                 internal_port,
                 external_port_start,external_port_end
             FROM server_ports WHERE server = $1"#,
-            server_id.as_str()
+            &server_id
         )
         .fetch_all(&*self.database)
         .await?
@@ -371,7 +371,7 @@ pub(crate) impl ServerService for Backend {
                     query!(
                         "UPDATE servers SET name = $1 WHERE id = $2",
                         name,
-                        server_id.as_str()
+                        &server_id
                     )
                     .execute(&mut **tx)
                     .await
@@ -385,7 +385,7 @@ pub(crate) impl ServerService for Backend {
                         resource.ram.map(u32::cast_signed),
                         resource.swap.map(u32::cast_signed),
                         resource.disk.map(u64::cast_signed),
-                        server_id.as_str()
+                        &server_id
                     )
                     .execute(&mut **tx)
                     .await
@@ -396,7 +396,7 @@ pub(crate) impl ServerService for Backend {
                     query!(
                         "UPDATE servers SET custom_dockerfile = $1 WHERE id = $2",
                         custom_dockerfile,
-                        server_id.as_str()
+                        &server_id
                     )
                     .execute(&mut **tx)
                     .await
@@ -409,7 +409,7 @@ pub(crate) impl ServerService for Backend {
                     query!(
                         "UPDATE servers SET suspended = $1 WHERE id = $2",
                         suspended,
-                        server_id.as_str()
+                        &server_id
                     )
                     .execute(&mut **tx)
                     .await
@@ -422,7 +422,7 @@ pub(crate) impl ServerService for Backend {
                     query!(
                         "UPDATE servers SET internet_access = $1 WHERE id = $2",
                         internet_access,
-                        server_id.as_str()
+                        &server_id
                     )
                     .execute(&mut **tx)
                     .await
@@ -435,7 +435,7 @@ pub(crate) impl ServerService for Backend {
                     query!(
                         "UPDATE servers SET backup_limit = $1 WHERE id = $2",
                         backup_limit.map(u32::cast_signed),
-                        server_id.as_str()
+                        &server_id
                     )
                     .execute(&mut **tx)
                     .await
