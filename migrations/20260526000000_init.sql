@@ -94,9 +94,7 @@ CREATE TABLE server_ports (
     external_ip varchar(255) NOT NULL,
     external_port int4range NOT NULL CHECK (
         NOT isempty(external_port)
-        AND lower(external_port) >= 0
-        AND upper(external_port) <= 65536
-        AND lower(external_port) < upper(external_port)
+        AND external_port <@ int4range(0, 65535, '[]')
     ),
     protocol network_protocol NOT NULL
 );

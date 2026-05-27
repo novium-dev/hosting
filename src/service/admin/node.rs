@@ -316,7 +316,7 @@ pub(crate) impl NodeAdminService for Backend {
                        JOIN servers ON server_ports.server = servers.id
                        WHERE servers.node = $1
                        AND server_ports.protocol = $2
-                       AND server_ports.external_port && int4range($3, $4 + 1, '[)')"#,
+                       AND server_ports.external_port && int4range($3, $4, '[]')"#,
                     node_id,
                     port.protocol as NetworkProtocol,
                     port.start,
