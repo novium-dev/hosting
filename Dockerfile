@@ -12,6 +12,8 @@ FROM chef AS dependencies
 
 RUN apk add --no-cache git postgresql18 postgresql18-client musl-dev llvm21 clang21 lld21 curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
 # zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21-static
+RUN ln -sf /usr/bin/clang-21 /usr/local/bin/clang \
+    && ln -sf /usr/bin/ld.lld-21 /usr/local/bin/ld.lld
 
 RUN apk upgrade --no-cache gcc --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
 
