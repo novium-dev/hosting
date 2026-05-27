@@ -206,7 +206,10 @@ pub(crate) impl NodeAdminService for Backend {
             .ok_or(AvailablePortsError::NodeNotFound)?;
 
         let used: HashSet<u16> = query!(
-            "SELECT server_ports.external_port_start, server_ports.external_port_end FROM servers JOIN server_ports ON server_ports.server = servers.id WHERE servers.node = $1",
+            r#"SELECT lower(server_ports.external_port) AS "external_port_start!", upper(server_ports.external_port) - 1 AS "external_port_end!"
+               FROM servers
+               JOIN server_ports ON server_ports.server = servers.id
+               WHERE servers.node = $1"#,
             node_id
         )
         .fetch_all(&*self.database)
@@ -313,8 +316,7 @@ pub(crate) impl NodeAdminService for Backend {
                        JOIN servers ON server_ports.server = servers.id
                        WHERE servers.node = $1
                        AND server_ports.protocol = $2
-                       AND $3 <= server_ports.external_port_end
-                       AND $4 >= server_ports.external_port_start"#,
+                       AND server_ports.external_port && int4range($3, $4 + 1, '[)')"#,
                     node_id,
                     port.protocol as NetworkProtocol,
                     port.start,

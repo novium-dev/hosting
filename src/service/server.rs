@@ -192,7 +192,8 @@ pub(crate) impl ServerService for Backend {
                 protocol AS "protocol: NetworkProtocol",
                 external_ip,
                 internal_port,
-                external_port_start,external_port_end
+                lower(external_port) AS "external_port_start!",
+                upper(external_port) - 1 AS "external_port_end!"
             FROM server_ports WHERE server = $1"#,
             &server_id
         )

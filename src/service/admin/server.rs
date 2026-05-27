@@ -186,7 +186,7 @@ pub(crate) impl ServerAdminService for Backend {
                     .inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
                 for port in &ports2 {
-                    query!("INSERT INTO server_ports (server,host,name,internal_port,external_ip,external_port_start,external_port_end,protocol) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                    query!("INSERT INTO server_ports (server,host,name,internal_port,external_ip,external_port,protocol) VALUES ($1, $2, $3, $4, $5, int4range($6, $7 + 1, '[)'), $8)",
                             &id, &port.host, port.name, i32::from(port.internal_port), port.bind.as_deref().unwrap_or_else(|| node.default_bind()), i32::from(port.external_port_start), i32::from(port.external_port_end), port.protocol as NetworkProtocol)
                         .execute(&mut **tx)
                         .await
@@ -307,8 +307,7 @@ pub(crate) impl ServerAdminService for Backend {
                    JOIN servers ON server_ports.server = servers.id
                    WHERE servers.node = $1
                    AND server_ports.protocol = $2
-                   AND $3 <= external_port_end
-                   AND $4 >= external_port_start"#,
+                   AND server_ports.external_port && int4range($3, $4 + 1, '[)')"#,
                 server.node.id,
                 protocol as NetworkProtocol,
                 i32::from(*external.start()),
@@ -322,8 +321,8 @@ pub(crate) impl ServerAdminService for Backend {
             }
 
             query!(
-                "INSERT INTO server_ports (server, host, name, protocol, internal_port, external_port_start, external_port_end, external_ip)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                "INSERT INTO server_ports (server, host, name, protocol, internal_port, external_port, external_ip)
+                 VALUES ($1, $2, $3, $4, $5, int4range($6, $7 + 1, '[)'), $8)
                  RETURNING id",
                 &server.id,
                 server.node.default_host(),
@@ -339,7 +338,7 @@ pub(crate) impl ServerAdminService for Backend {
 
 
             let rows = query!(
-                r#"SELECT internal_port, external_port_start, external_port_end, protocol AS "protocol: NetworkProtocol", external_ip
+                r#"SELECT internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
                  FROM server_ports WHERE server = $1 FOR UPDATE"#,
                 &server.id
             )
@@ -404,7 +403,7 @@ pub(crate) impl ServerAdminService for Backend {
         conn.transaction(|tx| {
         Box::pin(async move {
             let current = query!(
-                r#"SELECT protocol AS "protocol: NetworkProtocol", internal_port, external_port_start, external_port_end
+                r#"SELECT protocol AS "protocol: NetworkProtocol", internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!"
                  FROM server_ports WHERE id = $1 AND server = $2"#,
                 port_id,
                 &server.id
@@ -468,8 +467,7 @@ pub(crate) impl ServerAdminService for Backend {
                    WHERE servers.node = $1
                    AND server_ports.protocol = $2
                    AND server_ports.id != $3
-                   AND $4 <= external_port_end
-                   AND $5 >= external_port_start"#,
+                   AND server_ports.external_port && int4range($4, $5 + 1, '[)')"#,
                 server.node.id,
                 protocol_parsed as NetworkProtocol,
                 port_id,
@@ -518,7 +516,7 @@ pub(crate) impl ServerAdminService for Backend {
 
             if let Some(range) = external_port.as_ref() {
                 query!(
-                    "UPDATE server_ports SET external_port_start=$1, external_port_end=$2 WHERE id=$3 AND server=$4",
+                    "UPDATE server_ports SET external_port=int4range($1, $2 + 1, '[)') WHERE id=$3 AND server=$4",
                     i32::from(range.start),
                     i32::from(range.end),
                     port_id,
@@ -551,7 +549,7 @@ pub(crate) impl ServerAdminService for Backend {
             }
 
             let rows = query!(
-                r#"SELECT internal_port, external_port_start, external_port_end, protocol AS "protocol: NetworkProtocol", external_ip
+                r#"SELECT internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
                  FROM server_ports WHERE server = $1 FOR UPDATE"#,
                 &server.id
             )
@@ -621,7 +619,7 @@ pub(crate) impl ServerAdminService for Backend {
                 }
 
                 let rows = query!(
-                r#"SELECT internal_port, external_port_start, external_port_end, protocol AS "protocol: NetworkProtocol", external_ip
+                r#"SELECT internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
                  FROM server_ports WHERE server = $1 FOR UPDATE"#,
                 &server.id
             )

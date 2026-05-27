@@ -92,10 +92,11 @@ CREATE TABLE server_ports (
     host varchar(255) NOT NULL,
     internal_port integer NOT NULL CHECK (internal_port BETWEEN 0 AND 65535),
     external_ip varchar(255) NOT NULL,
-    external_port_start integer NOT NULL CHECK (external_port_start BETWEEN 0 AND 65535),
-    external_port_end integer NOT NULL CHECK (
-        external_port_end BETWEEN 0 AND 65535
-        AND external_port_end >= external_port_start
+    external_port int4range NOT NULL CHECK (
+        NOT isempty(external_port)
+        AND lower(external_port) >= 0
+        AND upper(external_port) <= 65536
+        AND lower(external_port) < upper(external_port)
     ),
     protocol network_protocol NOT NULL
 );
