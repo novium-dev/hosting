@@ -264,7 +264,7 @@ pub(crate) impl NodeAdminService for Backend {
                 let id = query!(
                     r#"INSERT INTO node_ports (node, protocol, start, "end") VALUES ($1, $2, $3, $4) RETURNING id"#,
                     node_id,
-                    protocol.to_string(),
+                    protocol as NetworkProtocol,
                     i32::from(start),
                     i32::from(end),
                 )
@@ -316,7 +316,7 @@ pub(crate) impl NodeAdminService for Backend {
                        AND $3 <= server_ports.external_port_end
                        AND $4 >= server_ports.external_port_start"#,
                     node_id,
-                    port.protocol.to_string(),
+                    port.protocol as NetworkProtocol,
                     port.start,
                     port.end,
                 )

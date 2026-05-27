@@ -187,7 +187,7 @@ pub(crate) impl ServerAdminService for Backend {
 
                 for port in &ports2 {
                     query!("INSERT INTO server_ports (server,host,name,internal_port,external_ip,external_port_start,external_port_end,protocol) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-                            &id, &port.host, port.name, i32::from(port.internal_port), port.bind.as_deref().unwrap_or_else(|| node.default_bind()), i32::from(port.external_port_start), i32::from(port.external_port_end), port.protocol.to_string())
+                            &id, &port.host, port.name, i32::from(port.internal_port), port.bind.as_deref().unwrap_or_else(|| node.default_bind()), i32::from(port.external_port_start), i32::from(port.external_port_end), port.protocol as NetworkProtocol)
                         .execute(&mut **tx)
                         .await
                         .inspect_err(|err| error!("Failed to insert server (ports): {err:?}"))?;
@@ -290,7 +290,7 @@ pub(crate) impl ServerAdminService for Backend {
                    AND start <= $3
                    AND "end" >= $4"#,
                 server.node.id,
-                protocol.to_string(),
+                protocol as NetworkProtocol,
                 i32::from(*external.start()),
                 i32::from(*external.end())
             )
@@ -310,7 +310,7 @@ pub(crate) impl ServerAdminService for Backend {
                    AND $3 <= external_port_end
                    AND $4 >= external_port_start"#,
                 server.node.id,
-                protocol.to_string(),
+                protocol as NetworkProtocol,
                 i32::from(*external.start()),
                 i32::from(*external.end())
             )
@@ -328,7 +328,7 @@ pub(crate) impl ServerAdminService for Backend {
                 &server.id,
                 server.node.default_host(),
                 name,
-                protocol.to_string(),
+                protocol as NetworkProtocol,
                 i32::from(internal_port),
                 i32::from(*external.start()),
                 i32::from(*external.end()),
@@ -339,8 +339,8 @@ pub(crate) impl ServerAdminService for Backend {
 
 
             let rows = query!(
-                "SELECT internal_port, external_port_start, external_port_end, protocol, external_ip
-                 FROM server_ports WHERE server = $1 FOR UPDATE",
+                r#"SELECT internal_port, external_port_start, external_port_end, protocol AS "protocol: NetworkProtocol", external_ip
+                 FROM server_ports WHERE server = $1 FOR UPDATE"#,
                 &server.id
             )
             .fetch_all(&mut **tx)
@@ -353,7 +353,7 @@ pub(crate) impl ServerAdminService for Backend {
                     payload.push(ServerPortEntryPayload {
                         external_port: u16::try_from(ext).expect("database port constraints ensure a u16 value"),
                         internal_port: u16::try_from(port_row.internal_port).expect("database port constraints ensure a u16 value"),
-                        protocol: port_row.protocol.clone(),
+                        protocol: port_row.protocol.to_string(),
                         external_ip: port_row.external_ip.clone(),
                     });
                 }
@@ -404,8 +404,8 @@ pub(crate) impl ServerAdminService for Backend {
         conn.transaction(|tx| {
         Box::pin(async move {
             let current = query!(
-                "SELECT protocol, internal_port, external_port_start, external_port_end
-                 FROM server_ports WHERE id = $1 AND server = $2",
+                r#"SELECT protocol AS "protocol: NetworkProtocol", internal_port, external_port_start, external_port_end
+                 FROM server_ports WHERE id = $1 AND server = $2"#,
                 port_id,
                 &server.id
             )
@@ -413,8 +413,7 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(UpdatePortError::ServerNotFound)?;
 
-            let protocol_parsed = protocol
-                .unwrap_or_else(|| NetworkProtocol::by_name(current.protocol.as_str()));
+            let protocol_parsed = protocol.unwrap_or(current.protocol);
 
             let internal = internal_port.unwrap_or_else(|| {
                 u16::try_from(current.internal_port)
@@ -451,7 +450,7 @@ pub(crate) impl ServerAdminService for Backend {
                    AND start <= $3
                    AND "end" >= $4"#,
                 server.node.id,
-                protocol_parsed.to_string(),
+                protocol_parsed as NetworkProtocol,
                 i32::from(start),
                 i32::from(end)
             )
@@ -472,7 +471,7 @@ pub(crate) impl ServerAdminService for Backend {
                    AND $4 <= external_port_end
                    AND $5 >= external_port_start"#,
                 server.node.id,
-                protocol_parsed.to_string(),
+                protocol_parsed as NetworkProtocol,
                 port_id,
                 i32::from(start),
                 i32::from(end)
@@ -498,7 +497,7 @@ pub(crate) impl ServerAdminService for Backend {
             if let Some(protocol) = protocol {
                 query!(
                     "UPDATE server_ports SET protocol=$1 WHERE id=$2 AND server=$3",
-                    protocol.to_string(),
+                    protocol as NetworkProtocol,
                     port_id,
                     &server.id
                 )
@@ -552,8 +551,8 @@ pub(crate) impl ServerAdminService for Backend {
             }
 
             let rows = query!(
-                "SELECT internal_port, external_port_start, external_port_end, protocol, external_ip
-                 FROM server_ports WHERE server = $1 FOR UPDATE",
+                r#"SELECT internal_port, external_port_start, external_port_end, protocol AS "protocol: NetworkProtocol", external_ip
+                 FROM server_ports WHERE server = $1 FOR UPDATE"#,
                 &server.id
             )
             .fetch_all(&mut **tx)
@@ -566,7 +565,7 @@ pub(crate) impl ServerAdminService for Backend {
                     payload.push(ServerPortEntryPayload {
                         external_port: u16::try_from(ext).expect("database port constraints ensure a u16 value"),
                         internal_port: u16::try_from(port_row.internal_port).expect("database port constraints ensure a u16 value"),
-                        protocol: port_row.protocol.clone(),
+                        protocol: port_row.protocol.to_string(),
                         external_ip: port_row.external_ip.clone(),
                     });
                 }
@@ -622,8 +621,8 @@ pub(crate) impl ServerAdminService for Backend {
                 }
 
                 let rows = query!(
-                "SELECT internal_port, external_port_start, external_port_end, protocol, external_ip
-                 FROM server_ports WHERE server = $1 FOR UPDATE",
+                r#"SELECT internal_port, external_port_start, external_port_end, protocol AS "protocol: NetworkProtocol", external_ip
+                 FROM server_ports WHERE server = $1 FOR UPDATE"#,
                 &server.id
             )
                 .fetch_all(&mut **tx)
@@ -638,7 +637,7 @@ pub(crate) impl ServerAdminService for Backend {
                                 .expect("database port constraints ensure a u16 value"),
                             internal_port: u16::try_from(port_row.internal_port)
                                 .expect("database port constraints ensure a u16 value"),
-                            protocol: port_row.protocol.clone(),
+                            protocol: port_row.protocol.to_string(),
                             external_ip: port_row.external_ip.clone(),
                         });
                     }
