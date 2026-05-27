@@ -16,7 +16,7 @@ use crate::auth::permissions::ManagementPermissions;
 use crate::db::node::NodePortAllocation;
 use crate::db::server::ports::NetworkProtocol;
 use crate::service::admin::node::node_admin_service_error::{
-    AddPortError, AvailablePortsError, CreateNodeError, DeletePortError, ListNodesError,
+    AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodePortError, ListNodesError,
     MetricsNodeError, UpdateMaintenanceError, UpdateNodeError,
 };
 use crate::service::error_os_failure::FromOsFailure;
@@ -140,7 +140,7 @@ pub(crate) impl NodeAdminService for Backend {
         conn.transaction(|tx| {
             Box::pin(async move {
                 query!(
-                    "UPDATE `nodes` SET `maintenance` = ? WHERE `id` = ?",
+                    "UPDATE nodes SET maintenance = $1 WHERE id = $2",
                     maintenance,
                     node_id
                 )
@@ -206,26 +206,34 @@ pub(crate) impl NodeAdminService for Backend {
             .ok_or(AvailablePortsError::NodeNotFound)?;
 
         let used: HashSet<u16> = query!(
-            "SELECT `server_ports`.`external_port_start`, `server_ports`.`external_port_end` FROM `servers` JOIN `server_ports` ON `server_ports`.`server` = `servers`.`id` WHERE `servers`.`node` = ?",
+            r#"SELECT lower(server_ports.external_port) AS "external_port_start!", upper(server_ports.external_port) - 1 AS "external_port_end!"
+               FROM servers
+               JOIN server_ports ON server_ports.server = servers.id
+               WHERE servers.node = $1"#,
             node_id
         )
         .fetch_all(&*self.database)
         .await?
         .into_iter()
-        .flat_map(|row| row.external_port_start..=row.external_port_end)
+        .flat_map(|row| {
+            (row.external_port_start..=row.external_port_end).filter_map(|port| port.try_into().ok())
+        })
         .collect();
 
         let mut result: HashMap<String, Vec<PortRange>> = HashMap::new();
         for port in &node.ports {
             let exclude = (port.start..=port.end)
+                .filter_map(|candidate| candidate.try_into().ok())
                 .filter(|candidate| used.contains(candidate))
                 .collect();
             result
                 .entry(port.protocol.to_string())
                 .or_default()
                 .push(PortRange {
-                    start: port.start,
-                    end: port.end,
+                    start: u16::try_from(port.start)
+                        .expect("database port constraints ensure a u16 value"),
+                    end: u16::try_from(port.end)
+                        .expect("database port constraints ensure a u16 value"),
                     exclude,
                 });
         }
@@ -235,39 +243,39 @@ pub(crate) impl NodeAdminService for Backend {
 
     #[route("/{node_id}/ports", method = PUT)]
     #[error(node::not_found, port::invalid, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
-    async fn add_port(
+    async fn add_node_port(
         &self,
         #[special] auth: Authentication,
         node_id: Uuid,
         start: u16,
         end: u16,
         protocol: NetworkProtocol,
-    ) -> Result<u32, _> {
-        auth.require::<_, _, AddPortError>((), ManagementPermissions::NODES_MANAGE)?;
+    ) -> Result<i32, _> {
+        auth.require::<_, _, AddNodePortError>((), ManagementPermissions::NODES_MANAGE)?;
 
         if start > end {
-            return Err(AddPortError::PortInvalid);
+            return Err(AddNodePortError::PortInvalid);
         }
 
         if self.nodes.read().await.get(&node_id).is_none() {
-            return Err(AddPortError::NodeNotFound);
+            return Err(AddNodePortError::NodeNotFound);
         }
 
         let mut conn = self.database.acquire().await?;
         conn.transaction(|tx| {
             Box::pin(async move {
                 let id = query!(
-                    "INSERT INTO `node_ports` (`node`, `protocol`, `start`, `end`) VALUES (?, ?, ?, ?)",
+                    r#"INSERT INTO node_ports (node, protocol, start, "end") VALUES ($1, $2, $3, $4) RETURNING id"#,
                     node_id,
-                    protocol.to_string(),
-                    start,
-                    end,
+                    protocol as NetworkProtocol,
+                    i32::from(start),
+                    i32::from(end),
                 )
-                .execute(&mut **tx)
+                .fetch_one(&mut **tx)
                 .await?
-                .last_insert_id() as u32;
+                .id;
 
-                Ok::<_, AddPortError>(id)
+                Ok::<_, AddNodePortError>(id)
             })
         })
         .await
@@ -275,16 +283,16 @@ pub(crate) impl NodeAdminService for Backend {
 
     #[route("/{node_id}/ports/{port_id}", method = DELETE)]
     #[error(node::not_found, port::in_use, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
-    async fn delete_port(
+    async fn delete_node_port(
         &self,
         #[special] auth: Authentication,
         node_id: Uuid,
-        port_id: u32,
+        port_id: i32,
     ) -> Result<(), _> {
-        auth.require::<_, _, DeletePortError>((), ManagementPermissions::NODES_MANAGE)?;
+        auth.require::<_, _, DeleteNodePortError>((), ManagementPermissions::NODES_MANAGE)?;
 
         if self.nodes.read().await.get(&node_id).is_none() {
-            return Err(DeletePortError::NodeNotFound);
+            return Err(DeleteNodePortError::NodeNotFound);
         }
 
         let mut conn = self.database.acquire().await?;
@@ -292,26 +300,25 @@ pub(crate) impl NodeAdminService for Backend {
         conn.transaction(|tx| {
             Box::pin(async move {
                 let Some(port) = query!(
-                    "SELECT `protocol` AS `protocol: NetworkProtocol`, `start`, `end` FROM `node_ports` WHERE `id` = ? AND `node` = ? FOR UPDATE",
+                    r#"SELECT protocol AS "protocol: NetworkProtocol", start, "end" FROM node_ports WHERE id = $1 AND node = $2 FOR UPDATE"#,
                     port_id,
                     node_id,
                 )
                 .fetch_optional(&mut **tx)
                 .await?
                 else {
-                    return Ok::<_, DeletePortError>(());
+                    return Ok::<_, DeleteNodePortError>(());
                 };
 
                 let in_use = query_scalar!(
-                    r#"SELECT (COUNT(*) > 0) AS `exists: bool`
-                       FROM `server_ports`
-                       JOIN `servers` ON `server_ports`.`server` = `servers`.`id`
-                       WHERE `servers`.`node` = ?
-                       AND `server_ports`.`protocol` = ?
-                       AND ? <= `server_ports`.`external_port_end`
-                       AND ? >= `server_ports`.`external_port_start`"#,
+                    r#"SELECT (COUNT(*) > 0) AS "exists!"
+                       FROM server_ports
+                       JOIN servers ON server_ports.server = servers.id
+                       WHERE servers.node = $1
+                       AND server_ports.protocol = $2
+                       AND server_ports.external_port && int4range($3, $4, '[]')"#,
                     node_id,
-                    port.protocol,
+                    port.protocol as NetworkProtocol,
                     port.start,
                     port.end,
                 )
@@ -319,11 +326,11 @@ pub(crate) impl NodeAdminService for Backend {
                 .await?;
 
                 if in_use {
-                    return Err(DeletePortError::PortInUse);
+                    return Err(DeleteNodePortError::PortInUse);
                 }
 
                 query!(
-                    "DELETE FROM `node_ports` WHERE `id` = ? AND `node` = ?",
+                    "DELETE FROM node_ports WHERE id = $1 AND node = $2",
                     port_id,
                     node_id,
                 )
@@ -332,7 +339,7 @@ pub(crate) impl NodeAdminService for Backend {
 
                 backend.sync_nodes(tx).await?;
 
-                Ok::<_, DeletePortError>(())
+                Ok::<_, DeleteNodePortError>(())
             })
         })
         .await

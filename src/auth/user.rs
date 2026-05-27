@@ -37,23 +37,27 @@ const DAEMON_PASSWORD_LENGTH: usize = 32;
 
 #[derive(Debug)]
 pub struct UserAuthentication {
-    pub id: u32,
+    pub id: i32,
     pub session: Session,
     username: String,
     permissions: i64,
     role: Role,
     email: String,
+    first_name: Option<String>,
+    last_name: Option<String>,
     projects: HashMap<ProjectId, i64>,
     servers: HashMap<ServerId, i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SerializedUser {
-    pub id: u32,
+    pub id: i32,
     pub username: String,
     pub permissions: i64,
     pub role: Role,
     pub email: String,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
 }
 
 impl UserAuthentication {
@@ -84,6 +88,8 @@ impl UserAuthentication {
             permissions: self.permissions,
             role: self.role,
             email: self.email.clone(),
+            first_name: self.first_name.clone(),
+            last_name: self.last_name.clone(),
         }
     }
 }
@@ -119,7 +125,9 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .inspect_err(|err| error!("Unable to acquire database connection: {err:?}"))?;
 
         let Some(user) = query!(
-            "SELECT `username`, `role` AS `role: u8`, `email` FROM `users` WHERE `id` = ?",
+            r#"SELECT username, role AS "role: i32", email, first_name, last_name
+             FROM users
+             WHERE id = $1"#,
             &id
         )
         .fetch_optional(&mut *conn)
@@ -135,7 +143,9 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             return Ok(None);
         };
 
-        let role = Role::try_from(user.role).ok();
+        let role = u8::try_from(user.role)
+            .ok()
+            .and_then(|role| Role::try_from(role).ok());
         let user_permissions = role
             .map(|role| {
                 role.management_permissions().bits()
@@ -145,7 +155,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .unwrap_or_default();
 
         let owned_projects: HashMap<_, _> = query_scalar!(
-            "SELECT `id` AS `id: ProjectId` FROM `projects` WHERE `owner` = ?",
+            r#"SELECT id AS "id: ProjectId" FROM projects WHERE owner = $1"#,
             &id
         )
         .fetch_all(&mut *conn)
@@ -163,9 +173,9 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         .collect();
 
         let mut projects: HashMap<ProjectId, i64> = query!(
-            "SELECT `project` AS `project: ProjectId`, `permissions`
-             FROM `project_users`
-             WHERE `user` = ?",
+            r#"SELECT project AS "project: ProjectId", permissions
+             FROM project_users
+             WHERE "user" = $1"#,
             &id
         )
         .fetch_all(&mut *conn)
@@ -177,20 +187,20 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         projects.extend(owned_projects);
 
         let server_records = query!(
-            "SELECT
-                `servers`.`id` AS `server: ServerId`,
-                `servers`.`project` AS `project: ProjectId`,
-                `servers`.`suspended` AS `suspended: bool`,
-                `nodes`.`maintenance` AS `maintenance: bool`
-             FROM `servers`
-             JOIN `nodes` ON `nodes`.`id` = `servers`.`node`
-             JOIN `projects` ON `projects`.`id` = `servers`.`project`
-             LEFT JOIN `project_users`
-                ON `project_users`.`project` = `servers`.`project`
-                AND `project_users`.`user` = ?
-             WHERE `projects`.`owner` = ?
-                OR `project_users`.`user` IS NOT NULL
-                OR ?",
+            r#"SELECT
+                servers.id AS "server: ServerId",
+                servers.project AS "project: ProjectId",
+                servers.suspended AS "suspended: bool",
+                nodes.maintenance AS "maintenance: bool"
+             FROM servers
+             JOIN nodes ON nodes.id = servers.node
+             JOIN projects ON projects.id = servers.project
+             LEFT JOIN project_users
+                ON project_users.project = servers.project
+                AND project_users."user" = $1
+             WHERE projects.owner = $2
+                OR project_users."user" IS NOT NULL
+                OR $3"#,
             &id,
             &id,
             ProjectPermissions::from_bits_retain(user_permissions)
@@ -202,20 +212,22 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
 
         let mut servers = HashMap::new();
         for record in server_records {
-            let mut permissions = projects
+            let permissions = projects
                 .get(&record.project)
                 .copied()
                 .unwrap_or(user_permissions);
 
-            if (record.suspended
+            let permissions = if (record.suspended
                 && !ManagementPermissions::from_bits_retain(user_permissions)
                     .contains(ManagementPermissions::SERVER_SUSPEND))
                 || (record.maintenance
                     && !ManagementPermissions::from_bits_retain(user_permissions)
                         .contains(ManagementPermissions::SERVER_MANAGE))
             {
-                permissions = ProjectPermissions::VIEW.bits();
-            }
+                ProjectPermissions::VIEW.bits()
+            } else {
+                permissions
+            };
 
             if ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW)
             {
@@ -230,6 +242,8 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             permissions: user_permissions,
             role: role.unwrap_or(Role::User),
             email: user.email,
+            first_name: user.first_name,
+            last_name: user.last_name,
             projects,
             servers,
         }))
@@ -276,7 +290,7 @@ impl Session {
         Ok(())
     }
 
-    pub async fn apply(&self, backend: &Backend, user: u32) -> Result<(), RedisError> {
+    pub async fn apply(&self, backend: &Backend, user: i32) -> Result<(), RedisError> {
         let _: () = backend
             .cache
             .clone()
@@ -289,11 +303,11 @@ impl Session {
     pub async fn authenticate<E: FromAuthUnreachable>(
         &self,
         backend: &Backend,
-    ) -> Result<Option<u32>, E> {
+    ) -> Result<Option<i32>, E> {
         let Some(user) = backend
             .cache
             .clone()
-            .get::<_, Option<u32>>(self.key())
+            .get::<_, Option<i32>>(self.key())
             .await
             .inspect_err(|err| error!("Unable to retrieve session: {err:?}"))
             .map_err(|_err| <E as FromAuthUnreachable>::from())?
@@ -385,29 +399,33 @@ impl DocumentedType for UserAuthentication {
 }
 
 impl Backend {
-    pub async fn get_or_create_user(&self, auth_user: AuthUser) -> Result<u32, sqlx::Error> {
+    pub async fn get_or_create_user(&self, auth_user: AuthUser) -> Result<i32, sqlx::Error> {
         let daemon_password = generate_daemon_password();
-        let result = query!(
+        let record = query!(
             r#"
-    INSERT INTO `users`
-        (`username`, `auth_id`, `role`, `email`, `daemon_password`)
+    INSERT INTO users
+        (username, auth_id, role, email, first_name, last_name, daemon_password)
     VALUES
-        (?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-        `username` = VALUES(`username`),
-        `email` = VALUES(`email`),
-        `id` = LAST_INSERT_ID(`id`)
+        ($1, $2, $3, $4, $5, $6, $7)
+    ON CONFLICT (auth_id) DO UPDATE SET
+        username = EXCLUDED.username,
+        email = EXCLUDED.email,
+        first_name = EXCLUDED.first_name,
+        last_name = EXCLUDED.last_name
+    RETURNING id
     "#,
             auth_user.preferred_username,
             auth_user.sub,
-            Role::User as u8,
+            Role::User as i32,
             auth_user.email,
+            auth_user.given_name,
+            auth_user.family_name,
             daemon_password
         )
-        .execute(&*self.database)
+        .fetch_one(&*self.database)
         .await?;
 
-        Ok(result.last_insert_id() as u32)
+        Ok(record.id)
     }
 }
 

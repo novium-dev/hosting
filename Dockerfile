@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1.92.0-alpine AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.95.0-alpine AS chef
 WORKDIR /work
 
 ARG FLAGS="-C debuginfo=0 -C codegen-units=1 -C opt-level=3 -C linker-plugin-lto -C lto=thin -C embed-bitcode -C link-arg=-Wl,--icf=safe"
@@ -6,19 +6,16 @@ ENV RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=lld $FLAGS"
 
 FROM chef AS utils
 
-RUN RUSTFLAGS="-C opt-level=0" cargo install sqlx-cli --no-default-features --features mysql,rustls --locked
+RUN RUSTFLAGS="-C opt-level=0" cargo install sqlx-cli --no-default-features --features postgres,rustls --locked
 
 FROM chef AS dependencies
 
-RUN apk add --no-cache git mariadb mariadb-client musl-dev llvm21 clang21 lld21 curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+RUN apk add --no-cache git postgresql18 postgresql18-client musl-dev llvm21 clang21 lld21 curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
 # zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21-static
+RUN ln -sf /usr/bin/clang-21 /usr/local/bin/clang \
+    && ln -sf /usr/bin/ld.lld-21 /usr/local/bin/ld.lld
 
 RUN apk upgrade --no-cache gcc --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
-
-FROM dependencies AS mariadb
-
-RUN mariadb-install-db --user=root --ldata=/var/lib/mysql
-RUN echo "USE mysql;FLUSH PRIVILEGES ;GRANT ALL ON *.* TO 'root'@'%' identified by '' WITH GRANT OPTION ;GRANT ALL ON *.* TO 'root'@'localhost' identified by '' WITH GRANT OPTION ;SET PASSWORD FOR 'root'@'localhost'=PASSWORD('') ;DROP DATABASE IF EXISTS test ;FLUSH PRIVILEGES ;" mariadbd --user=root --bootstrap --verbose=0 --skip-name-resolve --skip-networking=0
 
 FROM chef AS planner
 COPY . .
@@ -36,7 +33,6 @@ ARG FEATURES="default"
 RUN --mount=type=ssh cargo chef cook --release --recipe-path recipe.json --no-default-features --features "$FEATURES" --target x86_64-unknown-linux-musl
 
 COPY --from=utils /usr/local/cargo/bin/cargo-sqlx /usr/local/cargo/bin/cargo-sqlx
-COPY --from=mariadb /var/lib/mysql /var/lib/mysql
 COPY . .
 
 # build

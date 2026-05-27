@@ -26,8 +26,8 @@ use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
 use redis::aio::ConnectionManager as CacheConnectionManager;
-use sqlx::mysql::MySqlPoolOptions;
-use sqlx::{Connection as _, MySqlPool};
+use sqlx::postgres::PgPoolOptions;
+use sqlx::{Connection as _, PgPool};
 use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
@@ -51,7 +51,7 @@ type NodeRegistrationMap = HashMap<String, (Instant, Option<Uuid>)>;
 
 #[derive(Clone)]
 pub(crate) struct Backend {
-    pub(crate) database: Arc<MySqlPool>,
+    pub(crate) database: Arc<PgPool>,
     pub(crate) cache: CacheConnectionManager,
     pub(crate) auth: Arc<AuthService>,
 
@@ -133,14 +133,14 @@ async fn main0() {
     };
 
     let database = Arc::new(loop {
-        match MySqlPoolOptions::new()
+        match PgPoolOptions::new()
             .max_connections(5)
             .connect(&config.database_url)
             .await
         {
             Ok(conn) => break conn,
             Err(err) => {
-                warn!("MySQL connection attempt failed: {err:?}");
+                warn!("Postgres connection attempt failed: {err:?}");
             }
         }
         tokio::time::sleep(Duration::from_secs(5)).await;

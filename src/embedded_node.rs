@@ -5,7 +5,7 @@ use daemon_common::key::rcgen::{CertificateSigningRequestParams, KeyPair};
 use daemon_common::key::{DaemonKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
 use rustls::pki_types::PrivateKeyDer;
-use sqlx::{Connection as _, MySql, Pool, query};
+use sqlx::{Connection as _, Pool, Postgres, query};
 use std::io;
 use std::io::ErrorKind;
 use std::sync::Arc;
@@ -14,7 +14,7 @@ use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use uuid::Uuid;
 
 pub async fn setup_embedded_node(
-    db: &Pool<MySql>,
+    db: &Pool<Postgres>,
     backend_config: &BackendConfig,
     root_key: Arc<DaemonRootKey>,
     root_privkey: &KeyPair,
@@ -62,11 +62,11 @@ pub async fn setup_embedded_node(
     let config = db.acquire().await?
         .transaction(move |tx| Box::pin(async move {
                 query!(
-                    "INSERT INTO `nodes`
-                    (`id`, `display`, `url`, `default_host`, `default_bind`)
+                    "INSERT INTO nodes
+                    (id, display, url, default_host, default_bind)
                 VALUES
-                    (?, 'Embedded', ?, 'localhost', '0.0.0.0')
-                ON DUPLICATE KEY UPDATE `url` = ?",
+                    ($1, 'Embedded', $2, 'localhost', '0.0.0.0')
+                ON CONFLICT (id) DO UPDATE SET url = EXCLUDED.url",
                     key.id,
                     daemon_url,
                     daemon_url,
@@ -74,11 +74,11 @@ pub async fn setup_embedded_node(
                 .execute(&mut **tx)
                 .await?;
 
-                query!("DELETE FROM `node_server_storage` WHERE `node` = ?", key.id)
+                query!("DELETE FROM node_server_storage WHERE node = $1", key.id)
                     .execute(&mut **tx)
                     .await?;
 
-                query!("DELETE FROM `node_backup_storage` WHERE `node` = ?", key.id)
+                query!("DELETE FROM node_backup_storage WHERE node = $1", key.id)
                     .execute(&mut **tx)
                     .await?;
 
@@ -87,7 +87,7 @@ pub async fn setup_embedded_node(
                         StorageEntry::Directory { .. } => ("directory", None),
                         StorageEntry::Btrfs { group, .. } => ("btrfs", Some(group)),
                     };
-                    query!("INSERT INTO `node_server_storage` (`node`, `storage`, `storage_type`, `group`) VALUES (?, ?, ?, ?)", key.id, storage, storage_type, group)
+                    query!(r#"INSERT INTO node_server_storage (node, storage, storage_type, "group") VALUES ($1, $2, $3, $4)"#, key.id, storage, storage_type, group)
                         .execute(&mut **tx)
                         .await?;
                 }
@@ -96,7 +96,7 @@ pub async fn setup_embedded_node(
                         BackupEntry::Archive { .. } => ("archive", None),
                         BackupEntry::Btrfs { group, .. } => ("btrfs", Some(group)),
                     };
-                    query!("INSERT INTO `node_backup_storage` (`node`, `storage`, `storage_type`, `group`) VALUES (?, ?, ?, ?)", key.id, storage, storage_type, group)
+                    query!(r#"INSERT INTO node_backup_storage (node, storage, storage_type, "group") VALUES ($1, $2, $3, $4)"#, key.id, storage, storage_type, group)
                         .execute(&mut **tx)
                         .await?;
                 }

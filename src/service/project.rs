@@ -21,13 +21,13 @@ pub(crate) struct ProjectInfo {
     pub(crate) id: ProjectId,
     pub(crate) slug: String,
     pub(crate) name: String,
-    pub(crate) owner: u32,
+    pub(crate) owner: i32,
     pub(crate) permissions: i64,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ProjectUserInfo {
-    pub(crate) id: u32,
+    pub(crate) id: i32,
     pub(crate) username: String,
     pub(crate) email: String,
     pub(crate) permissions: i64,
@@ -47,13 +47,13 @@ pub(crate) impl ProjectService for Backend {
         let own = own.unwrap_or_default();
 
         Ok(query!(
-            "SELECT
-                `id` AS `id: ProjectId`,
-                `slug`,
-                `name`,
-                `owner`
-             FROM `projects`
-             ORDER BY `slug`"
+            r#"SELECT
+                id AS "id: ProjectId",
+                slug,
+                name,
+                owner
+             FROM projects
+             ORDER BY slug"#
         )
         .fetch_all(&*self.database)
         .await?
@@ -89,8 +89,8 @@ pub(crate) impl ProjectService for Backend {
         let id = ProjectId::generate();
 
         query!(
-            "INSERT INTO `projects` (`id`, `slug`, `name`, `owner`) VALUES (?, ?, ?, ?)",
-            id,
+            "INSERT INTO projects (id, slug, name, owner) VALUES ($1, $2, $3, $4)",
+            &id,
             slug,
             name,
             auth.id
@@ -112,10 +112,10 @@ pub(crate) impl ProjectService for Backend {
         auth.require::<_, _, GetProjectError>(project_id, ProjectPermissions::VIEW)?;
 
         let project = query!(
-            "SELECT `id` AS `id: ProjectId`, `slug`, `name`, `owner`
-             FROM `projects`
-             WHERE `id` = ?",
-            project_id
+            r#"SELECT id AS "id: ProjectId", slug, name, owner
+             FROM projects
+             WHERE id = $1"#,
+            &project_id
         )
         .fetch_one(&*self.database)
         .await?;
@@ -138,7 +138,7 @@ pub(crate) impl ProjectService for Backend {
         project_id: ProjectId,
         slug: Option<String>,
         name: Option<String>,
-        owner: Option<u32>,
+        owner: Option<i32>,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateProjectError>(project_id, ProjectPermissions::ADMIN_MANAGEMENT)?;
 
@@ -146,9 +146,9 @@ pub(crate) impl ProjectService for Backend {
 
         if let Some(owner) = owner {
             query!(
-                "UPDATE `projects` SET `owner` = ? WHERE `id` = ?",
+                "UPDATE projects SET owner = $1 WHERE id = $2",
                 owner,
-                project_id
+                &project_id
             )
             .execute(&mut *tx)
             .await?;
@@ -156,9 +156,9 @@ pub(crate) impl ProjectService for Backend {
 
         if let Some(slug) = slug {
             query!(
-                "UPDATE `projects` SET `slug` = ? WHERE `id` = ?",
+                "UPDATE projects SET slug = $1 WHERE id = $2",
                 slug,
-                project_id
+                &project_id
             )
             .execute(&mut *tx)
             .await?;
@@ -166,17 +166,17 @@ pub(crate) impl ProjectService for Backend {
 
         if let Some(name) = name {
             query!(
-                "UPDATE `projects` SET `name` = ? WHERE `id` = ?",
+                "UPDATE projects SET name = $1 WHERE id = $2",
                 name,
-                project_id
+                &project_id
             )
             .execute(&mut *tx)
             .await?;
         }
 
         query!(
-            "SELECT `id` AS `id: ProjectId` FROM `projects` WHERE `id` = ?",
-            project_id
+            r#"SELECT id AS "id: ProjectId" FROM projects WHERE id = $1"#,
+            &project_id
         )
         .fetch_one(&mut *tx)
         .await?;
@@ -196,7 +196,7 @@ pub(crate) impl ProjectService for Backend {
     ) -> Result<(), _> {
         auth.require::<_, _, DeleteProjectError>(project_id, ProjectPermissions::ADMIN_MANAGEMENT)?;
 
-        let result = query!("DELETE FROM `projects` WHERE `id` = ?", project_id)
+        let result = query!("DELETE FROM projects WHERE id = $1", &project_id)
             .execute(&*self.database)
             .await?;
 
@@ -221,29 +221,29 @@ pub(crate) impl ProjectService for Backend {
 
         let owner = query!(
             "SELECT
-                `users`.`id`,
-                `users`.`username`,
-                `users`.`email`
-             FROM `projects`
-             JOIN `users` ON `users`.`id` = `projects`.`owner`
-             WHERE `projects`.`id` = ?",
-            project_id
+                users.id,
+                users.username,
+                users.email
+             FROM projects
+             JOIN users ON users.id = projects.owner
+             WHERE projects.id = $1",
+            &project_id
         )
         .fetch_one(&*self.database)
         .await?;
 
         let project_users = query!(
-            "SELECT
-                `users`.`id`,
-                `users`.`username`,
-                `users`.`email`,
-                `project_users`.`permissions`
-             FROM `project_users`
-             JOIN `users` ON `users`.`id` = `project_users`.`user`
-             JOIN `projects` ON `projects`.`id` = `project_users`.`project`
-            WHERE `project_users`.`project` = ?
-              AND `project_users`.`user` != `projects`.`owner`",
-            project_id,
+            r#"SELECT
+                users.id,
+                users.username,
+                users.email,
+                project_users.permissions
+             FROM project_users
+             JOIN users ON users.id = project_users."user"
+             JOIN projects ON projects.id = project_users.project
+            WHERE project_users.project = $1
+              AND project_users."user" != projects.owner"#,
+            &project_id,
         )
         .fetch_all(&*self.database)
         .await?;
@@ -271,18 +271,19 @@ pub(crate) impl ProjectService for Backend {
         &self,
         #[special] auth: Authentication,
         project_id: ProjectId,
-        user_id: u32,
+        user_id: i32,
         permissions: i64,
     ) -> Result<(), _> {
         auth.require::<_, _, SetProjectUserError>(project_id, ProjectPermissions::USER_EDIT)?;
         ensure_project_exists::<SetProjectUserError>(self, project_id).await?;
 
         query!(
-            "INSERT INTO `project_users` (`user`, `project`, `permissions`)
-             VALUES (?, ?, ?)
-            ON DUPLICATE KEY UPDATE `permissions` = VALUES(`permissions`)",
+            r#"INSERT INTO project_users ("user", project, permissions)
+             VALUES ($1, $2, $3)
+             ON CONFLICT ("user", project) DO UPDATE SET
+                permissions = EXCLUDED.permissions"#,
             user_id,
-            project_id,
+            &project_id,
             permissions
         )
         .execute(&*self.database)
@@ -298,14 +299,14 @@ pub(crate) impl ProjectService for Backend {
         &self,
         #[special] auth: Authentication,
         project_id: ProjectId,
-        user_id: u32,
+        user_id: i32,
     ) -> Result<(), _> {
         auth.require::<_, _, RemoveProjectUserError>(project_id, ProjectPermissions::USER_EDIT)?;
         ensure_project_exists::<RemoveProjectUserError>(self, project_id).await?;
 
         query!(
-            "DELETE FROM `project_users` WHERE `project` = ? AND `user` = ?",
-            project_id,
+            r#"DELETE FROM project_users WHERE project = $1 AND "user" = $2"#,
+            &project_id,
             user_id
         )
         .execute(&*self.database)
@@ -320,8 +321,8 @@ async fn ensure_project_exists<E: From<sqlx::Error> + FromProjectNotFound>(
     project_id: ProjectId,
 ) -> Result<(), E> {
     let exists = query_scalar!(
-        "SELECT (COUNT(*) > 0) AS `exists: bool` FROM `projects` WHERE `id` = ?",
-        project_id
+        r#"SELECT (COUNT(*) > 0) AS "exists!" FROM projects WHERE id = $1"#,
+        &project_id
     )
     .fetch_one(&*backend.database)
     .await?;
