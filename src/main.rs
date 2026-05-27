@@ -22,6 +22,7 @@ use crate::embedded_node::setup_embedded_node;
 use crate::templates::TemplateInner;
 use crate::templates::generic::go::GoTemplate;
 use crate::templates::generic::java::JavaTemplate;
+use crate::templates::generic::python::PythonTemplate;
 use crate::templates::generic::rust::RustTemplate;
 use crate::templates::minecraft::MinecraftTemplate;
 use core::time::Duration;
@@ -235,6 +236,13 @@ async fn main0() {
             .await
             .expect("Unable to initialize java template");
         templates.insert(java.id().to_owned(), Arc::new(java));
+
+        let python = PythonTemplate;
+        python
+            .init(backend.cache.clone())
+            .await
+            .expect("Unable to initialize python template");
+        templates.insert(python.id().to_owned(), Arc::new(python));
 
         let rust = RustTemplate;
         rust.init(backend.cache.clone())

@@ -1,6 +1,7 @@
 mod docker;
 pub mod go;
 pub mod java;
+pub mod python;
 pub mod rust;
 
 use lazy_regex::lazy_regex;
