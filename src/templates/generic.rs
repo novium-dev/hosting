@@ -1,17 +1,18 @@
-pub mod go;
 mod docker;
+pub mod go;
+pub mod java;
+pub mod rust;
 
+use lazy_regex::lazy_regex;
+use regex::Regex;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
-use lazy_regex::lazy_regex;
-use regex::Regex;
 use tracing::debug;
 use url::{ParseError, Url};
 
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
-pub static BRANCH_REGEX: lazy_regex::Lazy<Regex> =
-    lazy_regex!(r"[A-Za-z0-9\\._/-]+");
+pub static BRANCH_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!(r"[A-Za-z0-9\\._/-]+");
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum RepositoryURL {
@@ -20,9 +21,7 @@ pub(crate) enum RepositoryURL {
 }
 
 impl RepositoryURL {
-    pub fn parse(
-        repository_url_raw: &str,
-    ) -> Result<Self, ParseError> {
+    pub fn parse(repository_url_raw: &str) -> Result<Self, ParseError> {
         if repository_url_raw.is_empty() {
             return Ok(RepositoryURL::Disabled);
         }

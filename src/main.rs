@@ -20,6 +20,9 @@ use crate::db::node::BackendNode;
 #[cfg(feature = "embedded_node")]
 use crate::embedded_node::setup_embedded_node;
 use crate::templates::TemplateInner;
+use crate::templates::generic::go::GoTemplate;
+use crate::templates::generic::java::JavaTemplate;
+use crate::templates::generic::rust::RustTemplate;
 use crate::templates::minecraft::MinecraftTemplate;
 use core::time::Duration;
 use daemon_common::key::rcgen::KeyPair;
@@ -41,7 +44,6 @@ use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
 use uuid::Uuid;
-use crate::templates::generic::go::GoTemplate;
 
 const CACHE_PREFIX: &str = "novium:";
 
@@ -227,6 +229,18 @@ async fn main0() {
             .await
             .expect("Unable to initialize go template");
         templates.insert(go.id().to_owned(), Arc::new(go));
+
+        let java = JavaTemplate;
+        java.init(backend.cache.clone())
+            .await
+            .expect("Unable to initialize java template");
+        templates.insert(java.id().to_owned(), Arc::new(java));
+
+        let rust = RustTemplate;
+        rust.init(backend.cache.clone())
+            .await
+            .expect("Unable to initialize rust template");
+        templates.insert(rust.id().to_owned(), Arc::new(rust));
     };
 
     info!("Starting Webserver...");
