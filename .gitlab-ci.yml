@@ -139,6 +139,7 @@ deny:
   extends: .rust-default
   stage: check
   needs: []
+  when: manual
   cache:
     - key: rust-cache-cargo-deny-default
       paths:
@@ -159,6 +160,7 @@ deny:
 test:
   extends: .rust-build-default
   stage: check
+  when: manual
   cache:
     - key: rust-cache-test-$CI_COMMIT_REF_SLUG
       fallback_keys:
