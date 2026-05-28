@@ -30,6 +30,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{Connection as _, PgPool};
 use std::collections::HashMap;
 use std::env;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::fs::File;
@@ -118,11 +119,23 @@ pub fn main() {
 async fn main0() {
     info!("Starting Backend on version {}", env!("GIT_HASH"));
 
-    let (root_key, root_privkey, user_key, backend_key) = crypto::check_and_generate_keys().await;
+    let data_dir = env::var_os("BACKEND_DATA_DIR").map_or_else(
+        || {
+            let mut default = env::current_exe().expect("Unable to get current executable path");
+            default.pop();
+            default
+        },
+        PathBuf::from,
+    );
+
+    info!("Using data directory {}", data_dir.display());
+
+    let (root_key, root_privkey, user_key, backend_key) =
+        crypto::check_and_generate_keys(&data_dir).await;
 
     let config: BackendConfig = {
         let mut config_buffer = String::new();
-        File::open("config.toml")
+        File::open(data_dir.join("config.toml"))
             .await
             .expect("Failed to open config file")
             .read_to_string(&mut config_buffer)

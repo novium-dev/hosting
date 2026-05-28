@@ -1,17 +1,23 @@
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
+use std::path::Path;
 use std::sync::Arc;
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 
-pub async fn check_and_generate_keys() -> (Arc<DaemonRootKey>, KeyPair, SigningKey, BackendKey) {
-    let (root_key, root_privkey, user_key) = if fs::try_exists("./backend_root.pem")
+pub async fn check_and_generate_keys(
+    data_dir: &Path,
+) -> (Arc<DaemonRootKey>, KeyPair, SigningKey, BackendKey) {
+    let backend_root_path = data_dir.join("backend_root.pem");
+    let backend_path = data_dir.join("backend.pem");
+
+    let (root_key, root_privkey, user_key) = if fs::try_exists(&backend_root_path)
         .await
         .expect("Unable to check backend_root.pem presence")
     {
-        let mut file = File::open("./backend_root.pem")
+        let mut file = File::open(&backend_root_path)
             .await
             .expect("Unable to open backend_root.pem");
         let mut buf = Vec::new();
@@ -32,7 +38,7 @@ pub async fn check_and_generate_keys() -> (Arc<DaemonRootKey>, KeyPair, SigningK
         let root_key = DaemonRootKey::new(&root_privkey, Some(user_key.verifying_key()))
             .expect("Unable to generate x509 root key");
 
-        let mut file = File::create_new("./backend_root.pem")
+        let mut file = File::create_new(&backend_root_path)
             .await
             .expect("Unable to create backend_root.pem");
         file.write_all(
@@ -48,11 +54,11 @@ pub async fn check_and_generate_keys() -> (Arc<DaemonRootKey>, KeyPair, SigningK
 
         (root_key, root_privkey, user_key)
     };
-    let backend_key = if fs::try_exists("./backend.pem")
+    let backend_key = if fs::try_exists(&backend_path)
         .await
         .expect("Unable to check backend.pem presence")
     {
-        let mut file = File::open("./backend.pem")
+        let mut file = File::open(&backend_path)
             .await
             .expect("Unable to open backend.pem");
         let mut buf = Vec::new();
@@ -66,7 +72,7 @@ pub async fn check_and_generate_keys() -> (Arc<DaemonRootKey>, KeyPair, SigningK
             .new_backend_key(&root_privkey, &backend_keypair)
             .expect("Unable to create backend key");
 
-        let mut file = File::create_new("./backend.pem")
+        let mut file = File::create_new(&backend_path)
             .await
             .expect("Unable to create backend.pem");
         file.write_all(backend_key.dump().as_bytes())
