@@ -95,7 +95,7 @@ pub fn main() {
     let guard = {
         reg.with(sentry::integrations::tracing::layer()).init();
         let sentry = sentry::init((
-            "ttps://807c80ad7f7c81d311769fdb55d85b13@o4507044844404736.ingest.us.sentry.io/4511468869976064",
+            "https://807c80ad7f7c81d311769fdb55d85b13@o4507044844404736.ingest.us.sentry.io/4511468869976064",
             sentry::ClientOptions {
                 release: sentry::release_name!(),
                 ..Default::default()
