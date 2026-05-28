@@ -15,7 +15,9 @@ pub(crate) async fn resolve(
     url: &str,
 ) -> Result<(), ()> {
     let response = client
-        .get(format!("{url}/releases/net/neoforged/neoforge/maven-metadata.xml"))
+        .get(format!(
+            "{url}/releases/net/neoforged/neoforge/maven-metadata.xml"
+        ))
         .send()
         .await
         .inspect_err(|err| {
