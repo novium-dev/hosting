@@ -119,14 +119,8 @@ pub fn main() {
 async fn main0() {
     info!("Starting Backend on version {}", env!("GIT_HASH"));
 
-    let data_dir = env::var_os("BACKEND_DATA_DIR").map_or_else(
-        || {
-            let mut default = env::current_exe().expect("Unable to get current executable path");
-            default.pop();
-            default
-        },
-        PathBuf::from,
-    );
+    let data_dir =
+        env::var_os("BACKEND_DATA_DIR").map_or_else(|| PathBuf::from("."), PathBuf::from);
 
     info!("Using data directory {}", data_dir.display());
 
