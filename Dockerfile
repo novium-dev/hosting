@@ -46,5 +46,6 @@ EXPOSE 80
 
 # Copy the binary directly to bin directory (/bin)
 COPY --from=builder /work/target/x86_64-unknown-linux-musl/release/backend /backend
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 ENTRYPOINT ["/backend"]
