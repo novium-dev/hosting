@@ -20,6 +20,7 @@ use tracing::{error, info};
 use utoipa::OpenApi;
 use zelus::framework_router;
 use zelus::router::ZelusRouter;
+use crate::service::minecraft::MinecraftService;
 
 impl Backend {
     pub fn router(&self) -> Router {
@@ -27,7 +28,7 @@ impl Backend {
         #[openapi()]
         struct ApiDoc;
 
-        let (default_router,) = framework_router!(Self self (default,) { ServerService, FileService, BackupService, ServerAdminService, NodeAdminService, UserAdminService, AuthService, ProfileService, ProjectService, TemplateService, InternalService });
+        let (default_router,) = framework_router!(Self self (default,) { ServerService, FileService, BackupService, ServerAdminService, NodeAdminService, UserAdminService, AuthService, ProfileService, ProjectService, TemplateService, InternalService, MinecraftService });
         let (dev_auth_router,) = framework_router!(Self self (dev_auth,) { AuthService });
 
         let router = if cfg!(feature = "auth_dev") {
