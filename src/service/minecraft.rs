@@ -18,7 +18,7 @@ pub(crate) impl MinecraftService for Backend {
     ) -> Result<(), _> {
         auth.require::<_, _, BanUserError>(server_id, ServerPermissions::TERMINAL_WRITE)?;
 
-        self.execute_rcon::<BanUserError>(server_id, vec!["ban".to_string(), user])
+        self.execute_rcon::<BanUserError>(server_id, vec!["ban".to_owned(), user])
             .await?;
 
         Ok(())

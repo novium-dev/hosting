@@ -94,25 +94,25 @@ impl Backend {
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
-            .ok_or(<E as FromServerNotFound>::from())?;
+            .ok_or_else(<E as FromServerNotFound>::from)?;
 
         server
             .node
             .exec_server(
                 server.node_server_id,
                 vec![
-                    "rcon".to_string(),
-                    "-H".to_string(),
-                    "::1".to_string(),
-                    "-p".to_string(),
-                    "25575".to_string(),
-                    "-P".to_string(),
-                    "_".to_string(),
-                    "-m".to_string(),
-                    "--".to_string(),
+                    "rcon".to_owned(),
+                    "-H".to_owned(),
+                    "::1".to_owned(),
+                    "-p".to_owned(),
+                    "25575".to_owned(),
+                    "-P".to_owned(),
+                    "_".to_owned(),
+                    "-m".to_owned(),
+                    "--".to_owned(),
                 ]
                 .into_iter()
-                .chain(command.into_iter())
+                .chain(command)
                 .collect::<Vec<_>>(),
             )
             .await

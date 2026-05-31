@@ -4,11 +4,11 @@ pub mod java;
 pub mod python;
 pub mod rust;
 
+use core::cmp::Ordering;
 use lazy_regex::lazy_regex;
 use regex::Regex;
-use serde::de::Error;
+use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::cmp::Ordering;
 use tracing::debug;
 use url::{ParseError, Url};
 
@@ -24,13 +24,13 @@ pub(crate) enum RepositoryURL {
 impl RepositoryURL {
     pub fn parse(repository_url_raw: &str) -> Result<Self, ParseError> {
         if repository_url_raw.is_empty() {
-            return Ok(RepositoryURL::Disabled);
+            return Ok(Self::Disabled);
         }
 
         let repository_url = Url::parse(repository_url_raw)
             .inspect_err(|_err| debug!("Variables rejected: invalid repository URL"))?;
 
-        Ok(RepositoryURL::Url(repository_url))
+        Ok(Self::Url(repository_url))
     }
 }
 
@@ -38,7 +38,7 @@ impl From<RepositoryURL> for String {
     fn from(value: RepositoryURL) -> Self {
         match value {
             RepositoryURL::Disabled => String::new(),
-            RepositoryURL::Url(url) => url.to_string(),
+            RepositoryURL::Url(url) => url.into(),
         }
     }
 }
@@ -50,9 +50,9 @@ impl<'de> Deserialize<'de> for RepositoryURL {
     {
         let str = String::deserialize(deserializer)?;
         if str.is_empty() {
-            Ok(RepositoryURL::Disabled)
+            Ok(Self::Disabled)
         } else {
-            Ok(RepositoryURL::Url(
+            Ok(Self::Url(
                 Url::parse(&str).map_err(|err| D::Error::custom(err.to_string()))?,
             ))
         }
@@ -65,26 +65,19 @@ impl Serialize for RepositoryURL {
         S: Serializer,
     {
         match self {
-            RepositoryURL::Disabled => serializer.serialize_str(""),
-            RepositoryURL::Url(url) => url.serialize(serializer),
+            Self::Disabled => serializer.serialize_str(""),
+            Self::Url(url) => url.serialize(serializer),
         }
     }
 }
 
-pub(crate) fn version_cmp<const N: usize, T: Ord>(a: [T; N], b: [T; N]) -> Ordering {
-    let mut current = Ordering::Equal;
-    for i in 0..N {
-        match a[i].cmp(&b[i]) {
-            Ordering::Less => {
-                current = Ordering::Greater;
-                break;
-            }
-            Ordering::Equal => continue,
-            Ordering::Greater => {
-                current = Ordering::Less;
-                break;
-            }
-        }
-    }
-    current
+pub(crate) fn version_cmp<const N: usize, T: Ord>(left: &[T; N], right: &[T; N]) -> Ordering {
+    left.iter()
+        .zip(right)
+        .find_map(|(left, right)| match left.cmp(right) {
+            Ordering::Less => Some(Ordering::Greater),
+            Ordering::Equal => None,
+            Ordering::Greater => Some(Ordering::Less),
+        })
+        .unwrap_or(Ordering::Equal)
 }

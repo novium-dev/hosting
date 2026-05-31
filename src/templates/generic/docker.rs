@@ -1,31 +1,33 @@
-use crate::templates::utils::ReqwestJsonExtension;
+use crate::templates::utils::ReqwestJsonExtension as _;
+use core::time::Duration;
 use either::Either;
 use indexmap::IndexSet;
 use serde::Deserialize;
-use std::ops::DerefMut;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tracing::{debug, error};
 use url::Url;
 
 static LOCK: Mutex<Option<Instant>> = Mutex::new(None);
 
 pub(crate) fn update() -> bool {
-    let mut guard = LOCK.lock().unwrap();
-    match guard.deref_mut() {
+    let mut guard = LOCK.lock().expect("docker cache update lock poisoned");
+    let update = match &mut *guard {
         None => {
             *guard = Some(Instant::now());
             true
         }
         Some(instant) => {
-            if instant.elapsed() > Duration::from_secs(60 * 60) {
+            if instant.elapsed() > Duration::from_hours(1) {
                 *instant = Instant::now();
                 true
             } else {
                 false
             }
         }
-    }
+    };
+    drop(guard);
+    update
 }
 
 #[derive(Debug, Deserialize)]
@@ -46,23 +48,20 @@ pub(crate) async fn list_docker_tags(image: impl Into<String>) -> Result<IndexSe
             error!(
                 "Unable to build cache update client (for docker): {:?}",
                 err
-            )
+            );
         })
-        .map_err(|_| ())?;
+        .map_err(|_err| ())?;
 
     let image = image.into();
-    let url = format!(
-        "https://hub.docker.com/v2/repositories/library/{}/tags?page_size=100",
-        image
-    );
+    let url = format!("https://hub.docker.com/v2/repositories/library/{image}/tags?page_size=100");
     let initial = Url::parse(&url)
         .inspect_err(|err| {
             error!(
                 "Unable to parse url {:?} for docker tag retrieval: {:?}",
                 url, err
-            )
+            );
         })
-        .map_err(|_| ())?;
+        .map_err(|_err| ())?;
     let mut initial = DockerImageTagsResponse {
         next: Some(initial),
         results: Vec::new(),
@@ -78,17 +77,17 @@ pub(crate) async fn list_docker_tags(image: impl Into<String>) -> Result<IndexSe
                 error!(
                     "Unable to send docker tag list request for image {}: {:?}",
                     image, err
-                )
+                );
             })
-            .map_err(|_| ())?
+            .map_err(|_err| ())?
             .error_for_status()
             .inspect_err(|err| {
                 error!(
                     "Unable to get docker tag list for image {}: {:?}",
                     image, err
-                )
+                );
             })
-            .map_err(|_| ())?
+            .map_err(|_err| ())?
             .json_verbose()
             .await
             .inspect_err(|err| match err {
@@ -103,7 +102,7 @@ pub(crate) async fn list_docker_tags(image: impl Into<String>) -> Result<IndexSe
                     image, recv
                 ),
             })
-            .map_err(|_| ())?;
+            .map_err(|_err| ())?;
         debug!("Found {} tags", initial.results.len());
         result.extend(initial.results.into_iter().map(|result| result.name));
     }
