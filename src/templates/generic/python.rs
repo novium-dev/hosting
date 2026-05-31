@@ -1,4 +1,4 @@
-use chrono::{TimeDelta, TimeZone, Utc};
+use chrono::{TimeDelta, TimeZone as _, Utc};
 use daemon_common::service::server::{ServerBuildImage, ServerBuildPayload};
 use indexmap::IndexSet;
 use lazy_regex::lazy_regex;
@@ -57,15 +57,15 @@ impl Template for PythonTemplate {
             uid: None,
             gid: None,
             backup_exclude: HashSet::from([
-                ".git/".to_string(),
-                "__pycache__/".to_string(),
-                ".pip/".to_string(),
-                "site-packages/".to_string(),
+                ".git/".to_owned(),
+                "__pycache__/".to_owned(),
+                ".pip/".to_owned(),
+                "site-packages/".to_owned(),
             ]),
             environment: HashMap::from([
-                ("REPOSITORY_URL".to_string(), extra.repository_url.into()),
-                ("REPOSITORY_BRANCH".to_string(), extra.repository_branch),
-                ("MAIN_FILE".to_string(), extra.start_file),
+                ("REPOSITORY_URL".to_owned(), extra.repository_url.into()),
+                ("REPOSITORY_BRANCH".to_owned(), extra.repository_branch),
+                ("MAIN_FILE".to_owned(), extra.start_file),
             ]),
             files_write: HashMap::new(),
             cap_add: Vec::new(),
@@ -74,11 +74,15 @@ impl Template for PythonTemplate {
     }
 
     async fn default_extra(&self, cache: &Self::Cache) -> Result<Self::Extra, ThinTemplateError> {
+        let Some((major, minor, patch)) = cache.0.first() else {
+            return Err(ThinTemplateError::Unavailable);
+        };
+
         Ok(PythonExtra {
-            python_version: format!("{}.{}.{}", cache.0[0].0, cache.0[0].1, cache.0[0].2),
-            start_file: "main.py".to_string(),
+            python_version: format!("{major}.{minor}.{patch}"),
+            start_file: "main.py".to_owned(),
             repository_url: RepositoryURL::Disabled,
-            repository_branch: "HEAD".to_string(),
+            repository_branch: "HEAD".to_owned(),
         })
     }
 
@@ -96,7 +100,7 @@ impl Template for PythonTemplate {
         Ok(VariableBuilder::default()
             .group(
                 VariableGroupBuilder::new(Some("Python"))
-                    .static_variable("version", "Version", Some(extra.python_version), cache.0.iter().map(|(major, minor, patch)| format!("{}.{}.{}", major, minor, patch)).collect())
+                    .static_variable("version", "Version", Some(extra.python_version), cache.0.iter().map(|(major, minor, patch)| format!("{major}.{minor}.{patch}")).collect())
                     .regex_variable("start_file", "Start File", Some(extra.start_file), PYTHON_FILE_REGEX.as_str(), "main.py", false),
             )
             .group(VariableGroupBuilder::new(Some("Git"))
@@ -133,32 +137,29 @@ impl Template for PythonTemplate {
             return Ok(None);
         };
 
-        let version_split = version_raw
-            .splitn(3, ".")
-            .map(String::from)
-            .collect::<Vec<String>>();
-        if version_split.len() != 3 {
+        let mut version_parts = version_raw.splitn(3, '.');
+        let (Some(major_raw), Some(minor_raw), Some(patch_raw), None) = (
+            version_parts.next(),
+            version_parts.next(),
+            version_parts.next(),
+            version_parts.next(),
+        ) else {
             debug!("Variables rejected: version not found");
             return Ok(None);
-        }
+        };
 
         if !PYTHON_FILE_REGEX.is_match(start_file_raw) {
             debug!("Variables rejected: start_file is invalid");
             return Ok(None);
         }
 
-        let (major_raw, minor_raw, patch_raw) = (
-            version_split[0].parse::<u16>(),
-            version_split[1].parse::<u16>(),
-            version_split[2].parse::<u16>(),
-        );
-
-        let (major, minor, patch) = match (major_raw, minor_raw, patch_raw) {
-            (Ok(major), Ok(minor), Ok(patch)) => (major, minor, patch),
-            _ => {
-                debug!("Variables rejected: version not found");
-                return Ok(None);
-            }
+        let (Ok(major), Ok(minor), Ok(patch)) = (
+            major_raw.parse::<u16>(),
+            minor_raw.parse::<u16>(),
+            patch_raw.parse::<u16>(),
+        ) else {
+            debug!("Variables rejected: version not found");
+            return Ok(None);
         };
 
         if !cache.0.contains(&(major, minor, patch)) {
@@ -170,16 +171,13 @@ impl Template for PythonTemplate {
             return Ok(None);
         }
 
-        let repository_url = match RepositoryURL::parse(repository_url_raw) {
-            Ok(url) => url,
-            Err(_) => {
-                debug!("Variables rejected: repository_url is invalid");
-                return Ok(None);
-            }
+        let Ok(repository_url) = RepositoryURL::parse(repository_url_raw) else {
+            debug!("Variables rejected: repository_url is invalid");
+            return Ok(None);
         };
 
         Ok(Some(PythonExtra {
-            python_version: format!("{}.{}.{}", major, minor, patch),
+            python_version: format!("{major}.{minor}.{patch}"),
             start_file: start_file_raw.clone(),
             repository_url,
             repository_branch: repository_branch_raw.clone(),
@@ -207,34 +205,38 @@ impl Template for PythonTemplate {
         let mut versions: IndexSet<_> = docker::list_docker_tags("python")
             .await?
             .into_iter()
-            .map(|tag| {
-                tag.splitn(3, ".")
-                    .map(String::from)
-                    .collect::<Vec<String>>()
+            .filter_map(|tag| {
+                let mut tag_parts = tag.splitn(3, '.');
+                let (Some(major), Some(minor), Some(patch), None) = (
+                    tag_parts.next(),
+                    tag_parts.next(),
+                    tag_parts.next(),
+                    tag_parts.next(),
+                ) else {
+                    return None;
+                };
+                Some((
+                    major.parse::<u16>().ok()?,
+                    minor.parse::<u16>().ok()?,
+                    patch.parse::<u16>().ok()?,
+                ))
             })
-            .filter(|version| version.len() == 3)
-            .map(|version| {
-                (
-                    version[0].parse::<u16>(),
-                    version[1].parse::<u16>(),
-                    version[2].parse::<u16>(),
-                )
-            })
-            .filter(|(major, minor, patch)| major.is_ok() && minor.is_ok() && patch.is_ok())
-            .map(|(major, minor, patch)| (major.unwrap(), minor.unwrap(), patch.unwrap()))
             .filter(|(major, minor, _patch)| *major >= 3 && (*major != 3 || *minor >= 3))
             .collect();
         versions.sort_by(|(major_a, minor_a, patch_a), (major_b, minor_b, patch_b)| {
             version_cmp(
-                [*major_a, *minor_a, *patch_a],
-                [*major_b, *minor_b, *patch_b],
+                &[*major_a, *minor_a, *patch_a],
+                &[*major_b, *minor_b, *patch_b],
             )
         });
         Ok(PythonVersionCache(versions, timestamp))
     }
 
     fn cache_update_needed(cache: &Self::Cache) -> bool {
-        Utc::now() > (Utc.timestamp_millis_opt(cache.1).unwrap() + TimeDelta::days(1))
-            && docker::update()
+        let Some(last_update) = Utc.timestamp_millis_opt(cache.1).single() else {
+            return docker::update();
+        };
+
+        Utc::now() > (last_update + TimeDelta::days(1)) && docker::update()
     }
 }

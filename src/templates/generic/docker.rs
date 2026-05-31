@@ -12,20 +12,12 @@ static LOCK: Mutex<Option<Instant>> = Mutex::new(None);
 
 pub(crate) fn update() -> bool {
     let mut guard = LOCK.lock().expect("docker cache update lock poisoned");
-    let update = match &mut *guard {
-        None => {
-            *guard = Some(Instant::now());
-            true
-        }
-        Some(instant) => {
-            if instant.elapsed() > Duration::from_hours(1) {
-                *instant = Instant::now();
-                true
-            } else {
-                false
-            }
-        }
-    };
+    let update = guard
+        .as_ref()
+        .is_none_or(|instant| instant.elapsed() > Duration::from_hours(1));
+    if update {
+        *guard = Some(Instant::now());
+    }
     drop(guard);
     update
 }

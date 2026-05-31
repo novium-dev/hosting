@@ -1,4 +1,6 @@
-use chrono::{TimeDelta, TimeZone, Utc};
+use chrono::{TimeDelta, TimeZone as _, Utc};
+use core::cmp::Ordering;
+use core::fmt::{Display, Formatter, Result as FmtResult};
 use daemon_common::service::server::{ServerBuildImage, ServerBuildPayload};
 use indexmap::{IndexMap, IndexSet};
 use lazy_regex::regex_captures;
@@ -6,9 +8,7 @@ use redis::RedisError;
 use redis::aio::ConnectionManager;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
-use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
 use tracing::debug;
 
 use crate::templates::generic::{BRANCH_REGEX, RepositoryURL, docker, version_cmp};
@@ -80,7 +80,7 @@ impl Template for JavaTemplate {
                 JavaBuild::Prebuilt => include_str!("java/prebuild.Dockerfile"),
                 JavaBuild::Gradle => include_str!("java/gradle.Dockerfile"),
             }
-            .to_string(),
+            .to_owned(),
             args: HashMap::new(),
             tag: None,
             default_tag: Some(match extra.build {
@@ -88,9 +88,9 @@ impl Template for JavaTemplate {
                 JavaBuild::Gradle => format!("java-gradle-{}-r1", extra.java_version),
             }),
         };
-        let mut backup_exclude = HashSet::from([".git/".to_string()]);
-        if let JavaBuild::Gradle = extra.build {
-            backup_exclude.extend([".gradle/".to_string(), "build/".to_string()]);
+        let mut backup_exclude = HashSet::from([".git/".to_owned()]);
+        if extra.build == JavaBuild::Gradle {
+            backup_exclude.extend([".gradle/".to_owned(), "build/".to_owned()]);
         }
         Ok(ServerBuildPayload {
             image,
@@ -100,8 +100,8 @@ impl Template for JavaTemplate {
             gid: None,
             backup_exclude,
             environment: HashMap::from([
-                ("REPOSITORY_URL".to_string(), extra.repository_url.into()),
-                ("REPOSITORY_BRANCH".to_string(), extra.repository_branch),
+                ("REPOSITORY_URL".to_owned(), extra.repository_url.into()),
+                ("REPOSITORY_BRANCH".to_owned(), extra.repository_branch),
             ]),
             files_write: HashMap::new(),
             cap_add: Vec::new(),
@@ -119,7 +119,7 @@ impl Template for JavaTemplate {
             java_version,
             build: JavaBuild::Prebuilt,
             repository_url: RepositoryURL::Disabled,
-            repository_branch: "HEAD".to_string(),
+            repository_branch: "HEAD".to_owned(),
         })
     }
 
@@ -171,7 +171,7 @@ impl Template for JavaTemplate {
                         .map(JavaVersion::to_string)
                         .collect();
                     vec![(
-                        format!("Java {}", major),
+                        format!("Java {major}"),
                         VariableContent::StringSet { content },
                     )]
                 },
@@ -237,12 +237,9 @@ impl Template for JavaTemplate {
             return Ok(None);
         }
 
-        let repository_url = match RepositoryURL::parse(repository_url_raw) {
-            Ok(url) => url,
-            Err(_) => {
-                debug!("Variables rejected: repository_url is invalid");
-                return Ok(None);
-            }
+        let Ok(repository_url) = RepositoryURL::parse(repository_url_raw) else {
+            debug!("Variables rejected: repository_url is invalid");
+            return Ok(None);
         };
 
         Ok(Some(JavaExtra {
@@ -290,21 +287,24 @@ impl Template for JavaTemplate {
     }
 
     fn cache_update_needed(cache: &Self::Cache) -> bool {
-        Utc::now() > (Utc.timestamp_millis_opt(cache.1).unwrap() + TimeDelta::days(1))
-            && docker::update()
+        let Some(last_update) = Utc.timestamp_millis_opt(cache.1).single() else {
+            return docker::update();
+        };
+
+        Utc::now() > (last_update + TimeDelta::days(1)) && docker::update()
     }
 }
 
 impl JavaVersion {
-    fn as_array(&self) -> [u16; 4] {
+    const fn as_array(&self) -> [u16; 4] {
         match self {
-            JavaVersion::Modern {
+            Self::Modern {
                 major,
                 minor,
                 patch,
                 build,
             } => [*major, *minor, *patch, *build],
-            JavaVersion::Legacy {
+            Self::Legacy {
                 major,
                 patch,
                 build,
@@ -312,9 +312,9 @@ impl JavaVersion {
         }
     }
 
-    fn major(&self) -> u16 {
+    const fn major(&self) -> u16 {
         match self {
-            JavaVersion::Modern { major, .. } | JavaVersion::Legacy { major, .. } => *major,
+            Self::Modern { major, .. } | Self::Legacy { major, .. } => *major,
         }
     }
 
@@ -326,7 +326,7 @@ impl JavaVersion {
             if major == 0 {
                 return None;
             }
-            return Some(JavaVersion::Modern {
+            return Some(Self::Modern {
                 major,
                 minor: minor.parse::<u16>().ok()?,
                 patch: patch.parse::<u16>().ok()?,
@@ -335,7 +335,7 @@ impl JavaVersion {
         }
 
         let (_, major, patch, build) = regex_captures!(r"^(8)u([0-9]+)-b([0-9]{2})$", value)?;
-        Some(JavaVersion::Legacy {
+        Some(Self::Legacy {
             major: major.parse::<u16>().ok()?,
             patch: patch.parse::<u16>().ok()?,
             build: build.parse::<u16>().ok()?,
@@ -351,24 +351,24 @@ impl PartialOrd for JavaVersion {
 
 impl Ord for JavaVersion {
     fn cmp(&self, other: &Self) -> Ordering {
-        version_cmp(self.as_array(), other.as_array())
+        version_cmp(&self.as_array(), &other.as_array())
     }
 }
 
 impl Display for JavaVersion {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
-            JavaVersion::Modern {
+            Self::Modern {
                 major,
                 minor,
                 patch,
                 build,
-            } => write!(f, "{}.{}.{}_{}", major, minor, patch, build),
-            JavaVersion::Legacy {
+            } => write!(f, "{major}.{minor}.{patch}_{build}"),
+            Self::Legacy {
                 major,
                 patch,
                 build,
-            } => write!(f, "{}u{}-b{:02}", major, patch, build),
+            } => write!(f, "{major}u{patch}-b{build:02}"),
         }
     }
 }

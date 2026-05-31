@@ -37,7 +37,7 @@ impl RepositoryURL {
 impl From<RepositoryURL> for String {
     fn from(value: RepositoryURL) -> Self {
         match value {
-            RepositoryURL::Disabled => String::new(),
+            RepositoryURL::Disabled => Self::new(),
             RepositoryURL::Url(url) => url.into(),
         }
     }
