@@ -1,7 +1,7 @@
+use bytes::Bytes;
 use either::Either;
 use reqwest::Response;
 use serde::de::DeserializeOwned;
-use bytes::Bytes;
 
 pub trait ReqwestJsonExtension {
     fn json_verbose<T: DeserializeOwned>(

@@ -1,12 +1,12 @@
-use daemon_common::service::server::server_service_error::ExecServerError;
 use crate::Backend;
 use crate::db::project::ProjectId;
 use crate::db::server::{Server, ServerId};
-use sqlx::{Executor, Postgres, query, types::JsonValue};
-use tracing::{error, warn};
 use crate::service::error_node_failure::FromNodeFailure;
 use crate::service::error_server_not_found::FromServerNotFound;
 use crate::service::error_server_unavailable::FromServerUnavailable;
+use daemon_common::service::server::server_service_error::ExecServerError;
+use sqlx::{Executor, Postgres, query, types::JsonValue};
+use tracing::{error, warn};
 
 impl Backend {
     pub async fn resolve_server(
@@ -84,8 +84,9 @@ impl Backend {
         }
     }
 
-
-    pub async fn execute_rcon<E: From<sqlx::Error> + FromServerNotFound + FromNodeFailure + FromServerUnavailable>(
+    pub async fn execute_rcon<
+        E: From<sqlx::Error> + FromServerNotFound + FromNodeFailure + FromServerUnavailable,
+    >(
         &self,
         server_id: ServerId,
         command: Vec<String>,
@@ -95,19 +96,25 @@ impl Backend {
             .await?
             .ok_or(<E as FromServerNotFound>::from())?;
 
-        server.node.exec_server(
-            server.node_server_id, vec![
-                "rcon".to_string(),
-                "-H".to_string(),
-                "::1".to_string(),
-                "-p".to_string(),
-                "25575".to_string(),
-                "-P".to_string(),
-                "_".to_string(),
-                "-m".to_string(),
-                "--".to_string(),
-            ].into_iter().chain(command.into_iter()).collect::<Vec<_>>()
-        )
+        server
+            .node
+            .exec_server(
+                server.node_server_id,
+                vec![
+                    "rcon".to_string(),
+                    "-H".to_string(),
+                    "::1".to_string(),
+                    "-p".to_string(),
+                    "25575".to_string(),
+                    "-P".to_string(),
+                    "_".to_string(),
+                    "-m".to_string(),
+                    "--".to_string(),
+                ]
+                .into_iter()
+                .chain(command.into_iter())
+                .collect::<Vec<_>>(),
+            )
             .await
             .map_err(|err| match err {
                 ExecServerError::Communication(_) => {
@@ -121,7 +128,5 @@ impl Backend {
                 ExecServerError::ServerNotFound => <E as FromServerNotFound>::from(),
                 ExecServerError::ServerMutexLocked => <E as FromServerUnavailable>::from(),
             })
-
-
     }
 }

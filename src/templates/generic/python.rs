@@ -207,7 +207,11 @@ impl Template for PythonTemplate {
         let mut versions: IndexSet<_> = docker::list_docker_tags("python")
             .await?
             .into_iter()
-            .map(|tag| tag.splitn(3, ".").map(String::from).collect::<Vec<String>>())
+            .map(|tag| {
+                tag.splitn(3, ".")
+                    .map(String::from)
+                    .collect::<Vec<String>>()
+            })
             .filter(|version| version.len() == 3)
             .map(|version| {
                 (

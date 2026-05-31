@@ -6,6 +6,7 @@ use crate::service::auth::AuthService;
 use crate::service::backup::BackupService;
 use crate::service::file::FileService;
 use crate::service::internal::InternalService;
+use crate::service::minecraft::MinecraftService;
 use crate::service::profile::ProfileService;
 use crate::service::project::ProjectService;
 use crate::service::server::ServerService;
@@ -20,7 +21,6 @@ use tracing::{error, info};
 use utoipa::OpenApi;
 use zelus::framework_router;
 use zelus::router::ZelusRouter;
-use crate::service::minecraft::MinecraftService;
 
 impl Backend {
     pub fn router(&self) -> Router {

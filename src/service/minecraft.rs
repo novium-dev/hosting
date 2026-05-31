@@ -1,11 +1,10 @@
-
 use super::*;
-use zelus::service;
-use crate::auth::Authentication;
-use crate::auth::permissions::{ServerPermissions};
 use crate::Backend;
+use crate::auth::Authentication;
+use crate::auth::permissions::ServerPermissions;
 use crate::db::server::ServerId;
 use crate::service::minecraft::minecraft_service_error::BanUserError;
+use zelus::service;
 
 #[service(path = "/minecraft", tag = "minecraft", no_sdk)]
 pub(crate) impl MinecraftService for Backend {
@@ -15,11 +14,12 @@ pub(crate) impl MinecraftService for Backend {
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        user: String
+        user: String,
     ) -> Result<(), _> {
         auth.require::<_, _, BanUserError>(server_id, ServerPermissions::TERMINAL_WRITE)?;
 
-        self.execute_rcon::<BanUserError>(server_id, vec!["ban".to_string(), user]).await?;
+        self.execute_rcon::<BanUserError>(server_id, vec!["ban".to_string(), user])
+            .await?;
 
         Ok(())
     }

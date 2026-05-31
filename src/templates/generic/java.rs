@@ -334,8 +334,7 @@ impl JavaVersion {
             });
         }
 
-        let (_, major, patch, build) =
-            regex_captures!(r"^(8)u([0-9]+)-b([0-9]{2})$", value)?;
+        let (_, major, patch, build) = regex_captures!(r"^(8)u([0-9]+)-b([0-9]{2})$", value)?;
         Some(JavaVersion::Legacy {
             major: major.parse::<u16>().ok()?,
             patch: patch.parse::<u16>().ok()?,

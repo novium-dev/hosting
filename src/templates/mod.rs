@@ -1,7 +1,7 @@
-pub mod minecraft;
-pub mod variable;
 pub mod generic;
+pub mod minecraft;
 mod utils;
+pub mod variable;
 
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use crate::service::template::error_template_corrupted::FromTemplateCorrupted;

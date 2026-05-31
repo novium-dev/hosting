@@ -6,11 +6,11 @@ pub(crate) mod auth;
 pub(crate) mod backup;
 pub(crate) mod file;
 pub(crate) mod internal;
+pub(crate) mod minecraft;
 pub(crate) mod profile;
 pub(crate) mod project;
 pub(crate) mod server;
 pub(crate) mod template;
-pub(crate) mod minecraft;
 
 define_error!(auth {
     invalid("Invalid authentication credentials" UNAUTHORIZED),

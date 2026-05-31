@@ -1,17 +1,17 @@
+use crate::templates::generic::{BRANCH_REGEX, RepositoryURL, docker, version_cmp};
+use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, VariablePayload};
+use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
 use chrono::{TimeDelta, TimeZone, Utc};
+use daemon_common::service::server::{ServerBuildImage, ServerBuildPayload};
 use indexmap::IndexSet;
+use lazy_regex::lazy_regex;
+use redis::RedisError;
+use redis::aio::ConnectionManager;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 use std::collections::{HashMap, HashSet};
-use daemon_common::service::server::{ServerBuildImage, ServerBuildPayload};
-use lazy_regex::lazy_regex;
-use redis::aio::ConnectionManager;
-use redis::RedisError;
 use tracing::debug;
-use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
-use crate::templates::generic::{docker, version_cmp, RepositoryURL, BRANCH_REGEX};
-use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, VariablePayload};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct GoExtra {

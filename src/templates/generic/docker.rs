@@ -1,3 +1,4 @@
+use crate::templates::utils::ReqwestJsonExtension;
 use either::Either;
 use indexmap::IndexSet;
 use serde::Deserialize;
@@ -6,7 +7,6 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tracing::{debug, error};
 use url::Url;
-use crate::templates::utils::ReqwestJsonExtension;
 
 static LOCK: Mutex<Option<Instant>> = Mutex::new(None);
 
