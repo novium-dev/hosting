@@ -34,6 +34,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{Connection as _, PgPool};
 use std::collections::HashMap;
 use std::env;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::fs::File;
@@ -98,7 +99,7 @@ pub fn main() {
     let guard = {
         reg.with(sentry::integrations::tracing::layer()).init();
         let sentry = sentry::init((
-            "https://79a1f560730aef34fdc4e4a3f3d9ce92@o4507044844404736.ingest.us.sentry.io/4508313795297280",
+            "https://807c80ad7f7c81d311769fdb55d85b13@o4507044844404736.ingest.us.sentry.io/4511468869976064",
             sentry::ClientOptions {
                 release: sentry::release_name!(),
                 ..Default::default()
@@ -122,11 +123,17 @@ pub fn main() {
 async fn main0() {
     info!("Starting Backend on version {}", env!("GIT_HASH"));
 
-    let (root_key, root_privkey, user_key, backend_key) = crypto::check_and_generate_keys().await;
+    let data_dir =
+        env::var_os("BACKEND_DATA_DIR").map_or_else(|| PathBuf::from("."), PathBuf::from);
+
+    info!("Using data directory {}", data_dir.display());
+
+    let (root_key, root_privkey, user_key, backend_key) =
+        crypto::check_and_generate_keys(&data_dir).await;
 
     let config: BackendConfig = {
         let mut config_buffer = String::new();
-        File::open("config.toml")
+        File::open(data_dir.join("config.toml"))
             .await
             .expect("Failed to open config file")
             .read_to_string(&mut config_buffer)
