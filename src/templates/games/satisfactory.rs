@@ -14,11 +14,11 @@ use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, Variable
 use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
 
 const SATISFACTORY_APP_ID: u32 = 1_690_800;
+const SERVER_PORT: u16 = 7777;
+const RELIABLE_PORT: u16 = 8888;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct SatisfactoryExtra {
-    server_port: u16,
-    reliable_port: u16,
     auto_update: bool,
     validate: bool,
     num_autosaves: u16,
@@ -69,11 +69,6 @@ pub(crate) struct SatisfactoryCache;
 pub(crate) struct SatisfactoryTemplate;
 
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
-static PORT_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!(
-    r"^(?:[0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$"
-);
-
-#[expect(clippy::non_std_lazy_statics, reason = "external crate")]
 static POSITIVE_INTEGER_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!(r"^[1-9][0-9]*$");
 
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
@@ -103,7 +98,44 @@ impl Template for SatisfactoryTemplate {
                 ".steam/".to_owned(),
                 "Engine/Binaries/ThirdParty/Steamworks/".to_owned(),
             ]),
-            files_write: HashMap::new(),
+            files_write: /* HashMap::from([
+                (
+                    "FactoryGame/Saved/Config/LinuxServer/Game.ini".to_owned(),
+                    ServerFileWrite::Ini {
+                        content: HashMap::from([(
+                            "/Script/Engine.GameSession".to_owned(),
+                            HashMap::from([("MaxPlayers".to_owned(), extra.max_players.to_string())]),
+                        )]),
+                    },
+                ),
+                (
+                    "FactoryGame/Saved/Config/LinuxServer/Engine.ini".to_owned(),
+                    ServerFileWrite::Ini {
+                        content: HashMap::from([
+                            (
+                                "/Script/FactoryGame.FGSaveSession".to_owned(),
+                                HashMap::from([(
+                                    "mNumRotatingAutosaves".to_owned(),
+                                    extra.num_autosaves.to_string(),
+                                )]),
+                            ),
+                            (
+                                "/Script/OnlineSubsystemUtils.IpNetDriver".to_owned(),
+                                HashMap::from([
+                                    (
+                                        "InitialConnectTimeout".to_owned(),
+                                        extra.init_connect_timeout.to_string(),
+                                    ),
+                                    (
+                                        "ConnectionTimeout".to_owned(),
+                                        extra.connect_timeout.to_string(),
+                                    ),
+                                ]),
+                            ),
+                        ]),
+                    },
+                ),
+            ]) */ HashMap::new(),
             cap_add: Vec::new(),
             cap_drop: vec![
                 "MKNOD".to_owned(),
@@ -118,20 +150,8 @@ impl Template for SatisfactoryTemplate {
                 "NET_BIND_SERVICE".to_owned(),
             ],
             environment: HashMap::from([
-                ("SERVER_PORT".to_owned(), extra.server_port.to_string()),
-                ("RELIABLE_PORT".to_owned(), extra.reliable_port.to_string()),
                 ("AUTO_UPDATE".to_owned(), bool_env(extra.auto_update)),
                 ("VALIDATE".to_owned(), bool_env(extra.validate)),
-                ("NUM_AUTOSAVES".to_owned(), extra.num_autosaves.to_string()),
-                ("MAX_PLAYERS".to_owned(), extra.max_players.to_string()),
-                (
-                    "INIT_CONNECT_TIMEOUT".to_owned(),
-                    extra.init_connect_timeout.to_string(),
-                ),
-                (
-                    "CONNECT_TIMEOUT".to_owned(),
-                    extra.connect_timeout.to_string(),
-                ),
                 (
                     "SRCDS_BETAID".to_owned(),
                     extra.branch.steamcmd_value().to_owned(),
@@ -147,8 +167,6 @@ impl Template for SatisfactoryTemplate {
 
     async fn default_extra(&self, _cache: &Self::Cache) -> Result<Self::Extra, ThinTemplateError> {
         Ok(SatisfactoryExtra {
-            server_port: 7777,
-            reliable_port: 8888,
             auto_update: true,
             validate: false,
             num_autosaves: 3,
@@ -167,7 +185,7 @@ impl Template for SatisfactoryTemplate {
                 "satisfactory_tcp".to_owned(),
                 TemplatePortDefinition {
                     protocol: NetworkProtocol::Tcp,
-                    internal_port: 7777,
+                    internal_port: SERVER_PORT,
                     placeholder: "Satisfactory TCP".to_owned(),
                 },
             ),
@@ -175,7 +193,7 @@ impl Template for SatisfactoryTemplate {
                 "satisfactory_udp".to_owned(),
                 TemplatePortDefinition {
                     protocol: NetworkProtocol::Udp,
-                    internal_port: 7777,
+                    internal_port: SERVER_PORT,
                     placeholder: "Satisfactory UDP".to_owned(),
                 },
             ),
@@ -183,7 +201,7 @@ impl Template for SatisfactoryTemplate {
                 "reliable_messaging".to_owned(),
                 TemplatePortDefinition {
                     protocol: NetworkProtocol::Tcp,
-                    internal_port: 8888,
+                    internal_port: RELIABLE_PORT,
                     placeholder: "Reliable Messaging".to_owned(),
                 },
             ),
@@ -197,33 +215,16 @@ impl Template for SatisfactoryTemplate {
     ) -> Result<VariablePayload, TemplateError> {
         Ok(VariableBuilder::default()
             .group(
-                VariableGroupBuilder::new(Some("Satisfactory"))
-                    .regex_variable(
-                        "server_port",
-                        "Server Port",
-                        Some(extra.server_port.to_string()),
-                        PORT_REGEX.as_str(),
-                        "7777",
-                        false,
-                    )
-                    .regex_variable(
-                        "reliable_port",
-                        "Reliable Messaging Port",
-                        Some(extra.reliable_port.to_string()),
-                        PORT_REGEX.as_str(),
-                        "8888",
-                        false,
-                    )
-                    .static_variable(
-                        "branch",
-                        "Branch",
-                        Some(extra.branch.label()),
-                        IndexSet::from([
-                            "Default".to_owned(),
-                            "Public".to_owned(),
-                            "Experimental".to_owned(),
-                        ]),
-                    ),
+                VariableGroupBuilder::new(Some("Satisfactory")).static_variable(
+                    "branch",
+                    "Branch",
+                    Some(extra.branch.label()),
+                    IndexSet::from([
+                        "Default".to_owned(),
+                        "Public".to_owned(),
+                        "Experimental".to_owned(),
+                    ]),
+                ),
             )
             .group(
                 VariableGroupBuilder::new(Some("Updates"))
@@ -298,8 +299,6 @@ impl Template for SatisfactoryTemplate {
 
         let Some(extra) = (|| {
             Some(SatisfactoryExtra {
-                server_port: parse_port(variables.get("server_port")?)?,
-                reliable_port: parse_port(variables.get("reliable_port")?)?,
                 auto_update: parse_bool(variables.get("auto_update")?)?,
                 validate: parse_bool(variables.get("validate")?)?,
                 num_autosaves: parse_u16(variables.get("num_autosaves")?)?,
@@ -327,10 +326,10 @@ impl Template for SatisfactoryTemplate {
     async fn primary_port(
         &self,
         _cache: &Self::Cache,
-        extra: Self::Extra,
+        _extra: Self::Extra,
         ports: &HashMap<u32, ServerPort>,
     ) -> Option<(u32, ServerPort, u16)> {
-        self.primary_port0(ports, extra.server_port, NetworkProtocol::Tcp)
+        self.primary_port0(ports, SERVER_PORT, NetworkProtocol::Tcp)
             .await
     }
 
@@ -361,13 +360,6 @@ fn parse_bool(value: &str) -> Option<bool> {
         "false" | "0" | "" => Some(false),
         _ => None,
     }
-}
-
-fn parse_port(value: &str) -> Option<u16> {
-    PORT_REGEX
-        .is_match(value)
-        .then(|| value.parse::<u16>().ok())
-        .flatten()
 }
 
 fn parse_u16(value: &str) -> Option<u16> {
