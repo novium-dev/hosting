@@ -262,6 +262,7 @@ pub(crate) impl NodeAdminService for Backend {
         }
 
         let mut conn = self.database.acquire().await?;
+        let backend = self.clone();
         conn.transaction(|tx| {
             Box::pin(async move {
                 let id = query!(
@@ -274,6 +275,8 @@ pub(crate) impl NodeAdminService for Backend {
                 .fetch_one(&mut **tx)
                 .await?
                 .id;
+
+                backend.sync_nodes(tx).await?;
 
                 Ok::<_, AddNodePortError>(id)
             })

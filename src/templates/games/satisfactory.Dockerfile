@@ -1,4 +1,5 @@
-FROM --platform=linux/amd64 debian:bookworm-slim
+ARG SATISFACTORY_PLATFORM=linux/amd64
+FROM --platform=$SATISFACTORY_PLATFORM debian:bookworm-slim
 
 RUN dpkg --add-architecture i386 \
     && apt-get update \
