@@ -20,6 +20,7 @@ use crate::db::node::BackendNode;
 #[cfg(feature = "embedded_node")]
 use crate::embedded_node::setup_embedded_node;
 use crate::templates::TemplateInner;
+use crate::templates::games::satisfactory::SatisfactoryTemplate;
 use crate::templates::generic::go::GoTemplate;
 use crate::templates::generic::java::JavaTemplate;
 use crate::templates::generic::python::PythonTemplate;
@@ -256,6 +257,13 @@ async fn main0() {
             .await
             .expect("Unable to initialize rust template");
         templates.insert(rust.id().to_owned(), Arc::new(rust));
+
+        let satisfactory = SatisfactoryTemplate;
+        satisfactory
+            .init(backend.cache.clone())
+            .await
+            .expect("Unable to initialize satisfactory template");
+        templates.insert(satisfactory.id().to_owned(), Arc::new(satisfactory));
     };
 
     info!("Starting Webserver...");
