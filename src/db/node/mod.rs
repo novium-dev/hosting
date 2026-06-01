@@ -68,7 +68,7 @@ impl Backend {
 
         let mut nodes = HashMap::new();
         for node in query!(r#"SELECT id,url,display,maintenance AS "maintenance: bool",default_host,default_bind FROM nodes"#)
-            .fetch_all(&*self.database)
+            .fetch_all(&mut **tx)
             .await? {
 
             let server_storages = query!(

@@ -265,8 +265,9 @@ features = ["error", "io", "sqlx", "redis"]
 
 [dependencies.daemon]
 git = "ssh://git@github.com/novium-dev/daemon.git"
+branch = "tty-refactor"
 default-features = false
-features = ["btrfs", "no_tty_size_please"]
+features = ["btrfs"]
 optional = true
 
 [dependencies.sentry]

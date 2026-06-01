@@ -598,7 +598,7 @@ dependencies = [
  "chrono",
  "concat-idents",
  "daemon",
- "daemon_common",
+ "daemon_common 0.1.0 (git+ssh://git@github.com/novium-dev/daemon.git)",
  "ed25519-dalek",
  "either",
  "futures",
@@ -838,8 +838,9 @@ dependencies = [
 
 [[package]]
 name = "bollard"
-version = "0.20.2"
-source = "git+https://github.com/fussybeaver/bollard.git?rev=dca659509a12544cabe418c7832f1ac741c88d2c#dca659509a12544cabe418c7832f1ac741c88d2c"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9d0a013e3d3ee4edd61e779adf117944c08902d375f18630a0c5b8f95659734"
 dependencies = [
  "base64",
  "bollard-stubs",
@@ -869,9 +870,9 @@ dependencies = [
 
 [[package]]
 name = "bollard-stubs"
-version = "1.52.1-rc.29.1.3"
+version = "1.53.1-rc.29.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f0a8ca8799131c1837d1282c3f81f31e76ceb0ce426e04a7fe1ccee3287c066"
+checksum = "ce412eb6f7096743011dc3cb5c674caeb24ced61d8c498fe07cf7998a4fea889"
 dependencies = [
  "serde",
  "serde_json",
@@ -1241,6 +1242,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
+name = "const-random"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87e00182fe74b066627d63b85fd550ac2998d4b0bd86bfed477a0ae4c7c71359"
+dependencies = [
+ "const-random-macro",
+]
+
+[[package]]
+name = "const-random-macro"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9d839f2a20b0aee515dc581a6172f2321f96cab76c1a38a4c584a194955390e"
+dependencies = [
+ "getrandom 0.2.17",
+ "once_cell",
+ "tiny-keccak",
+]
+
+[[package]]
 name = "convert_case"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1397,6 +1418,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "crunchy"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
+
+[[package]]
 name = "crypto-bigint"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1525,7 +1552,7 @@ dependencies = [
 [[package]]
 name = "daemon"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#a9d765415a8191160d76534f15ff9807f1b0106d"
+source = "git+ssh://git@github.com/novium-dev/daemon.git?branch=tty-refactor#234554c4824a2e86f92bfeeae84064b6da1b326a"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1546,7 +1573,7 @@ dependencies = [
  "clap",
  "cron",
  "crossterm",
- "daemon_common",
+ "daemon_common 0.1.0 (git+ssh://git@github.com/novium-dev/daemon.git?branch=tty-refactor)",
  "ed25519-dalek",
  "either",
  "flate2",
@@ -1599,7 +1626,7 @@ dependencies = [
 [[package]]
 name = "daemon_common"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#a9d765415a8191160d76534f15ff9807f1b0106d"
+source = "git+ssh://git@github.com/novium-dev/daemon.git?branch=tty-refactor#234554c4824a2e86f92bfeeae84064b6da1b326a"
 dependencies = [
  "asn1-rs",
  "axum",
@@ -1612,11 +1639,52 @@ dependencies = [
  "crc64",
  "cron",
  "ed25519-dalek",
+ "java-properties",
+ "json-patch",
+ "lazy-regex",
+ "pem",
+ "pkcs8 0.11.0-rc.11",
+ "rand 0.10.1",
+ "rand_core 0.10.1",
+ "rcgen",
+ "rust-ini",
+ "rustls",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng 0.10.0 (git+https://github.com/acatton/serde-yaml-ng?rev=3628102977f3ec9e02b95ef32fcec30b3df91390)",
+ "thiserror 2.0.18",
+ "time",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "tracing",
+ "url",
+ "utoipa",
+ "uuid",
+ "x509-parser",
+ "xmltree",
+ "zelus",
+]
+
+[[package]]
+name = "daemon_common"
+version = "0.1.0"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#a9d765415a8191160d76534f15ff9807f1b0106d"
+dependencies = [
+ "asn1-rs",
+ "axum",
+ "base64",
+ "bitflags 2.11.1",
+ "chacha20 0.10.0",
+ "chrono",
+ "chrono-tz",
+ "crc64",
+ "cron",
+ "ed25519-dalek",
  "either",
  "http",
  "java-properties",
  "json-patch",
- "lazy-regex",
  "pem",
  "pkcs8 0.11.0-rc.11",
  "rand 0.10.1",
@@ -1841,6 +1909,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "dlv-list"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "442039f5147480ba31067cb00ada1adae6892028e40e45fc5de7b7df6dcc1b5f"
+dependencies = [
+ "const-random",
 ]
 
 [[package]]
@@ -4012,6 +4089,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordered-multimap"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49203cdcae0030493bad186b28da2fa25645fa276a51b6fec8010d281e02ef79"
+dependencies = [
+ "dlv-list",
+ "hashbrown 0.14.5",
+]
+
+[[package]]
 name = "os_info"
 version = "3.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5259,6 +5346,16 @@ checksum = "5bcdef0be6fe7f6fa333b1073c949729274b05f123a0ad7efcb8efd878e5c3b1"
 dependencies = [
  "sha2 0.10.9",
  "walkdir",
+]
+
+[[package]]
+name = "rust-ini"
+version = "0.21.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "796e8d2b6696392a43bea58116b667fb4c29727dc5abd27d6acf338bb4f688c7"
+dependencies = [
+ "cfg-if",
+ "ordered-multimap",
 ]
 
 [[package]]
@@ -6781,6 +6878,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tiny-keccak"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237"
+dependencies = [
+ "crunchy",
+]
+
+[[package]]
 name = "tinystr"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8181,6 +8287,15 @@ name = "xml"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "636f85e5ca6488e96401b61eb7de54f4e44755c988af0f52cf90230c312a1a89"
+
+[[package]]
+name = "xmltree"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbc04313cab124e498ab1724e739720807b6dc405b9ed0edc5860164d2e4ff70"
+dependencies = [
+ "xml",
+]
 
 [[package]]
 name = "xxhash-rust"
