@@ -1552,7 +1552,7 @@ dependencies = [
 [[package]]
 name = "daemon"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git?branch=tty-refactor#234554c4824a2e86f92bfeeae84064b6da1b326a"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#c08c0cdfa9c2a6c8994306c9a11eadebcd960530"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1626,7 +1626,7 @@ dependencies = [
 [[package]]
 name = "daemon_common"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git?branch=tty-refactor#234554c4824a2e86f92bfeeae84064b6da1b326a"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#c08c0cdfa9c2a6c8994306c9a11eadebcd960530"
 dependencies = [
  "asn1-rs",
  "axum",
