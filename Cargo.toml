@@ -255,6 +255,7 @@ opt-level = 3
 
 [dependencies.daemon_common]
 git = "ssh://git@github.com/novium-dev/daemon.git"
+branch = "tty-refactor"
 default-features = false
 features = ["sdk", "backend", "ssh"]
 

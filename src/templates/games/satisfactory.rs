@@ -1,4 +1,4 @@
-use daemon_common::service::server::{ServerBuildImage, ServerBuildPayload};
+use daemon_common::service::server::{ServerBuildImage, ServerBuildPayload, ServerFileWrite};
 use indexmap::IndexSet;
 use lazy_regex::lazy_regex;
 use redis::RedisError;
@@ -98,7 +98,7 @@ impl Template for SatisfactoryTemplate {
                 ".steam/".to_owned(),
                 "Engine/Binaries/ThirdParty/Steamworks/".to_owned(),
             ]),
-            files_write: /* HashMap::from([
+            files_write: HashMap::from([
                 (
                     "FactoryGame/Saved/Config/LinuxServer/Game.ini".to_owned(),
                     ServerFileWrite::Ini {
@@ -135,7 +135,7 @@ impl Template for SatisfactoryTemplate {
                         ]),
                     },
                 ),
-            ]) */ HashMap::new(),
+            ]),
             cap_add: Vec::new(),
             cap_drop: vec![
                 "MKNOD".to_owned(),
