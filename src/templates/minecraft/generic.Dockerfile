@@ -13,5 +13,5 @@ RUN ln -s /work/.tmp /var/tmp
 COPY --from=monitor /mc-monitor /mc-monitor
 
 WORKDIR /work
-ENTRYPOINT ["java", "-Dterminal.jline=false" ,"-Dterminal.ansi=true", "-Djava.net.preferIPv6Addresses=system", "-XX:MaxRAMPercentage=95.0", "-jar", "/server.jar"]
+ENTRYPOINT ["java", "-Dterminal.ansi=true", "-Djava.net.preferIPv6Addresses=system", "-XX:MaxRAMPercentage=95.0", "-jar", "/server.jar"]
 HEALTHCHECK --start-period=2m --retries=3 --interval=30s CMD /mc-monitor status -json
