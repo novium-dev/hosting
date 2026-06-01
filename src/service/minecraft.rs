@@ -6,9 +6,13 @@ use crate::db::server::ServerId;
 use crate::service::minecraft::minecraft_service_error::{BanUserError, DeopUserError, OpUserError, PardonUserError};
 use zelus::service;
 
+define_query_variable!(
+    user "The user on which to perform the action"
+);
+
 #[service(path = "/minecraft", tag = "minecraft", no_sdk)]
 pub(crate) impl MinecraftService for Backend {
-    #[route("/{server_id}/ban", method = GET)]
+    #[route("/{server_id}/ban", method = GET, query = [ user ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn ban_user(
         &self,
@@ -24,7 +28,7 @@ pub(crate) impl MinecraftService for Backend {
         Ok(())
     }
 
-    #[route("/{server_id}/pardon", method = GET)]
+    #[route("/{server_id}/pardon", method = GET, query = [ user ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn pardon_user(
         &self,
@@ -40,7 +44,7 @@ pub(crate) impl MinecraftService for Backend {
         Ok(())
     }
 
-    #[route("/{server_id}/op", method = GET)]
+    #[route("/{server_id}/op", method = GET, query = [ user ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn op_user(
         &self,
@@ -56,7 +60,7 @@ pub(crate) impl MinecraftService for Backend {
         Ok(())
     }
 
-    #[route("/{server_id}/deop", method = GET)]
+    #[route("/{server_id}/deop", method = GET, query = [ user ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn deop_user(
         &self,

@@ -490,11 +490,9 @@ pub(crate) impl ServerService for Backend {
                 server.node_server_id,
                 Some(0),
                 Some(0),
-                None,
                 auth.has(server_id, ServerPermissions::TERMINAL_WRITE),
             )
             .to_string();
-        );
 
         Ok(url)
     }
@@ -521,7 +519,6 @@ pub(crate) impl ServerService for Backend {
             .services
             .server_stats_user_url_signed(server.node_server_id)
             .to_string();
-        );
 
         Ok(url)
     }
