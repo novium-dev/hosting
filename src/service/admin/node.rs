@@ -64,7 +64,7 @@ pub(crate) impl NodeAdminService for Backend {
         auth.require::<_, _, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
         let code = gen_code::<CreateNodeError>()?;
-        
+
         let registration = NodeRegistration {
             time: Instant::now(),
             name,
@@ -99,8 +99,8 @@ pub(crate) impl NodeAdminService for Backend {
 
         let NodeConfig {
             base_url,
-            database,
-            ssh,
+            database: _,
+            ssh: _,
             storages,
             backups,
         } = node.config().await.map_err(|err| {
@@ -108,21 +108,13 @@ pub(crate) impl NodeAdminService for Backend {
             UpdateNodeError::NodeFailure
         })?;
 
-        let (ssh_host, ssh_port) = match ssh {
-            Some(ssh) => (Some(ssh.host.to_string()), Some(i32::from(ssh.port))),
-            None => (None, None),
-        };
-
         let mut conn = self.database.acquire().await?;
         let backend = self.clone();
         conn.transaction(|tx| {
             Box::pin(async move {
                 query!(
-                    "UPDATE nodes SET url = $1, database = $2, ssh_host = $3, ssh_port = $4 WHERE id = $5",
+                    "UPDATE nodes SET url = $1 WHERE id = $2",
                     base_url.as_str(),
-                    database,
-                    ssh_host.as_deref(),
-                    ssh_port,
                     node_id
                 )
                 .execute(&mut **tx)
