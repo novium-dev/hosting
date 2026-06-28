@@ -13,8 +13,9 @@ use zelus::service;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
-use crate::db::node::NodePortAllocation;
+use crate::db::node::{NodePortAllocation, replace_storages};
 use crate::db::server::ports::NetworkProtocol;
+use daemon_common::node::NodeConfig;
 use crate::service::admin::node::node_admin_service_error::{
     AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodePortError, ListNodesError,
     MetricsNodeError, UpdateMaintenanceError, UpdateNodeError,
@@ -45,13 +46,20 @@ pub(crate) struct PortRange {
 
 #[service(path = "/admin/node", tag = "node", no_sdk)]
 pub(crate) impl NodeAdminService for Backend {
-    /// Creates a new node registration code.
+    /// Creates a new node registration code for the given intended [`NodeConfig`].
+    ///
+    /// The daemon pulls the config during setup (`GET /internal/daemon/config`)
+    /// using the returned code and registers itself against it.
     ///
     /// # Permissions
     /// Requires [`ManagementPermission::NODES_MANAGE`].
     #[route("", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*])]
-    async fn create_node(&self, #[special] auth: Authentication) -> Result<String, _> {
+    async fn create_node(
+        &self,
+        #[special] auth: Authentication,
+        config: NodeConfig,
+    ) -> Result<String, _> {
         auth.require::<_, _, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
         let code = gen_code::<CreateNodeError>()?;
@@ -59,36 +67,69 @@ pub(crate) impl NodeAdminService for Backend {
         self.node_registrations
             .write()
             .await
-            .insert(code.clone(), (Instant::now(), None));
+            .insert(code.clone(), (Instant::now(), config));
 
         Ok(code)
     }
 
-    /// Creates a new node registration code to update an existing node.
+    /// Pulls the current [`NodeConfig`] from a running node over mTLS and
+    /// reconciles it into the backend's stored config.
     ///
     /// # Permissions
     /// Requires [`ManagementPermission::NODES_MANAGE`].
     #[route("/{node_id}", method = PATCH)]
-    #[error(node::not_found, auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*])]
-    async fn update_node(
-        &self,
-        #[special] auth: Authentication,
-        node_id: Uuid,
-    ) -> Result<String, _> {
+    #[error(node::{not_found, failure}, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn update_node(&self, #[special] auth: Authentication, node_id: Uuid) -> Result<(), _> {
         auth.require::<_, _, UpdateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
-        if self.nodes.read().await.get(&node_id).is_none() {
-            return Err(UpdateNodeError::NodeNotFound);
-        }
-
-        let code = gen_code::<UpdateNodeError>()?;
-
-        self.node_registrations
-            .write()
+        let node = self
+            .nodes
+            .read()
             .await
-            .insert(code.clone(), (Instant::now(), Some(node_id)));
+            .get(&node_id)
+            .cloned()
+            .ok_or(UpdateNodeError::NodeNotFound)?;
 
-        Ok(code)
+        let NodeConfig {
+            base_url,
+            database,
+            ssh,
+            storages,
+            backups,
+        } = node.config().await.map_err(|err| {
+            error!("Failed to pull config from node {node_id}: {err:?}");
+            UpdateNodeError::NodeFailure
+        })?;
+
+        let (ssh_host, ssh_port) = match ssh {
+            Some(ssh) => (Some(ssh.host.to_string()), Some(i32::from(ssh.port))),
+            None => (None, None),
+        };
+
+        let mut conn = self.database.acquire().await?;
+        let backend = self.clone();
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                query!(
+                    "UPDATE nodes SET url = $1, database = $2, ssh_host = $3, ssh_port = $4 WHERE id = $5",
+                    base_url.as_str(),
+                    database,
+                    ssh_host.as_deref(),
+                    ssh_port,
+                    node_id
+                )
+                .execute(&mut **tx)
+                .await
+                .inspect_err(|err| error!("Unable to update node config: {err:?}"))?;
+
+                replace_storages(tx, &node_id, storages, backups).await?;
+
+                backend.sync_nodes(tx).await?;
+
+                Ok::<_, UpdateNodeError>(())
+            })
+        })
+        .await
     }
 
     /// Lists all nodes.

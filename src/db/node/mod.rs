@@ -152,3 +152,62 @@ impl Backend {
         Ok(())
     }
 }
+
+/// Inserts the logical storage layout for a node.
+pub(crate) async fn insert_storages(
+    tx: &mut Transaction<'_, Postgres>,
+    id: &Uuid,
+    storages: HashMap<String, ServerStorage>,
+    backups: HashMap<String, BackupStorage>,
+) -> Result<(), sqlx::Error> {
+    for (storage_id, storage) in storages {
+        let storage_type = match storage {
+            ServerStorage::Btrfs(_) => "btrfs",
+            ServerStorage::Directory => "directory",
+        };
+        let group = match storage {
+            ServerStorage::Btrfs(group) => Some(group),
+            ServerStorage::Directory => None,
+        };
+        query!(r#"INSERT INTO node_server_storage (node,storage,storage_type,"group") VALUES ($1, $2, $3, $4)"#, id, storage_id, storage_type, group)
+            .execute(&mut **tx)
+            .await
+            .inspect_err(|err| {
+                error!("Failed to insert node (server_storage, insertion): {err:?}");
+            })?;
+    }
+    for (storage_id, storage) in backups {
+        let storage_type = match storage {
+            BackupStorage::Btrfs(_) => "btrfs",
+            BackupStorage::Archive => "archive",
+        };
+        let group = match storage {
+            BackupStorage::Btrfs(group) => Some(group),
+            BackupStorage::Archive => None,
+        };
+        query!(r#"INSERT INTO node_backup_storage (node,storage,storage_type,"group") VALUES ($1, $2, $3, $4)"#, id, storage_id, storage_type, group)
+                .execute(&mut **tx)
+                .await
+                .inspect_err(|err| error!("Failed to insert node (backup_storage, insertion): {err:?}"))?;
+    }
+    Ok(())
+}
+
+/// Replaces the logical storage layout for an existing node (delete + insert).
+pub(crate) async fn replace_storages(
+    tx: &mut Transaction<'_, Postgres>,
+    id: &Uuid,
+    storages: HashMap<String, ServerStorage>,
+    backups: HashMap<String, BackupStorage>,
+) -> Result<(), sqlx::Error> {
+    query!("DELETE FROM node_server_storage WHERE node = $1", id)
+        .execute(&mut **tx)
+        .await
+        .inspect_err(|err| error!("Unable to delete prior server storages: {err:?}"))?;
+    query!("DELETE FROM node_backup_storage WHERE node = $1", id)
+        .execute(&mut **tx)
+        .await
+        .inspect_err(|err| error!("Unable to delete prior backup storages: {err:?}"))?;
+
+    insert_storages(tx, id, storages, backups).await
+}

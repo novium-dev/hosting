@@ -1,4 +1,5 @@
 use super::*;
+use crate::db::node::insert_storages;
 use crate::service::internal::internal_service_error::{AuthPasswordError, AuthPublickeyError};
 use crate::{
     Backend,
@@ -6,7 +7,7 @@ use crate::{
     service::internal::{
         error_internal_daemon_key_invalid::FromInternalDaemonKeyInvalid,
         error_internal_daemon_unreachable::FromInternalDaemonUnreachable,
-        internal_service_error::{DaemonRegisterError, DaemonRootKeyError, DaemonUpdateError},
+        internal_service_error::{DaemonConfigError, DaemonRegisterError, DaemonRootKeyError},
     },
 };
 use axum_extra::headers::authorization::Basic;
@@ -19,7 +20,7 @@ use daemon_common::node::BackendAuthServerPermissions;
 use daemon_common::ssh::{DaemonBackendAuthResponse, DaemonBackendAuthServer};
 use daemon_common::{
     key::rcgen::{CertificateSigningRequestParams, DnType, DnValue},
-    node::{BackupStorage, NodeRegistrationRequest, NodeUpdateRequest, ServerStorage},
+    node::{NodeConfig, NodeRegistrationRequest},
     sdk::DaemonSDK,
     service::setup::{SetupService as _, setup_service_error::ConnectionTestError},
 };
@@ -27,8 +28,8 @@ use rustls::{
     RootCertStore,
     pki_types::{CertificateDer, CertificateSigningRequestDer},
 };
-use sqlx::{Connection as _, Postgres, Transaction, query};
-use std::{collections::HashMap, sync::Arc};
+use sqlx::{Connection as _, query};
+use std::sync::Arc;
 use tracing::{debug, error};
 use url::Url;
 use uuid::Uuid;
@@ -40,7 +41,8 @@ define_header_variable!(generated_arg_2 "The authorizations credentials of the u
 define_error!(internal_daemon {
     key_invalid("Invalid key for certificate request" BAD_REQUEST),
     unreachable("Connection test failed" BAD_GATEWAY),
-    sign_failed("Unable to sign daemon key" INTERNAL_SERVER_ERROR)
+    sign_failed("Unable to sign daemon key" INTERNAL_SERVER_ERROR),
+    mismatch("Registration request does not match the assigned node config" BAD_REQUEST)
 });
 
 define_query_variable!(
@@ -73,11 +75,37 @@ pub(crate) impl InternalService for Backend {
         }
     }
 
+    /// Returns the intended logical [`NodeConfig`] for a pending node registration.
+    ///
+    /// The daemon pulls this during setup (between `root_key` and `register`) to
+    /// build its local config. The response carries database credentials, so it
+    /// is served only over TLS and gated strictly behind the setup code.
+    ///
+    /// This route should only be used directly by the daemon.
+    #[route("/daemon/config", no_auth)]
+    #[error(auth::invalid)]
+    async fn daemon_config(
+        &self,
+        TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
+    ) -> Result<NodeConfig, _> {
+        if let Some((elapsed_time, config)) = self
+            .node_registrations
+            .read()
+            .await
+            .get(&auth.token().to_owned())
+            && elapsed_time.elapsed() < REGISTRATION_TIMEOUT
+        {
+            Ok(config.clone())
+        } else {
+            Err(DaemonConfigError::AuthInvalid)
+        }
+    }
+
     /// Registers a new daemon.
     ///
     /// This route should only be used directly by the daemon.
     #[route("/daemon/register", method = POST, raw, no_auth)]
-    #[error(internal_daemon::{key_invalid, unreachable, sign_failed}, db::failure <- [sql:*], auth::invalid)]
+    #[error(internal_daemon::{key_invalid, unreachable, sign_failed, mismatch}, db::failure <- [sql:*], auth::invalid)]
     async fn daemon_register(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
@@ -85,15 +113,14 @@ pub(crate) impl InternalService for Backend {
             cert,
             csr,
             base_url,
+            ssh,
             storages,
             backups,
             default_bind,
             default_host,
-            // TODO: SSH
-            ..
         }: NodeRegistrationRequest,
     ) -> Result<Vec<u8>, _> {
-        if let Some((elapsed_time, None)) = self
+        if let Some((elapsed_time, node_config)) = self
             .node_registrations
             .write()
             .await
@@ -120,6 +147,31 @@ pub(crate) impl InternalService for Backend {
                 return Err(DaemonRegisterError::InternalDaemonKeyInvalid);
             }
 
+            // The daemon builds its registration request from the NodeConfig we
+            // handed out via `daemon_config`, so the logical layout must match
+            // exactly. The database URL is owned by the backend and never echoed
+            // back, so it is taken from the assigned config rather than the request.
+            let ssh_matches = match (&ssh, &node_config.ssh) {
+                (None, None) => true,
+                (Some(request), Some(assigned)) => {
+                    request.host == assigned.host && request.port == assigned.port
+                }
+                _ => false,
+            };
+            if base_url != node_config.base_url
+                || !ssh_matches
+                || storages != node_config.storages
+                || backups != node_config.backups
+            {
+                return Err(DaemonRegisterError::InternalDaemonMismatch);
+            }
+
+            let database = node_config.database;
+            let (ssh_host, ssh_port) = match ssh {
+                Some(ssh) => (Some(ssh.host.to_string()), Some(i32::from(ssh.port))),
+                None => (None, None),
+            };
+
             let uuid = Uuid::new_v4();
             let signed = self
                 .root_key
@@ -130,7 +182,7 @@ pub(crate) impl InternalService for Backend {
             let backend = self.clone();
             self.database.acquire().await?
                 .transaction(move |tx| Box::pin(async move {
-                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host) VALUES ($1, 'New node', $2, $3, $4)", &uuid, base_url.as_str(), &default_bind, &default_host)
+                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host,database,ssh_host,ssh_port) VALUES ($1, 'New node', $2, $3, $4, $5, $6, $7)", &uuid, base_url.as_str(), &default_bind, &default_host, &database, ssh_host.as_deref(), ssh_port)
                         .execute(&mut **tx)
                         .await
                         .inspect_err(|err| error!("Failed to insert node: {err:?}"))?;
@@ -146,74 +198,6 @@ pub(crate) impl InternalService for Backend {
             Ok(signed.to_vec())
         } else {
             Err(DaemonRegisterError::AuthInvalid)
-        }
-    }
-
-    /// Updates an existing daemon.
-    ///
-    /// This route should only be used directly by the daemon.
-    #[route("/daemon/update", method = POST, no_auth)]
-    #[error(internal_daemon::{key_invalid, unreachable}, db::failure <- [sql:*], auth::invalid)]
-    async fn daemon_update(
-        &self,
-        TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
-        NodeUpdateRequest {
-            base_url,
-            storages,
-            backups,
-            // TODO: SSH
-            ..
-        }: NodeUpdateRequest,
-    ) -> Result<(), _> {
-        if let Some((elapsed_time, Some(node_id))) = self
-            .node_registrations
-            .write()
-            .await
-            .remove(&auth.token().to_owned())
-            && elapsed_time.elapsed() < REGISTRATION_TIMEOUT
-        {
-            daemon_connection_test::<DaemonUpdateError>(node_id, &base_url, self, None).await?;
-
-            let backend = self.clone();
-
-            self.database
-                .acquire()
-                .await?
-                .transaction(move |tx| {
-                    Box::pin(async move {
-                        query!(
-                            "UPDATE nodes SET url = $1 WHERE id = $2",
-                            base_url.as_str(),
-                            node_id
-                        )
-                        .execute(&mut **tx)
-                        .await
-                        .inspect_err(|err| error!("Unable to update base_url of node: {err:?}"))?;
-
-                        query!("DELETE FROM node_server_storage WHERE node = $1", node_id)
-                            .execute(&mut **tx)
-                            .await
-                            .inspect_err(|err| {
-                                error!("Unable to delete prior server storages: {err:?}");
-                            })?;
-
-                        query!("DELETE FROM node_backup_storage WHERE node = $1", node_id)
-                            .execute(&mut **tx)
-                            .await
-                            .inspect_err(|err| {
-                                error!("Unable to delete prior backup storages: {err:?}");
-                            })?;
-
-                        insert_storages(tx, &node_id, storages, backups).await?;
-
-                        backend.sync_nodes(tx).await?;
-
-                        Ok(())
-                    })
-                })
-                .await
-        } else {
-            Err(DaemonUpdateError::AuthInvalid)
         }
     }
 
@@ -404,47 +388,6 @@ fn daemon_auth_permissions(permissions: i64) -> BackendAuthServerPermissions {
         daemon_permissions |= BackendAuthServerPermissions::BACKUP_DOWNLOAD;
     }
     daemon_permissions
-}
-
-async fn insert_storages(
-    tx: &mut Transaction<'_, Postgres>,
-    id: &Uuid,
-    storages: HashMap<String, ServerStorage>,
-    backups: HashMap<String, BackupStorage>,
-) -> Result<(), sqlx::Error> {
-    for (storage_id, storage) in storages {
-        let storage_type = match storage {
-            ServerStorage::Btrfs(_) => "btrfs",
-            ServerStorage::Directory => "directory",
-        };
-        let group = match storage {
-            ServerStorage::Btrfs(group) => Some(group),
-            ServerStorage::Directory => None,
-        };
-        query!(r#"INSERT INTO node_server_storage (node,storage,storage_type,"group") VALUES ($1, $2, $3, $4)"#, id, storage_id, storage_type, group)
-            .execute(&mut **tx)
-            .await
-            .inspect_err(|err| {
-                error!(
-                    "Failed to insert node (server_storage, insertion): {err:?}"
-                );
-            })?;
-    }
-    for (storage_id, storage) in backups {
-        let storage_type = match storage {
-            BackupStorage::Btrfs(_) => "btrfs",
-            BackupStorage::Archive => "archive",
-        };
-        let group = match storage {
-            BackupStorage::Btrfs(group) => Some(group),
-            BackupStorage::Archive => None,
-        };
-        query!(r#"INSERT INTO node_backup_storage (node,storage,storage_type,"group") VALUES ($1, $2, $3, $4)"#, id, storage_id, storage_type, group)
-                .execute(&mut **tx)
-                .await
-                .inspect_err(|err| error!("Failed to insert node (server_storage, insertion): {err:?}"))?;
-    }
-    Ok(())
 }
 
 async fn daemon_connection_test<E: FromInternalDaemonUnreachable + FromInternalDaemonKeyInvalid>(

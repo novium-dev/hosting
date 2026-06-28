@@ -24,6 +24,7 @@ use crate::templates::minecraft::MinecraftTemplate;
 use core::time::Duration;
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
+use daemon_common::node::NodeConfig;
 use ed25519_dalek::SigningKey;
 use redis::aio::ConnectionManager as CacheConnectionManager;
 use sqlx::postgres::PgPoolOptions;
@@ -47,7 +48,9 @@ const CACHE_PREFIX: &str = "novium:";
 
 pub const CACHE_KEY_PREFIX: &str = "novium:";
 
-type NodeRegistrationMap = HashMap<String, (Instant, Option<Uuid>)>;
+/// Pending node provisioning: maps a setup code to the moment it was issued and
+/// the intended [`NodeConfig`] the daemon pulls during setup.
+type NodeRegistrationMap = HashMap<String, (Instant, NodeConfig)>;
 
 #[derive(Clone)]
 pub(crate) struct Backend {
