@@ -10,18 +10,18 @@ use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use zelus::service;
 
-use crate::{Backend, NodeRegistration};
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::node::{NodePortAllocation, replace_storages};
 use crate::db::server::ports::NetworkProtocol;
-use daemon_common::node::NodeConfig;
 use crate::service::admin::node::node_admin_service_error::{
     AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodePortError, ListNodesError,
     MetricsNodeError, UpdateMaintenanceError, UpdateNodeError,
 };
 use crate::service::error_os_failure::FromOsFailure;
 use crate::service::*;
+use crate::{Backend, NodeRegistration};
+use daemon_common::node::NodeConfig;
 
 define_path_variable!(node_id "The node identifier");
 
@@ -99,10 +99,9 @@ pub(crate) impl NodeAdminService for Backend {
 
         let NodeConfig {
             base_url,
-            database: _,
-            ssh: _,
             storages,
             backups,
+            ..
         } = node.config().await.map_err(|err| {
             error!("Failed to pull config from node {node_id}: {err:?}");
             UpdateNodeError::NodeFailure
