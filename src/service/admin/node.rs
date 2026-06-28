@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use zelus::service;
 
-use crate::Backend;
+use crate::{Backend, NodeRegistration};
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::node::{NodePortAllocation, replace_storages};
@@ -58,16 +58,23 @@ pub(crate) impl NodeAdminService for Backend {
     async fn create_node(
         &self,
         #[special] auth: Authentication,
+        name: String,
         config: NodeConfig,
     ) -> Result<String, _> {
         auth.require::<_, _, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
         let code = gen_code::<CreateNodeError>()?;
+        
+        let registration = NodeRegistration {
+            time: Instant::now(),
+            name,
+            config,
+        };
 
         self.node_registrations
             .write()
             .await
-            .insert(code.clone(), (Instant::now(), config));
+            .insert(code.clone(), registration);
 
         Ok(code)
     }

@@ -48,9 +48,15 @@ const CACHE_PREFIX: &str = "novium:";
 
 pub const CACHE_KEY_PREFIX: &str = "novium:";
 
+pub struct NodeRegistration {
+    time: Instant,
+    name: String,
+    config: NodeConfig,
+}
+
 /// Pending node provisioning: maps a setup code to the moment it was issued and
 /// the intended [`NodeConfig`] the daemon pulls during setup.
-type NodeRegistrationMap = HashMap<String, (Instant, NodeConfig)>;
+type NodeRegistrationMap = HashMap<String, NodeRegistration>;
 
 #[derive(Clone)]
 pub(crate) struct Backend {

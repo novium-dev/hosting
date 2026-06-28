@@ -62,12 +62,12 @@ pub(crate) impl InternalService for Backend {
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
     ) -> Result<String, _> {
-        if let Some((elapsed_time, _)) = self
+        if let Some(registration) = self
             .node_registrations
             .read()
             .await
             .get(&auth.token().to_owned())
-            && elapsed_time.elapsed() < REGISTRATION_TIMEOUT
+            && registration.time.elapsed() < REGISTRATION_TIMEOUT
         {
             Ok(self.root_key.dump(None, None))
         } else {
@@ -88,14 +88,14 @@ pub(crate) impl InternalService for Backend {
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
     ) -> Result<NodeConfig, _> {
-        if let Some((elapsed_time, config)) = self
+        if let Some(registration) = self
             .node_registrations
             .read()
             .await
             .get(&auth.token().to_owned())
-            && elapsed_time.elapsed() < REGISTRATION_TIMEOUT
+            && registration.time.elapsed() < REGISTRATION_TIMEOUT
         {
-            Ok(config.clone())
+            Ok(registration.config.clone())
         } else {
             Err(DaemonConfigError::AuthInvalid)
         }
@@ -120,12 +120,12 @@ pub(crate) impl InternalService for Backend {
             default_host,
         }: NodeRegistrationRequest,
     ) -> Result<Vec<u8>, _> {
-        if let Some((elapsed_time, node_config)) = self
+        if let Some(registration) = self
             .node_registrations
             .write()
             .await
             .remove(&auth.token().to_owned())
-            && elapsed_time.elapsed() < REGISTRATION_TIMEOUT
+            && registration.time.elapsed() < REGISTRATION_TIMEOUT
         {
             let cert = CertificateDer::from(cert);
 
@@ -147,6 +147,8 @@ pub(crate) impl InternalService for Backend {
                 return Err(DaemonRegisterError::InternalDaemonKeyInvalid);
             }
 
+            let node_config = registration.config;
+
             // The daemon builds its registration request from the NodeConfig we
             // handed out via `daemon_config`, so the logical layout must match
             // exactly. The database URL is owned by the backend and never echoed
@@ -166,12 +168,6 @@ pub(crate) impl InternalService for Backend {
                 return Err(DaemonRegisterError::InternalDaemonMismatch);
             }
 
-            let database = node_config.database;
-            let (ssh_host, ssh_port) = match ssh {
-                Some(ssh) => (Some(ssh.host.to_string()), Some(i32::from(ssh.port))),
-                None => (None, None),
-            };
-
             let uuid = Uuid::new_v4();
             let signed = self
                 .root_key
@@ -182,7 +178,7 @@ pub(crate) impl InternalService for Backend {
             let backend = self.clone();
             self.database.acquire().await?
                 .transaction(move |tx| Box::pin(async move {
-                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host,database,ssh_host,ssh_port) VALUES ($1, 'New node', $2, $3, $4, $5, $6, $7)", &uuid, base_url.as_str(), &default_bind, &default_host, &database, ssh_host.as_deref(), ssh_port)
+                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host) VALUES ($1, $2, $3, $4, $5)", &uuid, registration.name, base_url.as_str(), &default_bind, &default_host)
                         .execute(&mut **tx)
                         .await
                         .inspect_err(|err| error!("Failed to insert node: {err:?}"))?;
