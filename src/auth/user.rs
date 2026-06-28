@@ -414,7 +414,9 @@ impl Backend {
         last_name = EXCLUDED.last_name
     RETURNING id
     "#,
-            auth_user.preferred_username,
+            auth_user
+                .preferred_username
+                .unwrap_or_else(|| auth_user.email.clone()),
             auth_user.sub,
             Role::User as i32,
             auth_user.email,

@@ -62,7 +62,7 @@ pub(crate) impl AuthService for Backend {
     async fn login(&self, provider: String, redirect_url: String) -> Result<Redirect<307>, _> {
         let (url, csrf_token, pkce_verifier) = self.auth.generate_url::<LoginError>(
             &provider,
-            ["openid", "profile", "email"]
+            ["openid", "profile", "email", "profile"]
                 .into_iter()
                 .map(String::from)
                 .map(Scope::new),
