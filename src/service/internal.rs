@@ -385,16 +385,9 @@ where
 }
 
 fn daemon_auth_permissions(permissions: i64) -> BackendAuthServerPermissions {
-    let project_permissions = ProjectPermissions::from_bits_retain(permissions);
     let server_permissions = ServerPermissions::from_bits_retain(permissions);
 
     let mut daemon_permissions = BackendAuthServerPermissions::empty();
-    if project_permissions.contains(ProjectPermissions::VIEW) {
-        daemon_permissions |= BackendAuthServerPermissions::CONTROL_VIEW;
-    }
-    if server_permissions.grants(ServerPermissions::POWER) {
-        daemon_permissions |= BackendAuthServerPermissions::CONTROL_POWER;
-    }
     if server_permissions.grants(ServerPermissions::TERMINAL_READ) {
         daemon_permissions |= BackendAuthServerPermissions::TERMINAL_READ;
     }
