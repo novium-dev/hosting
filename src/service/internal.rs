@@ -16,11 +16,11 @@ use axum_extra::{
     headers::{Authorization, authorization::Bearer},
 };
 use core::time::Duration;
-use daemon_common::node::BackendAuthServerPermissions;
+use daemon_common::node::{BackendAuthServerPermissions, SetupNodeConfig};
 use daemon_common::ssh::{DaemonBackendAuthResponse, DaemonBackendAuthServer};
 use daemon_common::{
     key::rcgen::{CertificateSigningRequestParams, DnType, DnValue},
-    node::{NodeConfig, NodeRegistrationRequest},
+    node::{NodeRegistrationRequest},
     sdk::DaemonSDK,
     service::setup::{SetupService as _, setup_service_error::ConnectionTestError},
 };
@@ -87,7 +87,7 @@ pub(crate) impl InternalService for Backend {
     async fn daemon_config(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
-    ) -> Result<NodeConfig, _> {
+    ) -> Result<SetupNodeConfig, _> {
         if let Some(registration) = self
             .node_registrations
             .read()
@@ -112,12 +112,8 @@ pub(crate) impl InternalService for Backend {
         NodeRegistrationRequest {
             cert,
             csr,
-            base_url,
-            ssh,
-            storages,
-            backups,
             default_bind,
-            default_host,
+            default_host
         }: NodeRegistrationRequest,
     ) -> Result<Vec<u8>, _> {
         if let Some(registration) = self
@@ -129,9 +125,11 @@ pub(crate) impl InternalService for Backend {
         {
             let cert = CertificateDer::from(cert);
 
+            let config = registration.config.clone();
+
             daemon_connection_test::<DaemonRegisterError>(
                 Uuid::nil(),
-                &base_url,
+                &config.base_url,
                 self,
                 Some(&cert),
             )
@@ -147,27 +145,6 @@ pub(crate) impl InternalService for Backend {
                 return Err(DaemonRegisterError::InternalDaemonKeyInvalid);
             }
 
-            let node_config = registration.config;
-
-            // The daemon builds its registration request from the NodeConfig we
-            // handed out via `daemon_config`, so the logical layout must match
-            // exactly. The database URL is owned by the backend and never echoed
-            // back, so it is taken from the assigned config rather than the request.
-            let ssh_matches = match (&ssh, &node_config.ssh) {
-                (None, None) => true,
-                (Some(request), Some(assigned)) => {
-                    request.host == assigned.host && request.port == assigned.port
-                }
-                _ => false,
-            };
-            if base_url != node_config.base_url
-                || !ssh_matches
-                || storages != node_config.storages
-                || backups != node_config.backups
-            {
-                return Err(DaemonRegisterError::InternalDaemonMismatch);
-            }
-
             let uuid = Uuid::new_v4();
             let signed = self
                 .root_key
@@ -178,12 +155,12 @@ pub(crate) impl InternalService for Backend {
             let backend = self.clone();
             self.database.acquire().await?
                 .transaction(move |tx| Box::pin(async move {
-                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host) VALUES ($1, $2, $3, $4, $5)", &uuid, registration.name, base_url.as_str(), &default_bind, &default_host)
+                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host) VALUES ($1, $2, $3, $4, $5)", &uuid, registration.name, config.base_url.as_str(), &default_bind, &default_host)
                         .execute(&mut **tx)
                         .await
                         .inspect_err(|err| error!("Failed to insert node: {err:?}"))?;
 
-                    insert_storages(tx, &uuid, storages, backups).await?;
+                    insert_storages(tx, &uuid, config.storages.keys().cloned().collect(), config.backups.keys().cloned().collect()).await?;
 
                     backend.sync_nodes(tx).await?;
 

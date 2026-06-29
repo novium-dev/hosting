@@ -21,7 +21,7 @@ use crate::service::admin::node::node_admin_service_error::{
 use crate::service::error_os_failure::FromOsFailure;
 use crate::service::*;
 use crate::{Backend, NodeRegistration};
-use daemon_common::node::NodeConfig;
+use daemon_common::node::{BackendNodeConfig, SetupNodeConfig};
 
 define_path_variable!(node_id "The node identifier");
 
@@ -59,7 +59,7 @@ pub(crate) impl NodeAdminService for Backend {
         &self,
         #[special] auth: Authentication,
         name: String,
-        config: NodeConfig,
+        config: SetupNodeConfig,
     ) -> Result<String, _> {
         auth.require::<_, _, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
@@ -97,7 +97,7 @@ pub(crate) impl NodeAdminService for Backend {
             .cloned()
             .ok_or(UpdateNodeError::NodeNotFound)?;
 
-        let NodeConfig {
+        let BackendNodeConfig {
             base_url,
             storages,
             backups,

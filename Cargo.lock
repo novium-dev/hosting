@@ -41,9 +41,9 @@ dependencies = [
 
 [[package]]
 name = "aes-gcm"
-version = "0.11.0-rc.4"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da8c919c118108f144adecad74b425b804ad075580d605d9b33c2d6d1c62a2f8"
+checksum = "fdf011db2e21ce0d575593d749db5554b47fed37aff429e4dc50bc91ac93a028"
 dependencies = [
  "aead",
  "aes",
@@ -166,9 +166,9 @@ dependencies = [
 
 [[package]]
 name = "arc-swap"
-version = "1.9.1"
+version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a3a1fd6f75306b68087b831f025c712524bcb19aad54e557b1129cfa0a2b207"
+checksum = "c049c0be4daef0b145cb3555416b3b8ef5b7888a38aea1a3a155801fe7b0810b"
 dependencies = [
  "rustversion",
 ]
@@ -1390,7 +1390,7 @@ dependencies = [
 [[package]]
 name = "daemon"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git?branch=setup#983db05083663193fb95305480e528717a746c99"
+source = "git+ssh://git@github.com/novium-dev/daemon.git?branch=setup#21480e87f1d35637c90565df5a2ab44e6bc322db"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1427,7 +1427,7 @@ dependencies = [
  "num-traits",
  "pkcs8 0.11.0",
  "rand 0.10.1",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "ringbuffer",
  "russh",
  "russh-sftp",
@@ -1461,7 +1461,7 @@ dependencies = [
 [[package]]
 name = "daemon_common"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git?branch=setup#983db05083663193fb95305480e528717a746c99"
+source = "git+ssh://git@github.com/novium-dev/daemon.git?branch=setup#21480e87f1d35637c90565df5a2ab44e6bc322db"
 dependencies = [
  "asn1-rs",
  "axum",
@@ -1484,7 +1484,7 @@ dependencies = [
  "rand 0.10.1",
  "rand_core 0.10.1",
  "rcgen",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "rust-ini",
  "rustls",
  "serde",
@@ -3849,11 +3849,12 @@ dependencies = [
 
 [[package]]
 name = "pkcs5"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "279a91971a1d8eb1260a30938eae3be9cb67b472dffecb222fbbbe2fd2dc1453"
+checksum = "63d440a804ec8d6fafbb6b84471e013286658d373248927692ab3366686220ca"
 dependencies = [
  "aes",
+ "aes-gcm",
  "cbc",
  "der 0.8.0",
  "pbkdf2",
@@ -4299,8 +4300,8 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.13.3"
-source = "git+https://github.com/0xIO32/reqwest.git#84b9bbb1c4588660ad20d7b478534e2e60134acf"
+version = "0.13.4"
+source = "git+https://github.com/0xIO32/reqwest.git#8740e1c325b948b4a0d167ccb5ad6c13190cf2e6"
 dependencies = [
  "base64",
  "bytes",
@@ -4833,7 +4834,7 @@ checksum = "1975064d9f3d9d87a7c8f0371f7fac10d876906ca3e39faad72e61c263ff9b87"
 dependencies = [
  "cfg_aliases",
  "httpdate",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "rustls",
  "sentry-backtrace",
  "sentry-contexts",
@@ -6980,7 +6981,7 @@ dependencies = [
  "http",
  "pastey",
  "redis",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "serde",
  "serde_json",
  "serde_urlencoded",

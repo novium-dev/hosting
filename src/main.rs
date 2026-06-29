@@ -24,7 +24,6 @@ use crate::templates::minecraft::MinecraftTemplate;
 use core::time::Duration;
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
-use daemon_common::node::NodeConfig;
 use ed25519_dalek::SigningKey;
 use redis::aio::ConnectionManager as CacheConnectionManager;
 use sqlx::postgres::PgPoolOptions;
@@ -34,6 +33,7 @@ use std::env;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
+use daemon_common::node::SetupNodeConfig;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt as _;
 use tokio::sync::broadcast::Sender;
@@ -51,7 +51,7 @@ pub const CACHE_KEY_PREFIX: &str = "novium:";
 pub struct NodeRegistration {
     time: Instant,
     name: String,
-    config: NodeConfig,
+    config: SetupNodeConfig,
 }
 
 /// Pending node provisioning: maps a setup code to the moment it was issued and
