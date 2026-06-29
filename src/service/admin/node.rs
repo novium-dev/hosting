@@ -1,6 +1,5 @@
 use std::time::Instant;
 
-use indexmap::IndexSet;
 use rand::TryRng as _;
 use tracing::error;
 
@@ -32,8 +31,8 @@ pub(crate) struct NodeInfo {
     pub(crate) maintenance: bool,
     pub(crate) default_bind: String,
     pub(crate) default_host: String,
-    pub(crate) server_storages: IndexSet<String>,
-    pub(crate) backup_storages: IndexSet<String>,
+    pub(crate) server_storages: Vec<String>,
+    pub(crate) backup_storages: Vec<String>,
     pub(crate) ports: Vec<NodePortAllocation>,
 }
 
@@ -149,8 +148,8 @@ pub(crate) impl NodeAdminService for Backend {
                 maintenance: node.maintenance,
                 default_bind: node.default_bind.clone(),
                 default_host: node.default_host.clone(),
-                server_storages: node.server_storages.keys().cloned().collect(),
-                backup_storages: node.backup_storages.keys().cloned().collect(),
+                server_storages: node.server_storages.clone(),
+                backup_storages: node.backup_storages.clone(),
                 ports: node.ports.clone(),
             })
             .collect())
