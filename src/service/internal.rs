@@ -20,7 +20,7 @@ use daemon_common::node::{BackendAuthServerPermissions, SetupNodeConfig};
 use daemon_common::ssh::{DaemonBackendAuthResponse, DaemonBackendAuthServer};
 use daemon_common::{
     key::rcgen::{CertificateSigningRequestParams, DnType, DnValue},
-    node::{NodeRegistrationRequest},
+    node::NodeRegistrationRequest,
     sdk::DaemonSDK,
     service::setup::{SetupService as _, setup_service_error::ConnectionTestError},
 };
@@ -113,7 +113,7 @@ pub(crate) impl InternalService for Backend {
             cert,
             csr,
             default_bind,
-            default_host
+            default_host,
         }: NodeRegistrationRequest,
     ) -> Result<Vec<u8>, _> {
         if let Some(registration) = self

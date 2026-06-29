@@ -161,18 +161,26 @@ pub(crate) async fn insert_storages(
     backups: Vec<String>,
 ) -> Result<(), sqlx::Error> {
     for storage_id in storages {
-        query!(r#"INSERT INTO node_server_storage (node,storage) VALUES ($1, $2)"#, id, storage_id)
-            .execute(&mut **tx)
-            .await
-            .inspect_err(|err| {
-                error!("Failed to insert node (server_storage, insertion): {err:?}");
-            })?;
+        query!(
+            r#"INSERT INTO node_server_storage (node,storage) VALUES ($1, $2)"#,
+            id,
+            storage_id
+        )
+        .execute(&mut **tx)
+        .await
+        .inspect_err(|err| {
+            error!("Failed to insert node (server_storage, insertion): {err:?}");
+        })?;
     }
     for storage_id in backups {
-        query!(r#"INSERT INTO node_backup_storage (node,storage) VALUES ($1, $2)"#, id, storage_id)
-                .execute(&mut **tx)
-                .await
-                .inspect_err(|err| error!("Failed to insert node (backup_storage, insertion): {err:?}"))?;
+        query!(
+            r#"INSERT INTO node_backup_storage (node,storage) VALUES ($1, $2)"#,
+            id,
+            storage_id
+        )
+        .execute(&mut **tx)
+        .await
+        .inspect_err(|err| error!("Failed to insert node (backup_storage, insertion): {err:?}"))?;
     }
     Ok(())
 }
