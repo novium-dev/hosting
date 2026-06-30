@@ -3,7 +3,7 @@ use std::time::Instant;
 use rand::TryRng as _;
 use tracing::error;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
@@ -20,7 +20,9 @@ use crate::service::admin::node::node_admin_service_error::{
 use crate::service::error_os_failure::FromOsFailure;
 use crate::service::*;
 use crate::{Backend, NodeRegistration};
-use daemon_common::node::{BackendNodeConfig, SetupNodeConfig};
+use daemon_common::node::{BackendNodeConfig, BackupStorage, HostAndPort, ServerStorage, SetupNodeConfig};
+use url::{Host, Url};
+use utoipa::ToSchema;
 
 define_path_variable!(node_id "The node identifier");
 
@@ -35,6 +37,16 @@ pub(crate) struct NodeInfo {
     pub(crate) backup_storages: Vec<String>,
     pub(crate) ports: Vec<NodePortAllocation>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SetupNodeConfigRequest {
+    pub base_url: Url,
+    pub ssh: u16, // no host here because we know it will be localhost
+
+    pub storages: HashMap<String, ServerStorage>,
+    pub backups: HashMap<String, BackupStorage>,
+}
+
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct PortRange {
@@ -58,16 +70,36 @@ pub(crate) impl NodeAdminService for Backend {
         &self,
         #[special] auth: Authentication,
         name: String,
-        config: SetupNodeConfig,
+        config: SetupNodeConfigRequest,
     ) -> Result<String, _> {
         auth.require::<_, _, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
         let code = gen_code::<CreateNodeError>()?;
 
+        let origins = std::iter::once(self.config.public_url.to_string())
+            .chain(
+                self.config
+                    .trusted_urls
+                    .iter()
+                    .map(|url| url.to_string()),
+            )
+            .collect::<Vec<String>>();
+
+        let final_config = SetupNodeConfig {
+            base_url: config.base_url,
+            ssh: Some(HostAndPort {
+                host: Host::Domain("localhost".to_string()),
+                port: config.ssh,
+            }),
+            origins,
+            storages: config.storages,
+            backups: config.backups,
+        };
+
         let registration = NodeRegistration {
             time: Instant::now(),
             name,
-            config,
+            config: final_config,
         };
 
         self.node_registrations

@@ -22,7 +22,7 @@ use daemon_common::{
     key::rcgen::{CertificateSigningRequestParams, DnType, DnValue},
     node::NodeRegistrationRequest,
     sdk::DaemonSDK,
-    service::setup::{SetupService as _, setup_service_error::ConnectionTestError},
+    service::setup::{SetupService as _, setup_service_error::ConfigError},
 };
 use rustls::{
     RootCertStore,
@@ -388,8 +388,8 @@ async fn daemon_connection_test<E: FromInternalDaemonUnreachable + FromInternalD
         .with_user_key(backend.user_key.clone())
         .build();
 
-    let result = sdk.connection_test().await;
-    let Err(ConnectionTestError::AwaitingSetup) = result else {
+    let result = sdk.config().await;
+    let Err(ConfigError::AwaitingSetup) = result else {
         debug!("Connection test failed, Expected Err(AwaitingSetup), Got: {result:?}");
         return Err(<E as FromInternalDaemonUnreachable>::from());
     };
