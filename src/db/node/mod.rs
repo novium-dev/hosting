@@ -1,7 +1,6 @@
 use crate::Backend;
 use crate::db::server::ports::NetworkProtocol;
 use core::ops::Deref;
-use daemon_common::node::{BackupStorage, ServerStorage};
 use daemon_common::sdk::DaemonSDK;
 use daemon_common::service::DaemonServicesURLWithUserKey;
 use serde::Serialize;
@@ -20,8 +19,8 @@ pub struct BackendNode {
     pub maintenance: bool,
     pub default_host: String,
     pub default_bind: String,
-    pub server_storages: HashMap<String, ServerStorage>,
-    pub backup_storages: HashMap<String, BackupStorage>,
+    pub server_storages: Vec<String>,
+    pub backup_storages: Vec<String>,
     pub ports: Vec<NodePortAllocation>,
 }
 
@@ -67,8 +66,9 @@ impl Backend {
         use daemon_common::service::DaemonServices as _;
 
         let mut nodes = HashMap::new();
+
         for node in query!(r#"SELECT id,url,display,maintenance AS "maintenance: bool",default_host,default_bind FROM nodes"#)
-            .fetch_all(&*self.database)
+            .fetch_all(&mut **tx)
             .await? {
 
             let server_storages = query!(
@@ -79,32 +79,20 @@ impl Backend {
             .await
             .inspect_err(|err| error!("Failed to select server storages: {err:?}"))?
             .into_iter()
-            .map(|storage| match storage.storage_type.as_str() {
-                "btrfs" => (
-                    storage.storage,
-                    ServerStorage::Btrfs(storage.group.unwrap_or_default()),
-                ),
-                "directory" => (storage.storage, ServerStorage::Directory),
-                _ => unreachable!(),
-            })
+            .map(|row| row.storage)
             .collect();
+
             let backup_storages = query!(
                 "SELECT * FROM node_backup_storage WHERE node = $1",
                 node.id
             )
-            .fetch_all(&mut **tx)
-            .await
-            .inspect_err(|err| error!("Failed to select backup storages: {err:?}"))?
-            .into_iter()
-            .map(|storage| match storage.storage_type.as_str() {
-                "btrfs" => (
-                    storage.storage,
-                    BackupStorage::Btrfs(storage.group.unwrap_or_default()),
-                ),
-                "archive" => (storage.storage, BackupStorage::Archive),
-                _ => unreachable!(),
-            })
-            .collect();
+                .fetch_all(&mut **tx)
+                .await
+                .inspect_err(|err| error!("Failed to select backup storages: {err:?}"))?
+                .into_iter()
+                .map(|row| row.storage)
+                .collect();
+
             let ports = query_as!(
                 NodePortAllocation,
                 r#"SELECT id,node,protocol AS "protocol: NetworkProtocol", start, "end" FROM node_ports WHERE node = $1"#,
@@ -151,4 +139,55 @@ impl Backend {
 
         Ok(())
     }
+}
+
+/// Inserts the logical storage layout for a node.
+pub(crate) async fn insert_storages(
+    tx: &mut Transaction<'_, Postgres>,
+    id: &Uuid,
+    storages: Vec<String>,
+    backups: Vec<String>,
+) -> Result<(), sqlx::Error> {
+    for storage_id in storages {
+        query!(
+            r#"INSERT INTO node_server_storage (node,storage) VALUES ($1, $2)"#,
+            id,
+            storage_id
+        )
+        .execute(&mut **tx)
+        .await
+        .inspect_err(|err| {
+            error!("Failed to insert node (server_storage, insertion): {err:?}");
+        })?;
+    }
+    for storage_id in backups {
+        query!(
+            r#"INSERT INTO node_backup_storage (node,storage) VALUES ($1, $2)"#,
+            id,
+            storage_id
+        )
+        .execute(&mut **tx)
+        .await
+        .inspect_err(|err| error!("Failed to insert node (backup_storage, insertion): {err:?}"))?;
+    }
+    Ok(())
+}
+
+/// Replaces the logical storage layout for an existing node (delete + insert).
+pub(crate) async fn replace_storages(
+    tx: &mut Transaction<'_, Postgres>,
+    id: &Uuid,
+    storages: Vec<String>,
+    backups: Vec<String>,
+) -> Result<(), sqlx::Error> {
+    query!("DELETE FROM node_server_storage WHERE node = $1", id)
+        .execute(&mut **tx)
+        .await
+        .inspect_err(|err| error!("Unable to delete prior server storages: {err:?}"))?;
+    query!("DELETE FROM node_backup_storage WHERE node = $1", id)
+        .execute(&mut **tx)
+        .await
+        .inspect_err(|err| error!("Unable to delete prior backup storages: {err:?}"))?;
+
+    insert_storages(tx, id, storages, backups).await
 }

@@ -87,7 +87,7 @@ pub async fn setup_embedded_node(
                         StorageEntry::Directory { .. } => ("directory", None),
                         StorageEntry::Btrfs { group, .. } => ("btrfs", Some(group)),
                     };
-                    query!(r#"INSERT INTO node_server_storage (node, storage, storage_type, "group") VALUES ($1, $2, $3, $4)"#, key.id, storage, storage_type, group)
+                    query!(r#"INSERT INTO node_server_storage (node, storage) VALUES ($1, $2)"#, key.id, storage)
                         .execute(&mut **tx)
                         .await?;
                 }
@@ -96,7 +96,7 @@ pub async fn setup_embedded_node(
                         BackupEntry::Archive { .. } => ("archive", None),
                         BackupEntry::Btrfs { group, .. } => ("btrfs", Some(group)),
                     };
-                    query!(r#"INSERT INTO node_backup_storage (node, storage, storage_type, "group") VALUES ($1, $2, $3, $4)"#, key.id, storage, storage_type, group)
+                    query!(r#"INSERT INTO node_backup_storage (node, storage) VALUES ($1, $2)"#, key.id, storage)
                         .execute(&mut **tx)
                         .await?;
                 }
