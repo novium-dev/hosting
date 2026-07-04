@@ -59,8 +59,11 @@ pub async fn setup_embedded_node(
 
     let daemon_url = backend_config.daemon.url.to_string();
 
-    let config = db.acquire().await?
-        .transaction(move |tx| Box::pin(async move {
+    let config = db
+        .acquire()
+        .await?
+        .transaction(move |tx| {
+            Box::pin(async move {
                 query!(
                     "INSERT INTO nodes
                     (id, display, url, default_host, default_bind)
@@ -87,21 +90,31 @@ pub async fn setup_embedded_node(
                         StorageEntry::Directory { .. } => ("directory", None),
                         StorageEntry::Btrfs { group, .. } => ("btrfs", Some(group)),
                     };
-                    query!(r#"INSERT INTO node_server_storage (node, storage) VALUES ($1, $2)"#, key.id, storage)
-                        .execute(&mut **tx)
-                        .await?;
+                    query!(
+                        r#"INSERT INTO node_server_storage (node, storage) VALUES ($1, $2)"#,
+                        key.id,
+                        storage
+                    )
+                    .execute(&mut **tx)
+                    .await?;
                 }
                 for (storage, entry) in &config.backup {
                     let (storage_type, group) = match entry {
                         BackupEntry::Archive { .. } => ("archive", None),
                         BackupEntry::Btrfs { group, .. } => ("btrfs", Some(group)),
                     };
-                    query!(r#"INSERT INTO node_backup_storage (node, storage) VALUES ($1, $2)"#, key.id, storage)
-                        .execute(&mut **tx)
-                        .await?;
+                    query!(
+                        r#"INSERT INTO node_backup_storage (node, storage) VALUES ($1, $2)"#,
+                        key.id,
+                        storage
+                    )
+                    .execute(&mut **tx)
+                    .await?;
                 }
                 Ok::<_, sqlx::Error>(config)
-        })).await?;
+            })
+        })
+        .await?;
 
     let daemon = Daemon::init_embedded(
         config,

@@ -104,7 +104,10 @@ impl Template for SatisfactoryTemplate {
                     ServerFileWrite::Ini {
                         content: HashMap::from([(
                             "/Script/Engine.GameSession".to_owned(),
-                            HashMap::from([("MaxPlayers".to_owned(), extra.max_players.to_string())]),
+                            HashMap::from([(
+                                "MaxPlayers".to_owned(),
+                                extra.max_players.to_string(),
+                            )]),
                         )]),
                     },
                 ),

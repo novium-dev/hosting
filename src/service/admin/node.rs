@@ -20,7 +20,9 @@ use crate::service::admin::node::node_admin_service_error::{
 use crate::service::error_os_failure::FromOsFailure;
 use crate::service::*;
 use crate::{Backend, NodeRegistration};
-use daemon_common::node::{BackendNodeConfig, BackupStorage, HostAndPort, ServerStorage, SetupNodeConfig};
+use daemon_common::node::{
+    BackendNodeConfig, BackupStorage, HostAndPort, ServerStorage, SetupNodeConfig,
+};
 use url::{Host, Url};
 use utoipa::ToSchema;
 
@@ -46,7 +48,6 @@ pub struct SetupNodeConfigRequest {
     pub storages: HashMap<String, ServerStorage>,
     pub backups: HashMap<String, BackupStorage>,
 }
-
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct PortRange {
@@ -76,19 +77,14 @@ pub(crate) impl NodeAdminService for Backend {
 
         let code = gen_code::<CreateNodeError>()?;
 
-        let origins = std::iter::once(self.config.public_url.to_string())
-            .chain(
-                self.config
-                    .trusted_urls
-                    .iter()
-                    .map(|url| url.to_string()),
-            )
+        let origins = core::iter::once(self.config.public_url.to_string())
+            .chain(self.config.trusted_urls.iter().map(ToString::to_string))
             .collect::<Vec<String>>();
 
         let final_config = SetupNodeConfig {
             base_url: config.base_url,
             ssh: Some(HostAndPort {
-                host: Host::Domain("localhost".to_string()),
+                host: Host::Domain("localhost".to_owned()),
                 port: config.ssh,
             }),
             origins,

@@ -3,7 +3,9 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
 use crate::db::server::ServerId;
-use crate::service::minecraft::minecraft_service_error::{BanUserError, DeopUserError, OpUserError, PardonUserError};
+use crate::service::minecraft::minecraft_service_error::{
+    BanUserError, DeopUserError, OpUserError, PardonUserError,
+};
 use zelus::service;
 
 define_query_variable!(
