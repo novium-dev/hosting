@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use tracing::error;
 
-use crate::templates::minecraft::{MinecraftServerModification, VersionBuild, VersionCache};
+use crate::templates::games::minecraft::{MinecraftServerModification, VersionBuild, VersionCache};
 
 #[derive(Deserialize)]
 pub(crate) struct PaperAPIProject {

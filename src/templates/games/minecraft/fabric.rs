@@ -2,7 +2,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use tracing::error;
 
-use crate::templates::minecraft::{MinecraftServerModification, VersionBuild, VersionCache};
+use crate::templates::games::minecraft::{MinecraftServerModification, VersionBuild, VersionCache};
 
 #[derive(Deserialize)]
 pub(crate) struct FabricLoaderVersion {

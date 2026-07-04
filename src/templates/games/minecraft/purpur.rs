@@ -3,10 +3,8 @@ use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use tracing::error;
 
-use crate::{
-    templates::minecraft::{MinecraftServerModification, VersionBuild, VersionCache},
-    utils::serde::SerdeStringToU16Wrapper,
-};
+use crate::templates::games::minecraft::{MinecraftServerModification, VersionBuild, VersionCache};
+use crate::utils::serde::SerdeStringToU16Wrapper;
 
 #[derive(Deserialize)]
 pub(crate) struct PurpurAPIProject {

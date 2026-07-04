@@ -1,6 +1,5 @@
 pub mod games;
 pub mod generic;
-pub mod minecraft;
 mod utils;
 pub mod variable;
 
