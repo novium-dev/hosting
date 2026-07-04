@@ -488,8 +488,8 @@ pub(crate) impl ServerService for Backend {
             .services
             .server_terminal_user_url_signed(
                 server.node_server_id,
-                Some(0),
-                Some(0),
+                None,
+                None,
                 auth.has(server_id, ServerPermissions::TERMINAL_WRITE),
             )
             .to_string();
