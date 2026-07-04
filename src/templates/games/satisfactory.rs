@@ -153,8 +153,14 @@ impl Template for SatisfactoryTemplate {
                 "NET_BIND_SERVICE".to_owned(),
             ],
             environment: HashMap::from([
-                ("AUTO_UPDATE".to_owned(), bool_env(extra.auto_update)),
-                ("VALIDATE".to_owned(), bool_env(extra.validate)),
+                (
+                    "AUTO_UPDATE".to_owned(),
+                    if extra.auto_update { "1" } else { "0" }.to_owned(),
+                ),
+                (
+                    "VALIDATE".to_owned(),
+                    if extra.validate { "1" } else { "0" }.to_owned(),
+                ),
                 (
                     "SRCDS_BETAID".to_owned(),
                     extra.branch.steamcmd_value().to_owned(),
@@ -302,12 +308,12 @@ impl Template for SatisfactoryTemplate {
 
         let Some(extra) = (|| {
             Some(SatisfactoryExtra {
-                auto_update: parse_bool(variables.get("auto_update")?)?,
-                validate: parse_bool(variables.get("validate")?)?,
-                num_autosaves: parse_u16(variables.get("num_autosaves")?)?,
-                max_players: parse_positive_u16(variables.get("max_players")?)?,
-                init_connect_timeout: parse_positive_u16(variables.get("init_connect_timeout")?)?,
-                connect_timeout: parse_positive_u16(variables.get("connect_timeout")?)?,
+                auto_update: variables.get("auto_update")?.parse::<bool>().ok()?,
+                validate: variables.get("validate")?.parse::<bool>().ok()?,
+                num_autosaves: variables.get("num_autosaves")?.parse::<u16>().ok()?,
+                max_players: variables.get("max_players")?.parse::<u16>().ok()?,
+                init_connect_timeout: variables.get("init_connect_timeout")?.parse::<u16>().ok()?,
+                connect_timeout: variables.get("connect_timeout")?.parse::<u16>().ok()?,
                 branch,
             })
         })() else {
@@ -351,30 +357,4 @@ impl Template for SatisfactoryTemplate {
     fn cache_update_needed(_cache: &Self::Cache) -> bool {
         false
     }
-}
-
-fn bool_env(value: bool) -> String {
-    if value { "1" } else { "0" }.to_owned()
-}
-
-fn parse_bool(value: &str) -> Option<bool> {
-    match value {
-        "true" | "1" => Some(true),
-        "false" | "0" | "" => Some(false),
-        _ => None,
-    }
-}
-
-fn parse_u16(value: &str) -> Option<u16> {
-    NON_NEGATIVE_INTEGER_REGEX
-        .is_match(value)
-        .then(|| value.parse::<u16>().ok())
-        .flatten()
-}
-
-fn parse_positive_u16(value: &str) -> Option<u16> {
-    POSITIVE_INTEGER_REGEX
-        .is_match(value)
-        .then(|| value.parse::<u16>().ok().filter(|value| *value > 0))
-        .flatten()
 }
