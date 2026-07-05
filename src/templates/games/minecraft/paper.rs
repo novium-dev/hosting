@@ -20,11 +20,6 @@ pub(crate) struct PaperAPIVersionId {
     pub(crate) id: String,
 }
 
-#[derive(Deserialize)]
-pub(crate) struct PaperAPIBuildsResponse {
-    pub(crate) builds: Vec<PaperAPIBuild>,
-}
-
 #[derive(Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "UPPERCASE")]
 pub(crate) enum PaperAPIChannel {
@@ -70,7 +65,7 @@ pub(crate) async fn resolve(
             continue;
         };
 
-        let builds_resp: PaperAPIBuildsResponse = client
+        let builds_resp: Vec<PaperAPIBuild> = client
             .get(format!(
                 "{url}v3/projects/{project_name}/versions/{ver}/builds"
             ))
@@ -87,7 +82,7 @@ pub(crate) async fn resolve(
             .map_err(|_err| ())?;
 
         let mut builds: HashSet<u16> = HashSet::new();
-        for build in builds_resp.builds {
+        for build in builds_resp {
             if PaperAPIChannel::Recommended == build.channel
                 || PaperAPIChannel::Stable == build.channel
             {
