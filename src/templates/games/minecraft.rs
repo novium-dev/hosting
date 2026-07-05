@@ -28,7 +28,7 @@ use crate::templates::variable::{
 use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
 use crate::utils::serde::SerdePrimitive;
 
-pub(crate) const PAPER_URL: &str = "https://api.papermc.io/";
+pub(crate) const PAPER_URL: &str = "https://fill.papermc.io/";
 pub(crate) const PURPUR_URL: &str = "https://api.purpurmc.org/";
 pub(crate) const FABRIC_URL: &str = "https://meta.fabricmc.net/v2";
 pub(crate) const QUILT_URL: &str = "https://meta.quiltmc.org/v3";
@@ -148,7 +148,7 @@ impl MinecraftServerModification {
 }
 
 impl MinecraftServerExtra {
-    const REL: usize = 3;
+    const REL: usize = 1;
 
     pub(crate) const fn modification(&self) -> MinecraftServerModification {
         match self {
