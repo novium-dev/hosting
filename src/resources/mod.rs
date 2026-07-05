@@ -1,6 +1,7 @@
 use reqwest::{Client, Url};
 use serde::Deserialize;
 
+use crate::templates::games::minecraft::MinecraftTemplate;
 use crate::{
     service::{
         error_resource_invalid_payload::FromResourceInvalidPayload,
@@ -9,7 +10,7 @@ use crate::{
         error_resource_provider_unavailable::FromResourceProviderUnavailable,
         error_resource_wrong_template::FromResourceWrongTemplate,
     },
-    templates::{Template as _, minecraft::MinecraftTemplate},
+    templates::Template as _,
 };
 
 mod modrinth;

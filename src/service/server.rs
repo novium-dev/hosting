@@ -49,6 +49,8 @@ pub(crate) struct LightNodeInfo {
     pub(crate) id: Uuid,
     pub(crate) display: String,
     pub(crate) maintenance: bool,
+    pub(crate) host: String,
+    pub(crate) ssh_port: u16,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -284,6 +286,8 @@ pub(crate) impl ServerService for Backend {
                 id: server.node.id,
                 display: server.node.display.clone(),
                 maintenance: server.node.maintenance,
+                host: server.node.default_host.clone(),
+                ssh_port: 2022, // TODO: Make this dynamic based on node configuration
             },
             suspended: server.suspended,
         })
@@ -485,7 +489,7 @@ pub(crate) impl ServerService for Backend {
             .server_terminal_user_url_signed(
                 server.node_server_id,
                 None,
-                None, // Subject to potential change
+                None,
                 auth.has(server_id, ServerPermissions::TERMINAL_WRITE),
             )
             .to_string();

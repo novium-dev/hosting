@@ -4,7 +4,7 @@ use reqwest::Client;
 use std::collections::HashMap;
 use tracing::error;
 
-use crate::templates::minecraft::{
+use crate::templates::games::minecraft::{
     MinecraftServerModification, VersionBuild, VersionCache, maven::MavenMetadata,
 };
 

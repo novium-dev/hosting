@@ -1,0 +1,2 @@
+
+ENTRYPOINT ["/bin/sh", "-c", "(test -z \"$REPOSITORY_URL\" || (git init -q && git fetch $REPOSITORY_URL $REPOSITORY_BRANCH && git checkout -q FETCH_HEAD)) && java -Djava.net.preferIPv6Addresses=system -XX:MaxRAMPercentage=95.0 -jar server.jar"]

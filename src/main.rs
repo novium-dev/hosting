@@ -20,7 +20,11 @@ use crate::db::node::BackendNode;
 #[cfg(feature = "embedded_node")]
 use crate::embedded_node::setup_embedded_node;
 use crate::templates::TemplateInner;
-use crate::templates::minecraft::MinecraftTemplate;
+use crate::templates::games::satisfactory::SatisfactoryTemplate;
+use crate::templates::generic::go::GoTemplate;
+use crate::templates::generic::java::JavaTemplate;
+use crate::templates::generic::python::PythonTemplate;
+use crate::templates::generic::rust::RustTemplate;
 use core::time::Duration;
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
@@ -34,6 +38,7 @@ use std::env;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
+use templates::games::minecraft::MinecraftTemplate;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt as _;
 use tokio::sync::broadcast::Sender;
@@ -122,6 +127,49 @@ pub fn main() {
 
     #[cfg(not(debug_assertions))]
     drop(guard);
+}
+
+async fn load_templates(backend: &Backend) {
+    let mut templates = backend.templates.write().await;
+
+    let minecraft = MinecraftTemplate;
+    minecraft
+        .init(backend.cache.clone())
+        .await
+        .expect("Unable to initialize minecraft template");
+    templates.insert(minecraft.id().to_owned(), Arc::new(minecraft));
+
+    let go = GoTemplate;
+    go.init(backend.cache.clone())
+        .await
+        .expect("Unable to initialize go template");
+    templates.insert(go.id().to_owned(), Arc::new(go));
+
+    let java = JavaTemplate;
+    java.init(backend.cache.clone())
+        .await
+        .expect("Unable to initialize java template");
+    templates.insert(java.id().to_owned(), Arc::new(java));
+
+    let python = PythonTemplate;
+    python
+        .init(backend.cache.clone())
+        .await
+        .expect("Unable to initialize python template");
+    templates.insert(python.id().to_owned(), Arc::new(python));
+
+    let rust = RustTemplate;
+    rust.init(backend.cache.clone())
+        .await
+        .expect("Unable to initialize rust template");
+    templates.insert(rust.id().to_owned(), Arc::new(rust));
+
+    let satisfactory = SatisfactoryTemplate;
+    satisfactory
+        .init(backend.cache.clone())
+        .await
+        .expect("Unable to initialize satisfactory template");
+    templates.insert(satisfactory.id().to_owned(), Arc::new(satisfactory));
 }
 
 #[tokio::main]
@@ -227,16 +275,8 @@ async fn main0() {
         .expect("Unable to sync nodes cache");
 
     info!("Initializing Templates...");
-    {
-        let mut templates = backend.templates.write().await;
 
-        let minecraft = MinecraftTemplate;
-        minecraft
-            .init(backend.cache.clone())
-            .await
-            .expect("Unable to initialize minecraft template");
-        templates.insert(minecraft.id().to_owned(), Arc::new(minecraft));
-    };
+    load_templates(&backend).await;
 
     info!("Starting Webserver...");
 

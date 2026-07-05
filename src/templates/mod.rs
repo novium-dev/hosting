@@ -1,4 +1,6 @@
-pub mod minecraft;
+pub mod games;
+pub mod generic;
+mod utils;
 pub mod variable;
 
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
