@@ -98,7 +98,7 @@ define_path_variable!(
 );
 
 define_query_variable!(
-    path "The file path"
+    file "The file path"
 );
 
 define_path_variable!(
