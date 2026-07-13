@@ -36,14 +36,14 @@ struct UrlResponse {
 
 #[service(path = "/file/{server_id}", tag = "file", no_sdk)]
 pub(crate) impl FileService for Backend {
-    #[route("", method = GET, raw, query = [ path ])]
+    #[route("", method = GET, raw, query = [ file ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, not_directory})]
     async fn list_files(
         &self,
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
         server_id: ServerId,
-        path: String,
+        file: String,
     ) -> Result<Paged<FileEntry>, _> {
         auth.require::<_, _, ListFilesError>(server_id, ServerPermissions::FILES_READ)?;
 
@@ -54,7 +54,7 @@ pub(crate) impl FileService for Backend {
 
         Ok(server
             .node
-            .server_list_files(server.node_server_id, path)
+            .server_list_files(server.node_server_id, file)
             .await
             .map_err(|err| match err {
                 ServerListFilesError::Communication(_) => {
@@ -78,13 +78,13 @@ pub(crate) impl FileService for Backend {
             .collect_paged(page))
     }
 
-    #[route("/stat", method = GET, query = [ path ])]
+    #[route("/stat", method = GET, query = [ file ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated})]
     async fn stat_file(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        path: String,
+        file: String,
     ) -> Result<FileEntry, _> {
         auth.require::<_, _, StatFileError>(server_id, ServerPermissions::FILES_READ)?;
 
@@ -95,7 +95,7 @@ pub(crate) impl FileService for Backend {
 
         server
             .node
-            .server_stat_file(server.node_server_id, path)
+            .server_stat_file(server.node_server_id, file)
             .await
             .map_err(|err| match err {
                 ServerStatFileError::Communication(_) => {
@@ -200,13 +200,13 @@ pub(crate) impl FileService for Backend {
         Ok(())
     }
 
-    #[route("/delete", method = POST, query = [ path, recursive ])]
+    #[route("/delete", method = POST, query = [ file, recursive ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, not_directory, is_directory})]
     async fn delete_file(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        path: String,
+        file: String,
         recursive: bool,
     ) -> Result<(), _> {
         auth.require::<_, _, DeleteFileError>(server_id, ServerPermissions::FILES_WRITE)?;
@@ -218,7 +218,7 @@ pub(crate) impl FileService for Backend {
 
         server
             .node
-            .server_delete_file(server.node_server_id, path, recursive)
+            .server_delete_file(server.node_server_id, file, recursive)
             .await
             .map_err(|err| match err {
                 ServerDeleteFileError::Communication(_) => {
@@ -244,13 +244,13 @@ pub(crate) impl FileService for Backend {
         Ok(())
     }
 
-    #[route("/mkdir", method = POST, query = [ path, recursive ])]
+    #[route("/mkdir", method = POST, query = [ file, recursive ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded})]
     async fn create_directory(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        path: String,
+        file: String,
         recursive: bool,
     ) -> Result<(), _> {
         auth.require::<_, _, CreateDirectoryError>(server_id, ServerPermissions::FILES_WRITE)?;
@@ -262,7 +262,7 @@ pub(crate) impl FileService for Backend {
 
         server
             .node
-            .server_create_directory(server.node_server_id, path, recursive)
+            .server_create_directory(server.node_server_id, file, recursive)
             .await
             .map_err(|err| match err {
                 ServerCreateDirectoryError::Communication(_) => {
@@ -294,13 +294,13 @@ pub(crate) impl FileService for Backend {
         Ok(())
     }
 
-    #[route("/symlink", method = POST, query = [ path, content ])]
+    #[route("/symlink", method = POST, query = [ file, content ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded})]
     async fn symlink_file(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        path: String,
+        file: String,
         content: String,
     ) -> Result<(), _> {
         auth.require::<_, _, SymlinkFileError>(server_id, ServerPermissions::FILES_WRITE)?;
@@ -312,7 +312,7 @@ pub(crate) impl FileService for Backend {
 
         server
             .node
-            .server_symlink(server.node_server_id, path, content)
+            .server_symlink(server.node_server_id, file, content)
             .await
             .map_err(|err| match err {
                 ServerSymlinkError::Communication(_) => {
@@ -334,13 +334,13 @@ pub(crate) impl FileService for Backend {
             })
     }
 
-    #[route("/download", method = GET, query = [ path, limit ])]
+    #[route("/download", method = GET, query = [ file, limit ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn download_user(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        path: String,
+        file: String,
         limit: Option<u64>,
     ) -> Result<UrlResponse, _> {
         auth.require::<_, _, DownloadUserError>(server_id, ServerPermissions::FILES_READ)?;
@@ -353,19 +353,19 @@ pub(crate) impl FileService for Backend {
         Ok(UrlResponse {
             url: server.node.server_download_file_user_url_signed(
                 server.node_server_id,
-                path,
+                file,
                 limit,
             ),
         })
     }
 
-    #[route("/upload", method = GET, query = [ path ])]
+    #[route("/upload", method = GET, query = [ file ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn upload_user(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        path: String,
+        file: String,
     ) -> Result<UrlResponse, _> {
         auth.require::<_, _, UploadUserError>(server_id, ServerPermissions::FILES_WRITE)?;
 
@@ -377,7 +377,7 @@ pub(crate) impl FileService for Backend {
         Ok(UrlResponse {
             url: server
                 .node
-                .server_upload_file_user_url_signed(server.node_server_id, path),
+                .server_upload_file_user_url_signed(server.node_server_id, file),
         })
     }
 
@@ -483,17 +483,17 @@ pub(crate) impl FileService for Backend {
         Ok(())
     }
 
-    #[route("/config", method = GET, query = [ path ])]
+    #[route("/config", method = GET, query = [ file ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, unsupported_type})]
     async fn get_config(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        path: String,
+        file: String,
     ) -> Result<Value, _> {
         auth.require::<_, _, GetConfigError>(server_id, ServerPermissions::FILES_READ)?;
 
-        let ext = path.rsplit('.').next().unwrap_or_default().to_lowercase();
+        let ext = file.rsplit('.').next().unwrap_or_default().to_lowercase();
         if !["properties", "json", "yaml", "yml"].contains(&ext.as_str()) {
             return Err(GetConfigError::FileUnsupportedType);
         }
@@ -505,7 +505,7 @@ pub(crate) impl FileService for Backend {
 
         let (data, empty) = match server
             .node
-            .server_download_file(server.node_server_id, path.clone(), Some(0x0002_0000))
+            .server_download_file(server.node_server_id, file.clone(), Some(0x0002_0000))
             .await
         {
             Ok(response) => (response.1, false),
@@ -547,7 +547,7 @@ pub(crate) impl FileService for Backend {
             "properties" => {
                 let parsed = tokio::task::spawn_blocking(move || {
                     java_properties::read(SyncIoBridge::new(data.reader())).map_err(|err| {
-                        error!("Failed to read properties file {}: {:?}", path, err);
+                        error!("Failed to read properties file {}: {:?}", file, err);
                         GetConfigError::ServerConfigInvalid
                     })
                 })
@@ -569,7 +569,7 @@ pub(crate) impl FileService for Backend {
                     tokio::task::spawn_blocking(move || {
                         serde_json::from_reader::<_, Value>(SyncIoBridge::new(data.reader()))
                             .map_err(|err| {
-                                error!("Failed to parse JSON config {}: {:?}", path, err);
+                                error!("Failed to parse JSON config {}: {:?}", file, err);
                                 GetConfigError::ServerConfigInvalid
                             })
                     })
@@ -586,7 +586,7 @@ pub(crate) impl FileService for Backend {
                         data.reader(),
                     ))
                     .map_err(|err| {
-                        error!("Failed to parse YAML config {}: {:?}", path, err);
+                        error!("Failed to parse YAML config {}: {:?}", file, err);
                         GetConfigError::ServerConfigInvalid
                     })
                 })
@@ -605,18 +605,18 @@ pub(crate) impl FileService for Backend {
         }
     }
 
-    #[route("/config", method = POST, raw, query = [ path ])]
+    #[route("/config", method = POST, raw, query = [ file ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, unsupported_type, content_invalid})]
     async fn set_config(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        path: String,
+        file: String,
         payload: Value,
     ) -> Result<(), _> {
         auth.require::<_, _, SetConfigError>(server_id, ServerPermissions::FILES_WRITE)?;
 
-        let ext = path.rsplit('.').next().unwrap_or_default().to_lowercase();
+        let ext = file.rsplit('.').next().unwrap_or_default().to_lowercase();
         if !["properties", "json", "yaml", "yml"].contains(&ext.as_str()) {
             return Err(SetConfigError::FileUnsupportedType);
         }
@@ -657,7 +657,7 @@ pub(crate) impl FileService for Backend {
 
         server
             .node
-            .server_write_file_by_template(server.node_server_id, path, write)
+            .server_write_file_by_template(server.node_server_id, file, write)
             .await
             .map_err(|err| match err {
                 ServerWriteFileByTemplateError::Communication(_) => {
