@@ -415,7 +415,8 @@ impl Backend {
     RETURNING id
     "#,
             auth_user
-                .preferred_username
+                .username
+                .or(auth_user.preferred_username)
                 .unwrap_or_else(|| auth_user.email.clone()),
             auth_user.sub,
             Role::User as i32,

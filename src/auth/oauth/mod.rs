@@ -79,6 +79,8 @@ pub struct AuthUser {
     pub(crate) family_name: Option<String>,
     #[serde(default)]
     pub(crate) preferred_username: Option<String>,
+    #[serde(default)]
+    pub(crate) username: Option<String>,
 }
 
 impl AuthService {
