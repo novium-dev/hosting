@@ -9,7 +9,6 @@ pub struct BackendConfig {
     pub listeners: HashSet<SocketAddr>,
     pub session_lifetime: u64,
     pub auth: AuthConfig,
-    pub public_url: Url,
     pub database_url: String,
     pub cache_url: String,
     pub trusted_urls: Vec<Url>,

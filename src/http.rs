@@ -14,8 +14,8 @@ use crate::service::template::TemplateService;
 use axum::{Extension, Router};
 use axum_server::{Handle, Server};
 use core::time::Duration;
-use http::HeaderValue;
 use tokio::sync::broadcast::error::RecvError;
+use tower_http::cors::Any;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 use utoipa::OpenApi;
@@ -38,19 +38,10 @@ impl Backend {
         };
 
         let cors = tower_http::cors::CorsLayer::new()
-            .allow_origin(tower_http::cors::AllowOrigin::list(
-                self.config.trusted_urls.iter().map(|url| {
-                    HeaderValue::from_str(url.as_str()).expect("invalid trusted URL header value")
-                }),
-            ))
-            .allow_methods([
-                axum::http::Method::GET,
-                axum::http::Method::POST,
-                axum::http::Method::PUT,
-                axum::http::Method::PATCH,
-                axum::http::Method::DELETE,
-            ])
-            .allow_headers(tower_http::cors::AllowHeaders::any());
+            .allow_origin(Any)
+            .allow_headers(Any)
+            .allow_methods(Any)
+            .max_age(Duration::from_hours(1));
 
         let (mut router, api) = ZelusRouter::with_openapi(ApiDoc::openapi())
             .merge(router)
