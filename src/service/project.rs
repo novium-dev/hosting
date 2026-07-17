@@ -264,18 +264,22 @@ pub(crate) impl ProjectService for Backend {
         .collect_paged(page))
     }
 
-    /// Sets project permissions for a user.
-    #[route("/{project_id}/users/{user_id}", method = PUT)]
-    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found, user::not_found <- [sql:foreign_key])]
+    /// Sets project permissions for a user, identified by email.
+    #[route("/{project_id}/users", method = PUT)]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found, user::not_found <- [sql:not_found])]
     async fn set_project_user(
         &self,
         #[special] auth: Authentication,
         project_id: ProjectId,
-        user_id: i32,
+        email: String,
         permissions: i64,
     ) -> Result<(), _> {
         auth.require::<_, _, SetProjectUserError>(project_id, ProjectPermissions::USER_EDIT)?;
         ensure_project_exists::<SetProjectUserError>(self, project_id).await?;
+
+        let user_id = query_scalar!("SELECT id FROM users WHERE email = $1", email)
+            .fetch_one(&*self.database)
+            .await?;
 
         query!(
             r#"INSERT INTO project_users ("user", project, permissions)
