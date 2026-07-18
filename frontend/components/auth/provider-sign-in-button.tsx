@@ -54,7 +54,6 @@ export function ProviderSignInButton({ provider }: ProviderSignInButtonProps) {
       className="w-full"
       loading={isLoading}
       icon={
-        // eslint-disable-next-line @next/next/no-img-element
         <img src={copy.icon} alt="" className="size-4" aria-hidden="true" />
       }
       onClick={handleSignIn}

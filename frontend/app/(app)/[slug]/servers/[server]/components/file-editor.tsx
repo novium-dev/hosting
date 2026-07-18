@@ -432,7 +432,6 @@ export function FileEditor({
         ) : mode === "image" ? (
           <div className="flex h-[68vh] items-center justify-center bg-muted/30 p-4">
             {downloadUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={downloadUrl}
                 alt={fileName}

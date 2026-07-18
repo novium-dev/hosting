@@ -9,7 +9,6 @@ type NoviumLogoProps = {
 
 export function NoviumLogo({ className }: NoviumLogoProps) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={NOVIUM_LOGO_SVG_URL}
       alt="Novium"

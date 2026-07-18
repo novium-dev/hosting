@@ -1,11 +1,13 @@
 import AuthWrapper from "@/components/auth/auth-wrapper";
 import type { AuthProvider } from "@/components/auth/provider-sign-in-button";
+import SimpleAuth from "../../../components/auth/simple-auth";
 
 const allowedProviders = new Set<AuthProvider>(["user", "team"]);
 
 function getEnabledProviders(): AuthProvider[] {
   const providerConfig = import.meta.env.VITE_PROVIDERS;
-  const providers = providerConfig?.split(",")
+  const providers = providerConfig
+    ?.split(",")
     .map((provider) => provider.trim().toLowerCase())
     .filter((provider): provider is AuthProvider =>
       allowedProviders.has(provider as AuthProvider),
@@ -15,11 +17,12 @@ function getEnabledProviders(): AuthProvider[] {
 }
 
 export default function SigninPage() {
-  return (
+  /*return (
     <AuthWrapper
       title="Sign in"
       description="Continue with your preferred sign-in method to access your account."
       providers={getEnabledProviders()}
     />
-  );
+  );*/
+  return <SimpleAuth />;
 }
