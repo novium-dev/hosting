@@ -21,6 +21,7 @@ import { updateOrganizationNameSchema } from "@/types/organization.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
 import type { AppOrganization } from "@/lib/auth";
+import { useOrganizationStore } from "@/stores/organizations";
 import { toast } from "sonner";
 
 export function UpdateOrganizationName({
@@ -40,6 +41,8 @@ export function UpdateOrganizationName({
         actionProps: {
           onSuccess: () => {
             resetFormAndAction();
+            // Drop the cached org so the new name is refetched on next view.
+            useOrganizationStore.getState().invalidate(organization.slug);
             toast.success("Organization name updated successfully");
           },
           onError: (error) => {
