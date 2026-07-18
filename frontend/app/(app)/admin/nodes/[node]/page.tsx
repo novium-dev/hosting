@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import Link from "@/components/link";
+import { useParams } from "react-router-dom";
+import useSWR from "swr";
 import {
   AlertTriangle,
   Cpu,
@@ -8,6 +8,8 @@ import {
   MemoryStick,
   Network,
 } from "lucide-react";
+
+import { NotFoundView } from "@/components/not-found-view";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -18,14 +20,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { availablePorts, listNodes, metricsNode } from "@/lib/api";
-import { auth } from "@/lib/auth";
+import { authClient } from "@/lib/auth-client";
 import { hasManagementPermission, ManagementPermission } from "@/lib/permissions";
 import { NodePortsManager } from "./node-ports-manager";
 import { NodeSettingsCard } from "./node-settings-card";
-
-type PageProps = {
-  params: Promise<{ node: string }>;
-};
 
 function formatBytes(value: number) {
   if (!Number.isFinite(value) || value < 0) {
@@ -48,37 +46,39 @@ function formatBytes(value: number) {
   return `${size.toFixed(2)} ${unit}`;
 }
 
-export default async function AdminNodeManagementPage({ params }: PageProps) {
-  const { node } = await params;
+export default function AdminNodeManagementPage() {
+  const { node = "" } = useParams<{ node: string }>();
 
-  const requestHeaders = await headers();
-  const session = await auth.api.getSession({ headers: requestHeaders });
-  if (
-    !session ||
-    !hasManagementPermission(
-      session.user.permissions,
-      ManagementPermission.NODES_VIEW,
-    )
-  ) {
-    notFound();
-  }
+  const { data: session, isLoading } = authClient.useSession();
+  const canView = session
+    ? hasManagementPermission(
+        session.user.permissions,
+        ManagementPermission.NODES_VIEW,
+      )
+    : false;
 
-  const [nodesResponse, metricsResponse, availableResponse] =
-    await Promise.all([
-      listNodes({ headers: requestHeaders }),
-      metricsNode({
-        path: { node_id: node },
-        headers: requestHeaders,
-      }).catch(() => null),
-      availablePorts({ path: { node_id: node }, headers: requestHeaders }),
-    ]);
+  const { data: bundle } = useSWR(
+    canView && node ? ["admin-node", node] : null,
+    async () => {
+      const [nodesResponse, metricsResponse, availableResponse] =
+        await Promise.all([
+          listNodes(),
+          metricsNode({ path: { node_id: node } }).catch(() => null),
+          availablePorts({ path: { node_id: node } }),
+        ]);
+      return { nodesResponse, metricsResponse, availableResponse };
+    },
+  );
 
+  if (isLoading) return null;
+  if (!canView) return <NotFoundView />;
+  if (!bundle) return null;
+
+  const { nodesResponse, metricsResponse, availableResponse } = bundle;
   const nodes = nodesResponse.error ? [] : (nodesResponse.data ?? []);
   const currentNode = nodes.find((entry) => entry.id === node) ?? null;
 
-  if (!currentNode) {
-    notFound();
-  }
+  if (!currentNode) return <NotFoundView />;
 
   const metrics =
     !metricsResponse || metricsResponse.error ? null : metricsResponse.data;

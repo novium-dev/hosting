@@ -1,37 +1,31 @@
+import { useParams } from "react-router-dom";
+import useSWR from "swr";
 import { MainLayout } from "@/components/sidebar/main-layout";
+import { NotFoundView } from "@/components/not-found-view";
 import { listProjectUsers } from "@/lib/api";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { useOrganization } from "@/hooks/use-organization";
 import { MembersView } from "./members-view";
 
-export default async function MembersPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-  const requestHeaders = await headers();
+export default function MembersPage() {
+  const { slug } = useParams<{ slug: string }>();
+  const { data: organization, isLoading } = useOrganization(slug);
 
-  const organization = await auth.api.getFullOrganization({
-    query: { organizationSlug: slug },
-    headers: requestHeaders,
-  });
+  const { data: members } = useSWR(
+    organization ? ["project-users", organization.id] : null,
+    async () => {
+      const response = await listProjectUsers({
+        path: { project_id: organization!.id },
+      });
+      return response.error ? [] : (response.data ?? []);
+    },
+  );
 
-  if (!organization) {
-    notFound();
-  }
-
-  const response = await listProjectUsers({
-    path: { project_id: organization.id },
-    headers: requestHeaders,
-  });
-
-  const members = response.error ? [] : (response.data ?? []);
+  if (isLoading) return null;
+  if (!organization) return <NotFoundView />;
 
   return (
     <MainLayout breadcrumbs={[{ label: "Members" }]}>
-      <MembersView projectId={organization.id} members={members} />
+      <MembersView projectId={organization.id} members={members ?? []} />
     </MainLayout>
   );
 }

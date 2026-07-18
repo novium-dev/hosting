@@ -11,7 +11,7 @@ import {
 import { appConfig } from "@/constants/config";
 import { NoviumLogo } from "@/components/brand/novium-logo";
 import { authClient } from "@/lib/auth-client";
-import { useRouter } from "nextjs-toploader/app";
+import { useRouter } from "@/lib/navigation";
 
 export default function InvalidInvitationCard() {
   const router = useRouter();

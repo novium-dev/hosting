@@ -1,8 +1,11 @@
-"use client";
-
 import { logout, me } from "@/lib/api";
 import type { AppSession } from "@/lib/auth";
 import useSWR, { mutate } from "swr";
+
+// Matches the API base in lib/api-client.ts: same-origin in production (backend
+// serves the SPA), Vite `/api` proxy in dev.
+const apiBaseUrl =
+  import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "/api" : "");
 
 export type AuthClientMember = {
   id: string;
@@ -70,7 +73,7 @@ export const authClient = {
         window.location.origin,
       ).toString();
       const url = new URL(
-        `/api/auth/login/${options.provider}`,
+        `${apiBaseUrl}/auth/login/${options.provider}`,
         window.location.origin,
       );
       url.searchParams.set("redirect_url", redirectUrl);

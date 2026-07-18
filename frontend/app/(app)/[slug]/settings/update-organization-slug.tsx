@@ -26,7 +26,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
 import { updateOrganizationSlugSchema } from "@/types/organization.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
+import { useHookFormAction } from "@/lib/action-hooks";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import type { AppOrganization } from "@/lib/auth";
 import { useCallback, useEffect, useState } from "react";

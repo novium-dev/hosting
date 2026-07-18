@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { NoviumLogo } from "@/components/brand/novium-logo";
-import Link from "next/link";
+import Link from "@/components/link";
 import { ProviderSignInButton } from "./provider-sign-in-button";
 import type { AuthProvider } from "./provider-sign-in-button";
 

@@ -86,11 +86,7 @@ pub(crate) impl AuthService for Backend {
     /// Handles the OAuth callback after user authentication.
     #[route("/callback", method = GET, query = [ code, state ], raw)]
     #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure, auth::{failure, permission_denied})]
-    async fn callback(
-        &self,
-        code: String,
-        state: String,
-    ) -> Result<WithCookies<Redirect<307>>, _> {
+    async fn callback(&self, code: String, state: String) -> Result<WithCookies<Redirect<307>>, _> {
         let flow = OAuthFlow::get::<CallbackError>(&state, &mut self.cache.clone())
             .await?
             .ok_or(CallbackError::AuthFailure)?;

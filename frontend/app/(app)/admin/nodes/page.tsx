@@ -1,36 +1,31 @@
-import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import useSWR from "swr";
 
+import { NotFoundView } from "@/components/not-found-view";
 import { listNodes } from "@/lib/api";
-import { auth } from "@/lib/auth";
+import { authClient } from "@/lib/auth-client";
 import { hasManagementPermission, ManagementPermission } from "@/lib/permissions";
 import { NodesTable } from "./nodes-table";
 
-export const metadata: Metadata = {
-  title: "Nodes | Hephaestus Admin",
-  description: "Manage nodes in Hephaestus Admin",
-};
+export default function AdminNodesPage() {
+  const { data: session, isLoading } = authClient.useSession();
+  const canView = session
+    ? hasManagementPermission(
+        session.user.permissions,
+        ManagementPermission.NODES_VIEW,
+      )
+    : false;
 
-export default async function AdminNodesPage() {
-  const requestHeaders = await headers();
-  const session = await auth.api.getSession({ headers: requestHeaders });
-  if (
-    !session ||
-    !hasManagementPermission(session.user.permissions, ManagementPermission.NODES_VIEW)
-  ) {
-    notFound();
-  }
-
-  const response = await listNodes({
-    headers: requestHeaders,
+  const { data: nodes } = useSWR(canView ? "admin/nodes" : null, async () => {
+    const response = await listNodes();
+    return response.error ? [] : (response.data ?? []);
   });
 
-  const nodes = response.error ? [] : (response.data ?? []);
+  if (isLoading) return null;
+  if (!canView) return <NotFoundView />;
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <NodesTable nodes={nodes} />
+      <NodesTable nodes={nodes ?? []} />
     </div>
   );
 }

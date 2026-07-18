@@ -1,27 +1,19 @@
+import { useParams } from "react-router-dom";
 import { MainLayout } from "@/components/sidebar/main-layout";
-import { appConfig } from "@/constants/config";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { NotFoundView } from "@/components/not-found-view";
+import { useOrganization } from "@/hooks/use-organization";
 import { OrganizationSettings } from "./organization-settings";
-import { notFound } from "next/navigation";
 
-export default async function SettingsPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
+export default function SettingsPage() {
+  const { slug } = useParams<{ slug: string }>();
+  const { data: organization, isLoading } = useOrganization(slug);
 
-  const organization = await auth.api.getFullOrganization({
-    query: { organizationSlug: slug },
-    headers: await headers(),
-  });
-
-  if (!organization) return notFound();
+  if (isLoading) return null;
+  if (!organization) return <NotFoundView />;
 
   return (
     <MainLayout
-      breadcrumbs={[{ label: slug, href: `/${slug}` }, { label: "Settings" }]}
+      breadcrumbs={[{ label: slug ?? "", href: `/${slug}` }, { label: "Settings" }]}
     >
       <OrganizationSettings organization={organization} />
     </MainLayout>

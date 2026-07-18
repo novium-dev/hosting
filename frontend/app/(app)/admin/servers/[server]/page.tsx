@@ -1,9 +1,11 @@
-import Link from "next/link";
-import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import Link from "@/components/link";
+import { useParams } from "react-router-dom";
+import useSWR from "swr";
 import { ExternalLink, Settings2, Wrench } from "lucide-react";
 
+import { NotFoundView } from "@/components/not-found-view";
 import { auth } from "@/lib/auth";
+import { authClient } from "@/lib/auth-client";
 import { serverInfo } from "@/lib/api";
 import {
   hasManagementPermission,
@@ -22,10 +24,6 @@ import { PortsManager } from "./ports-manager";
 import { extractAdminPorts } from "./port-utils";
 import { ServerAdminSettings } from "./server-admin-settings";
 import { ServerDeleteCard } from "./server-delete-card";
-
-type PageProps = {
-  params: Promise<{ server: string }>;
-};
 
 function getPanelPath(
   ownerId: string,
@@ -53,36 +51,39 @@ function getServerAddress(
   return `${host}:${port}`;
 }
 
-export default async function AdminServerManagementPage({ params }: PageProps) {
-  const { server } = await params;
+export default function AdminServerManagementPage() {
+  const { server = "" } = useParams<{ server: string }>();
 
-  const requestHeaders = await headers();
-  const session = await auth.api.getSession({ headers: requestHeaders });
-  if (
-    !session ||
-    !hasManagementPermission(
-      session.user.permissions,
-      ManagementPermission.SERVER_MANAGE,
-    )
-  ) {
-    notFound();
-  }
+  const { data: session, isLoading } = authClient.useSession();
+  const canManage = session
+    ? hasManagementPermission(
+        session.user.permissions,
+        ManagementPermission.SERVER_MANAGE,
+      )
+    : false;
 
-  const [serverResponse, organizations] = await Promise.all([
-    serverInfo({
-      path: { server_id: server },
-      headers: requestHeaders,
-    }),
-    auth.api.listOrganizations({
-      headers: requestHeaders,
-    }),
-  ]);
+  const { data: bundle } = useSWR(
+    canManage && server ? ["admin-server", server] : null,
+    async () => {
+      const [serverResponse, organizations] = await Promise.all([
+        serverInfo({ path: { server_id: server } }),
+        auth.api.listOrganizations(),
+      ]);
+      return {
+        data: serverResponse.error ? null : serverResponse.data,
+        organizations,
+      };
+    },
+  );
 
-  const data = serverResponse.error ? null : serverResponse.data;
+  if (isLoading) return null;
+  if (!canManage) return <NotFoundView />;
+  if (!bundle) return null;
 
-  if (!data) {
-    notFound();
-  }
+  const data = bundle.data;
+  const organizations = bundle.organizations;
+
+  if (!data) return <NotFoundView />;
 
   const panelPath = getPanelPath(data.project, data.id, organizations);
   const initialPorts = extractAdminPorts(data);

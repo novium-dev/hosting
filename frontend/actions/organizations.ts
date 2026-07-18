@@ -1,5 +1,3 @@
-"use server";
-
 import { auth } from "@/lib/auth";
 import { authActionClient } from "@/lib/safe-action";
 import {
@@ -14,9 +12,6 @@ import {
   updateOrganizationNameSchema,
   updateOrganizationSlugSchema,
 } from "@/types/organization.schema";
-import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-import { redirect, RedirectType } from "next/navigation";
 import {
   hasManagementPermission,
   ManagementPermission,
@@ -29,10 +24,7 @@ export const createOrganizationAction = authActionClient
     try {
       const createdOrganization = await auth.api.createOrganization({
         body: { name, slug },
-        headers: await headers(),
       });
-
-      revalidatePath("/");
       return {
         success: true,
         message: "Organization created successfully",
@@ -50,10 +42,7 @@ export const updateOrganizationNameAction = authActionClient
     try {
       const updatedOrganization = await auth.api.updateOrganization({
         body: { organizationId: parsedInput.id, data: { name } },
-        headers: await headers(),
       });
-
-      revalidatePath("/");
       return {
         success: true,
         message: "Organization name updated successfully",
@@ -72,13 +61,14 @@ export const updateOrganizationSlugAction = authActionClient
     try {
       await auth.api.updateOrganization({
         body: { organizationId: parsedInput.id, data: { slug } },
-        headers: await headers(),
       });
     } catch (error) {
       console.error(error);
       throw error;
     }
-    redirect(`/${slug}/settings`, RedirectType.replace);
+    // The slug (and thus the URL base) changed; hard-navigate to the new path.
+    window.location.assign(`/${slug}/settings`);
+    return { success: true, message: "Organization slug updated successfully" };
   });
 
 export const setActiveOrganizationAction = authActionClient
@@ -88,10 +78,7 @@ export const setActiveOrganizationAction = authActionClient
     try {
       const activeOrganization = await auth.api.setActiveOrganization({
         body: { organizationSlug: slug, organizationId: id },
-        headers: await headers(),
       });
-
-      revalidatePath("/", "page");
       return {
         success: true,
         message: "Organization set as active successfully",
@@ -110,10 +97,7 @@ export const inviteMemberAction = authActionClient
     try {
       await auth.api.createInvitation({
         body: { email, role },
-        headers: await headers(),
       });
-
-      revalidatePath("/members");
       return { success: true, message: "Invitation sent successfully" };
     } catch (error) {
       console.error("Error inviting member:", error);
@@ -128,13 +112,11 @@ export const updateMemberAction = authActionClient
     try {
       await auth.api.updateMemberRole({
         body: { projectId, email, role },
-        headers: await headers(),
       });
     } catch (error) {
       console.error("Error updating member:", error);
       throw error;
     }
-    revalidatePath("/members");
   });
 
 export const cancelInvitationAction = authActionClient
@@ -144,9 +126,7 @@ export const cancelInvitationAction = authActionClient
     try {
       await auth.api.cancelInvitation({
         body: { invitationId },
-        headers: await headers(),
       });
-      revalidatePath("/[slug]/members", "page");
       return { success: true, message: "Invitation canceled successfully" };
     } catch (error) {
       console.error("Error canceling invitation:", error);
@@ -161,9 +141,7 @@ export const resendInvitationAction = authActionClient
     try {
       await auth.api.createInvitation({
         body: { email, role, resend: true },
-        headers: await headers(),
       });
-      revalidatePath("/[slug]/members", "page");
       return { success: true, message: "Invitation resent successfully" };
     } catch (error) {
       console.error("Error resending invitation:", error);
@@ -178,10 +156,7 @@ export const acceptInvitationAction = authActionClient
     try {
       await auth.api.acceptInvitation({
         body: { invitationId },
-        headers: await headers(),
       });
-
-      revalidatePath(revalidatePathValue || "/");
       return { success: true, message: "Invitation accepted successfully" };
     } catch (error) {
       console.error("Error accepting invitation:", error);
@@ -196,9 +171,7 @@ export const declineInvitationAction = authActionClient
     try {
       await auth.api.rejectInvitation({
         body: { invitationId },
-        headers: await headers(),
       });
-      revalidatePath(revalidatePathValue || "/");
       return { success: true, message: "Invitation declined successfully" };
     } catch (error) {
       console.error("Error declining invitation:", error);
@@ -208,8 +181,7 @@ export const declineInvitationAction = authActionClient
 
 export const getAllOrganizationsAction = authActionClient.action(async () => {
   try {
-    const requestHeaders = await headers();
-    const session = await auth.api.getSession({ headers: requestHeaders });
+    const session = await auth.api.getSession();
 
     if (!session) {
       throw new Error("Unauthorized");
@@ -224,9 +196,7 @@ export const getAllOrganizationsAction = authActionClient.action(async () => {
       throw new Error("Forbidden");
     }
 
-    const allOrganizations = await auth.api.listAdminOrganizations({
-      headers: requestHeaders,
-    });
+    const allOrganizations = await auth.api.listAdminOrganizations();
 
     return {
       success: true,

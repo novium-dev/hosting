@@ -27,7 +27,7 @@ import {
 import { projectRoleFromPermissions } from "@/lib/permissions";
 import { setProjectUserSchema } from "@/types/project-user.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
+import { useHookFormAction } from "@/lib/action-hooks";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import type { ProjectMember } from "./members-view";

@@ -18,8 +18,8 @@ import { appConfig } from "@/constants/config";
 import { authClient } from "@/lib/auth-client";
 import { parseUserAgent } from "@/lib/utils";
 import { Laptop } from "lucide-react";
-import { useAction } from "next-safe-action/hooks";
-import { useRouter } from "nextjs-toploader/app";
+import { useAction } from "@/lib/action-hooks";
+import { useRouter } from "@/lib/navigation";
 import { useState } from "react";
 
 type Session = {

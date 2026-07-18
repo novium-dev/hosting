@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OrganizationSwitcher } from "@/components/sidebar/organization-switcher";

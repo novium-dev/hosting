@@ -1,6 +1,6 @@
+import { Navigate } from "react-router-dom";
 import { appConfig } from "@/constants/config";
-import { redirect } from "next/navigation";
 
 export default function AcceptInvitation() {
-  redirect(appConfig.authRoutes.signin);
+  return <Navigate to={appConfig.authRoutes.signin} replace />;
 }

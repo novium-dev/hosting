@@ -65,8 +65,8 @@ impl Backend {
         if let Some(dir) = self.config.resolved_frontend_dir() {
             if dir.is_dir() {
                 info!("Serving frontend from {}", dir.display());
-                let serve_dir = ServeDir::new(&dir)
-                    .not_found_service(ServeFile::new(dir.join("index.html")));
+                let serve_dir =
+                    ServeDir::new(&dir).not_found_service(ServeFile::new(dir.join("index.html")));
                 router = router.fallback_service(serve_dir);
             } else {
                 warn!(

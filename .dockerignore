@@ -7,5 +7,11 @@ mariadb/data/
 mariadb/sockets/
 build/
 
+# Frontend build artifacts / deps (rebuilt inside the image)
+frontend/node_modules/
+frontend/dist/
+frontend/.next/
+frontend/.tanstack/
+
 *.pem
 

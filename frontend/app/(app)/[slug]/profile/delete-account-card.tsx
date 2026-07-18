@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { appConfig } from "@/constants/config";
-import { useAction } from "next-safe-action/hooks";
-import { useRouter } from "nextjs-toploader/app";
+import { useAction } from "@/lib/action-hooks";
+import { useRouter } from "@/lib/navigation";
 import { toast } from "sonner";
 
 export default function DeleteAccountCard() {

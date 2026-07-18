@@ -1,22 +1,21 @@
-import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { notFound } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { NotFoundView } from "@/components/not-found-view";
+import { authClient } from "@/lib/auth-client";
 import { hasManagementPermission, ManagementPermission } from "@/lib/permissions";
 import { UsersTable } from "./users-table";
 
-export const metadata: Metadata = {
-  title: "Users | Hephaestus Admin",
-  description: "Manage users in Hephaestus Admin",
-};
+export default function UsersPage() {
+  const { data: session, isLoading } = authClient.useSession();
 
-export default async function UsersPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  if (isLoading) return null;
+
   if (
     !session ||
-    !hasManagementPermission(session.user.permissions, ManagementPermission.USER_VIEW)
+    !hasManagementPermission(
+      session.user.permissions,
+      ManagementPermission.USER_VIEW,
+    )
   ) {
-    notFound();
+    return <NotFoundView />;
   }
 
   return (

@@ -4,7 +4,7 @@ import type { AuthProvider } from "@/components/auth/provider-sign-in-button";
 const allowedProviders = new Set<AuthProvider>(["user", "team"]);
 
 function getEnabledProviders(): AuthProvider[] {
-  const providerConfig = process.env.PROVIDERS ?? process.env.PROVIDERs;
+  const providerConfig = import.meta.env.VITE_PROVIDERS;
   const providers = providerConfig?.split(",")
     .map((provider) => provider.trim().toLowerCase())
     .filter((provider): provider is AuthProvider =>

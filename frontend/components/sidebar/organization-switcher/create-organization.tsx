@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Plus } from "lucide-react";
-import { useRouter } from "nextjs-toploader/app";
+import { useRouter } from "@/lib/navigation";
 import { useState } from "react";
 
 export function CreateOrganizationModal() {

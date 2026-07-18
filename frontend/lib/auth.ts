@@ -22,14 +22,6 @@ import {
   projectRolePermissions,
   type ProjectRole,
 } from "@/lib/permissions";
-import { getSessionTokenFromCookie } from "@/lib/session";
-import {
-  getCachedSessionUser,
-  getSessionCacheKey,
-  setCachedSessionUser,
-} from "@/lib/session-cache";
-
-type HeaderInput = Headers | Record<string, string> | undefined;
 
 export type AppUser = {
   id: string;
@@ -61,26 +53,6 @@ export type AppOrganization = Project & {
   invitations?: AuthClientInvitation[];
 };
 
-const toApiHeaders = (headers: HeaderInput) => {
-  if (!headers) return undefined;
-  const cookie =
-    headers instanceof Headers ? headers.get("cookie") : headers.cookie;
-  const authorization =
-    headers instanceof Headers
-      ? headers.get("authorization")
-      : (headers.Authorization ?? headers.authorization);
-  const sessionToken = getSessionTokenFromCookie(cookie);
-
-  return {
-    ...(cookie ? { cookie } : {}),
-    ...(authorization
-      ? { Authorization: authorization }
-      : sessionToken
-        ? { Authorization: `Session ${sessionToken}` }
-        : {}),
-  };
-};
-
 const normalizeUser = (user: MeResponse): AppUser => ({
   id: String(user.id),
   name: user.username,
@@ -90,26 +62,14 @@ const normalizeUser = (user: MeResponse): AppUser => ({
   role: user.role.toLowerCase() as AppUser["role"],
 });
 
-const getCurrentUser = async (headers: HeaderInput) => {
-  const apiHeaders = toApiHeaders(headers);
-  const cacheKey = getSessionCacheKey({
-    authorization: apiHeaders?.Authorization,
-    cookie: apiHeaders?.cookie,
-  });
-  const cachedUser = getCachedSessionUser(cacheKey);
-  if (cachedUser) return normalizeUser(cachedUser);
-
-  const response = await me({ headers: apiHeaders });
+const getCurrentUser = async () => {
+  const response = await me();
   if (response.error || !response.data) return null;
-  setCachedSessionUser(cacheKey, response.data);
   return normalizeUser(response.data);
 };
 
-const listCurrentProjects = async (headers: HeaderInput, own?: boolean) => {
-  const response = await listProjects({
-    headers: toApiHeaders(headers),
-    query: { own },
-  });
+const listCurrentProjects = async (own?: boolean) => {
+  const response = await listProjects({ query: { own } });
   if (response.error || !response.data) return [];
   return response.data;
 };
@@ -128,11 +88,11 @@ const projectMemberToAuthClientMember = (
   },
 });
 
-const resolveProject = async (
-  headers: HeaderInput,
-  query?: { organizationId?: string; organizationSlug?: string },
-) => {
-  const projects = await listCurrentProjects(headers);
+const resolveProject = async (query?: {
+  organizationId?: string;
+  organizationSlug?: string;
+}) => {
+  const projects = await listCurrentProjects();
   return (
     projects.find(
       (project) =>
@@ -144,8 +104,8 @@ const resolveProject = async (
 
 export const auth = {
   api: {
-    getSession: async ({ headers }: { headers?: HeaderInput } = {}) => {
-      const user = await getCurrentUser(headers);
+    getSession: async () => {
+      const user = await getCurrentUser();
       if (!user) return null;
 
       return {
@@ -160,24 +120,18 @@ export const auth = {
 
     getToken: async () => ({ token: "" }),
 
-    listOrganizations: async ({
-      headers,
-      own,
-    }: { headers?: HeaderInput; own?: boolean } = {}) =>
-      listCurrentProjects(headers, own),
+    listOrganizations: async ({ own }: { own?: boolean } = {}) =>
+      listCurrentProjects(own),
 
     getFullOrganization: async ({
-      headers,
       query,
     }: {
-      headers?: HeaderInput;
       query?: { organizationId?: string; organizationSlug?: string };
     }) => {
-      const project = await resolveProject(headers, query);
+      const project = await resolveProject(query);
       if (!project) return null;
 
       const members = await listProjectUsers({
-        headers: toApiHeaders(headers),
         path: { project_id: project.id },
       });
 
@@ -191,36 +145,28 @@ export const auth = {
     },
 
     createOrganization: async ({
-      headers,
       body,
     }: {
-      headers?: HeaderInput;
       body: { name: string; slug: string };
     }) => {
-      const response = await createProject({
-        headers: toApiHeaders(headers),
-        body,
-      });
+      const response = await createProject({ body });
       if (response.error) throw new Error("Failed to create project");
-      const projects = await listCurrentProjects(headers);
+      const projects = await listCurrentProjects();
       return projects.find((project) => project.slug === body.slug) ?? null;
     },
 
     updateOrganization: async ({
-      headers,
       body,
     }: {
-      headers?: HeaderInput;
       body: { organizationId?: string; data: { name?: string; slug?: string } };
     }) => {
-      const project = await resolveProject(headers, {
+      const project = await resolveProject({
         organizationId: body.organizationId,
         organizationSlug: body.data.slug,
       });
       if (!project) throw new Error("Project not found");
 
       const response = await updateProject({
-        headers: toApiHeaders(headers),
         path: { project_id: project.id },
         body: body.data,
       });
@@ -232,11 +178,10 @@ export const auth = {
       body,
     }: {
       body: { organizationId: string; organizationSlug?: string };
-      headers?: HeaderInput;
     }) => body,
 
-    listUsers: async ({ headers }: { headers?: HeaderInput } = {}) => {
-      const response = await listUsers({ headers: toApiHeaders(headers) });
+    listUsers: async () => {
+      const response = await listUsers();
       if (response.error || !response.data) return [];
       return response.data satisfies ListUsersResponse;
     },
@@ -260,15 +205,12 @@ export const auth = {
     cancelInvitation: async (_options?: object) => undefined,
 
     updateMemberRole: async ({
-      headers,
       body,
     }: {
-      headers?: HeaderInput;
       body: { projectId?: string; email: string; role: string | number };
     }) => {
       if (!body.projectId) throw new Error("Project id is required");
       await setProjectUser({
-        headers: toApiHeaders(headers),
         path: { project_id: body.projectId },
         body: {
           email: body.email,
@@ -281,20 +223,16 @@ export const auth = {
     },
 
     removeMember: async ({
-      headers,
       body,
     }: {
-      headers?: HeaderInput;
       body: { projectId: string; memberId: string };
     }) => {
       await removeProjectUser({
-        headers: toApiHeaders(headers),
         path: { project_id: body.projectId, user_id: Number(body.memberId) },
       });
     },
 
-    signOut: async ({ headers }: { headers?: HeaderInput } = {}) =>
-      logout({ headers: toApiHeaders(headers) }),
+    signOut: async () => logout(),
 
     signIn: async ({
       path,
@@ -304,10 +242,8 @@ export const auth = {
       query: { redirect_url: string };
     }) => login({ path, query }),
 
-    listAdminOrganizations: async ({
-      headers,
-    }: { headers?: HeaderInput } = {}) => {
-      const response = await listProjects({ headers: toApiHeaders(headers) });
+    listAdminOrganizations: async () => {
+      const response = await listProjects();
       if (response.error || !response.data) return [];
       return response.data satisfies ListProjectsResponse;
     },

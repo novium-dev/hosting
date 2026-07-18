@@ -8,9 +8,9 @@ import { appConfig } from "@/constants/config";
 import type { AppOrganization } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
-import { useAction } from "next-safe-action/hooks";
-import { usePathname } from "next/navigation";
-import { useRouter } from "nextjs-toploader/app";
+import { useAction } from "@/lib/action-hooks";
+import { usePathname } from "@/lib/navigation";
+import { useRouter } from "@/lib/navigation";
 
 export function SwitcherItem({
   organization,

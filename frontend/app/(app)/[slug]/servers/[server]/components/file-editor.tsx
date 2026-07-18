@@ -1,8 +1,6 @@
-"use client";
-
-import dynamic from "next/dynamic";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import type { EditorProps } from "@monaco-editor/react";
+import Link from "@/components/link";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Download,
@@ -36,15 +34,22 @@ type FileEditorProps = {
 
 type EditorMode = "loading" | "empty" | "archive" | "directory" | "image" | "text";
 
-const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
-      <Loader2 className="size-4 animate-spin" />
-      Loading editor...
-    </div>
-  ),
-});
+const LazyMonaco = lazy(() => import("@monaco-editor/react"));
+
+function MonacoEditor(props: EditorProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          Loading editor...
+        </div>
+      }
+    >
+      <LazyMonaco {...props} />
+    </Suspense>
+  );
+}
 
 function normalizePath(input: string) {
   const trimmed = input.trim();

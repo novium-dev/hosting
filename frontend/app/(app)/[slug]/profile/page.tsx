@@ -5,16 +5,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { authClient } from "@/lib/auth-client";
 import ProfileAuthCard from "./profile-auth-card";
 import DeleteAccountCard from "./delete-account-card";
 
-export default async function ProfilePage() {
-  const headerStore = await headers();
-  const session = await auth.api.getSession({
-    headers: headerStore,
-  });
+export default function ProfilePage() {
+  const { data: session } = authClient.useSession();
 
   return (
     <div className="flex flex-col gap-4">

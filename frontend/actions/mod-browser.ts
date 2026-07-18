@@ -1,7 +1,3 @@
-"use server";
-
-import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getResource, ResourceType } from "@/lib/api";
@@ -58,11 +54,9 @@ export const installResourceVersionAction = authActionClient
     }),
   )
   .action(async ({ parsedInput }) => {
-    const requestHeaders = await headers();
 
     const response = await getResource({
       path: { server_id: parsedInput.serverId },
-      headers: requestHeaders,
       body: {
         provider: parsedInput.provider,
         type: parsedInput.resourceType,
@@ -75,8 +69,6 @@ export const installResourceVersionAction = authActionClient
         response.error.error?.msg ?? "Failed to install resource",
       );
     }
-
-    revalidatePath(`/${parsedInput.slug}/servers/${parsedInput.serverId}/mods`);
 
     return { success: true };
   });

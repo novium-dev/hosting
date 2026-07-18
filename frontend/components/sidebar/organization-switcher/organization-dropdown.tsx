@@ -13,7 +13,7 @@ import { OrganizationAvatar } from "@/components/ui/organization-avatar";
 import { TextEllipsis } from "@/components/ui/text-ellipsis";
 import type { AppOrganization } from "@/lib/auth";
 import { ChevronDown } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams } from "@/lib/navigation";
 import { CreateOrganizationModal } from "./create-organization";
 import { SwitcherItem } from "./switcher-item";
 

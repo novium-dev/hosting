@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { setProjectUserSchema } from "@/types/project-user.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
+import { useHookFormAction } from "@/lib/action-hooks";
 import { UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";

@@ -15,7 +15,7 @@ import {
 import { appConfig } from "@/constants/config";
 import { NoviumLogo } from "@/components/brand/novium-logo";
 import { InvitationWithOrganization } from "@/types/organizations";
-import { useAction } from "next-safe-action/hooks";
+import { useAction } from "@/lib/action-hooks";
 
 export default function AcceptInvitationCard({
   invitation,

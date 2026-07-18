@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import Link from "@/components/link";
+import { Navigate, Outlet, useParams } from "react-router-dom";
+import useSWR from "swr";
 
 import { MainLayout } from "@/components/sidebar/main-layout";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { auth } from "@/lib/auth";
+import { authClient } from "@/lib/auth-client";
 import { appConfig } from "@/constants/config";
 import { serverInfo } from "@/lib/api";
+import { useOrganization } from "@/hooks/use-organization";
 import {
   hasManagementPermission,
   hasServerPermission,
@@ -22,14 +23,6 @@ import {
   ServerPermission,
 } from "@/lib/permissions";
 import { ServerManagementBar } from "./components/server-management-bar";
-
-type LayoutProps = {
-  children: React.ReactNode;
-  params: Promise<{
-    slug: string;
-    server: string;
-  }>;
-};
 
 function getServerAddress(
   serverData: Awaited<ReturnType<typeof serverInfo>>["data"],
@@ -53,23 +46,18 @@ function getServerAddress(
   return `${host}:${port}`;
 }
 
-export default async function ServerLayout({ children, params }: LayoutProps) {
-  const { slug, server } = await params;
+export default function ServerLayout() {
+  const { slug, server } = useParams<{ slug: string; server: string }>();
 
-  const requestHeaders = await headers();
+  const { data: session, isLoading: sessionLoading } = authClient.useSession();
+  const { data: org, isLoading: orgLoading } = useOrganization(slug);
+  const { data: infoResponse, isLoading: infoLoading } = useSWR(
+    server ? ["server-info", server] : null,
+    () => serverInfo({ path: { server_id: server! } }),
+  );
 
-  const session = await auth.api.getSession({
-    headers: requestHeaders,
-  });
-
-  if (!session) {
-    redirect(appConfig.authRoutes.signin);
-  }
-
-  const org = await auth.api.getFullOrganization({
-    query: { organizationSlug: slug },
-    headers: requestHeaders,
-  });
+  if (sessionLoading || orgLoading) return null;
+  if (!session) return <Navigate to={appConfig.authRoutes.signin} replace />;
 
   if (!org) {
     return (
@@ -86,12 +74,10 @@ export default async function ServerLayout({ children, params }: LayoutProps) {
     );
   }
 
-  const infoResponse = await serverInfo({
-    path: { server_id: server },
-    headers: requestHeaders,
-  });
+  if (infoLoading) return null;
 
-  const serverData = infoResponse.error ? null : infoResponse.data;
+  const serverData =
+    infoResponse && !infoResponse.error ? infoResponse.data : null;
 
   if (!serverData || serverData.project !== org.id) {
     return (
@@ -191,7 +177,8 @@ export default async function ServerLayout({ children, params }: LayoutProps) {
           swapLimit={serverData.swap ?? null}
         />
 
-        {children}
+        <Outlet />
+        {/* section content rendered by the routed child page */}
       </div>
     </MainLayout>
   );

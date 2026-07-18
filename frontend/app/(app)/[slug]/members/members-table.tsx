@@ -31,7 +31,7 @@ import {
 import { TextEllipsis } from "@/components/ui/text-ellipsis";
 import { projectRoleFromPermissions } from "@/lib/permissions";
 import { MoreHorizontal, Users } from "lucide-react";
-import { useAction } from "next-safe-action/hooks";
+import { useAction } from "@/lib/action-hooks";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { ProjectMember } from "./members-view";

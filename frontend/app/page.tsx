@@ -1,25 +1,17 @@
-import { appConfig } from "@/constants/config";
+import { Navigate } from "react-router-dom";
+import useSWR from "swr";
 import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 
-export default async function Home() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+export default function Home() {
+  const { data: organizations, isLoading } = useSWR(
+    "home/own-organizations",
+    () => auth.api.listOrganizations({ own: true }),
+  );
 
-  if (!session) redirect(appConfig.authRoutes.signin);
-
-  const organizations = await auth.api.listOrganizations({
-    own: true,
-    headers: await headers(),
-  });
+  if (isLoading || !organizations) return null;
 
   const firstOrganization = organizations[0];
+  if (!firstOrganization) return <Navigate to="/onboarding" replace />;
 
-  if (!firstOrganization) {
-    redirect("/onboarding");
-  }
-
-  redirect(`/${firstOrganization.slug}`);
+  return <Navigate to={`/${firstOrganization.slug}`} replace />;
 }

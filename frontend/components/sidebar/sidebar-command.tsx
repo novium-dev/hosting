@@ -13,7 +13,7 @@ import {
   Users2Icon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter } from "@/lib/navigation";
 import { useEffect, useState } from "react";
 
 import {

@@ -358,7 +358,11 @@ fn session_cookie_header(backend: &Backend, session: &str, max_age: u64) -> Head
 
 /// `Set-Cookie` value that persists the current session on the client.
 pub fn set_session_cookie(backend: &Backend, session: &Session) -> HeaderValue {
-    session_cookie_header(backend, &session.to_string(), backend.config.session_lifetime)
+    session_cookie_header(
+        backend,
+        &session.to_string(),
+        backend.config.session_lifetime,
+    )
 }
 
 /// `Set-Cookie` value that immediately clears the session cookie.

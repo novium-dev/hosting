@@ -23,8 +23,8 @@ import { Button } from "@/components/ui/button";
 import { appConfig } from "@/constants/config";
 import { authClient } from "@/lib/auth-client";
 import { useTheme } from "next-themes";
-import { useParams } from "next/navigation";
-import { useRouter } from "nextjs-toploader/app";
+import { useParams } from "@/lib/navigation";
+import { useRouter } from "@/lib/navigation";
 
 export function NavUserMenu() {
   const router = useRouter();

@@ -1,19 +1,12 @@
-import { appConfig } from "@/constants/config";
+import useSWR from "swr";
 import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { OrganizationDropdown } from "./organization-dropdown";
 
-export async function OrganizationSwitcher() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!session) redirect(appConfig.authRoutes.signin);
+export function OrganizationSwitcher() {
+  const { data: organizations } = useSWR(
+    "switcher/own-organizations",
+    () => auth.api.listOrganizations({ own: true }),
+  );
 
-  const organizations = await auth.api.listOrganizations({
-    headers: await headers(),
-    own: true,
-  });
-
-  return <OrganizationDropdown organizations={organizations} />;
+  return <OrganizationDropdown organizations={organizations ?? []} />;
 }

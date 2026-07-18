@@ -5,25 +5,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Navigate } from "react-router-dom";
+import useSWR from "swr";
 import { appConfig } from "@/constants/config";
 import { NoviumLogo } from "@/components/brand/novium-logo";
 import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 import OnboardingForm from "./onboarding-form";
 
-export default async function OnboardingPage() {
-  const data = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!data) redirect(appConfig.authRoutes.signin);
+export default function OnboardingPage() {
+  const { data, isLoading } = authClient.useSession();
+  const { data: organizations, isLoading: orgsLoading } = useSWR(
+    data ? "onboarding/own-organizations" : null,
+    () => auth.api.listOrganizations({ own: true }),
+  );
 
-  const organizations = await auth.api.listOrganizations({
-    headers: await headers(),
-    own: true,
-  });
-
-  if (organizations.length > 0) redirect(`/${organizations[0].slug}`);
+  if (isLoading) return null;
+  if (!data) return <Navigate to={appConfig.authRoutes.signin} replace />;
+  if (orgsLoading) return null;
+  if (organizations && organizations.length > 0) {
+    return <Navigate to={`/${organizations[0].slug}`} replace />;
+  }
 
   return (
     <div className="flex h-screen w-screen items-center justify-center">

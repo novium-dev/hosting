@@ -1,22 +1,16 @@
+import { Navigate, Outlet } from "react-router-dom";
 import { appConfig } from "@/constants/config";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 
-export default async function AuthLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+export default function AuthLayout() {
+  const { data: session, isLoading } = authClient.useSession();
 
-  if (session) redirect(appConfig.authRoutes.onboarding);
+  if (isLoading) return null;
+  if (session) return <Navigate to={appConfig.authRoutes.onboarding} replace />;
 
   return (
     <div className="flex h-svh flex-col items-center justify-center">
-      {children}
+      <Outlet />
     </div>
   );
 }

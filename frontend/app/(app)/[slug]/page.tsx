@@ -1,11 +1,10 @@
-import Link from "next/link";
-import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import Link from "@/components/link";
+import { useParams } from "react-router-dom";
+import useSWR from "swr";
 import { Server, ChevronRight, HardDrive } from "lucide-react";
 
 import { MainLayout } from "@/components/sidebar/main-layout";
-import { auth } from "@/lib/auth";
-import { appConfig } from "@/constants/config";
+import { useOrganization } from "@/hooks/use-organization";
 import { listServers } from "@/lib/api";
 
 import { Badge } from "@/components/ui/badge";
@@ -18,27 +17,24 @@ import {
 } from "@/components/ui/card";
 import { titleCase } from "@/lib/utils";
 
-type PageProps = {
-  params: Promise<{ slug: string }>;
-};
+export default function OrganizationPage() {
+  const { slug } = useParams<{ slug: string }>();
 
-export default async function OrganizationPage({ params }: PageProps) {
-  const { slug } = await params;
+  const { data: org, isLoading } = useOrganization(slug);
 
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const { data: serversData } = useSWR(
+    org ? ["servers", org.id] : null,
+    async () => {
+      const res = await listServers({ query: { project: org!.id } });
+      return res.error ? [] : (res.data ?? []);
+    },
+  );
 
-  if (!session) redirect(appConfig.authRoutes.signin);
-
-  const org = await auth.api.getFullOrganization({
-    query: { organizationSlug: slug },
-    headers: await headers(),
-  });
+  if (isLoading) return null;
 
   if (!org) {
     return (
-      <MainLayout breadcrumbs={[{ label: slug }]}>
+      <MainLayout breadcrumbs={[{ label: slug ?? "" }]}>
         <Card>
           <CardHeader>
             <CardTitle>No active organization selected</CardTitle>
@@ -51,15 +47,7 @@ export default async function OrganizationPage({ params }: PageProps) {
     );
   }
 
-  const servers = await listServers({
-    query: {
-      project: org.id,
-    },
-    headers: await headers(),
-  }).then((res) => {
-    if (res.error) return [];
-    return res.data ?? [];
-  });
+  const servers = serversData ?? [];
 
   return (
     <MainLayout breadcrumbs={[{ label: slug }, { label: "Servers" }]}>

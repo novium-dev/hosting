@@ -4,7 +4,7 @@ import { CheckIcon, CopyIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { useAction } from "next-safe-action/hooks";
+import { useAction } from "@/lib/action-hooks";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

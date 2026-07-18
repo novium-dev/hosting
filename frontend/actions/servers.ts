@@ -1,10 +1,6 @@
-"use server";
-
 import { createServer, templateInfo } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
-import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 const templateInfoSchema = z.object({
@@ -29,11 +25,9 @@ const createServerSchema = z.object({
 export const getTemplateInfoAction = authActionClient
   .inputSchema(templateInfoSchema)
   .action(async ({ parsedInput }) => {
-    const requestHeaders = await headers();
 
     const response = await templateInfo({
       path: { template: parsedInput.template },
-      headers: requestHeaders,
     });
 
     if (response.error) {
@@ -49,10 +43,8 @@ export const getTemplateInfoAction = authActionClient
 export const createServerAction = authActionClient
   .inputSchema(createServerSchema)
   .action(async ({ parsedInput }) => {
-    const requestHeaders = await headers();
 
     const response = await createServer({
-      headers: requestHeaders,
       body: {
         name: parsedInput.name,
         project: parsedInput.owner,
@@ -78,8 +70,6 @@ export const createServerAction = authActionClient
     }
 
     console.log("Server created successfully:", response.data);
-
-    revalidatePath("/admin/servers");
 
     return {
       success: true,

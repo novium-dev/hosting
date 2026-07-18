@@ -1,12 +1,11 @@
-"use client";
+import { lazy, Suspense } from "react";
 
-import dynamic from "next/dynamic";
-
-const Terminal = dynamic(
-  async () => (await import("../components/terminal")).default,
-  { ssr: false },
-);
+const Terminal = lazy(() => import("../components/terminal"));
 
 export function ServerConsole({ serverId }: { serverId: string }) {
-  return <Terminal serverId={serverId} />;
+  return (
+    <Suspense fallback={null}>
+      <Terminal serverId={serverId} />
+    </Suspense>
+  );
 }

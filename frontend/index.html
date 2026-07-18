@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/novium.svg" />
+    <link rel="icon" type="image/svg+xml" href="https://logos.novium.world" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,6 +15,17 @@
       name="description"
       content="Hephaestus game panel for managing your servers."
     />
+    <style>
+      /* Font family variables previously provided by next/font. */
+      :root {
+        --font-geist-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+        --font-geist-mono: "Geist Mono", ui-monospace, monospace;
+        --font-jetbrains-mono: "JetBrains Mono", ui-monospace, monospace;
+      }
+      body {
+        font-family: var(--font-geist-sans);
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

@@ -29,9 +29,9 @@ import { authClient } from "@/lib/auth-client";
 import type { AppOrganization } from "@/lib/auth";
 import { createOrganizationSchema } from "@/types/organization.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
+import { useHookFormAction } from "@/lib/action-hooks";
 import { IconCheck, IconX } from "@tabler/icons-react";
-import { useAction } from "next-safe-action/hooks";
+import { useAction } from "@/lib/action-hooks";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 

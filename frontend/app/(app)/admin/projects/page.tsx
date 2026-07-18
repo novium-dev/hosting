@@ -1,42 +1,37 @@
-import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import useSWR from "swr";
 
+import { NotFoundView } from "@/components/not-found-view";
 import { listProjects } from "@/lib/api";
-import { auth } from "@/lib/auth";
+import { authClient } from "@/lib/auth-client";
 import {
   hasManagementPermission,
   ManagementPermission,
 } from "@/lib/permissions";
 import { ProjectsTable } from "./projects-table";
 
-export const metadata: Metadata = {
-  title: "Projects | Hephaestus Admin",
-  description: "Browse projects in Hephaestus Admin",
-};
+export default function AdminProjectsPage() {
+  const { data: session, isLoading } = authClient.useSession();
+  const canView = session
+    ? hasManagementPermission(
+        session.user.permissions,
+        ManagementPermission.SERVER_MANAGE,
+      )
+    : false;
 
-export default async function AdminProjectsPage() {
-  const requestHeaders = await headers();
-  const session = await auth.api.getSession({ headers: requestHeaders });
-  if (
-    !session ||
-    !hasManagementPermission(
-      session.user.permissions,
-      ManagementPermission.SERVER_MANAGE,
-    )
-  ) {
-    notFound();
-  }
+  const { data: projects } = useSWR(
+    canView ? "admin/projects" : null,
+    async () => {
+      const response = await listProjects();
+      return response.error ? [] : (response.data ?? []);
+    },
+  );
 
-  const response = await listProjects({
-    headers: requestHeaders,
-  });
-
-  const projects = response.error ? [] : (response.data ?? []);
+  if (isLoading) return null;
+  if (!canView) return <NotFoundView />;
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <ProjectsTable projects={projects} />
+      <ProjectsTable projects={projects ?? []} />
     </div>
   );
 }

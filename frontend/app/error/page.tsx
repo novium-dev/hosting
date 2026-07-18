@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/link";
 import { AlertTriangle, ArrowLeft, RotateCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";

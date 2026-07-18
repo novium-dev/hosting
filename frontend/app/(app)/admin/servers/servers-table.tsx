@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/link";
 import { useMemo, useState } from "react";
 import { Plus, Search, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";

@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { updateOrganizationNameSchema } from "@/types/organization.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks";
+import { useHookFormAction } from "@/lib/action-hooks";
 import type { AppOrganization } from "@/lib/auth";
 import { toast } from "sonner";
 

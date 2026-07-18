@@ -1,22 +1,21 @@
+import { useParams } from "react-router-dom";
+import useSWR from "swr";
 import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import AcceptInvitationCard from "./accept-invitation-card";
 import InvalidInvitationCard from "./invalid-invitation-card";
 
-export default async function AcceptInvitation({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
+export default function AcceptInvitation() {
+  const { id } = useParams<{ id: string }>();
+  const {
+    data: invitation,
+    error,
+    isLoading,
+  } = useSWR(id ? ["invitation", id] : null, () =>
+    auth.api.getInvitation({ query: { id } }),
+  );
 
-  try {
-    const invitation = await auth.api.getInvitation({
-      query: { id },
-      headers: await headers(),
-    });
-    return <AcceptInvitationCard invitation={invitation} />;
-  } catch {
-    return <InvalidInvitationCard />;
-  }
+  if (isLoading) return null;
+  if (error) return <InvalidInvitationCard />;
+
+  return <AcceptInvitationCard invitation={invitation ?? null} />;
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
+import Link from "@/components/link";
+import { useParams, usePathname } from "@/lib/navigation";
 
 const items = [
   {

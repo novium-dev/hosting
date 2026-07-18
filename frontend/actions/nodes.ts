@@ -1,12 +1,8 @@
-"use server";
-
 import z from "zod";
 import { authActionClient } from "../lib/safe-action";
-import { headers } from "next/headers";
 import { createNode } from "../lib/api";
 import type { BackupStorage, ServerStorage } from "../lib/api";
 import { ActionError } from "@/types/safe-action.types";
-import { revalidatePath } from "next/cache";
 
 const storageEntrySchema = z
   .object({
@@ -41,7 +37,6 @@ const createNodeSchema = z.object({
 export const createNodeAction = authActionClient
   .inputSchema(createNodeSchema)
   .action(async ({ parsedInput }) => {
-    const requestHeaders = await headers();
 
     const storages: Record<string, ServerStorage> = Object.fromEntries(
       parsedInput.storages.map((entry) => [
@@ -60,7 +55,6 @@ export const createNodeAction = authActionClient
     );
 
     const response = await createNode({
-      headers: requestHeaders,
       body: {
         name: parsedInput.name,
         config: {
@@ -77,8 +71,6 @@ export const createNodeAction = authActionClient
         response.error.error?.msg || "Failed to create node",
       );
     }
-
-    revalidatePath("/admin/nodes");
 
     return {
       success: true,

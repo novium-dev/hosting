@@ -4,7 +4,7 @@ import { CreateOrganizationForm } from "@/components/create-organization-form";
 import { Button } from "@/components/ui/button";
 import { appConfig } from "@/constants/config";
 import { authClient } from "@/lib/auth-client";
-import { useRouter } from "nextjs-toploader/app";
+import { useRouter } from "@/lib/navigation";
 
 export default function OnboardingForm() {
   const router = useRouter();

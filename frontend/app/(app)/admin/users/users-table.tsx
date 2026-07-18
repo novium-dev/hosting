@@ -3,7 +3,7 @@
 import { Ban, Check, Search, Users, Shield, User } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "@/lib/navigation";
 import { getAllUsersAction } from "@/actions/users"; // adjust path
 
 import {

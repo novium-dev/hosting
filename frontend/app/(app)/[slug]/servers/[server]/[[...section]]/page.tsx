@@ -1,5 +1,6 @@
-import Link from "next/link";
-import { headers } from "next/headers";
+import Link from "@/components/link";
+import { useParams } from "react-router-dom";
+import useSWR from "swr";
 import {
   Network,
   Archive,
@@ -21,7 +22,9 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { listFiles, serverInfo } from "@/lib/api";
-import { auth } from "@/lib/auth";
+import { authClient } from "@/lib/auth-client";
+import { useOrganization } from "@/hooks/use-organization";
+import { useSearchParams } from "@/lib/navigation";
 import { FileMode, modeToType } from "@/lib/files";
 import { getMinecraftResourceCapabilities } from "@/lib/mod-browser/capabilities";
 import {
@@ -40,17 +43,6 @@ import { ServerSettings } from "../components/server-settings";
 import { StartupVariables } from "../components/startup-variables";
 import { ModPluginBrowser } from "../components/mod-plugin-browser";
 import { MinecraftPlayerManager } from "../components/minecraft-player-manager";
-
-type PageProps = {
-  params: Promise<{
-    slug: string;
-    server: string;
-    section?: string[];
-  }>;
-  searchParams: Promise<{
-    path?: string;
-  }>;
-};
 
 type ServerSection = {
   key: string;
@@ -167,18 +159,13 @@ function getActiveSection(sections: ServerSection[], section?: string[]) {
   return match ?? sections[0] ?? SERVER_SECTIONS[0];
 }
 
-async function getInstalledFilesByPath(
-  serverId: string,
-  paths: string[],
-  requestHeaders: Headers,
-) {
+async function getInstalledFilesByPath(serverId: string, paths: string[]) {
   const uniquePaths = Array.from(new Set(paths));
   const entries = await Promise.all(
     uniquePaths.map(async (file) => {
       const response = await listFiles({
         path: { server_id: serverId },
         query: { file },
-        headers: requestHeaders,
       });
 
       if (response.error || !response.data) {
@@ -197,28 +184,23 @@ async function getInstalledFilesByPath(
   return Object.fromEntries(entries);
 }
 
-export default async function ClientServerSectionPage({
-  params,
-  searchParams,
-}: PageProps) {
-  const { slug, server, section } = await params;
-  const { path: editPath } = await searchParams;
-  const requestHeaders = await headers();
+export default function ClientServerSectionPage() {
+  const params = useParams();
+  const slug = params.slug ?? "";
+  const server = params.server ?? "";
+  const sectionPath = params["*"];
+  const section = sectionPath ? sectionPath.split("/") : undefined;
+  const editPath = useSearchParams().get("path") ?? undefined;
 
-  const session = await auth.api.getSession({
-    headers: requestHeaders,
-  });
+  const { data: session } = authClient.useSession();
+  const { data: infoResponse } = useSWR(
+    server ? ["server-info", server] : null,
+    () => serverInfo({ path: { server_id: server } }),
+  );
+  const { data: org } = useOrganization(slug);
 
-  const infoResponse = await serverInfo({
-    path: { server_id: server },
-    headers: requestHeaders,
-  });
-
-  const serverData = infoResponse.error ? null : infoResponse.data;
-  const org = await auth.api.getFullOrganization({
-    query: { organizationSlug: slug },
-    headers: requestHeaders,
-  });
+  const serverData =
+    infoResponse && !infoResponse.error ? infoResponse.data : null;
   const effectivePermissions = mergePermissions(
     session?.user.permissions ?? 0,
     org?.permissions ?? 0,
@@ -279,14 +261,18 @@ export default async function ClientServerSectionPage({
     ServerPermission.USER_EDIT,
   );
   const isEditRoute = section?.[0] === "edit";
-  const installedFilesByPath =
-    activeSection.key === "mods" && resourceCapabilities.length > 0
-      ? await getInstalledFilesByPath(
-          server,
-          resourceCapabilities.map((capability) => capability.path),
-          requestHeaders,
-        )
-      : {};
+
+  const capabilityPaths = resourceCapabilities.map(
+    (capability) => capability.path,
+  );
+  const needsInstalledFiles =
+    activeSection.key === "mods" && capabilityPaths.length > 0;
+  const { data: installedFilesByPath = {} } = useSWR(
+    needsInstalledFiles
+      ? ["installed-files", server, capabilityPaths.join(",")]
+      : null,
+    () => getInstalledFilesByPath(server, capabilityPaths),
+  );
 
   return (
     <div className="flex flex-col gap-6">
