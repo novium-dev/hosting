@@ -1,0 +1,45 @@
+stages:
+  - validate
+  - deploy
+
+variables:
+  BUN_INSTALL_CACHE_DIR: .bun-cache
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  IMAGE_LATEST: "$CI_REGISTRY_IMAGE:latest"
+
+validate:next-build:
+  stage: validate
+  image: oven/bun:1
+  cache:
+    key:
+      files:
+        - bun.lock
+    paths:
+      - .bun-cache/
+      - node_modules/
+  before_script:
+    - bun install --no-save --frozen-lockfile
+  script:
+    - bun run build
+
+deploy:docker-image:
+  stage: deploy
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      alias: docker
+  needs:
+    - validate:next-build
+  rules:
+    - if: '$CI_COMMIT_MESSAGE =~ /\[ci deploy]/'
+    - when: manual
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" --username "$CI_REGISTRY_USER" --password-stdin
+  script:
+    - docker build --pull --tag "$IMAGE_TAG" --tag "$IMAGE_LATEST" .
+    - docker push "$IMAGE_TAG"
+    - docker push "$IMAGE_LATEST"
+  environment:
+    name: production
