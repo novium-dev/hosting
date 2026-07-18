@@ -77,7 +77,7 @@ export default function AdminServerManagementPage() {
   );
 
   if (isLoading) return null;
-  if (!canManage) return <NotFoundView />;
+  if (!session || !canManage) return <NotFoundView />;
   if (!bundle) return null;
 
   const data = bundle.data;

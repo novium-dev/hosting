@@ -39,7 +39,6 @@ export function NavPlatformTabs() {
           <Link
             key={item.id}
             href={href}
-            prefetch
             className={cn(
               "inline-flex h-8 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
               isActive && "bg-muted text-foreground",

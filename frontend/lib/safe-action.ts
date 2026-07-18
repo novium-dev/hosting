@@ -10,11 +10,11 @@ export type SafeActionResult<O> = {
   serverError?: string;
   validationErrors?: {
     formErrors: string[];
-    fieldErrors: Record<string, string[]>;
+    fieldErrors: Record<string, string[] | undefined>;
   };
 };
 
-export type SafeActionFn<I, O> = (input: I) => Promise<SafeActionResult<O>>;
+export type SafeActionFn<I, O> = (input?: I) => Promise<SafeActionResult<O>>;
 
 type Handler<I, O> = (args: {
   parsedInput: I;
@@ -30,8 +30,8 @@ class ActionBuilder<I> {
 
   action<O>(handler: Handler<I, O>): SafeActionFn<I, O> {
     const schema = this.schema;
-    return async (input: I): Promise<SafeActionResult<O>> => {
-      let parsedInput = input;
+    return async (input?: I): Promise<SafeActionResult<O>> => {
+      let parsedInput = input as I;
       if (schema) {
         const parsed = schema.safeParse(input);
         if (!parsed.success) {

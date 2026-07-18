@@ -32,3 +32,4 @@ gen/*
 
 config.toml
 /my-better-t-app
+/frontend/dist

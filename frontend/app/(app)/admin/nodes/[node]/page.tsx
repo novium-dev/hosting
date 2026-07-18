@@ -71,7 +71,7 @@ export default function AdminNodeManagementPage() {
   );
 
   if (isLoading) return null;
-  if (!canView) return <NotFoundView />;
+  if (!session || !canView) return <NotFoundView />;
   if (!bundle) return null;
 
   const { nodesResponse, metricsResponse, availableResponse } = bundle;

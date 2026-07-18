@@ -144,6 +144,32 @@ fmt:
       when: never
     - when: on_success
 
+# Validates the client-only frontend builds (Vite SPA). The build output is
+# baked into the all-in-one image by the `deploy` job's Docker build.
+frontend:
+  stage: check
+  image:
+    name: oven/bun:1
+    pull_policy: if-not-present
+  needs: []
+  variables:
+    BUN_INSTALL_CACHE_DIR: frontend/.bun-cache
+  cache:
+    key:
+      files:
+        - frontend/bun.lock
+    paths:
+      - frontend/.bun-cache/
+      - frontend/node_modules/
+  before_script:
+    - cd frontend && bun install --frozen-lockfile
+  script:
+    - bun run build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED != "true"
+      when: never
+    - when: on_success
+
 deny:
   extends: .rust-default
   stage: check

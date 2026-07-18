@@ -47,7 +47,10 @@ function getServerAddress(
 }
 
 export default function ServerLayout() {
-  const { slug, server } = useParams<{ slug: string; server: string }>();
+  const { slug = "", server = "" } = useParams<{
+    slug: string;
+    server: string;
+  }>();
 
   const { data: session, isLoading: sessionLoading } = authClient.useSession();
   const { data: org, isLoading: orgLoading } = useOrganization(slug);

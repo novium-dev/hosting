@@ -18,7 +18,7 @@ import {
 import { titleCase } from "@/lib/utils";
 
 export default function OrganizationPage() {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug = "" } = useParams<{ slug: string }>();
 
   const { data: org, isLoading } = useOrganization(slug);
 
