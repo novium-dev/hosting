@@ -1,6 +1,7 @@
-import { logout, me } from "@/lib/api";
-import type { AppSession } from "@/lib/auth";
-import useSWR, { mutate } from "swr";
+import { logout } from "@/lib/api";
+import { useSession } from "@/contexts/session-provider";
+import { useOrganizationStore } from "@/stores/organizations";
+import { useSessionStore } from "@/stores/session";
 
 // Matches the API base in lib/api-client.ts: same-origin in production (backend
 // serves the SPA), Vite `/api` proxy in dev.
@@ -27,41 +28,14 @@ export type AuthClientInvitation = {
   expiresAt?: Date | string | null;
 };
 
-const toSession = async (): Promise<AppSession | null> => {
-  const response = await me();
-  if (response.error || !response.data) return null;
-
-  const user = response.data;
-  return {
-    user: {
-      id: String(user.id),
-      name: user.username,
-      email: user.email,
-      image: null,
-      permissions: user.permissions,
-      role: user.role.toLowerCase() as AppSession["user"]["role"],
-    },
-    session: {
-      id: String(user.id),
-      token: "",
-      userId: String(user.id),
-    },
-  };
-};
-
 type FetchOptions = {
   onSuccess?: () => void;
   onError?: (error: { error: { message: string } }) => void;
 };
 
 export const authClient = {
-  useSession: () =>
-    useSWR("auth/me", toSession, {
-      dedupingInterval: 30_000,
-      keepPreviousData: true,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-    }),
+  // Reads the shared session from context (fetched once by SessionProvider).
+  useSession,
 
   signIn: {
     social: async (
@@ -91,7 +65,9 @@ export const authClient = {
       });
       return response;
     }
-    mutate("auth/me", null, false);
+    // Clear the cached session and org data for the signed-out user.
+    useSessionStore.getState().clear();
+    useOrganizationStore.getState().clear();
     fetchOptions?.onSuccess?.();
     return response;
   },
