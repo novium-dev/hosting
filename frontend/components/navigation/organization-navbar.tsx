@@ -6,7 +6,7 @@ import { NavPlatformTabs } from "./nav-platform-tabs";
 import { NavUserMenu } from "./nav-user-menu";
 import { hasAnyManagementPermission } from "@/lib/permissions";
 
-export async function OrganizationNavbar({
+export function OrganizationNavbar({
   user,
 }: {
   user: {
