@@ -1,0 +1,5 @@
+- Check whats left over from better auth and remove things that dont work anymore
+- Add user managament pages
+- Backend should be on /api and not on root
+- move slug check to backend
+- check if we do other stuff only in frontend which is insecure
