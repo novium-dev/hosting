@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { createNodeAction } from "../../../../actions/nodes";
+import { createNodeAction } from "@/actions/nodes";
 
 type StorageType = "directory" | "btrfs";
 type BackupType = "archive" | "btrfs";

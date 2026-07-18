@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { useTheme } from "@/components/theme-provider";
 
 import "@xterm/xterm/css/xterm.css";
+import { serverTerminal } from "@/lib/api";
 
 type ServerConsoleProps = {
   serverId: string;
@@ -139,16 +140,16 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
         const handleResize = () => fitAddon.fit();
         window.addEventListener("resize", handleResize);
 
-        const terminalEndpoint = `/api/server/${serverId}/terminal`;
-        const response = await fetch(terminalEndpoint);
-        if (!response.ok) {
+        const terminalUrl = await serverTerminal({ path: { server_id: serverId } });
+
+        if (terminalUrl.error) {
           setError("Failed to connect to terminal session.");
           writeLine("Failed to connect to terminal session.");
           setIsLoading(false);
           return;
         }
 
-        const socketUrl = await response.json();
+        const socketUrl = terminalUrl.data
 
         if (!socketUrl) {
           setError("Failed to create terminal session.");

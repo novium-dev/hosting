@@ -26,7 +26,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { killServer, restartServer, startServer, stopServer } from "@/lib/api";
+import {
+  killServer,
+  restartServer,
+  serverStats,
+  startServer,
+  stopServer,
+} from "@/lib/api";
 import { titleCase } from "@/lib/utils";
 
 type ServerManagementBarProps = {
@@ -387,12 +393,9 @@ export function ServerManagementBar({
 
     const connectStats = async () => {
       try {
-        const response = await fetch(`/api/server/${serverId}/stats`, {
-          method: "GET",
-          credentials: "include",
-        });
+        const statsUrl = await serverStats({ path: { server_id: serverId } });
 
-        if (!response.ok) {
+        if (statsUrl.error) {
           if (mounted) {
             setConnection("disconnected");
             toast.error("Failed to connect to server stats");
@@ -400,7 +403,7 @@ export function ServerManagementBar({
           return;
         }
 
-        const socketUrl = await response.json();
+        const socketUrl = statsUrl.data;
         if (!socketUrl) {
           if (mounted) {
             setConnection("disconnected");

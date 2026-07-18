@@ -17,6 +17,7 @@ import {
   downloadUser,
   opUser,
   pardonUser,
+  serverStats,
 } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -205,19 +206,16 @@ export function MinecraftPlayerManager({
 
     const connect = async () => {
       try {
-        const response = await fetch(`/api/server/${serverId}/stats`, {
-          method: "GET",
-          credentials: "include",
-        });
+        const statsUrl = await serverStats({ path: { server_id: serverId } });
 
-        if (!response.ok) {
+        if (statsUrl.error) {
           if (mounted) {
             setConnection("disconnected");
           }
           return;
         }
 
-        const socketUrl = await response.json();
+        const socketUrl = statsUrl.data;
         if (!socketUrl || typeof socketUrl !== "string") {
           if (mounted) {
             setConnection("disconnected");
