@@ -15,6 +15,7 @@ use sqlx::{query, query_scalar};
 use zelus::{define_query_variable, service};
 
 define_query_variable!(own "Only include projects owned by or shared with the current user");
+define_query_variable!(slug "The project slug to check for availability");
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ProjectInfo {
@@ -99,6 +100,24 @@ pub(crate) impl ProjectService for Backend {
         .await?;
 
         Ok(id.to_string())
+    }
+
+    /// Checks whether a project slug is already taken.
+    #[route("/check-slug", method = GET, query = [slug])]
+    #[error(db::failure <- [sql:*], auth::unreachable)]
+    async fn check_project_slug(
+        &self,
+        #[special] _auth: Authentication, // only authenticated users may probe slug availability
+        slug: String,
+    ) -> Result<bool, _> {
+        let taken = query_scalar!(
+            r#"SELECT (COUNT(*) > 0) AS "taken!" FROM projects WHERE slug = $1"#,
+            slug
+        )
+        .fetch_one(&*self.database)
+        .await?;
+
+        Ok(taken)
     }
 
     /// Shows a project.
