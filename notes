@@ -3,3 +3,4 @@
 - Backend should be on /api and not on root
 - move slug check to backend
 - check if we do other stuff only in frontend which is insecure
+- implement deleting orgs 

@@ -7,7 +7,6 @@ import {
 } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
 import ProfileAuthCard from "./profile-auth-card";
-import DeleteAccountCard from "./delete-account-card";
 
 export default function ProfilePage() {
   const { data: session } = authClient.useSession();
@@ -34,8 +33,6 @@ export default function ProfilePage() {
       </Card>
 
       <ProfileAuthCard />
-
-      <DeleteAccountCard />
     </div>
   );
 }
