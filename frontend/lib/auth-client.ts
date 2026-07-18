@@ -1,4 +1,4 @@
-import { logout } from "@/lib/api";
+import { checkProjectSlug, logout } from "@/lib/api";
 import { useSession } from "@/contexts/session-provider";
 import { useOrganizationStore } from "@/stores/organizations";
 import { useSessionStore } from "@/stores/session";
@@ -73,6 +73,13 @@ export const authClient = {
   },
 
   organization: {
-    checkSlug: async (_options?: { slug: string }) => ({ error: null }),
+    // Returns `{ error }` where a truthy error means the slug is taken, matching
+    // the shape the forms expect. Fails open on a request error (the backend
+    // still enforces uniqueness on create/update).
+    checkSlug: async ({ slug }: { slug: string }) => {
+      const response = await checkProjectSlug({ query: { slug } });
+      if (response.error) return { error: null };
+      return { error: response.data ? { code: "SLUG_TAKEN" as const } : null };
+    },
   },
 };

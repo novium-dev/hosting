@@ -6399,6 +6399,65 @@ export type CreateProjectResponses = {
 
 export type CreateProjectResponse = CreateProjectResponses[keyof CreateProjectResponses];
 
+export type CheckProjectSlugData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The project slug to check for availability
+         */
+        slug: string;
+    };
+    url: '/project/check-slug';
+};
+
+export type CheckProjectSlugErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+};
+
+export type CheckProjectSlugError = CheckProjectSlugErrors[keyof CheckProjectSlugErrors];
+
+export type CheckProjectSlugResponses = {
+    /**
+     * Success
+     */
+    200: boolean;
+};
+
+export type CheckProjectSlugResponse = CheckProjectSlugResponses[keyof CheckProjectSlugResponses];
+
 export type DeleteProjectData = {
     body?: never;
     headers?: {
