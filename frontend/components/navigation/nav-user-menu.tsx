@@ -22,7 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { appConfig } from "@/constants/config";
 import { authClient } from "@/lib/auth-client";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/theme-provider";
 import { useParams } from "@/lib/navigation";
 import { useRouter } from "@/lib/navigation";
 

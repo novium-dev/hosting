@@ -1,20 +1,15 @@
-import { ThemeProvider as NextThemesProvider } from "next-themes";
-import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
+import { ThemeProvider } from "./theme-provider";
 import { Toaster } from "./ui/sonner";
 
 export const Providers = ({ children }: { children: React.ReactNode }) => {
   return (
-    <NuqsAdapter>
-      <NextThemesProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-        enableColorScheme
-      >
-        {children}
-        <Toaster richColors />
-      </NextThemesProvider>
-    </NuqsAdapter>
+    <ThemeProvider
+      defaultTheme="system"
+      storageKey="theme"
+      disableTransitionOnChange
+    >
+      {children}
+      <Toaster richColors />
+    </ThemeProvider>
   );
 };

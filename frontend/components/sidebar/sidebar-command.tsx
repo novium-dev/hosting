@@ -12,7 +12,7 @@ import {
   UserIcon,
   Users2Icon,
 } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/theme-provider";
 import { useParams, useRouter } from "@/lib/navigation";
 import { useEffect, useState } from "react";
 

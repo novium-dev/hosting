@@ -12,7 +12,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/theme-provider";
 
 import "@xterm/xterm/css/xterm.css";
 
