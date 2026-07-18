@@ -11,6 +11,7 @@ stages:
   interruptible: true
   variables:
     CARGO_TERM_COLOR: "always"
+    CARGO_INCREMENTAL: "0"
     RUSTFLAGS: "-C opt-level=0"
 
     FF_USE_FASTZIP: "true"
@@ -33,6 +34,8 @@ stages:
 
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo_home"
     CARGO_TERM_COLOR: "always"
+    CARGO_INCREMENTAL: "0"
+    CARGO_PROFILE_TEST_DEBUG: "0"
     RUSTFLAGS: "-C opt-level=0 -C linker=clang-21 -C link-arg=-fuse-ld=lld"
 
     FF_USE_FASTZIP: "true"
@@ -118,7 +121,7 @@ clippy:
     - mkdir crates/gitlab_clippy -p
     - rustup component add clippy
     - cargo install --color always --verbose gitlab_clippy --root crates/gitlab_clippy
-    - cargo clippy --color always --verbose --no-deps --message-format=json | crates/gitlab_clippy/bin/gitlab-clippy > gl-code-quality-report.json
+    - cargo clippy --color always --verbose --locked --no-deps --message-format=json | crates/gitlab_clippy/bin/gitlab-clippy > gl-code-quality-report.json
   artifacts:
     reports:
       codequality:
@@ -185,7 +188,7 @@ test:
     - mkdir crates/cargo2junit -p
     - cargo install --color always --verbose cargo2junit --root crates/cargo2junit
     - curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-x86_64-unknown-linux-musl.tar.bz2 | tar jxf -
-    - RUSTC_BOOTSTRAP=1 RUSTFLAGS="$RUSTFLAGS -C instrument-coverage" LLVM_PROFILE_FILE="coverage.profraw" cargo test --color always --verbose --target x86_64-unknown-linux-musl -- -Zunstable-options --format json --report-time | crates/cargo2junit/bin/cargo2junit > report.xml
+    - RUSTC_BOOTSTRAP=1 RUSTFLAGS="$RUSTFLAGS -C instrument-coverage" LLVM_PROFILE_FILE="coverage.profraw" cargo test --color always --verbose --locked --target x86_64-unknown-linux-musl -- -Zunstable-options --format json --report-time | crates/cargo2junit/bin/cargo2junit > report.xml
     - ./grcov . --llvm-path /usr/lib/llvm21/bin/ --binary-path ./target/debug/ -s . -t cobertura --branch --ignore-not-existing --ignore "*cargo*" -o coverage.xml
     - xmllint --xpath "concat('Coverage - ', 100 * string(//coverage/@line-rate), '%')" coverage.xml
   coverage: '/Coverage - \d+(?:\.\d+)?/'
