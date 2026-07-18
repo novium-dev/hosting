@@ -31,5 +31,5 @@ gen/*
 /target
 
 config.toml
-/frontend
 /my-better-t-app
+/frontend/dist

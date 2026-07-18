@@ -65,7 +65,7 @@ stages:
   variables:
     DOCKER_HOST: "unix:///var/run/docker.sock"
   parallel:
-  needs: ["clippy", "deny", "test", "fmt"]
+  needs: ["clippy", "deny", "test", "fmt", "frontend"]
   dependencies: []
   before_script:
     - docker info
@@ -144,6 +144,32 @@ fmt:
       when: never
     - when: on_success
 
+# Validates the client-only frontend builds (Vite SPA). The build output is
+# baked into the all-in-one image by the `deploy` job's Docker build.
+frontend:
+  stage: check
+  image:
+    name: oven/bun:1
+    pull_policy: if-not-present
+  needs: []
+  variables:
+    BUN_INSTALL_CACHE_DIR: frontend/.bun-cache
+  cache:
+    key:
+      files:
+        - frontend/bun.lock
+    paths:
+      - frontend/.bun-cache/
+      - frontend/node_modules/
+  before_script:
+    - cd frontend && bun install --frozen-lockfile
+  script:
+    - bun run build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED != "true"
+      when: never
+    - when: on_success
+
 deny:
   extends: .rust-default
   stage: check
@@ -206,13 +232,15 @@ test:
         path: coverage.xml
     expire_in: 1 week
 
-deploy_backend:
+# Builds the single all-in-one image (backend binary + built frontend SPA,
+# served same-origin by the backend) and publishes it as `:latest`.
+deploy:
   extends: .docker-deploy-default
   script:
     - apk add --no-cache openssh-client-default --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - eval $(ssh-agent -s)
     - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
-    - docker pull $CI_REGISTRY_IMAGE:backend-latest || true
-    - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $CI_REGISTRY_IMAGE:backend-latest --tag $CI_REGISTRY_IMAGE:backend-${CI_COMMIT_SHA:0:8} --tag $CI_REGISTRY_IMAGE:backend-latest --ssh default .
-    - docker push $CI_REGISTRY_IMAGE:backend-${CI_COMMIT_SHA:0:8}
-    - docker push $CI_REGISTRY_IMAGE:backend-latest
+    - docker pull $CI_REGISTRY_IMAGE:latest || true
+    - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} --tag $CI_REGISTRY_IMAGE:latest --ssh default .
+    - docker push $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8}
+    - docker push $CI_REGISTRY_IMAGE:latest

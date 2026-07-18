@@ -1,0 +1,21 @@
+import { useParams } from "react-router-dom";
+import { MainLayout } from "@/components/sidebar/main-layout";
+import { NotFoundView } from "@/components/not-found-view";
+import { useOrganization } from "@/hooks/use-organization";
+import { OrganizationSettings } from "./organization-settings";
+
+export default function SettingsPage() {
+  const { slug } = useParams<{ slug: string }>();
+  const { data: organization, isLoading } = useOrganization(slug);
+
+  if (isLoading) return null;
+  if (!organization) return <NotFoundView />;
+
+  return (
+    <MainLayout
+      breadcrumbs={[{ label: slug ?? "", href: `/${slug}` }, { label: "Settings" }]}
+    >
+      <OrganizationSettings organization={organization} />
+    </MainLayout>
+  );
+}

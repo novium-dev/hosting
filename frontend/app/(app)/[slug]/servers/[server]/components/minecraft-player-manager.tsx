@@ -1,0 +1,486 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import {
+  Ban,
+  Crown,
+  RotateCcw,
+  ShieldMinus,
+  ShieldPlus,
+  Users,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import {
+  banUser,
+  deopUser,
+  downloadUser,
+  opUser,
+  pardonUser,
+} from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+type MinecraftPlayer = {
+  id: string;
+  name: string;
+};
+
+type MinecraftHealthCheck = {
+  host: string;
+  port: number;
+  server_info: {
+    version: { name: string; protocol: number };
+    players: {
+      max: number;
+      online: number;
+      Sample: null | MinecraftPlayer[];
+      sample?: null | MinecraftPlayer[];
+    };
+    description: {
+      text: string;
+      bold: boolean;
+      italic: boolean;
+      underlined: boolean;
+      strikethrough: boolean;
+      obfuscated: boolean;
+      color: string;
+      extra: null;
+    };
+    favicon: string;
+  };
+};
+
+type OpsEntry = {
+  uuid?: string;
+  id?: string;
+  name?: string;
+  level?: number;
+  bypassesPlayerLimit?: boolean;
+};
+
+type MinecraftPlayerManagerProps = {
+  serverId: string;
+  canManagePlayers: boolean;
+};
+
+type PlayerAction = "ban" | "pardon" | "op" | "deop";
+
+function parseHealthCheck(value: unknown): MinecraftHealthCheck | null {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as MinecraftHealthCheck;
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof value === "object") {
+    return value as MinecraftHealthCheck;
+  }
+
+  return null;
+}
+
+function readHealthCheck(message: string): MinecraftHealthCheck | null {
+  const raw = message.startsWith("STATS!") ? message.slice(6) : message;
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+
+  // Old format: the health check is nested inside the stats payload.
+  if (payload.healthcheck != null || payload.health_check != null) {
+    return parseHealthCheck(payload.healthcheck ?? payload.health_check);
+  }
+
+  // New format (new server versions): the message is the health check itself.
+  if (payload.server_info != null) {
+    return parseHealthCheck(payload);
+  }
+
+  return null;
+}
+
+function getPlayers(healthCheck: MinecraftHealthCheck | null) {
+  const players =
+    healthCheck?.server_info?.players?.Sample ??
+    healthCheck?.server_info?.players?.sample ??
+    [];
+
+  return players ?? [];
+}
+
+function getOpKeys(entry: OpsEntry) {
+  return [entry.uuid, entry.id, entry.name]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase());
+}
+
+function getPlayerKeys(player: MinecraftPlayer) {
+  return [player.id, player.name].map((value) => value.toLowerCase());
+}
+
+export function MinecraftPlayerManager({
+  serverId,
+  canManagePlayers,
+}: MinecraftPlayerManagerProps) {
+  const [healthCheck, setHealthCheck] = useState<MinecraftHealthCheck | null>(
+    null,
+  );
+  const [ops, setOps] = useState<OpsEntry[]>([]);
+  const [connection, setConnection] = useState<
+    "connecting" | "connected" | "disconnected"
+  >("connecting");
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+
+  const players = useMemo(() => getPlayers(healthCheck), [healthCheck]);
+  const opKeys = useMemo(
+    () => new Set(ops.flatMap((entry) => getOpKeys(entry))),
+    [ops],
+  );
+
+  const loadOps = async () => {
+    try {
+      const response = await downloadUser({
+        path: { server_id: serverId },
+        query: { file: "/ops.json", limit: 1024 * 1024 },
+      });
+
+      if (response.error || !response.data?.url) {
+        setOps([]);
+        return;
+      }
+
+      const fileResponse = await fetch(response.data.url);
+      if (!fileResponse.ok) {
+        setOps([]);
+        return;
+      }
+
+      const data = (await fileResponse.json()) as unknown;
+      setOps(Array.isArray(data) ? (data as OpsEntry[]) : []);
+    } catch {
+      setOps([]);
+    }
+  };
+
+  useEffect(() => {
+    void loadOps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverId]);
+
+  useEffect(() => {
+    let mounted = true;
+    let socket: WebSocket | null = null;
+
+    setConnection("connecting");
+
+    const connect = async () => {
+      try {
+        const response = await fetch(`/api/server/${serverId}/stats`, {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          if (mounted) {
+            setConnection("disconnected");
+          }
+          return;
+        }
+
+        const socketUrl = await response.json();
+        if (!socketUrl || typeof socketUrl !== "string") {
+          if (mounted) {
+            setConnection("disconnected");
+          }
+          return;
+        }
+
+        socket = new WebSocket(socketUrl);
+
+        socket.onopen = () => {
+          if (mounted) {
+            setConnection("connected");
+          }
+        };
+
+        socket.onerror = () => {
+          if (mounted) {
+            setConnection("disconnected");
+          }
+        };
+
+        socket.onclose = () => {
+          if (mounted) {
+            setConnection("disconnected");
+          }
+        };
+
+        socket.onmessage = (event) => {
+          if (!mounted || typeof event.data !== "string") {
+            return;
+          }
+
+          const nextHealthCheck = readHealthCheck(event.data);
+          if (nextHealthCheck) {
+            setHealthCheck(nextHealthCheck);
+          }
+        };
+      } catch {
+        if (mounted) {
+          setConnection("disconnected");
+        }
+      }
+    };
+
+    void connect();
+
+    return () => {
+      mounted = false;
+      socket?.close();
+    };
+  }, [serverId]);
+
+  const executePlayerAction = async (
+    action: PlayerAction,
+    player: MinecraftPlayer,
+  ) => {
+    if (!canManagePlayers) {
+      toast.error("You do not have permission to manage players");
+      return;
+    }
+
+    const actionKey = `${action}:${player.name}`;
+    setPendingAction(actionKey);
+
+    try {
+      const options = {
+        path: { server_id: serverId },
+        query: { user: player.name },
+      };
+      const response =
+        action === "ban"
+          ? await banUser(options)
+          : action === "pardon"
+            ? await pardonUser(options)
+            : action === "op"
+              ? await opUser(options)
+              : await deopUser(options);
+
+      if (response.error) {
+        toast.error(response.error.error?.msg ?? `Failed to ${action} player`);
+        return;
+      }
+
+      toast.success(`${player.name}: ${action} command sent`);
+
+      if (action === "op") {
+        setOps((current) => [
+          ...current.filter(
+            (entry) =>
+              !getPlayerKeys(player).some((key) =>
+                getOpKeys(entry).includes(key),
+              ),
+          ),
+          { uuid: player.id, name: player.name },
+        ]);
+      }
+
+      if (action === "deop") {
+        setOps((current) =>
+          current.filter(
+            (entry) =>
+              !getPlayerKeys(player).some((key) =>
+                getOpKeys(entry).includes(key),
+              ),
+          ),
+        );
+      }
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const online = healthCheck?.server_info?.players?.online ?? players.length;
+  const max = healthCheck?.server_info?.players?.max ?? null;
+
+  return (
+    <Card>
+      <CardHeader className="gap-3">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="size-5" />
+            Minecraft Players
+          </CardTitle>
+          <CardDescription>
+            View online players from the Minecraft healthcheck and manage access.
+          </CardDescription>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant={connection === "connected" ? "default" : "outline"}>
+            {connection}
+          </Badge>
+          <Badge variant="secondary">
+            {online}
+            {max === null ? "" : ` / ${max}`} online
+          </Badge>
+          {healthCheck?.server_info?.version?.name ? (
+            <Badge variant="outline">
+              {healthCheck.server_info.version.name}
+            </Badge>
+          ) : null}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {players.length === 0 ? (
+          <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+            No online players were reported by the latest healthcheck.
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Player</TableHead>
+                <TableHead>UUID</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {players.map((player) => {
+                const isOp = getPlayerKeys(player).some((key) =>
+                  opKeys.has(key),
+                );
+
+                return (
+                  <TableRow key={`${player.id}:${player.name}`}>
+                    <TableCell>
+                      <div className="flex items-center gap-2 font-medium">
+                        <span>{player.name}</span>
+                        {isOp ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Crown className="size-4 text-amber-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>Operator</TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {player.id}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              disabled={
+                                !canManagePlayers ||
+                                pendingAction === `op:${player.name}` ||
+                                isOp
+                              }
+                              onClick={() => executePlayerAction("op", player)}
+                            >
+                              <ShieldPlus />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Make operator</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              disabled={
+                                !canManagePlayers ||
+                                pendingAction === `deop:${player.name}` ||
+                                !isOp
+                              }
+                              onClick={() => executePlayerAction("deop", player)}
+                            >
+                              <ShieldMinus />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Remove operator</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              disabled={
+                                !canManagePlayers ||
+                                pendingAction === `pardon:${player.name}`
+                              }
+                              onClick={() =>
+                                executePlayerAction("pardon", player)
+                              }
+                            >
+                              <RotateCcw />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Pardon player</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              disabled={
+                                !canManagePlayers ||
+                                pendingAction === `ban:${player.name}`
+                              }
+                              onClick={() => executePlayerAction("ban", player)}
+                            >
+                              <Ban />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Ban player</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

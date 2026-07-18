@@ -9,7 +9,9 @@ use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_unreachable::FromAuthUnreachable;
 use axum::Extension;
 use axum::extract::FromRequestParts as _;
+use axum::response::{IntoResponse, Response};
 use axum_extra::TypedHeader;
+use axum_extra::extract::cookie::CookieJar;
 use axum_extra::headers::Authorization;
 use axum_extra::headers::authorization::Credentials;
 use base64::Engine as _;
@@ -18,6 +20,7 @@ use core::fmt::Debug;
 use core::fmt::{Display, Formatter};
 use core::str::FromStr;
 use http::HeaderValue;
+use http::header::SET_COOKIE;
 use http::request::Parts;
 use lazy_regex::lazy_regex;
 use rand::TryRng as _;
@@ -29,11 +32,16 @@ use std::collections::HashMap;
 use tracing::error;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
 use utoipa::openapi::schema::SchemaType;
-use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
+use utoipa::openapi::{Object, RefOr, Required, ResponsesBuilder, Schema, Type};
+use zelus::responses::DocumentedResultResponse;
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
 const DAEMON_PASSWORD_LENGTH: usize = 32;
+
+/// Name of the httpOnly cookie that carries the session token. The backend
+/// sets it on OAuth callback and clears it on logout; the SPA never reads it.
+pub const SESSION_COOKIE_NAME: &str = "session";
 
 #[derive(Debug)]
 pub struct UserAuthentication {
@@ -106,12 +114,22 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .await
             .expect("Extension not registered");
 
-        let Some(TypedHeader(Authorization(session))) =
+        // Prefer the `Authorization: Session <token>` header (API clients); fall
+        // back to the httpOnly `session` cookie (browser SPA, same-origin).
+        let session = if let Some(TypedHeader(Authorization(session))) =
             <Option<TypedHeader<Authorization<Session>>>>::from_request_parts(parts, &())
                 .await
                 .map_err(|_err| <E as FromAuthInvalid>::from())?
-        else {
-            return Ok(None);
+        {
+            session
+        } else {
+            let Some(session) = CookieJar::from_headers(&parts.headers)
+                .get(SESSION_COOKIE_NAME)
+                .and_then(|cookie| Session::from_str(cookie.value()).ok())
+            else {
+                return Ok(None);
+            };
+            session
         };
 
         let Some(id) = session.authenticate::<E>(&backend).await? else {
@@ -320,6 +338,69 @@ impl Session {
             <E as FromAuthUnreachable>::from()
         })?;
         Ok(Some(user))
+    }
+}
+
+/// Builds the `Set-Cookie` header value that stores `session` as an httpOnly
+/// cookie for `session_lifetime` seconds. Same-origin serving lets us use
+/// `SameSite=Lax`; `Secure` is derived from the configured public URL scheme.
+fn session_cookie_header(backend: &Backend, session: &str, max_age: u64) -> HeaderValue {
+    let secure = if backend.config.cookie_secure() {
+        "; Secure"
+    } else {
+        ""
+    };
+    HeaderValue::try_from(format!(
+        "{SESSION_COOKIE_NAME}={session}; HttpOnly; SameSite=Lax; Path=/; Max-Age={max_age}{secure}"
+    ))
+    .expect("session cookie is a valid header value")
+}
+
+/// `Set-Cookie` value that persists the current session on the client.
+pub fn set_session_cookie(backend: &Backend, session: &Session) -> HeaderValue {
+    session_cookie_header(
+        backend,
+        &session.to_string(),
+        backend.config.session_lifetime,
+    )
+}
+
+/// `Set-Cookie` value that immediately clears the session cookie.
+pub fn clear_session_cookie(backend: &Backend) -> HeaderValue {
+    session_cookie_header(backend, "", 0)
+}
+
+/// Wraps any documented response, appending one or more `Set-Cookie` headers.
+/// Implements zelus's [`DocumentedResultResponse`] by delegating to the inner
+/// type, so it can be returned from `#[route(..., raw)]` handlers.
+pub struct WithCookies<T> {
+    inner: T,
+    cookies: Vec<HeaderValue>,
+}
+
+impl<T> WithCookies<T> {
+    pub const fn new(inner: T, cookies: Vec<HeaderValue>) -> Self {
+        Self { inner, cookies }
+    }
+}
+
+impl<T: IntoResponse> IntoResponse for WithCookies<T> {
+    fn into_response(self) -> Response {
+        let mut response = self.inner.into_response();
+        let headers = response.headers_mut();
+        for cookie in self.cookies {
+            headers.append(SET_COOKIE, cookie);
+        }
+        response
+    }
+}
+
+impl<T: DocumentedResultResponse> DocumentedResultResponse for WithCookies<T> {
+    fn openapi(
+        responses: ResponsesBuilder,
+        schemas: &mut HashMap<String, RefOr<Schema>>,
+    ) -> ResponsesBuilder {
+        T::openapi(responses, schemas)
     }
 }
 

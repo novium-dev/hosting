@@ -16,8 +16,9 @@ use axum_server::{Handle, Server};
 use core::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
 use tower_http::cors::Any;
+use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use utoipa::OpenApi;
 use zelus::framework_router;
 use zelus::router::ZelusRouter;
@@ -57,6 +58,23 @@ impl Backend {
         };
         #[cfg(not(debug_assertions))]
         let _ = api;
+
+        // Serve the built client-only SPA (Vite export) same-origin: explicit API
+        // routes above match first; everything else falls through to `ServeDir`,
+        // which serves hashed assets or `index.html` for client-side routes.
+        if let Some(dir) = self.config.resolved_frontend_dir() {
+            if dir.is_dir() {
+                info!("Serving frontend from {}", dir.display());
+                let serve_dir =
+                    ServeDir::new(&dir).not_found_service(ServeFile::new(dir.join("index.html")));
+                router = router.fallback_service(serve_dir);
+            } else {
+                warn!(
+                    "Configured frontend directory {} does not exist; not serving SPA",
+                    dir.display()
+                );
+            }
+        }
 
         router = router.layer(TraceLayer::new_for_http());
 
