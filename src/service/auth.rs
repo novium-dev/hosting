@@ -2,7 +2,10 @@ use super::*;
 use crate::Backend;
 use crate::auth::oauth::flow::OAuthFlow;
 use crate::auth::permissions::Role;
-use crate::auth::user::{SerializedUser, Session, UserAuthentication};
+use crate::auth::user::{
+    SerializedUser, Session, UserAuthentication, WithCookies, clear_session_cookie,
+    set_session_cookie,
+};
 use crate::service::auth::auth_service_error::{CallbackError, LoginDevError, LoginError};
 use chrono::Duration;
 use oauth2::{AuthorizationCode, PkceCodeVerifier, Scope};
@@ -18,12 +21,12 @@ define_query_variable!(state "The state parameter to prevent CSRF attacks");
 
 #[service(path = "/auth", tag = "auth", no_sdk)]
 pub(crate) impl AuthService for Backend {
-    /// Invalidates the current user session.
-    #[route("/logout", method = GET)]
+    /// Invalidates the current user session and clears the session cookie.
+    #[route("/logout", method = GET, raw)]
     #[error(db::failure <- [sql:*], cache::failure <- [redis:*], auth::unreachable)]
-    async fn logout(&self, #[special] auth: UserAuthentication) -> Result<(), _> {
+    async fn logout(&self, #[special] auth: UserAuthentication) -> Result<WithCookies<()>, _> {
         auth.session.invalidate(self).await?;
-        Ok(())
+        Ok(WithCookies::new((), vec![clear_session_cookie(self)]))
     }
 
     /// Retrieves information about the currently authenticated user.
@@ -83,7 +86,11 @@ pub(crate) impl AuthService for Backend {
     /// Handles the OAuth callback after user authentication.
     #[route("/callback", method = GET, query = [ code, state ], raw)]
     #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure, auth::{failure, permission_denied})]
-    async fn callback(&self, code: String, state: String) -> Result<Redirect<307>, _> {
+    async fn callback(
+        &self,
+        code: String,
+        state: String,
+    ) -> Result<WithCookies<Redirect<307>>, _> {
         let flow = OAuthFlow::get::<CallbackError>(&state, &mut self.cache.clone())
             .await?
             .ok_or(CallbackError::AuthFailure)?;
@@ -109,13 +116,15 @@ pub(crate) impl AuthService for Backend {
 
         let _ = OAuthFlow::remove(&state, &mut self.cache.clone()).await;
 
-        let mut redirect_destination =
+        // Deliver the session as an httpOnly cookie and redirect to a clean URL
+        // (no `?session=` leaking the token into history/logs). Same-origin
+        // serving means the browser sends the cookie on the next navigation.
+        let redirect_destination =
             Url::parse(&flow.redirect_url).map_err(|_err| CallbackError::AuthFailure)?;
 
-        redirect_destination
-            .query_pairs_mut()
-            .append_pair("session", &session.to_string());
-
-        Ok(Redirect::new(redirect_destination.as_str()))
+        Ok(WithCookies::new(
+            Redirect::new(redirect_destination.as_str()),
+            vec![set_session_cookie(self, &session)],
+        ))
     }
 }
