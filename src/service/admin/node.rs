@@ -77,9 +77,7 @@ pub(crate) impl NodeAdminService for Backend {
 
         let code = gen_code::<CreateNodeError>()?;
 
-        let origins = core::iter::once(self.config.trusted_urls.iter().map(ToString::to_string))
-            .flatten()
-            .collect::<Vec<String>>();
+        let origins = vec![self.config.public_url.to_string()];
 
         let final_config = SetupNodeConfig {
             base_url: config.base_url,

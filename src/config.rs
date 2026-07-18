@@ -15,7 +15,6 @@ pub struct BackendConfig {
     pub auth: AuthConfig,
     pub database_url: String,
     pub cache_url: String,
-    pub trusted_urls: Vec<Url>,
     /// Directory containing the built frontend SPA (`index.html` + assets).
     /// When set and present, the backend serves it with an SPA fallback.
     /// Falls back to the `BACKEND_FRONTEND_DIR` environment variable.
