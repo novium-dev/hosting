@@ -10,7 +10,6 @@ const apiBaseUrl = import.meta.env.VITE_API_URL ?? "/api";
 export type AuthClientMember = {
   id: string;
   permissions: number;
-  role: "owner" | "admin" | "member";
   user: {
     id: string;
     name: string;

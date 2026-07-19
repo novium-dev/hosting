@@ -18,7 +18,7 @@ export function MembersView({ projectId, members }: MembersViewProps) {
         <div>
           <h1 className="text-xl font-semibold">Members</h1>
           <p className="text-sm text-muted-foreground">
-            Invite people and assign project roles
+            Add people and grant them specific permissions
           </p>
         </div>
         <InviteMemberDialog projectId={projectId} />

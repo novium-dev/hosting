@@ -1,8 +1,6 @@
 import { isReservedSlug } from "@/constants/reserved-slugs";
 import { z } from "zod";
 
-export const roleSchema = z.enum(["member", "admin", "owner"]);
-
 const slugSchema = z
   .string()
   .min(1, { message: "Slug is required" })

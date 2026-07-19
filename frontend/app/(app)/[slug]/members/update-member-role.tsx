@@ -17,14 +17,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { projectRoleFromPermissions } from "@/lib/permissions";
+import { PermissionsField } from "@/components/permissions-field";
+import { ServerPermission } from "@/lib/permissions";
 import { setProjectUserSchema } from "@/types/project-user.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
@@ -52,14 +46,14 @@ export function UpdateMemberRoleDialog({
         defaultValues: {
           projectId,
           email: member?.email ?? "",
-          role: member ? projectRoleFromPermissions(member.permissions) : "member",
+          permissions: member?.permissions ?? ServerPermission.VIEW,
         },
       },
       actionProps: {
         onSuccess: () => {
           resetFormAndAction();
           setOpen(false);
-          toast.success("Member role updated successfully");
+          toast.success("Member permissions updated successfully");
         },
         onError: (error) => {
           toast.error(error.error.serverError ?? "Something went wrong");
@@ -72,7 +66,7 @@ export function UpdateMemberRoleDialog({
       form.reset({
         projectId,
         email: member.email,
-        role: projectRoleFromPermissions(member.permissions),
+        permissions: member.permissions,
       });
     }
   }, [member, form, projectId]);
@@ -81,9 +75,9 @@ export function UpdateMemberRoleDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Member Role</DialogTitle>
+          <DialogTitle>Member Permissions</DialogTitle>
           <DialogDescription>
-            Update the member&apos;s role in this project
+            Choose exactly what this member can do in the project&apos;s servers.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -92,25 +86,16 @@ export function UpdateMemberRoleDialog({
             <input type="hidden" {...form.register("email")} />
             <FormField
               control={form.control}
-              name="role"
+              name="permissions"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Select role</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a role" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="owner">Owner</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="member">Member</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Permissions</FormLabel>
+                  <FormControl>
+                    <PermissionsField
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -120,7 +105,7 @@ export function UpdateMemberRoleDialog({
               className="w-full"
               loading={action.isExecuting}
             >
-              Update Role
+              Update Permissions
             </Button>
           </form>
         </Form>

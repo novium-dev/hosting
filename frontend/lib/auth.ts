@@ -15,7 +15,6 @@ import type {
   MeResponse,
 } from "@/lib/api";
 import type { AuthClientMember } from "@/lib/auth-client";
-import { projectRoleFromPermissions } from "@/lib/permissions";
 
 export type AppUser = {
   id: string;
@@ -68,7 +67,6 @@ const projectMemberToAuthClientMember = (
 ): AuthClientMember => ({
   id: String(member.id),
   permissions: member.permissions,
-  role: projectRoleFromPermissions(member.permissions),
   user: {
     id: String(member.id),
     name: member.username,

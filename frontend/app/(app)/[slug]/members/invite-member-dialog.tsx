@@ -19,13 +19,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PermissionsField } from "@/components/permissions-field";
+import { ServerPermission } from "@/lib/permissions";
 import { setProjectUserSchema } from "@/types/project-user.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
@@ -42,7 +37,7 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
         defaultValues: {
           projectId,
           email: "",
-          role: "member",
+          permissions: ServerPermission.VIEW,
         },
       },
       actionProps: {
@@ -62,14 +57,14 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
       <DialogTrigger asChild>
         <Button>
           <UserPlus className="h-4 w-4" />
-          Invite member
+          Add member
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Invite Member</DialogTitle>
+          <DialogTitle>Add Member</DialogTitle>
           <DialogDescription>
-            Add a member to this project by email and assign a role
+            Add a member by email and grant them specific permissions.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -94,25 +89,16 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
             />
             <FormField
               control={form.control}
-              name="role"
+              name="permissions"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Role</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a role" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="member">Member</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="owner">Owner</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Permissions</FormLabel>
+                  <FormControl>
+                    <PermissionsField
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
