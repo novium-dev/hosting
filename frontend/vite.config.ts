@@ -20,11 +20,11 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       proxy: {
-        // Same-origin cookie auth in dev: forward API calls to the backend.
+        // Same-origin cookie auth in dev: forward /api/* to the backend, which
+        // serves its API under /api (no path rewrite).
         "/api": {
           target: apiTarget,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ""),
         },
       },
     },

@@ -3,10 +3,9 @@ import { useSession } from "@/contexts/session-provider";
 import { useOrganizationStore } from "@/stores/organizations";
 import { useSessionStore } from "@/stores/session";
 
-// Matches the API base in lib/api-client.ts: same-origin in production (backend
-// serves the SPA), Vite `/api` proxy in dev.
-const apiBaseUrl =
-  import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "/api" : "");
+// Matches the API base in lib/api-client.ts: the backend serves its API under
+// `/api` (same origin as the SPA), proxied by Vite in dev.
+const apiBaseUrl = import.meta.env.VITE_API_URL ?? "/api";
 
 export type AuthClientMember = {
   id: string;

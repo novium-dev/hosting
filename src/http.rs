@@ -44,24 +44,29 @@ impl Backend {
             .allow_methods(Any)
             .max_age(Duration::from_hours(1));
 
-        let (mut router, api) = ZelusRouter::with_openapi(ApiDoc::openapi())
+        let (api_router, api) = ZelusRouter::with_openapi(ApiDoc::openapi())
             .merge(router)
             .layer(cors)
             .layer(Extension(self.clone()))
             .into_openapi()
             .split_for_parts();
 
+        // Mount the entire API (services, internal/daemon routes, and docs) under
+        // `/api` so it never collides with the client-side SPA served at the root.
+        let mut router = axum::Router::new().nest("/api", api_router);
+
         #[cfg(debug_assertions)]
         {
             use utoipa_swagger_ui::SwaggerUi;
-            router = router.merge(SwaggerUi::new("/docs").url("/docs/openapi.json", api));
+            router =
+                router.merge(SwaggerUi::new("/api/docs").url("/api/docs/openapi.json", api));
         };
         #[cfg(not(debug_assertions))]
         let _ = api;
 
-        // Serve the built client-only SPA (Vite export) same-origin: explicit API
-        // routes above match first; everything else falls through to `ServeDir`,
-        // which serves hashed assets or `index.html` for client-side routes.
+        // Serve the built client-only SPA (Vite export) same-origin: `/api/*` is
+        // matched above; everything else falls through to `ServeDir`, which serves
+        // hashed assets or `index.html` for client-side routes.
         if let Some(dir) = self.config.resolved_frontend_dir() {
             if dir.is_dir() {
                 info!("Serving frontend from {}", dir.display());
