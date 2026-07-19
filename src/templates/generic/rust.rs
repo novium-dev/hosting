@@ -107,14 +107,12 @@ impl Template for RustTemplate {
                         .collect(),
                 ),
             )
-            .group(
-                git_variable_group(GitFields {
-                    url: extra.repository_url,
-                    branch: extra.repository_branch,
-                    username: extra.repository_username,
-                    password: extra.repository_password,
-                }),
-            )
+            .group(git_variable_group(GitFields {
+                url: extra.repository_url,
+                branch: extra.repository_branch,
+                username: extra.repository_username,
+                password: extra.repository_password,
+            }))
             .into_payload())
     }
 

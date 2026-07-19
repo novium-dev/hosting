@@ -69,16 +69,15 @@ impl Template for PythonTemplate {
                 ".pip/".to_owned(),
                 "site-packages/".to_owned(),
             ]),
-            environment: HashMap::from_iter(
-                git_environment(GitFields {
-                    url: extra.repository_url,
-                    branch: extra.repository_branch,
-                    username: extra.repository_username,
-                    password: extra.repository_password,
-                })
-                .into_iter()
-                .chain([("MAIN_FILE".to_owned(), extra.start_file)]),
-            ),
+            environment: git_environment(GitFields {
+                url: extra.repository_url,
+                branch: extra.repository_branch,
+                username: extra.repository_username,
+                password: extra.repository_password,
+            })
+            .into_iter()
+            .chain([("MAIN_FILE".to_owned(), extra.start_file)])
+            .collect(),
             files_write: HashMap::new(),
             cap_add: Vec::new(),
             cap_drop: Vec::new(),
@@ -114,8 +113,24 @@ impl Template for PythonTemplate {
         Ok(VariableBuilder::default()
             .group(
                 VariableGroupBuilder::new(Some("Python"))
-                    .static_variable("version", "Version", Some(extra.python_version), cache.0.iter().map(|(major, minor, patch)| format!("{major}.{minor}.{patch}")).collect())
-                    .regex_variable("start_file", "Start File", Some(extra.start_file), PYTHON_FILE_REGEX.as_str(), "main.py", false),
+                    .static_variable(
+                        "version",
+                        "Version",
+                        Some(extra.python_version),
+                        cache
+                            .0
+                            .iter()
+                            .map(|(major, minor, patch)| format!("{major}.{minor}.{patch}"))
+                            .collect(),
+                    )
+                    .regex_variable(
+                        "start_file",
+                        "Start File",
+                        Some(extra.start_file),
+                        PYTHON_FILE_REGEX.as_str(),
+                        "main.py",
+                        false,
+                    ),
             )
             .group(git_variable_group(GitFields {
                 url: extra.repository_url,
@@ -123,8 +138,7 @@ impl Template for PythonTemplate {
                 username: extra.repository_username,
                 password: extra.repository_password,
             }))
-            .into_payload()
-        )
+            .into_payload())
     }
 
     async fn variables_to_extra_validated(

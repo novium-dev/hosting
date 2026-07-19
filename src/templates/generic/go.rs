@@ -62,16 +62,15 @@ impl Template for GoTemplate {
             uid: None,
             gid: None,
             backup_exclude: HashSet::from([".git/".to_owned(), ".gocache/".to_owned()]),
-            environment: HashMap::from_iter(
-                git_environment(GitFields {
-                    url: extra.repository_url,
-                    branch: extra.repository_branch,
-                    username: extra.repository_username,
-                    password: extra.repository_password,
-                })
-                .into_iter()
-                .chain([("GO_FILE".to_owned(), extra.build_file)]),
-            ),
+            environment: git_environment(GitFields {
+                url: extra.repository_url,
+                branch: extra.repository_branch,
+                username: extra.repository_username,
+                password: extra.repository_password,
+            })
+            .into_iter()
+            .chain([("GO_FILE".to_owned(), extra.build_file)])
+            .collect(),
             files_write: HashMap::new(),
             cap_add: Vec::new(),
             cap_drop: Vec::new(),
@@ -107,8 +106,24 @@ impl Template for GoTemplate {
         Ok(VariableBuilder::default()
             .group(
                 VariableGroupBuilder::new(Some("Go"))
-                    .static_variable("version", "Version", Some(extra.go_version), cache.0.iter().map(|(major, minor, patch)| format!("{major}.{minor}.{patch}")).collect())
-                    .regex_variable("build_file", "Build File", Some(extra.build_file), GO_FILE_REGEX.as_str(), "main.go", false),
+                    .static_variable(
+                        "version",
+                        "Version",
+                        Some(extra.go_version),
+                        cache
+                            .0
+                            .iter()
+                            .map(|(major, minor, patch)| format!("{major}.{minor}.{patch}"))
+                            .collect(),
+                    )
+                    .regex_variable(
+                        "build_file",
+                        "Build File",
+                        Some(extra.build_file),
+                        GO_FILE_REGEX.as_str(),
+                        "main.go",
+                        false,
+                    ),
             )
             .group(git_variable_group(GitFields {
                 url: extra.repository_url,
@@ -116,8 +131,7 @@ impl Template for GoTemplate {
                 username: extra.repository_username,
                 password: extra.repository_password,
             }))
-            .into_payload()
-        )
+            .into_payload())
     }
 
     async fn variables_to_extra_validated(

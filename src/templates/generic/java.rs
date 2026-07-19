@@ -172,29 +172,29 @@ impl Template for JavaTemplate {
                         ["prebuilt", "gradle"].into_iter().collect(),
                     ),
             )
-            .data(VariableDataBuilder::new(cache.0.keys().copied().collect()).layer::<1, _, _>(
-                |major| {
-                    let content = cache
-                        .0
-                        .get(major)
-                        .into_iter()
-                        .flat_map(|versions| versions.iter())
-                        .map(JavaVersion::to_string)
-                        .collect();
-                    vec![(
-                        format!("Java {major}"),
-                        VariableContent::StringSet { content },
-                    )]
-                },
-            ))
-            .group(
-                git_variable_group(GitFields {
-                    url: extra.repository_url,
-                    branch: extra.repository_branch,
-                    username: extra.repository_username,
-                    password: extra.repository_password,
-                }),
+            .data(
+                VariableDataBuilder::new(cache.0.keys().copied().collect()).layer::<1, _, _>(
+                    |major| {
+                        let content = cache
+                            .0
+                            .get(major)
+                            .into_iter()
+                            .flat_map(|versions| versions.iter())
+                            .map(JavaVersion::to_string)
+                            .collect();
+                        vec![(
+                            format!("Java {major}"),
+                            VariableContent::StringSet { content },
+                        )]
+                    },
+                ),
             )
+            .group(git_variable_group(GitFields {
+                url: extra.repository_url,
+                branch: extra.repository_branch,
+                username: extra.repository_username,
+                password: extra.repository_password,
+            }))
             .into_payload())
     }
 
