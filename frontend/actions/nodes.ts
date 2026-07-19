@@ -29,7 +29,14 @@ const backupEntrySchema = z
 const createNodeSchema = z.object({
   name: z.string().min(1, "Node name is required"),
   baseUrl: z.string().min(1, "Base URL is required"),
-  ssh: z.number().int().min(1).max(65535),
+  defaultHost: z.string().min(1, "Default host is required"),
+  // Optional SSH/SFTP endpoint. When unset, SSH/SFTP is disabled for the node.
+  ssh: z
+    .object({
+      host: z.string().min(1, "SSH host is required"),
+      port: z.number().int().min(1).max(65535),
+    })
+    .optional(),
   storages: z.array(storageEntrySchema).min(1, "At least one storage is required"),
   backups: z.array(backupEntrySchema),
 });
@@ -59,6 +66,7 @@ export const createNodeAction = authActionClient
         name: parsedInput.name,
         config: {
           base_url: parsedInput.baseUrl,
+          default_host: parsedInput.defaultHost,
           ssh: parsedInput.ssh,
           storages,
           backups,

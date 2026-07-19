@@ -69,7 +69,8 @@ export type LightNodeInfo = {
     host: string;
     id: string;
     maintenance: boolean;
-    ssh_port: number;
+    ssh_host: string | null;
+    ssh_port: number | null;
 };
 
 export type NanoId = string;
@@ -175,7 +176,11 @@ export type SetupNodeConfigRequest = {
         [key: string]: BackupStorage;
     };
     base_url: string;
-    ssh: number;
+    default_host: string;
+    ssh?: {
+        host: string;
+        port: number;
+    };
     storages: {
         [key: string]: ServerStorage;
     };
@@ -4785,6 +4790,8 @@ export type ListNodesResponses = {
         maintenance: boolean;
         ports: Array<NodePortAllocation>;
         server_storages: Array<string>;
+        ssh_host: string | null;
+        ssh_port: number | null;
     }>;
 };
 

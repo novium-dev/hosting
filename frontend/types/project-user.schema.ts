@@ -1,11 +1,15 @@
 import { z } from "zod";
 
-import { roleSchema } from "./organization.schema";
-
 export const setProjectUserSchema = z.object({
   projectId: z.string().min(1, "Project ID is required"),
   email: z.string().email("Invalid email address"),
-  role: roleSchema,
+  permissions: z
+    .number()
+    .int()
+    .min(0)
+    .refine((permissions) => permissions > 0, {
+      message: "Select at least one permission",
+    }),
 });
 
 export type SetProjectUser = z.infer<typeof setProjectUserSchema>;

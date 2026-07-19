@@ -1,5 +1,5 @@
 import { removeProjectUser, setProjectUser } from "@/lib/api";
-import { projectRolePermissions } from "@/lib/permissions";
+import { resolveServerPermissions } from "@/lib/permissions";
 import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
 import {
@@ -10,13 +10,14 @@ import {
 export const setProjectUserAction = authActionClient
   .inputSchema(setProjectUserSchema)
   .action(async ({ parsedInput }) => {
-    const { projectId, email, role } = parsedInput;
+    const { projectId, email, permissions } = parsedInput;
 
     const response = await setProjectUser({
       path: { project_id: projectId },
       body: {
         email,
-        permissions: projectRolePermissions[role],
+        // Expand implied dependencies so the stored bitfield is consistent.
+        permissions: resolveServerPermissions(permissions),
       },
     });
 

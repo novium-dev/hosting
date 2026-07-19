@@ -36,8 +36,6 @@ export const ManagementPermission = {
   LIMITS_BYPASS: 2 ** 46,
 } as const;
 
-export type ProjectRole = "owner" | "admin" | "member";
-
 const serverDependencyMap = [
   [ServerPermission.TERMINAL_WRITE, ServerPermission.TERMINAL_READ],
   [ServerPermission.BUILD_EDIT, ServerPermission.BUILD_VIEW],
@@ -123,28 +121,97 @@ export function mergePermissions(...permissions: number[]) {
   );
 }
 
-export const projectRolePermissions: Record<ProjectRole, number> = {
-  member: ServerPermission.VIEW,
-  admin: allServerPermissions,
-  owner:
-    mergePermissions(
-      allServerPermissions,
-      ManagementPermission.SERVER_MANAGE,
-      ManagementPermission.SERVER_SUSPEND,
-      ManagementPermission.SERVER_DELETE,
-      ManagementPermission.BACKUP_STORAGE_SELECT,
-    ),
-};
+/** Whether `permissions` has the exact `bit` set (BigInt-safe). */
+export function hasPermissionBit(permissions: number, bit: number) {
+  return contains(permissions, bit);
+}
 
-export function projectRoleFromPermissions(permissions: number): ProjectRole {
-  if (
-    hasServerPermission(permissions, ServerPermission.USER_EDIT) ||
-    hasManagementPermission(permissions, ManagementPermission.SERVER_MANAGE)
-  ) {
-    return hasManagementPermission(permissions, ManagementPermission.SERVER_DELETE)
-      ? "owner"
-      : "admin";
-  }
+/** Toggle a single permission bit on/off, preserving every other bit. */
+export function setPermissionBit(permissions: number, bit: number, on: boolean) {
+  const current = BigInt(permissions);
+  const mask = BigInt(bit);
+  return Number(on ? current | mask : current & ~mask);
+}
 
-  return "member";
+/**
+ * Expands a set of selected server permissions to include their implied
+ * dependencies (e.g. `FILES_WRITE` implies `FILES_READ`, and any permission
+ * implies `VIEW`). The backend applies the same rules when checking access.
+ */
+export function resolveServerPermissions(permissions: number) {
+  return withServerDependencies(permissions);
+}
+
+/**
+ * Server (project sub-user) permissions grouped for the permission picker.
+ * These are the permissions a project member can be granted for the project's
+ * servers.
+ */
+export const SERVER_PERMISSION_GROUPS: {
+  group: string;
+  permissions: { bit: number; label: string }[];
+}[] = [
+  {
+    group: "General",
+    permissions: [
+      { bit: ServerPermission.VIEW, label: "View server" },
+      { bit: ServerPermission.POWER, label: "Control power (start/stop/restart)" },
+    ],
+  },
+  {
+    group: "Console",
+    permissions: [
+      { bit: ServerPermission.TERMINAL_READ, label: "Read console output" },
+      { bit: ServerPermission.TERMINAL_WRITE, label: "Send console commands" },
+    ],
+  },
+  {
+    group: "Startup",
+    permissions: [
+      { bit: ServerPermission.BUILD_VIEW, label: "View startup settings" },
+      { bit: ServerPermission.BUILD_EDIT, label: "Edit startup settings" },
+      {
+        bit: ServerPermission.ADMIN_MANAGEMENT,
+        label: "View secret startup variables",
+      },
+    ],
+  },
+  {
+    group: "Files",
+    permissions: [
+      { bit: ServerPermission.FILES_READ, label: "Read files" },
+      { bit: ServerPermission.FILES_WRITE, label: "Write files" },
+    ],
+  },
+  {
+    group: "Backups",
+    permissions: [
+      { bit: ServerPermission.BACKUP_VIEW, label: "View backups" },
+      { bit: ServerPermission.BACKUP_DOWNLOAD, label: "Download backups" },
+      { bit: ServerPermission.BACKUP_CREATE, label: "Create backups" },
+      { bit: ServerPermission.BACKUP_DELETE, label: "Delete backups" },
+      { bit: ServerPermission.BACKUP_RESTORE, label: "Restore backups" },
+    ],
+  },
+  {
+    group: "Members",
+    permissions: [
+      { bit: ServerPermission.USER_VIEW, label: "View members" },
+      { bit: ServerPermission.USER_EDIT, label: "Manage members" },
+    ],
+  },
+  {
+    group: "Network",
+    permissions: [{ bit: ServerPermission.NETWORK_VIEW, label: "View network & ports" }],
+  },
+];
+
+/** Human-readable labels for every server permission granted by `permissions`. */
+export function serverPermissionLabels(permissions: number): string[] {
+  const resolved = resolveServerPermissions(permissions);
+  return SERVER_PERMISSION_GROUPS.flatMap((group) =>
+    group.permissions
+      .filter((permission) => hasPermissionBit(resolved, permission.bit))
+      .map((permission) => permission.label),
+  );
 }

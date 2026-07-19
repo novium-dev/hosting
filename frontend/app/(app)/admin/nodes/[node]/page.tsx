@@ -7,6 +7,7 @@ import {
   HardDrive,
   MemoryStick,
   Network,
+  TerminalSquare,
 } from "lucide-react";
 
 import { NotFoundView } from "@/components/not-found-view";
@@ -123,6 +124,13 @@ export default function AdminNodeManagementPage() {
               title="Network"
               value={`${currentNode.default_host} (${currentNode.default_bind})`}
             />
+            {currentNode.ssh_host != null && currentNode.ssh_port != null && (
+              <InfoCard
+                icon={TerminalSquare}
+                title="SSH / SFTP"
+                value={`${currentNode.ssh_host}:${currentNode.ssh_port}`}
+              />
+            )}
             <InfoCard
               icon={Cpu}
               title="CPU"

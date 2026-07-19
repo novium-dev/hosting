@@ -50,7 +50,8 @@ pub(crate) struct LightNodeInfo {
     pub(crate) display: String,
     pub(crate) maintenance: bool,
     pub(crate) host: String,
-    pub(crate) ssh_port: u16,
+    pub(crate) ssh_host: Option<String>,
+    pub(crate) ssh_port: Option<u16>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -287,7 +288,8 @@ pub(crate) impl ServerService for Backend {
                 display: server.node.display.clone(),
                 maintenance: server.node.maintenance,
                 host: server.node.default_host.clone(),
-                ssh_port: 2022, // TODO: Make this dynamic based on node configuration
+                ssh_host: server.node.ssh_host.clone(),
+                ssh_port: server.node.ssh_port,
             },
             suspended: server.suspended,
         })

@@ -1,14 +1,11 @@
 "use client";
 
-import { setActiveOrganizationAction } from "@/actions/organizations";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { OrganizationAvatar } from "@/components/ui/organization-avatar";
 import { TextEllipsis } from "@/components/ui/text-ellipsis";
-import { appConfig } from "@/constants/config";
 import type { AppOrganization } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
-import { useAction } from "@/lib/action-hooks";
 import { usePathname } from "@/lib/navigation";
 import { useRouter } from "@/lib/navigation";
 
@@ -23,17 +20,11 @@ export function SwitcherItem({
   const pathname = usePathname();
   const pathAfterSlug = pathname.split("/").slice(2).join("/");
 
-  const setActiveOrganization = useAction(setActiveOrganizationAction);
-
   return (
     <DropdownMenuItem
       onClick={(e) => {
         e.preventDefault();
         if (activeOrganizationId === organization.id) return;
-        setActiveOrganization.execute({
-          slug: organization.slug,
-          id: organization.id,
-        });
         const nextPath = pathAfterSlug
           ? `/${organization.slug}/${pathAfterSlug}`
           : `/${organization.slug}`;

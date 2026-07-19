@@ -10,21 +10,12 @@ const apiBaseUrl = import.meta.env.VITE_API_URL ?? "/api";
 export type AuthClientMember = {
   id: string;
   permissions: number;
-  role: "owner" | "admin" | "member";
   user: {
     id: string;
     name: string;
     email: string;
     image?: string | null;
   };
-};
-
-export type AuthClientInvitation = {
-  id: string;
-  email: string;
-  role: "owner" | "admin" | "member";
-  status?: string;
-  expiresAt?: Date | string | null;
 };
 
 type FetchOptions = {

@@ -29,7 +29,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TextEllipsis } from "@/components/ui/text-ellipsis";
-import { projectRoleFromPermissions } from "@/lib/permissions";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { serverPermissionLabels } from "@/lib/permissions";
 import { MoreHorizontal, Users } from "lucide-react";
 import { useAction } from "@/lib/action-hooks";
 import { useState } from "react";
@@ -41,12 +46,6 @@ interface MembersTableProps {
   members: ProjectMember[];
   projectId: string;
 }
-
-const roleLabels: Record<string, string> = {
-  owner: "Owner",
-  admin: "Admin",
-  member: "Member",
-};
 
 export function MembersTable({ members, projectId }: MembersTableProps) {
   const [updateOpen, setUpdateOpen] = useState(false);
@@ -70,7 +69,7 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
           <TableRow>
             <TableHead className="w-[300px]">User</TableHead>
             <TableHead>Email</TableHead>
-            <TableHead>Role</TableHead>
+            <TableHead>Permissions</TableHead>
             <TableHead></TableHead>
           </TableRow>
         </TableHeader>
@@ -89,7 +88,9 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
             </TableRow>
           ) : (
             members.map((member) => {
-              const role = projectRoleFromPermissions(member.permissions);
+              const permissionLabels = serverPermissionLabels(
+                member.permissions,
+              );
 
               return (
                 <TableRow key={member.id}>
@@ -107,7 +108,19 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
                   </TableCell>
                   <TableCell>{member.email}</TableCell>
                   <TableCell>
-                    <Badge>{roleLabels[role]}</Badge>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="secondary">
+                          {permissionLabels.length} permission
+                          {permissionLabels.length === 1 ? "" : "s"}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        {permissionLabels.length
+                          ? permissionLabels.join(", ")
+                          : "No permissions"}
+                      </TooltipContent>
+                    </Tooltip>
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu modal={false}>

@@ -23,7 +23,7 @@ use crate::{Backend, NodeRegistration};
 use daemon_common::node::{
     BackendNodeConfig, BackupStorage, HostAndPort, ServerStorage, SetupNodeConfig,
 };
-use url::{Host, Url};
+use url::Url;
 use utoipa::ToSchema;
 
 define_path_variable!(node_id "The node identifier");
@@ -35,6 +35,8 @@ pub(crate) struct NodeInfo {
     pub(crate) maintenance: bool,
     pub(crate) default_bind: String,
     pub(crate) default_host: String,
+    pub(crate) ssh_host: Option<String>,
+    pub(crate) ssh_port: Option<u16>,
     pub(crate) server_storages: Vec<String>,
     pub(crate) backup_storages: Vec<String>,
     pub(crate) ports: Vec<NodePortAllocation>,
@@ -43,7 +45,10 @@ pub(crate) struct NodeInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SetupNodeConfigRequest {
     pub base_url: Url,
-    pub ssh: u16, // no host here because we know it will be localhost
+    /// Public host (domain or IP) clients use to reach game servers on this node.
+    pub default_host: String,
+    /// Public SSH/SFTP address (host + port), or `None` to disable SSH/SFTP.
+    pub ssh: Option<HostAndPort>,
 
     pub storages: HashMap<String, ServerStorage>,
     pub backups: HashMap<String, BackupStorage>,
@@ -81,10 +86,7 @@ pub(crate) impl NodeAdminService for Backend {
 
         let final_config = SetupNodeConfig {
             base_url: config.base_url,
-            ssh: Some(HostAndPort {
-                host: Host::Domain("localhost".to_owned()),
-                port: config.ssh,
-            }),
+            ssh: config.ssh,
             origins,
             storages: config.storages,
             backups: config.backups,
@@ -93,6 +95,7 @@ pub(crate) impl NodeAdminService for Backend {
         let registration = NodeRegistration {
             time: Instant::now(),
             name,
+            default_host: config.default_host,
             config: final_config,
         };
 
@@ -174,6 +177,8 @@ pub(crate) impl NodeAdminService for Backend {
                 maintenance: node.maintenance,
                 default_bind: node.default_bind.clone(),
                 default_host: node.default_host.clone(),
+                ssh_host: node.ssh_host.clone(),
+                ssh_port: node.ssh_port,
                 server_storages: node.server_storages.clone(),
                 backup_storages: node.backup_storages.clone(),
                 ports: node.ports.clone(),

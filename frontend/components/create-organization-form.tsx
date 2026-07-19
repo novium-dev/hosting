@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  createOrganizationAction,
-  setActiveOrganizationAction,
-} from "@/actions/organizations";
+import { createOrganizationAction } from "@/actions/organizations";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -31,7 +28,6 @@ import { createOrganizationSchema } from "@/types/organization.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
 import { IconCheck, IconX } from "@tabler/icons-react";
-import { useAction } from "@/lib/action-hooks";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -46,8 +42,6 @@ export function CreateOrganizationForm({
   const [isSlugError, setIsSlugError] = useState(false);
   const [slugToCheck, setSlugToCheck] = useState("");
 
-  const setActiveOrganization = useAction(setActiveOrganizationAction);
-
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
     useHookFormAction(
       createOrganizationAction,
@@ -58,15 +52,10 @@ export function CreateOrganizationForm({
           defaultValues: { name: "", slug: "" },
         },
         actionProps: {
-          onSuccess: async (args) => {
+          onSuccess: (args) => {
             resetFormAndAction();
             if (args.data?.data) {
-              const organization = args.data.data;
-              await setActiveOrganization.executeAsync({
-                slug: organization.slug,
-                id: organization.id,
-              });
-              onSuccess?.(organization);
+              onSuccess?.(args.data.data);
             }
             toast.success("Organization created successfully");
           },

@@ -58,8 +58,7 @@ impl Backend {
         #[cfg(debug_assertions)]
         {
             use utoipa_swagger_ui::SwaggerUi;
-            router =
-                router.merge(SwaggerUi::new("/api/docs").url("/api/docs/openapi.json", api));
+            router = router.merge(SwaggerUi::new("/api/docs").url("/api/docs/openapi.json", api));
         };
         #[cfg(not(debug_assertions))]
         let _ = api;
