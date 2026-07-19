@@ -56,7 +56,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
 
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
-  const [ssh, setSsh] = useState("22");
+  const [ssh, setSsh] = useState("2022");
   const [storages, setStorages] = useState<StorageEntry[]>([newStorageEntry()]);
   const [backups, setBackups] = useState<BackupEntry[]>([]);
 
@@ -76,7 +76,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
   const resetForm = () => {
     setName("");
     setBaseUrl("");
-    setSsh("22");
+    setSsh("2022");
     setStorages([newStorageEntry()]);
     setBackups([]);
     setSetupCode(null);
@@ -207,7 +207,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                     max={65535}
                     value={ssh}
                     onChange={(event) => setSsh(event.target.value)}
-                    placeholder="22"
+                    placeholder="2022"
                     required
                   />
                 </div>

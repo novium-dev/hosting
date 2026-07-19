@@ -287,7 +287,7 @@ pub(crate) impl ServerService for Backend {
                 display: server.node.display.clone(),
                 maintenance: server.node.maintenance,
                 host: server.node.default_host.clone(),
-                ssh_port: 2022, // TODO: Make this dynamic based on node configuration
+                ssh_port: server.node.ssh_port,
             },
             suspended: server.suspended,
         })

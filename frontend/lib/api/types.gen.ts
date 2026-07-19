@@ -4785,6 +4785,7 @@ export type ListNodesResponses = {
         maintenance: boolean;
         ports: Array<NodePortAllocation>;
         server_storages: Array<string>;
+        ssh_port: number;
     }>;
 };
 

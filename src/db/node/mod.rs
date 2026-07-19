@@ -19,6 +19,7 @@ pub struct BackendNode {
     pub maintenance: bool,
     pub default_host: String,
     pub default_bind: String,
+    pub ssh_port: u16,
     pub server_storages: Vec<String>,
     pub backup_storages: Vec<String>,
     pub ports: Vec<NodePortAllocation>,
@@ -67,7 +68,7 @@ impl Backend {
 
         let mut nodes = HashMap::new();
 
-        for node in query!(r#"SELECT id,url,display,maintenance AS "maintenance: bool",default_host,default_bind FROM nodes"#)
+        for node in query!(r#"SELECT id,url,display,maintenance AS "maintenance: bool",default_host,default_bind,ssh_port FROM nodes"#)
             .fetch_all(&mut **tx)
             .await? {
 
@@ -129,6 +130,7 @@ impl Backend {
                 maintenance: node.maintenance,
                 default_host: node.default_host,
                 default_bind: node.default_bind,
+                ssh_port: u16::try_from(node.ssh_port).unwrap_or(2022),
                 server_storages,
                 backup_storages,
                 ports,

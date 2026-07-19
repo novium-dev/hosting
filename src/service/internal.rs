@@ -126,6 +126,14 @@ pub(crate) impl InternalService for Backend {
             let cert = CertificateDer::from(cert);
 
             let config = registration.config.clone();
+            // SSH/SFTP port clients connect to, chosen by the admin at node
+            // creation (defaults to 2022 when unset).
+            let ssh_port = i32::from(
+                config
+                    .ssh
+                    .as_ref()
+                    .map_or(2022u16, |endpoint| endpoint.port),
+            );
 
             daemon_connection_test::<DaemonRegisterError>(
                 Uuid::nil(),
@@ -155,7 +163,7 @@ pub(crate) impl InternalService for Backend {
             let backend = self.clone();
             self.database.acquire().await?
                 .transaction(move |tx| Box::pin(async move {
-                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host) VALUES ($1, $2, $3, $4, $5)", &uuid, registration.name, config.base_url.as_str(), &default_bind, &default_host)
+                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host,ssh_port) VALUES ($1, $2, $3, $4, $5, $6)", &uuid, registration.name, config.base_url.as_str(), &default_bind, &default_host, ssh_port)
                         .execute(&mut **tx)
                         .await
                         .inspect_err(|err| error!("Failed to insert node: {err:?}"))?;
