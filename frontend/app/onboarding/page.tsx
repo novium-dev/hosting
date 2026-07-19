@@ -11,6 +11,7 @@ import { appConfig } from "@/constants/config";
 import { NoviumLogo } from "@/components/brand/novium-logo";
 import { auth } from "@/lib/auth";
 import { authClient } from "@/lib/auth-client";
+import { useOrganizationStore } from "@/stores/organizations";
 import OnboardingForm from "./onboarding-form";
 
 export default function OnboardingPage() {
@@ -19,12 +20,17 @@ export default function OnboardingPage() {
     data ? "onboarding/own-organizations" : null,
     () => auth.api.listOrganizations({ own: true }),
   );
+  const currentSlug = useOrganizationStore((state) => state.currentSlug);
 
   if (isLoading) return null;
   if (!data) return <Navigate to={appConfig.authRoutes.signin} replace />;
   if (orgsLoading) return null;
   if (organizations && organizations.length > 0) {
-    return <Navigate to={`/${organizations[0].slug}`} replace />;
+    const preferred =
+      currentSlug && organizations.some((org) => org.slug === currentSlug)
+        ? currentSlug
+        : organizations[0].slug;
+    return <Navigate to={`/${preferred}`} replace />;
   }
 
   return (
