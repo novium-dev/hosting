@@ -3,6 +3,10 @@ import { createBrowserRouter } from "react-router-dom";
 import RootLayout from "@/app/layout";
 import ErrorPage from "@/app/error/page";
 import HomePage from "@/app/page";
+import {
+  NotFound,
+  RouteErrorBoundary,
+} from "@/components/route-error-boundary";
 
 import AuthLayout from "@/app/(auth)/layout";
 import SigninPage from "@/app/(auth)/signin/page";
@@ -32,6 +36,7 @@ import ServerSectionPage from "@/app/(app)/[slug]/servers/[server]/[[...section]
 export const router = createBrowserRouter([
   {
     element: <RootLayout />,
+    errorElement: <RouteErrorBoundary />,
     children: [
       { path: "/error", element: <ErrorPage /> },
 
@@ -87,6 +92,9 @@ export const router = createBrowserRouter([
           },
         ],
       },
+
+      // Catch-all: render the styled 404 page for any unmatched URL.
+      { path: "*", element: <NotFound /> },
     ],
   },
 ]);

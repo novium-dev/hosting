@@ -1176,12 +1176,12 @@ export function FilesManager({
 
     if (kind === "archive") {
       return canWriteFiles
-        ? ["Rename", "Permissions", "Unarchive", "Delete", "Download", "Copy"]
+        ? ["Rename", "Permissions", "Unarchive", "Download", "Copy", "Delete"]
         : ["Permissions", "Download"];
     }
 
     return canWriteFiles
-      ? ["Edit", "Rename", "Permissions", "Delete", "Download", "Copy"]
+      ? ["Edit", "Rename", "Permissions", "Download", "Copy", "Delete"]
       : ["View", "Permissions", "Download"];
   };
 
@@ -1466,8 +1466,11 @@ export function FilesManager({
                                   onSelect={() => {
                                     void onAction(entry, action);
                                   }}
+                                  className={action === "Delete" ? "text-destructive focus:text-destructive" : undefined}
                                 >
-                                  <ActionIcon className="size-4 text-muted-foreground" />
+                                  <ActionIcon
+                                    className={`size-4 ${action === "Delete" ? "text-destructive" : "text-muted-foreground"}`}
+                                  />
                                   {action}
                                 </DropdownMenuItem>
                               );
