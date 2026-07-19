@@ -378,7 +378,7 @@ export default function ClientServerSectionPage() {
         <ServerSettings
           serverId={server}
           slug={slug}
-          nodeHostname={serverData?.node.host ?? "Unknown"}
+          nodeHostname={serverData?.node.ssh_host ?? "Unknown"}
           username={session?.user.name ?? "-"}
           sshPort={serverData?.node.ssh_port ?? null}
         />

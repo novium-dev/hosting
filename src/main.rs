@@ -56,6 +56,10 @@ pub const CACHE_KEY_PREFIX: &str = "novium:";
 pub struct NodeRegistration {
     time: Instant,
     name: String,
+    /// Public host clients connect to for game servers. Chosen by the admin at
+    /// node creation (the daemon no longer reports it, since it usually differs
+    /// from the base URL).
+    default_host: String,
     config: SetupNodeConfig,
 }
 

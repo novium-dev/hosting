@@ -56,6 +56,8 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
 
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
+  const [defaultHost, setDefaultHost] = useState("");
+  const [sshHost, setSshHost] = useState("");
   const [ssh, setSsh] = useState("2022");
   const [storages, setStorages] = useState<StorageEntry[]>([newStorageEntry()]);
   const [backups, setBackups] = useState<BackupEntry[]>([]);
@@ -76,6 +78,8 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
   const resetForm = () => {
     setName("");
     setBaseUrl("");
+    setDefaultHost("");
+    setSshHost("");
     setSsh("2022");
     setStorages([newStorageEntry()]);
     setBackups([]);
@@ -93,22 +97,23 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    // Empty SSH port disables SSH/SFTP for the node.
-    let sshPort: number | undefined;
-    const trimmedSsh = ssh.trim();
-    if (trimmedSsh !== "") {
-      const parsedSsh = Number(trimmedSsh);
+    // An empty SSH host disables SSH/SFTP for the node.
+    let sshConfig: { host: string; port: number } | undefined;
+    const trimmedSshHost = sshHost.trim();
+    if (trimmedSshHost !== "") {
+      const parsedSsh = Number(ssh.trim());
       if (!Number.isInteger(parsedSsh) || parsedSsh < 1 || parsedSsh > 65535) {
         toast.error("SSH port must be a valid port number");
         return;
       }
-      sshPort = parsedSsh;
+      sshConfig = { host: trimmedSshHost, port: parsedSsh };
     }
 
     await createNodeRegistration.executeAsync({
       name: name.trim(),
       baseUrl: baseUrl.trim(),
-      ssh: sshPort,
+      defaultHost: defaultHost.trim(),
+      ssh: sshConfig,
       storages: storages.map((entry) => ({
         name: entry.name.trim(),
         type: entry.type,
@@ -205,6 +210,41 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="node-base-url">Base URL</Label>
+                  <Input
+                    id="node-base-url"
+                    value={baseUrl}
+                    onChange={(event) => setBaseUrl(event.target.value)}
+                    placeholder="https://node.example.com"
+                    required
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="node-default-host">Default Host</Label>
+                  <Input
+                    id="node-default-host"
+                    value={defaultHost}
+                    onChange={(event) => setDefaultHost(event.target.value)}
+                    placeholder="node.example.com"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Public host clients use to reach game servers on this node.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="node-ssh-host">SSH Host</Label>
+                  <Input
+                    id="node-ssh-host"
+                    value={sshHost}
+                    onChange={(event) => setSshHost(event.target.value)}
+                    placeholder="node.example.com"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to disable SSH/SFTP access.
+                  </p>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="node-ssh">SSH Port</Label>
                   <Input
                     id="node-ssh"
@@ -214,19 +254,6 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                     value={ssh}
                     onChange={(event) => setSsh(event.target.value)}
                     placeholder="2022"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty to disable SSH/SFTP access.
-                  </p>
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="node-base-url">Base URL</Label>
-                  <Input
-                    id="node-base-url"
-                    value={baseUrl}
-                    onChange={(event) => setBaseUrl(event.target.value)}
-                    placeholder="https://node.example.com"
-                    required
                   />
                 </div>
               </div>

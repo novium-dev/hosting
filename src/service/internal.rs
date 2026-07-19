@@ -113,7 +113,6 @@ pub(crate) impl InternalService for Backend {
             cert,
             csr,
             default_bind,
-            default_host,
         }: NodeRegistrationRequest,
     ) -> Result<Vec<u8>, _> {
         if let Some(registration) = self
@@ -126,8 +125,14 @@ pub(crate) impl InternalService for Backend {
             let cert = CertificateDer::from(cert);
 
             let config = registration.config.clone();
-            // SSH/SFTP port clients connect to, chosen by the admin at node
-            // creation. `None` (unset) disables SSH/SFTP for the node.
+            // Public host is chosen by the admin at node creation (the daemon no
+            // longer reports it).
+            let default_host = registration.default_host.clone();
+            // Public SSH/SFTP host + port, or `None` (unset) to disable SSH/SFTP.
+            let ssh_host = config
+                .ssh
+                .as_ref()
+                .map(|endpoint| endpoint.host.to_string());
             let ssh_port = config.ssh.as_ref().map(|endpoint| i32::from(endpoint.port));
 
             daemon_connection_test::<DaemonRegisterError>(
@@ -158,7 +163,7 @@ pub(crate) impl InternalService for Backend {
             let backend = self.clone();
             self.database.acquire().await?
                 .transaction(move |tx| Box::pin(async move {
-                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host,ssh_port) VALUES ($1, $2, $3, $4, $5, $6)", &uuid, registration.name, config.base_url.as_str(), &default_bind, &default_host, ssh_port)
+                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host,ssh_host,ssh_port) VALUES ($1, $2, $3, $4, $5, $6, $7)", &uuid, registration.name, config.base_url.as_str(), &default_bind, &default_host, ssh_host, ssh_port)
                         .execute(&mut **tx)
                         .await
                         .inspect_err(|err| error!("Failed to insert node: {err:?}"))?;
