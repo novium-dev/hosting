@@ -129,7 +129,6 @@ pub(crate) impl NodeAdminService for Backend {
             base_url,
             storages,
             backups,
-            ..
         } = node.config().await.map_err(|err| {
             error!("Failed to pull config from node {node_id}: {err:?}");
             UpdateNodeError::NodeFailure

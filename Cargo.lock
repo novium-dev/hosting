@@ -1393,7 +1393,7 @@ dependencies = [
 [[package]]
 name = "daemon"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#ac23080ab13335095c689de0c2540b66eced7e7f"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#cee6e084e4579db12c7def923dbe9cde4cec4b87"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1464,7 +1464,7 @@ dependencies = [
 [[package]]
 name = "daemon_common"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#ac23080ab13335095c689de0c2540b66eced7e7f"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#cee6e084e4579db12c7def923dbe9cde4cec4b87"
 dependencies = [
  "asn1-rs",
  "axum",
