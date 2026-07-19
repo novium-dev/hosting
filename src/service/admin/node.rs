@@ -35,7 +35,7 @@ pub(crate) struct NodeInfo {
     pub(crate) maintenance: bool,
     pub(crate) default_bind: String,
     pub(crate) default_host: String,
-    pub(crate) ssh_port: u16,
+    pub(crate) ssh_port: Option<u16>,
     pub(crate) server_storages: Vec<String>,
     pub(crate) backup_storages: Vec<String>,
     pub(crate) ports: Vec<NodePortAllocation>,
@@ -44,7 +44,7 @@ pub(crate) struct NodeInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SetupNodeConfigRequest {
     pub base_url: Url,
-    pub ssh: u16, // no host here because we know it will be localhost
+    pub ssh: Option<u16>,
 
     pub storages: HashMap<String, ServerStorage>,
     pub backups: HashMap<String, BackupStorage>,
@@ -82,9 +82,9 @@ pub(crate) impl NodeAdminService for Backend {
 
         let final_config = SetupNodeConfig {
             base_url: config.base_url,
-            ssh: Some(HostAndPort {
+            ssh: config.ssh.map(|port| HostAndPort {
                 host: Host::Domain("localhost".to_owned()),
-                port: config.ssh,
+                port,
             }),
             origins,
             storages: config.storages,

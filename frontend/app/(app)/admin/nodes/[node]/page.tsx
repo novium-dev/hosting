@@ -124,11 +124,13 @@ export default function AdminNodeManagementPage() {
               title="Network"
               value={`${currentNode.default_host} (${currentNode.default_bind})`}
             />
-            <InfoCard
-              icon={TerminalSquare}
-              title="SSH / SFTP"
-              value={`${currentNode.default_host}:${currentNode.ssh_port}`}
-            />
+            {currentNode.ssh_port != null && (
+              <InfoCard
+                icon={TerminalSquare}
+                title="SSH / SFTP"
+                value={`${currentNode.default_host}:${currentNode.ssh_port}`}
+              />
+            )}
             <InfoCard
               icon={Cpu}
               title="CPU"

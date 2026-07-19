@@ -50,7 +50,7 @@ pub(crate) struct LightNodeInfo {
     pub(crate) display: String,
     pub(crate) maintenance: bool,
     pub(crate) host: String,
-    pub(crate) ssh_port: u16,
+    pub(crate) ssh_port: Option<u16>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]

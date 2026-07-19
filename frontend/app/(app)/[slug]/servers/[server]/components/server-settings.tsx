@@ -186,6 +186,7 @@ export function ServerSettings({
         </CardContent>
       </Card>
 
+      {sshPort != null && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -251,6 +252,7 @@ export function ServerSettings({
           </div>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

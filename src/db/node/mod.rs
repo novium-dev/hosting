@@ -19,7 +19,7 @@ pub struct BackendNode {
     pub maintenance: bool,
     pub default_host: String,
     pub default_bind: String,
-    pub ssh_port: u16,
+    pub ssh_port: Option<u16>,
     pub server_storages: Vec<String>,
     pub backup_storages: Vec<String>,
     pub ports: Vec<NodePortAllocation>,
@@ -130,7 +130,9 @@ impl Backend {
                 maintenance: node.maintenance,
                 default_host: node.default_host,
                 default_bind: node.default_bind,
-                ssh_port: u16::try_from(node.ssh_port).unwrap_or(2022),
+                ssh_port: node
+                    .ssh_port
+                    .and_then(|port| u16::try_from(port).ok()),
                 server_storages,
                 backup_storages,
                 ports,

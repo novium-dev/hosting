@@ -29,7 +29,8 @@ const backupEntrySchema = z
 const createNodeSchema = z.object({
   name: z.string().min(1, "Node name is required"),
   baseUrl: z.string().min(1, "Base URL is required"),
-  ssh: z.number().int().min(1).max(65535),
+  // Optional: when unset, SSH/SFTP is disabled for the node.
+  ssh: z.number().int().min(1).max(65535).optional(),
   storages: z.array(storageEntrySchema).min(1, "At least one storage is required"),
   backups: z.array(backupEntrySchema),
 });

@@ -127,13 +127,8 @@ pub(crate) impl InternalService for Backend {
 
             let config = registration.config.clone();
             // SSH/SFTP port clients connect to, chosen by the admin at node
-            // creation (defaults to 2022 when unset).
-            let ssh_port = i32::from(
-                config
-                    .ssh
-                    .as_ref()
-                    .map_or(2022u16, |endpoint| endpoint.port),
-            );
+            // creation. `None` (unset) disables SSH/SFTP for the node.
+            let ssh_port = config.ssh.as_ref().map(|endpoint| i32::from(endpoint.port));
 
             daemon_connection_test::<DaemonRegisterError>(
                 Uuid::nil(),

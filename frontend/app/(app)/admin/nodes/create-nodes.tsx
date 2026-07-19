@@ -93,16 +93,22 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const parsedSsh = Number(ssh);
-    if (!Number.isInteger(parsedSsh) || parsedSsh < 1 || parsedSsh > 65535) {
-      toast.error("SSH port must be a valid port number");
-      return;
+    // Empty SSH port disables SSH/SFTP for the node.
+    let sshPort: number | undefined;
+    const trimmedSsh = ssh.trim();
+    if (trimmedSsh !== "") {
+      const parsedSsh = Number(trimmedSsh);
+      if (!Number.isInteger(parsedSsh) || parsedSsh < 1 || parsedSsh > 65535) {
+        toast.error("SSH port must be a valid port number");
+        return;
+      }
+      sshPort = parsedSsh;
     }
 
     await createNodeRegistration.executeAsync({
       name: name.trim(),
       baseUrl: baseUrl.trim(),
-      ssh: parsedSsh,
+      ssh: sshPort,
       storages: storages.map((entry) => ({
         name: entry.name.trim(),
         type: entry.type,
@@ -208,8 +214,10 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                     value={ssh}
                     onChange={(event) => setSsh(event.target.value)}
                     placeholder="2022"
-                    required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to disable SSH/SFTP access.
+                  </p>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="node-base-url">Base URL</Label>
