@@ -6,8 +6,6 @@ import {
   login,
   logout,
   me,
-  removeProjectUser,
-  setProjectUser,
   updateProject,
 } from "@/lib/api";
 import type {
@@ -16,12 +14,8 @@ import type {
   ListUsersResponse,
   MeResponse,
 } from "@/lib/api";
-import type { AuthClientInvitation, AuthClientMember } from "@/lib/auth-client";
-import {
-  projectRoleFromPermissions,
-  projectRolePermissions,
-  type ProjectRole,
-} from "@/lib/permissions";
+import type { AuthClientMember } from "@/lib/auth-client";
+import { projectRoleFromPermissions } from "@/lib/permissions";
 
 export type AppUser = {
   id: string;
@@ -44,13 +38,8 @@ export type AppSession = {
 type Project = ListProjectsResponse[number];
 type ProjectMember = ListProjectUsersResponse[number];
 
-function isProjectRole(value: string): value is ProjectRole {
-  return value === "owner" || value === "admin" || value === "member";
-}
-
 export type AppOrganization = Project & {
   members?: AuthClientMember[];
-  invitations?: AuthClientInvitation[];
 };
 
 const normalizeUser = (user: MeResponse): AppUser => ({
@@ -140,7 +129,6 @@ export const auth = {
         members: members.error
           ? []
           : (members.data ?? []).map(projectMemberToAuthClientMember),
-        invitations: [],
       } satisfies AppOrganization;
     },
 
@@ -174,62 +162,10 @@ export const auth = {
       return { ...project, ...body.data };
     },
 
-    setActiveOrganization: async ({
-      body,
-    }: {
-      body: { organizationId: string; organizationSlug?: string };
-    }) => body,
-
     listUsers: async () => {
       const response = await listUsers();
       if (response.error || !response.data) return [];
       return response.data satisfies ListUsersResponse;
-    },
-
-    deleteUser: async (_options?: object) => {
-      throw new Error(
-        "Deleting the current user is handled by the backend API.",
-      );
-    },
-
-    listSessions: async (_options?: object) => [],
-    revokeSession: async (_options?: object) => undefined,
-    revokeOtherSessions: async (_options?: object) => undefined,
-
-    createInvitation: async (_options?: object) => {
-      throw new Error("Invitations are handled by backend project membership.");
-    },
-    getInvitation: async (_options?: object) => null,
-    acceptInvitation: async (_options?: object) => undefined,
-    rejectInvitation: async (_options?: object) => undefined,
-    cancelInvitation: async (_options?: object) => undefined,
-
-    updateMemberRole: async ({
-      body,
-    }: {
-      body: { projectId?: string; email: string; role: string | number };
-    }) => {
-      if (!body.projectId) throw new Error("Project id is required");
-      await setProjectUser({
-        path: { project_id: body.projectId },
-        body: {
-          email: body.email,
-          permissions:
-            typeof body.role === "string" && isProjectRole(body.role)
-              ? projectRolePermissions[body.role]
-              : Number(body.role),
-        },
-      });
-    },
-
-    removeMember: async ({
-      body,
-    }: {
-      body: { projectId: string; memberId: string };
-    }) => {
-      await removeProjectUser({
-        path: { project_id: body.projectId, user_id: Number(body.memberId) },
-      });
     },
 
     signOut: async () => logout(),

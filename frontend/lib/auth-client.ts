@@ -19,14 +19,6 @@ export type AuthClientMember = {
   };
 };
 
-export type AuthClientInvitation = {
-  id: string;
-  email: string;
-  role: "owner" | "admin" | "member";
-  status?: string;
-  expiresAt?: Date | string | null;
-};
-
 type FetchOptions = {
   onSuccess?: () => void;
   onError?: (error: { error: { message: string } }) => void;

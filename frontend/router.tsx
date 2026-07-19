@@ -8,9 +8,6 @@ import AuthLayout from "@/app/(auth)/layout";
 import SigninPage from "@/app/(auth)/signin/page";
 import OnboardingPage from "@/app/onboarding/page";
 
-import AcceptInvitationRedirect from "@/app/accept-invitation/page";
-import AcceptInvitationPage from "@/app/accept-invitation/[id]/page";
-
 import AppLayout from "@/app/(app)/layout";
 import CreateOrganizationPage from "@/app/(app)/create/page";
 
@@ -44,9 +41,6 @@ export const router = createBrowserRouter([
         children: [{ path: "/signin", element: <SigninPage /> }],
       },
       { path: "/onboarding", element: <OnboardingPage /> },
-
-      { path: "/accept-invitation", element: <AcceptInvitationRedirect /> },
-      { path: "/accept-invitation/:id", element: <AcceptInvitationPage /> },
 
       // Authenticated app group (auth guard lives in AppLayout).
       {
