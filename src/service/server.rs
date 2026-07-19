@@ -16,9 +16,7 @@ use crate::service::template::*;
 use crate::templates::TemplateError;
 use crate::templates::variable::VariablePayload;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
-use daemon_common::service::server::{
-    ServerBuildImage, ServerNetworkPayload, ServerResourcePayload,
-};
+use daemon_common::service::server::{ServerNetworkPayload, ServerResourcePayload};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query};
 use tracing::{error, warn};
@@ -709,7 +707,7 @@ pub(crate) impl ServerService for Backend {
             .await
             .map_err(TemplateError::into::<UpdateVariablesError>)?;
 
-        let mut build = server
+        let new_build = server
             .template
             .extra_to_build_payload(
                 self.cache.clone(),
@@ -718,20 +716,9 @@ pub(crate) impl ServerService for Backend {
             .await
             .map_err(TemplateError::into::<UpdateVariablesError>)?;
 
-        if let Some(custom_dockerfile) = server.custom_dockerfile.clone() {
-            build.image = ServerBuildImage {
-                default_tag: None,
-                tag: Some(format!("custom_{}", server.id.to_string())),
-                args: HashMap::new(),
-                parents: Vec::new(),
-                base: None,
-                dockerfile: custom_dockerfile,
-            }
-        }
-
         server
             .node
-            .update_server(server.node_server_id, None, Some(build), None, None)
+            .update_server(server.node_server_id, None, Some(new_build), None, None)
             .await
             .map_err(|err| {
                 error!("Failed to update server variables: {err:?}");
