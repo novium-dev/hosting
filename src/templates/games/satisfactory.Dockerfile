@@ -16,7 +16,8 @@ RUN dpkg --add-architecture i386 \
 
 RUN mkdir -p /opt/steamcmd \
     && curl -sSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
-        | tar -xz -C /opt/steamcmd
+        | tar -xz -C /opt/steamcmd \
+    && chmod +x /opt/steamcmd/steamcmd.sh
 
 ENV HOME=/work
 
