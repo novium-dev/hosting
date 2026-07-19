@@ -4,16 +4,120 @@ pub mod java;
 pub mod python;
 pub mod rust;
 
+use crate::templates::variable::VariableGroupBuilder;
 use core::cmp::Ordering;
 use lazy_regex::lazy_regex;
 use regex::Regex;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::HashMap;
 use tracing::debug;
 use url::{ParseError, Url};
 
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
 pub static BRANCH_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!(r"[A-Za-z0-9\\._/-]+");
+
+/// Repository URL variable regex. Allows an empty value (git disabled — the
+/// project is uploaded manually) or a valid `http(s)` URL.
+pub(crate) const REPOSITORY_URL_REGEX: &str = r"^$|^https?://(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)$";
+
+/// Git username/password (token) — any single-line value, including empty.
+#[expect(clippy::non_std_lazy_statics, reason = "external crate")]
+pub static GIT_CREDENTIAL_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!(r"^[^\r\n]*$");
+
+/// The shared "Git" variables used by the generic templates. All fields are
+/// optional: an empty `url` disables git checkout; empty credentials mean no
+/// authentication.
+pub(crate) struct GitFields {
+    pub url: RepositoryURL,
+    pub branch: String,
+    pub username: String,
+    pub password: String,
+}
+
+/// Builds the shared "Git" variable group (URL, branch, username, secret
+/// password/token).
+pub(crate) fn git_variable_group(git: GitFields) -> VariableGroupBuilder {
+    VariableGroupBuilder::new(Some("Git"))
+        .regex_variable(
+            "repository_url",
+            "Repository URL",
+            Some(git.url),
+            REPOSITORY_URL_REGEX,
+            "https://gitlab.com/example_user/example_repo.git",
+            false,
+        )
+        .regex_variable(
+            "repository_branch",
+            "Repository Branch",
+            Some(git.branch),
+            BRANCH_REGEX.as_str(),
+            "HEAD",
+            false,
+        )
+        .regex_variable(
+            "repository_username",
+            "Git Username",
+            Some(git.username),
+            GIT_CREDENTIAL_REGEX.as_str(),
+            "oauth2",
+            false,
+        )
+        .regex_variable(
+            "repository_password",
+            "Git Password / Token",
+            Some(git.password),
+            GIT_CREDENTIAL_REGEX.as_str(),
+            "",
+            true,
+        )
+}
+
+/// Environment variables consumed by the generic Dockerfiles for the (optional,
+/// optionally authenticated) git checkout.
+pub(crate) fn git_environment(git: GitFields) -> [(String, String); 4] {
+    [
+        ("REPOSITORY_URL".to_owned(), git.url.into()),
+        ("REPOSITORY_BRANCH".to_owned(), git.branch),
+        ("REPOSITORY_USERNAME".to_owned(), git.username),
+        ("REPOSITORY_PASSWORD".to_owned(), git.password),
+    ]
+}
+
+/// Extracts and validates the shared git variables. Returns `None` if invalid.
+pub(crate) fn parse_git_fields(variables: &HashMap<String, String>) -> Option<GitFields> {
+    let repository_url_raw = variables.get("repository_url")?;
+    let repository_branch_raw = variables.get("repository_branch")?;
+    let username = variables
+        .get("repository_username")
+        .cloned()
+        .unwrap_or_default();
+    let password = variables
+        .get("repository_password")
+        .cloned()
+        .unwrap_or_default();
+
+    if !BRANCH_REGEX.is_match(repository_branch_raw) {
+        debug!("Variables rejected: repository_branch is invalid");
+        return None;
+    }
+    if !GIT_CREDENTIAL_REGEX.is_match(&username) || !GIT_CREDENTIAL_REGEX.is_match(&password) {
+        debug!("Variables rejected: git credentials are invalid");
+        return None;
+    }
+
+    let Ok(url) = RepositoryURL::parse(repository_url_raw) else {
+        debug!("Variables rejected: repository_url is invalid");
+        return None;
+    };
+
+    Some(GitFields {
+        url,
+        branch: repository_branch_raw.clone(),
+        username,
+        password,
+    })
+}
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum RepositoryURL {

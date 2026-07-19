@@ -8,7 +8,10 @@ use speedy::{Readable, Writable};
 use std::collections::{HashMap, HashSet};
 use tracing::debug;
 
-use crate::templates::generic::{BRANCH_REGEX, RepositoryURL, docker, version_cmp};
+use crate::templates::generic::{
+    GitFields, RepositoryURL, docker, git_environment, git_variable_group, parse_git_fields,
+    version_cmp,
+};
 use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, VariablePayload};
 use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
 
@@ -17,6 +20,10 @@ pub(crate) struct RustExtra {
     rust_version: String,
     repository_url: RepositoryURL,
     repository_branch: String,
+    #[serde(default)]
+    repository_username: String,
+    #[serde(default)]
+    repository_password: String,
 }
 
 #[derive(Readable, Writable)]
@@ -50,10 +57,12 @@ impl Template for RustTemplate {
             uid: None,
             gid: None,
             backup_exclude: HashSet::from([".git/".to_owned(), "target/".to_owned()]),
-            environment: HashMap::from([
-                ("REPOSITORY_URL".to_owned(), extra.repository_url.into()),
-                ("REPOSITORY_BRANCH".to_owned(), extra.repository_branch),
-            ]),
+            environment: HashMap::from(git_environment(GitFields {
+                url: extra.repository_url,
+                branch: extra.repository_branch,
+                username: extra.repository_username,
+                password: extra.repository_password,
+            })),
             files_write: HashMap::new(),
             cap_add: Vec::new(),
             cap_drop: Vec::new(),
@@ -69,6 +78,8 @@ impl Template for RustTemplate {
             rust_version: format!("{major}.{minor}.{patch}"),
             repository_url: RepositoryURL::Disabled,
             repository_branch: "HEAD".to_owned(),
+            repository_username: String::new(),
+            repository_password: String::new(),
         })
     }
 
@@ -97,9 +108,12 @@ impl Template for RustTemplate {
                 ),
             )
             .group(
-                VariableGroupBuilder::new(Some("Git"))
-                    .regex_variable("repository_url", "Repository URL", Some(extra.repository_url), "^https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$", "https://gitlab.com/example_user/example_repo.git", false)
-                    .regex_variable("repository_branch", "Repository Branch", Some(extra.repository_branch), BRANCH_REGEX.as_str(), "HEAD", false),
+                git_variable_group(GitFields {
+                    url: extra.repository_url,
+                    branch: extra.repository_branch,
+                    username: extra.repository_username,
+                    password: extra.repository_password,
+                }),
             )
             .into_payload())
     }
@@ -112,16 +126,6 @@ impl Template for RustTemplate {
     ) -> Result<Option<Self::Extra>, TemplateError> {
         let Some(version_raw) = variables.get("version") else {
             debug!("Variables rejected: version missing");
-            return Ok(None);
-        };
-
-        let Some(repository_url_raw) = variables.get("repository_url") else {
-            debug!("Variables rejected: repository_url missing");
-            return Ok(None);
-        };
-
-        let Some(repository_branch_raw) = variables.get("repository_branch") else {
-            debug!("Variables rejected: repository_branch missing");
             return Ok(None);
         };
 
@@ -149,20 +153,17 @@ impl Template for RustTemplate {
             debug!("Variables rejected: version not found");
             return Ok(None);
         }
-        if !BRANCH_REGEX.is_match(repository_branch_raw) {
-            debug!("Variables rejected: repository_branch is invalid");
-            return Ok(None);
-        }
 
-        let Ok(repository_url) = RepositoryURL::parse(repository_url_raw) else {
-            debug!("Variables rejected: repository_url is invalid");
+        let Some(git) = parse_git_fields(&variables) else {
             return Ok(None);
         };
 
         Ok(Some(RustExtra {
             rust_version: format!("{major}.{minor}.{patch}"),
-            repository_url,
-            repository_branch: repository_branch_raw.clone(),
+            repository_url: git.url,
+            repository_branch: git.branch,
+            repository_username: git.username,
+            repository_password: git.password,
         }))
     }
 
