@@ -109,8 +109,7 @@ pub(crate) impl UserAdminService for Backend {
     ) -> Result<Vec<AdminUserProjectInfo>, _> {
         auth.require::<_, _, ListUserProjectsError>((), ManagementPermissions::USER_VIEW)?;
 
-        let owner_permissions =
-            ProjectPermissions::all().bits() | ServerPermissions::all().bits();
+        let owner_permissions = ProjectPermissions::all().bits() | ServerPermissions::all().bits();
 
         Ok(query!(
             r#"SELECT

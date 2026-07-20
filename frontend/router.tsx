@@ -20,6 +20,7 @@ import AdminNodesPage from "@/app/(app)/admin/nodes/page";
 import AdminNodePage from "@/app/(app)/admin/nodes/[node]/page";
 import AdminProjectsPage from "@/app/(app)/admin/projects/page";
 import AdminUsersPage from "@/app/(app)/admin/users/page";
+import AdminUserPage from "@/app/(app)/admin/users/[user]/page";
 import AdminServersPage from "@/app/(app)/admin/servers/page";
 import AdminServerCreatePage from "@/app/(app)/admin/servers/create/page";
 import AdminServerPage from "@/app/(app)/admin/servers/[server]/page";
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
               { path: "nodes/:node", element: <AdminNodePage /> },
               { path: "projects", element: <AdminProjectsPage /> },
               { path: "users", element: <AdminUsersPage /> },
+              { path: "users/:user", element: <AdminUserPage /> },
               { path: "servers", element: <AdminServersPage /> },
               { path: "servers/create", element: <AdminServerCreatePage /> },
               { path: "servers/:server", element: <AdminServerPage /> },
