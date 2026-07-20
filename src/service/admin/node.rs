@@ -288,6 +288,9 @@ pub(crate) impl NodeAdminService for Backend {
         })
         .collect();
 
+        // Keyed by the port allocation id (the frontend looks it up by id and
+        // derives the protocol from the allocation), with `exclude` listing the
+        // ports already taken by other servers on the node.
         let mut result: HashMap<String, Vec<PortRange>> = HashMap::new();
         for port in &node.ports {
             let exclude = (port.start..=port.end)
@@ -295,7 +298,7 @@ pub(crate) impl NodeAdminService for Backend {
                 .filter(|candidate| used.contains(candidate))
                 .collect();
             result
-                .entry(port.protocol.to_string())
+                .entry(port.id.to_string())
                 .or_default()
                 .push(PortRange {
                     start: u16::try_from(port.start)

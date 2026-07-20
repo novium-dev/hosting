@@ -5638,6 +5638,35 @@ export type GetUserResponses = {
 
 export type GetUserResponse = GetUserResponses[keyof GetUserResponses];
 
+export type ListUserProjectsData = {
+    body?: never;
+    headers?: {
+        Authorization?: string;
+    };
+    path: {
+        user_id: number;
+    };
+    query?: never;
+    url: '/admin/user/{user_id}/projects';
+};
+
+export type ListUserProjectsErrors = {
+    [key: string]: unknown;
+};
+
+export type ListUserProjectsResponses = {
+    200: Array<{
+        id: NanoId;
+        name: string;
+        owner: boolean;
+        permissions: number;
+        server_count: number;
+        slug: string;
+    }>;
+};
+
+export type ListUserProjectsResponse = ListUserProjectsResponses[keyof ListUserProjectsResponses];
+
 export type UpdateUserData = {
     body: UpdateUserPayload;
     headers?: {
@@ -6345,7 +6374,9 @@ export type ListProjectsResponses = {
         id: NanoId;
         name: string;
         owner: number;
+        owner_username: string;
         permissions: number;
+        server_count: number;
         slug: string;
     }>;
 };

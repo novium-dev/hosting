@@ -23,6 +23,8 @@ pub(crate) struct ProjectInfo {
     pub(crate) slug: String,
     pub(crate) name: String,
     pub(crate) owner: i32,
+    pub(crate) owner_username: String,
+    pub(crate) server_count: i64,
     pub(crate) permissions: i64,
 }
 
@@ -49,12 +51,15 @@ pub(crate) impl ProjectService for Backend {
 
         Ok(query!(
             r#"SELECT
-                id AS "id: ProjectId",
-                slug,
-                name,
-                owner
+                projects.id AS "id: ProjectId",
+                projects.slug,
+                projects.name,
+                projects.owner,
+                users.username AS owner_username,
+                (SELECT COUNT(*) FROM servers WHERE servers.project = projects.id) AS "server_count!"
              FROM projects
-             ORDER BY slug"#
+             JOIN users ON users.id = projects.owner
+             ORDER BY projects.slug"#
         )
         .fetch_all(&*self.database)
         .await?
@@ -71,6 +76,8 @@ pub(crate) impl ProjectService for Backend {
                 slug: project.slug,
                 name: project.name,
                 owner: project.owner,
+                owner_username: project.owner_username,
+                server_count: project.server_count,
                 permissions: auth.permissions::<ProjectPermissions, _>(id).bits(),
             }
         })
@@ -131,9 +138,16 @@ pub(crate) impl ProjectService for Backend {
         auth.require::<_, _, GetProjectError>(project_id, ProjectPermissions::VIEW)?;
 
         let project = query!(
-            r#"SELECT id AS "id: ProjectId", slug, name, owner
+            r#"SELECT
+                projects.id AS "id: ProjectId",
+                projects.slug,
+                projects.name,
+                projects.owner,
+                users.username AS owner_username,
+                (SELECT COUNT(*) FROM servers WHERE servers.project = projects.id) AS "server_count!"
              FROM projects
-             WHERE id = $1"#,
+             JOIN users ON users.id = projects.owner
+             WHERE projects.id = $1"#,
             &project_id
         )
         .fetch_one(&*self.database)
@@ -144,6 +158,8 @@ pub(crate) impl ProjectService for Backend {
             slug: project.slug,
             name: project.name,
             owner: project.owner,
+            owner_username: project.owner_username,
+            server_count: project.server_count,
             permissions: auth.permissions::<ProjectPermissions, _>(project_id).bits(),
         })
     }

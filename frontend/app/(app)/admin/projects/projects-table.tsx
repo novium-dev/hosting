@@ -31,8 +31,7 @@ export function ProjectsTable({ projects }: { projects: ProjectRow[] }) {
       return (
         project.name.toLowerCase().includes(normalizedQuery) ||
         project.slug.toLowerCase().includes(normalizedQuery) ||
-        project.id.toLowerCase().includes(normalizedQuery) ||
-        String(project.owner).includes(normalizedQuery)
+        project.owner_username.toLowerCase().includes(normalizedQuery)
       );
     });
   }, [projects, query]);
@@ -52,7 +51,7 @@ export function ProjectsTable({ projects }: { projects: ProjectRow[] }) {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search by project, slug, id, or owner..."
+          placeholder="Search by project, slug, or owner..."
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
         />
       </div>
@@ -63,16 +62,15 @@ export function ProjectsTable({ projects }: { projects: ProjectRow[] }) {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Slug</TableHead>
-              <TableHead>ID</TableHead>
               <TableHead>Owner</TableHead>
-              <TableHead>Permissions</TableHead>
+              <TableHead className="text-right">Servers</TableHead>
               <TableHead className="text-right">Open</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredProjects.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-28">
+                <TableCell colSpan={5} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <FolderKanban className="size-5 text-muted-foreground" />
                     <p className="text-sm font-medium">No projects found</p>
@@ -87,14 +85,9 @@ export function ProjectsTable({ projects }: { projects: ProjectRow[] }) {
                 <TableRow key={project.id}>
                   <TableCell className="font-medium">{project.name}</TableCell>
                   <TableCell>{project.slug}</TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {project.id}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {project.owner}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {project.permissions}
+                  <TableCell>{project.owner_username}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {project.server_count}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button asChild size="sm" variant="outline">

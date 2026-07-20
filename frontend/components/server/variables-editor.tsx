@@ -2,6 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/searchable-select";
 import {
   Select,
   SelectContent,
@@ -9,6 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+// Above this many options, render a searchable combobox instead of a plain
+// select so long lists (e.g. version pickers) can be filtered.
+const SEARCHABLE_OPTION_THRESHOLD = 8;
 
 export type VariableValue = string | number | boolean | null;
 
@@ -355,29 +360,35 @@ export function VariableFields({
             );
 
             if (Array.isArray(variable.data) && variable.data.length > 0) {
+              const currentValue = String(variables[variable.id] ?? "");
+              const onSelect = (value: string) =>
+                setVariables((prev) => ({ ...prev, [variable.id]: value }));
+
               return (
                 <div key={variable.id} className="space-y-2">
                   {label}
-                  <Select
-                    value={String(variables[variable.id] ?? "")}
-                    onValueChange={(value) =>
-                      setVariables((prev) => ({
-                        ...prev,
-                        [variable.id]: value,
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select value" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {variable.data.map((entry) => (
-                        <SelectItem key={String(entry)} value={String(entry)}>
-                          {String(entry)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {variable.data.length > SEARCHABLE_OPTION_THRESHOLD ? (
+                    <SearchableSelect
+                      value={currentValue}
+                      onChange={onSelect}
+                      options={variable.data.map((entry) => ({
+                        value: String(entry),
+                      }))}
+                    />
+                  ) : (
+                    <Select value={currentValue} onValueChange={onSelect}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select value" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {variable.data.map((entry) => (
+                          <SelectItem key={String(entry)} value={String(entry)}>
+                            {String(entry)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               );
             }
@@ -425,26 +436,33 @@ export function VariableFields({
               );
               const entries = getNestedEntries(rootData, pointer, selectedPath);
 
+              const currentValue = String(variables[variable.id] ?? "");
+              const onSelect = (value: string) =>
+                onNestedChange(variable, pointer, value);
+
               return (
                 <div key={variable.id} className="space-y-2">
                   {label}
-                  <Select
-                    value={String(variables[variable.id] ?? "")}
-                    onValueChange={(value) =>
-                      onNestedChange(variable, pointer, value)
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select value" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {entries.map((entry) => (
-                        <SelectItem key={entry} value={entry}>
-                          {entry}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {entries.length > SEARCHABLE_OPTION_THRESHOLD ? (
+                    <SearchableSelect
+                      value={currentValue}
+                      onChange={onSelect}
+                      options={entries.map((entry) => ({ value: entry }))}
+                    />
+                  ) : (
+                    <Select value={currentValue} onValueChange={onSelect}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select value" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {entries.map((entry) => (
+                          <SelectItem key={entry} value={entry}>
+                            {entry}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               );
             }
