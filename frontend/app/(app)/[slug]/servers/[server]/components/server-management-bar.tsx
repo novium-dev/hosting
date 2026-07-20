@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "@/components/link";
 import {
+  AlertTriangle,
   Check,
   Clock,
   Copy,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +35,7 @@ import {
   startServer,
   stopServer,
 } from "@/lib/api";
-import { titleCase } from "@/lib/utils";
+import { cn, titleCase } from "@/lib/utils";
 
 type ServerManagementBarProps = {
   serverId: string;
@@ -76,6 +78,22 @@ export const DISK_USAGE_EVENT = "server-disk-usage";
 export type DiskUsageEventDetail = {
   serverId: string;
   percent: number | null;
+};
+
+// Usage (as a percentage of the limit) at/above which a resource is considered
+// low and highlighted in red / surfaced as an alert.
+const HIGH_USAGE_THRESHOLD = 80;
+
+type UsagePercents = {
+  cpu: number | null;
+  ram: number | null;
+  disk: number | null;
+};
+
+const DEFAULT_USAGE_PERCENTS: UsagePercents = {
+  cpu: null,
+  ram: null,
+  disk: null,
 };
 
 type ControlState = {
@@ -336,6 +354,9 @@ export function ServerManagementBar({
 
   const [status, setStatus] = useState<ServerLifecycleState>("unknown");
   const [usage, setUsage] = useState<UsageState>(baseUsage);
+  const [usagePercents, setUsagePercents] = useState<UsagePercents>(
+    DEFAULT_USAGE_PERCENTS,
+  );
   const [connection, setConnection] = useState<StatsConnection>("connecting");
   const [pendingAction, setPendingAction] = useState<PowerAction | null>(null);
   const [addressCopied, setAddressCopied] = useState(false);
@@ -390,6 +411,7 @@ export function ServerManagementBar({
     let socket: WebSocket | null = null;
 
     setUsage(baseUsage);
+    setUsagePercents(DEFAULT_USAGE_PERCENTS);
 
     const connectStats = async () => {
       try {
@@ -472,15 +494,28 @@ export function ServerManagementBar({
                     : formatUsage(payload.swap, swapMax, "MiB"),
               });
 
-              const diskCurrentNumber = toFiniteNumber(diskCurrent);
-              const diskMaxNumber = toFiniteNumber(diskMax);
-              const diskPercent =
-                diskCurrentNumber !== null &&
-                diskMaxNumber !== null &&
-                diskMaxNumber > 0
-                  ? (diskCurrentNumber / diskMaxNumber) * 100
+              const usagePercent = (
+                current: unknown,
+                max: unknown,
+              ): number | null => {
+                const currentNumber = toFiniteNumber(current);
+                const maxNumber = toFiniteNumber(max);
+                return currentNumber !== null &&
+                  maxNumber !== null &&
+                  maxNumber > 0
+                  ? (currentNumber / maxNumber) * 100
                   : null;
+              };
 
+              const diskPercent = usagePercent(diskCurrent, diskMax);
+
+              setUsagePercents({
+                cpu: usagePercent(cpuCurrent, cpuMax),
+                ram: usagePercent(ramCurrent, ramMax),
+                disk: diskPercent,
+              });
+
+              // Notify the file manager so it can surface a disk-space alert.
               if (typeof window !== "undefined") {
                 window.dispatchEvent(
                   new CustomEvent<DiskUsageEventDetail>(DISK_USAGE_EVENT, {
@@ -611,8 +646,42 @@ export function ServerManagementBar({
     }
   };
 
+  const cpuHigh =
+    usagePercents.cpu !== null && usagePercents.cpu >= HIGH_USAGE_THRESHOLD;
+  const ramHigh =
+    usagePercents.ram !== null && usagePercents.ram >= HIGH_USAGE_THRESHOLD;
+  const diskHigh =
+    usagePercents.disk !== null && usagePercents.disk >= HIGH_USAGE_THRESHOLD;
+
   return (
-    <Card className="border-border/70">
+    <div className="space-y-4">
+      {(cpuHigh || ramHigh) && (
+        <Alert
+          variant="destructive"
+          className="border-destructive/40 bg-destructive/10"
+        >
+          <AlertTriangle className="size-4" />
+          <AlertTitle>
+            {cpuHigh && ramHigh
+              ? "CPU and memory usage are high"
+              : cpuHigh
+                ? "CPU usage is high"
+                : "Memory usage is high"}
+          </AlertTitle>
+          <AlertDescription>
+            {cpuHigh && usagePercents.cpu !== null
+              ? `CPU is at ${usagePercents.cpu.toFixed(1)}% of its limit. `
+              : null}
+            {ramHigh && usagePercents.ram !== null
+              ? `Memory is at ${usagePercents.ram.toFixed(1)}% of its limit. `
+              : null}
+            The server may become unresponsive or be killed if it runs out of
+            resources.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Card className="border-border/70">
       <CardHeader className="space-y-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
@@ -738,11 +807,25 @@ export function ServerManagementBar({
       >
         <div className="rounded-md border bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground">Disk</p>
-          <p className="mt-1 text-sm font-medium">{usage.disk}</p>
+          <p
+            className={cn(
+              "mt-1 text-sm font-medium",
+              diskHigh && "text-destructive",
+            )}
+          >
+            {usage.disk}
+          </p>
         </div>
         <div className="rounded-md border bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground">RAM</p>
-          <p className="mt-1 text-sm font-medium">{usage.ram}</p>
+          <p
+            className={cn(
+              "mt-1 text-sm font-medium",
+              ramHigh && "text-destructive",
+            )}
+          >
+            {usage.ram}
+          </p>
         </div>
         {usage.swap !== "Disabled" && (
           <div className="rounded-md border bg-muted/30 p-3">
@@ -752,9 +835,17 @@ export function ServerManagementBar({
         )}
         <div className="rounded-md border bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground">CPU</p>
-          <p className="mt-1 text-sm font-medium">{usage.cpu}</p>
+          <p
+            className={cn(
+              "mt-1 text-sm font-medium",
+              cpuHigh && "text-destructive",
+            )}
+          >
+            {usage.cpu}
+          </p>
         </div>
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }
