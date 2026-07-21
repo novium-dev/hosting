@@ -1,8 +1,11 @@
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::{ManagementPermissions, Role};
+use crate::auth::permissions::{
+    ManagementPermissions, ProjectPermissions, Role, ServerPermissions,
+};
+use crate::db::project::ProjectId;
 use crate::service::admin::user::user_admin_service_error::{
-    DeleteUserError, GetUserError, ListUsersError, UpdateUserError,
+    DeleteUserError, GetUserError, ListUserProjectsError, ListUsersError, UpdateUserError,
 };
 use crate::service::*;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
@@ -19,6 +22,18 @@ pub(crate) struct AdminUserInfo {
     pub(crate) email: String,
     pub(crate) first_name: Option<String>,
     pub(crate) last_name: Option<String>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct AdminUserProjectInfo {
+    pub(crate) id: ProjectId,
+    pub(crate) slug: String,
+    pub(crate) name: String,
+    /// Whether this user owns the project.
+    pub(crate) owner: bool,
+    /// The user's effective permission bits in the project.
+    pub(crate) permissions: i64,
+    pub(crate) server_count: i64,
 }
 
 #[service(path = "/admin/user", tag = "user", no_sdk)]
@@ -82,6 +97,52 @@ pub(crate) impl UserAdminService for Backend {
             first_name: user.first_name,
             last_name: user.last_name,
         })
+    }
+
+    /// Lists the projects a user owns or is a member of.
+    #[route("/{user_id}/projects", method = GET)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn list_user_projects(
+        &self,
+        #[special] auth: Authentication,
+        user_id: i32,
+    ) -> Result<Vec<AdminUserProjectInfo>, _> {
+        auth.require::<_, _, ListUserProjectsError>((), ManagementPermissions::USER_VIEW)?;
+
+        let owner_permissions = ProjectPermissions::all().bits() | ServerPermissions::all().bits();
+
+        Ok(query!(
+            r#"SELECT
+                projects.id AS "id: ProjectId",
+                projects.slug,
+                projects.name,
+                (projects.owner = $1) AS "owner!",
+                COALESCE(project_users.permissions, 0) AS "permissions!",
+                (SELECT COUNT(*) FROM servers WHERE servers.project = projects.id) AS "server_count!"
+             FROM projects
+             LEFT JOIN project_users
+                ON project_users.project = projects.id
+                AND project_users."user" = $1
+             WHERE projects.owner = $1 OR project_users."user" IS NOT NULL
+             ORDER BY projects.slug"#,
+            user_id
+        )
+        .fetch_all(&*self.database)
+        .await?
+        .into_iter()
+        .map(|project| AdminUserProjectInfo {
+            id: project.id,
+            slug: project.slug,
+            name: project.name,
+            owner: project.owner,
+            permissions: if project.owner {
+                owner_permissions
+            } else {
+                project.permissions
+            },
+            server_count: project.server_count,
+        })
+        .collect())
     }
 
     /// Updates a user.
