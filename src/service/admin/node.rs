@@ -23,7 +23,7 @@ use crate::{Backend, NodeRegistration};
 use daemon_common::node::{
     BackendNodeConfig, BackupStorage, HostAndPort, ServerStorage, SetupNodeConfig,
 };
-use url::Url;
+use url::{Host, Url};
 use utoipa::ToSchema;
 
 define_path_variable!(node_id "The node identifier");
@@ -42,13 +42,21 @@ pub(crate) struct NodeInfo {
     pub(crate) ports: Vec<NodePortAllocation>,
 }
 
+/// Public SSH/SFTP endpoint, or `None` to disable SSH/SFTP. `host` is a plain
+/// string (domain or IP) parsed into a [`Host`] on the server; the daemon's
+/// `HostAndPort` uses `url::Host`, which does not deserialize from a bare string.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SshEndpointRequest {
+    pub host: String,
+    pub port: u16,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SetupNodeConfigRequest {
     pub base_url: Url,
     /// Public host (domain or IP) clients use to reach game servers on this node.
     pub default_host: String,
-    /// Public SSH/SFTP address (host + port), or `None` to disable SSH/SFTP.
-    pub ssh: Option<HostAndPort>,
+    pub ssh: Option<SshEndpointRequest>,
 
     pub storages: HashMap<String, ServerStorage>,
     pub backups: HashMap<String, BackupStorage>,
@@ -71,7 +79,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermission::NODES_MANAGE`].
     #[route("", method = PUT)]
-    #[error(auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*])]
+    #[error(auth::{permission_denied, unreachable}, os::failure, node::invalid_host, db::failure <- [sql:*])]
     async fn create_node(
         &self,
         #[special] auth: Authentication,
@@ -84,9 +92,20 @@ pub(crate) impl NodeAdminService for Backend {
 
         let origins = vec![self.config.public_url.to_string()];
 
+        let ssh = config
+            .ssh
+            .map(|endpoint| {
+                Ok::<_, CreateNodeError>(HostAndPort {
+                    host: Host::parse(&endpoint.host)
+                        .map_err(|_err| CreateNodeError::NodeInvalidHost)?,
+                    port: endpoint.port,
+                })
+            })
+            .transpose()?;
+
         let final_config = SetupNodeConfig {
             base_url: config.base_url,
-            ssh: config.ssh,
+            ssh,
             origins,
             storages: config.storages,
             backups: config.backups,
