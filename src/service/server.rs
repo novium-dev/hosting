@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use super::*;
 use crate::Backend;
@@ -26,6 +27,7 @@ use zelus::{define_query_variable, service};
 define_query_variable!(project "The project");
 define_query_variable!(node "The node");
 define_query_variable!(template "The template");
+define_query_variable!(include "Whether to include live status from the daemon");
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ServerListInfo {
@@ -34,6 +36,17 @@ pub(crate) struct ServerListInfo {
     project: ProjectId,
     template: String,
     node: String, // Name
+    /// Live status from the daemon. Only populated when `include` is set and the
+    /// node is reachable.
+    status: Option<ServerListStatus>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct ServerListStatus {
+    /// The daemon status label, e.g. `Running`, `Stopped`, `Unhealthy`.
+    state: String,
+    /// Epoch milliseconds the server started, or `null` when not running.
+    started_at: Option<i64>,
 }
 
 struct ServerListRecord {
@@ -42,6 +55,7 @@ struct ServerListRecord {
     project: ProjectId,
     template: String,
     node: Uuid,
+    node_server_id: i32,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -96,7 +110,7 @@ pub(crate) impl ServerService for Backend {
     /// Lists all servers you have access to.
     ///
     /// Only servers in which you have the [`ProjectPermissions::VIEW`] permission are listed.
-    #[route("", method = GET, raw, query = [project, node, template])]
+    #[route("", method = GET, raw, query = [project, node, template, include])]
     #[error(auth::unreachable, db::failure <- [sql:*])]
     async fn list_servers(
         &self,
@@ -105,11 +119,12 @@ pub(crate) impl ServerService for Backend {
         project: Option<ProjectId>,
         node: Option<Uuid>,
         template: Option<String>,
+        include: Option<bool>,
     ) -> Result<Paged<ServerListInfo>, _> {
         let servers = if let Some(project) = project {
             sqlx::query_as!(
                 ServerListRecord,
-                r#"SELECT id AS "id: ServerId", name, project AS "project: ProjectId", node, template
+                r#"SELECT id AS "id: ServerId", name, project AS "project: ProjectId", node, node_server_id, template
                    FROM servers
                    WHERE project = $1"#,
                 &project
@@ -119,7 +134,7 @@ pub(crate) impl ServerService for Backend {
         } else {
             sqlx::query_as!(
                 ServerListRecord,
-                r#"SELECT id AS "id: ServerId", name, project AS "project: ProjectId", node, template
+                r#"SELECT id AS "id: ServerId", name, project AS "project: ProjectId", node, node_server_id, template
                    FROM servers"#
             )
             .fetch_all(&*self.database)
@@ -142,12 +157,43 @@ pub(crate) impl ServerService for Backend {
 
         let templates = self.templates.read().await;
 
+        // When requested, fetch each server's live status from its daemon. This
+        // is opt-in (via `include`) because it costs one RPC per server and is
+        // only needed by the project server overview.
+        let mut statuses: HashMap<ServerId, ServerListStatus> = if include == Some(true) {
+            futures::future::join_all(servers.iter().filter_map(|server| {
+                nodes.get(&server.node).map(|node| {
+                    let node = Arc::clone(node);
+                    let id = server.id;
+                    let node_server_id = server.node_server_id.cast_unsigned();
+                    async move {
+                        node.server_status(node_server_id).await.ok().map(|state| {
+                            (
+                                id,
+                                ServerListStatus {
+                                    state: state.label,
+                                    started_at: state.time,
+                                },
+                            )
+                        })
+                    }
+                })
+            }))
+            .await
+            .into_iter()
+            .flatten()
+            .collect()
+        } else {
+            HashMap::new()
+        };
+
         Ok(servers
             .into_iter()
             .map(|server| ServerListInfo {
                 id: server.id,
                 name: server.name,
                 project: server.project,
+                status: statuses.remove(&server.id),
                 template: templates
                   .get(&server.template).map_or_else(|| {
                         warn!(

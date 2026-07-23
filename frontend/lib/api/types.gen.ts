@@ -278,6 +278,10 @@ export type ListServersData = {
          */
         template?: string | null;
         /**
+         * Whether to include live status from the daemon
+         */
+        include?: boolean | null;
+        /**
          * The page that should be returned. If missing disables paging.
          */
         page?: number;
@@ -331,6 +335,20 @@ export type ListServersResponses = {
         node: string;
         project: NanoId;
         template: string;
+        /**
+         * Live status from the daemon. Only populated when `include` is set and
+         * the node is reachable.
+         */
+        status?: {
+            /**
+             * The daemon status label, e.g. `Running`, `Stopped`, `Unhealthy`.
+             */
+            state: string;
+            /**
+             * Epoch milliseconds the server started, or `null` when not running.
+             */
+            started_at?: number | null;
+        } | null;
     }>;
 };
 

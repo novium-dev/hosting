@@ -2,14 +2,10 @@ import Link from "@/components/link";
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import useSWR from "swr";
-import { Server, ChevronRight, Clock, Cpu, HardDrive, MemoryStick } from "lucide-react";
+import { Server, ChevronRight, Clock, HardDrive } from "lucide-react";
 
 import { MainLayout } from "@/components/sidebar/main-layout";
 import { useOrganization } from "@/hooks/use-organization";
-import {
-  useServerStats,
-  type ServerLiveState,
-} from "@/hooks/use-server-stats";
 import { listServers } from "@/lib/api";
 
 import { Badge } from "@/components/ui/badge";
@@ -23,21 +19,37 @@ import {
 import { cn, titleCase } from "@/lib/utils";
 import { templateBanner } from "@/lib/template-banner";
 
-const HIGH_USAGE_THRESHOLD = 80;
-
-const STATE_META: Record<
-  ServerLiveState,
-  { label: string; dot: string; text: string }
-> = {
-  running: { label: "Running", dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
-  starting: { label: "Starting", dot: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
-  restarting: { label: "Restarting", dot: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
-  stopping: { label: "Stopping", dot: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" },
-  unhealthy: { label: "Unhealthy", dot: "bg-red-500", text: "text-red-600 dark:text-red-400" },
-  stopped: { label: "Stopped", dot: "bg-muted-foreground/50", text: "text-muted-foreground" },
-  locked: { label: "Locked", dot: "bg-muted-foreground/50", text: "text-muted-foreground" },
-  unknown: { label: "Unknown", dot: "bg-muted-foreground/40", text: "text-muted-foreground" },
+type ServerStatus = {
+  state: string;
+  started_at?: number | null;
 };
+
+type ServerListItem = {
+  id: string;
+  name: string;
+  template: string;
+  node: string;
+  status?: ServerStatus | null;
+};
+
+function stateMeta(state: string | undefined): { label: string; dot: string; text: string } {
+  const normalized = (state ?? "").trim().toLowerCase();
+  if (["running", "online"].includes(normalized))
+    return { label: "Running", dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" };
+  if (normalized.includes("unhealthy"))
+    return { label: "Unhealthy", dot: "bg-red-500", text: "text-red-600 dark:text-red-400" };
+  if (
+    normalized.includes("starting") ||
+    normalized.includes("stopping") ||
+    normalized.includes("restarting")
+  )
+    return { label: state ?? "Unknown", dot: "bg-amber-500", text: "text-amber-600 dark:text-amber-400" };
+  if (["stopped", "offline", "crashed"].includes(normalized))
+    return { label: "Stopped", dot: "bg-muted-foreground/50", text: "text-muted-foreground" };
+  if (!normalized)
+    return { label: "Unknown", dot: "bg-muted-foreground/40", text: "text-muted-foreground" };
+  return { label: state ?? "Unknown", dot: "bg-muted-foreground/50", text: "text-muted-foreground" };
+}
 
 function formatUptime(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return "--";
@@ -54,63 +66,27 @@ function formatUptime(ms: number): string {
   return parts.join(" ");
 }
 
-function UsageStat({
-  icon: Icon,
-  label,
-  percent,
-}: {
-  icon: typeof Cpu;
-  label: string;
-  percent: number | null;
-}) {
-  const high = percent !== null && percent >= HIGH_USAGE_THRESHOLD;
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <Icon className="h-3 w-3" />
-          {label}
-        </span>
-        <span className={cn("font-medium tabular-nums", high && "text-destructive")}>
-          {percent === null ? "--" : `${Math.round(percent)}%`}
-        </span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className={cn(
-            "h-full rounded-full transition-all",
-            high ? "bg-destructive" : "bg-primary",
-          )}
-          style={{ width: `${Math.min(100, Math.max(0, percent ?? 0))}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
 function ServerCard({
   slug,
   server,
 }: {
   slug: string;
-  server: { id: string; name: string; template: string; node: string };
+  server: ServerListItem;
 }) {
-  const stats = useServerStats(server.id, true);
   const banner = templateBanner(server.template);
-  const [now, setNow] = useState(() => Date.now());
+  const meta = stateMeta(server.status?.state);
+  const startedAt = server.status?.started_at ?? null;
+  const isRunning = meta.label === "Running";
 
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (stats.state !== "running" || stats.startedAt === null) return;
+    if (!isRunning || startedAt === null) return;
     setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [stats.state, stats.startedAt]);
+  }, [isRunning, startedAt]);
 
-  const stateMeta = STATE_META[stats.state];
-  const uptime =
-    stats.state === "running" && stats.startedAt !== null
-      ? formatUptime(now - stats.startedAt)
-      : null;
+  const uptime = isRunning && startedAt !== null ? formatUptime(now - startedAt) : null;
 
   return (
     <Link href={`/${slug}/servers/${server.id}`} className="group">
@@ -136,15 +112,17 @@ function ServerCard({
               <Badge variant="outline" className="bg-background/70 backdrop-blur">
                 Node {server.node}
               </Badge>
-              <span
-                className={cn(
-                  "flex items-center gap-1.5 text-xs font-medium",
-                  stateMeta.text,
-                )}
-              >
-                <span className={cn("h-2 w-2 rounded-full", stateMeta.dot)} />
-                {stateMeta.label}
-              </span>
+              {server.status && (
+                <span
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs font-medium",
+                    meta.text,
+                  )}
+                >
+                  <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
+                  {meta.label}
+                </span>
+              )}
             </div>
           </div>
 
@@ -163,12 +141,6 @@ function ServerCard({
               <span>Uptime {uptime}</span>
             </div>
           )}
-
-          <div className="grid grid-cols-3 gap-3">
-            <UsageStat icon={Cpu} label="CPU" percent={stats.cpu} />
-            <UsageStat icon={MemoryStick} label="RAM" percent={stats.ram} />
-            <UsageStat icon={HardDrive} label="Disk" percent={stats.disk} />
-          </div>
 
           <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3 text-sm">
             <span className="truncate text-muted-foreground">
@@ -194,7 +166,9 @@ export default function OrganizationPage() {
   const { data: serversData } = useSWR(
     org ? ["servers", org.id] : null,
     async () => {
-      const res = await listServers({ query: { project: org!.id } });
+      const res = await listServers({
+        query: { project: org!.id, include: true },
+      });
       return res.error ? [] : (res.data ?? []);
     },
   );
