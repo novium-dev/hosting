@@ -91,7 +91,11 @@ pub(crate) struct ServerInfo {
     pub(crate) internet_access: bool,
     pub(crate) suspended: bool,
     pub(crate) primary_port: Option<PrimaryPortInfo>,
+
+    /// Daemon data (only present when the daemon is reachable)
     pub(crate) stats: Option<ServerStats>,
+    pub(crate) state: Option<String>,
+    pub(crate) started_at: Option<i64>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -310,12 +314,15 @@ pub(crate) impl ServerService for Backend {
                 ServerNetworkInfo { ports }
             });
 
-        let stats = server
-            .node
-            .server_status(server.node_server_id)
-            .await
-            .ok()
-            .map(|state| state.stats);
+        let (state, started_at, stats) =
+            match server.node.server_status(server.node_server_id).await.ok() {
+                Some(status) => (
+                    Some(status.state.label),
+                    status.state.time,
+                    Some(status.stats),
+                ),
+                None => (None, None, None),
+            };
 
         Ok(ServerInfo {
             id: server.id,
@@ -327,6 +334,8 @@ pub(crate) impl ServerService for Backend {
             disk: server.disk,
             network,
             stats,
+            state,
+            started_at,
             template: server.template.id().to_owned(),
             features: server
                 .template

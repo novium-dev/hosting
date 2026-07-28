@@ -37,6 +37,17 @@ import {
 } from "@/lib/api";
 import { cn, titleCase } from "@/lib/utils";
 
+type StatsSnapshot = {
+  cpu?: number | null;
+  cpu_max?: number | null;
+  ram?: number | null;
+  ram_max?: number | null;
+  disk?: number | null;
+  disk_max?: number | null;
+  swap?: number | null;
+  swap_max?: number | null;
+};
+
 type ServerManagementBarProps = {
   serverId: string;
   serverName: string;
@@ -52,6 +63,12 @@ type ServerManagementBarProps = {
   diskLimit: number | null;
   ramLimit: number | null;
   swapLimit: number | null;
+  /** Initial daemon status label from server info, seeded before the websocket connects. */
+  initialState?: string | null;
+  /** Initial start timestamp (epoch ms) from server info. */
+  initialStartedAt?: number | null;
+  /** Initial resource usage snapshot from server info. */
+  initialStats?: StatsSnapshot | null;
 };
 
 type PowerAction = "start" | "stop" | "restart" | "kill";
@@ -331,6 +348,68 @@ function statusFromLabel(label: string): ServerLifecycleState {
   return "unknown";
 }
 
+function usagePercentValue(current: unknown, max: unknown): number | null {
+  const currentNumber = toFiniteNumber(current);
+  const maxNumber = toFiniteNumber(max);
+  return currentNumber !== null && maxNumber !== null && maxNumber > 0
+    ? (currentNumber / maxNumber) * 100
+    : null;
+}
+
+/**
+ * Derives the usage display + percentages from an initial stats snapshot,
+ * falling back to the limit-only base usage when no snapshot is available.
+ */
+function deriveInitialUsage(
+  stats: StatsSnapshot | null | undefined,
+  limits: {
+    cpuLimit: number | null;
+    diskLimit: number | null;
+    ramLimit: number | null;
+    swapLimit: number | null;
+  },
+  baseUsage: UsageState,
+): { usage: UsageState; percents: UsagePercents } {
+  if (!stats) {
+    return { usage: baseUsage, percents: DEFAULT_USAGE_PERCENTS };
+  }
+
+  const cpuMax = stats.cpu_max ?? limits.cpuLimit;
+  const ramMax = stats.ram_max ?? limits.ramLimit;
+  const diskMax = stats.disk_max ?? limits.diskLimit;
+  const swapMax = stats.swap_max ?? limits.swapLimit;
+
+  return {
+    usage: {
+      cpu: formatCpuUsage(stats.cpu, cpuMax),
+      ram: formatUsage(stats.ram, ramMax, "MiB"),
+      disk: formatUsage(stats.disk, diskMax, "MiB"),
+      swap: swapMax === 0 ? "Disabled" : formatUsage(stats.swap, swapMax, "MiB"),
+    },
+    percents: {
+      cpu: usagePercentValue(stats.cpu, cpuMax),
+      ram: usagePercentValue(stats.ram, ramMax),
+      disk: usagePercentValue(stats.disk, diskMax),
+    },
+  };
+}
+
+/** Best-effort control availability derived from the lifecycle state, used
+ * before the websocket delivers authoritative flags. */
+function controlsFromState(state: ServerLifecycleState): ControlState {
+  switch (state) {
+    case "running":
+    case "unhealthy":
+    case "starting":
+    case "restarting":
+      return { canStart: false, canStop: true, canKill: true };
+    case "stopping":
+      return { canStart: false, canStop: false, canKill: true };
+    default:
+      return { canStart: true, canStop: false, canKill: false };
+  }
+}
+
 export function ServerManagementBar({
   serverId,
   serverName,
@@ -346,27 +425,46 @@ export function ServerManagementBar({
   diskLimit,
   ramLimit,
   swapLimit,
+  initialState,
+  initialStartedAt,
+  initialStats,
 }: ServerManagementBarProps) {
   const baseUsage = useMemo(
     () => buildBaseUsage({ cpuLimit, diskLimit, ramLimit, swapLimit }),
     [cpuLimit, diskLimit, ramLimit, swapLimit],
   );
 
-  const [status, setStatus] = useState<ServerLifecycleState>("unknown");
-  const [usage, setUsage] = useState<UsageState>(baseUsage);
+  // Seed from server info so the bar renders the real state/usage before (and
+  // even without) a working stats websocket. "unknown" is only shown when the
+  // daemon status is genuinely absent.
+  const initialUsage = useMemo(
+    () =>
+      deriveInitialUsage(
+        initialStats,
+        { cpuLimit, diskLimit, ramLimit, swapLimit },
+        baseUsage,
+      ),
+    [initialStats, cpuLimit, diskLimit, ramLimit, swapLimit, baseUsage],
+  );
+  const seededStatus: ServerLifecycleState = initialState
+    ? statusFromLabel(initialState)
+    : "unknown";
+
+  const [status, setStatus] = useState<ServerLifecycleState>(seededStatus);
+  const [usage, setUsage] = useState<UsageState>(initialUsage.usage);
   const [usagePercents, setUsagePercents] = useState<UsagePercents>(
-    DEFAULT_USAGE_PERCENTS,
+    initialUsage.percents,
   );
   const [connection, setConnection] = useState<StatsConnection>("connecting");
   const [pendingAction, setPendingAction] = useState<PowerAction | null>(null);
   const [addressCopied, setAddressCopied] = useState(false);
-  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(
+    initialStartedAt ?? null,
+  );
   const [now, setNow] = useState<number>(() => Date.now());
-  const [controls, setControls] = useState<ControlState>({
-    canStart: true,
-    canStop: false,
-    canKill: false,
-  });
+  const [controls, setControls] = useState<ControlState>(() =>
+    controlsFromState(seededStatus),
+  );
 
   const disableAllButtons = pendingAction !== null || actionsDisabled;
   const canRestart = controls.canStop;
@@ -384,8 +482,9 @@ export function ServerManagementBar({
   }, [connection]);
 
   useEffect(() => {
-    setUsage(baseUsage);
-  }, [baseUsage]);
+    setUsage(initialUsage.usage);
+    setUsagePercents(initialUsage.percents);
+  }, [initialUsage]);
 
   useEffect(() => {
     if (!addressCopied) {
@@ -410,8 +509,8 @@ export function ServerManagementBar({
     let mounted = true;
     let socket: WebSocket | null = null;
 
-    setUsage(baseUsage);
-    setUsagePercents(DEFAULT_USAGE_PERCENTS);
+    setUsage(initialUsage.usage);
+    setUsagePercents(initialUsage.percents);
 
     const connectStats = async () => {
       try {
@@ -572,7 +671,7 @@ export function ServerManagementBar({
       mounted = false;
       socket?.close();
     };
-  }, [baseUsage, cpuLimit, diskLimit, ramLimit, serverId, swapLimit]);
+  }, [initialUsage, cpuLimit, diskLimit, ramLimit, serverId, swapLimit]);
 
   const executePowerAction = async (action: PowerAction) => {
     setPendingAction(action);

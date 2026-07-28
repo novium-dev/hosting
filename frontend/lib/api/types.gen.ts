@@ -489,6 +489,14 @@ export type ServerInfoResponses = {
         project: NanoId;
         ram?: number | null;
         stats?: null | ServerStats;
+        /**
+         * The daemon status label, or `null` when the node is unreachable.
+         */
+        state?: string | null;
+        /**
+         * Epoch milliseconds the server started, or `null` when not running.
+         */
+        started_at?: number | null;
         suspended: boolean;
         swap?: number | null;
         template: string;
