@@ -69,8 +69,8 @@ export type LightNodeInfo = {
     host: string;
     id: string;
     maintenance: boolean;
-    ssh_host: string | null;
-    ssh_port: number | null;
+    ssh_host?: string | null;
+    ssh_port?: number | null;
 };
 
 export type NanoId = string;
@@ -102,7 +102,6 @@ export type NodeRegistrationRequest = {
     cert: Array<number>;
     csr: Array<number>;
     default_bind: string;
-    default_host: string;
 };
 
 export type Option = null | string;
@@ -151,6 +150,12 @@ export type ServerLimits = {
     backup?: number | null;
 };
 
+export type ServerListStatus = {
+    started_at?: number | null;
+    state: string;
+    stats: ServerStats;
+};
+
 export type ServerNetworkInfo = {
     ports: Array<NetworkPort>;
 };
@@ -160,6 +165,17 @@ export type ServerResourcePayload = {
     disk?: number | null;
     ram?: number | null;
     swap?: number | null;
+};
+
+export type ServerStats = {
+    cpu?: number | null;
+    cpu_max?: number | null;
+    disk?: number | null;
+    disk_max?: number | null;
+    ram?: number | null;
+    ram_max?: number | null;
+    swap?: number | null;
+    swap_max?: number | null;
 };
 
 export type ServerStorage = {
@@ -176,14 +192,24 @@ export type SetupNodeConfigRequest = {
         [key: string]: BackupStorage;
     };
     base_url: string;
+    /**
+     * Public host (domain or IP) clients use to reach game servers on this node.
+     */
     default_host: string;
-    ssh?: {
-        host: string;
-        port: number;
-    };
+    ssh?: null | SshEndpointRequest;
     storages: {
         [key: string]: ServerStorage;
     };
+};
+
+/**
+ * Public SSH/SFTP endpoint, or `None` to disable SSH/SFTP. `host` is a plain
+ * string (domain or IP) parsed into a [`Host`] on the server; the daemon's
+ * `HostAndPort` uses `url::Host`, which does not deserialize from a bare string.
+ */
+export type SshEndpointRequest = {
+    host: string;
+    port: number;
 };
 
 export type TemplatePortDefinition = {
@@ -334,21 +360,8 @@ export type ListServersResponses = {
         name: string;
         node: string;
         project: NanoId;
+        status?: null | ServerListStatus;
         template: string;
-        /**
-         * Live status from the daemon. Only populated when `include` is set and
-         * the node is reachable.
-         */
-        status?: {
-            /**
-             * The daemon status label, e.g. `Running`, `Stopped`, `Unhealthy`.
-             */
-            state: string;
-            /**
-             * Epoch milliseconds the server started, or `null` when not running.
-             */
-            started_at?: number | null;
-        } | null;
     }>;
 };
 
@@ -437,6 +450,15 @@ export type ServerInfoErrors = {
         };
     };
     /**
+     * Node operation failed
+     */
+    '502‫': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
      * The template is unavailable at the moment
      */
     '503‍': {
@@ -466,6 +488,7 @@ export type ServerInfoResponses = {
         primary_port?: null | PrimaryPortInfo;
         project: NanoId;
         ram?: number | null;
+        stats?: null | ServerStats;
         suspended: boolean;
         swap?: number | null;
         template: string;
@@ -4808,8 +4831,8 @@ export type ListNodesResponses = {
         maintenance: boolean;
         ports: Array<NodePortAllocation>;
         server_storages: Array<string>;
-        ssh_host: string | null;
-        ssh_port: number | null;
+        ssh_host?: string | null;
+        ssh_port?: number | null;
     }>;
 };
 
@@ -4829,6 +4852,15 @@ export type CreateNodeData = {
 };
 
 export type CreateNodeErrors = {
+    /**
+     * The specified SSH host is invalid
+     */
+    '400‍': {
+        error?: {
+            id?: 'node/invalid_host';
+            msg?: 'The specified SSH host is invalid';
+        };
+    };
     /**
      * Invalid authentication credentials
      */
@@ -4868,7 +4900,7 @@ export type CreateNodeErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‎': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -5656,35 +5688,6 @@ export type GetUserResponses = {
 
 export type GetUserResponse = GetUserResponses[keyof GetUserResponses];
 
-export type ListUserProjectsData = {
-    body?: never;
-    headers?: {
-        Authorization?: string;
-    };
-    path: {
-        user_id: number;
-    };
-    query?: never;
-    url: '/admin/user/{user_id}/projects';
-};
-
-export type ListUserProjectsErrors = {
-    [key: string]: unknown;
-};
-
-export type ListUserProjectsResponses = {
-    200: Array<{
-        id: NanoId;
-        name: string;
-        owner: boolean;
-        permissions: number;
-        server_count: number;
-        slug: string;
-    }>;
-};
-
-export type ListUserProjectsResponse = ListUserProjectsResponses[keyof ListUserProjectsResponses];
-
 export type UpdateUserData = {
     body: UpdateUserPayload;
     headers?: {
@@ -5761,6 +5764,87 @@ export type UpdateUserResponses = {
 };
 
 export type UpdateUserResponse = UpdateUserResponses[keyof UpdateUserResponses];
+
+export type ListUserProjectsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The user ID
+         */
+        user_id: number;
+    };
+    query?: never;
+    url: '/admin/user/{user_id}/projects';
+};
+
+export type ListUserProjectsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListUserProjectsError = ListUserProjectsErrors[keyof ListUserProjectsErrors];
+
+export type ListUserProjectsResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        id: NanoId;
+        name: string;
+        /**
+         * Whether this user owns the project.
+         */
+        owner: boolean;
+        /**
+         * The user's effective permission bits in the project.
+         */
+        permissions: number;
+        server_count: number;
+        slug: string;
+    }>;
+};
+
+export type ListUserProjectsResponse = ListUserProjectsResponses[keyof ListUserProjectsResponses];
 
 export type LogoutData = {
     body?: never;
@@ -6676,7 +6760,9 @@ export type GetProjectResponses = {
         id: NanoId;
         name: string;
         owner: number;
+        owner_username: string;
         permissions: number;
+        server_count: number;
         slug: string;
     };
 };
