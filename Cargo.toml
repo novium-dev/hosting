@@ -256,6 +256,7 @@ opt-level = 3
 [dependencies.daemon_common]
 git = "ssh://git@github.com/novium-dev/daemon.git"
 default-features = false
+branch = "feat/stats-endpoint"
 features = ["sdk", "backend", "ssh"]
 
 [dependencies.zelus]
@@ -265,6 +266,7 @@ features = ["error", "io", "sqlx", "redis"]
 
 [dependencies.daemon]
 git = "ssh://git@github.com/novium-dev/daemon.git"
+branch = "feat/stats-endpoint"
 default-features = false
 features = ["btrfs"]
 optional = true

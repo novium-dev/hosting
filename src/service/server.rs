@@ -17,7 +17,7 @@ use crate::service::template::*;
 use crate::templates::TemplateError;
 use crate::templates::variable::VariablePayload;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
-use daemon_common::service::server::{ServerNetworkPayload, ServerResourcePayload};
+use daemon_common::service::server::{ServerNetworkPayload, ServerResourcePayload, ServerStats};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query};
 use tracing::{error, warn};
@@ -35,18 +35,17 @@ pub(crate) struct ServerListInfo {
     name: String,
     project: ProjectId,
     template: String,
-    node: String, // Name
-    /// Live status from the daemon. Only populated when `include` is set and the
-    /// node is reachable.
+    node: String,
+
+    /// Only populated when `include` is set and the
     status: Option<ServerListStatus>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ServerListStatus {
-    /// The daemon status label, e.g. `Running`, `Stopped`, `Unhealthy`.
     state: String,
-    /// Epoch milliseconds the server started, or `null` when not running.
     started_at: Option<i64>,
+    stats: ServerStats,
 }
 
 struct ServerListRecord {
@@ -92,6 +91,7 @@ pub(crate) struct ServerInfo {
     pub(crate) internet_access: bool,
     pub(crate) suspended: bool,
     pub(crate) primary_port: Option<PrimaryPortInfo>,
+    pub(crate) stats: Option<ServerStats>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -171,8 +171,9 @@ pub(crate) impl ServerService for Backend {
                             (
                                 id,
                                 ServerListStatus {
-                                    state: state.label,
-                                    started_at: state.time,
+                                    state: state.state.label,
+                                    started_at: state.state.time,
+                                    stats: state.stats,
                                 },
                             )
                         })
@@ -221,7 +222,7 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ProjectPermissions::VIEW`].
     #[route("/{server_id}", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
+    #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
     async fn server_info(
         &self,
         #[special] auth: Authentication,
@@ -309,6 +310,13 @@ pub(crate) impl ServerService for Backend {
                 ServerNetworkInfo { ports }
             });
 
+        let stats = server
+            .node
+            .server_status(server.node_server_id)
+            .await
+            .ok()
+            .map(|state| state.stats);
+
         Ok(ServerInfo {
             id: server.id,
             name: server.name,
@@ -318,6 +326,7 @@ pub(crate) impl ServerService for Backend {
             swap: server.swap,
             disk: server.disk,
             network,
+            stats,
             template: server.template.id().to_owned(),
             features: server
                 .template
