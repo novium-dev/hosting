@@ -20,6 +20,9 @@ pub struct BackendConfig {
     /// Falls back to the `BACKEND_FRONTEND_DIR` environment variable.
     #[serde(default)]
     pub frontend_dir: Option<PathBuf>,
+    /// Skip refreshing the template caches (upstream version lists, ...).
+    #[serde(default)]
+    pub skip_template_cache_update: Option<bool>,
     #[cfg(feature = "embedded_node")]
     pub daemon: EmbeddedNodeConfig,
 }
@@ -36,6 +39,13 @@ impl BackendConfig {
         self.frontend_dir
             .clone()
             .or_else(|| std::env::var_os("BACKEND_FRONTEND_DIR").map(PathBuf::from))
+    }
+
+    pub fn should_skip_template_cache_update(&self) -> bool {
+        self.skip_template_cache_update.unwrap_or_else(|| {
+            std::env::var("BACKEND_SKIP_TEMPLATE_CACHE_UPDATE")
+                .is_ok_and(|val| val.eq_ignore_ascii_case("1") || val.eq_ignore_ascii_case("true"))
+        })
     }
 }
 

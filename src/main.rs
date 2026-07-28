@@ -135,42 +135,47 @@ pub fn main() {
 
 async fn load_templates(backend: &Backend) {
     let mut templates = backend.templates.write().await;
+    let skip_cache_update = backend.config.should_skip_template_cache_update();
+
+    if skip_cache_update {
+        info!("Template cache updates are disabled");
+    }
 
     let minecraft = MinecraftTemplate;
     minecraft
-        .init(backend.cache.clone())
+        .init(backend.cache.clone(), skip_cache_update)
         .await
         .expect("Unable to initialize minecraft template");
     templates.insert(minecraft.id().to_owned(), Arc::new(minecraft));
 
     let go = GoTemplate;
-    go.init(backend.cache.clone())
+    go.init(backend.cache.clone(), skip_cache_update)
         .await
         .expect("Unable to initialize go template");
     templates.insert(go.id().to_owned(), Arc::new(go));
 
     let java = JavaTemplate;
-    java.init(backend.cache.clone())
+    java.init(backend.cache.clone(), skip_cache_update)
         .await
         .expect("Unable to initialize java template");
     templates.insert(java.id().to_owned(), Arc::new(java));
 
     let python = PythonTemplate;
     python
-        .init(backend.cache.clone())
+        .init(backend.cache.clone(), skip_cache_update)
         .await
         .expect("Unable to initialize python template");
     templates.insert(python.id().to_owned(), Arc::new(python));
 
     let rust = RustTemplate;
-    rust.init(backend.cache.clone())
+    rust.init(backend.cache.clone(), skip_cache_update)
         .await
         .expect("Unable to initialize rust template");
     templates.insert(rust.id().to_owned(), Arc::new(rust));
 
     let satisfactory = SatisfactoryTemplate;
     satisfactory
-        .init(backend.cache.clone())
+        .init(backend.cache.clone(), skip_cache_update)
         .await
         .expect("Unable to initialize satisfactory template");
     templates.insert(satisfactory.id().to_owned(), Arc::new(satisfactory));

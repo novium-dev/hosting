@@ -178,6 +178,9 @@ export default function ServerLayout() {
           diskLimit={serverData.disk ?? null}
           ramLimit={serverData.ram ?? null}
           swapLimit={serverData.swap ?? null}
+          initialState={serverData.state ?? null}
+          initialStartedAt={serverData.started_at ?? null}
+          initialStats={serverData.stats ?? null}
         />
 
         <Outlet />

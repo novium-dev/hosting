@@ -36,6 +36,25 @@ import {
   stopServer,
 } from "@/lib/api";
 import { cn, titleCase } from "@/lib/utils";
+import {
+  HIGH_USAGE_THRESHOLD,
+  buildBaseUsage,
+  controlsFromState,
+  deriveInitialUsage,
+  formatCpuUsage,
+  formatUptime,
+  formatUsage,
+  statusFromLabel,
+  statusLabel,
+  statusVariant,
+  toFiniteNumber,
+  usagePercentValue,
+  type ControlState,
+  type ServerLifecycleState,
+  type StatsSnapshot,
+  type UsagePercents,
+  type UsageState,
+} from "@/lib/server-status";
 
 type ServerManagementBarProps = {
   serverId: string;
@@ -52,26 +71,16 @@ type ServerManagementBarProps = {
   diskLimit: number | null;
   ramLimit: number | null;
   swapLimit: number | null;
+  /** Initial daemon status label from server info, seeded before the websocket connects. */
+  initialState?: string | null;
+  /** Initial start timestamp (epoch ms) from server info. */
+  initialStartedAt?: number | null;
+  /** Initial resource usage snapshot from server info. */
+  initialStats?: StatsSnapshot | null;
 };
 
 type PowerAction = "start" | "stop" | "restart" | "kill";
-type ServerLifecycleState =
-  | "stopped"
-  | "starting"
-  | "unhealthy"
-  | "running"
-  | "stopping"
-  | "restarting"
-  | "locked"
-  | "unknown";
 type StatsConnection = "connecting" | "connected" | "disconnected";
-
-type UsageState = {
-  cpu: string;
-  disk: string;
-  ram: string;
-  swap: string;
-};
 
 export const DISK_USAGE_EVENT = "server-disk-usage";
 
@@ -79,112 +88,6 @@ export type DiskUsageEventDetail = {
   serverId: string;
   percent: number | null;
 };
-
-// Usage (as a percentage of the limit) at/above which a resource is considered
-// low and highlighted in red / surfaced as an alert.
-const HIGH_USAGE_THRESHOLD = 80;
-
-type UsagePercents = {
-  cpu: number | null;
-  ram: number | null;
-  disk: number | null;
-};
-
-const DEFAULT_USAGE_PERCENTS: UsagePercents = {
-  cpu: null,
-  ram: null,
-  disk: null,
-};
-
-type ControlState = {
-  canStart: boolean;
-  canStop: boolean;
-  canKill: boolean;
-};
-
-const DEFAULT_USAGE: UsageState = {
-  cpu: "--",
-  disk: "-- / --",
-  ram: "-- / --",
-  swap: "-- / --",
-};
-
-function formatBaseUsage(max: number | null, unit: string) {
-  if (max === null) {
-    return `-- / Unlimited`;
-  }
-
-  if (!Number.isFinite(max) || max < 0) {
-    return "-- / --";
-  }
-
-  const convertedMax = max.toFixed(2);
-  return `-- / ${convertedMax} ${unit}`;
-}
-
-function formatBaseCpuUsage(max: number | null) {
-  if (max === null) {
-    return "-- / Unlimited";
-  }
-
-  if (!Number.isFinite(max) || max < 0) {
-    return "--";
-  }
-
-  return `-- / ${max.toFixed(2)}%`;
-}
-
-function buildBaseUsage(limits: {
-  cpuLimit: number | null;
-  diskLimit: number | null;
-  ramLimit: number | null;
-  swapLimit: number | null;
-}): UsageState {
-  return {
-    cpu: formatBaseCpuUsage(limits.cpuLimit),
-    disk: formatBaseUsage(limits.diskLimit, "MiB"),
-    ram: formatBaseUsage(limits.ramLimit, "MiB"),
-    swap:
-      limits.swapLimit === 0
-        ? "Disabled"
-        : formatBaseUsage(limits.swapLimit, "MiB"),
-  };
-}
-
-function statusVariant(
-  status: ServerLifecycleState,
-): "default" | "secondary" | "outline" {
-  if (status === "running") {
-    return "default";
-  }
-
-  if (status === "stopped" || status === "locked") {
-    return "secondary";
-  }
-
-  return "outline";
-}
-
-function statusLabel(status: ServerLifecycleState) {
-  switch (status) {
-    case "stopped":
-      return "Stopped";
-    case "starting":
-      return "Starting";
-    case "unhealthy":
-      return "Unhealthy";
-    case "running":
-      return "Running";
-    case "stopping":
-      return "Stopping";
-    case "restarting":
-      return "Restarting";
-    case "locked":
-      return "Locked";
-    default:
-      return "Unknown";
-  }
-}
 
 function readString(
   data: Record<string, unknown>,
@@ -214,123 +117,6 @@ function readBoolean(
   return null;
 }
 
-function formatUsage(current: unknown, max: unknown, unit: string) {
-  const currentNumber = Number(current);
-  const maxNumber = Number(max);
-
-  if (current == null && max == null) {
-    return "-- / --";
-  }
-
-  // if current null and max is provided, show -- / max
-  if (current == null && max != null) {
-    if (!Number.isFinite(maxNumber) || maxNumber < 0) {
-      return "-- / --";
-    }
-
-    const convertedMax = maxNumber.toFixed(2);
-    return `-- / ${convertedMax} ${unit}`;
-  }
-
-  // if current is provided and max is null, show current / Unlimited
-  if (current != null && max == null) {
-    if (!Number.isFinite(currentNumber) || currentNumber < 0) {
-      return "Unknown";
-    }
-
-    const convertedCurrent = currentNumber.toFixed(2);
-    return `${convertedCurrent} ${unit} / Unlimited`;
-  }
-
-  if (!Number.isFinite(currentNumber) || currentNumber < 0) {
-    return "Unknown";
-  }
-
-  const convertedCurrent = currentNumber.toFixed(2);
-
-  if (!Number.isFinite(maxNumber) || maxNumber < 0) {
-    return `${convertedCurrent} ${unit} / Unlimited`;
-  }
-
-  const convertedMax = maxNumber.toFixed(2);
-
-  return `${convertedCurrent} ${unit} / ${convertedMax} ${unit}`;
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  const number = Number(value);
-  return Number.isFinite(number) && number >= 0 ? number : null;
-}
-
-function formatUptime(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) {
-    return "--";
-  }
-
-  const totalSeconds = Math.floor(ms / 1000);
-  const days = Math.floor(totalSeconds / 86400);
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  const parts: string[] = [];
-  if (days > 0) parts.push(`${days}d`);
-  if (days > 0 || hours > 0) parts.push(`${hours}h`);
-  if (days > 0 || hours > 0 || minutes > 0) parts.push(`${minutes}m`);
-  parts.push(`${seconds}s`);
-
-  return parts.join(" ");
-}
-
-function formatCpuUsage(current: unknown, max: unknown) {
-  const currentNumber = toFiniteNumber(current);
-
-  if (currentNumber === null) {
-    return "--";
-  }
-
-  const maxNumber = toFiniteNumber(max);
-  if (maxNumber === null || maxNumber === 0) {
-    return `${currentNumber.toFixed(2)}%`;
-  }
-
-  return `${currentNumber.toFixed(2)}% / ${maxNumber.toFixed(2)}%`;
-}
-
-function statusFromLabel(label: string): ServerLifecycleState {
-  const normalized = label.trim().toLowerCase();
-
-  if (normalized.includes("locked")) {
-    return "locked";
-  }
-
-  if (normalized.includes("unhealthy")) {
-    return "unhealthy";
-  }
-
-  if (normalized.includes("restarting")) {
-    return "restarting";
-  }
-
-  if (normalized.includes("starting")) {
-    return "starting";
-  }
-
-  if (normalized.includes("stopping")) {
-    return "stopping";
-  }
-
-  if (["running", "online"].includes(normalized)) {
-    return "running";
-  }
-
-  if (["stopped", "offline", "crashed"].includes(normalized)) {
-    return "stopped";
-  }
-
-  return "unknown";
-}
-
 export function ServerManagementBar({
   serverId,
   serverName,
@@ -346,27 +132,46 @@ export function ServerManagementBar({
   diskLimit,
   ramLimit,
   swapLimit,
+  initialState,
+  initialStartedAt,
+  initialStats,
 }: ServerManagementBarProps) {
   const baseUsage = useMemo(
     () => buildBaseUsage({ cpuLimit, diskLimit, ramLimit, swapLimit }),
     [cpuLimit, diskLimit, ramLimit, swapLimit],
   );
 
-  const [status, setStatus] = useState<ServerLifecycleState>("unknown");
-  const [usage, setUsage] = useState<UsageState>(baseUsage);
+  // Seed from server info so the bar renders the real state/usage before (and
+  // even without) a working stats websocket. "unknown" is only shown when the
+  // daemon status is genuinely absent.
+  const initialUsage = useMemo(
+    () =>
+      deriveInitialUsage(
+        initialStats,
+        { cpuLimit, diskLimit, ramLimit, swapLimit },
+        baseUsage,
+      ),
+    [initialStats, cpuLimit, diskLimit, ramLimit, swapLimit, baseUsage],
+  );
+  const seededStatus: ServerLifecycleState = initialState
+    ? statusFromLabel(initialState)
+    : "unknown";
+
+  const [status, setStatus] = useState<ServerLifecycleState>(seededStatus);
+  const [usage, setUsage] = useState<UsageState>(initialUsage.usage);
   const [usagePercents, setUsagePercents] = useState<UsagePercents>(
-    DEFAULT_USAGE_PERCENTS,
+    initialUsage.percents,
   );
   const [connection, setConnection] = useState<StatsConnection>("connecting");
   const [pendingAction, setPendingAction] = useState<PowerAction | null>(null);
   const [addressCopied, setAddressCopied] = useState(false);
-  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(
+    initialStartedAt ?? null,
+  );
   const [now, setNow] = useState<number>(() => Date.now());
-  const [controls, setControls] = useState<ControlState>({
-    canStart: true,
-    canStop: false,
-    canKill: false,
-  });
+  const [controls, setControls] = useState<ControlState>(() =>
+    controlsFromState(seededStatus),
+  );
 
   const disableAllButtons = pendingAction !== null || actionsDisabled;
   const canRestart = controls.canStop;
@@ -384,8 +189,9 @@ export function ServerManagementBar({
   }, [connection]);
 
   useEffect(() => {
-    setUsage(baseUsage);
-  }, [baseUsage]);
+    setUsage(initialUsage.usage);
+    setUsagePercents(initialUsage.percents);
+  }, [initialUsage]);
 
   useEffect(() => {
     if (!addressCopied) {
@@ -410,8 +216,8 @@ export function ServerManagementBar({
     let mounted = true;
     let socket: WebSocket | null = null;
 
-    setUsage(baseUsage);
-    setUsagePercents(DEFAULT_USAGE_PERCENTS);
+    setUsage(initialUsage.usage);
+    setUsagePercents(initialUsage.percents);
 
     const connectStats = async () => {
       try {
@@ -494,24 +300,11 @@ export function ServerManagementBar({
                     : formatUsage(payload.swap, swapMax, "MiB"),
               });
 
-              const usagePercent = (
-                current: unknown,
-                max: unknown,
-              ): number | null => {
-                const currentNumber = toFiniteNumber(current);
-                const maxNumber = toFiniteNumber(max);
-                return currentNumber !== null &&
-                  maxNumber !== null &&
-                  maxNumber > 0
-                  ? (currentNumber / maxNumber) * 100
-                  : null;
-              };
-
-              const diskPercent = usagePercent(diskCurrent, diskMax);
+              const diskPercent = usagePercentValue(diskCurrent, diskMax);
 
               setUsagePercents({
-                cpu: usagePercent(cpuCurrent, cpuMax),
-                ram: usagePercent(ramCurrent, ramMax),
+                cpu: usagePercentValue(cpuCurrent, cpuMax),
+                ram: usagePercentValue(ramCurrent, ramMax),
                 disk: diskPercent,
               });
 
@@ -572,7 +365,7 @@ export function ServerManagementBar({
       mounted = false;
       socket?.close();
     };
-  }, [baseUsage, cpuLimit, diskLimit, ramLimit, serverId, swapLimit]);
+  }, [initialUsage, cpuLimit, diskLimit, ramLimit, serverId, swapLimit]);
 
   const executePowerAction = async (action: PowerAction) => {
     setPendingAction(action);
