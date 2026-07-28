@@ -164,7 +164,14 @@ pub trait TemplateInner {
         ports: &HashMap<u32, ServerPort>,
     ) -> Result<Option<(u32, ServerPort, u16)>, TemplateError>;
 
-    async fn init(&self, cache_client: ConnectionManager) -> Result<(), RedisError>;
+    /// Initializes the template. When `skip_cache_update` is set, an existing
+    /// cache is used as-is and no background refresh task is started (a missing
+    /// cache is still generated once, as the template is unusable without it).
+    async fn init(
+        &self,
+        cache_client: ConnectionManager,
+        skip_cache_update: bool,
+    ) -> Result<(), RedisError>;
 
     fn default_internet_access(&self) -> bool;
 }
@@ -402,7 +409,11 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         .await)
     }
 
-    async fn init(&self, mut cache_client: ConnectionManager) -> Result<(), RedisError> {
+    async fn init(
+        &self,
+        mut cache_client: ConnectionManager,
+        skip_cache_update: bool,
+    ) -> Result<(), RedisError> {
         debug!("Initializing Template {}", self.id());
 
         <Self as Template>::init(self, cache_client.clone()).await?;
@@ -421,6 +432,12 @@ impl<T: Template + Send + Sync> TemplateInner for T {
         debug!("Template {} ready", self.id());
 
         let id = self.id();
+
+        if skip_cache_update {
+            info!("Skipping cache updates for Template {id}");
+            return Ok(());
+        }
+
         tokio::task::spawn(async move {
             let mut cache_obj = cache_obj;
 
