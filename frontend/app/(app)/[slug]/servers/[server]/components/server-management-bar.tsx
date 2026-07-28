@@ -36,17 +36,25 @@ import {
   stopServer,
 } from "@/lib/api";
 import { cn, titleCase } from "@/lib/utils";
-
-type StatsSnapshot = {
-  cpu?: number | null;
-  cpu_max?: number | null;
-  ram?: number | null;
-  ram_max?: number | null;
-  disk?: number | null;
-  disk_max?: number | null;
-  swap?: number | null;
-  swap_max?: number | null;
-};
+import {
+  HIGH_USAGE_THRESHOLD,
+  buildBaseUsage,
+  controlsFromState,
+  deriveInitialUsage,
+  formatCpuUsage,
+  formatUptime,
+  formatUsage,
+  statusFromLabel,
+  statusLabel,
+  statusVariant,
+  toFiniteNumber,
+  usagePercentValue,
+  type ControlState,
+  type ServerLifecycleState,
+  type StatsSnapshot,
+  type UsagePercents,
+  type UsageState,
+} from "@/lib/server-status";
 
 type ServerManagementBarProps = {
   serverId: string;
@@ -72,23 +80,7 @@ type ServerManagementBarProps = {
 };
 
 type PowerAction = "start" | "stop" | "restart" | "kill";
-type ServerLifecycleState =
-  | "stopped"
-  | "starting"
-  | "unhealthy"
-  | "running"
-  | "stopping"
-  | "restarting"
-  | "locked"
-  | "unknown";
 type StatsConnection = "connecting" | "connected" | "disconnected";
-
-type UsageState = {
-  cpu: string;
-  disk: string;
-  ram: string;
-  swap: string;
-};
 
 export const DISK_USAGE_EVENT = "server-disk-usage";
 
@@ -96,112 +88,6 @@ export type DiskUsageEventDetail = {
   serverId: string;
   percent: number | null;
 };
-
-// Usage (as a percentage of the limit) at/above which a resource is considered
-// low and highlighted in red / surfaced as an alert.
-const HIGH_USAGE_THRESHOLD = 80;
-
-type UsagePercents = {
-  cpu: number | null;
-  ram: number | null;
-  disk: number | null;
-};
-
-const DEFAULT_USAGE_PERCENTS: UsagePercents = {
-  cpu: null,
-  ram: null,
-  disk: null,
-};
-
-type ControlState = {
-  canStart: boolean;
-  canStop: boolean;
-  canKill: boolean;
-};
-
-const DEFAULT_USAGE: UsageState = {
-  cpu: "--",
-  disk: "-- / --",
-  ram: "-- / --",
-  swap: "-- / --",
-};
-
-function formatBaseUsage(max: number | null, unit: string) {
-  if (max === null) {
-    return `-- / Unlimited`;
-  }
-
-  if (!Number.isFinite(max) || max < 0) {
-    return "-- / --";
-  }
-
-  const convertedMax = max.toFixed(2);
-  return `-- / ${convertedMax} ${unit}`;
-}
-
-function formatBaseCpuUsage(max: number | null) {
-  if (max === null) {
-    return "-- / Unlimited";
-  }
-
-  if (!Number.isFinite(max) || max < 0) {
-    return "--";
-  }
-
-  return `-- / ${max.toFixed(2)}%`;
-}
-
-function buildBaseUsage(limits: {
-  cpuLimit: number | null;
-  diskLimit: number | null;
-  ramLimit: number | null;
-  swapLimit: number | null;
-}): UsageState {
-  return {
-    cpu: formatBaseCpuUsage(limits.cpuLimit),
-    disk: formatBaseUsage(limits.diskLimit, "MiB"),
-    ram: formatBaseUsage(limits.ramLimit, "MiB"),
-    swap:
-      limits.swapLimit === 0
-        ? "Disabled"
-        : formatBaseUsage(limits.swapLimit, "MiB"),
-  };
-}
-
-function statusVariant(
-  status: ServerLifecycleState,
-): "default" | "secondary" | "outline" {
-  if (status === "running") {
-    return "default";
-  }
-
-  if (status === "stopped" || status === "locked") {
-    return "secondary";
-  }
-
-  return "outline";
-}
-
-function statusLabel(status: ServerLifecycleState) {
-  switch (status) {
-    case "stopped":
-      return "Stopped";
-    case "starting":
-      return "Starting";
-    case "unhealthy":
-      return "Unhealthy";
-    case "running":
-      return "Running";
-    case "stopping":
-      return "Stopping";
-    case "restarting":
-      return "Restarting";
-    case "locked":
-      return "Locked";
-    default:
-      return "Unknown";
-  }
-}
 
 function readString(
   data: Record<string, unknown>,
@@ -229,185 +115,6 @@ function readBoolean(
   }
 
   return null;
-}
-
-function formatUsage(current: unknown, max: unknown, unit: string) {
-  const currentNumber = Number(current);
-  const maxNumber = Number(max);
-
-  if (current == null && max == null) {
-    return "-- / --";
-  }
-
-  // if current null and max is provided, show -- / max
-  if (current == null && max != null) {
-    if (!Number.isFinite(maxNumber) || maxNumber < 0) {
-      return "-- / --";
-    }
-
-    const convertedMax = maxNumber.toFixed(2);
-    return `-- / ${convertedMax} ${unit}`;
-  }
-
-  // if current is provided and max is null, show current / Unlimited
-  if (current != null && max == null) {
-    if (!Number.isFinite(currentNumber) || currentNumber < 0) {
-      return "Unknown";
-    }
-
-    const convertedCurrent = currentNumber.toFixed(2);
-    return `${convertedCurrent} ${unit} / Unlimited`;
-  }
-
-  if (!Number.isFinite(currentNumber) || currentNumber < 0) {
-    return "Unknown";
-  }
-
-  const convertedCurrent = currentNumber.toFixed(2);
-
-  if (!Number.isFinite(maxNumber) || maxNumber < 0) {
-    return `${convertedCurrent} ${unit} / Unlimited`;
-  }
-
-  const convertedMax = maxNumber.toFixed(2);
-
-  return `${convertedCurrent} ${unit} / ${convertedMax} ${unit}`;
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  const number = Number(value);
-  return Number.isFinite(number) && number >= 0 ? number : null;
-}
-
-function formatUptime(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) {
-    return "--";
-  }
-
-  const totalSeconds = Math.floor(ms / 1000);
-  const days = Math.floor(totalSeconds / 86400);
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  const parts: string[] = [];
-  if (days > 0) parts.push(`${days}d`);
-  if (days > 0 || hours > 0) parts.push(`${hours}h`);
-  if (days > 0 || hours > 0 || minutes > 0) parts.push(`${minutes}m`);
-  parts.push(`${seconds}s`);
-
-  return parts.join(" ");
-}
-
-function formatCpuUsage(current: unknown, max: unknown) {
-  const currentNumber = toFiniteNumber(current);
-
-  if (currentNumber === null) {
-    return "--";
-  }
-
-  const maxNumber = toFiniteNumber(max);
-  if (maxNumber === null || maxNumber === 0) {
-    return `${currentNumber.toFixed(2)}%`;
-  }
-
-  return `${currentNumber.toFixed(2)}% / ${maxNumber.toFixed(2)}%`;
-}
-
-function statusFromLabel(label: string): ServerLifecycleState {
-  const normalized = label.trim().toLowerCase();
-
-  if (normalized.includes("locked")) {
-    return "locked";
-  }
-
-  if (normalized.includes("unhealthy")) {
-    return "unhealthy";
-  }
-
-  if (normalized.includes("restarting")) {
-    return "restarting";
-  }
-
-  if (normalized.includes("starting")) {
-    return "starting";
-  }
-
-  if (normalized.includes("stopping")) {
-    return "stopping";
-  }
-
-  if (["running", "online"].includes(normalized)) {
-    return "running";
-  }
-
-  if (["stopped", "offline", "crashed"].includes(normalized)) {
-    return "stopped";
-  }
-
-  return "unknown";
-}
-
-function usagePercentValue(current: unknown, max: unknown): number | null {
-  const currentNumber = toFiniteNumber(current);
-  const maxNumber = toFiniteNumber(max);
-  return currentNumber !== null && maxNumber !== null && maxNumber > 0
-    ? (currentNumber / maxNumber) * 100
-    : null;
-}
-
-/**
- * Derives the usage display + percentages from an initial stats snapshot,
- * falling back to the limit-only base usage when no snapshot is available.
- */
-function deriveInitialUsage(
-  stats: StatsSnapshot | null | undefined,
-  limits: {
-    cpuLimit: number | null;
-    diskLimit: number | null;
-    ramLimit: number | null;
-    swapLimit: number | null;
-  },
-  baseUsage: UsageState,
-): { usage: UsageState; percents: UsagePercents } {
-  if (!stats) {
-    return { usage: baseUsage, percents: DEFAULT_USAGE_PERCENTS };
-  }
-
-  const cpuMax = stats.cpu_max ?? limits.cpuLimit;
-  const ramMax = stats.ram_max ?? limits.ramLimit;
-  const diskMax = stats.disk_max ?? limits.diskLimit;
-  const swapMax = stats.swap_max ?? limits.swapLimit;
-
-  return {
-    usage: {
-      cpu: formatCpuUsage(stats.cpu, cpuMax),
-      ram: formatUsage(stats.ram, ramMax, "MiB"),
-      disk: formatUsage(stats.disk, diskMax, "MiB"),
-      swap: swapMax === 0 ? "Disabled" : formatUsage(stats.swap, swapMax, "MiB"),
-    },
-    percents: {
-      cpu: usagePercentValue(stats.cpu, cpuMax),
-      ram: usagePercentValue(stats.ram, ramMax),
-      disk: usagePercentValue(stats.disk, diskMax),
-    },
-  };
-}
-
-/** Best-effort control availability derived from the lifecycle state, used
- * before the websocket delivers authoritative flags. */
-function controlsFromState(state: ServerLifecycleState): ControlState {
-  switch (state) {
-    case "running":
-    case "unhealthy":
-    case "starting":
-    case "restarting":
-      return { canStart: false, canStop: true, canKill: true };
-    case "stopping":
-      return { canStart: false, canStop: false, canKill: true };
-    default:
-      return { canStart: true, canStop: false, canKill: false };
-  }
 }
 
 export function ServerManagementBar({
@@ -593,24 +300,11 @@ export function ServerManagementBar({
                     : formatUsage(payload.swap, swapMax, "MiB"),
               });
 
-              const usagePercent = (
-                current: unknown,
-                max: unknown,
-              ): number | null => {
-                const currentNumber = toFiniteNumber(current);
-                const maxNumber = toFiniteNumber(max);
-                return currentNumber !== null &&
-                  maxNumber !== null &&
-                  maxNumber > 0
-                  ? (currentNumber / maxNumber) * 100
-                  : null;
-              };
-
-              const diskPercent = usagePercent(diskCurrent, diskMax);
+              const diskPercent = usagePercentValue(diskCurrent, diskMax);
 
               setUsagePercents({
-                cpu: usagePercent(cpuCurrent, cpuMax),
-                ram: usagePercent(ramCurrent, ramMax),
+                cpu: usagePercentValue(cpuCurrent, cpuMax),
+                ram: usagePercentValue(ramCurrent, ramMax),
                 disk: diskPercent,
               });
 
