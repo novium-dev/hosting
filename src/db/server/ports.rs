@@ -63,7 +63,10 @@ pub(crate) fn merge_ports(ports: &mut Vec<NetworkPort>) {
                 if *port1 == *port2 {
                     continue;
                 }
-                if port2.external_port_start == port1.external_port_end + 1
+                // Merging two differently named ports would drop one of the
+                // names, which is what a container is told its ports by.
+                if port2.name == port1.name
+                    && port2.external_port_start == port1.external_port_end + 1
                     && port2.internal_port == (port1.internal_port + diff + 1)
                     && port2.protocol == port1.protocol
                     && port2.bind == port1.bind
