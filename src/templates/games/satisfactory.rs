@@ -93,11 +93,21 @@ impl Template for SatisfactoryTemplate {
                 parents: Vec::new(),
                 base: None,
             },
+            // A full install is ~15 GiB of files SteamCMD can fetch again, and the
+            // entrypoint reinstalls whenever the binary is missing. What is left
+            // is the save games in .config/Epic and the configuration written
+            // below into FactoryGame/Saved.
             backup_exclude: HashSet::from([
                 "steamcmd/".to_owned(),
+                "steamapps/".to_owned(),
                 "Steam/".to_owned(),
                 ".steam/".to_owned(),
-                "Engine/Binaries/ThirdParty/Steamworks/".to_owned(),
+                "Engine/".to_owned(),
+                "FactoryGame/Binaries/".to_owned(),
+                "FactoryGame/Content/".to_owned(),
+                "FactoryGame/Plugins/".to_owned(),
+                "FactoryGame/Saved/Logs/".to_owned(),
+                "FactoryGame/Saved/Crashes/".to_owned(),
             ]),
             files_write: HashMap::from([
                 (
@@ -190,6 +200,9 @@ impl Template for SatisfactoryTemplate {
     async fn default_ports(
         &self,
     ) -> Result<HashMap<String, TemplatePortDefinition>, ThinTemplateError> {
+        // Satisfactory advertises its own port to clients and refuses to bind a
+        // reliable messaging port it was not given, so none of these survive a
+        // remap: the container has to listen on the port players dial.
         Ok(HashMap::from([
             (
                 "satisfactory_tcp".to_owned(),
@@ -197,6 +210,7 @@ impl Template for SatisfactoryTemplate {
                     protocol: NetworkProtocol::Tcp,
                     internal_port: SERVER_PORT,
                     placeholder: "Satisfactory TCP".to_owned(),
+                    remappable: false,
                 },
             ),
             (
@@ -205,6 +219,7 @@ impl Template for SatisfactoryTemplate {
                     protocol: NetworkProtocol::Udp,
                     internal_port: SERVER_PORT,
                     placeholder: "Satisfactory UDP".to_owned(),
+                    remappable: false,
                 },
             ),
             (
@@ -213,6 +228,7 @@ impl Template for SatisfactoryTemplate {
                     protocol: NetworkProtocol::Tcp,
                     internal_port: RELIABLE_PORT,
                     placeholder: "Reliable Messaging".to_owned(),
+                    remappable: false,
                 },
             ),
         ]))

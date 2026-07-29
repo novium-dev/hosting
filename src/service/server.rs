@@ -771,7 +771,7 @@ pub(crate) impl ServerService for Backend {
             .await
             .map_err(TemplateError::into::<UpdateVariablesError>)?;
 
-        let new_build = server
+        let mut new_build = server
             .template
             .extra_to_build_payload(
                 self.cache.clone(),
@@ -779,6 +779,11 @@ pub(crate) impl ServerService for Backend {
             )
             .await
             .map_err(TemplateError::into::<UpdateVariablesError>)?;
+
+        // Derived from the variables alone, so the ports have to be re-added.
+        new_build
+            .environment
+            .extend(self.port_environment(&*self.database, server_id).await?);
 
         server
             .node
