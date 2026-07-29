@@ -87,7 +87,7 @@ impl Template for SatisfactoryTemplate {
         Ok(ServerBuildPayload {
             image: ServerBuildImage {
                 dockerfile: include_str!("satisfactory.Dockerfile").to_owned(),
-                default_tag: Some("satisfactory-steamcmd-r1".to_owned()),
+                default_tag: Some("satisfactory-steamcmd-r2".to_owned()),
                 tag: None,
                 args: HashMap::new(),
                 parents: Vec::new(),
@@ -95,6 +95,7 @@ impl Template for SatisfactoryTemplate {
             },
             backup_exclude: HashSet::from([
                 "steamcmd/".to_owned(),
+                "Steam/".to_owned(),
                 ".steam/".to_owned(),
                 "Engine/Binaries/ThirdParty/Steamworks/".to_owned(),
             ]),
