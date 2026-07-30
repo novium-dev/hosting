@@ -1,18 +1,24 @@
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::{ManagementPermissions, ProjectPermissions};
+use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
 use crate::db::node::NodePortAllocation;
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, merge_ports};
+use crate::db::server::resync::is_running_label;
 use crate::service::admin::server::server_admin_service_error::{
-    AddPortError, CreateServerError, DeletePortError, DeleteServerError, UpdatePortError,
+    AddPortError, ChangeServerTemplateError, CreateServerError, DeletePortError, DeleteServerError,
+    UpdatePortError,
 };
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::template::*;
 use crate::service::*;
 use crate::templates::{TemplateError, ThinTemplateError};
 use crate::utils::server::port_environment_key;
+use daemon_common::service::backup::backup_service_error::{
+    ServerCreateBackupOrderError, ServerListBackupsError,
+};
+use daemon_common::service::files::files_service_error::WipeServerError;
 use daemon_common::service::server::server_service_error::CreateServerError as DaemonCreateServerError;
 use daemon_common::service::server::{
     ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
@@ -267,6 +273,155 @@ pub(crate) impl ServerAdminService for Backend {
                 },
             }
         })).await
+    }
+
+    /// Switches a server to a different template.
+    ///
+    /// The new template starts from its own defaults (optionally overridden by
+    /// `variables`), so nothing of the old template's configuration carries
+    /// over. The regenerated build is pushed to the node right away and takes
+    /// effect the next time the server starts.
+    ///
+    /// Existing port allocations are kept as they are: the new template's port
+    /// definitions usually differ, and guessing how the old ones map onto them
+    /// would silently break the server. Review the ports afterwards.
+    ///
+    /// `backup` takes a full backup before anything is touched, and `wipe`
+    /// deletes every file on the server — a switch that keeps the old world data
+    /// around rarely produces a working server. Both are refused while the
+    /// server is running, and the switch is abandoned if the backup fails, so a
+    /// wipe never happens without the backup that was asked for.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
+    /// Requires [`ServerPermissions::BACKUP_CREATE`] and a free backup slot to
+    /// take a backup, and [`ServerPermissions::FILES_WRITE`] to wipe.
+    #[route("/{server_id}/template", method = POST)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*],
+        server::{not_found, unavailable},
+        node::failure,
+        file::storage_unavailable,
+        backup::{storage_unavailable, no_suitable_storage_found, limit_exceeded},
+        template::{not_found, unavailable, corrupted, input_invalid})]
+    async fn change_server_template(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        template: String,
+        variables: Option<HashMap<String, String>>,
+        backup: Option<bool>,
+        wipe: Option<bool>,
+    ) -> Result<(), _> {
+        auth.require::<_, _, ChangeServerTemplateError>(server_id, ProjectPermissions::VIEW)?;
+        auth.require::<_, _, ChangeServerTemplateError>((), ManagementPermissions::SERVER_MANAGE)?;
+
+        let backup = backup.unwrap_or_default();
+        let wipe = wipe.unwrap_or_default();
+
+        if backup {
+            auth.require::<_, _, ChangeServerTemplateError>(
+                server_id,
+                ServerPermissions::BACKUP_CREATE,
+            )?;
+        }
+        if wipe {
+            auth.require::<_, _, ChangeServerTemplateError>(
+                server_id,
+                ServerPermissions::FILES_WRITE,
+            )?;
+        }
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(ChangeServerTemplateError::ServerNotFound)?;
+
+        let Some(template) = self.templates.read().await.get(&template).cloned() else {
+            return Err(ChangeServerTemplateError::TemplateNotFound);
+        };
+
+        // Files being replaced under a running process leaves a server in a
+        // state neither template describes.
+        if (backup || wipe)
+            && server
+                .node
+                .server_status(server.node_server_id)
+                .await
+                .is_ok_and(|status| is_running_label(&status.state.label))
+        {
+            return Err(ChangeServerTemplateError::ServerUnavailable);
+        }
+
+        // Everything that can fail without side effects happens first, so a
+        // rejected configuration never costs a backup or a wipe.
+        let extra = template
+            .default_extra(self.cache.clone())
+            .await
+            .map_err(ThinTemplateError::into::<ChangeServerTemplateError>)?;
+
+        let extra = match variables {
+            Some(variables) => template
+                .variables_to_extra_validated(self.cache.clone(), extra, variables)
+                .await
+                .map_err(TemplateError::into::<ChangeServerTemplateError>)?
+                .ok_or(ChangeServerTemplateError::TemplateInputInvalid)?,
+            None => extra,
+        };
+
+        let mut build = template
+            .extra_to_build_payload(self.cache.clone(), extra.clone())
+            .await
+            .map_err(TemplateError::into::<ChangeServerTemplateError>)?;
+
+        // Derived from the template alone, so the ports have to be re-added.
+        build
+            .environment
+            .extend(self.port_environment(&*self.database, server_id).await?);
+
+        if backup {
+            create_backup_before_switch(&server, &auth).await?;
+        }
+
+        if wipe {
+            server
+                .node
+                .wipe_server(server.node_server_id)
+                .await
+                .map_err(|err| match err {
+                    WipeServerError::StorageMutexLocked => {
+                        ChangeServerTemplateError::FileStorageUnavailable
+                    }
+                    err @ (WipeServerError::Communication(_)
+                    | WipeServerError::AuthInvalid
+                    | WipeServerError::StorageNotFound
+                    | WipeServerError::StorageFailure
+                    | WipeServerError::SqlFailure) => {
+                        error!("Failed to wipe server {server_id}: {err:?}");
+                        ChangeServerTemplateError::NodeFailure
+                    }
+                })?;
+        }
+
+        server
+            .node
+            .update_server(server.node_server_id, None, Some(build), None, None)
+            .await
+            .map_err(|err| {
+                error!("Failed to push the new template of server {server_id}: {err:?}");
+                ChangeServerTemplateError::NodeFailure
+            })?;
+
+        query!(
+            "UPDATE servers SET template = $1, template_extra = $2 WHERE id = $3",
+            template.id(),
+            &extra,
+            &server_id
+        )
+        .execute(&*self.database)
+        .await
+        .inspect_err(|err| error!("Failed to store the new template: {err:?}"))?;
+
+        Ok(())
     }
 
     #[route("/{server_id}/ports", method = PUT, raw)]
@@ -721,6 +876,72 @@ pub(crate) impl ServerAdminService for Backend {
         })
         .await
     }
+}
+
+/// Takes the backup that precedes a template switch.
+///
+/// The daemon only answers once the backup exists, so returning `Ok` here means
+/// the files are safe and the wipe that follows cannot outrun it.
+async fn create_backup_before_switch(
+    server: &crate::db::server::Server,
+    auth: &Authentication,
+) -> Result<(), ChangeServerTemplateError> {
+    // The same slot accounting the backup service does: a switch must not be a
+    // way around a project's backup limit.
+    if !auth.has((), ManagementPermissions::LIMITS_BYPASS)
+        && let Some(limit) = server.backup_limit
+    {
+        let used = server
+            .node
+            .server_list_backups(server.node_server_id)
+            .await
+            .map_err(|err| match err {
+                ServerListBackupsError::StorageMutexLocked => {
+                    ChangeServerTemplateError::BackupStorageUnavailable
+                }
+                failure @ (ServerListBackupsError::Communication(_)
+                | ServerListBackupsError::AuthInvalid
+                | ServerListBackupsError::StorageNotFound
+                | ServerListBackupsError::SqlFailure
+                | ServerListBackupsError::StorageFailure) => {
+                    error!(
+                        "Failed to list backups of server {}: {failure:?}",
+                        server.id
+                    );
+                    ChangeServerTemplateError::NodeFailure
+                }
+            })?
+            .len();
+
+        if used as u64 >= u64::from(limit) {
+            return Err(ChangeServerTemplateError::BackupLimitExceeded);
+        }
+    }
+
+    server
+        .node
+        .server_create_backup_order(server.node_server_id)
+        .await
+        .map(|_id| ())
+        .map_err(|err| match err {
+            ServerCreateBackupOrderError::StorageMutexLocked => {
+                ChangeServerTemplateError::BackupStorageUnavailable
+            }
+            ServerCreateBackupOrderError::BackupStorageNoSuitableFound => {
+                ChangeServerTemplateError::BackupNoSuitableStorageFound
+            }
+            failure @ (ServerCreateBackupOrderError::Communication(_)
+            | ServerCreateBackupOrderError::AuthInvalid
+            | ServerCreateBackupOrderError::StorageNotFound
+            | ServerCreateBackupOrderError::SqlFailure
+            | ServerCreateBackupOrderError::StorageFailure) => {
+                error!(
+                    "Failed to back up server {} before switch: {failure:?}",
+                    server.id
+                );
+                ChangeServerTemplateError::NodeFailure
+            }
+        })
 }
 
 fn port_range_allocated(

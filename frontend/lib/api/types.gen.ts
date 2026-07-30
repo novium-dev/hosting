@@ -26,6 +26,15 @@ export type BackupStorage = {
     btrfs: string;
 } | 'archive';
 
+export type ChangeServerTemplatePayload = {
+    backup?: boolean | null;
+    template: string;
+    variables?: {
+        [key: string]: string;
+    } | null;
+    wipe?: boolean | null;
+};
+
 export type CreateApiKeyPayload = {
     name: string;
     permissions: number;
@@ -4480,6 +4489,182 @@ export type DeleteServerResponses = {
 };
 
 export type DeleteServerResponse = DeleteServerResponses[keyof DeleteServerResponses];
+
+export type ChangeServerTemplateData = {
+    body: ChangeServerTemplatePayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/admin/server/{server_id}/template';
+};
+
+export type ChangeServerTemplateErrors = {
+    /**
+     * No suitable backup storage was found
+     */
+    '400‭': {
+        error?: {
+            id?: 'backup/no_suitable_storage_found';
+            msg?: 'No suitable backup storage was found';
+        };
+    };
+    /**
+     * The server backup limit has been reached
+     */
+    '400‮': {
+        error?: {
+            id?: 'backup/limit_exceeded';
+            msg?: 'The server backup limit has been reached';
+        };
+    };
+    /**
+     * The template input is invalid
+     */
+    '400⁣': {
+        error?: {
+            id?: 'template/input_invalid';
+            msg?: 'The template input is invalid';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The template does not exist
+     */
+    '404⁠': {
+        error?: {
+            id?: 'template/not_found';
+            msg?: 'The template does not exist';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500⁢': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‪': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * Server is currently in use
+     */
+    '503‏': {
+        error?: {
+            id?: 'server/unavailable';
+            msg?: 'Server is currently in use';
+        };
+    };
+    /**
+     * Storage is currently in use
+     */
+    '503‫': {
+        error?: {
+            id?: 'file/storage_unavailable';
+            msg?: 'Storage is currently in use';
+        };
+    };
+    /**
+     * Backup storage is currently in use
+     */
+    '503‬': {
+        error?: {
+            id?: 'backup/storage_unavailable';
+            msg?: 'Backup storage is currently in use';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503⁡': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+};
+
+export type ChangeServerTemplateError = ChangeServerTemplateErrors[keyof ChangeServerTemplateErrors];
+
+export type ChangeServerTemplateResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type ChangeServerTemplateResponse = ChangeServerTemplateResponses[keyof ChangeServerTemplateResponses];
 
 export type AddPortData = {
     body: AddPortPayload;

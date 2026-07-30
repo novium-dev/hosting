@@ -22,6 +22,12 @@ use tracing::{error, warn};
 /// run.
 const RUNNING_LABELS: [&str; 4] = ["running", "unhealthy", "starting", "restarting"];
 
+/// Whether a daemon's lifecycle label means the server is not stopped.
+#[must_use]
+pub fn is_running_label(label: &str) -> bool {
+    RUNNING_LABELS.contains(&label)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ServerResyncStatus {
@@ -247,7 +253,7 @@ impl Backend {
         let running = node
             .server_status(node_server_id)
             .await
-            .is_ok_and(|status| RUNNING_LABELS.contains(&status.state.label.as_str()));
+            .is_ok_and(|status| is_running_label(&status.state.label));
 
         if !running {
             return result(status, false);

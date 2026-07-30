@@ -1,7 +1,7 @@
 import Link from "@/components/link";
 import { useParams } from "react-router-dom";
 import useSWR from "swr";
-import { ExternalLink, Settings2, Wrench } from "lucide-react";
+import { Boxes, ExternalLink, Settings2, Wrench } from "lucide-react";
 
 import { NotFoundView } from "@/components/not-found-view";
 import { auth } from "@/lib/auth";
@@ -24,6 +24,7 @@ import { PortsManager } from "./ports-manager";
 import { extractAdminPorts } from "./port-utils";
 import { ServerAdminSettings } from "./server-admin-settings";
 import { ServerDeleteCard } from "./server-delete-card";
+import { ServerTemplateCard } from "./server-template-card";
 
 function getPanelPath(
   ownerId: string,
@@ -62,7 +63,7 @@ export default function AdminServerManagementPage() {
       )
     : false;
 
-  const { data: bundle } = useSWR(
+  const { data: bundle, mutate } = useSWR(
     canManage && server ? ["admin-server", server] : null,
     async () => {
       const [serverResponse, organizations] = await Promise.all([
@@ -172,6 +173,13 @@ export default function AdminServerManagementPage() {
             Settings
           </TabsTrigger>
           <TabsTrigger
+            value="template"
+            className="inline-flex items-center gap-2"
+          >
+            <Boxes className="size-4" />
+            Template
+          </TabsTrigger>
+          <TabsTrigger
             value="actions"
             className="inline-flex items-center gap-2"
           >
@@ -195,6 +203,15 @@ export default function AdminServerManagementPage() {
             canManage={canManageServers}
             canSuspend={canSuspendServers}
             initial={initialAdminSettings}
+          />
+        </TabsContent>
+
+        <TabsContent value="template">
+          <ServerTemplateCard
+            serverId={data.id}
+            currentTemplate={data.template}
+            canManage={canManageServers}
+            onChanged={() => void mutate()}
           />
         </TabsContent>
 
