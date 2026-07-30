@@ -525,11 +525,13 @@ export function ServerCreateForm({
   ) => {
     applyNestedVariableChange({
       nestedIndex: nestedVariableIndex,
+      payload: templateDetails?.variables ?? null,
       pointer,
       setNestedPath,
       setVariables,
       value: nextValue,
       variable,
+      variables,
     });
   };
 

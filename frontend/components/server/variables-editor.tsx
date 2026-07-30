@@ -242,15 +242,101 @@ export function getVariableErrors(
   return errors;
 }
 
+type NestedFieldRef = {
+  fieldIndex: number;
+  key: string;
+  variable: VariableField;
+};
+
+// All nested fields of the same data source that live below `fieldIndex`,
+// ordered from the shallowest to the deepest one.
+function getDescendantFields(
+  nestedIndex: NestedVariableIndex,
+  dataIndex: number,
+  fieldIndex: number,
+): NestedFieldRef[] {
+  return Object.entries(nestedIndex)
+    .flatMap(([key, indexedVariable]) => {
+      const [entryDataIndexRaw, entryFieldIndexRaw] = key.split(":");
+      const entryDataIndex = Number(entryDataIndexRaw);
+      const entryFieldIndex = Number(entryFieldIndexRaw);
+
+      if (
+        !Number.isFinite(entryDataIndex) ||
+        !Number.isFinite(entryFieldIndex) ||
+        entryDataIndex !== dataIndex ||
+        entryFieldIndex <= fieldIndex
+      ) {
+        return [];
+      }
+
+      return [
+        { fieldIndex: entryFieldIndex, key, variable: indexedVariable },
+      ] satisfies NestedFieldRef[];
+    })
+    .sort((first, second) => first.fieldIndex - second.fieldIndex);
+}
+
+// Re-resolves every dependent field after a parent selection changed. A field
+// keeps its value when it is still selectable, otherwise it falls back to the
+// last available entry so dependent selects never end up empty.
+function resolveDescendantValues({
+  nestedIndex,
+  payload,
+  pointer,
+  value,
+  variables,
+}: {
+  nestedIndex: NestedVariableIndex;
+  payload: VariablePayloadLike | null;
+  pointer: NestedVariablePointer;
+  value: string;
+  variables: Record<string, VariableValue>;
+}) {
+  const rootData = payload?.data[pointer.data_index] ?? null;
+  const path: string[] = Array.from(
+    { length: pointer.field_index },
+    (_, depth) => {
+      const ancestor = nestedIndex[`${pointer.data_index}:${depth}`];
+
+      return ancestor ? String(variables[ancestor.id] ?? "") : "";
+    },
+  );
+  path[pointer.field_index] = value;
+
+  return getDescendantFields(
+    nestedIndex,
+    pointer.data_index,
+    pointer.field_index,
+  ).map((descendant) => {
+    const entries = getNestedEntries(
+      rootData,
+      { data_index: pointer.data_index, field_index: descendant.fieldIndex },
+      path,
+    );
+    const previous = String(variables[descendant.variable.id] ?? "");
+    const resolved = entries.includes(previous)
+      ? previous
+      : (entries.at(-1) ?? "");
+
+    path[descendant.fieldIndex] = resolved;
+
+    return { id: descendant.variable.id, key: descendant.key, value: resolved };
+  });
+}
+
 export function applyNestedVariableChange({
   nestedIndex,
+  payload,
   pointer,
   setNestedPath,
   setVariables,
   value,
   variable,
+  variables,
 }: {
   nestedIndex: NestedVariableIndex;
+  payload: VariablePayloadLike | null;
   pointer: NestedVariablePointer;
   setNestedPath: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setVariables: React.Dispatch<
@@ -258,24 +344,25 @@ export function applyNestedVariableChange({
   >;
   value: string;
   variable: VariableField;
+  variables: Record<string, VariableValue>;
 }) {
   const fieldKey = `${pointer.data_index}:${pointer.field_index}`;
+  const descendants = resolveDescendantValues({
+    nestedIndex,
+    payload,
+    pointer,
+    value,
+    variables,
+  });
 
   setNestedPath((prev) => {
     const next = { ...prev, [fieldKey]: value };
 
-    Object.keys(next).forEach((key) => {
-      const [dataIndexRaw, fieldIndexRaw] = key.split(":");
-      const dataIndex = Number(dataIndexRaw);
-      const fieldIndex = Number(fieldIndexRaw);
-
-      if (
-        Number.isFinite(dataIndex) &&
-        Number.isFinite(fieldIndex) &&
-        dataIndex === pointer.data_index &&
-        fieldIndex > pointer.field_index
-      ) {
-        delete next[key];
+    descendants.forEach((descendant) => {
+      if (descendant.value) {
+        next[descendant.key] = descendant.value;
+      } else {
+        delete next[descendant.key];
       }
     });
 
@@ -288,19 +375,8 @@ export function applyNestedVariableChange({
       [variable.id]: value,
     };
 
-    Object.entries(nestedIndex).forEach(([key, indexedVariable]) => {
-      const [dataIndexRaw, fieldIndexRaw] = key.split(":");
-      const dataIndex = Number(dataIndexRaw);
-      const fieldIndex = Number(fieldIndexRaw);
-
-      if (
-        Number.isFinite(dataIndex) &&
-        Number.isFinite(fieldIndex) &&
-        dataIndex === pointer.data_index &&
-        fieldIndex > pointer.field_index
-      ) {
-        next[indexedVariable.id] = "";
-      }
+    descendants.forEach((descendant) => {
+      next[descendant.id] = descendant.value;
     });
 
     return next;

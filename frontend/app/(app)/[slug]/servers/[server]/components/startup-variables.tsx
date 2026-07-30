@@ -139,11 +139,13 @@ export function StartupVariables({
   ) => {
     applyNestedVariableChange({
       nestedIndex: nestedVariableIndex,
+      payload: payload ?? null,
       pointer,
       setNestedPath,
       setVariables,
       value: nextValue,
       variable,
+      variables,
     });
   };
 
