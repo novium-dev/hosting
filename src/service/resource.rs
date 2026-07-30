@@ -18,12 +18,15 @@ use crate::service::resource::resource_service_error::{
 use crate::service::template::*;
 use crate::templates::games::minecraft::MinecraftTemplate;
 use crate::templates::{Template as _, TemplateError};
+use daemon_common::files::FileMode;
 use daemon_common::service::files::files_service_error::{
     ServerCreateDirectoryError, ServerDeleteFileError, ServerListFilesError,
     ServerWriteFileByUrlError,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
+use std::path::Path;
 use tracing::{error, info, warn};
 use zelus::service;
 
@@ -36,6 +39,9 @@ define_query_variable!(offset "The number of results to skip");
 
 /// Default page size, matching what the browser shows without scrolling.
 const DEFAULT_LIMIT: u8 = 24;
+
+/// Mask selecting the file-type bits out of a Unix mode.
+const FILE_TYPE_MASK: u32 = 0xF000;
 
 /// Which loaders a server can take resources for, and who serves them.
 ///
@@ -75,6 +81,109 @@ const FEATURE_LOADERS: [(&str, ResourceLoader); 4] = [
     ("minecraft_mods_forge", ResourceLoader::Forge),
     ("minecraft_mods_neoforge", ResourceLoader::Neoforge),
 ];
+
+/// What the resource directories actually hold.
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct InstalledResources {
+    /// Resources installed through the browser, reconciled against disk.
+    pub(crate) managed: Vec<InstalledResource>,
+    /// Resource files present on disk that no record points at — uploaded over
+    /// SFTP, dropped in via the file manager, or replaced by hand. Listed so the
+    /// panel reflects the directory rather than only our own bookkeeping.
+    pub(crate) unmanaged: Vec<UnmanagedResource>,
+    /// Directories that could not be read, so neither list above is complete for
+    /// them. Lets a client say "couldn't check" instead of "nothing there".
+    pub(crate) unreadable: Vec<ResourceType>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct UnmanagedResource {
+    pub(crate) resource_type: ResourceType,
+    pub(crate) file_name: String,
+    pub(crate) size: u64,
+}
+
+/// One directory's contents: the resource files in it, or `None` when it could
+/// not be read.
+type Listing = Option<Vec<(String, u64)>>;
+
+/// Whether a listing entry is a plain file (not a directory or symlink).
+///
+/// Plugin directories are full of per-plugin data folders, so this matters.
+const fn is_regular_file(mode: u32) -> bool {
+    mode & FILE_TYPE_MASK == FileMode::REG.bits()
+}
+
+/// Whether a file name looks like an installable artifact for `resource_type`.
+///
+/// Keeps `config.yml`, logs and stray files out of the unmanaged list.
+fn is_resource_file(resource_type: ResourceType, name: &str) -> bool {
+    let lower = name.to_lowercase();
+    // `.jar.disabled` is the conventional way to park a plugin without deleting
+    // it, so it still counts as a resource file.
+    let base = lower.strip_suffix(".disabled").unwrap_or(lower.as_str());
+    let extension = Path::new(base).extension().and_then(OsStr::to_str);
+
+    match resource_type {
+        ResourceType::Plugin | ResourceType::Modification => extension == Some("jar"),
+        ResourceType::DataPack => extension == Some("zip"),
+    }
+}
+
+/// Resource files on disk that no record claims.
+fn collect_unmanaged(
+    listings: &HashMap<ResourceType, Listing>,
+    managed: &[InstalledResource],
+) -> Vec<UnmanagedResource> {
+    let claimed: HashSet<(ResourceType, &str)> = managed
+        .iter()
+        .map(|resource| (resource.resource_type, resource.file_name.as_str()))
+        .collect();
+
+    let mut unmanaged = Vec::new();
+    for (resource_type, listing) in listings {
+        let Some(files) = listing.as_ref() else {
+            continue;
+        };
+        for (name, size) in files {
+            if is_resource_file(*resource_type, name)
+                && !claimed.contains(&(*resource_type, name.as_str()))
+            {
+                unmanaged.push(UnmanagedResource {
+                    resource_type: *resource_type,
+                    file_name: name.clone(),
+                    size: *size,
+                });
+            }
+        }
+    }
+
+    unmanaged.sort_by(|left, right| left.file_name.cmp(&right.file_name));
+    unmanaged
+}
+
+/// Splits records into (still on disk, gone from disk).
+///
+/// `listings` maps a directory to the file names it holds, or to `None` when it
+/// could not be read. An unreadable directory is not evidence of removal, so its
+/// records are kept — that is what keeps an unreachable node from wiping the
+/// install history. A directory that is missing entirely is readable *and*
+/// empty, and belongs in the map as `Some(empty)`.
+fn partition_present(
+    recorded: Vec<InstalledResource>,
+    listings: &HashMap<ResourceType, Listing>,
+) -> (Vec<InstalledResource>, Vec<InstalledResource>) {
+    recorded.into_iter().partition(|resource| {
+        listings
+            .get(&resource.resource_type)
+            .and_then(Option::as_ref)
+            .is_none_or(|files| {
+                files
+                    .iter()
+                    .any(|(name, _size)| *name == resource.file_name)
+            })
+    })
+}
 
 impl Backend {
     fn resource_client(&self) -> ResourceClient<'_> {
@@ -207,53 +316,65 @@ pub(crate) impl ResourceService for Backend {
             .map_err(ResourceError::into::<ListResourceVersionsError>)
     }
 
-    /// Lists what is installed on this server.
+    /// Lists what is on this server: browser-installed resources, plus resource
+    /// files nothing has a record for.
     ///
     /// The `server_resources` table carries the provider/project/version
     /// identity that file names cannot express, but the files themselves are the
-    /// truth: anyone can delete or rename a jar over SFTP or in the file
-    /// manager, and neither goes through this service. So the records are
-    /// reconciled against a directory listing on every read, and records whose
-    /// file is gone are dropped — a resource the user removed by hand is not
-    /// installed, however it was removed.
+    /// truth: anyone can add, delete or rename a jar over SFTP or in the file
+    /// manager, and none of that goes through this service. So the directories
+    /// are listed on every read, records whose file is gone are dropped — a
+    /// resource the user removed by hand is not installed, however it was
+    /// removed — and files no record claims are reported as `unmanaged` instead
+    /// of being invisible.
     ///
     /// Reconciliation only ever deletes on an authoritative answer (a listing
     /// that succeeded, or a directory that does not exist and therefore holds
-    /// nothing). Any other daemon fault leaves the records untouched, so an
-    /// unreachable node degrades to slightly stale output instead of discarding
-    /// the version history.
+    /// nothing). Any other daemon fault leaves the records untouched and names
+    /// the directory in `unreadable`, so an unreachable node degrades to
+    /// "couldn't check" instead of discarding the version history.
     #[route("/installed", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, template::{corrupted, unavailable})]
     async fn list_installed_resources(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-    ) -> Result<Vec<InstalledResource>, _> {
+    ) -> Result<InstalledResources, _> {
         auth.require::<_, _, ListInstalledResourcesError>(
             server_id,
             ServerPermissions::FILES_READ,
         )?;
 
         let recorded = list_installed(&self.database, server_id).await?;
-        if recorded.is_empty() {
-            return Ok(recorded);
-        }
 
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(ListInstalledResourcesError::ServerNotFound)?;
 
-        // One listing per directory in play, not one per record: in practice
-        // that is a single call, since a server's resources share a loader.
-        let mut listings: HashMap<ResourceType, Option<HashSet<String>>> = HashMap::new();
-        for resource_type in recorded.iter().map(|resource| resource.resource_type) {
-            // The map itself is the dedup: a directory is listed once, however
-            // many records point into it.
-            if listings.contains_key(&resource_type) {
-                continue;
-            }
+        // Which directories to look at comes from the template, not from the
+        // records: a server with nothing recorded can still hold hand-uploaded
+        // jars, and those are exactly what `unmanaged` is for. Stale records
+        // pointing at a directory the template no longer uses are included too,
+        // so they can still be reconciled away.
+        let mut directories: HashSet<ResourceType> = server
+            .template
+            .enabled_features(self.cache.clone(), server.template_extra.clone())
+            .await
+            .map_err(TemplateError::into::<ListInstalledResourcesError>)?
+            .iter()
+            .filter_map(|feature| {
+                FEATURE_LOADERS
+                    .iter()
+                    .find(|(candidate, _)| candidate == feature)
+                    .map(|(_, loader)| loader.resource_type())
+            })
+            .collect();
+        directories.extend(recorded.iter().map(|resource| resource.resource_type));
 
+        let mut listings: HashMap<ResourceType, Listing> = HashMap::new();
+        let mut unreadable = Vec::new();
+        for resource_type in directories {
             let listing = match server
                 .node
                 .server_list_files(server.node_server_id, resource_type.directory())
@@ -262,28 +383,25 @@ pub(crate) impl ResourceService for Backend {
                 Ok(entries) => Some(
                     entries
                         .into_iter()
-                        .map(|entry| entry.name)
-                        .collect::<HashSet<_>>(),
+                        .filter(|entry| is_regular_file(entry.mode))
+                        .map(|entry| (entry.name, entry.size))
+                        .collect::<Vec<_>>(),
                 ),
                 // The directory itself is gone, so nothing in it survives.
-                Err(ServerListFilesError::FileNotFound) => Some(HashSet::new()),
+                Err(ServerListFilesError::FileNotFound) => Some(Vec::new()),
                 Err(err) => {
                     warn!(
                         "Skipping resource reconciliation for {}: {err:?}",
                         resource_type.directory()
                     );
+                    unreadable.push(resource_type);
                     None
                 }
             };
             listings.insert(resource_type, listing);
         }
 
-        let (present, missing): (Vec<_>, Vec<_>) = recorded.into_iter().partition(|resource| {
-            listings
-                .get(&resource.resource_type)
-                .and_then(Option::as_ref)
-                .is_none_or(|files| files.contains(&resource.file_name))
-        });
+        let (present, missing) = partition_present(recorded, &listings);
 
         if !missing.is_empty() {
             let files: Vec<String> = missing
@@ -301,7 +419,11 @@ pub(crate) impl ResourceService for Backend {
             }
         }
 
-        Ok(present)
+        Ok(InstalledResources {
+            unmanaged: collect_unmanaged(&listings, &present),
+            managed: present,
+            unreadable,
+        })
     }
 
     /// Downloads a version onto the server and records it as installed.
@@ -513,5 +635,255 @@ pub(crate) impl ResourceService for Backend {
         delete_installed(&self.database, server_id, provider, &project).await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn record(file_name: &str, resource_type: ResourceType) -> InstalledResource {
+        InstalledResource {
+            provider: ResourceProvider::Modrinth,
+            project: "abc123".to_owned(),
+            version: "v1".to_owned(),
+            resource_type,
+            file_name: file_name.to_owned(),
+            title: file_name.to_owned(),
+            installed_at: 0,
+        }
+    }
+
+    /// A readable directory holding `files`.
+    fn listing(files: &[&str]) -> Vec<(String, u64)> {
+        files
+            .iter()
+            .map(|file| ((*file).to_owned(), 1024))
+            .collect()
+    }
+
+    fn names(resources: &[InstalledResource]) -> Vec<&str> {
+        resources
+            .iter()
+            .map(|resource| resource.file_name.as_str())
+            .collect()
+    }
+
+    #[test]
+    fn keeps_records_whose_file_is_still_there() {
+        let listings = HashMap::from([(ResourceType::Plugin, Some(listing(&["a.jar", "b.jar"])))]);
+
+        let (present, missing) = partition_present(
+            vec![
+                record("a.jar", ResourceType::Plugin),
+                record("b.jar", ResourceType::Plugin),
+            ],
+            &listings,
+        );
+
+        assert_eq!(names(&present), ["a.jar", "b.jar"]);
+        assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn drops_records_whose_file_was_removed_externally() {
+        let listings = HashMap::from([(ResourceType::Plugin, Some(listing(&["a.jar"])))]);
+
+        let (present, missing) = partition_present(
+            vec![
+                record("a.jar", ResourceType::Plugin),
+                record("deleted-over-sftp.jar", ResourceType::Plugin),
+            ],
+            &listings,
+        );
+
+        assert_eq!(names(&present), ["a.jar"]);
+        assert_eq!(names(&missing), ["deleted-over-sftp.jar"]);
+    }
+
+    #[test]
+    fn treats_a_renamed_file_as_removed() {
+        // A rename cannot be mapped back to a version, so the record is stale
+        // and the file becomes an unmanaged plugin.
+        let listings = HashMap::from([(ResourceType::Plugin, Some(listing(&["a-renamed.jar"])))]);
+
+        let (present, missing) =
+            partition_present(vec![record("a.jar", ResourceType::Plugin)], &listings);
+
+        assert!(present.is_empty());
+        assert_eq!(names(&missing), ["a.jar"]);
+    }
+
+    #[test]
+    fn a_missing_directory_is_authoritative_and_empty() {
+        let listings = HashMap::from([(ResourceType::Plugin, Some(listing(&[])))]);
+
+        let (present, missing) =
+            partition_present(vec![record("a.jar", ResourceType::Plugin)], &listings);
+
+        assert!(present.is_empty());
+        assert_eq!(names(&missing), ["a.jar"]);
+    }
+
+    #[test]
+    fn an_unreadable_directory_never_drops_records() {
+        // The safety property: a daemon fault must not be read as removal.
+        let listings = HashMap::from([(ResourceType::Plugin, None)]);
+
+        let (present, missing) = partition_present(
+            vec![
+                record("a.jar", ResourceType::Plugin),
+                record("b.jar", ResourceType::Plugin),
+            ],
+            &listings,
+        );
+
+        assert_eq!(names(&present), ["a.jar", "b.jar"]);
+        assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn a_directory_that_was_never_listed_never_drops_records() {
+        let (present, missing) =
+            partition_present(vec![record("a.jar", ResourceType::Plugin)], &HashMap::new());
+
+        assert_eq!(names(&present), ["a.jar"]);
+        assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn reports_files_no_record_claims_as_unmanaged() {
+        let listings = HashMap::from([(
+            ResourceType::Plugin,
+            Some(listing(&["managed.jar", "hand-uploaded.jar"])),
+        )]);
+        let managed = vec![record("managed.jar", ResourceType::Plugin)];
+
+        let unmanaged = collect_unmanaged(&listings, &managed);
+
+        assert_eq!(
+            unmanaged
+                .iter()
+                .map(|entry| entry.file_name.as_str())
+                .collect::<Vec<_>>(),
+            ["hand-uploaded.jar"]
+        );
+        assert_eq!(unmanaged.first().map(|entry| entry.size), Some(1024));
+    }
+
+    #[test]
+    fn ignores_non_resource_files_and_config_clutter() {
+        // A plugin directory is mostly per-plugin data; only jars are resources.
+        let listings = HashMap::from([(
+            ResourceType::Plugin,
+            Some(listing(&[
+                "config.yml",
+                "latest.log",
+                "real.jar",
+                "notes.txt",
+            ])),
+        )]);
+
+        let unmanaged = collect_unmanaged(&listings, &[]);
+
+        assert_eq!(
+            unmanaged
+                .iter()
+                .map(|entry| entry.file_name.as_str())
+                .collect::<Vec<_>>(),
+            ["real.jar"]
+        );
+    }
+
+    #[test]
+    fn counts_parked_and_odd_case_jars() {
+        let listings = HashMap::from([(
+            ResourceType::Plugin,
+            Some(listing(&["Parked.jar.disabled", "SHOUTY.JAR"])),
+        )]);
+
+        assert_eq!(collect_unmanaged(&listings, &[]).len(), 2);
+    }
+
+    #[test]
+    fn data_packs_are_zips_not_jars() {
+        let listings = HashMap::from([(
+            ResourceType::DataPack,
+            Some(listing(&["pack.zip", "stray.jar"])),
+        )]);
+
+        let unmanaged = collect_unmanaged(&listings, &[]);
+
+        assert_eq!(
+            unmanaged
+                .iter()
+                .map(|entry| entry.file_name.as_str())
+                .collect::<Vec<_>>(),
+            ["pack.zip"]
+        );
+    }
+
+    #[test]
+    fn an_unreadable_directory_reports_no_unmanaged_files() {
+        // Nothing is known about it, so claiming it is empty would be a lie.
+        let listings = HashMap::from([(ResourceType::Plugin, None)]);
+
+        assert!(collect_unmanaged(&listings, &[]).is_empty());
+    }
+
+    #[test]
+    fn a_record_dropped_by_reconciliation_does_not_claim_its_file() {
+        // The record is gone and so is the file, so neither list mentions it.
+        let listings = HashMap::from([(ResourceType::Plugin, Some(listing(&["kept.jar"])))]);
+        let (present, missing) = partition_present(
+            vec![
+                record("kept.jar", ResourceType::Plugin),
+                record("deleted.jar", ResourceType::Plugin),
+            ],
+            &listings,
+        );
+
+        assert_eq!(names(&missing), ["deleted.jar"]);
+        assert!(collect_unmanaged(&listings, &present).is_empty());
+    }
+
+    #[test]
+    fn a_hand_replaced_jar_moves_from_managed_to_unmanaged() {
+        // The user swapped Foo-1.0.jar for Foo-2.0.jar over SFTP: the stale
+        // record is dropped and the new file surfaces as unmanaged, so the panel
+        // still shows exactly what is on disk.
+        let listings = HashMap::from([(ResourceType::Plugin, Some(listing(&["Foo-2.0.jar"])))]);
+        let (present, missing) =
+            partition_present(vec![record("Foo-1.0.jar", ResourceType::Plugin)], &listings);
+
+        assert!(present.is_empty());
+        assert_eq!(names(&missing), ["Foo-1.0.jar"]);
+        assert_eq!(
+            collect_unmanaged(&listings, &present)
+                .iter()
+                .map(|entry| entry.file_name.as_str())
+                .collect::<Vec<_>>(),
+            ["Foo-2.0.jar"]
+        );
+    }
+
+    #[test]
+    fn directories_are_reconciled_independently() {
+        // Plugins listed fine, mods unreadable: only the plugin record may go.
+        let listings = HashMap::from([
+            (ResourceType::Plugin, Some(listing(&[]))),
+            (ResourceType::Modification, None),
+        ]);
+
+        let (present, missing) = partition_present(
+            vec![
+                record("gone.jar", ResourceType::Plugin),
+                record("kept.jar", ResourceType::Modification),
+            ],
+            &listings,
+        );
+
+        assert_eq!(names(&present), ["kept.jar"]);
+        assert_eq!(names(&missing), ["gone.jar"]);
     }
 }

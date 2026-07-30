@@ -75,6 +75,25 @@ export type InstallResourcePayload = {
     version: string;
 };
 
+/**
+ * One installed mod/plugin, as stored in `server_resources`.
+ *
+ * Keyed by `(server, provider, project)`, so a server holds at most one
+ * version of any given project and re-installing is an upsert.
+ */
+export type InstalledResource = {
+    file_name: string;
+    /**
+     * Unix seconds.
+     */
+    installed_at: number;
+    project: string;
+    provider: ResourceProvider;
+    resource_type: ResourceType;
+    title: string;
+    version: string;
+};
+
 export type LightNodeInfo = {
     display: string;
     host: string;
@@ -256,6 +275,12 @@ export type TemplatePortDefinition = {
     internal_port: number;
     placeholder: string;
     protocol: NetworkProtocol;
+};
+
+export type UnmanagedResource = {
+    file_name: string;
+    resource_type: ResourceType;
+    size: number;
 };
 
 export type UpdatePortPayload = {
@@ -8457,7 +8482,7 @@ export type ListInstalledResourcesErrors = {
     /**
      * Server not found
      */
-    '404‍': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -8481,26 +8506,58 @@ export type ListInstalledResourcesErrors = {
             msg?: 'Database operation failed';
         };
     };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‏': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‪': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
 };
 
 export type ListInstalledResourcesError = ListInstalledResourcesErrors[keyof ListInstalledResourcesErrors];
 
 export type ListInstalledResourcesResponses = {
     /**
-     * Success
+     * What the resource directories actually hold.
      */
-    200: Array<{
-        file_name: string;
+    200: {
         /**
-         * Unix seconds.
+         * Resources installed through the browser, reconciled against disk.
          */
-        installed_at: number;
-        project: string;
-        provider: ResourceProvider;
-        resource_type: ResourceType;
-        title: string;
-        version: string;
-    }>;
+        managed: Array<InstalledResource>;
+        /**
+         * Resource files present on disk that no record points at — uploaded over
+         * SFTP, dropped in via the file manager, or replaced by hand. Listed so the
+         * panel reflects the directory rather than only our own bookkeeping.
+         */
+        unmanaged: Array<UnmanagedResource>;
+        /**
+         * Directories that could not be read, so neither list above is complete for
+         * them. Lets a client say "couldn't check" instead of "nothing there".
+         */
+        unreadable: Array<ResourceType>;
+    };
 };
 
 export type ListInstalledResourcesResponse = ListInstalledResourcesResponses[keyof ListInstalledResourcesResponses];

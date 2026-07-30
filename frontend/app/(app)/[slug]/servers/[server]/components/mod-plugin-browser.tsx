@@ -6,10 +6,12 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
+  FileQuestion,
   PackageSearch,
   RefreshCw,
   Search,
   Trash2,
+  TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,6 +49,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   LOADER_LABELS,
   PROVIDER_LABELS,
+  RESOURCE_TYPE_LABELS,
   type InstalledResource,
   type ResourceLoader,
   type ResourceProject,
@@ -69,6 +72,18 @@ function formatCount(value: number) {
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
+}
+
+function formatSize(bytes: number) {
+  const units = ["B", "KiB", "MiB", "GiB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+
+  return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
 }
 
 function formatDate(value: string) {
@@ -115,14 +130,18 @@ export function ModPluginBrowser({
   // The installed set comes from the backend's `server_resources` table, so a
   // single request answers "is this installed, and at which version" for every
   // search hit at once.
-  const { data: installed = [], mutate: refreshInstalled } = useSWR(
+  const { data: contents, mutate: refreshInstalled } = useSWR(
     ["installed-resources", serverId],
     async () => {
       const result = await listInstalledResourcesAction({ serverId });
       if (result.serverError) throw new Error(result.serverError);
-      return result.data ?? [];
+      return result.data ?? null;
     },
   );
+
+  const installed = useMemo(() => contents?.managed ?? [], [contents]);
+  const unmanaged = useMemo(() => contents?.unmanaged ?? [], [contents]);
+  const unreadable = useMemo(() => contents?.unreadable ?? [], [contents]);
 
   const installedByProject = useMemo(() => {
     const map = new Map<string, InstalledResource>();
@@ -625,6 +644,61 @@ export function ModPluginBrowser({
           </CardContent>
         ) : null}
       </Card>
+
+      {unmanaged.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileQuestion className="size-5" />
+              Not installed through the browser
+            </CardTitle>
+            <CardDescription>
+              {unmanaged.length} file
+              {unmanaged.length === 1 ? "" : "s"} on this server that no record
+              points at — uploaded over SFTP or in the file manager, or replaced
+              by hand. Manage these under Files.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            {unmanaged.map((entry) => (
+              <div
+                key={`${entry.resource_type}:${entry.file_name}`}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-dashed p-3"
+              >
+                <span className="truncate font-medium">{entry.file_name}</span>
+                <span className="flex items-center gap-2">
+                  <Badge variant="outline">
+                    {RESOURCE_TYPE_LABELS[entry.resource_type] ??
+                      entry.resource_type}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {formatSize(entry.size)}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {unreadable.length > 0 ? (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TriangleAlert className="size-5" />
+              Could not read every directory
+            </CardTitle>
+            <CardDescription>
+              The{" "}
+              {unreadable
+                .map((type) => RESOURCE_TYPE_LABELS[type] ?? type)
+                .join(" and ")}{" "}
+              directory could not be listed, so the lists above may be
+              incomplete. Nothing was removed from the records.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
     </div>
   );
 }

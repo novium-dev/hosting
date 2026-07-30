@@ -599,13 +599,25 @@ export const listResourceVersions = <ThrowOnError extends boolean = false>(optio
 export const uninstallResource = <ThrowOnError extends boolean = false>(options: Options<UninstallResourceData, ThrowOnError>) => (options.client ?? client).delete<UninstallResourceResponses, UninstallResourceErrors, ThrowOnError>({ url: '/resource/{server_id}/installed', ...options });
 
 /**
- *  Lists what is installed on this server.
+ *  Lists what is on this server: browser-installed resources, plus resource
  *
- *  Lists what is installed on this server.<br/>
+ *  Lists what is on this server: browser-installed resources, plus resource<br/>
+ * files nothing has a record for.<br/>
  * <br/>
- * Backed by the `server_resources` table rather than by scanning<br/>
- * `mods/`/`plugins/`, so a client learns the installed set (and which<br/>
- * exact version it is) in one request.
+ * The `server_resources` table carries the provider/project/version<br/>
+ * identity that file names cannot express, but the files themselves are the<br/>
+ * truth: anyone can add, delete or rename a jar over SFTP or in the file<br/>
+ * manager, and none of that goes through this service. So the directories<br/>
+ * are listed on every read, records whose file is gone are dropped — a<br/>
+ * resource the user removed by hand is not installed, however it was<br/>
+ * removed — and files no record claims are reported as `unmanaged` instead<br/>
+ * of being invisible.<br/>
+ * <br/>
+ * Reconciliation only ever deletes on an authoritative answer (a listing<br/>
+ * that succeeded, or a directory that does not exist and therefore holds<br/>
+ * nothing). Any other daemon fault leaves the records untouched and names<br/>
+ * the directory in `unreadable`, so an unreachable node degrades to<br/>
+ * "couldn't check" instead of discarding the version history.
  */
 export const listInstalledResources = <ThrowOnError extends boolean = false>(options: Options<ListInstalledResourcesData, ThrowOnError>) => (options.client ?? client).get<ListInstalledResourcesResponses, ListInstalledResourcesErrors, ThrowOnError>({ url: '/resource/{server_id}/installed', ...options });
 

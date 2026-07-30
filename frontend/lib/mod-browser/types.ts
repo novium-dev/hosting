@@ -1,5 +1,6 @@
 import type {
   InstallResourcePayload,
+  InstalledResource,
   ListInstalledResourcesResponse,
   ListResourceVersionsResponse,
   ResourceContextResponse,
@@ -16,14 +17,22 @@ import type {
 
 export type ResourceProject = SearchResourcesResponse[number];
 export type ResourceVersion = ListResourceVersionsResponse[number];
-export type InstalledResource = ListInstalledResourcesResponse[number];
+export type InstalledResources = ListInstalledResourcesResponse;
+export type UnmanagedResource = InstalledResources["unmanaged"][number];
 export type ResourceContext = ResourceContextResponse;
 
 export type {
   InstallResourcePayload,
+  InstalledResource,
   ResourceLoader,
   ResourceLoaderInfo,
   ResourceProvider,
+};
+
+export const RESOURCE_TYPE_LABELS: Record<string, string> = {
+  plugin: "plugins",
+  modification: "mods",
+  data_pack: "data packs",
 };
 
 export const PROVIDER_LABELS: Record<ResourceProvider, string> = {
