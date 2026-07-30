@@ -210,6 +210,7 @@ tokio-util = { version = "0.7", features = ["io"] }
 rand = "0.10.1"
 chrono = "0.4.44"
 hex = "0.4.3"
+sha2 = "0.10.9"
 
 axum = "0.8.9"
 axum-extra = { version = "0.12.6", features = ["typed-header", "cookie"] }

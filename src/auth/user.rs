@@ -1,8 +1,8 @@
 use crate::Backend;
+use crate::auth::api_key::is_api_key_request;
+use crate::auth::effective::EffectivePermissions;
 use crate::auth::oauth::AuthUser;
-use crate::auth::permissions::{
-    HasPermission, ManagementPermissions, Permission, ProjectPermissions, Role, ServerPermissions,
-};
+use crate::auth::permissions::{HasPermission, Permission, Role};
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
@@ -27,7 +27,7 @@ use rand::TryRng as _;
 use redis::{AsyncCommands as _, RedisError};
 use regex::Regex;
 use serde::{Deserialize, Serialize, Serializer as _};
-use sqlx::{query, query_scalar};
+use sqlx::query;
 use std::collections::HashMap;
 use tracing::error;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
@@ -116,11 +116,17 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
 
         // Prefer the `Authorization: Session <token>` header (API clients); fall
         // back to the httpOnly `session` cookie (browser SPA, same-origin).
-        let session = if let Some(TypedHeader(Authorization(session))) =
+        // A `Bearer` header is an API key and is resolved by
+        // [`ApiKeyAuthentication`] instead, so it must not be parsed here.
+        let header = if is_api_key_request(&parts.headers) {
+            None
+        } else {
             <Option<TypedHeader<Authorization<Session>>>>::from_request_parts(parts, &())
                 .await
                 .map_err(|_err| <E as FromAuthInvalid>::from())?
-        {
+        };
+
+        let session = if let Some(TypedHeader(Authorization(session))) = header {
             session
         } else {
             let Some(session) = CookieJar::from_headers(&parts.headers)
@@ -164,106 +170,20 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
         let role = u8::try_from(user.role)
             .ok()
             .and_then(|role| Role::try_from(role).ok());
-        let user_permissions = role
-            .map(|role| {
-                role.management_permissions().bits()
-                    | role.project_permissions().bits()
-                    | role.server_permissions().bits()
-            })
-            .unwrap_or_default();
 
-        let owned_projects: HashMap<_, _> = query_scalar!(
-            r#"SELECT id AS "id: ProjectId" FROM projects WHERE owner = $1"#,
-            &id
-        )
-        .fetch_all(&mut *conn)
-        .await
-        .inspect_err(|err| {
-            error!("Unable to fetch owned servers for user {id}: {err:?}");
-        })?
-        .into_iter()
-        .map(|id| {
-            (
-                id,
-                ProjectPermissions::all().bits() | ServerPermissions::all().bits(),
-            )
-        })
-        .collect();
-
-        let mut projects: HashMap<ProjectId, i64> = query!(
-            r#"SELECT project AS "project: ProjectId", permissions
-             FROM project_users
-             WHERE "user" = $1"#,
-            &id
-        )
-        .fetch_all(&mut *conn)
-        .await
-        .inspect_err(|err| error!("Unable to fetch project permissions for user {id}: {err:?}"))?
-        .into_iter()
-        .map(|record| (record.project, record.permissions))
-        .collect();
-        projects.extend(owned_projects);
-
-        let server_records = query!(
-            r#"SELECT
-                servers.id AS "server: ServerId",
-                servers.project AS "project: ProjectId",
-                servers.suspended AS "suspended: bool",
-                nodes.maintenance AS "maintenance: bool"
-             FROM servers
-             JOIN nodes ON nodes.id = servers.node
-             JOIN projects ON projects.id = servers.project
-             LEFT JOIN project_users
-                ON project_users.project = servers.project
-                AND project_users."user" = $1
-             WHERE projects.owner = $2
-                OR project_users."user" IS NOT NULL
-                OR $3"#,
-            &id,
-            &id,
-            ProjectPermissions::from_bits_retain(user_permissions)
-                .contains(ProjectPermissions::VIEW),
-        )
-        .fetch_all(&mut *conn)
-        .await
-        .inspect_err(|err| error!("Unable to fetch server permissions for user {id}: {err:?}"))?;
-
-        let mut servers = HashMap::new();
-        for record in server_records {
-            let permissions = projects
-                .get(&record.project)
-                .copied()
-                .unwrap_or(user_permissions);
-
-            let permissions = if (record.suspended
-                && !ManagementPermissions::from_bits_retain(user_permissions)
-                    .contains(ManagementPermissions::SERVER_SUSPEND))
-                || (record.maintenance
-                    && !ManagementPermissions::from_bits_retain(user_permissions)
-                        .contains(ManagementPermissions::SERVER_MANAGE))
-            {
-                ProjectPermissions::VIEW.bits()
-            } else {
-                permissions
-            };
-
-            if ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW)
-            {
-                servers.insert(record.server, permissions);
-            }
-        }
+        let effective = EffectivePermissions::load(&mut conn, id, role).await?;
 
         Ok(Some(Self {
             id,
             session,
             username: user.username,
-            permissions: user_permissions,
+            permissions: effective.permissions,
             role: role.unwrap_or(Role::User),
             email: user.email,
             first_name: user.first_name,
             last_name: user.last_name,
-            projects,
-            servers,
+            projects: effective.projects,
+            servers: effective.servers,
         }))
     }
 }

@@ -386,7 +386,7 @@ impl<E: FromAuthPermissionDenied> Permission<(), E> for ManagementPermissions {
 // TODO: Permission handling of databases and networks
 
 impl ServerPermissions {
-    fn with_dependencies(mut self) -> Self {
+    pub fn with_dependencies(mut self) -> Self {
         self.with_dependency(Self::TERMINAL_WRITE, Self::TERMINAL_READ);
         self.with_dependency(Self::BUILD_EDIT, Self::BUILD_VIEW);
         self.with_dependency(Self::FILES_WRITE, Self::FILES_READ);
@@ -407,7 +407,7 @@ impl ServerPermissions {
 }
 
 impl ProjectPermissions {
-    fn with_dependencies(mut self) -> Self {
+    pub fn with_dependencies(mut self) -> Self {
         if !self.is_empty() {
             self |= Self::VIEW;
         }
@@ -423,7 +423,7 @@ impl ProjectPermissions {
 }
 
 impl ManagementPermissions {
-    fn with_dependencies(mut self) -> Self {
+    pub fn with_dependencies(mut self) -> Self {
         self.with_dependency(Self::USER_MANAGE, Self::USER_VIEW);
         self.with_dependency(Self::API_KEYS_MANAGE, Self::API_KEYS_VIEW);
         self.with_dependency(Self::NODES_MANAGE, Self::NODES_VIEW);

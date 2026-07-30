@@ -2,6 +2,7 @@ use zelus::error::define_error;
 use zelus::{define_path_variable, define_query_variable};
 
 pub(crate) mod admin;
+pub(crate) mod api_key;
 pub(crate) mod auth;
 pub(crate) mod backup;
 pub(crate) mod file;
