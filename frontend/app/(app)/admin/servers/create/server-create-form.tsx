@@ -100,21 +100,99 @@ function getPortUsageKey(protocol: string, port: number) {
   return `${protocol}:${port}`;
 }
 
+/**
+ * A set of port definitions that has to be given one and the same external
+ * port.
+ *
+ * A non-remappable port must be reachable under the very number players dial,
+ * so the definitions describing it — typically the TCP and the UDP half of one
+ * game port, recognisable by a shared internal port — can only be picked
+ * together. Remappable ports are a group of their own.
+ */
+type PortGroup = {
+  key: string;
+  internalPort: number;
+  label: string;
+  portKeys: string[];
+  protocols: string[];
+  remappable: boolean;
+};
+
+function buildPortGroups(definitions: TemplatePortDefinitions): PortGroup[] {
+  const groups = new Map<string, PortGroup>();
+
+  for (const [portKey, definition] of Object.entries(definitions)) {
+    const groupKey = definition.remappable
+      ? `port:${portKey}`
+      : `fixed:${definition.internal_port}`;
+    const group = groups.get(groupKey);
+
+    if (group) {
+      group.portKeys.push(portKey);
+      if (!group.protocols.includes(definition.protocol)) {
+        group.protocols.push(definition.protocol);
+      }
+      continue;
+    }
+
+    groups.set(groupKey, {
+      key: groupKey,
+      internalPort: definition.internal_port,
+      label: definition.placeholder,
+      portKeys: [portKey],
+      protocols: [definition.protocol],
+      remappable: definition.remappable,
+    });
+  }
+
+  // The backend serialises the definitions from a hash map, so without an
+  // explicit order both the labels and the assigned defaults would move around
+  // between requests.
+  return [...groups.values()]
+    .map((group) => ({
+      ...group,
+      portKeys: [...group.portKeys].sort(),
+      protocols: [...group.protocols].sort(),
+    }))
+    .sort(
+      (a, b) =>
+        a.internalPort - b.internalPort || a.portKeys[0]!.localeCompare(b.portKeys[0]!),
+    );
+}
+
+function isPortFreeForGroup(
+  group: PortGroup,
+  port: number,
+  allowedRanges: SelectablePortRange[],
+  usedPorts: Set<string>,
+) {
+  return group.protocols.every((protocol) => {
+    if (usedPorts.has(getPortUsageKey(protocol, port))) {
+      return false;
+    }
+
+    return allowedRanges.some(
+      (range) =>
+        range.protocol === protocol &&
+        port >= range.start &&
+        port <= range.end &&
+        !(range.exclude ?? []).includes(port),
+    );
+  });
+}
+
 function findFreePort(
-  definition: TemplatePortDefinitions[string],
+  group: PortGroup,
   allowedRanges: SelectablePortRange[],
   usedPorts: Set<string>,
 ) {
   const matchingRanges = allowedRanges
-    .filter((range) => range.protocol === definition.protocol)
+    .filter((range) => group.protocols.includes(range.protocol))
     .sort((a, b) => a.start - b.start);
 
   for (const range of matchingRanges) {
-    const excludedPorts = new Set(range.exclude ?? []);
-
     for (let port = range.start; port <= range.end; port += 1) {
-      const usageKey = getPortUsageKey(definition.protocol, port);
-      if (!excludedPorts.has(port) && !usedPorts.has(usageKey)) {
+      if (isPortFreeForGroup(group, port, allowedRanges, usedPorts)) {
         return port;
       }
     }
@@ -124,7 +202,7 @@ function findFreePort(
     return matchingRanges[0].start;
   }
 
-  return definition.internal_port;
+  return group.internalPort;
 }
 
 function buildDefaultPorts(
@@ -134,10 +212,15 @@ function buildDefaultPorts(
   const usedPorts = new Set<string>();
   const defaultPorts: Record<string, number> = {};
 
-  for (const [portKey, definition] of Object.entries(definitions)) {
-    const port = findFreePort(definition, allowedRanges, usedPorts);
-    defaultPorts[portKey] = port;
-    usedPorts.add(getPortUsageKey(definition.protocol, port));
+  for (const group of buildPortGroups(definitions)) {
+    const port = findFreePort(group, allowedRanges, usedPorts);
+
+    for (const portKey of group.portKeys) {
+      defaultPorts[portKey] = port;
+    }
+    for (const protocol of group.protocols) {
+      usedPorts.add(getPortUsageKey(protocol, port));
+    }
   }
 
   return defaultPorts;
@@ -156,22 +239,25 @@ function formatPortRange(range: SelectablePortRange) {
 
 function buildPortOptions({
   allowedRanges,
-  definition,
+  definitions,
+  group,
   hasConfiguredPortRanges,
-  portKey,
   ports,
 }: {
   allowedRanges: SelectablePortRange[];
-  definition: TemplatePortDefinitions[string];
+  definitions: TemplatePortDefinitions;
+  group: PortGroup;
   hasConfiguredPortRanges: boolean;
-  portKey: string;
   ports: Record<string, number>;
 }) {
-  const currentPort = ports[portKey] ?? definition.internal_port;
+  const currentPort = ports[group.portKeys[0]!] ?? group.internalPort;
   const usedPorts = new Set(
     Object.entries(ports)
-      .filter(([key]) => key !== portKey)
-      .map(([, port]) => getPortUsageKey(definition.protocol, port)),
+      .filter(([key]) => !group.portKeys.includes(key))
+      .flatMap(([key, port]) => {
+        const protocol = definitions[key]?.protocol;
+        return protocol ? [getPortUsageKey(protocol, port)] : [];
+      }),
   );
 
   if (!hasConfiguredPortRanges) {
@@ -181,26 +267,26 @@ function buildPortOptions({
   const options: PortOption[] = [];
   const seen = new Set<number>();
   const ranges = allowedRanges
-    .filter((range) => range.protocol === definition.protocol)
+    .filter((range) => group.protocols.includes(range.protocol))
     .sort((a, b) => a.start - b.start);
 
   for (const range of ranges) {
-    const excludedPorts = new Set(range.exclude ?? []);
-
     for (let port = range.start; port <= range.end; port += 1) {
       if (options.length >= MAX_PORT_OPTIONS) {
         return options;
       }
 
-      if (
-        excludedPorts.has(port) ||
-        seen.has(port) ||
-        usedPorts.has(getPortUsageKey(definition.protocol, port))
-      ) {
+      if (seen.has(port)) {
+        continue;
+      }
+      seen.add(port);
+
+      // A grouped port is only usable when every protocol of the group can be
+      // bound to it.
+      if (!isPortFreeForGroup(group, port, allowedRanges, usedPorts)) {
         continue;
       }
 
-      seen.add(port);
       options.push({ label: String(port), value: port });
     }
   }
@@ -418,6 +504,10 @@ export function ServerCreateForm({
     return organizations.find((org) => org.id === owner);
   }, [organizations, owner]);
 
+  const portGroups = useMemo(() => {
+    return templateDetails ? buildPortGroups(templateDetails.ports) : [];
+  }, [templateDetails]);
+
   const canSubmit =
     name.trim().length > 0 &&
     owner.length > 0 &&
@@ -452,25 +542,33 @@ export function ServerCreateForm({
     const usedPorts = new Set<string>();
     const errors: Record<string, string> = {};
 
-    for (const [key, value] of Object.entries(ports)) {
-      const definition = templateDetails?.ports[key];
-      if (!definition) {
+    for (const group of portGroups) {
+      const value = ports[group.portKeys[0]!];
+      if (value === undefined) {
         continue;
       }
 
-      if (!isPortAllowed(value, definition.protocol)) {
-        errors[key] =
-          `Port ${value} is outside the allowed ${definition.protocol.toUpperCase()} ranges for node ${node}.`;
+      const blocked = group.protocols.find(
+        (protocol) => !isPortAllowed(value, protocol),
+      );
+      if (blocked) {
+        errors[group.key] =
+          `Port ${value} is outside the allowed ${blocked.toUpperCase()} ranges for node ${node}.`;
         continue;
       }
 
-      const usageKey = getPortUsageKey(definition.protocol, value);
-      if (usedPorts.has(usageKey)) {
-        errors[key] =
-          `Port ${value} is already selected for another ${definition.protocol.toUpperCase()} port.`;
+      const taken = group.protocols.find((protocol) =>
+        usedPorts.has(getPortUsageKey(protocol, value)),
+      );
+      if (taken) {
+        errors[group.key] =
+          `Port ${value} is already selected for another ${taken.toUpperCase()} port.`;
         continue;
       }
-      usedPorts.add(usageKey);
+
+      for (const protocol of group.protocols) {
+        usedPorts.add(getPortUsageKey(protocol, value));
+      }
     }
 
     return errors;
@@ -810,86 +908,91 @@ export function ServerCreateForm({
             </p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {Object.entries(templateDetails.ports).map(
-                ([portKey, definition]) => {
-                  const selectedPort =
-                    ports[portKey] ?? definition.internal_port;
-                  const portOptions = buildPortOptions({
-                    allowedRanges: allowedPortRanges,
-                    definition,
-                    hasConfiguredPortRanges,
-                    portKey,
-                    ports,
-                  });
+              {portGroups.map((group) => {
+                const selectedPort =
+                  ports[group.portKeys[0]!] ?? group.internalPort;
+                const portOptions = buildPortOptions({
+                  allowedRanges: allowedPortRanges,
+                  definitions: templateDetails.ports,
+                  group,
+                  hasConfiguredPortRanges,
+                  ports,
+                });
+                const setGroupPort = (nextPort: number) => {
+                  setPorts((prev) => ({
+                    ...prev,
+                    ...Object.fromEntries(
+                      group.portKeys.map((portKey) => [portKey, nextPort]),
+                    ),
+                  }));
+                };
 
-                  return (
-                    <div key={portKey} className="space-y-2">
-                      <Label htmlFor={portKey}>
-                        {definition.placeholder} (
-                        {definition.protocol.toUpperCase()} / internal{" "}
-                        {definition.internal_port})
-                      </Label>
-                      <Combobox
-                        value={selectedPort}
-                        inputValue={String(selectedPort)}
-                        itemToStringLabel={(port) => String(port)}
-                        itemToStringValue={(port) => String(port)}
-                        onInputValueChange={(value) => {
-                          const nextPort = parsePortInput(value);
+                return (
+                  <div key={group.key} className="space-y-2">
+                    <Label htmlFor={group.key}>
+                      {group.label} (
+                      {group.protocols
+                        .map((protocol) => protocol.toUpperCase())
+                        .join(" + ")}
+                      {group.remappable
+                        ? ` / internal ${group.internalPort}`
+                        : ""}
+                      )
+                    </Label>
+                    <Combobox
+                      value={selectedPort}
+                      inputValue={String(selectedPort)}
+                      itemToStringLabel={(port) => String(port)}
+                      itemToStringValue={(port) => String(port)}
+                      onInputValueChange={(value) => {
+                        const nextPort = parsePortInput(value);
 
-                          if (nextPort === null) {
-                            return;
-                          }
+                        if (nextPort === null) {
+                          return;
+                        }
 
-                          setPorts((prev) => ({
-                            ...prev,
-                            [portKey]: nextPort,
-                          }));
-                        }}
-                        onValueChange={(value) => {
-                          if (typeof value !== "number") {
-                            return;
-                          }
+                        setGroupPort(nextPort);
+                      }}
+                      onValueChange={(value) => {
+                        if (typeof value !== "number") {
+                          return;
+                        }
 
-                          setPorts((prev) => ({
-                            ...prev,
-                            [portKey]: value,
-                          }));
-                        }}
-                      >
-                        <ComboboxInput
-                          id={portKey}
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          placeholder="Select or enter port"
-                          aria-invalid={Boolean(portErrors[portKey])}
-                          className="w-full"
-                        />
-                        <ComboboxContent>
-                          <ComboboxEmpty>No available port found.</ComboboxEmpty>
-                          <ComboboxList>
-                            <ComboboxGroup>
-                              {portOptions.map((option) => (
-                                <ComboboxItem
-                                  key={option.value}
-                                  value={option.value}
-                                >
-                                  {option.label}
-                                </ComboboxItem>
-                              ))}
-                            </ComboboxGroup>
-                          </ComboboxList>
-                        </ComboboxContent>
-                      </Combobox>
-                      {portErrors[portKey] && (
-                        <p className="text-sm text-destructive">
-                          {portErrors[portKey]}
-                        </p>
-                      )}
-                    </div>
-                  );
-                },
-              )}
+                        setGroupPort(value);
+                      }}
+                    >
+                      <ComboboxInput
+                        id={group.key}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        placeholder="Select or enter port"
+                        aria-invalid={Boolean(portErrors[group.key])}
+                        className="w-full"
+                      />
+                      <ComboboxContent>
+                        <ComboboxEmpty>No available port found.</ComboboxEmpty>
+                        <ComboboxList>
+                          <ComboboxGroup>
+                            {portOptions.map((option) => (
+                              <ComboboxItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </ComboboxItem>
+                            ))}
+                          </ComboboxGroup>
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
+                    {portErrors[group.key] && (
+                      <p className="text-sm text-destructive">
+                        {portErrors[group.key]}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

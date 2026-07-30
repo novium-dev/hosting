@@ -374,6 +374,16 @@ export type TemplatePortDefinition = {
     internal_port: number;
     placeholder: string;
     protocol: NetworkProtocol;
+    /**
+     * Whether the container may listen on a different port than the one
+     * players connect to.
+     *
+     * Games that advertise their own port number to clients (Satisfactory)
+     * never reach the client behind a remap, so for those the allocation
+     * binds the external port inside the container as well and hands it to
+     * the entrypoint via [`crate::utils::server::port_environment_key`].
+     */
+    remappable: boolean;
 };
 
 export type UnmanagedResource = {
@@ -4188,9 +4198,18 @@ export type CreateServerErrors = {
         };
     };
     /**
-     * The specified port range is not allocated to the server
+     * The specified port range is invalid
      */
     '400‭': {
+        error?: {
+            id?: 'port/invalid';
+            msg?: 'The specified port range is invalid';
+        };
+    };
+    /**
+     * The specified port range is not allocated to the server
+     */
+    '400‮': {
         error?: {
             id?: 'port/not_allocated';
             msg?: 'The specified port range is not allocated to the server';
@@ -4199,7 +4218,7 @@ export type CreateServerErrors = {
     /**
      * Unknown template port definition used
      */
-    '400⁢': {
+    '400⁣': {
         error?: {
             id?: 'template/port_definition_unknown';
             msg?: 'Unknown template port definition used';
@@ -4208,7 +4227,7 @@ export type CreateServerErrors = {
     /**
      * The template input is invalid
      */
-    '400⁣': {
+    '400⁤': {
         error?: {
             id?: 'template/input_invalid';
             msg?: 'The template input is invalid';
@@ -4253,7 +4272,7 @@ export type CreateServerErrors = {
     /**
      * The template does not exist
      */
-    '404‮': {
+    '404⁠': {
         error?: {
             id?: 'template/not_found';
             msg?: 'The template does not exist';
@@ -4289,7 +4308,7 @@ export type CreateServerErrors = {
     /**
      * The template was unable to read the server data
      */
-    '500⁡': {
+    '500⁢': {
         error?: {
             id?: 'template/corrupted';
             msg?: 'The template was unable to read the server data';
@@ -4307,7 +4326,7 @@ export type CreateServerErrors = {
     /**
      * The template is unavailable at the moment
      */
-    '503⁠': {
+    '503⁡': {
         error?: {
             id?: 'template/unavailable';
             msg?: 'The template is unavailable at the moment';
@@ -4443,7 +4462,7 @@ export type AddPortErrors = {
     /**
      * The specified port range is invalid
      */
-    '400‪': {
+    '400‭': {
         error?: {
             id?: 'port/invalid';
             msg?: 'The specified port range is invalid';
@@ -4452,7 +4471,7 @@ export type AddPortErrors = {
     /**
      * The specified port range is not allocated to the server
      */
-    '400‫': {
+    '400‮': {
         error?: {
             id?: 'port/not_allocated';
             msg?: 'The specified port range is not allocated to the server';
@@ -4479,7 +4498,7 @@ export type AddPortErrors = {
     /**
      * Server not found
      */
-    '404‍': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -4504,9 +4523,27 @@ export type AddPortErrors = {
         };
     };
     /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‬': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
      * Node operation failed
      */
-    '502‏': {
+    '502‪': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -4515,10 +4552,19 @@ export type AddPortErrors = {
     /**
      * Server is currently in use
      */
-    '503‎': {
+    '503‏': {
         error?: {
             id?: 'server/unavailable';
             msg?: 'Server is currently in use';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‫': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
         };
     };
 };
@@ -4578,7 +4624,7 @@ export type DeletePortErrors = {
     /**
      * Server not found
      */
-    '404‍': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -4603,12 +4649,39 @@ export type DeletePortErrors = {
         };
     };
     /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‫': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
      * Node operation failed
      */
-    '502‎': {
+    '502‏': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‪': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
         };
     };
 };
@@ -4650,7 +4723,7 @@ export type UpdatePortErrors = {
     /**
      * The specified port range is invalid
      */
-    '400‏': {
+    '400‬': {
         error?: {
             id?: 'port/invalid';
             msg?: 'The specified port range is invalid';
@@ -4659,7 +4732,7 @@ export type UpdatePortErrors = {
     /**
      * The specified port range is not allocated to the server
      */
-    '400‪': {
+    '400‭': {
         error?: {
             id?: 'port/not_allocated';
             msg?: 'The specified port range is not allocated to the server';
@@ -4668,7 +4741,7 @@ export type UpdatePortErrors = {
     /**
      * The specified port range collides with another server's ports
      */
-    '400‫': {
+    '400‮': {
         error?: {
             id?: 'port/collision';
             msg?: 'The specified port range collides with another server\'s ports';
@@ -4695,7 +4768,7 @@ export type UpdatePortErrors = {
     /**
      * Server not found
      */
-    '404‍': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -4720,12 +4793,39 @@ export type UpdatePortErrors = {
         };
     };
     /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‫': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
      * Node operation failed
      */
-    '502‎': {
+    '502‏': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‪': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
         };
     };
 };
