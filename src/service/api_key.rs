@@ -286,10 +286,7 @@ pub(crate) impl ApiKeyService for Backend {
                 return Err(DeleteApiKeyError::ApiKeyNotFound);
             };
 
-            auth.require::<_, _, DeleteApiKeyError>(
-                project,
-                ProjectPermissions::ADMIN_MANAGEMENT,
-            )?;
+            auth.require::<_, _, DeleteApiKeyError>(project, ProjectPermissions::ADMIN_MANAGEMENT)?;
         }
 
         query!("DELETE FROM api_keys WHERE id = $1", api_key_id)
