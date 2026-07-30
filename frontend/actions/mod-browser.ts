@@ -1,72 +1,151 @@
 import { z } from "zod";
 
-import { getResource, ResourceType } from "@/lib/api";
+import {
+  installResource,
+  listInstalledResources,
+  listResourceVersions,
+  resourceContext,
+  searchResources,
+  uninstallResource,
+} from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
-import { getResourceProvider } from "@/lib/mod-browser/providers";
-import "@/lib/mod-browser/modrinth";
 
-const providerSchema = z.literal("modrinth");
+// Every provider call goes through the backend, which normalizes the four
+// providers into one shape and caches the upstream responses in Valkey.
+
+const providerSchema = z.enum(["modrinth", "curseforge", "hangar", "spigot"]);
 const loaderSchema = z.enum(["paper", "fabric", "forge", "neoforge"]);
+const serverSchema = z.string().min(1);
+
+function unwrap<T>(
+  response: { data?: T; error?: { error?: { msg?: string } } },
+  fallback: string,
+): T {
+  if (response.error || response.data === undefined) {
+    throw new ActionError(response.error?.error?.msg ?? fallback);
+  }
+
+  return response.data;
+}
+
+export const getResourceContextAction = authActionClient
+  .inputSchema(z.object({ serverId: serverSchema }))
+  .action(async ({ parsedInput }) =>
+    unwrap(
+      await resourceContext({ path: { server_id: parsedInput.serverId } }),
+      "Failed to load the resource browser",
+    ),
+  );
 
 export const searchResourceProjectsAction = authActionClient
   .inputSchema(
     z.object({
+      serverId: serverSchema,
       provider: providerSchema,
       query: z.string().max(120).default(""),
       loader: loaderSchema,
+      gameVersion: z.string().optional(),
     }),
   )
-  .action(async ({ parsedInput }) => {
-    const provider = getResourceProvider(parsedInput.provider);
-
-    return provider.searchProjects({
-      query: parsedInput.query.trim(),
-      loader: parsedInput.loader,
-    });
-  });
+  .action(async ({ parsedInput }) =>
+    unwrap(
+      await searchResources({
+        path: { server_id: parsedInput.serverId },
+        query: {
+          provider: parsedInput.provider,
+          query: parsedInput.query,
+          loader: parsedInput.loader,
+          game_version: parsedInput.gameVersion,
+        },
+      }),
+      "Failed to search resources",
+    ),
+  );
 
 export const listResourceVersionsAction = authActionClient
   .inputSchema(
     z.object({
+      serverId: serverSchema,
       provider: providerSchema,
-      projectId: z.string().min(1),
+      project: z.string().min(1),
       loader: loaderSchema,
+      gameVersion: z.string().optional(),
     }),
   )
-  .action(async ({ parsedInput }) => {
-    const provider = getResourceProvider(parsedInput.provider);
+  .action(async ({ parsedInput }) =>
+    unwrap(
+      await listResourceVersions({
+        path: { server_id: parsedInput.serverId },
+        query: {
+          provider: parsedInput.provider,
+          project: parsedInput.project,
+          loader: parsedInput.loader,
+          game_version: parsedInput.gameVersion,
+        },
+      }),
+      "Failed to load versions",
+    ),
+  );
 
-    return provider.listVersions({
-      projectId: parsedInput.projectId,
-      loader: parsedInput.loader,
-    });
-  });
+export const listInstalledResourcesAction = authActionClient
+  .inputSchema(z.object({ serverId: serverSchema }))
+  .action(async ({ parsedInput }) =>
+    unwrap(
+      await listInstalledResources({
+        path: { server_id: parsedInput.serverId },
+      }),
+      "Failed to load installed resources",
+    ),
+  );
 
 export const installResourceVersionAction = authActionClient
   .inputSchema(
     z.object({
-      serverId: z.string().min(1),
-      slug: z.string().min(1),
+      serverId: serverSchema,
       provider: providerSchema,
-      resourceType: z.enum([ResourceType.PLUGIN, ResourceType.MODIFICATION]),
-      versionId: z.string().min(1),
+      project: z.string().min(1),
+      version: z.string().min(1),
+      loader: loaderSchema,
+      title: z.string().optional(),
+    }),
+  )
+  .action(async ({ parsedInput }) =>
+    unwrap(
+      await installResource({
+        path: { server_id: parsedInput.serverId },
+        body: {
+          provider: parsedInput.provider,
+          project: parsedInput.project,
+          version: parsedInput.version,
+          loader: parsedInput.loader,
+          title: parsedInput.title,
+        },
+      }),
+      "Failed to install resource",
+    ),
+  );
+
+export const uninstallResourceAction = authActionClient
+  .inputSchema(
+    z.object({
+      serverId: serverSchema,
+      provider: providerSchema,
+      project: z.string().min(1),
     }),
   )
   .action(async ({ parsedInput }) => {
-
-    const response = await getResource({
+    const response = await uninstallResource({
       path: { server_id: parsedInput.serverId },
-      body: {
+      query: {
         provider: parsedInput.provider,
-        type: parsedInput.resourceType,
-        version: parsedInput.versionId,
+        project: parsedInput.project,
       },
     });
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg ?? "Failed to install resource",
+        response.error.error?.msg ?? "Failed to remove resource",
       );
     }
 

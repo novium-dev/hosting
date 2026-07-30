@@ -322,8 +322,12 @@ pub(crate) fn encode_segment(segment: &str) -> String {
 /// Rejects ids that could escape a URL path or a file name. Providers hand out
 /// opaque ids; anything outside this set did not come from them.
 pub(crate) fn validate_id(id: &str, max_len: usize) -> Result<(), ResourceError> {
+    // `.` has to stay allowed (Hangar version names look like `1.2.3+45`), but a
+    // `..` segment would be collapsed by URL parsing and could reach an endpoint
+    // other than the one being built.
     if id.is_empty()
         || id.len() > max_len
+        || id.contains("..")
         || !id
             .chars()
             .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.' | '+'))

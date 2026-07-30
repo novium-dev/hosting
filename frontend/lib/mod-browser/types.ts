@@ -1,49 +1,55 @@
-import { ResourceType } from "@/lib/api";
+import type {
+  InstallResourcePayload,
+  ListInstalledResourcesResponse,
+  ListResourceVersionsResponse,
+  ResourceContextResponse,
+  ResourceLoader,
+  ResourceLoaderInfo,
+  ResourceProvider,
+  SearchResourcesResponse,
+} from "@/lib/api";
 
-export type ResourceProviderId = "modrinth";
+// The browser used to talk to Modrinth from the page and keep its own model of
+// a "project". Search, version listing and installation now all live in the
+// backend, so these are just the generated response shapes under readable
+// names.
 
-export type MinecraftResourceLoader = "paper" | "fabric" | "forge" | "neoforge";
+export type ResourceProject = SearchResourcesResponse[number];
+export type ResourceVersion = ListResourceVersionsResponse[number];
+export type InstalledResource = ListInstalledResourcesResponse[number];
+export type ResourceContext = ResourceContextResponse;
 
-export type MinecraftResourceCapability = {
-  feature: string;
-  label: string;
-  loader: MinecraftResourceLoader;
-  path: "/mods" | "/plugins";
-  resourceType: Extract<ResourceType, "plugin" | "modification">;
+export type {
+  InstallResourcePayload,
+  ResourceLoader,
+  ResourceLoaderInfo,
+  ResourceProvider,
 };
 
-export type ResourceProject = {
-  provider: ResourceProviderId;
-  id: string;
-  slug: string;
-  title: string;
-  author: string;
-  description: string;
-  iconUrl: string | null;
-  downloads: number;
-  follows: number;
-  categories: string[];
-  versions: string[];
-  latestVersion: string;
+export const PROVIDER_LABELS: Record<ResourceProvider, string> = {
+  modrinth: "Modrinth",
+  curseforge: "CurseForge",
+  hangar: "Hangar",
+  spigot: "SpigotMC",
 };
 
-export type ResourceVersion = {
-  provider: ResourceProviderId;
-  id: string;
-  projectId: string;
-  name: string;
-  versionNumber: string;
-  versionType: "release" | "beta" | "alpha";
-  gameVersions: string[];
-  loaders: string[];
-  downloads: number;
-  publishedAt: string;
-  primaryFileName: string | null;
-  fileNames: string[];
-};
+// Only used to decide whether the "Mods" tab is worth showing before the
+// browser mounts. The authoritative loader/provider list comes from the
+// backend's resource context.
+const RESOURCE_FEATURES = [
+  "minecraft_plugins_paper",
+  "minecraft_mods_fabric",
+  "minecraft_mods_forge",
+  "minecraft_mods_neoforge",
+];
 
-export type ResourceInstallState = {
-  installed: boolean;
-  installedVersionId: string | null;
-  installedFileName: string | null;
+export function hasResourceSupport(features: string[]) {
+  return features.some((feature) => RESOURCE_FEATURES.includes(feature));
+}
+
+export const LOADER_LABELS: Record<ResourceLoader, string> = {
+  paper: "Paper plugins",
+  fabric: "Fabric mods",
+  forge: "Forge mods",
+  neoforge: "NeoForge mods",
 };
