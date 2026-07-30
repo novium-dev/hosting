@@ -345,6 +345,10 @@ pub(crate) fn validate_id(id: &str, max_len: usize) -> Result<(), ResourceError>
     Ok(())
 }
 
+/// Longest file name written to a server, comfortably inside the 255-byte limit
+/// every relevant filesystem imposes.
+const MAX_FILE_NAME: usize = 200;
+
 /// Strips path separators and control characters from a provider-supplied file
 /// name so it can only ever land inside the intended directory.
 pub(crate) fn sanitize_file_name(name: &str, fallback: &str) -> String {
@@ -361,10 +365,27 @@ pub(crate) fn sanitize_file_name(name: &str, fallback: &str) -> String {
     let trimmed = cleaned.trim_matches('.').trim_matches('_');
 
     if trimmed.is_empty() {
-        fallback.to_owned()
-    } else {
-        trimmed.chars().take(200).collect()
+        return fallback.to_owned();
     }
+    if trimmed.chars().count() <= MAX_FILE_NAME {
+        return trimmed.to_owned();
+    }
+
+    // Truncating blindly would cut the extension off, and a jar written without
+    // `.jar` is silently never loaded. Keep the extension and shorten the stem.
+    let extension = trimmed
+        .rsplit_once('.')
+        .map(|(_stem, extension)| extension)
+        .filter(|extension| !extension.is_empty() && extension.chars().count() <= 16);
+
+    extension.map_or_else(
+        || trimmed.chars().take(MAX_FILE_NAME).collect(),
+        |extension| {
+            let keep = MAX_FILE_NAME - extension.chars().count() - 1;
+            let stem: String = trimmed.chars().take(keep).collect();
+            format!("{stem}.{extension}")
+        },
+    )
 }
 
 /// Entry point the services use; owns the HTTP client, the Valkey handle and

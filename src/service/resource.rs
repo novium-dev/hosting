@@ -42,6 +42,9 @@ define_query_variable!(enabled "Whether the resource should be active");
 /// Default page size, matching what the browser shows without scrolling.
 const DEFAULT_LIMIT: u8 = 24;
 
+/// Longest title stored for an installed resource, matching the column width.
+const MAX_TITLE_LENGTH: usize = 255;
+
 /// Mask selecting the file-type bits out of a Unix mode.
 const FILE_TYPE_MASK: u32 = 0xF000;
 
@@ -51,9 +54,20 @@ const FILE_TYPE_MASK: u32 = 0xF000;
 const DISABLED_SUFFIX: &str = ".disabled";
 
 /// Splits an on-disk name into its base name and whether it is active.
+///
+/// Case-insensitive, to stay consistent with [`is_resource_file`]: otherwise a
+/// `Foo.jar.DISABLED` would be accepted as a resource but reported active, and
+/// its record would be reconciled away as missing.
 fn split_disabled(name: &str) -> (&str, bool) {
-    name.strip_suffix(DISABLED_SUFFIX)
-        .map_or((name, true), |base| (base, false))
+    if name.to_lowercase().ends_with(DISABLED_SUFFIX) {
+        (
+            name.get(..name.len() - DISABLED_SUFFIX.len())
+                .unwrap_or(name),
+            false,
+        )
+    } else {
+        (name, true)
+    }
 }
 
 /// The on-disk name a base name takes in the given state.
@@ -635,10 +649,31 @@ pub(crate) impl ResourceService for Backend {
                 }
             })?;
 
-        // The replaced jar only needs to go once the new one is on disk. A
-        // failure here leaves a stale file behind, which is recoverable through
-        // the file manager, so it must not fail the install. The old file may
-        // have been parked, so both names are tried.
+        // Superseded files only go once the new one is on disk. Failures here
+        // leave a stale file behind, which is recoverable through the file
+        // manager, so they must not fail the install.
+        //
+        // The write above lands on the active name, so a parked copy of that
+        // same name is now a stale duplicate — and leaving it would make the
+        // resource impossible to disable afterwards. It has to go even when the
+        // file name did not change, which is why this is not folded into the
+        // `previous_file` case below.
+        let parked = format!(
+            "{}{}",
+            resource_type.path_prefix(),
+            state_file_name(&resolved.file_name, false)
+        );
+        match server
+            .node
+            .server_delete_file(server.node_server_id, parked.clone(), false)
+            .await
+        {
+            Ok(()) | Err(ServerDeleteFileError::FileNotFound) => {}
+            Err(err) => warn!("Failed to remove superseded parked resource {parked}: {err:?}"),
+        }
+
+        // A previous file under a different name is a leftover of the old
+        // version, in whichever state it was left.
         if let Some((previous_file, previous_type)) = previous
             && previous_file != resolved.file_name
             && let Err(err) = remove_resource_file(&server, previous_type, &previous_file).await
@@ -647,7 +682,12 @@ pub(crate) impl ResourceService for Backend {
         }
 
         let installed = InstalledResource {
-            title: payload.title.unwrap_or_else(|| payload.project.clone()),
+            // The column is varchar(255); an over-long title would fail the
+            // upsert *after* the file is on disk, orphaning it.
+            title: payload
+                .title
+                .map(|title| title.chars().take(MAX_TITLE_LENGTH).collect())
+                .unwrap_or_else(|| payload.project.clone()),
             provider: payload.provider,
             project: payload.project,
             version: payload.version,
@@ -811,6 +851,14 @@ pub(crate) impl ResourceService for Backend {
         };
 
         if exists(&target) {
+            // Both names present. Reporting success here would be a lie for a
+            // disable — the active file would stay loaded — and picking one to
+            // delete could throw away a different version. Say so instead and
+            // let the file manager resolve it.
+            if exists(&current) {
+                return Err(SetResourceStateError::FileAlreadyExists);
+            }
+
             // Already in the requested state.
             return Ok(ResourceState {
                 resource_type,
