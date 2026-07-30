@@ -775,7 +775,9 @@ pub(crate) impl ServerService for Backend {
             .template
             .extra_to_build_payload(
                 self.cache.clone(),
-                new_extra.ok_or(UpdateVariablesError::TemplateInputInvalid)?,
+                new_extra
+                    .clone()
+                    .ok_or(UpdateVariablesError::TemplateInputInvalid)?,
             )
             .await
             .map_err(TemplateError::into::<UpdateVariablesError>)?;
@@ -788,6 +790,15 @@ pub(crate) impl ServerService for Backend {
                 error!("Failed to update server variables: {err:?}");
                 UpdateVariablesError::NodeFailure
             })?;
+
+        query!(
+            "UPDATE servers SET template_extra = $1 WHERE id = $2",
+            new_extra,
+            &server_id
+        )
+        .execute(&*self.database)
+        .await
+        .inspect_err(|err| error!("Failed to update server variables (template_extra): {err:?}"))?;
 
         Ok(())
     }
