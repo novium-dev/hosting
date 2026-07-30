@@ -26,6 +26,12 @@ export type BackupStorage = {
     btrfs: string;
 } | 'archive';
 
+export type CreateApiKeyPayload = {
+    name: string;
+    permissions: number;
+    project?: null | NanoId;
+};
+
 export type CreateNodePayload = {
     config: SetupNodeConfigRequest;
     name: string;
@@ -395,6 +401,11 @@ export type UnmanagedResource = {
     file_name: string;
     resource_type: ResourceType;
     size: number;
+};
+
+export type UpdateApiKeyPayload = {
+    name?: string | null;
+    permissions?: number | null;
 };
 
 export type UpdatePortPayload = {
@@ -10002,3 +10013,662 @@ export type InstallModpackResponses = {
 };
 
 export type InstallModpackResponse = InstallModpackResponses[keyof InstallModpackResponses];
+
+export type ListApiKeysData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api-key';
+};
+
+export type ListApiKeysErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+};
+
+export type ListApiKeysError = ListApiKeysErrors[keyof ListApiKeysErrors];
+
+export type ListApiKeysResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        /**
+         * Unix seconds.
+         */
+        created_at: number;
+        id: number;
+        /**
+         * Unix seconds, or `null` if the key has never been used.
+         */
+        last_used?: number | null;
+        name: string;
+        permissions: number;
+        /**
+         * The non-secret leading segment of the token; the token itself is only
+         * ever returned once, when the key is created.
+         */
+        prefix: string;
+        project?: null | NanoId;
+        project_slug?: string | null;
+        /**
+         * The user the key acts as.
+         */
+        user: number;
+        username: string;
+    }>;
+};
+
+export type ListApiKeysResponse = ListApiKeysResponses[keyof ListApiKeysResponses];
+
+export type CreateApiKeyData = {
+    body: CreateApiKeyPayload;
+    headers?: {
+        /**
+         * The session token
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api-key';
+};
+
+export type CreateApiKeyErrors = {
+    /**
+     * An API key cannot be granted permissions you do not hold yourself
+     */
+    '400‎': {
+        error?: {
+            id?: 'api_key/permissions_exceeded';
+            msg?: 'An API key cannot be granted permissions you do not hold yourself';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403​': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‌': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+};
+
+export type CreateApiKeyError = CreateApiKeyErrors[keyof CreateApiKeyErrors];
+
+export type CreateApiKeyResponses = {
+    /**
+     * Success
+     */
+    200: {
+        id: number;
+        /**
+         * The token. This is the only time it is ever returned.
+         */
+        key: string;
+    };
+};
+
+export type CreateApiKeyResponse = CreateApiKeyResponses[keyof CreateApiKeyResponses];
+
+export type ListProjectApiKeysData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+    };
+    query?: never;
+    url: '/api-key/project/{project_id}';
+};
+
+export type ListProjectApiKeysErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403​': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‌': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+};
+
+export type ListProjectApiKeysError = ListProjectApiKeysErrors[keyof ListProjectApiKeysErrors];
+
+export type ListProjectApiKeysResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        /**
+         * Unix seconds.
+         */
+        created_at: number;
+        id: number;
+        /**
+         * Unix seconds, or `null` if the key has never been used.
+         */
+        last_used?: number | null;
+        name: string;
+        permissions: number;
+        /**
+         * The non-secret leading segment of the token; the token itself is only
+         * ever returned once, when the key is created.
+         */
+        prefix: string;
+        project?: null | NanoId;
+        project_slug?: string | null;
+        /**
+         * The user the key acts as.
+         */
+        user: number;
+        username: string;
+    }>;
+};
+
+export type ListProjectApiKeysResponse = ListProjectApiKeysResponses[keyof ListProjectApiKeysResponses];
+
+export type DeleteApiKeyData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The API key ID
+         */
+        api_key_id: number;
+    };
+    query?: never;
+    url: '/api-key/{api_key_id}';
+};
+
+export type DeleteApiKeyErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * API key not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'api_key/not_found';
+            msg?: 'API key not found';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+};
+
+export type DeleteApiKeyError = DeleteApiKeyErrors[keyof DeleteApiKeyErrors];
+
+export type DeleteApiKeyResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteApiKeyResponse = DeleteApiKeyResponses[keyof DeleteApiKeyResponses];
+
+export type UpdateApiKeyData = {
+    body: UpdateApiKeyPayload;
+    headers?: {
+        /**
+         * The session token
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The API key ID
+         */
+        api_key_id: number;
+    };
+    query?: never;
+    url: '/api-key/{api_key_id}';
+};
+
+export type UpdateApiKeyErrors = {
+    /**
+     * An API key cannot be granted permissions you do not hold yourself
+     */
+    '400‏': {
+        error?: {
+            id?: 'api_key/permissions_exceeded';
+            msg?: 'An API key cannot be granted permissions you do not hold yourself';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403​': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * API key not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'api_key/not_found';
+            msg?: 'API key not found';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‌': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+};
+
+export type UpdateApiKeyError = UpdateApiKeyErrors[keyof UpdateApiKeyErrors];
+
+export type UpdateApiKeyResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UpdateApiKeyResponse = UpdateApiKeyResponses[keyof UpdateApiKeyResponses];
+
+export type ListAllApiKeysData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * The page that should be returned. If missing disables paging.
+         */
+        page?: number;
+        /**
+         * Limits the items pro page.
+         */
+        limit?: number;
+    };
+    url: '/admin/api-key';
+};
+
+export type ListAllApiKeysErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListAllApiKeysError = ListAllApiKeysErrors[keyof ListAllApiKeysErrors];
+
+export type ListAllApiKeysResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        /**
+         * Unix seconds.
+         */
+        created_at: number;
+        id: number;
+        /**
+         * Unix seconds, or `null` if the key has never been used.
+         */
+        last_used?: number | null;
+        name: string;
+        permissions: number;
+        /**
+         * The non-secret leading segment of the token; the token itself is only
+         * ever returned once, when the key is created.
+         */
+        prefix: string;
+        project?: null | NanoId;
+        project_slug?: string | null;
+        /**
+         * The user the key acts as.
+         */
+        user: number;
+        username: string;
+    }>;
+};
+
+export type ListAllApiKeysResponse = ListAllApiKeysResponses[keyof ListAllApiKeysResponses];
+
+export type DeleteAnyApiKeyData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The API key ID
+         */
+        api_key_id: number;
+    };
+    query?: never;
+    url: '/admin/api-key/{api_key_id}';
+};
+
+export type DeleteAnyApiKeyErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * API key not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'api_key/not_found';
+            msg?: 'API key not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type DeleteAnyApiKeyError = DeleteAnyApiKeyErrors[keyof DeleteAnyApiKeyErrors];
+
+export type DeleteAnyApiKeyResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteAnyApiKeyResponse = DeleteAnyApiKeyResponses[keyof DeleteAnyApiKeyResponses];
+
+export type LoginDevData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/auth/login/dev';
+};
+
+export type LoginDevErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500​': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * OS operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'os/failure';
+            msg?: 'OS operation failed';
+        };
+    };
+};
+
+export type LoginDevError = LoginDevErrors[keyof LoginDevErrors];
+
+export type LoginDevResponses = {
+    /**
+     * Success
+     */
+    200: string;
+};
+
+export type LoginDevResponse = LoginDevResponses[keyof LoginDevResponses];

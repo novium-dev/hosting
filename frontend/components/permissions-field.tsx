@@ -1,11 +1,18 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  MANAGEMENT_PERMISSION_GROUPS,
   SERVER_PERMISSION_GROUPS,
   hasPermissionBit,
+  resolveManagementPermissions,
   resolveServerPermissions,
   setPermissionBit,
 } from "@/lib/permissions";
+
+type PermissionGroups = {
+  group: string;
+  permissions: { bit: number; label: string }[];
+}[];
 
 // Specific-permission picker for project sub-users. Instead of a role, the
 // caller stores a numeric permission bitfield. Dependencies are auto-included
@@ -14,17 +21,25 @@ export function PermissionsField({
   value,
   onChange,
   disabled,
+  groups = SERVER_PERMISSION_GROUPS,
+  resolve = resolveServerPermissions,
+  className = "h-64",
 }: {
   value: number;
   onChange: (value: number) => void;
   disabled?: boolean;
+  /** Which permissions to offer. Defaults to the project/server scope. */
+  groups?: PermissionGroups;
+  /** Dependency expansion matching `groups`. */
+  resolve?: (permissions: number) => number;
+  className?: string;
 }) {
-  const resolved = resolveServerPermissions(value);
+  const resolved = resolve(value);
 
   return (
-    <ScrollArea className="h-64 rounded-md border">
+    <ScrollArea className={`${className} rounded-md border`}>
       <div className="space-y-4 p-3">
-        {SERVER_PERMISSION_GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.group} className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {group.group}
@@ -60,5 +75,18 @@ export function PermissionsField({
         ))}
       </div>
     </ScrollArea>
+  );
+}
+
+/** The same picker over the instance-wide (management) permission scope. */
+export function ManagementPermissionsField(
+  props: Omit<Parameters<typeof PermissionsField>[0], "groups" | "resolve">,
+) {
+  return (
+    <PermissionsField
+      {...props}
+      groups={MANAGEMENT_PERMISSION_GROUPS}
+      resolve={resolveManagementPermissions}
+    />
   );
 }

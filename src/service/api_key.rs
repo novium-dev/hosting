@@ -256,25 +256,45 @@ pub(crate) impl ApiKeyService for Backend {
         Ok(())
     }
 
-    /// Deletes one of the current user's API keys, revoking it immediately.
+    /// Deletes an API key, revoking it immediately.
+    ///
+    /// # Permissions
+    /// Your own keys always. Requires `ProjectPermissions::ADMIN_MANAGEMENT` to
+    /// revoke someone else's key in a project you administrate; instance-wide
+    /// keys can only be revoked by their owner or through the admin route.
     #[route("/{api_key_id}", method = DELETE)]
-    #[error(db::failure <- [sql:*], auth::unreachable, api_key::not_found)]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found, api_key::not_found)]
     async fn delete_api_key(
         &self,
         #[special] auth: UserAuthentication,
         api_key_id: i32,
     ) -> Result<(), _> {
-        let result = query!(
-            r#"DELETE FROM api_keys WHERE id = $1 AND "user" = $2"#,
-            api_key_id,
-            auth.id
+        let Some(key) = query!(
+            r#"SELECT "user", project AS "project: ProjectId"
+             FROM api_keys
+             WHERE id = $1"#,
+            api_key_id
         )
-        .execute(&*self.database)
-        .await?;
-
-        if result.rows_affected() == 0 {
+        .fetch_optional(&*self.database)
+        .await?
+        else {
             return Err(DeleteApiKeyError::ApiKeyNotFound);
+        };
+
+        if key.user != auth.id {
+            let Some(project) = key.project else {
+                return Err(DeleteApiKeyError::ApiKeyNotFound);
+            };
+
+            auth.require::<_, _, DeleteApiKeyError>(
+                project,
+                ProjectPermissions::ADMIN_MANAGEMENT,
+            )?;
         }
+
+        query!("DELETE FROM api_keys WHERE id = $1", api_key_id)
+            .execute(&*self.database)
+            .await?;
 
         Ok(())
     }

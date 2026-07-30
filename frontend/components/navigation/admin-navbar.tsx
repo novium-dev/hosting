@@ -2,6 +2,7 @@ import Link from "@/components/link";
 import {
   FolderKanban,
   Home,
+  KeyRound,
   Network,
   Server,
   Users,
@@ -38,6 +39,12 @@ const adminLinks = [
     href: "/admin/nodes",
     icon: Network,
     permission: ManagementPermission.NODES_VIEW,
+  },
+  {
+    title: "API keys",
+    href: "/admin/api-keys",
+    icon: KeyRound,
+    permission: ManagementPermission.API_KEYS_VIEW,
   },
 ] as const;
 
