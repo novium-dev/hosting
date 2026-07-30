@@ -8,21 +8,38 @@ use crate::db::server::resources::{
 };
 use crate::db::server::{Server, ServerId};
 use crate::resources::{
-    MAX_QUERY_LENGTH, MAX_SEARCH_LIMIT, ResourceClient, ResourceError, ResourceLoader,
-    ResourceProject, ResourceProvider, ResourceQuery, ResourceType, ResourceVersion,
+    MAX_QUERY_LENGTH, MAX_SEARCH_LIMIT, ResourceClient, ResourceError, ResourceKind,
+    ResourceLoader, ResourceProject, ResourceProvider, ResourceQuery, ResourceType,
+    ResourceVersion, ResourceVersionType,
 };
 use crate::service::resource::resource_service_error::{
-    InstallResourceError, ListInstalledResourcesError, ListResourceVersionsError,
-    ResourceContextError, SearchResourcesError, SetResourceStateError, UninstallResourceError,
+    InstallResourceError, ListInstalledResourcesError, ListResourceUpdatesError,
+    ListResourceVersionsError, ResourceContextError, SearchResourcesError, SetResourceStateError,
+    UninstallResourceError, UpdateAllResourcesError, UpdateResourceError,
 };
 use crate::service::template::*;
+use crate::service::{
+    error_file_already_exists::FromFileAlreadyExists, error_file_is_directory::FromFileIsDirectory,
+    error_file_not_found::FromFileNotFound, error_file_quota_exceeded::FromFileQuotaExceeded,
+    error_file_sandbox_violated::FromFileSandboxViolated,
+    error_file_storage_unavailable::FromFileStorageUnavailable,
+    error_node_failure::FromNodeFailure,
+    error_resource_download_unavailable::FromResourceDownloadUnavailable,
+    error_resource_invalid_payload::FromResourceInvalidPayload,
+    error_resource_missing::FromResourceMissing,
+    error_resource_provider_disabled::FromResourceProviderDisabled,
+    error_resource_provider_error::FromResourceProviderError,
+    error_resource_provider_unavailable::FromResourceProviderUnavailable,
+};
 use crate::templates::games::minecraft::MinecraftTemplate;
 use crate::templates::{Template as _, TemplateError};
+use chrono::{DateTime, FixedOffset};
 use daemon_common::files::FileMode;
 use daemon_common::service::files::files_service_error::{
     ServerCreateDirectoryError, ServerDeleteFileError, ServerListFilesError, ServerRenameFileError,
     ServerWriteFileByUrlError,
 };
+use redis::RedisError;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
@@ -38,6 +55,10 @@ define_query_variable!(project "The provider-scoped project id");
 define_query_variable!(offset "The number of results to skip");
 define_query_variable!(resource_type "The kind of resource (plugin, modification, data_pack)");
 define_query_variable!(enabled "Whether the resource should be active");
+define_query_variable!(kind "Whether to browse individual resources or modpacks");
+define_query_variable!(
+    allow_prerelease "Whether beta/alpha versions count as updates (default false)"
+);
 
 /// Default page size, matching what the browser shows without scrolling.
 const DEFAULT_LIMIT: u8 = 24;
@@ -97,6 +118,9 @@ pub(crate) struct ResourceLoaderInfo {
     pub(crate) resource_type: ResourceType,
     /// Providers that both serve this loader and are configured here.
     pub(crate) providers: Vec<ResourceProvider>,
+    /// Providers that also carry modpacks for this loader. Empty for Paper,
+    /// which has no modpack concept.
+    pub(crate) modpack_providers: Vec<ResourceProvider>,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -140,6 +164,34 @@ pub(crate) struct UnmanagedResource {
     pub(crate) file_name: String,
     pub(crate) size: u64,
     pub(crate) enabled: bool,
+}
+
+/// An installed resource that has a newer version available.
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct ResourceUpdate {
+    pub(crate) provider: ResourceProvider,
+    pub(crate) project: String,
+    pub(crate) title: String,
+    pub(crate) installed_version: String,
+    pub(crate) latest_version: String,
+    pub(crate) latest_version_number: String,
+    pub(crate) latest_version_type: ResourceVersionType,
+    pub(crate) latest_published_at: Option<String>,
+    /// `false` when the newest version cannot be fetched automatically, so the
+    /// update has to be done by hand.
+    pub(crate) downloadable: bool,
+}
+
+/// The outcome of one resource in a batch update.
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct ResourceUpdateResult {
+    pub(crate) provider: ResourceProvider,
+    pub(crate) project: String,
+    pub(crate) title: String,
+    /// The version now installed, when it worked.
+    pub(crate) version: Option<String>,
+    /// Why it did not update, when it did not.
+    pub(crate) error: Option<String>,
 }
 
 /// The state a resource file ended up in.
@@ -243,13 +295,23 @@ fn partition_present(
             continue;
         };
 
-        let disabled = state_file_name(&resource.file_name, false);
-        let has_active = files
-            .iter()
-            .any(|(name, _size)| *name == resource.file_name);
-        let has_disabled = files.iter().any(|(name, _size)| *name == disabled);
+        // Split each name found rather than building the one expected, so the
+        // suffix is matched on the same (case-insensitive) terms everywhere.
+        // Base names stay an exact match: file names are case-sensitive.
+        let mut has_active = false;
+        let mut has_parked = false;
+        for (name, _size) in files {
+            let (base, enabled) = split_disabled(name);
+            if base == resource.file_name {
+                if enabled {
+                    has_active = true;
+                } else {
+                    has_parked = true;
+                }
+            }
+        }
 
-        if has_active || has_disabled {
+        if has_active || has_parked {
             resource.enabled = has_active;
             present.push(resource);
         } else {
@@ -258,6 +320,137 @@ fn partition_present(
     }
 
     (present, missing)
+}
+
+/// Everything that can go wrong writing a resource onto a server.
+///
+/// The install path is shared by three routes with different generated error
+/// enums, so it reports through one type that is mapped once per route — the
+/// same shape as [`ResourceError::into`] and `TemplateError::into`.
+#[derive(Debug)]
+pub(crate) enum InstallError {
+    Resource(ResourceError),
+    /// The resolved file is not an artifact this directory can load — a modpack
+    /// archive rather than a mod, for instance.
+    UnexpectedFileType,
+    Node,
+    StorageUnavailable,
+    FileNotFound,
+    SandboxViolated,
+    IsDirectory,
+    QuotaExceeded,
+    AlreadyExists,
+    Database(sqlx::Error),
+}
+
+impl From<sqlx::Error> for InstallError {
+    fn from(value: sqlx::Error) -> Self {
+        Self::Database(value)
+    }
+}
+
+impl InstallError {
+    /// Short, stable reason for per-item reporting in a batch update, where one
+    /// failure must not sink the whole response.
+    pub(crate) const fn reason(&self) -> &'static str {
+        match self {
+            Self::Resource(resource) => resource.reason(),
+            Self::UnexpectedFileType => "The provider returned a file that is not a mod or plugin",
+            Self::Node => "The node could not be reached",
+            Self::StorageUnavailable => "Storage is currently in use",
+            Self::FileNotFound => "The target directory is missing",
+            Self::SandboxViolated => "The target path is outside the server",
+            Self::IsDirectory => "A directory is in the way",
+            Self::QuotaExceeded => "The server storage quota is full",
+            Self::AlreadyExists => "A file is already in the way",
+            Self::Database(_) => "The installation could not be recorded",
+        }
+    }
+
+    pub(crate) fn into<
+        E: FromResourceInvalidPayload
+            + FromResourceProviderUnavailable
+            + FromResourceProviderError
+            + FromResourceProviderDisabled
+            + FromResourceDownloadUnavailable
+            + FromResourceMissing
+            + FromNodeFailure
+            + FromFileStorageUnavailable
+            + FromFileNotFound
+            + FromFileSandboxViolated
+            + FromFileIsDirectory
+            + FromFileQuotaExceeded
+            + FromFileAlreadyExists
+            + From<RedisError>
+            + From<sqlx::Error>,
+    >(
+        self,
+    ) -> E {
+        match self {
+            Self::Resource(resource) => resource.into::<E>(),
+            Self::UnexpectedFileType => <E as FromResourceInvalidPayload>::from(),
+            Self::Node => <E as FromNodeFailure>::from(),
+            Self::StorageUnavailable => <E as FromFileStorageUnavailable>::from(),
+            Self::FileNotFound => <E as FromFileNotFound>::from(),
+            Self::SandboxViolated => <E as FromFileSandboxViolated>::from(),
+            Self::IsDirectory => <E as FromFileIsDirectory>::from(),
+            Self::QuotaExceeded => <E as FromFileQuotaExceeded>::from(),
+            Self::AlreadyExists => <E as FromFileAlreadyExists>::from(),
+            Self::Database(err) => <E as From<sqlx::Error>>::from(err),
+        }
+    }
+}
+
+/// The newest version in a provider's list.
+///
+/// Providers mostly return newest-first, but none of them contract to, so this
+/// prefers the publish timestamp where one is given and falls back to the
+/// provider's own order. There is no version ordering that holds across four
+/// providers, so an "update" is defined as *the newest published version differs
+/// from the installed one* rather than as a semver comparison.
+///
+/// Pre-releases are skipped unless `allow_prerelease` is set: "update all" is a
+/// bulk mutation of a live server, and quietly moving every mod onto the latest
+/// beta is not what it should do. A project with nothing but pre-releases still
+/// reports one, since otherwise it could never be updated at all.
+fn newest_version(
+    versions: Vec<ResourceVersion>,
+    allow_prerelease: bool,
+) -> Option<ResourceVersion> {
+    fn newest(versions: Vec<ResourceVersion>) -> Option<ResourceVersion> {
+        let mut best: Option<(Option<DateTime<FixedOffset>>, ResourceVersion)> = None;
+
+        for version in versions {
+            let stamp = version
+                .published_at
+                .as_deref()
+                .and_then(|raw| DateTime::parse_from_rfc3339(raw).ok());
+
+            let replace = match &best {
+                None => true,
+                // Only a comparable pair of timestamps can displace the
+                // incumbent; otherwise the provider's ordering stands.
+                Some((Some(current), _)) => stamp.is_some_and(|candidate| candidate > *current),
+                Some((None, _)) => false,
+            };
+
+            if replace {
+                best = Some((stamp, version));
+            }
+        }
+
+        best.map(|(_stamp, version)| version)
+    }
+
+    if allow_prerelease {
+        return newest(versions);
+    }
+
+    let (releases, prereleases): (Vec<_>, Vec<_>) = versions
+        .into_iter()
+        .partition(|version| matches!(version.version_type, ResourceVersionType::Release));
+
+    newest(releases).or_else(|| newest(prereleases))
 }
 
 /// Removes a resource file, whether it is currently active or parked.
@@ -303,6 +496,224 @@ impl Backend {
             curseforge_api_key: self.curseforge_api_key.as_deref(),
         }
     }
+
+    /// The loader each resource type resolves to on this server, plus the
+    /// Minecraft version to stay compatible with.
+    ///
+    /// Updates have to be filtered to the server's own loader and game version,
+    /// or the "latest" version offered could be one the server cannot run.
+    async fn update_target(
+        &self,
+        server: &Server,
+    ) -> Result<(HashMap<ResourceType, ResourceLoader>, Option<String>), TemplateError> {
+        let features = server
+            .template
+            .enabled_features(self.cache.clone(), server.template_extra.clone())
+            .await?;
+
+        let loaders = FEATURE_LOADERS
+            .into_iter()
+            .filter(|(feature, _)| features.contains(feature))
+            .map(|(_, loader)| (loader.resource_type(), loader))
+            .collect();
+
+        let game_version = server
+            .template_extra
+            .get("minecraft_version")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned);
+
+        Ok((loaders, game_version))
+    }
+
+    /// The newest version available for an installed resource, or `None` when it
+    /// is already the newest (or nothing compatible could be found).
+    async fn available_update(
+        &self,
+        resource: &InstalledResource,
+        loaders: &HashMap<ResourceType, ResourceLoader>,
+        game_version: Option<&str>,
+        allow_prerelease: bool,
+    ) -> Option<ResourceVersion> {
+        let loader = *loaders.get(&resource.resource_type)?;
+        if !resource.provider.supports(loader, ResourceKind::Resource) {
+            return None;
+        }
+
+        let versions = self
+            .resource_client()
+            .versions(
+                resource.provider,
+                &resource.project,
+                loader,
+                ResourceKind::Resource,
+                game_version,
+            )
+            .await
+            .inspect_err(|err| {
+                // One unreachable provider must not sink the whole report.
+                warn!(
+                    "Failed to check updates for {}/{}: {err:?}",
+                    resource.provider.as_str(),
+                    resource.project
+                );
+            })
+            .ok()?;
+
+        newest_version(versions, allow_prerelease).filter(|latest| latest.id != resource.version)
+    }
+
+    /// Downloads `version` onto `server` and records it as installed.
+    ///
+    /// Shared by install and update: an update is an install of a newer version
+    /// over the same `(provider, project)` record, with exactly the same
+    /// replace-then-clean-up semantics.
+    async fn install_version(
+        &self,
+        server: &Server,
+        provider: ResourceProvider,
+        project: &str,
+        version: &str,
+        loader: ResourceLoader,
+        title: Option<String>,
+    ) -> Result<InstalledResource, InstallError> {
+        if !provider.supports(loader, ResourceKind::Resource) {
+            return Err(InstallError::Resource(ResourceError::InvalidPayload));
+        }
+
+        let resource_type = loader.resource_type();
+        let resolved = self
+            .resource_client()
+            .resolve(provider, project, version)
+            .await
+            .map_err(InstallError::Resource)?;
+
+        // Guards the modpack case: browsing modpacks means a client can name a
+        // modpack project here, and its `.mrpack`/`.zip` archive would be written
+        // into `mods/` where nothing would ever load it. Checking the resolved
+        // artifact rather than a client-declared kind means this holds however
+        // the request was built.
+        if !is_resource_file(resource_type, &resolved.file_name) {
+            warn!(
+                "Refusing to install {} as a {}: not a loadable artifact",
+                resolved.file_name,
+                resource_type.as_str()
+            );
+            return Err(InstallError::UnexpectedFileType);
+        }
+
+        let previous = installed_file(&self.database, server.id, provider, project).await?;
+
+        server
+            .node
+            .server_create_directory(
+                server.node_server_id,
+                resource_type.path_prefix().to_owned(),
+                true,
+            )
+            .await
+            .map_err(|err| match err {
+                ServerCreateDirectoryError::Communication(_) => {
+                    error!("Failed to request directory creation for resource: {err:?}");
+                    InstallError::Node
+                }
+                ServerCreateDirectoryError::AuthInvalid
+                | ServerCreateDirectoryError::StorageNotFound
+                | ServerCreateDirectoryError::StorageFailure
+                | ServerCreateDirectoryError::SqlFailure => {
+                    error!("Failed to create directory for resource: {err:?}");
+                    InstallError::Node
+                }
+                ServerCreateDirectoryError::StorageMutexLocked => InstallError::StorageUnavailable,
+                ServerCreateDirectoryError::FileNotFound => InstallError::FileNotFound,
+                ServerCreateDirectoryError::FileSandboxViolated => InstallError::SandboxViolated,
+                ServerCreateDirectoryError::FileAlreadyExists => InstallError::AlreadyExists,
+                ServerCreateDirectoryError::StorageQuotaReached => InstallError::QuotaExceeded,
+            })?;
+
+        let path = format!("{}{}", resource_type.path_prefix(), resolved.file_name);
+
+        server
+            .node
+            .server_write_file_by_url(server.node_server_id, path, resolved.url)
+            .await
+            .map_err(|err| match err {
+                ServerWriteFileByUrlError::Communication(_) => {
+                    error!("Failed to request file upload (by URL) for resource: {err:?}");
+                    InstallError::Node
+                }
+                ServerWriteFileByUrlError::AuthInvalid
+                | ServerWriteFileByUrlError::StorageNotFound
+                | ServerWriteFileByUrlError::StorageFailure
+                | ServerWriteFileByUrlError::SqlFailure => {
+                    error!("Failed to upload file (by URL) for resource: {err:?}");
+                    InstallError::Node
+                }
+                ServerWriteFileByUrlError::StorageMutexLocked => InstallError::StorageUnavailable,
+                ServerWriteFileByUrlError::StorageQuotaReached => InstallError::QuotaExceeded,
+                ServerWriteFileByUrlError::FileNotFound => InstallError::FileNotFound,
+                ServerWriteFileByUrlError::FileSandboxViolated => InstallError::SandboxViolated,
+                ServerWriteFileByUrlError::FileIsDirectory => InstallError::IsDirectory,
+                ServerWriteFileByUrlError::HttpRequestFailed
+                | ServerWriteFileByUrlError::HttpRequestReadFailed
+                | ServerWriteFileByUrlError::HttpRequestNotSuccess => {
+                    InstallError::Resource(ResourceError::ProviderUnavailable)
+                }
+            })?;
+
+        // Superseded files only go once the new one is on disk. Failures here
+        // leave a stale file behind, which is recoverable through the file
+        // manager, so they must not fail the install.
+        //
+        // The write above lands on the active name, so a parked copy of that
+        // same name is now a stale duplicate — and leaving it would make the
+        // resource impossible to disable afterwards. It has to go even when the
+        // file name did not change, which is why this is not folded into the
+        // `previous_file` case below.
+        let parked = format!(
+            "{}{}",
+            resource_type.path_prefix(),
+            state_file_name(&resolved.file_name, false)
+        );
+        match server
+            .node
+            .server_delete_file(server.node_server_id, parked.clone(), false)
+            .await
+        {
+            Ok(()) | Err(ServerDeleteFileError::FileNotFound) => {}
+            Err(err) => warn!("Failed to remove superseded parked resource {parked}: {err:?}"),
+        }
+
+        // A previous file under a different name is a leftover of the old
+        // version, in whichever state it was left.
+        if let Some((previous_file, previous_type)) = previous
+            && previous_file != resolved.file_name
+            && let Err(err) = remove_resource_file(server, previous_type, &previous_file).await
+        {
+            warn!("Failed to remove replaced resource {previous_file}: {err:?}");
+        }
+
+        let installed = InstalledResource {
+            // The column is varchar(255); an over-long title would fail the
+            // upsert *after* the file is on disk, orphaning it.
+            title: title.map_or_else(
+                || project.to_owned(),
+                |title| title.chars().take(MAX_TITLE_LENGTH).collect(),
+            ),
+            provider,
+            project: project.to_owned(),
+            version: version.to_owned(),
+            resource_type,
+            file_name: resolved.file_name,
+            // Install always writes the active name.
+            enabled: true,
+            installed_at: chrono::Utc::now().timestamp(),
+        };
+
+        upsert_installed(&self.database, server.id, &installed).await?;
+
+        Ok(installed)
+    }
 }
 
 #[service(path = "/resource/{server_id}", tag = "resource", no_sdk)]
@@ -342,7 +753,12 @@ pub(crate) impl ResourceService for Backend {
                 providers: available
                     .iter()
                     .copied()
-                    .filter(|provider| provider.supports(loader))
+                    .filter(|provider| provider.supports(loader, ResourceKind::Resource))
+                    .collect(),
+                modpack_providers: available
+                    .iter()
+                    .copied()
+                    .filter(|provider| provider.supports(loader, ResourceKind::Modpack))
                     .collect(),
             })
             .collect();
@@ -364,7 +780,7 @@ pub(crate) impl ResourceService for Backend {
     /// Results are normalized across providers and cached in Valkey, so a
     /// typing burst in the search box costs one upstream request per distinct
     /// query rather than one per keystroke per client.
-    #[route("/search", method = GET, query = [ provider, query, loader, game_version, limit, offset ])]
+    #[route("/search", method = GET, query = [ provider, query, loader, kind, game_version, limit, offset ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing})]
     async fn search_resources(
         &self,
@@ -373,6 +789,7 @@ pub(crate) impl ResourceService for Backend {
         provider: ResourceProvider,
         query: Option<String>,
         loader: ResourceLoader,
+        kind: Option<ResourceKind>,
         game_version: Option<String>,
         limit: Option<u8>,
         offset: Option<u32>,
@@ -390,6 +807,7 @@ pub(crate) impl ResourceService for Backend {
                 &ResourceQuery {
                     query,
                     loader,
+                    kind: kind.unwrap_or(ResourceKind::Resource),
                     game_version: game_version.filter(|version| !version.is_empty()),
                     limit: limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_SEARCH_LIMIT),
                     offset: offset.unwrap_or_default(),
@@ -400,7 +818,7 @@ pub(crate) impl ResourceService for Backend {
     }
 
     /// Lists the versions of a project that fit `loader`.
-    #[route("/versions", method = GET, query = [ provider, project, loader, game_version ])]
+    #[route("/versions", method = GET, query = [ provider, project, loader, kind, game_version ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing})]
     async fn list_resource_versions(
         &self,
@@ -409,6 +827,7 @@ pub(crate) impl ResourceService for Backend {
         provider: ResourceProvider,
         project: String,
         loader: ResourceLoader,
+        kind: Option<ResourceKind>,
         game_version: Option<String>,
     ) -> Result<Vec<ResourceVersion>, _> {
         auth.require::<_, _, ListResourceVersionsError>(server_id, ServerPermissions::FILES_READ)?;
@@ -418,6 +837,7 @@ pub(crate) impl ResourceService for Backend {
                 provider,
                 &project,
                 loader,
+                kind.unwrap_or(ResourceKind::Resource),
                 game_version
                     .as_deref()
                     .filter(|version| !version.is_empty()),
@@ -559,148 +979,223 @@ pub(crate) impl ResourceService for Backend {
         if server.template.id() != MinecraftTemplate::ID {
             return Err(InstallResourceError::ResourceWrongTemplate);
         }
-        if !payload.provider.supports(payload.loader) {
-            return Err(InstallResourceError::ResourceInvalidPayload);
-        }
 
-        let resource_type = payload.loader.resource_type();
-        let resolved = self
-            .resource_client()
-            .resolve(payload.provider, &payload.project, &payload.version)
-            .await
-            .map_err(ResourceError::into::<InstallResourceError>)?;
-
-        let previous = installed_file(
-            &self.database,
-            server_id,
+        self.install_version(
+            &server,
             payload.provider,
             &payload.project,
+            &payload.version,
+            payload.loader,
+            payload.title,
         )
-        .await?;
+        .await
+        .map_err(InstallError::into::<InstallResourceError>)
+    }
 
-        server
-            .node
-            .server_create_directory(
-                server.node_server_id,
-                resource_type.path_prefix().to_owned(),
-                true,
+    /// Lists installed resources that have a newer version available.
+    ///
+    /// Checked against the server's own loader and Minecraft version, so an
+    /// offered update is one the server can actually run. Each provider lookup
+    /// goes through the Valkey cache, so repeat visits are nearly free; a
+    /// provider that cannot be reached is skipped rather than failing the report.
+    #[route("/updates", method = GET, query = [ allow_prerelease ])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, template::{corrupted, unavailable})]
+    async fn list_resource_updates(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        allow_prerelease: Option<bool>,
+    ) -> Result<Vec<ResourceUpdate>, _> {
+        auth.require::<_, _, ListResourceUpdatesError>(server_id, ServerPermissions::FILES_READ)?;
+
+        let recorded = list_installed(&self.database, server_id).await?;
+        if recorded.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(ListResourceUpdatesError::ServerNotFound)?;
+
+        let (loaders, game_version) = self
+            .update_target(&server)
+            .await
+            .map_err(TemplateError::into::<ListResourceUpdatesError>)?;
+
+        let mut updates = Vec::new();
+        for resource in recorded {
+            let Some(latest) = self
+                .available_update(
+                    &resource,
+                    &loaders,
+                    game_version.as_deref(),
+                    allow_prerelease.unwrap_or(false),
+                )
+                .await
+            else {
+                continue;
+            };
+
+            updates.push(ResourceUpdate {
+                provider: resource.provider,
+                project: resource.project,
+                title: resource.title,
+                installed_version: resource.version,
+                latest_version: latest.id,
+                latest_version_number: latest.version_number,
+                latest_version_type: latest.version_type,
+                latest_published_at: latest.published_at,
+                downloadable: latest.downloadable,
+            });
+        }
+
+        Ok(updates)
+    }
+
+    /// Updates one installed resource to the newest compatible version.
+    #[route("/update", method = POST, query = [ provider, project, allow_prerelease ])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, template::{corrupted, unavailable}, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, not_installed, wrong_template}, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, already_exists})]
+    async fn update_resource(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        provider: ResourceProvider,
+        project: String,
+        allow_prerelease: Option<bool>,
+    ) -> Result<InstalledResource, _> {
+        auth.require::<_, _, UpdateResourceError>(server_id, ServerPermissions::FILES_WRITE)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(UpdateResourceError::ServerNotFound)?;
+
+        if server.template.id() != MinecraftTemplate::ID {
+            return Err(UpdateResourceError::ResourceWrongTemplate);
+        }
+
+        let resource = list_installed(&self.database, server_id)
+            .await?
+            .into_iter()
+            .find(|candidate| candidate.provider == provider && candidate.project == project)
+            .ok_or(UpdateResourceError::ResourceNotInstalled)?;
+
+        let (loaders, game_version) = self
+            .update_target(&server)
+            .await
+            .map_err(TemplateError::into::<UpdateResourceError>)?;
+
+        let latest = self
+            .available_update(
+                &resource,
+                &loaders,
+                game_version.as_deref(),
+                allow_prerelease.unwrap_or(false),
             )
             .await
-            .map_err(|err| match err {
-                ServerCreateDirectoryError::Communication(_) => {
-                    error!("Failed to request directory creation for resource: {err:?}");
-                    InstallResourceError::NodeFailure
-                }
-                ServerCreateDirectoryError::AuthInvalid
-                | ServerCreateDirectoryError::StorageNotFound
-                | ServerCreateDirectoryError::StorageFailure
-                | ServerCreateDirectoryError::SqlFailure => {
-                    error!("Failed to create directory for resource: {err:?}");
-                    InstallResourceError::NodeFailure
-                }
-                ServerCreateDirectoryError::StorageMutexLocked => {
-                    InstallResourceError::FileStorageUnavailable
-                }
-                ServerCreateDirectoryError::FileNotFound => InstallResourceError::FileNotFound,
-                ServerCreateDirectoryError::FileSandboxViolated => {
-                    InstallResourceError::FileSandboxViolated
-                }
-                ServerCreateDirectoryError::FileAlreadyExists => {
-                    InstallResourceError::FileAlreadyExists
-                }
-                ServerCreateDirectoryError::StorageQuotaReached => {
-                    InstallResourceError::FileQuotaExceeded
-                }
-            })?;
+            // Nothing newer to install; the caller is already current.
+            .ok_or(UpdateResourceError::ResourceMissing)?;
+        let loader = *loaders
+            .get(&resource.resource_type)
+            .ok_or(UpdateResourceError::ResourceInvalidPayload)?;
 
-        let path = format!("{}{}", resource_type.path_prefix(), resolved.file_name);
+        self.install_version(
+            &server,
+            provider,
+            &project,
+            &latest.id,
+            loader,
+            Some(resource.title),
+        )
+        .await
+        .map_err(InstallError::into::<UpdateResourceError>)
+    }
 
-        server
-            .node
-            .server_write_file_by_url(server.node_server_id, path, resolved.url)
-            .await
-            .map_err(|err| match err {
-                ServerWriteFileByUrlError::Communication(_) => {
-                    error!("Failed to request file upload (by URL) for resource: {err:?}");
-                    InstallResourceError::NodeFailure
-                }
-                ServerWriteFileByUrlError::AuthInvalid
-                | ServerWriteFileByUrlError::StorageNotFound
-                | ServerWriteFileByUrlError::StorageFailure
-                | ServerWriteFileByUrlError::SqlFailure => {
-                    error!("Failed to upload file (by URL) for resource: {err:?}");
-                    InstallResourceError::NodeFailure
-                }
-                ServerWriteFileByUrlError::StorageMutexLocked => {
-                    InstallResourceError::FileStorageUnavailable
-                }
-                ServerWriteFileByUrlError::StorageQuotaReached => {
-                    InstallResourceError::FileQuotaExceeded
-                }
-                ServerWriteFileByUrlError::FileNotFound => InstallResourceError::FileNotFound,
-                ServerWriteFileByUrlError::FileSandboxViolated => {
-                    InstallResourceError::FileSandboxViolated
-                }
-                ServerWriteFileByUrlError::FileIsDirectory => InstallResourceError::FileIsDirectory,
-                ServerWriteFileByUrlError::HttpRequestFailed
-                | ServerWriteFileByUrlError::HttpRequestReadFailed
-                | ServerWriteFileByUrlError::HttpRequestNotSuccess => {
-                    InstallResourceError::ResourceProviderUnavailable
-                }
-            })?;
+    /// Updates every installed resource that has a newer compatible version.
+    ///
+    /// Reports per resource instead of failing as a whole: with a dozen mods from
+    /// four providers, one unreachable provider or one distribution-blocked file
+    /// should not stop the rest from updating.
+    #[route("/update-all", method = POST, query = [ allow_prerelease ])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::wrong_template, template::{corrupted, unavailable})]
+    async fn update_all_resources(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        allow_prerelease: Option<bool>,
+    ) -> Result<Vec<ResourceUpdateResult>, _> {
+        auth.require::<_, _, UpdateAllResourcesError>(server_id, ServerPermissions::FILES_WRITE)?;
 
-        // Superseded files only go once the new one is on disk. Failures here
-        // leave a stale file behind, which is recoverable through the file
-        // manager, so they must not fail the install.
-        //
-        // The write above lands on the active name, so a parked copy of that
-        // same name is now a stale duplicate — and leaving it would make the
-        // resource impossible to disable afterwards. It has to go even when the
-        // file name did not change, which is why this is not folded into the
-        // `previous_file` case below.
-        let parked = format!(
-            "{}{}",
-            resource_type.path_prefix(),
-            state_file_name(&resolved.file_name, false)
-        );
-        match server
-            .node
-            .server_delete_file(server.node_server_id, parked.clone(), false)
-            .await
-        {
-            Ok(()) | Err(ServerDeleteFileError::FileNotFound) => {}
-            Err(err) => warn!("Failed to remove superseded parked resource {parked}: {err:?}"),
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(UpdateAllResourcesError::ServerNotFound)?;
+
+        if server.template.id() != MinecraftTemplate::ID {
+            return Err(UpdateAllResourcesError::ResourceWrongTemplate);
         }
 
-        // A previous file under a different name is a leftover of the old
-        // version, in whichever state it was left.
-        if let Some((previous_file, previous_type)) = previous
-            && previous_file != resolved.file_name
-            && let Err(err) = remove_resource_file(&server, previous_type, &previous_file).await
-        {
-            warn!("Failed to remove replaced resource {previous_file}: {err:?}");
+        let recorded = list_installed(&self.database, server_id).await?;
+        let (loaders, game_version) = self
+            .update_target(&server)
+            .await
+            .map_err(TemplateError::into::<UpdateAllResourcesError>)?;
+
+        let mut results = Vec::new();
+        for resource in recorded {
+            let Some(latest) = self
+                .available_update(
+                    &resource,
+                    &loaders,
+                    game_version.as_deref(),
+                    allow_prerelease.unwrap_or(false),
+                )
+                .await
+            else {
+                continue;
+            };
+            let Some(loader) = loaders.get(&resource.resource_type).copied() else {
+                continue;
+            };
+
+            let outcome = self
+                .install_version(
+                    &server,
+                    resource.provider,
+                    &resource.project,
+                    &latest.id,
+                    loader,
+                    Some(resource.title.clone()),
+                )
+                .await;
+
+            results.push(match outcome {
+                Ok(installed) => ResourceUpdateResult {
+                    provider: resource.provider,
+                    project: resource.project,
+                    title: resource.title,
+                    version: Some(installed.version),
+                    error: None,
+                },
+                Err(err) => {
+                    warn!(
+                        "Failed to update {}/{} on server {server_id}: {err:?}",
+                        resource.provider.as_str(),
+                        resource.project
+                    );
+                    ResourceUpdateResult {
+                        provider: resource.provider,
+                        project: resource.project,
+                        title: resource.title,
+                        version: None,
+                        error: Some(err.reason().to_owned()),
+                    }
+                }
+            });
         }
 
-        let installed = InstalledResource {
-            // The column is varchar(255); an over-long title would fail the
-            // upsert *after* the file is on disk, orphaning it.
-            title: payload
-                .title
-                .map(|title| title.chars().take(MAX_TITLE_LENGTH).collect())
-                .unwrap_or_else(|| payload.project.clone()),
-            provider: payload.provider,
-            project: payload.project,
-            version: payload.version,
-            resource_type,
-            file_name: resolved.file_name,
-            // Install always writes the active name.
-            enabled: true,
-            installed_at: chrono::Utc::now().timestamp(),
-        };
-
-        upsert_installed(&self.database, server_id, &installed).await?;
-
-        Ok(installed)
+        Ok(results)
     }
 
     /// Removes an installed resource's file and its record.
@@ -1028,6 +1523,141 @@ mod tests {
 
         assert_eq!(names(&present), ["a.jar"]);
         assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn the_disabled_suffix_is_matched_case_insensitively() {
+        // `is_resource_file` lowercases, so this has to agree or the record for
+        // `Foo.jar` would be judged missing while the file sits right there.
+        assert_eq!(split_disabled("Foo.jar.DISABLED"), ("Foo.jar", false));
+        assert_eq!(split_disabled("Foo.jar.Disabled"), ("Foo.jar", false));
+
+        let listings =
+            HashMap::from([(ResourceType::Plugin, Some(listing(&["Foo.jar.DISABLED"])))]);
+        let (present, missing) =
+            partition_present(vec![record("Foo.jar", ResourceType::Plugin)], &listings);
+
+        assert!(missing.is_empty());
+        assert_eq!(present.first().map(|entry| entry.enabled), Some(false));
+        assert!(collect_unmanaged(&listings, &present).is_empty());
+    }
+
+    /// Existing cases all use release versions; this keeps them readable.
+    fn newest_version_release(versions: Vec<ResourceVersion>) -> Option<ResourceVersion> {
+        newest_version(versions, false)
+    }
+
+    fn version(id: &str, published_at: Option<&str>) -> ResourceVersion {
+        ResourceVersion {
+            provider: ResourceProvider::Modrinth,
+            id: id.to_owned(),
+            project: "proj".to_owned(),
+            name: id.to_owned(),
+            version_number: id.to_owned(),
+            version_type: ResourceVersionType::Release,
+            game_versions: vec!["1.21.4".to_owned()],
+            loaders: vec!["fabric".to_owned()],
+            downloads: 0,
+            published_at: published_at.map(str::to_owned),
+            file_name: Some(format!("{id}.jar")),
+            downloadable: true,
+        }
+    }
+
+    #[test]
+    fn newest_version_uses_the_publish_timestamp_not_list_order() {
+        // Deliberately out of order, and mixing the `Z` and `+00:00` spellings
+        // that different providers emit.
+        let picked = newest_version_release(vec![
+            version("old", Some("2026-01-01T00:00:00Z")),
+            version("newest", Some("2026-06-01T12:00:00+00:00")),
+            version("middle", Some("2026-03-01T00:00:00Z")),
+        ]);
+
+        assert_eq!(picked.map(|entry| entry.id), Some("newest".to_owned()));
+    }
+
+    #[test]
+    fn newest_version_compares_across_timezone_offsets() {
+        // 2026-01-01T01:00:00+02:00 is 23:00 the previous day in UTC, so the
+        // later-looking string is actually older.
+        let picked = newest_version_release(vec![
+            version("earlier", Some("2026-01-01T01:00:00+02:00")),
+            version("later", Some("2026-01-01T00:30:00Z")),
+        ]);
+
+        assert_eq!(picked.map(|entry| entry.id), Some("later".to_owned()));
+    }
+
+    #[test]
+    fn newest_version_falls_back_to_provider_order_without_timestamps() {
+        // Providers list newest first, so the first entry wins when there is
+        // nothing to compare.
+        let picked = newest_version_release(vec![version("first", None), version("second", None)]);
+
+        assert_eq!(picked.map(|entry| entry.id), Some("first".to_owned()));
+    }
+
+    #[test]
+    fn newest_version_ignores_unparseable_timestamps() {
+        let picked = newest_version_release(vec![
+            version("good", Some("2026-01-01T00:00:00Z")),
+            version("garbage", Some("not a date")),
+        ]);
+
+        assert_eq!(picked.map(|entry| entry.id), Some("good".to_owned()));
+    }
+
+    fn prerelease(id: &str, published_at: &str) -> ResourceVersion {
+        ResourceVersion {
+            version_type: ResourceVersionType::Beta,
+            ..version(id, Some(published_at))
+        }
+    }
+
+    #[test]
+    fn a_newer_prerelease_does_not_count_as_an_update_by_default() {
+        // "Update all" must not quietly move a live server onto betas.
+        let picked = newest_version(
+            vec![
+                prerelease("beta", "2026-07-01T00:00:00Z"),
+                version("stable", Some("2026-06-01T00:00:00Z")),
+            ],
+            false,
+        );
+
+        assert_eq!(picked.map(|entry| entry.id), Some("stable".to_owned()));
+    }
+
+    #[test]
+    fn a_prerelease_is_offered_when_explicitly_allowed() {
+        let picked = newest_version(
+            vec![
+                prerelease("beta", "2026-07-01T00:00:00Z"),
+                version("stable", Some("2026-06-01T00:00:00Z")),
+            ],
+            true,
+        );
+
+        assert_eq!(picked.map(|entry| entry.id), Some("beta".to_owned()));
+    }
+
+    #[test]
+    fn a_project_with_only_prereleases_can_still_be_updated() {
+        let picked = newest_version(
+            vec![
+                prerelease("older", "2026-01-01T00:00:00Z"),
+                prerelease("newer", "2026-07-01T00:00:00Z"),
+            ],
+            false,
+        );
+
+        assert_eq!(picked.map(|entry| entry.id), Some("newer".to_owned()));
+    }
+
+    #[test]
+    fn newest_version_of_nothing_is_nothing() {
+        assert!(newest_version_release(Vec::new()).is_none());
     }
 
     #[test]

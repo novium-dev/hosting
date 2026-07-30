@@ -3,6 +3,9 @@ import { z } from "zod";
 import {
   installResource,
   listInstalledResources,
+  listResourceUpdates,
+  updateAllResources,
+  updateResource,
   listResourceVersions,
   resourceContext,
   searchResources,
@@ -17,6 +20,7 @@ import { ActionError } from "@/types/safe-action.types";
 
 const providerSchema = z.enum(["modrinth", "curseforge", "hangar", "spigot"]);
 const loaderSchema = z.enum(["paper", "fabric", "forge", "neoforge"]);
+const kindSchema = z.enum(["resource", "modpack"]);
 const serverSchema = z.string().min(1);
 
 function unwrap<T>(
@@ -46,6 +50,7 @@ export const searchResourceProjectsAction = authActionClient
       provider: providerSchema,
       query: z.string().max(120).default(""),
       loader: loaderSchema,
+      kind: kindSchema.default("resource"),
       gameVersion: z.string().optional(),
     }),
   )
@@ -57,6 +62,7 @@ export const searchResourceProjectsAction = authActionClient
           provider: parsedInput.provider,
           query: parsedInput.query,
           loader: parsedInput.loader,
+          kind: parsedInput.kind,
           game_version: parsedInput.gameVersion,
         },
       }),
@@ -71,6 +77,7 @@ export const listResourceVersionsAction = authActionClient
       provider: providerSchema,
       project: z.string().min(1),
       loader: loaderSchema,
+      kind: kindSchema.default("resource"),
       gameVersion: z.string().optional(),
     }),
   )
@@ -82,6 +89,7 @@ export const listResourceVersionsAction = authActionClient
           provider: parsedInput.provider,
           project: parsedInput.project,
           loader: parsedInput.loader,
+          kind: parsedInput.kind,
           game_version: parsedInput.gameVersion,
         },
       }),
@@ -124,6 +132,63 @@ export const installResourceVersionAction = authActionClient
         },
       }),
       "Failed to install resource",
+    ),
+  );
+
+export const listResourceUpdatesAction = authActionClient
+  .inputSchema(
+    z.object({
+      serverId: serverSchema,
+      allowPrerelease: z.boolean().default(false),
+    }),
+  )
+  .action(async ({ parsedInput }) =>
+    unwrap(
+      await listResourceUpdates({
+        path: { server_id: parsedInput.serverId },
+        query: { allow_prerelease: parsedInput.allowPrerelease },
+      }),
+      "Failed to check for updates",
+    ),
+  );
+
+export const updateResourceAction = authActionClient
+  .inputSchema(
+    z.object({
+      serverId: serverSchema,
+      provider: providerSchema,
+      project: z.string().min(1),
+      allowPrerelease: z.boolean().default(false),
+    }),
+  )
+  .action(async ({ parsedInput }) =>
+    unwrap(
+      await updateResource({
+        path: { server_id: parsedInput.serverId },
+        query: {
+          provider: parsedInput.provider,
+          project: parsedInput.project,
+          allow_prerelease: parsedInput.allowPrerelease,
+        },
+      }),
+      "Failed to update resource",
+    ),
+  );
+
+export const updateAllResourcesAction = authActionClient
+  .inputSchema(
+    z.object({
+      serverId: serverSchema,
+      allowPrerelease: z.boolean().default(false),
+    }),
+  )
+  .action(async ({ parsedInput }) =>
+    unwrap(
+      await updateAllResources({
+        path: { server_id: parsedInput.serverId },
+        query: { allow_prerelease: parsedInput.allowPrerelease },
+      }),
+      "Failed to update resources",
     ),
   );
 

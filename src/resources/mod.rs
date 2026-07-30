@@ -64,15 +64,42 @@ impl ResourceProvider {
             .find(|provider| provider.as_str() == value)
     }
 
-    /// Whether the provider hosts anything for `loader`.
+    /// Whether the provider hosts `kind` for `loader`.
     ///
     /// Hangar and `SpigotMC` are Bukkit-lineage plugin repositories, so they only
-    /// ever apply to Paper servers; Modrinth and `CurseForge` carry both plugins
-    /// and mods.
-    pub(crate) const fn supports(self, loader: ResourceLoader) -> bool {
+    /// ever apply to Paper servers and never carry modpacks. Modpacks are a
+    /// modloader concept, so they do not exist for Paper on any provider either.
+    pub(crate) const fn supports(self, loader: ResourceLoader, kind: ResourceKind) -> bool {
+        match kind {
+            ResourceKind::Resource => match self {
+                Self::Modrinth | Self::Curseforge => true,
+                Self::Hangar | Self::Spigot => matches!(loader, ResourceLoader::Paper),
+            },
+            ResourceKind::Modpack => {
+                matches!(self, Self::Modrinth | Self::Curseforge)
+                    && !matches!(loader, ResourceLoader::Paper)
+            }
+        }
+    }
+}
+
+/// What is being browsed: individual resources, or whole modpacks.
+///
+/// Modpacks are a different product on both providers — a different
+/// `project_type` on Modrinth and a different class id on `CurseForge` — so the
+/// distinction has to reach the provider calls rather than being a filter.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ResourceKind {
+    Resource,
+    Modpack,
+}
+
+impl ResourceKind {
+    pub(crate) const fn as_str(self) -> &'static str {
         match self {
-            Self::Modrinth | Self::Curseforge => true,
-            Self::Hangar | Self::Spigot => matches!(loader, ResourceLoader::Paper),
+            Self::Resource => "resource",
+            Self::Modpack => "modpack",
         }
     }
 }
@@ -209,6 +236,7 @@ pub(crate) struct ResolvedResource {
 pub(crate) struct ResourceQuery {
     pub(crate) query: String,
     pub(crate) loader: ResourceLoader,
+    pub(crate) kind: ResourceKind,
     pub(crate) game_version: Option<String>,
     pub(crate) limit: u8,
     pub(crate) offset: u32,
@@ -219,7 +247,8 @@ impl ResourceQuery {
     /// appear here, or two different searches would share one entry.
     fn cache_key(&self) -> String {
         format!(
-            "{}:{}:{}:{}:{}",
+            "{}:{}:{}:{}:{}:{}",
+            self.kind.as_str(),
             self.loader.as_str(),
             self.game_version.as_deref().unwrap_or(""),
             self.limit,
@@ -247,6 +276,19 @@ impl From<RedisError> for ResourceError {
 }
 
 impl ResourceError {
+    /// Short, stable reason for per-item reporting in batch operations.
+    pub(crate) const fn reason(&self) -> &'static str {
+        match self {
+            Self::InvalidPayload => "The resource request was invalid",
+            Self::ProviderUnavailable => "The provider could not be reached",
+            Self::ProviderError => "The provider returned an error",
+            Self::ProviderDisabled => "The provider is not configured",
+            Self::DownloadUnavailable => "The file cannot be downloaded automatically",
+            Self::Missing => "The version no longer exists",
+            Self::Cache(_) => "The cache is unavailable",
+        }
+    }
+
     pub(crate) fn into<
         E: FromResourceInvalidPayload
             + FromResourceProviderUnavailable
@@ -419,11 +461,12 @@ impl ResourceClient<'_> {
         &self,
         provider: ResourceProvider,
         loader: ResourceLoader,
+        kind: ResourceKind,
     ) -> Result<(), ResourceError> {
         if !self.enabled(provider) {
             return Err(ResourceError::ProviderDisabled);
         }
-        if !provider.supports(loader) {
+        if !provider.supports(loader, kind) {
             return Err(ResourceError::InvalidPayload);
         }
         Ok(())
@@ -434,7 +477,7 @@ impl ResourceClient<'_> {
         provider: ResourceProvider,
         query: &ResourceQuery,
     ) -> Result<Vec<ResourceProject>, ResourceError> {
-        self.check(provider, query.loader)?;
+        self.check(provider, query.loader, query.kind)?;
 
         if query.query.len() > MAX_QUERY_LENGTH || query.limit == 0 {
             return Err(ResourceError::InvalidPayload);
@@ -461,9 +504,10 @@ impl ResourceClient<'_> {
         provider: ResourceProvider,
         project: &str,
         loader: ResourceLoader,
+        kind: ResourceKind,
         game_version: Option<&str>,
     ) -> Result<Vec<ResourceVersion>, ResourceError> {
-        self.check(provider, loader)?;
+        self.check(provider, loader, kind)?;
         validate_id(project, 128)?;
 
         let key = format!(
@@ -515,5 +559,60 @@ impl ResourceClient<'_> {
         };
 
         cache::cached(&mut self.cache, &key, RESOLVE_TTL, fetch).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keeps_short_names_untouched() {
+        assert_eq!(
+            sanitize_file_name("Foo-1.2.jar", "fallback.jar"),
+            "Foo-1.2.jar"
+        );
+    }
+
+    #[test]
+    fn replaces_separators_so_a_name_cannot_escape_its_directory() {
+        // The guarantee is that no separator survives, so the result can only
+        // ever name a file inside the intended directory. Leftover dots are
+        // harmless without one.
+        let sanitized = sanitize_file_name("../../etc/passwd", "fallback.jar");
+
+        assert!(!sanitized.contains('/'), "got {sanitized}");
+        assert!(!sanitized.contains('\\'), "got {sanitized}");
+        assert_ne!(sanitized, "..");
+    }
+
+    #[test]
+    fn falls_back_when_nothing_usable_is_left() {
+        assert_eq!(sanitize_file_name("...", "fallback.jar"), "fallback.jar");
+    }
+
+    #[test]
+    fn truncating_a_long_name_keeps_its_extension() {
+        // A jar written without `.jar` is silently never loaded, so the
+        // extension has to survive the length cap.
+        let long = format!("{}.jar", "a".repeat(400));
+
+        let sanitized = sanitize_file_name(&long, "fallback.jar");
+
+        assert_eq!(
+            std::path::Path::new(&sanitized)
+                .extension()
+                .and_then(std::ffi::OsStr::to_str),
+            Some("jar"),
+            "got {sanitized}"
+        );
+        assert_eq!(sanitized.chars().count(), MAX_FILE_NAME);
+    }
+
+    #[test]
+    fn a_long_name_without_an_extension_is_just_cut() {
+        let sanitized = sanitize_file_name(&"a".repeat(400), "fallback.jar");
+
+        assert_eq!(sanitized.chars().count(), MAX_FILE_NAME);
     }
 }

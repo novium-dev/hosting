@@ -9,6 +9,8 @@ import {
   FileQuestion,
   PackageSearch,
   RefreshCw,
+  ArrowUpCircle,
+  Boxes,
   Power,
   PowerOff,
   Search,
@@ -21,8 +23,11 @@ import {
   getResourceContextAction,
   installResourceVersionAction,
   listInstalledResourcesAction,
+  listResourceUpdatesAction,
   listResourceVersionsAction,
   searchResourceProjectsAction,
+  updateAllResourcesAction,
+  updateResourceAction,
   setResourceStateAction,
   uninstallResourceAction,
 } from "@/actions/mod-browser";
@@ -54,6 +59,7 @@ import {
   PROVIDER_LABELS,
   RESOURCE_TYPE_LABELS,
   type InstalledResource,
+  type ResourceKind,
   type ResourceLoader,
   type ResourceProject,
   type ResourceProvider,
@@ -114,8 +120,10 @@ export function ModPluginBrowser({
   const [activeProvider, setActiveProvider] = useState<ResourceProvider | null>(
     null,
   );
+  const [kind, setKind] = useState<ResourceKind>("resource");
   const [query, setQuery] = useState("");
   const [compatibleOnly, setCompatibleOnly] = useState(true);
+  const [allowPrerelease, setAllowPrerelease] = useState(false);
   const [projects, setProjects] = useState<ResourceProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<ResourceProject | null>(
     null,
@@ -146,6 +154,26 @@ export function ModPluginBrowser({
   const unmanaged = useMemo(() => contents?.unmanaged ?? [], [contents]);
   const unreadable = useMemo(() => contents?.unreadable ?? [], [contents]);
 
+  const { data: updates = [], mutate: refreshUpdates } = useSWR(
+    ["resource-updates", serverId, allowPrerelease],
+    async () => {
+      const result = await listResourceUpdatesAction({
+        serverId,
+        allowPrerelease,
+      });
+      if (result.serverError) throw new Error(result.serverError);
+      return result.data ?? [];
+    },
+  );
+
+  const updateByProject = useMemo(
+    () =>
+      new Map(
+        updates.map((entry) => [installKey(entry.provider, entry.project), entry]),
+      ),
+    [updates],
+  );
+
   const installedByProject = useMemo(() => {
     const map = new Map<string, InstalledResource>();
     for (const entry of installed) {
@@ -160,9 +188,14 @@ export function ModPluginBrowser({
     [activeLoader, loaders],
   );
   const providers = useMemo(
-    () => activeLoaderInfo?.providers ?? [],
-    [activeLoaderInfo],
+    () =>
+      (kind === "modpack"
+        ? activeLoaderInfo?.modpack_providers
+        : activeLoaderInfo?.providers) ?? [],
+    [activeLoaderInfo, kind],
   );
+  const modpacksAvailable =
+    (activeLoaderInfo?.modpack_providers.length ?? 0) > 0;
   const provider = useMemo(
     () =>
       providers.find((entry) => entry === activeProvider) ?? providers[0] ?? null,
@@ -194,6 +227,7 @@ export function ModPluginBrowser({
         provider,
         query: nextQuery,
         loader: activeLoaderInfo.loader,
+        kind,
         gameVersion: versionFilter,
       });
 
@@ -213,7 +247,7 @@ export function ModPluginBrowser({
   useEffect(() => {
     runSearch(query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLoaderInfo?.loader, provider, versionFilter]);
+  }, [activeLoaderInfo?.loader, provider, kind, versionFilter]);
 
   useEffect(() => {
     if (!selectedProject || !activeLoaderInfo) {
@@ -230,6 +264,7 @@ export function ModPluginBrowser({
         provider: selectedProject.provider,
         project: selectedProject.id,
         loader: activeLoaderInfo.loader,
+        kind,
         gameVersion: versionFilter,
       });
 
@@ -269,7 +304,7 @@ export function ModPluginBrowser({
     }
 
     toast.success(`Installed ${selectedProject.title}`);
-    await refreshInstalled();
+    await Promise.all([refreshInstalled(), refreshUpdates()]);
   };
 
   const handleSetState = async (
@@ -294,6 +329,48 @@ export function ModPluginBrowser({
     await refreshInstalled();
   };
 
+  const handleUpdate = async (entry: InstalledResource) => {
+    const result = await updateResourceAction({
+      serverId,
+      provider: entry.provider,
+      project: entry.project,
+      allowPrerelease,
+    });
+
+    if (result.serverError) {
+      toast.error(result.serverError);
+      return;
+    }
+
+    toast.success(`Updated ${entry.title}`);
+    await Promise.all([refreshInstalled(), refreshUpdates()]);
+  };
+
+  const handleUpdateAll = async () => {
+    const result = await updateAllResourcesAction({ serverId, allowPrerelease });
+
+    if (result.serverError || !result.data) {
+      toast.error(result.serverError ?? "Failed to update resources");
+      return;
+    }
+
+    const updated = result.data.filter((entry) => entry.version);
+    const failed = result.data.filter((entry) => entry.error);
+
+    if (updated.length > 0) {
+      toast.success(
+        `Updated ${updated.length} resource${updated.length === 1 ? "" : "s"}`,
+      );
+    }
+    // Reported per resource: one blocked download must not read as a total
+    // failure when the rest went through.
+    for (const entry of failed) {
+      toast.error(`${entry.title}: ${entry.error}`);
+    }
+
+    await Promise.all([refreshInstalled(), refreshUpdates()]);
+  };
+
   const handleUninstall = async (entry: InstalledResource) => {
     const result = await uninstallResourceAction({
       serverId,
@@ -307,7 +384,7 @@ export function ModPluginBrowser({
     }
 
     toast.success(`Removed ${entry.title}`);
-    await refreshInstalled();
+    await Promise.all([refreshInstalled(), refreshUpdates()]);
   };
 
   if (context && loaders.length === 0) {
@@ -335,10 +412,33 @@ export function ModPluginBrowser({
                 Mods and Plugins
               </CardTitle>
               <CardDescription>
-                Browse Modrinth, CurseForge, Hangar and SpigotMC resources
-                compatible with this server.
+                {kind === "modpack"
+                  ? "Browse Modrinth and CurseForge modpacks compatible with this server."
+                  : "Browse Modrinth, CurseForge, Hangar and SpigotMC resources compatible with this server."}
               </CardDescription>
             </div>
+
+            {modpacksAvailable ? (
+              <Tabs
+                value={kind}
+                onValueChange={(value) => {
+                  setKind(value as ResourceKind);
+                  setActiveProvider(null);
+                  setSelectedProject(null);
+                }}
+              >
+                <TabsList className="flex h-auto flex-wrap justify-start">
+                  <TabsTrigger value="resource">
+                    <PackageSearch className="mr-1 size-4" />
+                    Mods
+                  </TabsTrigger>
+                  <TabsTrigger value="modpack">
+                    <Boxes className="mr-1 size-4" />
+                    Modpacks
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            ) : null}
 
             {loaders.length > 1 && activeLoaderInfo ? (
               <Tabs
@@ -595,7 +695,8 @@ export function ModPluginBrowser({
                   disabled={
                     !canWriteFiles ||
                     !selectedVersion ||
-                    selectedVersion.downloadable === false
+                    selectedVersion.downloadable === false ||
+                    kind === "modpack"
                   }
                 >
                   {selectedInstall ? (
@@ -605,6 +706,14 @@ export function ModPluginBrowser({
                   )}
                   {selectedInstall ? "Switch Version" : "Install"}
                 </Button>
+
+                {kind === "modpack" ? (
+                  <p className="text-sm text-muted-foreground">
+                    Modpack installation is not available yet — a pack has to be
+                    unpacked and its mods fetched individually. Browsing and
+                    version listing work today.
+                  </p>
+                ) : null}
 
                 {selectedVersion?.downloadable === false ? (
                   <p className="text-sm text-muted-foreground">
@@ -629,13 +738,50 @@ export function ModPluginBrowser({
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Installed</CardTitle>
-          <CardDescription>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-col gap-1.5">
+            <CardTitle className="flex items-center gap-2">
+              Installed
+              {updates.length > 0 ? (
+                <Badge className="gap-1 border-sky-200 bg-sky-100 text-sky-800 hover:bg-sky-100 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300">
+                  <ArrowUpCircle className="size-3" />
+                  {updates.length} update{updates.length === 1 ? "" : "s"}
+                </Badge>
+              ) : null}
+            </CardTitle>
+            <CardDescription>
             {installed.length === 0
               ? "Nothing installed through the browser yet."
               : `${installed.length} resource${installed.length === 1 ? "" : "s"} installed on this server.`}
-          </CardDescription>
+            </CardDescription>
+          </div>
+          <span className="flex flex-wrap items-center gap-3">
+            {installed.length > 0 ? (
+              <span className="flex items-center gap-2">
+                <Switch
+                  id="allow-prerelease"
+                  checked={allowPrerelease}
+                  onCheckedChange={setAllowPrerelease}
+                />
+                <Label
+                  htmlFor="allow-prerelease"
+                  className="text-sm font-normal text-muted-foreground"
+                >
+                  Include beta versions
+                </Label>
+              </span>
+            ) : null}
+            {updates.length > 0 ? (
+              <Button
+                size="sm"
+                disabled={!canWriteFiles}
+                onClick={handleUpdateAll}
+              >
+                <ArrowUpCircle data-icon="inline-start" />
+                Update all
+              </Button>
+            ) : null}
+          </span>
         </CardHeader>
         {installed.length > 0 ? (
           <CardContent className="flex flex-col gap-2">
@@ -655,6 +801,18 @@ export function ModPluginBrowser({
                     {!entry.enabled ? (
                       <Badge variant="outline">Disabled</Badge>
                     ) : null}
+                    {updateByProject.has(
+                      installKey(entry.provider, entry.project),
+                    ) ? (
+                      <Badge className="gap-1 border-sky-200 bg-sky-100 text-sky-800 hover:bg-sky-100 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300">
+                        <ArrowUpCircle className="size-3" />
+                        {
+                          updateByProject.get(
+                            installKey(entry.provider, entry.project),
+                          )?.latest_version_number
+                        }
+                      </Badge>
+                    ) : null}
                   </span>
                   <span className="truncate text-sm text-muted-foreground">
                     {entry.file_name}
@@ -662,6 +820,23 @@ export function ModPluginBrowser({
                   </span>
                 </div>
                 <span className="flex items-center gap-2">
+                  {updateByProject.has(
+                    installKey(entry.provider, entry.project),
+                  ) ? (
+                    <Button
+                      size="sm"
+                      disabled={
+                        !canWriteFiles ||
+                        updateByProject.get(
+                          installKey(entry.provider, entry.project),
+                        )?.downloadable === false
+                      }
+                      onClick={() => handleUpdate(entry)}
+                    >
+                      <ArrowUpCircle data-icon="inline-start" />
+                      Update
+                    </Button>
+                  ) : null}
                   <Button
                     variant="outline"
                     size="sm"

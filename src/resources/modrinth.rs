@@ -2,9 +2,9 @@ use reqwest::Client;
 use serde::Deserialize;
 
 use super::{
-    ResolvedResource, ResourceError, ResourceLoader, ResourceProject, ResourceProvider,
-    ResourceQuery, ResourceVersion, ResourceVersionType, encode_segment, fetch_json,
-    sanitize_file_name,
+    ResolvedResource, ResourceError, ResourceKind, ResourceLoader, ResourceProject,
+    ResourceProvider, ResourceQuery, ResourceVersion, ResourceVersionType, encode_segment,
+    fetch_json, sanitize_file_name,
 };
 
 const API: &str = "https://api.modrinth.com/v2";
@@ -129,11 +129,16 @@ pub(super) async fn search(
     client: &Client,
     query: &ResourceQuery,
 ) -> Result<Vec<ResourceProject>, ResourceError> {
-    // Modrinth models a Paper plugin as `project_type:plugin` and everything
-    // else as `project_type:mod`; the loader itself is a category facet.
-    let project_type = match query.loader {
-        ResourceLoader::Paper => "plugin",
-        ResourceLoader::Fabric | ResourceLoader::Forge | ResourceLoader::Neoforge => "mod",
+    // Modrinth models a Paper plugin as `project_type:plugin`, a modpack as
+    // `project_type:modpack` and everything else as `project_type:mod`; the
+    // loader itself is a category facet in all cases.
+    let project_type = match (query.kind, query.loader) {
+        (ResourceKind::Modpack, _) => "modpack",
+        (ResourceKind::Resource, ResourceLoader::Paper) => "plugin",
+        (
+            ResourceKind::Resource,
+            ResourceLoader::Fabric | ResourceLoader::Forge | ResourceLoader::Neoforge,
+        ) => "mod",
     };
 
     let mut facets = vec![

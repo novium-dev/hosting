@@ -2,9 +2,9 @@ use reqwest::{Client, RequestBuilder};
 use serde::Deserialize;
 
 use super::{
-    ResolvedResource, ResourceError, ResourceLoader, ResourceProject, ResourceProvider,
-    ResourceQuery, ResourceVersion, ResourceVersionType, encode_segment, fetch_json,
-    sanitize_file_name,
+    ResolvedResource, ResourceError, ResourceKind, ResourceLoader, ResourceProject,
+    ResourceProvider, ResourceQuery, ResourceVersion, ResourceVersionType, encode_segment,
+    fetch_json, sanitize_file_name,
 };
 
 const API: &str = "https://api.curseforge.com/v1";
@@ -13,9 +13,11 @@ const PROVIDER: ResourceProvider = ResourceProvider::Curseforge;
 
 /// `CurseForge`'s game id for Minecraft.
 const GAME_ID: &str = "432";
-/// Class ids partition a game's projects; 6 is "Mods", 5 is "Bukkit Plugins".
+/// Class ids partition a game's projects; 6 is "Mods", 5 is "Bukkit Plugins",
+/// 4471 is "Modpacks".
 const CLASS_MODS: &str = "6";
 const CLASS_BUKKIT_PLUGINS: &str = "5";
+const CLASS_MODPACKS: &str = "4471";
 
 /// `sortField=6` is total downloads.
 const SORT_DOWNLOADS: &str = "6";
@@ -134,10 +136,13 @@ const fn loader_type(loader: ResourceLoader) -> Option<&'static str> {
     }
 }
 
-const fn class_id(loader: ResourceLoader) -> &'static str {
-    match loader {
-        ResourceLoader::Paper => CLASS_BUKKIT_PLUGINS,
-        ResourceLoader::Fabric | ResourceLoader::Forge | ResourceLoader::Neoforge => CLASS_MODS,
+const fn class_id(loader: ResourceLoader, kind: ResourceKind) -> &'static str {
+    match kind {
+        ResourceKind::Modpack => CLASS_MODPACKS,
+        ResourceKind::Resource => match loader {
+            ResourceLoader::Paper => CLASS_BUKKIT_PLUGINS,
+            ResourceLoader::Fabric | ResourceLoader::Forge | ResourceLoader::Neoforge => CLASS_MODS,
+        },
     }
 }
 
@@ -212,7 +217,7 @@ pub(super) async fn search(
 
     let mut params = vec![
         ("gameId", GAME_ID.to_owned()),
-        ("classId", class_id(query.loader).to_owned()),
+        ("classId", class_id(query.loader, query.kind).to_owned()),
         ("searchFilter", query.query.clone()),
         ("sortField", sort_field.to_owned()),
         ("sortOrder", "desc".to_owned()),

@@ -2,6 +2,9 @@ import type {
   InstallResourcePayload,
   InstalledResource,
   ListInstalledResourcesResponse,
+  ListResourceUpdatesResponse,
+  ResourceKind,
+  UpdateAllResourcesResponse,
   ListResourceVersionsResponse,
   ResourceContextResponse,
   ResourceLoader,
@@ -20,10 +23,13 @@ export type ResourceVersion = ListResourceVersionsResponse[number];
 export type InstalledResources = ListInstalledResourcesResponse;
 export type UnmanagedResource = InstalledResources["unmanaged"][number];
 export type ResourceContext = ResourceContextResponse;
+export type ResourceUpdate = ListResourceUpdatesResponse[number];
+export type ResourceUpdateResult = UpdateAllResourcesResponse[number];
 
 export type {
   InstallResourcePayload,
   InstalledResource,
+  ResourceKind,
   ResourceLoader,
   ResourceLoaderInfo,
   ResourceProvider,
