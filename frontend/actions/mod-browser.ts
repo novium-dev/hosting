@@ -6,6 +6,7 @@ import {
   listResourceVersions,
   resourceContext,
   searchResources,
+  setResourceState,
   uninstallResource,
 } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
@@ -123,6 +124,29 @@ export const installResourceVersionAction = authActionClient
         },
       }),
       "Failed to install resource",
+    ),
+  );
+
+export const setResourceStateAction = authActionClient
+  .inputSchema(
+    z.object({
+      serverId: serverSchema,
+      resourceType: z.enum(["plugin", "modification", "data_pack"]),
+      file: z.string().min(1),
+      enabled: z.boolean(),
+    }),
+  )
+  .action(async ({ parsedInput }) =>
+    unwrap(
+      await setResourceState({
+        path: { server_id: parsedInput.serverId },
+        query: {
+          resource_type: parsedInput.resourceType,
+          file: parsedInput.file,
+          enabled: parsedInput.enabled,
+        },
+      }),
+      "Failed to change the resource state",
     ),
   );
 

@@ -14,8 +14,14 @@ pub(crate) struct InstalledResource {
     pub(crate) project: String,
     pub(crate) version: String,
     pub(crate) resource_type: ResourceType,
+    /// The base (active) name, which is what install writes. The on-disk file
+    /// may carry a `.disabled` suffix; see `enabled`.
     pub(crate) file_name: String,
     pub(crate) title: String,
+    /// Whether the file is active on disk. Not stored — the `.disabled` suffix
+    /// on the file *is* this state, so it is resolved from the directory listing
+    /// during reconciliation and can never drift from reality.
+    pub(crate) enabled: bool,
     /// Unix seconds.
     pub(crate) installed_at: i64,
 }
@@ -42,6 +48,8 @@ impl InstalledRecord {
             resource_type: ResourceType::parse_str(&self.resource_type)?,
             file_name: self.file_name,
             title: self.title,
+            // Assumed active until a directory listing says otherwise.
+            enabled: true,
             installed_at: self.installed_at.timestamp(),
         })
     }

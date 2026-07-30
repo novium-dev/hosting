@@ -9,6 +9,8 @@ import {
   FileQuestion,
   PackageSearch,
   RefreshCw,
+  Power,
+  PowerOff,
   Search,
   Trash2,
   TriangleAlert,
@@ -21,6 +23,7 @@ import {
   listInstalledResourcesAction,
   listResourceVersionsAction,
   searchResourceProjectsAction,
+  setResourceStateAction,
   uninstallResourceAction,
 } from "@/actions/mod-browser";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -266,6 +269,28 @@ export function ModPluginBrowser({
     }
 
     toast.success(`Installed ${selectedProject.title}`);
+    await refreshInstalled();
+  };
+
+  const handleSetState = async (
+    resourceType: string,
+    file: string,
+    label: string,
+    enabled: boolean,
+  ) => {
+    const result = await setResourceStateAction({
+      serverId,
+      resourceType: resourceType as "plugin" | "modification" | "data_pack",
+      file,
+      enabled,
+    });
+
+    if (result.serverError) {
+      toast.error(result.serverError);
+      return;
+    }
+
+    toast.success(`${enabled ? "Enabled" : "Disabled"} ${label}`);
     await refreshInstalled();
   };
 
@@ -620,25 +645,53 @@ export function ModPluginBrowser({
                 className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
               >
                 <div className="flex min-w-0 flex-col">
-                  <span className="flex items-center gap-2 font-medium">
-                    {entry.title}
+                  <span className="flex flex-wrap items-center gap-2 font-medium">
+                    <span className={cn(!entry.enabled && "text-muted-foreground")}>
+                      {entry.title}
+                    </span>
                     <Badge variant="secondary">
                       {PROVIDER_LABELS[entry.provider]}
                     </Badge>
+                    {!entry.enabled ? (
+                      <Badge variant="outline">Disabled</Badge>
+                    ) : null}
                   </span>
                   <span className="truncate text-sm text-muted-foreground">
                     {entry.file_name}
+                    {!entry.enabled ? ".disabled" : ""}
                   </span>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!canWriteFiles}
-                  onClick={() => handleUninstall(entry)}
-                >
-                  <Trash2 data-icon="inline-start" />
-                  Remove
-                </Button>
+                <span className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canWriteFiles}
+                    onClick={() =>
+                      handleSetState(
+                        entry.resource_type,
+                        entry.file_name,
+                        entry.title,
+                        !entry.enabled,
+                      )
+                    }
+                  >
+                    {entry.enabled ? (
+                      <PowerOff data-icon="inline-start" />
+                    ) : (
+                      <Power data-icon="inline-start" />
+                    )}
+                    {entry.enabled ? "Disable" : "Enable"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canWriteFiles}
+                    onClick={() => handleUninstall(entry)}
+                  >
+                    <Trash2 data-icon="inline-start" />
+                    Remove
+                  </Button>
+                </span>
               </div>
             ))}
           </CardContent>
@@ -656,7 +709,8 @@ export function ModPluginBrowser({
               {unmanaged.length} file
               {unmanaged.length === 1 ? "" : "s"} on this server that no record
               points at — uploaded over SFTP or in the file manager, or replaced
-              by hand. Manage these under Files.
+              by hand. You can still enable or disable them here; deleting them
+              is done under Files.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
@@ -665,8 +719,18 @@ export function ModPluginBrowser({
                 key={`${entry.resource_type}:${entry.file_name}`}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-dashed p-3"
               >
-                <span className="truncate font-medium">{entry.file_name}</span>
+                <span
+                  className={cn(
+                    "truncate font-medium",
+                    !entry.enabled && "text-muted-foreground",
+                  )}
+                >
+                  {entry.file_name}
+                </span>
                 <span className="flex items-center gap-2">
+                  {!entry.enabled ? (
+                    <Badge variant="outline">Disabled</Badge>
+                  ) : null}
                   <Badge variant="outline">
                     {RESOURCE_TYPE_LABELS[entry.resource_type] ??
                       entry.resource_type}
@@ -674,6 +738,28 @@ export function ModPluginBrowser({
                   <span className="text-sm text-muted-foreground">
                     {formatSize(entry.size)}
                   </span>
+                  {entry.resource_type === "data_pack" ? null : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canWriteFiles}
+                      onClick={() =>
+                        handleSetState(
+                          entry.resource_type,
+                          entry.file_name,
+                          entry.file_name,
+                          !entry.enabled,
+                        )
+                      }
+                    >
+                      {entry.enabled ? (
+                        <PowerOff data-icon="inline-start" />
+                      ) : (
+                        <Power data-icon="inline-start" />
+                      )}
+                      {entry.enabled ? "Disable" : "Enable"}
+                    </Button>
+                  )}
                 </span>
               </div>
             ))}

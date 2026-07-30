@@ -82,6 +82,16 @@ export type InstallResourcePayload = {
  * version of any given project and re-installing is an upsert.
  */
 export type InstalledResource = {
+    /**
+     * Whether the file is active on disk. Not stored — the `.disabled` suffix
+     * on the file *is* this state, so it is resolved from the directory listing
+     * during reconciliation and can never drift from reality.
+     */
+    enabled: boolean;
+    /**
+     * The base (active) name, which is what install writes. The on-disk file
+     * may carry a `.disabled` suffix; see `enabled`.
+     */
     file_name: string;
     /**
      * Unix seconds.
@@ -278,6 +288,11 @@ export type TemplatePortDefinition = {
 };
 
 export type UnmanagedResource = {
+    enabled: boolean;
+    /**
+     * The name as it appears on disk, so a parked file reads as
+     * `Foo.jar.disabled`.
+     */
     file_name: string;
     resource_type: ResourceType;
     size: number;
@@ -8773,6 +8788,16 @@ export type InstallResourceResponses = {
      * version of any given project and re-installing is an upsert.
      */
     200: {
+        /**
+         * Whether the file is active on disk. Not stored — the `.disabled` suffix
+         * on the file *is* this state, so it is resolved from the directory listing
+         * during reconciliation and can never drift from reality.
+         */
+        enabled: boolean;
+        /**
+         * The base (active) name, which is what install writes. The on-disk file
+         * may carry a `.disabled` suffix; see `enabled`.
+         */
         file_name: string;
         /**
          * Unix seconds.
@@ -8787,3 +8812,160 @@ export type InstallResourceResponses = {
 };
 
 export type InstallResourceResponse = InstallResourceResponses[keyof InstallResourceResponses];
+
+export type SetResourceStateData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query: {
+        /**
+         * The kind of resource (plugin, modification, data_pack)
+         */
+        resource_type: ResourceType;
+        /**
+         * The file path
+         */
+        file: string;
+        /**
+         * Whether the resource should be active
+         */
+        enabled: boolean;
+    };
+    url: '/resource/{server_id}/state';
+};
+
+export type SetResourceStateErrors = {
+    /**
+     * The resource payload is invalid
+     */
+    '400‏': {
+        error?: {
+            id?: 'resource/invalid_payload';
+            msg?: 'The resource payload is invalid';
+        };
+    };
+    /**
+     * The specified file is not a directory
+     */
+    '400‬': {
+        error?: {
+            id?: 'file/not_directory';
+            msg?: 'The specified file is not a directory';
+        };
+    };
+    /**
+     * The specified file violates the sandbox
+     */
+    '400‭': {
+        error?: {
+            id?: 'file/sandbox_violated';
+            msg?: 'The specified file violates the sandbox';
+        };
+    };
+    /**
+     * A file with the specified name already exists
+     */
+    '400‮': {
+        error?: {
+            id?: 'file/already_exists';
+            msg?: 'A file with the specified name already exists';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified file was not found
+     */
+    '404‫': {
+        error?: {
+            id?: 'file/not_found';
+            msg?: 'The specified file was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‎': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * Storage is currently in use
+     */
+    '503‪': {
+        error?: {
+            id?: 'file/storage_unavailable';
+            msg?: 'Storage is currently in use';
+        };
+    };
+};
+
+export type SetResourceStateError = SetResourceStateErrors[keyof SetResourceStateErrors];
+
+export type SetResourceStateResponses = {
+    /**
+     * The state a resource file ended up in.
+     */
+    200: {
+        enabled: boolean;
+        file_name: string;
+        resource_type: ResourceType;
+    };
+};
+
+export type SetResourceStateResponse = SetResourceStateResponses[keyof SetResourceStateResponses];
