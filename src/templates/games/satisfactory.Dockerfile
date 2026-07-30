@@ -39,8 +39,10 @@ RUN set -eux; \
         echo 'shopt -s nullglob'; \
         echo ''; \
         echo 'steamcmd_dir=/work/steamcmd'; \
-        echo 'server_port="${SERVER_PORT:-7777}"'; \
-        echo 'reliable_port="${RELIABLE_PORT:-8888}"'; \
+        echo '# Satisfactory cannot be remapped, so the backend binds the port'; \
+        echo '# players connect to inside the container and passes it in here.'; \
+        echo 'server_port="${NOVIUM_PORT_SATISFACTORY_TCP:-7777}"'; \
+        echo 'reliable_port="${NOVIUM_PORT_RELIABLE_MESSAGING:-8888}"'; \
         echo ''; \
         echo 'cd /work'; \
         echo 'mkdir -p "$steamcmd_dir" .steam/sdk32 .steam/sdk64 .tmp FactoryGame/Saved/Config/LinuxServer'; \

@@ -6,9 +6,60 @@ use crate::service::error_server_not_found::FromServerNotFound;
 use crate::service::error_server_unavailable::FromServerUnavailable;
 use daemon_common::service::server::server_service_error::ExecServerError;
 use sqlx::{Executor, Postgres, query, types::JsonValue};
+use std::collections::HashMap;
 use tracing::{error, warn};
 
+/// Prefix of the environment variables that tell a container which port
+/// numbers it was assigned.
+const PORT_ENVIRONMENT_PREFIX: &str = "NOVIUM_PORT_";
+
+/// Environment variable a container reads to learn the port it has to listen
+/// on for the port definition called `name`.
+///
+/// The value is the port *inside* the container, which for non-remappable
+/// ports (see [`crate::templates::TemplatePortDefinition::remappable`]) is
+/// also the port players connect to.
+pub fn port_environment_key(name: &str) -> String {
+    let mut key = String::with_capacity(PORT_ENVIRONMENT_PREFIX.len().saturating_add(name.len()));
+    key.push_str(PORT_ENVIRONMENT_PREFIX);
+    key.extend(name.chars().map(|character| {
+        if character.is_ascii_alphanumeric() {
+            character.to_ascii_uppercase()
+        } else {
+            '_'
+        }
+    }));
+    key
+}
+
 impl Backend {
+    /// Builds the [`port_environment_key`] environment from a server's current
+    /// port allocation.
+    ///
+    /// This has to be merged into every build payload that is pushed to a node,
+    /// as the payload itself is derived from the template variables alone and
+    /// therefore carries no port information.
+    pub async fn port_environment(
+        &self,
+        conn: impl Executor<'_, Database = Postgres>,
+        server_id: ServerId,
+    ) -> Result<HashMap<String, String>, sqlx::Error> {
+        Ok(query!(
+            "SELECT name, internal_port FROM server_ports WHERE server = $1",
+            &server_id
+        )
+        .fetch_all(conn)
+        .await?
+        .into_iter()
+        .map(|row| {
+            (
+                port_environment_key(&row.name),
+                row.internal_port.to_string(),
+            )
+        })
+        .collect())
+    }
+
     pub async fn resolve_server(
         &self,
         conn: impl Executor<'_, Database = Postgres>,

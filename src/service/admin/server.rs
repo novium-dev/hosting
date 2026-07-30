@@ -12,6 +12,7 @@ use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::template::*;
 use crate::service::*;
 use crate::templates::{TemplateError, ThinTemplateError};
+use crate::utils::server::port_environment_key;
 use daemon_common::service::server::server_service_error::CreateServerError as DaemonCreateServerError;
 use daemon_common::service::server::{
     ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
@@ -40,7 +41,7 @@ pub(crate) impl ServerAdminService for Backend {
         server::{not_found, storage_not_found},
         project::not_found,
         node::{not_found, failure},
-        port::not_allocated,
+        port::{invalid, not_allocated},
         template::{not_found, unavailable, corrupted, port_definition_unknown, input_invalid})]
     #[example("../examples/server.create.json")]
     async fn create_server(
@@ -92,7 +93,7 @@ pub(crate) impl ServerAdminService for Backend {
         else {
             return Err(CreateServerError::TemplateInputInvalid);
         };
-        let build = template
+        let mut build = template
             .extra_to_build_payload(self.cache.clone(), extra.clone())
             .await
             .map_err(TemplateError::into::<CreateServerError>)?;
@@ -102,13 +103,37 @@ pub(crate) impl ServerAdminService for Backend {
             .default_ports()
             .await
             .map_err(ThinTemplateError::into::<CreateServerError>)?;
+        // Non-remappable definitions that share a declared internal port are the
+        // TCP and UDP half of one game port, so they have to stay a pair once the
+        // external number is what gets bound inside the container.
+        let mut bound_externally = HashMap::new();
         for (port, external_port) in &ports {
             let definition = port_definitions
                 .get(port)
                 .ok_or(CreateServerError::TemplatePortDefinitionUnknown)?;
+
+            // Remapping is invisible to most games, but some advertise their own
+            // port to clients and only work when both numbers agree.
+            let internal_port = if definition.remappable {
+                definition.internal_port
+            } else {
+                if *bound_externally
+                    .entry(definition.internal_port)
+                    .or_insert(*external_port)
+                    != *external_port
+                {
+                    return Err(CreateServerError::PortInvalid);
+                }
+                *external_port
+            };
+
+            build
+                .environment
+                .insert(port_environment_key(port), internal_port.to_string());
+
             ports2.push(NetworkPort {
                 id: 0,
-                internal_port: definition.internal_port,
+                internal_port,
                 name: port.clone(),
                 protocol: definition.protocol,
                 external_port_start: *external_port,
@@ -245,9 +270,10 @@ pub(crate) impl ServerAdminService for Backend {
     }
 
     #[route("/{server_id}/ports", method = PUT, raw)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*],
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*],
         server::{not_found, unavailable},
         node::failure,
+        template::{unavailable, corrupted},
         port::{invalid, not_allocated})]
     async fn add_port(
         &self,
@@ -277,6 +303,14 @@ pub(crate) impl ServerAdminService for Backend {
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(AddPortError::ServerNotFound)?;
+
+        // Carries no port information on its own, so the port environment is
+        // merged in once the new allocation is known.
+        let build = server
+            .template
+            .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
+            .await
+            .map_err(TemplateError::into::<AddPortError>)?;
 
         let mut conn = self.database.acquire().await?;
 
@@ -338,7 +372,7 @@ pub(crate) impl ServerAdminService for Backend {
 
 
             let rows = query!(
-                r#"SELECT internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
+                r#"SELECT name, internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
                  FROM server_ports WHERE server = $1 FOR UPDATE"#,
                 &server.id
             )
@@ -346,8 +380,13 @@ pub(crate) impl ServerAdminService for Backend {
             .await?;
 
             let mut payload = Vec::new();
+            let mut build = build;
 
             for port_row in rows {
+                build.environment.insert(
+                    port_environment_key(&port_row.name),
+                    port_row.internal_port.to_string(),
+                );
                 for ext in port_row.external_port_start..=port_row.external_port_end {
                     payload.push(ServerPortEntryPayload {
                         external_port: u16::try_from(ext).expect("database port constraints ensure a u16 value"),
@@ -360,7 +399,7 @@ pub(crate) impl ServerAdminService for Backend {
 
             server
                 .node
-                .update_server(server.node_server_id, None, None, Some(payload), None)
+                .update_server(server.node_server_id, None, Some(build), Some(payload), None)
                 .await
                 .map_err(|_err| AddPortError::NodeFailure)?;
 
@@ -374,8 +413,10 @@ pub(crate) impl ServerAdminService for Backend {
     #[error(
     auth::{permission_denied, unreachable},
     db::failure <- [sql:*],
+    cache::failure <- [redis:*],
     server::{not_found},
     node::failure,
+    template::{unavailable, corrupted},
     port::{invalid, not_allocated, collision}
 )]
     async fn update_port(
@@ -397,6 +438,14 @@ pub(crate) impl ServerAdminService for Backend {
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(UpdatePortError::ServerNotFound)?;
+
+        // Carries no port information on its own, so the port environment is
+        // merged in once the new allocation is known.
+        let build = server
+            .template
+            .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
+            .await
+            .map_err(TemplateError::into::<UpdatePortError>)?;
 
         let mut conn = self.database.acquire().await?;
 
@@ -549,7 +598,7 @@ pub(crate) impl ServerAdminService for Backend {
             }
 
             let rows = query!(
-                r#"SELECT internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
+                r#"SELECT name, internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
                  FROM server_ports WHERE server = $1 FOR UPDATE"#,
                 &server.id
             )
@@ -557,8 +606,13 @@ pub(crate) impl ServerAdminService for Backend {
             .await?;
 
             let mut payload = Vec::new();
+            let mut build = build;
 
             for port_row in rows {
+                build.environment.insert(
+                    port_environment_key(&port_row.name),
+                    port_row.internal_port.to_string(),
+                );
                 for ext in port_row.external_port_start..=port_row.external_port_end {
                     payload.push(ServerPortEntryPayload {
                         external_port: u16::try_from(ext).expect("database port constraints ensure a u16 value"),
@@ -571,7 +625,7 @@ pub(crate) impl ServerAdminService for Backend {
 
             server
                 .node
-                .update_server(server.node_server_id, None, None, Some(payload), None)
+                .update_server(server.node_server_id, None, Some(build), Some(payload), None)
                 .await
                 .map_err(|_err| UpdatePortError::NodeFailure)?;
 
@@ -585,8 +639,10 @@ pub(crate) impl ServerAdminService for Backend {
     #[error(
     auth::{permission_denied, unreachable},
     db::failure <- [sql:*],
+    cache::failure <- [redis:*],
     server::{not_found},
-    node::failure
+    node::failure,
+    template::{unavailable, corrupted}
 )]
     async fn delete_port(
         &self,
@@ -601,6 +657,14 @@ pub(crate) impl ServerAdminService for Backend {
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(DeletePortError::ServerNotFound)?;
+
+        // Carries no port information on its own, so the port environment is
+        // merged in once the new allocation is known.
+        let build = server
+            .template
+            .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
+            .await
+            .map_err(TemplateError::into::<DeletePortError>)?;
 
         let mut conn = self.database.acquire().await?;
 
@@ -619,7 +683,7 @@ pub(crate) impl ServerAdminService for Backend {
                 }
 
                 let rows = query!(
-                r#"SELECT internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
+                r#"SELECT name, internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
                  FROM server_ports WHERE server = $1 FOR UPDATE"#,
                 &server.id
             )
@@ -627,8 +691,13 @@ pub(crate) impl ServerAdminService for Backend {
                 .await?;
 
                 let mut payload = Vec::new();
+                let mut build = build;
 
                 for port_row in rows {
+                    build.environment.insert(
+                        port_environment_key(&port_row.name),
+                        port_row.internal_port.to_string(),
+                    );
                     for ext in port_row.external_port_start..=port_row.external_port_end {
                         payload.push(ServerPortEntryPayload {
                             external_port: u16::try_from(ext)
@@ -643,7 +712,7 @@ pub(crate) impl ServerAdminService for Backend {
 
                 server
                     .node
-                    .update_server(server.node_server_id, None, None, Some(payload), None)
+                    .update_server(server.node_server_id, None, Some(build), Some(payload), None)
                     .await
                     .map_err(|_err| DeletePortError::NodeFailure)?;
 

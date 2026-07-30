@@ -16,7 +16,7 @@ use zelus::types::DocumentedType;
 
 pub mod id;
 pub mod serde;
-mod server;
+pub mod server;
 
 mod header {
     use http::HeaderName;

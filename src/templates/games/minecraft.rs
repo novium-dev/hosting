@@ -472,6 +472,7 @@ impl Template for MinecraftTemplate {
                 protocol: NetworkProtocol::Tcp,
                 internal_port: 25565,
                 placeholder: "Minecraft".to_owned(),
+                remappable: true,
             },
         )]))
     }
