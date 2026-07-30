@@ -143,6 +143,15 @@ export function resolveServerPermissions(permissions: number) {
 }
 
 /**
+ * Expands a set of selected management permissions to include their implied
+ * dependencies (e.g. `USER_MANAGE` implies `USER_VIEW`). The backend applies the
+ * same rules when checking access.
+ */
+export function resolveManagementPermissions(permissions: number) {
+  return withManagementDependencies(permissions);
+}
+
+/**
  * Server (project sub-user) permissions grouped for the permission picker.
  * These are the permissions a project member can be granted for the project's
  * servers.
@@ -206,6 +215,64 @@ export const SERVER_PERMISSION_GROUPS: {
   },
 ];
 
+/**
+ * Instance-wide permissions grouped for the permission picker. These are only
+ * grantable to instance-wide API keys and to users through their role.
+ */
+export const MANAGEMENT_PERMISSION_GROUPS: {
+  group: string;
+  permissions: { bit: number; label: string }[];
+}[] = [
+  {
+    group: "Servers",
+    permissions: [
+      { bit: ManagementPermission.SERVER_MANAGE, label: "Create & manage servers" },
+      { bit: ManagementPermission.SERVER_SUSPEND, label: "Suspend servers" },
+      { bit: ManagementPermission.SERVER_DELETE, label: "Delete servers" },
+    ],
+  },
+  {
+    group: "Users",
+    permissions: [
+      { bit: ManagementPermission.USER_VIEW, label: "View all users" },
+      { bit: ManagementPermission.USER_MANAGE, label: "Manage users" },
+    ],
+  },
+  {
+    group: "API keys",
+    permissions: [
+      { bit: ManagementPermission.API_KEYS_VIEW, label: "View all API keys" },
+      { bit: ManagementPermission.API_KEYS_MANAGE, label: "Manage API keys" },
+    ],
+  },
+  {
+    group: "Nodes",
+    permissions: [
+      { bit: ManagementPermission.NODES_VIEW, label: "View nodes" },
+      { bit: ManagementPermission.NODES_MANAGE, label: "Manage nodes" },
+    ],
+  },
+  {
+    group: "Storage & network",
+    permissions: [
+      {
+        bit: ManagementPermission.BACKUP_STORAGE_SELECT,
+        label: "Choose backup storage",
+      },
+      { bit: ManagementPermission.NETWORK_CREATE, label: "Create networks" },
+      { bit: ManagementPermission.NETWORK_DELETE, label: "Delete networks" },
+      { bit: ManagementPermission.DATABASE_CREATE, label: "Create databases" },
+      { bit: ManagementPermission.DATABASE_DELETE, label: "Delete databases" },
+    ],
+  },
+  {
+    group: "Limits",
+    permissions: [
+      { bit: ManagementPermission.LIMITS_BYPASS, label: "Bypass limits" },
+    ],
+  },
+];
+
 /** Human-readable labels for every server permission granted by `permissions`. */
 export function serverPermissionLabels(permissions: number): string[] {
   const resolved = resolveServerPermissions(permissions);
@@ -214,4 +281,36 @@ export function serverPermissionLabels(permissions: number): string[] {
       .filter((permission) => hasPermissionBit(resolved, permission.bit))
       .map((permission) => permission.label),
   );
+}
+
+/** Keeps only the bits of `permissions` that are also set in `mask`. */
+export function maskPermissions(permissions: number, mask: number) {
+  return Number(BigInt(permissions) & BigInt(mask));
+}
+
+/** Human-readable labels for every management permission granted. */
+export function managementPermissionLabels(permissions: number): string[] {
+  const resolved = resolveManagementPermissions(permissions);
+  return MANAGEMENT_PERMISSION_GROUPS.flatMap((group) =>
+    group.permissions
+      .filter((permission) => hasPermissionBit(resolved, permission.bit))
+      .map((permission) => permission.label),
+  );
+}
+
+/**
+ * Human-readable labels for everything `permissions` grants, across both
+ * scopes. Used to summarise an API key.
+ *
+ * Each scope only sees its own bits — otherwise a management-only bitfield would
+ * read as "non-empty" to the server scope and pick up an implied `VIEW`.
+ */
+export function permissionLabels(permissions: number): string[] {
+  const server = maskPermissions(permissions, allServerPermissions);
+  const management = maskPermissions(permissions, allManagementPermissions);
+
+  return [
+    ...(server === 0 ? [] : serverPermissionLabels(server)),
+    ...managementPermissionLabels(management),
+  ];
 }

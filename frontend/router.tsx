@@ -16,6 +16,7 @@ import AppLayout from "@/app/(app)/layout";
 import CreateOrganizationPage from "@/app/(app)/create/page";
 
 import AdminLayout from "@/app/(app)/admin/layout";
+import AdminApiKeysPage from "@/app/(app)/admin/api-keys/page";
 import AdminNodesPage from "@/app/(app)/admin/nodes/page";
 import AdminNodePage from "@/app/(app)/admin/nodes/[node]/page";
 import AdminProjectsPage from "@/app/(app)/admin/projects/page";
@@ -29,6 +30,7 @@ import SlugLayout from "@/app/(app)/[slug]/layout";
 import OrganizationPage from "@/app/(app)/[slug]/page";
 import SettingsPage from "@/app/(app)/[slug]/settings/page";
 import MembersPage from "@/app/(app)/[slug]/members/page";
+import ApiKeysPage from "@/app/(app)/[slug]/api-keys/page";
 import ProfileLayout from "@/app/(app)/[slug]/profile/layout";
 import ProfilePage from "@/app/(app)/[slug]/profile/page";
 import ServerLayout from "@/app/(app)/[slug]/servers/[server]/layout";
@@ -63,6 +65,7 @@ export const router = createBrowserRouter([
               { path: "nodes/:node", element: <AdminNodePage /> },
               { path: "projects", element: <AdminProjectsPage /> },
               { path: "users", element: <AdminUsersPage /> },
+              { path: "api-keys", element: <AdminApiKeysPage /> },
               { path: "users/:user", element: <AdminUserPage /> },
               { path: "servers", element: <AdminServersPage /> },
               { path: "servers/create", element: <AdminServerCreatePage /> },
@@ -77,6 +80,7 @@ export const router = createBrowserRouter([
               { index: true, element: <OrganizationPage /> },
               { path: "settings", element: <SettingsPage /> },
               { path: "members", element: <MembersPage /> },
+              { path: "api-keys", element: <ApiKeysPage /> },
               {
                 path: "profile",
                 element: <ProfileLayout />,

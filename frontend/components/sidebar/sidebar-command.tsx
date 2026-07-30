@@ -3,6 +3,7 @@
 import {
   BellIcon,
   HomeIcon,
+  KeyRoundIcon,
   LogOutIcon,
   LucideIcon,
   MoonIcon,
@@ -92,6 +93,12 @@ export function SidebarCommand({
           label: "Members",
           href: `/${slug}/members`,
           keywords: ["users", "collaborators", "invite"],
+        },
+        {
+          icon: KeyRoundIcon,
+          label: "API keys",
+          href: `/${slug}/api-keys`,
+          keywords: ["token", "api", "automation", "integration"],
         },
       ],
     },
