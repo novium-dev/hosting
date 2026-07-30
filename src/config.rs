@@ -23,6 +23,9 @@ pub struct BackendConfig {
     /// Skip refreshing the template caches (upstream version lists, ...).
     #[serde(default)]
     pub skip_template_cache_update: Option<bool>,
+    /// Credentials for the mod/plugin resource providers.
+    #[serde(default)]
+    pub resources: ResourceConfig,
     #[cfg(feature = "embedded_node")]
     pub daemon: EmbeddedNodeConfig,
 }
@@ -46,6 +49,25 @@ impl BackendConfig {
             std::env::var("BACKEND_SKIP_TEMPLATE_CACHE_UPDATE")
                 .is_ok_and(|val| val.eq_ignore_ascii_case("1") || val.eq_ignore_ascii_case("true"))
         })
+    }
+}
+
+/// Provider credentials for the resource browser. Providers without a required
+/// credential are always enabled; CurseForge is only offered when a key is
+/// configured, since its API rejects unauthenticated requests.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct ResourceConfig {
+    /// CurseForge Core API key. Falls back to `BACKEND_CURSEFORGE_API_KEY`.
+    #[serde(default)]
+    pub curseforge_api_key: Option<String>,
+}
+
+impl ResourceConfig {
+    pub fn resolved_curseforge_api_key(&self) -> Option<String> {
+        self.curseforge_api_key
+            .clone()
+            .or_else(|| std::env::var("BACKEND_CURSEFORGE_API_KEY").ok())
+            .filter(|key| !key.is_empty())
     }
 }
 
