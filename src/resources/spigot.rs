@@ -7,10 +7,10 @@ use super::{
     ResourceVersion, ResourceVersionType, encode_segment, fetch_json, sanitize_file_name,
 };
 
-/// SpigotMC has no official API; Spiget is the long-standing community mirror
+/// `SpigotMC` has no official API; Spiget is the long-standing community mirror
 /// and is what every third-party client uses.
 const API: &str = "https://api.spiget.org/v2";
-/// Icons are served by SpigotMC itself and come back as relative paths.
+/// Icons are served by `SpigotMC` itself and come back as relative paths.
 const SPIGOT_BASE: &str = "https://www.spigotmc.org/";
 
 const PROVIDER: ResourceProvider = ResourceProvider::Spigot;
@@ -53,7 +53,7 @@ struct Version {
 }
 
 impl Resource {
-    /// Premium resources sit behind SpigotMC's paywall and external ones are
+    /// Premium resources sit behind `SpigotMC`'s paywall and external ones are
     /// hosted off-site, so neither can be fetched through Spiget.
     const fn downloadable(&self) -> bool {
         !self.external && !self.premium
@@ -61,6 +61,8 @@ impl Resource {
 }
 
 fn to_project(resource: Resource) -> ResourceProject {
+    let downloadable = resource.downloadable();
+
     ResourceProject {
         provider: PROVIDER,
         id: resource.id.to_string(),
@@ -78,11 +80,11 @@ fn to_project(resource: Resource) -> ResourceProject {
         downloads: resource.downloads,
         follows: resource.likes,
         categories: resource.tested_versions,
-        downloadable: resource.downloadable(),
+        downloadable,
     }
 }
 
-fn to_version(resource: &Resource, version: Version) -> ResourceVersion {
+fn to_version(resource: &Resource, version: &Version) -> ResourceVersion {
     ResourceVersion {
         provider: PROVIDER,
         id: version.id.to_string(),
@@ -162,17 +164,13 @@ pub(super) async fn versions(
                 "{API}/resources/{}/versions",
                 encode_segment(project)
             ))
-            .query(&[
-                ("size", "25"),
-                ("page", "1"),
-                ("sort", "-releaseDate"),
-            ]),
+            .query(&[("size", "25"), ("page", "1"), ("sort", "-releaseDate")]),
     )
     .await?;
 
     Ok(versions
         .into_iter()
-        .map(|version| to_version(&resource, version))
+        .map(|version| to_version(&resource, &version))
         .collect())
 }
 

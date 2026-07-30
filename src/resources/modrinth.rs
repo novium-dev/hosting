@@ -33,6 +33,10 @@ struct SearchHit {
 }
 
 #[derive(Debug, Deserialize)]
+#[expect(
+    clippy::struct_field_names,
+    reason = "mirrors the provider payload field for field"
+)]
 struct Version {
     id: String,
     project_id: String,
@@ -170,8 +174,8 @@ pub(super) async fn versions(
     loader: ResourceLoader,
     game_version: Option<&str>,
 ) -> Result<Vec<ResourceVersion>, ResourceError> {
-    let loaders = serde_json::to_string(&[loader.as_str()])
-        .map_err(|_err| ResourceError::ProviderError)?;
+    let loaders =
+        serde_json::to_string(&[loader.as_str()]).map_err(|_err| ResourceError::ProviderError)?;
     let mut params = vec![("loaders", loaders)];
     if let Some(game_version) = game_version {
         params.push((
@@ -183,10 +187,7 @@ pub(super) async fn versions(
     let versions: Vec<Version> = fetch_json(
         PROVIDER,
         client
-            .get(format!(
-                "{API}/project/{}/version",
-                encode_segment(project)
-            ))
+            .get(format!("{API}/project/{}/version", encode_segment(project)))
             .query(&params),
     )
     .await?;

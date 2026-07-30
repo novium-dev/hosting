@@ -36,10 +36,10 @@ impl InstalledRecord {
     /// whole listing.
     fn into_resource(self) -> Option<InstalledResource> {
         Some(InstalledResource {
-            provider: serde_json::from_value(serde_json::Value::String(self.provider)).ok()?,
+            provider: ResourceProvider::parse_str(&self.provider)?,
             project: self.project,
             version: self.version,
-            resource_type: ResourceType::from_str(&self.resource_type)?,
+            resource_type: ResourceType::parse_str(&self.resource_type)?,
             file_name: self.file_name,
             title: self.title,
             installed_at: self.installed_at.timestamp(),
@@ -88,20 +88,17 @@ pub(crate) async fn installed_file(
     .fetch_optional(database)
     .await?
     .and_then(|record| {
-        ResourceType::from_str(&record.resource_type)
+        ResourceType::parse_str(&record.resource_type)
             .map(|resource_type| (record.file_name, resource_type))
     }))
 }
 
+/// Records `resource` as installed, replacing whatever was recorded for the
+/// same `(server, provider, project)`.
 pub(crate) async fn upsert_installed(
     database: &PgPool,
     server: ServerId,
-    provider: ResourceProvider,
-    project: &str,
-    version: &str,
-    resource_type: ResourceType,
-    file_name: &str,
-    title: &str,
+    resource: &InstalledResource,
 ) -> Result<(), sqlx::Error> {
     query!(
         r#"INSERT INTO server_resources
@@ -114,12 +111,12 @@ pub(crate) async fn upsert_installed(
                title = excluded.title,
                installed_at = now()"#,
         server as ServerId,
-        provider.as_str(),
-        project,
-        version,
-        resource_type.as_str(),
-        file_name,
-        title
+        resource.provider.as_str(),
+        resource.project,
+        resource.version,
+        resource.resource_type.as_str(),
+        resource.file_name,
+        resource.title
     )
     .execute(database)
     .await?;

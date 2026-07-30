@@ -4,6 +4,7 @@ mod hangar;
 mod modrinth;
 mod spigot;
 
+use core::fmt::Write as _;
 use redis::RedisError;
 use redis::aio::ConnectionManager;
 use reqwest::{Client, RequestBuilder, StatusCode, Url};
@@ -45,7 +46,8 @@ pub(crate) enum ResourceProvider {
 }
 
 impl ResourceProvider {
-    pub(crate) const ALL: [Self; 4] = [Self::Modrinth, Self::Curseforge, Self::Hangar, Self::Spigot];
+    pub(crate) const ALL: [Self; 4] =
+        [Self::Modrinth, Self::Curseforge, Self::Hangar, Self::Spigot];
 
     pub(crate) const fn as_str(self) -> &'static str {
         match self {
@@ -64,8 +66,8 @@ impl ResourceProvider {
 
     /// Whether the provider hosts anything for `loader`.
     ///
-    /// Hangar and SpigotMC are Bukkit-lineage plugin repositories, so they only
-    /// ever apply to Paper servers; Modrinth and CurseForge carry both plugins
+    /// Hangar and `SpigotMC` are Bukkit-lineage plugin repositories, so they only
+    /// ever apply to Paper servers; Modrinth and `CurseForge` carry both plugins
     /// and mods.
     pub(crate) const fn supports(self, loader: ResourceLoader) -> bool {
         match self {
@@ -122,7 +124,7 @@ impl ResourceType {
         }
     }
 
-    pub(crate) fn from_str(value: &str) -> Option<Self> {
+    pub(crate) fn parse_str(value: &str) -> Option<Self> {
         match value {
             "plugin" => Some(Self::Plugin),
             "modification" => Some(Self::Modification),
@@ -311,7 +313,7 @@ pub(crate) fn encode_segment(segment: &str) -> String {
         if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
             encoded.push(char::from(byte));
         } else {
-            encoded.push_str(&format!("%{byte:02X}"));
+            let _ = write!(encoded, "%{byte:02X}");
         }
     }
     encoded
@@ -362,7 +364,7 @@ pub(crate) struct ResourceClient<'a> {
 }
 
 impl ResourceClient<'_> {
-    /// Providers usable right now — CurseForge drops out when no API key is
+    /// Providers usable right now — `CurseForge` drops out when no API key is
     /// configured, since every one of its endpoints requires one.
     pub(crate) fn available(&self) -> Vec<ResourceProvider> {
         ResourceProvider::ALL
@@ -380,7 +382,7 @@ impl ResourceClient<'_> {
         }
     }
 
-    fn check(
+    const fn check(
         &self,
         provider: ResourceProvider,
         loader: ResourceLoader,

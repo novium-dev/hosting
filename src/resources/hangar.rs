@@ -71,6 +71,10 @@ struct VersionStats {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(
+    clippy::struct_field_names,
+    reason = "mirrors the provider payload field for field"
+)]
 struct Download {
     file_info: Option<FileInfo>,
     /// Set instead of `download_url` when the author hosts the jar elsewhere.
@@ -241,7 +245,7 @@ pub(super) async fn resolve(
     let file_name = download
         .file_info
         .as_ref()
-        .map_or(fallback.clone(), |info| info.name.clone());
+        .map_or_else(|| fallback.clone(), |info| info.name.clone());
 
     Ok(ResolvedResource {
         url: url.parse().map_err(|_err| ResourceError::ProviderError)?,

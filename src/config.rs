@@ -53,11 +53,11 @@ impl BackendConfig {
 }
 
 /// Provider credentials for the resource browser. Providers without a required
-/// credential are always enabled; CurseForge is only offered when a key is
+/// credential are always enabled; `CurseForge` is only offered when a key is
 /// configured, since its API rejects unauthenticated requests.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ResourceConfig {
-    /// CurseForge Core API key. Falls back to `BACKEND_CURSEFORGE_API_KEY`.
+    /// `CurseForge` Core API key. Falls back to `BACKEND_CURSEFORGE_API_KEY`.
     #[serde(default)]
     pub curseforge_api_key: Option<String>,
 }

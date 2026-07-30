@@ -11,7 +11,7 @@ const API: &str = "https://api.curseforge.com/v1";
 
 const PROVIDER: ResourceProvider = ResourceProvider::Curseforge;
 
-/// CurseForge's game id for Minecraft.
+/// `CurseForge`'s game id for Minecraft.
 const GAME_ID: &str = "432";
 /// Class ids partition a game's projects; 6 is "Mods", 5 is "Bukkit Plugins".
 const CLASS_MODS: &str = "6";
@@ -19,20 +19,13 @@ const CLASS_BUKKIT_PLUGINS: &str = "5";
 
 /// `sortField=6` is total downloads.
 const SORT_DOWNLOADS: &str = "6";
-/// `sortField=1` is CurseForge's own relevance ranking.
+/// `sortField=1` is `CurseForge`'s own relevance ranking.
 const SORT_RELEVANCY: &str = "1";
 
-/// Loader names CurseForge mixes into a file's `gameVersions` array alongside
+/// Loader names `CurseForge` mixes into a file's `gameVersions` array alongside
 /// actual Minecraft versions. Used to split the two apart again.
 const LOADER_NAMES: [&str; 8] = [
-    "Forge",
-    "Fabric",
-    "NeoForge",
-    "Quilt",
-    "Bukkit",
-    "Spigot",
-    "Paper",
-    "Cauldron",
+    "Forge", "Fabric", "NeoForge", "Quilt", "Bukkit", "Spigot", "Paper", "Cauldron",
 ];
 
 #[derive(Debug, Deserialize)]
@@ -83,6 +76,10 @@ struct Category {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(
+    clippy::struct_field_names,
+    reason = "mirrors the provider payload field for field"
+)]
 struct File {
     id: i64,
     mod_id: i64,
@@ -97,8 +94,12 @@ struct File {
     download_url: Option<String>,
 }
 
-/// CurseForge reports counts as JSON numbers that can exceed what an integer
+/// `CurseForge` reports counts as JSON numbers that can exceed what an integer
 /// field would hold cleanly; they arrive as floats and are clamped here.
+#[expect(
+    clippy::cast_sign_loss,
+    reason = "guarded by the positivity check above"
+)]
 fn count(value: f64) -> u64 {
     if value.is_finite() && value > 0.0 {
         value as u64
@@ -115,7 +116,7 @@ const fn version_type(release_type: u8) -> ResourceVersionType {
     }
 }
 
-/// The `modLoaderType` value CurseForge expects for a loader, or `None` for
+/// The `modLoaderType` value `CurseForge` expects for a loader, or `None` for
 /// Bukkit-lineage plugins, which are selected by class id instead.
 const fn loader_type(loader: ResourceLoader) -> Option<&'static str> {
     match loader {
@@ -133,7 +134,10 @@ const fn class_id(loader: ResourceLoader) -> &'static str {
     }
 }
 
-fn authorized(request: RequestBuilder, api_key: Option<&str>) -> Result<RequestBuilder, ResourceError> {
+fn authorized(
+    request: RequestBuilder,
+    api_key: Option<&str>,
+) -> Result<RequestBuilder, ResourceError> {
     let api_key = api_key.ok_or(ResourceError::ProviderDisabled)?;
     Ok(request
         .header("x-api-key", api_key)
@@ -273,7 +277,9 @@ pub(super) async fn resolve(
     let file = response.data;
     // Authors can forbid third-party downloads, in which case CurseForge still
     // lists the file but omits the URL. There is no legitimate way around it.
-    let url = file.download_url.ok_or(ResourceError::DownloadUnavailable)?;
+    let url = file
+        .download_url
+        .ok_or(ResourceError::DownloadUnavailable)?;
 
     Ok(ResolvedResource {
         url: url.parse().map_err(|_err| ResourceError::ProviderError)?,

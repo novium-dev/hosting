@@ -6,6 +6,7 @@ use serde_json::Value;
 use std::sync::Arc;
 
 pub mod ports;
+pub mod resources;
 
 define_id!(ServerId);
 
