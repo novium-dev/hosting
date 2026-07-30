@@ -168,6 +168,7 @@ export function ModPluginBrowser({
 
   const installed = useMemo(() => contents?.managed ?? [], [contents]);
   const unmanaged = useMemo(() => contents?.unmanaged ?? [], [contents]);
+  const installedModpack = contents?.modpack ?? null;
   const unreadable = useMemo(() => contents?.unreadable ?? [], [contents]);
 
   const { data: updates = [], mutate: refreshUpdates } = useSWR(
@@ -793,6 +794,79 @@ export function ModPluginBrowser({
           </CardContent>
         </Card>
       </div>
+
+      {installedModpack ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              <Boxes className="size-5" />
+              {installedModpack.title}
+              <Badge variant="secondary">
+                {PROVIDER_LABELS[installedModpack.provider]}
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Installed modpack —{" "}
+              {installedModpack.mods.length > 0
+                ? `${installedModpack.mods.length} mod${
+                    installedModpack.mods.length === 1 ? "" : "s"
+                  }`
+                : "no mods found on disk"}
+              {installedModpack.other_files > 0
+                ? ` and ${installedModpack.other_files} configuration file${
+                    installedModpack.other_files === 1 ? "" : "s"
+                  }`
+                : ""}
+              . These came from the pack, so they are not listed as
+              hand-uploaded files.
+            </CardDescription>
+          </CardHeader>
+          {installedModpack.mods.length > 0 ? (
+            <CardContent className="flex flex-col gap-2">
+              {installedModpack.mods.map((entry) => (
+                <div
+                  key={`${entry.resource_type}:${entry.file_name}`}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+                >
+                  <span
+                    className={cn(
+                      "truncate font-medium",
+                      !entry.enabled && "text-muted-foreground",
+                    )}
+                  >
+                    {entry.file_name}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {!entry.enabled ? (
+                      <Badge variant="outline">Disabled</Badge>
+                    ) : null}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canWriteFiles}
+                      onClick={() =>
+                        handleSetState(
+                          entry.resource_type,
+                          entry.file_name,
+                          entry.file_name,
+                          !entry.enabled,
+                        )
+                      }
+                    >
+                      {entry.enabled ? (
+                        <PowerOff data-icon="inline-start" />
+                      ) : (
+                        <Power data-icon="inline-start" />
+                      )}
+                      {entry.enabled ? "Disable" : "Enable"}
+                    </Button>
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          ) : null}
+        </Card>
+      ) : null}
 
       {modpackJob ? (
         <Card

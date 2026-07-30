@@ -168,3 +168,86 @@ pub(crate) async fn delete_installed(
     .rows_affected()
         > 0)
 }
+
+/// The modpack installed on a server, with the files it wrote.
+///
+/// Kept apart from `server_resources`: a pack's mods are not individually
+/// managed — updating one mod out from under a pack would break its coherence —
+/// but they still need attributing to the pack rather than showing up as files
+/// nobody owns.
+#[derive(Debug, Clone)]
+pub(crate) struct ModpackRecord {
+    pub(crate) provider: ResourceProvider,
+    pub(crate) project: String,
+    pub(crate) version: String,
+    pub(crate) title: String,
+    /// Server-relative paths the pack installed, e.g. `mods/sodium.jar`.
+    pub(crate) files: Vec<String>,
+    /// Unix seconds.
+    pub(crate) installed_at: i64,
+}
+
+pub(crate) async fn get_modpack(
+    database: &PgPool,
+    server: ServerId,
+) -> Result<Option<ModpackRecord>, sqlx::Error> {
+    Ok(query!(
+        r#"SELECT provider, project, version, title, files, installed_at
+           FROM server_modpacks
+           WHERE server = $1"#,
+        server as ServerId
+    )
+    .fetch_optional(database)
+    .await?
+    .and_then(|record| {
+        Some(ModpackRecord {
+            // A provider this build does not know is skipped, same as for
+            // installed resources.
+            provider: ResourceProvider::parse_str(&record.provider)?,
+            project: record.project,
+            version: record.version,
+            title: record.title,
+            files: record.files,
+            installed_at: record.installed_at.timestamp(),
+        })
+    }))
+}
+
+pub(crate) async fn upsert_modpack(
+    database: &PgPool,
+    server: ServerId,
+    modpack: &ModpackRecord,
+) -> Result<(), sqlx::Error> {
+    query!(
+        r#"INSERT INTO server_modpacks (server, provider, project, version, title, files)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (server) DO UPDATE SET
+               provider = excluded.provider,
+               project = excluded.project,
+               version = excluded.version,
+               title = excluded.title,
+               files = excluded.files,
+               installed_at = now()"#,
+        server as ServerId,
+        modpack.provider.as_str(),
+        modpack.project,
+        modpack.version,
+        modpack.title,
+        &modpack.files
+    )
+    .execute(database)
+    .await?;
+
+    Ok(())
+}
+
+pub(crate) async fn delete_modpack(database: &PgPool, server: ServerId) -> Result<(), sqlx::Error> {
+    query!(
+        "DELETE FROM server_modpacks WHERE server = $1",
+        server as ServerId
+    )
+    .execute(database)
+    .await?;
+
+    Ok(())
+}

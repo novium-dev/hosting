@@ -98,6 +98,30 @@ export type InstallResourcePayload = {
 };
 
 /**
+ * The modpack installed on this server, and what it put here.
+ */
+export type InstalledModpack = {
+    /**
+     * Unix seconds.
+     */
+    installed_at: number;
+    /**
+     * The pack's mod jars that are on disk, with their current state.
+     */
+    mods: Array<ModpackMod>;
+    /**
+     * How many of the pack's other files (configs, scripts) are recorded. Not
+     * listed individually — they are not resources and there is nothing to do
+     * with them here.
+     */
+    other_files: number;
+    project: string;
+    provider: ResourceProvider;
+    title: string;
+    version: string;
+};
+
+/**
  * One installed mod/plugin, as stored in `server_resources`.
  *
  * Keyed by `(server, provider, project)`, so a server holds at most one
@@ -142,6 +166,18 @@ export const ModpackJobState = {
 } as const;
 
 export type ModpackJobState = typeof ModpackJobState[keyof typeof ModpackJobState];
+
+/**
+ * A mod that came from the installed modpack.
+ */
+export type ModpackMod = {
+    enabled: boolean;
+    /**
+     * The name as it appears on disk.
+     */
+    file_name: string;
+    resource_type: ResourceType;
+};
 
 export type NanoId = string;
 
@@ -8628,6 +8664,7 @@ export type ListInstalledResourcesResponses = {
          * Resources installed through the browser, reconciled against disk.
          */
         managed: Array<InstalledResource>;
+        modpack?: null | InstalledModpack;
         /**
          * Resource files present on disk that no record points at — uploaded over
          * SFTP, dropped in via the file manager, or replaced by hand. Listed so the

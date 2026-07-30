@@ -2,7 +2,9 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
-use crate::db::server::resources::delete_installed_files;
+use crate::db::server::resources::{
+    ModpackRecord, delete_installed_files, delete_modpack, upsert_modpack,
+};
 use crate::db::server::{Server, ServerId};
 use crate::resources::modpack::{
     CURSEFORGE_MANIFEST, MODRINTH_INDEX, Modpack, ModpackFile, OVERRIDES_DIR, SERVER_OVERRIDES_DIR,
@@ -39,6 +41,9 @@ const STAGING_DIR: &str = ".novium-modpack";
 /// Largest manifest read back from a server. Real indexes are tens of KiB; this
 /// is a bound so a hostile archive cannot make the backend read forever.
 const MAX_MANIFEST_BYTES: u64 = 0x0080_0000;
+
+/// Longest pack title stored, matching the column width.
+const MAX_PACK_TITLE: usize = 255;
 
 /// Where a `CurseForge` pack's files go: its manifest names no paths.
 const CURSEFORGE_FILE_DIR: &str = "mods";
@@ -450,8 +455,8 @@ impl Backend {
             }
         };
 
-        let files = self.resolve_curseforge_files(pack.files).await;
         let pack_name = pack.name.clone();
+        let files = self.resolve_curseforge_files(pack.files.clone()).await;
         let total = u32::try_from(files.len()).unwrap_or(u32::MAX);
         self.update_job(server_id, |job| {
             "Installing mods".clone_into(&mut job.step);
@@ -465,6 +470,12 @@ impl Backend {
                 "Clearing existing mods".clone_into(&mut job.step);
             })
             .await;
+
+            // The previous pack's files are what just went, so its record goes
+            // too rather than describing mods that are no longer there.
+            if let Err(err) = delete_modpack(&self.database, server_id).await {
+                warn!("Failed to clear the previous modpack record: {err:?}");
+            }
 
             match self.wipe_mods(&server).await {
                 Ok(removed) => info!("Cleared {removed} mod(s) before installing a pack"),
@@ -482,6 +493,8 @@ impl Backend {
             })
             .await;
         }
+
+        let mut installed_paths = Vec::new();
 
         for file in files {
             let Some(url) = file.url.as_deref().and_then(|url| url.parse().ok()) else {
@@ -510,9 +523,13 @@ impl Backend {
                 .server_write_file_by_url(server.node_server_id, file.path.clone(), url)
                 .await;
 
+            match &outcome {
+                Ok(()) => installed_paths.push(file.path.clone()),
+                Err(err) => warn!("Failed to install pack file {}: {err:?}", file.path),
+            }
+
             self.update_job(server_id, |job| {
-                if let Err(err) = &outcome {
-                    warn!("Failed to install pack file {}: {err:?}", file.path);
+                if outcome.is_err() {
                     job.failures.push(file.path.clone());
                 }
                 job.done += 1;
@@ -534,6 +551,28 @@ impl Backend {
             .apply_overrides(&server, &format!("{extracted}/{SERVER_OVERRIDES_DIR}"))
             .await;
         info!("Applied {copied} override file(s) for a pack on {server_id}");
+
+        // Recorded so the pack's mods are attributed to it rather than looking
+        // like files nobody owns: the installer writes jars directly, without a
+        // record per mod.
+        let record = ModpackRecord {
+            provider: payload.provider,
+            project: payload.project.clone(),
+            version: payload.version.clone(),
+            title: payload
+                .title
+                .clone()
+                .or_else(|| pack.name.clone())
+                .unwrap_or_else(|| payload.project.clone())
+                .chars()
+                .take(MAX_PACK_TITLE)
+                .collect(),
+            files: installed_paths,
+            installed_at: chrono::Utc::now().timestamp(),
+        };
+        if let Err(err) = upsert_modpack(&self.database, server_id, &record).await {
+            error!("Failed to record the installed modpack: {err:?}");
+        }
 
         self.cleanup_staging(&server, &staging).await;
 

@@ -3,8 +3,8 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
 use crate::db::server::resources::{
-    InstalledResource, delete_installed, delete_installed_files, installed_file, list_installed,
-    upsert_installed,
+    InstalledResource, delete_installed, delete_installed_files, get_modpack, installed_file,
+    list_installed, upsert_installed,
 };
 use crate::db::server::{Server, ServerId};
 use crate::resources::{
@@ -146,11 +146,40 @@ const FEATURE_LOADERS: [(&str, ResourceLoader); 4] = [
     ("minecraft_mods_neoforge", ResourceLoader::Neoforge),
 ];
 
+/// A mod that came from the installed modpack.
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct ModpackMod {
+    pub(crate) resource_type: ResourceType,
+    /// The name as it appears on disk.
+    pub(crate) file_name: String,
+    pub(crate) enabled: bool,
+}
+
+/// The modpack installed on this server, and what it put here.
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct InstalledModpack {
+    pub(crate) provider: ResourceProvider,
+    pub(crate) project: String,
+    pub(crate) version: String,
+    pub(crate) title: String,
+    /// Unix seconds.
+    pub(crate) installed_at: i64,
+    /// The pack's mod jars that are on disk, with their current state.
+    pub(crate) mods: Vec<ModpackMod>,
+    /// How many of the pack's other files (configs, scripts) are recorded. Not
+    /// listed individually — they are not resources and there is nothing to do
+    /// with them here.
+    pub(crate) other_files: u32,
+}
+
 /// What the resource directories actually hold.
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct InstalledResources {
     /// Resources installed through the browser, reconciled against disk.
     pub(crate) managed: Vec<InstalledResource>,
+    /// The installed modpack, when there is one. Its mods are listed here rather
+    /// than under `unmanaged`: they belong to the pack, not to nobody.
+    pub(crate) modpack: Option<InstalledModpack>,
     /// Resource files present on disk that no record points at — uploaded over
     /// SFTP, dropped in via the file manager, or replaced by hand. Listed so the
     /// panel reflects the directory rather than only our own bookkeeping.
@@ -238,6 +267,26 @@ pub(crate) fn base_file_name(name: &str) -> String {
     split_disabled(name).0.to_owned()
 }
 
+/// Splits a pack-relative path into the resource directory it targets and the
+/// file name in it, for the paths that land in one at all.
+///
+/// A pack writes plenty of files that are not resources — `config/...`,
+/// `kubejs/...` — and those are counted, not listed.
+fn split_resource_path(path: &str) -> Option<(ResourceType, &str)> {
+    [
+        ResourceType::Plugin,
+        ResourceType::Modification,
+        ResourceType::DataPack,
+    ]
+    .into_iter()
+    .find_map(|resource_type| {
+        let name = path.strip_prefix(resource_type.path_prefix())?;
+        // Only files directly in the directory; a nested path is a mod's own
+        // data, not a loadable artifact.
+        (!name.is_empty() && !name.contains('/')).then_some((resource_type, name))
+    })
+}
+
 /// Resource files on disk that no record claims.
 ///
 /// Records store the base name, so both `Foo.jar` and `Foo.jar.disabled` count
@@ -246,11 +295,18 @@ pub(crate) fn base_file_name(name: &str) -> String {
 fn collect_unmanaged(
     listings: &HashMap<ResourceType, Listing>,
     managed: &[InstalledResource],
+    pack_files: &HashSet<(ResourceType, String)>,
 ) -> Vec<UnmanagedResource> {
-    let claimed: HashSet<(ResourceType, &str)> = managed
+    let mut claimed: HashSet<(ResourceType, &str)> = managed
         .iter()
         .map(|resource| (resource.resource_type, resource.file_name.as_str()))
         .collect();
+    // A pack's mods are the pack's, so they are not unmanaged either.
+    claimed.extend(
+        pack_files
+            .iter()
+            .map(|(resource_type, name)| (*resource_type, name.as_str())),
+    );
 
     let mut unmanaged = Vec::new();
     for (resource_type, listing) in listings {
@@ -899,6 +955,21 @@ pub(crate) impl ResourceService for Backend {
 
         let recorded = list_installed(&self.database, server_id).await?;
 
+        let modpack = get_modpack(&self.database, server_id).await?;
+
+        // Recorded pack paths that land in a resource directory, so they can be
+        // shown under the pack and kept out of the unmanaged list.
+        let pack_files: HashSet<(ResourceType, String)> = modpack
+            .as_ref()
+            .map(|pack| {
+                pack.files
+                    .iter()
+                    .filter_map(|path| split_resource_path(path))
+                    .map(|(resource_type, name)| (resource_type, name.to_owned()))
+                    .collect()
+            })
+            .unwrap_or_default();
+
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
@@ -923,6 +994,13 @@ pub(crate) impl ResourceService for Backend {
             })
             .collect();
         directories.extend(recorded.iter().map(|resource| resource.resource_type));
+        // A pack can be the only thing installed, and its mods still have to be
+        // reported, so its directories are listed too.
+        directories.extend(
+            pack_files
+                .iter()
+                .map(|(resource_type, _name)| *resource_type),
+        );
 
         let mut listings: HashMap<ResourceType, Listing> = HashMap::new();
         let mut unreadable = Vec::new();
@@ -971,9 +1049,50 @@ pub(crate) impl ResourceService for Backend {
             }
         }
 
+        // The pack's mods are reported from the directory listing, like
+        // everything else, so a mod deleted or parked by hand reads correctly.
+        let modpack = modpack.map(|pack| {
+            let mut mods = Vec::new();
+            let mut other_files = 0u32;
+
+            for path in &pack.files {
+                let Some((resource_type, name)) = split_resource_path(path) else {
+                    other_files += 1;
+                    continue;
+                };
+                let Some(files) = listings.get(&resource_type).and_then(Option::as_ref) else {
+                    continue;
+                };
+
+                for (found, _size) in files {
+                    let (base, enabled) = split_disabled(found);
+                    if base == name {
+                        mods.push(ModpackMod {
+                            resource_type,
+                            file_name: found.clone(),
+                            enabled,
+                        });
+                    }
+                }
+            }
+
+            mods.sort_by(|left, right| left.file_name.cmp(&right.file_name));
+
+            InstalledModpack {
+                provider: pack.provider,
+                project: pack.project,
+                version: pack.version,
+                title: pack.title,
+                installed_at: pack.installed_at,
+                mods,
+                other_files,
+            }
+        });
+
         Ok(InstalledResources {
-            unmanaged: collect_unmanaged(&listings, &present),
+            unmanaged: collect_unmanaged(&listings, &present, &pack_files),
             managed: present,
+            modpack,
             unreadable,
         })
     }
@@ -1561,7 +1680,7 @@ mod tests {
 
         assert!(missing.is_empty());
         assert_eq!(present.first().map(|entry| entry.enabled), Some(false));
-        assert!(collect_unmanaged(&listings, &present).is_empty());
+        assert!(collect_unmanaged(&listings, &present, &HashSet::new()).is_empty());
     }
 
     /// Existing cases all use release versions; this keeps them readable.
@@ -1724,7 +1843,7 @@ mod tests {
         let (present, _missing) =
             partition_present(vec![record("a.jar", ResourceType::Plugin)], &listings);
 
-        assert!(collect_unmanaged(&listings, &present).is_empty());
+        assert!(collect_unmanaged(&listings, &present, &HashSet::new()).is_empty());
     }
 
     #[test]
@@ -1732,7 +1851,7 @@ mod tests {
         let listings =
             HashMap::from([(ResourceType::Plugin, Some(listing(&["hand.jar.disabled"])))]);
 
-        let unmanaged = collect_unmanaged(&listings, &[]);
+        let unmanaged = collect_unmanaged(&listings, &[], &HashSet::new());
 
         assert_eq!(
             unmanaged
@@ -1752,6 +1871,65 @@ mod tests {
     }
 
     #[test]
+    fn splits_only_paths_that_land_in_a_resource_directory() {
+        assert_eq!(
+            split_resource_path("mods/sodium.jar"),
+            Some((ResourceType::Modification, "sodium.jar"))
+        );
+        assert_eq!(
+            split_resource_path("plugins/essentials.jar"),
+            Some((ResourceType::Plugin, "essentials.jar"))
+        );
+        // Config trees and a mod's own data directory are not resources.
+        assert_eq!(split_resource_path("config/sodium/options.json"), None);
+        assert_eq!(split_resource_path("mods/nested/thing.jar"), None);
+        assert_eq!(split_resource_path("mods/"), None);
+        assert_eq!(split_resource_path("kubejs/startup.js"), None);
+    }
+
+    #[test]
+    fn a_modpacks_mods_are_not_reported_as_unmanaged() {
+        // The whole point: a pack writes jars directly, with no record per mod,
+        // so without attribution every one of them looked hand-uploaded.
+        let listings = HashMap::from([(
+            ResourceType::Modification,
+            Some(listing(&["from-pack.jar", "hand-uploaded.jar"])),
+        )]);
+        let pack_files = HashSet::from([(ResourceType::Modification, "from-pack.jar".to_owned())]);
+
+        let unmanaged = collect_unmanaged(&listings, &[], &pack_files);
+
+        assert_eq!(
+            unmanaged
+                .iter()
+                .map(|entry| entry.file_name.as_str())
+                .collect::<Vec<_>>(),
+            ["hand-uploaded.jar"]
+        );
+    }
+
+    #[test]
+    fn a_disabled_modpack_mod_is_still_attributed_to_the_pack() {
+        // Parking a pack mod must not hand it back to the unmanaged list.
+        let listings = HashMap::from([(
+            ResourceType::Modification,
+            Some(listing(&["from-pack.jar.disabled"])),
+        )]);
+        let pack_files = HashSet::from([(ResourceType::Modification, "from-pack.jar".to_owned())]);
+
+        assert!(collect_unmanaged(&listings, &[], &pack_files).is_empty());
+    }
+
+    #[test]
+    fn a_pack_file_in_another_directory_does_not_claim_a_mod() {
+        // `config/foo.jar` must not silence `mods/foo.jar`.
+        let listings = HashMap::from([(ResourceType::Modification, Some(listing(&["foo.jar"])))]);
+        let pack_files = HashSet::from([(ResourceType::Plugin, "foo.jar".to_owned())]);
+
+        assert_eq!(collect_unmanaged(&listings, &[], &pack_files).len(), 1);
+    }
+
+    #[test]
     fn reports_files_no_record_claims_as_unmanaged() {
         let listings = HashMap::from([(
             ResourceType::Plugin,
@@ -1759,7 +1937,7 @@ mod tests {
         )]);
         let managed = vec![record("managed.jar", ResourceType::Plugin)];
 
-        let unmanaged = collect_unmanaged(&listings, &managed);
+        let unmanaged = collect_unmanaged(&listings, &managed, &HashSet::new());
 
         assert_eq!(
             unmanaged
@@ -1784,7 +1962,7 @@ mod tests {
             ])),
         )]);
 
-        let unmanaged = collect_unmanaged(&listings, &[]);
+        let unmanaged = collect_unmanaged(&listings, &[], &HashSet::new());
 
         assert_eq!(
             unmanaged
@@ -1802,7 +1980,7 @@ mod tests {
             Some(listing(&["Parked.jar.disabled", "SHOUTY.JAR"])),
         )]);
 
-        assert_eq!(collect_unmanaged(&listings, &[]).len(), 2);
+        assert_eq!(collect_unmanaged(&listings, &[], &HashSet::new()).len(), 2);
     }
 
     #[test]
@@ -1812,7 +1990,7 @@ mod tests {
             Some(listing(&["pack.zip", "stray.jar"])),
         )]);
 
-        let unmanaged = collect_unmanaged(&listings, &[]);
+        let unmanaged = collect_unmanaged(&listings, &[], &HashSet::new());
 
         assert_eq!(
             unmanaged
@@ -1828,7 +2006,7 @@ mod tests {
         // Nothing is known about it, so claiming it is empty would be a lie.
         let listings = HashMap::from([(ResourceType::Plugin, None)]);
 
-        assert!(collect_unmanaged(&listings, &[]).is_empty());
+        assert!(collect_unmanaged(&listings, &[], &HashSet::new()).is_empty());
     }
 
     #[test]
@@ -1844,7 +2022,7 @@ mod tests {
         );
 
         assert_eq!(names(&missing), ["deleted.jar"]);
-        assert!(collect_unmanaged(&listings, &present).is_empty());
+        assert!(collect_unmanaged(&listings, &present, &HashSet::new()).is_empty());
     }
 
     #[test]
@@ -1859,7 +2037,7 @@ mod tests {
         assert!(present.is_empty());
         assert_eq!(names(&missing), ["Foo-1.0.jar"]);
         assert_eq!(
-            collect_unmanaged(&listings, &present)
+            collect_unmanaged(&listings, &present, &HashSet::new())
                 .iter()
                 .map(|entry| entry.file_name.as_str())
                 .collect::<Vec<_>>(),
