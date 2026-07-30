@@ -302,6 +302,11 @@ export const ResourceVersionType = {
 
 export type ResourceVersionType = typeof ResourceVersionType[keyof typeof ResourceVersionType];
 
+export type ResyncTemplatePayload = {
+    restart?: boolean | null;
+    template?: string | null;
+};
+
 export const Role = {
     ADMIN: 'Admin',
     MODERATOR: 'Moderator',
@@ -330,6 +335,31 @@ export type ServerResourcePayload = {
     ram?: number | null;
     swap?: number | null;
 };
+
+export type ServerResyncResult = {
+    name: string;
+    project: NanoId;
+    /**
+     * Whether the server was restarted so the new build takes effect now.
+     */
+    restarted: boolean;
+    server: NanoId;
+    status: ServerResyncStatus;
+    template: string;
+};
+
+export const ServerResyncStatus = {
+    UPDATED: 'updated',
+    MIGRATED: 'migrated',
+    NODE_MISSING: 'node_missing',
+    NODE_FAILURE: 'node_failure',
+    TEMPLATE_MISSING: 'template_missing',
+    TEMPLATE_UNAVAILABLE: 'template_unavailable',
+    TEMPLATE_CORRUPTED: 'template_corrupted',
+    FAILURE: 'failure'
+} as const;
+
+export type ServerResyncStatus = typeof ServerResyncStatus[keyof typeof ServerResyncStatus];
 
 export type ServerStats = {
     cpu?: number | null;
@@ -10309,9 +10339,27 @@ export type DeleteApiKeyErrors = {
         };
     };
     /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403​': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
      * API key not found
      */
-    '404‌': {
+    '404‎': {
         error?: {
             id?: 'api_key/not_found';
             msg?: 'API key not found';
@@ -10329,7 +10377,7 @@ export type DeleteApiKeyErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500​': {
+    '500‌': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -10615,6 +10663,160 @@ export type DeleteAnyApiKeyResponses = {
 };
 
 export type DeleteAnyApiKeyResponse = DeleteAnyApiKeyResponses[keyof DeleteAnyApiKeyResponses];
+
+export type ListTemplateUsageData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/template';
+};
+
+export type ListTemplateUsageErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListTemplateUsageError = ListTemplateUsageErrors[keyof ListTemplateUsageErrors];
+
+export type ListTemplateUsageResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        id: string;
+        /**
+         * How many servers on this instance run the template.
+         */
+        servers: number;
+    }>;
+};
+
+export type ListTemplateUsageResponse = ListTemplateUsageResponses[keyof ListTemplateUsageResponses];
+
+export type ResyncTemplateData = {
+    body: ResyncTemplatePayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/template/resync';
+};
+
+export type ResyncTemplateErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The template does not exist
+     */
+    '404‍': {
+        error?: {
+            id?: 'template/not_found';
+            msg?: 'The template does not exist';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ResyncTemplateError = ResyncTemplateErrors[keyof ResyncTemplateErrors];
+
+export type ResyncTemplateResponses = {
+    /**
+     * Success
+     */
+    200: {
+        failed: number;
+        /**
+         * Of those, how many needed their stored configuration migrated first.
+         */
+        migrated: number;
+        restarted: number;
+        servers: Array<ServerResyncResult>;
+        total: number;
+        /**
+         * Servers whose node accepted the regenerated build.
+         */
+        updated: number;
+    };
+};
+
+export type ResyncTemplateResponse = ResyncTemplateResponses[keyof ResyncTemplateResponses];
 
 export type LoginDevData = {
     body?: never;
