@@ -76,9 +76,21 @@ pub(crate) struct Backend {
     pub(crate) config: Arc<BackendConfig>,
     pub(crate) nodes: Arc<RwLock<HashMap<Uuid, Arc<BackendNode>>>>,
 
+    /// Shared outbound HTTP client for the resource providers. Reused so
+    /// connections to Modrinth/`CurseForge`/Hangar/Spiget stay pooled instead of
+    /// being rebuilt per request.
+    pub(crate) http_client: reqwest::Client,
+    /// Resolved once at startup; `None` disables the `CurseForge` provider.
+    pub(crate) curseforge_api_key: Option<Arc<str>>,
+
     pub(crate) node_registrations: Arc<RwLock<NodeRegistrationMap>>,
 
     pub(crate) templates: Arc<RwLock<HashMap<String, Arc<dyn TemplateInner + Send + Sync>>>>,
+
+    /// In-flight and last-finished modpack installs, one per server. A pack is
+    /// hundreds of downloads, so the work runs on a task and clients poll this.
+    pub(crate) modpack_jobs:
+        Arc<RwLock<HashMap<crate::db::server::ServerId, crate::service::modpack::ModpackJob>>>,
 
     #[cfg(feature = "embedded_node")]
     pub(crate) embedded: daemon::Daemon<daemon::WithUserKey>,
@@ -247,6 +259,17 @@ async fn main0() {
     .await
     .expect("Unable to setup embedded node");
 
+    let curseforge_api_key = config.resources.resolved_curseforge_api_key();
+    if curseforge_api_key.is_none() {
+        info!("No CurseForge API key configured; the CurseForge provider stays disabled");
+    }
+
+    let http_client = reqwest::Client::builder()
+        .user_agent(concat!("novium-backend/", env!("CARGO_PKG_VERSION")))
+        .timeout(Duration::from_secs(30))
+        .build()
+        .expect("Unable to build HTTP client");
+
     let backend = Backend {
         database,
         cache,
@@ -255,9 +278,13 @@ async fn main0() {
         config: Arc::new(config),
         nodes: Arc::default(),
 
+        http_client,
+        curseforge_api_key: curseforge_api_key.map(Arc::from),
+
         node_registrations: Arc::default(),
 
         templates: Arc::default(),
+        modpack_jobs: Arc::default(),
 
         #[cfg(feature = "embedded_node")]
         embedded: embedded.clone(),

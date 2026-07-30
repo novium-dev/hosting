@@ -21,12 +21,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { listFiles, serverInfo } from "@/lib/api";
+import { serverInfo } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { useOrganization } from "@/hooks/use-organization";
 import { useSearchParams } from "@/lib/navigation";
-import { FileMode, modeToType } from "@/lib/files";
-import { getMinecraftResourceCapabilities } from "@/lib/mod-browser/capabilities";
+import { hasResourceSupport } from "@/lib/mod-browser/types";
 import {
   hasManagementPermission,
   hasServerPermission,
@@ -130,7 +129,6 @@ const SERVER_SECTIONS: ServerSection[] = [
 ];
 
 function getVisibleSections(permissions: number, features: string[]) {
-  const minecraftResources = getMinecraftResourceCapabilities(features);
   const isMinecraftServer = features.some((feature) =>
     feature.startsWith("minecraft_"),
   );
@@ -141,7 +139,7 @@ function getVisibleSections(permissions: number, features: string[]) {
     }
 
     if (entry.requiresMinecraftResources) {
-      return minecraftResources.length > 0;
+      return hasResourceSupport(features);
     }
 
     if (entry.requiresMinecraftServer) {
@@ -157,31 +155,6 @@ function getActiveSection(sections: ServerSection[], section?: string[]) {
   const match = sections.find((entry) => entry.key === value);
 
   return match ?? sections[0] ?? SERVER_SECTIONS[0];
-}
-
-async function getInstalledFilesByPath(serverId: string, paths: string[]) {
-  const uniquePaths = Array.from(new Set(paths));
-  const entries = await Promise.all(
-    uniquePaths.map(async (file) => {
-      const response = await listFiles({
-        path: { server_id: serverId },
-        query: { file },
-      });
-
-      if (response.error || !response.data) {
-        return [file, []] as const;
-      }
-
-      return [
-        file,
-        response.data
-          .filter((entry) => modeToType(entry.mode) === FileMode.REG)
-          .map((entry) => entry.name),
-      ] as const;
-    }),
-  );
-
-  return Object.fromEntries(entries);
 }
 
 export default function ClientServerSectionPage() {
@@ -204,9 +177,6 @@ export default function ClientServerSectionPage() {
   const effectivePermissions = mergePermissions(
     session?.user.permissions ?? 0,
     org?.permissions ?? 0,
-  );
-  const resourceCapabilities = getMinecraftResourceCapabilities(
-    serverData?.features ?? [],
   );
   const visibleSections = getVisibleSections(
     effectivePermissions,
@@ -261,18 +231,6 @@ export default function ClientServerSectionPage() {
     ServerPermission.USER_EDIT,
   );
   const isEditRoute = section?.[0] === "edit";
-
-  const capabilityPaths = resourceCapabilities.map(
-    (capability) => capability.path,
-  );
-  const needsInstalledFiles =
-    activeSection.key === "mods" && capabilityPaths.length > 0;
-  const { data: installedFilesByPath = {} } = useSWR(
-    needsInstalledFiles
-      ? ["installed-files", server, capabilityPaths.join(",")]
-      : null,
-    () => getInstalledFilesByPath(server, capabilityPaths),
-  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -358,13 +316,7 @@ export default function ClientServerSectionPage() {
           canWriteFiles={canWriteFiles}
         />
       ) : activeSection.key === "mods" ? (
-        <ModPluginBrowser
-          serverId={server}
-          slug={slug}
-          capabilities={resourceCapabilities}
-          installedFilesByPath={installedFilesByPath}
-          canWriteFiles={canWriteFiles}
-        />
+        <ModPluginBrowser serverId={server} canWriteFiles={canWriteFiles} />
       ) : activeSection.key === "players" ? (
         <MinecraftPlayerManager
           serverId={server}

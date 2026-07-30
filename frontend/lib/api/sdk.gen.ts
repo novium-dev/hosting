@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddNodePortData, AddNodePortErrors, AddNodePortResponses, AddPortData, AddPortErrors, AddPortResponses, AddSshKeyData, AddSshKeyErrors, AddSshKeyResponses, ArchiveFileData, ArchiveFileErrors, ArchiveFileResponses, AuthPasswordData, AuthPasswordErrors, AuthPasswordResponses, AuthPublickeyData, AuthPublickeyErrors, AuthPublickeyResponses, AvailablePortsData, AvailablePortsErrors, AvailablePortsResponses, BanUserData, BanUserErrors, BanUserResponses, CallbackData, CallbackErrors, CheckProjectSlugData, CheckProjectSlugErrors, CheckProjectSlugResponses, CopyFileData, CopyFileErrors, CopyFileResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, CreateBackupWithStorageData, CreateBackupWithStorageErrors, CreateBackupWithStorageResponses, CreateDirectoryData, CreateDirectoryErrors, CreateDirectoryResponses, CreateNodeData, CreateNodeErrors, CreateNodeResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateServerData, CreateServerErrors, CreateServerResponses, DaemonConfigData, DaemonConfigErrors, DaemonConfigResponses, DaemonPasswordData, DaemonPasswordErrors, DaemonPasswordResponses, DaemonRegisterData, DaemonRegisterErrors, DaemonRegisterResponses, DaemonRootKeyData, DaemonRootKeyErrors, DaemonRootKeyResponses, DeleteBackupData, DeleteBackupErrors, DeleteBackupResponses, DeleteFileData, DeleteFileErrors, DeleteFileResponses, DeleteNodePortData, DeleteNodePortErrors, DeleteNodePortResponses, DeletePortData, DeletePortErrors, DeletePortResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteServerData, DeleteServerErrors, DeleteServerResponses, DeleteSshKeyData, DeleteSshKeyErrors, DeleteSshKeyResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeopUserData, DeopUserErrors, DeopUserResponses, DownloadBackupData, DownloadBackupErrors, DownloadBackupResponses, DownloadUserData, DownloadUserErrors, DownloadUserResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetResourceData, GetResourceErrors, GetResourceResponses, GetUserData, GetUserErrors, GetUserResponses, KillServerData, KillServerErrors, KillServerResponses, ListBackupsData, ListBackupsErrors, ListBackupsResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListNodesData, ListNodesErrors, ListNodesResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectUsersData, ListProjectUsersErrors, ListProjectUsersResponses, ListServersData, ListServersErrors, ListServersResponses, ListSshKeysData, ListSshKeysErrors, ListSshKeysResponses, ListTemplatesData, ListTemplatesErrors, ListTemplatesResponses, ListUserProjectsData, ListUserProjectsErrors, ListUserProjectsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LogoutData, LogoutErrors, LogoutResponses, MeData, MeErrors, MeResponses, MetricsNodeData, MetricsNodeErrors, MetricsNodeResponses, OpUserData, OpUserErrors, OpUserResponses, PardonUserData, PardonUserErrors, PardonUserResponses, RealtimeDownloadBackupData, RealtimeDownloadBackupErrors, RealtimeDownloadBackupResponses, RemoveProjectUserData, RemoveProjectUserErrors, RemoveProjectUserResponses, RenameFileData, RenameFileErrors, RenameFileResponses, RerollDaemonPasswordData, RerollDaemonPasswordErrors, RerollDaemonPasswordResponses, RestartServerData, RestartServerErrors, RestartServerResponses, RestoreBackupData, RestoreBackupErrors, RestoreBackupResponses, ServerInfoData, ServerInfoErrors, ServerInfoResponses, ServerStatsData, ServerStatsErrors, ServerStatsResponses, ServerTerminalData, ServerTerminalErrors, ServerTerminalResponses, ServerVariablesData, ServerVariablesErrors, ServerVariablesResponses, SetConfigData, SetConfigErrors, SetConfigResponses, SetProjectUserData, SetProjectUserErrors, SetProjectUserResponses, StartServerData, StartServerErrors, StartServerResponses, StatFileData, StatFileErrors, StatFileResponses, StopServerData, StopServerErrors, StopServerResponses, SymlinkFileData, SymlinkFileErrors, SymlinkFileResponses, TemplateInfoData, TemplateInfoErrors, TemplateInfoResponses, UnarchiveFileData, UnarchiveFileErrors, UnarchiveFileResponses, UpdateBackupData, UpdateBackupErrors, UpdateBackupResponses, UpdateMaintenanceData, UpdateMaintenanceErrors, UpdateMaintenanceResponses, UpdateNodeData, UpdateNodeErrors, UpdateNodeResponses, UpdatePortData, UpdatePortErrors, UpdatePortResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateServerData, UpdateServerErrors, UpdateServerResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateVariablesData, UpdateVariablesErrors, UpdateVariablesResponses, UploadUserData, UploadUserErrors, UploadUserResponses } from './types.gen';
+import type { AddNodePortData, AddNodePortErrors, AddNodePortResponses, AddPortData, AddPortErrors, AddPortResponses, AddSshKeyData, AddSshKeyErrors, AddSshKeyResponses, ArchiveFileData, ArchiveFileErrors, ArchiveFileResponses, AuthPasswordData, AuthPasswordErrors, AuthPasswordResponses, AuthPublickeyData, AuthPublickeyErrors, AuthPublickeyResponses, AvailablePortsData, AvailablePortsErrors, AvailablePortsResponses, BanUserData, BanUserErrors, BanUserResponses, CallbackData, CallbackErrors, CheckProjectSlugData, CheckProjectSlugErrors, CheckProjectSlugResponses, CopyFileData, CopyFileErrors, CopyFileResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, CreateBackupWithStorageData, CreateBackupWithStorageErrors, CreateBackupWithStorageResponses, CreateDirectoryData, CreateDirectoryErrors, CreateDirectoryResponses, CreateNodeData, CreateNodeErrors, CreateNodeResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateServerData, CreateServerErrors, CreateServerResponses, DaemonConfigData, DaemonConfigErrors, DaemonConfigResponses, DaemonPasswordData, DaemonPasswordErrors, DaemonPasswordResponses, DaemonRegisterData, DaemonRegisterErrors, DaemonRegisterResponses, DaemonRootKeyData, DaemonRootKeyErrors, DaemonRootKeyResponses, DeleteBackupData, DeleteBackupErrors, DeleteBackupResponses, DeleteFileData, DeleteFileErrors, DeleteFileResponses, DeleteNodePortData, DeleteNodePortErrors, DeleteNodePortResponses, DeletePortData, DeletePortErrors, DeletePortResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteServerData, DeleteServerErrors, DeleteServerResponses, DeleteSshKeyData, DeleteSshKeyErrors, DeleteSshKeyResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeopUserData, DeopUserErrors, DeopUserResponses, DownloadBackupData, DownloadBackupErrors, DownloadBackupResponses, DownloadUserData, DownloadUserErrors, DownloadUserResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetUserData, GetUserErrors, GetUserResponses, InstallModpackData, InstallModpackErrors, InstallModpackResponses, InstallResourceData, InstallResourceErrors, InstallResourceResponses, KillServerData, KillServerErrors, KillServerResponses, ListBackupsData, ListBackupsErrors, ListBackupsResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListInstalledResourcesData, ListInstalledResourcesErrors, ListInstalledResourcesResponses, ListNodesData, ListNodesErrors, ListNodesResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectUsersData, ListProjectUsersErrors, ListProjectUsersResponses, ListResourceUpdatesData, ListResourceUpdatesErrors, ListResourceUpdatesResponses, ListResourceVersionsData, ListResourceVersionsErrors, ListResourceVersionsResponses, ListServersData, ListServersErrors, ListServersResponses, ListSshKeysData, ListSshKeysErrors, ListSshKeysResponses, ListTemplatesData, ListTemplatesErrors, ListTemplatesResponses, ListUserProjectsData, ListUserProjectsErrors, ListUserProjectsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LogoutData, LogoutErrors, LogoutResponses, MeData, MeErrors, MeResponses, MetricsNodeData, MetricsNodeErrors, MetricsNodeResponses, ModpackStatusData, ModpackStatusErrors, ModpackStatusResponses, OpUserData, OpUserErrors, OpUserResponses, PardonUserData, PardonUserErrors, PardonUserResponses, RealtimeDownloadBackupData, RealtimeDownloadBackupErrors, RealtimeDownloadBackupResponses, RemoveProjectUserData, RemoveProjectUserErrors, RemoveProjectUserResponses, RenameFileData, RenameFileErrors, RenameFileResponses, RerollDaemonPasswordData, RerollDaemonPasswordErrors, RerollDaemonPasswordResponses, ResourceContextData, ResourceContextErrors, ResourceContextResponses, RestartServerData, RestartServerErrors, RestartServerResponses, RestoreBackupData, RestoreBackupErrors, RestoreBackupResponses, SearchResourcesData, SearchResourcesErrors, SearchResourcesResponses, ServerInfoData, ServerInfoErrors, ServerInfoResponses, ServerStatsData, ServerStatsErrors, ServerStatsResponses, ServerTerminalData, ServerTerminalErrors, ServerTerminalResponses, ServerVariablesData, ServerVariablesErrors, ServerVariablesResponses, SetConfigData, SetConfigErrors, SetConfigResponses, SetProjectUserData, SetProjectUserErrors, SetProjectUserResponses, SetResourceStateData, SetResourceStateErrors, SetResourceStateResponses, StartServerData, StartServerErrors, StartServerResponses, StatFileData, StatFileErrors, StatFileResponses, StopServerData, StopServerErrors, StopServerResponses, SymlinkFileData, SymlinkFileErrors, SymlinkFileResponses, TemplateInfoData, TemplateInfoErrors, TemplateInfoResponses, UnarchiveFileData, UnarchiveFileErrors, UnarchiveFileResponses, UninstallResourceData, UninstallResourceErrors, UninstallResourceResponses, UpdateAllResourcesData, UpdateAllResourcesErrors, UpdateAllResourcesResponses, UpdateBackupData, UpdateBackupErrors, UpdateBackupResponses, UpdateMaintenanceData, UpdateMaintenanceErrors, UpdateMaintenanceResponses, UpdateNodeData, UpdateNodeErrors, UpdateNodeResponses, UpdatePortData, UpdatePortErrors, UpdatePortResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateResourceData, UpdateResourceErrors, UpdateResourceResponses, UpdateServerData, UpdateServerErrors, UpdateServerResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateVariablesData, UpdateVariablesErrors, UpdateVariablesResponses, UploadUserData, UploadUserErrors, UploadUserResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -156,15 +156,6 @@ export const getConfig = <ThrowOnError extends boolean = false>(options: Options
 
 export const setConfig = <ThrowOnError extends boolean = false>(options: Options<SetConfigData, ThrowOnError>) => (options.client ?? client).post<SetConfigResponses, SetConfigErrors, ThrowOnError>({
     url: '/file/{server_id}/config',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-export const getResource = <ThrowOnError extends boolean = false>(options: Options<GetResourceData, ThrowOnError>) => (options.client ?? client).post<GetResourceResponses, GetResourceErrors, ThrowOnError>({
-    url: '/file/{server_id}/resource',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -574,3 +565,152 @@ export const pardonUser = <ThrowOnError extends boolean = false>(options: Option
 export const opUser = <ThrowOnError extends boolean = false>(options: Options<OpUserData, ThrowOnError>) => (options.client ?? client).get<OpUserResponses, OpUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/op', ...options });
 
 export const deopUser = <ThrowOnError extends boolean = false>(options: Options<DeopUserData, ThrowOnError>) => (options.client ?? client).get<DeopUserResponses, DeopUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/deop', ...options });
+
+/**
+ *  Reports which loaders and providers this server can browse.
+ *
+ *  Reports which loaders and providers this server can browse.
+ */
+export const resourceContext = <ThrowOnError extends boolean = false>(options: Options<ResourceContextData, ThrowOnError>) => (options.client ?? client).get<ResourceContextResponses, ResourceContextErrors, ThrowOnError>({ url: '/resource/{server_id}', ...options });
+
+/**
+ *  Searches a provider for projects compatible with `loader`.
+ *
+ *  Searches a provider for projects compatible with `loader`.<br/>
+ * <br/>
+ * Results are normalized across providers and cached in Valkey, so a<br/>
+ * typing burst in the search box costs one upstream request per distinct<br/>
+ * query rather than one per keystroke per client.
+ */
+export const searchResources = <ThrowOnError extends boolean = false>(options: Options<SearchResourcesData, ThrowOnError>) => (options.client ?? client).get<SearchResourcesResponses, SearchResourcesErrors, ThrowOnError>({ url: '/resource/{server_id}/search', ...options });
+
+/**
+ *  Lists the versions of a project that fit `loader`.
+ *
+ *  Lists the versions of a project that fit `loader`.
+ */
+export const listResourceVersions = <ThrowOnError extends boolean = false>(options: Options<ListResourceVersionsData, ThrowOnError>) => (options.client ?? client).get<ListResourceVersionsResponses, ListResourceVersionsErrors, ThrowOnError>({ url: '/resource/{server_id}/versions', ...options });
+
+/**
+ *  Removes an installed resource's file and its record.
+ *
+ *  Removes an installed resource's file and its record.
+ */
+export const uninstallResource = <ThrowOnError extends boolean = false>(options: Options<UninstallResourceData, ThrowOnError>) => (options.client ?? client).delete<UninstallResourceResponses, UninstallResourceErrors, ThrowOnError>({ url: '/resource/{server_id}/installed', ...options });
+
+/**
+ *  Lists what is on this server: browser-installed resources, plus resource
+ *
+ *  Lists what is on this server: browser-installed resources, plus resource<br/>
+ * files nothing has a record for.<br/>
+ * <br/>
+ * The `server_resources` table carries the provider/project/version<br/>
+ * identity that file names cannot express, but the files themselves are the<br/>
+ * truth: anyone can add, delete or rename a jar over SFTP or in the file<br/>
+ * manager, and none of that goes through this service. So the directories<br/>
+ * are listed on every read, records whose file is gone are dropped — a<br/>
+ * resource the user removed by hand is not installed, however it was<br/>
+ * removed — and files no record claims are reported as `unmanaged` instead<br/>
+ * of being invisible.<br/>
+ * <br/>
+ * Reconciliation only ever deletes on an authoritative answer (a listing<br/>
+ * that succeeded, or a directory that does not exist and therefore holds<br/>
+ * nothing). Any other daemon fault leaves the records untouched and names<br/>
+ * the directory in `unreadable`, so an unreachable node degrades to<br/>
+ * "couldn't check" instead of discarding the version history.
+ */
+export const listInstalledResources = <ThrowOnError extends boolean = false>(options: Options<ListInstalledResourcesData, ThrowOnError>) => (options.client ?? client).get<ListInstalledResourcesResponses, ListInstalledResourcesErrors, ThrowOnError>({ url: '/resource/{server_id}/installed', ...options });
+
+/**
+ *  Downloads a version onto the server and records it as installed.
+ *
+ *  Downloads a version onto the server and records it as installed.<br/>
+ * <br/>
+ * Installing over an already-installed project replaces it: the new file<br/>
+ * is written first, then the previous one is removed, so a failed download<br/>
+ * leaves the working version in place.
+ */
+export const installResource = <ThrowOnError extends boolean = false>(options: Options<InstallResourceData, ThrowOnError>) => (options.client ?? client).post<InstallResourceResponses, InstallResourceErrors, ThrowOnError>({
+    url: '/resource/{server_id}/install',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ *  Lists installed resources that have a newer version available.
+ *
+ *  Lists installed resources that have a newer version available.<br/>
+ * <br/>
+ * Checked against the server's own loader and Minecraft version, so an<br/>
+ * offered update is one the server can actually run. Each provider lookup<br/>
+ * goes through the Valkey cache, so repeat visits are nearly free; a<br/>
+ * provider that cannot be reached is skipped rather than failing the report.
+ */
+export const listResourceUpdates = <ThrowOnError extends boolean = false>(options: Options<ListResourceUpdatesData, ThrowOnError>) => (options.client ?? client).get<ListResourceUpdatesResponses, ListResourceUpdatesErrors, ThrowOnError>({ url: '/resource/{server_id}/updates', ...options });
+
+/**
+ *  Updates one installed resource to the newest compatible version.
+ *
+ *  Updates one installed resource to the newest compatible version.
+ */
+export const updateResource = <ThrowOnError extends boolean = false>(options: Options<UpdateResourceData, ThrowOnError>) => (options.client ?? client).post<UpdateResourceResponses, UpdateResourceErrors, ThrowOnError>({ url: '/resource/{server_id}/update', ...options });
+
+/**
+ *  Updates every installed resource that has a newer compatible version.
+ *
+ *  Updates every installed resource that has a newer compatible version.<br/>
+ * <br/>
+ * Reports per resource instead of failing as a whole: with a dozen mods from<br/>
+ * four providers, one unreachable provider or one distribution-blocked file<br/>
+ * should not stop the rest from updating.
+ */
+export const updateAllResources = <ThrowOnError extends boolean = false>(options: Options<UpdateAllResourcesData, ThrowOnError>) => (options.client ?? client).post<UpdateAllResourcesResponses, UpdateAllResourcesErrors, ThrowOnError>({ url: '/resource/{server_id}/update-all', ...options });
+
+/**
+ *  Enables or disables a resource file by moving it in or out of the
+ *
+ *  Enables or disables a resource file by moving it in or out of the<br/>
+ * `.jar.disabled` name the server ignores.<br/>
+ * <br/>
+ * Keyed by file rather than by provider/project, so it works the same for<br/>
+ * browser-installed resources and for jars that were uploaded by hand —<br/>
+ * `file` may be given in either state. Nothing is written to the database:<br/>
+ * the suffix on the file is the state, and reconciliation reads it back.<br/>
+ * <br/>
+ * Idempotent — asking for the state a file is already in succeeds without<br/>
+ * touching the filesystem.
+ */
+export const setResourceState = <ThrowOnError extends boolean = false>(options: Options<SetResourceStateData, ThrowOnError>) => (options.client ?? client).post<SetResourceStateResponses, SetResourceStateErrors, ThrowOnError>({ url: '/resource/{server_id}/state', ...options });
+
+/**
+ *  Progress of this server's modpack install, if one has run.
+ *
+ *  Progress of this server's modpack install, if one has run.
+ */
+export const modpackStatus = <ThrowOnError extends boolean = false>(options: Options<ModpackStatusData, ThrowOnError>) => (options.client ?? client).get<ModpackStatusResponses, ModpackStatusErrors, ThrowOnError>({ url: '/modpack/{server_id}', ...options });
+
+/**
+ *  Installs a modpack in the background.
+ *
+ *  Installs a modpack in the background.<br/>
+ * <br/>
+ * This rewrites files on a live server, so `confirm` is mandatory. With<br/>
+ * `backup` the server is backed up first and the install is abandoned if<br/>
+ * that fails; with `wipe` the existing mod jars are cleared so the result<br/>
+ * matches the pack author's intent, and without it the pack is merged into<br/>
+ * what is already installed.<br/>
+ * <br/>
+ * Returns as soon as the job is accepted — a pack is one large archive plus<br/>
+ * hundreds of downloads, so progress is polled from `GET /modpack/{id}`.
+ */
+export const installModpack = <ThrowOnError extends boolean = false>(options: Options<InstallModpackData, ThrowOnError>) => (options.client ?? client).post<InstallModpackResponses, InstallModpackErrors, ThrowOnError>({
+    url: '/modpack/{server_id}/install',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});

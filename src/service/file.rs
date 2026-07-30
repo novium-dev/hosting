@@ -4,11 +4,10 @@ use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
 use crate::db::server::ServerId;
 
-use crate::resources::Resource;
 use crate::service::file::file_service_error::{
     ArchiveFileError, CopyFileError, CreateDirectoryError, DeleteFileError, DownloadUserError,
-    GetConfigError, GetResourceError, ListFilesError, RenameFileError, SetConfigError,
-    StatFileError, SymlinkFileError, UnarchiveFileError, UploadUserError,
+    GetConfigError, ListFilesError, RenameFileError, SetConfigError, StatFileError,
+    SymlinkFileError, UnarchiveFileError, UploadUserError,
 };
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use daemon_common::service::DataStream;
@@ -17,10 +16,9 @@ use daemon_common::service::files::files_service_error::{
     ServerCopyFileError, ServerCreateArchiveError, ServerCreateDirectoryError,
     ServerDeleteFileError, ServerDownloadFileError, ServerListFilesError, ServerRenameFileError,
     ServerStatFileError, ServerSymlinkError, ServerUnpackArchiveError,
-    ServerWriteFileByTemplateError, ServerWriteFileByUrlError,
+    ServerWriteFileByTemplateError,
 };
 use daemon_common::service::server::ServerFileWrite;
-use reqwest::Client;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -686,106 +684,5 @@ pub(crate) impl FileService for Backend {
                     SetConfigError::ServerConfigInvalid
                 }
             })
-    }
-
-    #[route("/resource", method = POST)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, resource::{invalid_payload,provider_unavailable, missing, provider_error, wrong_template}, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, already_exists})]
-    async fn get_resource(
-        &self,
-        #[special] auth: Authentication,
-        server_id: ServerId,
-        resource: Resource,
-    ) -> Result<(), _> {
-        auth.require::<_, _, GetResourceError>(server_id, ServerPermissions::FILES_WRITE)?;
-
-        let server = self
-            .resolve_server(&*self.database, server_id)
-            .await?
-            .ok_or(GetResourceError::ServerNotFound)?;
-
-        let (url, filename) = resource
-            .resolve_to_url::<GetResourceError>(server.template.id(), &Client::new())
-            .await?;
-
-        server
-            .node
-            .server_create_directory(
-                server.node_server_id,
-                resource.r#type().path_prefix().to_owned(),
-                true,
-            )
-            .await
-            .map_err(|err| match err {
-                ServerCreateDirectoryError::Communication(_) => {
-                    error!(
-                        "Failed to request directory creation for resource: {:?}",
-                        err
-                    );
-                    GetResourceError::NodeFailure
-                }
-                ServerCreateDirectoryError::AuthInvalid
-                | ServerCreateDirectoryError::StorageNotFound
-                | ServerCreateDirectoryError::StorageFailure
-                | ServerCreateDirectoryError::SqlFailure => {
-                    error!("Failed to create directory for resource: {:?}", err);
-                    GetResourceError::NodeFailure
-                }
-                ServerCreateDirectoryError::StorageMutexLocked => {
-                    GetResourceError::FileStorageUnavailable
-                }
-                ServerCreateDirectoryError::FileNotFound => GetResourceError::FileNotFound,
-                ServerCreateDirectoryError::FileSandboxViolated => {
-                    GetResourceError::FileSandboxViolated
-                }
-                ServerCreateDirectoryError::FileAlreadyExists => {
-                    GetResourceError::FileAlreadyExists
-                }
-                ServerCreateDirectoryError::StorageQuotaReached => {
-                    GetResourceError::FileQuotaExceeded
-                }
-            })?;
-
-        server
-            .node
-            .server_write_file_by_url(
-                server.node_server_id,
-                format!("{}{}", resource.r#type().path_prefix(), filename),
-                url,
-            )
-            .await
-            .map_err(|err| match err {
-                ServerWriteFileByUrlError::Communication(_) => {
-                    error!(
-                        "Failed to request file upload (by URL) for resource: {:?}",
-                        err
-                    );
-                    GetResourceError::NodeFailure
-                }
-                ServerWriteFileByUrlError::AuthInvalid
-                | ServerWriteFileByUrlError::StorageNotFound
-                | ServerWriteFileByUrlError::StorageFailure
-                | ServerWriteFileByUrlError::SqlFailure => {
-                    error!("Failed to upload file (by URL) for resource: {:?}", err);
-                    GetResourceError::NodeFailure
-                }
-                ServerWriteFileByUrlError::StorageMutexLocked => {
-                    GetResourceError::FileStorageUnavailable
-                }
-                ServerWriteFileByUrlError::StorageQuotaReached => {
-                    GetResourceError::FileQuotaExceeded
-                }
-                ServerWriteFileByUrlError::FileNotFound => GetResourceError::FileNotFound,
-                ServerWriteFileByUrlError::FileSandboxViolated => {
-                    GetResourceError::FileSandboxViolated
-                }
-                ServerWriteFileByUrlError::FileIsDirectory => GetResourceError::FileIsDirectory,
-                ServerWriteFileByUrlError::HttpRequestFailed
-                | ServerWriteFileByUrlError::HttpRequestReadFailed
-                | ServerWriteFileByUrlError::HttpRequestNotSuccess => {
-                    GetResourceError::ResourceProviderUnavailable
-                }
-            })?;
-
-        Ok(())
     }
 }

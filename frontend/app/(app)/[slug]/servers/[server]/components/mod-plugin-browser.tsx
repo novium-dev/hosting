@@ -1,20 +1,37 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useAction } from "@/lib/action-hooks";
+import useSWR from "swr";
 import {
   CheckCircle2,
   Download,
+  ExternalLink,
+  FileQuestion,
   PackageSearch,
   RefreshCw,
+  ArrowUpCircle,
+  Boxes,
+  Power,
+  PowerOff,
   Search,
+  Trash2,
+  TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
+  getResourceContextAction,
+  installModpackAction,
   installResourceVersionAction,
+  modpackStatusAction,
+  listInstalledResourcesAction,
+  listResourceUpdatesAction,
   listResourceVersionsAction,
   searchResourceProjectsAction,
+  updateAllResourcesAction,
+  updateResourceAction,
+  setResourceStateAction,
+  uninstallResourceAction,
 } from "@/actions/mod-browser";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -37,36 +54,39 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type {
-  MinecraftResourceLoader,
-  MinecraftResourceCapability,
-  ResourceProject,
-  ResourceVersion,
+import {
+  LOADER_LABELS,
+  PROVIDER_LABELS,
+  RESOURCE_TYPE_LABELS,
+  type InstalledResource,
+  type ResourceKind,
+  type ResourceLoader,
+  type ResourceProject,
+  type ResourceProvider,
+  type ResourceVersion,
 } from "@/lib/mod-browser/types";
 import { cn } from "@/lib/utils";
 
 type ModPluginBrowserProps = {
   serverId: string;
-  slug: string;
-  capabilities: MinecraftResourceCapability[];
-  installedFilesByPath: Record<string, string[]>;
   canWriteFiles: boolean;
 };
 
-type InstalledState = {
-  installed: boolean;
-  versionId: string | null;
-  fileName: string | null;
-};
-
-function InstalledBadge() {
-  return (
-    <Badge className="gap-1 border-emerald-200 bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-      <CheckCircle2 className="size-3" />
-      Installed
-    </Badge>
-  );
+function installKey(provider: ResourceProvider, project: string) {
+  return `${provider}:${project}`;
 }
 
 function formatCount(value: number) {
@@ -74,6 +94,18 @@ function formatCount(value: number) {
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
+}
+
+function formatSize(bytes: number) {
+  const units = ["B", "KiB", "MiB", "GiB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+
+  return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
 }
 
 function formatDate(value: string) {
@@ -93,122 +125,169 @@ function getInitials(title: string) {
     .join("");
 }
 
-function getInstalledState(
-  versions: ResourceVersion[],
-  installedFileNames: string[],
-): InstalledState {
-  const installed = new Set(installedFileNames);
-
-  for (const version of versions) {
-    const fileName = version.fileNames.find((name) => installed.has(name));
-    if (fileName) {
-      return {
-        installed: true,
-        versionId: version.id,
-        fileName,
-      };
-    }
-  }
-
-  return {
-    installed: false,
-    versionId: null,
-    fileName: null,
-  };
-}
-
 export function ModPluginBrowser({
   serverId,
-  slug,
-  capabilities,
-  installedFilesByPath,
   canWriteFiles,
 }: ModPluginBrowserProps) {
-  const [activeLoader, setActiveLoader] = useState<MinecraftResourceLoader>(
-    capabilities[0]?.loader ?? "fabric",
+  const [activeLoader, setActiveLoader] = useState<ResourceLoader | null>(null);
+  const [activeProvider, setActiveProvider] = useState<ResourceProvider | null>(
+    null,
   );
+  const [kind, setKind] = useState<ResourceKind>("resource");
   const [query, setQuery] = useState("");
+  const [compatibleOnly, setCompatibleOnly] = useState(true);
+  const [allowPrerelease, setAllowPrerelease] = useState(false);
+  const [modpackConfirmOpen, setModpackConfirmOpen] = useState(false);
+  const [modpackBackup, setModpackBackup] = useState(true);
+  const [modpackWipe, setModpackWipe] = useState(true);
   const [projects, setProjects] = useState<ResourceProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<ResourceProject | null>(
     null,
   );
   const [versions, setVersions] = useState<ResourceVersion[]>([]);
-  const [selectedVersionId, setSelectedVersionId] = useState<string>("");
-  const [projectInstallStates, setProjectInstallStates] = useState<
-    Record<string, InstalledState>
-  >({});
+  const [selectedVersionId, setSelectedVersionId] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const searchAction = useAction(searchResourceProjectsAction);
-  const versionsAction = useAction(listResourceVersionsAction);
-  const installAction = useAction(installResourceVersionAction, {
-    onSuccess: () => {
-      toast.success("Resource installed");
-    },
-    onError: ({ error }) => {
-      toast.error(error.serverError ?? "Failed to install resource");
-    },
+  const { data: context } = useSWR(["resource-context", serverId], async () => {
+    const result = await getResourceContextAction({ serverId });
+    if (result.serverError) throw new Error(result.serverError);
+    return result.data ?? null;
   });
 
-  const activeCapability = useMemo(
+  // The installed set comes from the backend's `server_resources` table, so a
+  // single request answers "is this installed, and at which version" for every
+  // search hit at once.
+  const { data: contents, mutate: refreshInstalled } = useSWR(
+    ["installed-resources", serverId],
+    async () => {
+      const result = await listInstalledResourcesAction({ serverId });
+      if (result.serverError) throw new Error(result.serverError);
+      return result.data ?? null;
+    },
+  );
+
+  const installed = useMemo(() => contents?.managed ?? [], [contents]);
+  const unmanaged = useMemo(() => contents?.unmanaged ?? [], [contents]);
+  const installedModpack = contents?.modpack ?? null;
+  const unreadable = useMemo(() => contents?.unreadable ?? [], [contents]);
+
+  const { data: updates = [], mutate: refreshUpdates } = useSWR(
+    ["resource-updates", serverId, allowPrerelease],
+    async () => {
+      const result = await listResourceUpdatesAction({
+        serverId,
+        allowPrerelease,
+      });
+      if (result.serverError) throw new Error(result.serverError);
+      return result.data ?? [];
+    },
+  );
+
+  const updateByProject = useMemo(
     () =>
-      capabilities.find((capability) => capability.loader === activeLoader) ??
-      capabilities[0],
-    [activeLoader, capabilities],
+      new Map(
+        updates.map((entry) => [installKey(entry.provider, entry.project), entry]),
+      ),
+    [updates],
   );
 
-  const installedFileNames = useMemo(
-    () => installedFilesByPath[activeCapability?.path ?? "/mods"] ?? [],
-    [activeCapability?.path, installedFilesByPath],
+  // Polled only while a job is in flight; a pack is minutes of work.
+  const { data: modpackJob, mutate: refreshModpackJob } = useSWR(
+    ["modpack-status", serverId],
+    async () => {
+      const result = await modpackStatusAction({ serverId });
+      if (result.serverError) throw new Error(result.serverError);
+      return result.data ?? null;
+    },
+    { refreshInterval: (latest) => (latest?.state === "running" ? 2000 : 0) },
   );
 
-  const installedState = useMemo(
-    () => getInstalledState(versions, installedFileNames),
-    [installedFileNames, versions],
+  const installedByProject = useMemo(() => {
+    const map = new Map<string, InstalledResource>();
+    for (const entry of installed) {
+      map.set(installKey(entry.provider, entry.project), entry);
+    }
+    return map;
+  }, [installed]);
+
+  const loaders = useMemo(() => context?.loaders ?? [], [context]);
+  const activeLoaderInfo = useMemo(
+    () => loaders.find((entry) => entry.loader === activeLoader) ?? loaders[0],
+    [activeLoader, loaders],
   );
+  const providers = useMemo(
+    () =>
+      (kind === "modpack"
+        ? activeLoaderInfo?.modpack_providers
+        : activeLoaderInfo?.providers) ?? [],
+    [activeLoaderInfo, kind],
+  );
+  const modpacksAvailable =
+    (activeLoaderInfo?.modpack_providers.length ?? 0) > 0;
+  const provider = useMemo(
+    () =>
+      providers.find((entry) => entry === activeProvider) ?? providers[0] ?? null,
+    [activeProvider, providers],
+  );
+
+  const backupAvailable = context?.backup_available ?? false;
+
+  // Default is back up then wipe; with no backup possible the safe default
+  // becomes a merge, so nothing is destroyed unprotected.
+  useEffect(() => {
+    setModpackBackup(backupAvailable);
+    setModpackWipe(backupAvailable);
+  }, [backupAvailable]);
+
+  const gameVersion = context?.game_version ?? null;
+  const versionFilter = compatibleOnly && gameVersion ? gameVersion : undefined;
+
+  const searchAction = searchResourceProjectsAction;
+  const versionsAction = listResourceVersionsAction;
 
   const selectedVersion = useMemo(
     () => versions.find((version) => version.id === selectedVersionId) ?? null,
     [selectedVersionId, versions],
   );
-  const projectIdsKey = useMemo(
-    () => projects.map((project) => project.id).join(","),
-    [projects],
-  );
-
-  const selectedProjectInstallState = selectedProject
-    ? (projectInstallStates[selectedProject.id] ?? installedState)
-    : installedState;
+  const selectedInstall = selectedProject
+    ? installedByProject.get(
+        installKey(selectedProject.provider, selectedProject.id),
+      )
+    : undefined;
 
   const runSearch = (nextQuery = query) => {
-    if (!activeCapability) {
-      return;
-    }
+    if (!activeLoaderInfo || !provider) return;
 
     startTransition(async () => {
-      const result = await searchAction.executeAsync({
-        provider: "modrinth",
+      const result = await searchAction({
+        serverId,
+        provider,
         query: nextQuery,
-        loader: activeCapability.loader,
+        loader: activeLoaderInfo.loader,
+        kind,
+        gameVersion: versionFilter,
       });
 
-      if (result?.data) {
+      if (result.data) {
         setProjects(result.data);
         setSelectedProject(result.data[0] ?? null);
-        setProjectInstallStates({});
-      } else if (result?.serverError) {
+      } else if (result.serverError) {
         toast.error(result.serverError);
+        setProjects([]);
+        setSelectedProject(null);
       }
     });
   };
 
+  // Re-run the search whenever the thing being searched changes. The query
+  // itself is deliberately not a dependency: it is submitted explicitly.
   useEffect(() => {
-    runSearch("");
+    runSearch(query);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCapability?.loader]);
+  }, [activeLoaderInfo?.loader, provider, kind, versionFilter]);
 
   useEffect(() => {
-    if (!selectedProject || !activeCapability) {
+    if (!selectedProject || !activeLoaderInfo) {
       setVersions([]);
       setSelectedVersionId("");
       return;
@@ -217,21 +296,22 @@ export function ModPluginBrowser({
     let ignore = false;
 
     startTransition(async () => {
-      const result = await versionsAction.executeAsync({
-        provider: "modrinth",
-        projectId: selectedProject.id,
-        loader: activeCapability.loader,
+      const result = await versionsAction({
+        serverId,
+        provider: selectedProject.provider,
+        project: selectedProject.id,
+        loader: activeLoaderInfo.loader,
+        kind,
+        gameVersion: versionFilter,
       });
 
-      if (ignore) {
-        return;
-      }
+      if (ignore) return;
 
-      if (result?.data) {
+      if (result.data) {
         setVersions(result.data);
         setSelectedVersionId(result.data[0]?.id ?? "");
-      } else if (result?.serverError) {
-        toast.error(result.serverError);
+      } else {
+        if (result.serverError) toast.error(result.serverError);
         setVersions([]);
         setSelectedVersionId("");
       }
@@ -240,71 +320,136 @@ export function ModPluginBrowser({
     return () => {
       ignore = true;
     };
-    // next-safe-action updates the action object as requests resolve. Keeping
-    // this effect keyed to stable resource identity prevents repeated POSTs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCapability?.loader, selectedProject?.id]);
-
-  useEffect(() => {
-    if (!activeCapability || projects.length === 0) {
-      setProjectInstallStates({});
-      return;
-    }
-
-    let ignore = false;
-
-    const loadInstallStates = async () => {
-      const entries = await Promise.all(
-        projects.map(async (project) => {
-          const result = await versionsAction.executeAsync({
-            provider: "modrinth",
-            projectId: project.id,
-            loader: activeCapability.loader,
-          });
-
-          return [
-            project.id,
-            result?.data
-              ? getInstalledState(result.data, installedFileNames)
-              : {
-                  installed: false,
-                  versionId: null,
-                  fileName: null,
-                },
-          ] as const;
-        }),
-      );
-
-      if (!ignore) {
-        setProjectInstallStates(Object.fromEntries(entries));
-      }
-    };
-
-    void loadInstallStates();
-
-    return () => {
-      ignore = true;
-    };
-    // next-safe-action mutates action state; key this fetch to stable search
-    // results and file data only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCapability?.loader, installedFileNames, projectIdsKey]);
+  }, [activeLoaderInfo?.loader, selectedProject?.provider, selectedProject?.id, versionFilter]);
 
   const handleInstall = async () => {
-    if (!activeCapability || !selectedVersion) {
+    if (!activeLoaderInfo || !selectedProject || !selectedVersion) return;
+
+    const result = await installResourceVersionAction({
+      serverId,
+      provider: selectedProject.provider,
+      project: selectedProject.id,
+      version: selectedVersion.id,
+      loader: activeLoaderInfo.loader,
+      title: selectedProject.title,
+    });
+
+    if (result.serverError) {
+      toast.error(result.serverError);
       return;
     }
 
-    await installAction.executeAsync({
-      serverId,
-      slug,
-      provider: "modrinth",
-      resourceType: activeCapability.resourceType,
-      versionId: selectedVersion.id,
-    });
+    toast.success(`Installed ${selectedProject.title}`);
+    await Promise.all([refreshInstalled(), refreshUpdates()]);
   };
 
-  if (!activeCapability) {
+  const handleSetState = async (
+    resourceType: string,
+    file: string,
+    label: string,
+    enabled: boolean,
+  ) => {
+    const result = await setResourceStateAction({
+      serverId,
+      resourceType: resourceType as "plugin" | "modification" | "data_pack",
+      file,
+      enabled,
+    });
+
+    if (result.serverError) {
+      toast.error(result.serverError);
+      return;
+    }
+
+    toast.success(`${enabled ? "Enabled" : "Disabled"} ${label}`);
+    await refreshInstalled();
+  };
+
+  const handleInstallModpack = async () => {
+    if (!activeLoaderInfo || !selectedProject || !selectedVersion) return;
+
+    setModpackConfirmOpen(false);
+
+    const result = await installModpackAction({
+      serverId,
+      provider: selectedProject.provider,
+      project: selectedProject.id,
+      version: selectedVersion.id,
+      loader: activeLoaderInfo.loader,
+      title: selectedProject.title,
+      backup: modpackBackup,
+      wipe: modpackWipe,
+    });
+
+    if (result.serverError) {
+      toast.error(result.serverError);
+      return;
+    }
+
+    toast.success(`Installing ${selectedProject.title} in the background`);
+    await refreshModpackJob();
+  };
+
+  const handleUpdate = async (entry: InstalledResource) => {
+    const result = await updateResourceAction({
+      serverId,
+      provider: entry.provider,
+      project: entry.project,
+      allowPrerelease,
+    });
+
+    if (result.serverError) {
+      toast.error(result.serverError);
+      return;
+    }
+
+    toast.success(`Updated ${entry.title}`);
+    await Promise.all([refreshInstalled(), refreshUpdates()]);
+  };
+
+  const handleUpdateAll = async () => {
+    const result = await updateAllResourcesAction({ serverId, allowPrerelease });
+
+    if (result.serverError || !result.data) {
+      toast.error(result.serverError ?? "Failed to update resources");
+      return;
+    }
+
+    const updated = result.data.filter((entry) => entry.version);
+    const failed = result.data.filter((entry) => entry.error);
+
+    if (updated.length > 0) {
+      toast.success(
+        `Updated ${updated.length} resource${updated.length === 1 ? "" : "s"}`,
+      );
+    }
+    // Reported per resource: one blocked download must not read as a total
+    // failure when the rest went through.
+    for (const entry of failed) {
+      toast.error(`${entry.title}: ${entry.error}`);
+    }
+
+    await Promise.all([refreshInstalled(), refreshUpdates()]);
+  };
+
+  const handleUninstall = async (entry: InstalledResource) => {
+    const result = await uninstallResourceAction({
+      serverId,
+      provider: entry.provider,
+      project: entry.project,
+    });
+
+    if (result.serverError) {
+      toast.error(result.serverError);
+      return;
+    }
+
+    toast.success(`Removed ${entry.title}`);
+    await Promise.all([refreshInstalled(), refreshUpdates()]);
+  };
+
+  if (context && loaders.length === 0) {
     return (
       <Card className="border-dashed">
         <CardHeader>
@@ -319,229 +464,744 @@ export function ModPluginBrowser({
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
-      <Card>
-        <CardHeader className="gap-4">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <PackageSearch className="size-5" />
-              Mods and Plugins
-            </CardTitle>
-            <CardDescription>
-              Browse Modrinth resources compatible with this server template.
-            </CardDescription>
-          </div>
-
-          {capabilities.length > 1 ? (
-            <Tabs
-              value={activeCapability.loader}
-              onValueChange={(value) =>
-                setActiveLoader(value as MinecraftResourceLoader)
-              }
-            >
-              <TabsList className="flex h-auto flex-wrap justify-start">
-                {capabilities.map((capability) => (
-                  <TabsTrigger key={capability.loader} value={capability.loader}>
-                    {capability.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          ) : (
-            <Badge variant="secondary" className="w-fit">
-              {activeCapability.label}
-            </Badge>
-          )}
-
-          <form
-            className="flex gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              runSearch();
-            }}
-          >
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className="pl-9"
-                placeholder={`Search ${activeCapability.label}`}
-              />
+    <div className="flex flex-col gap-6">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+        <Card>
+          <CardHeader className="gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <PackageSearch className="size-5" />
+                Mods and Plugins
+              </CardTitle>
+              <CardDescription>
+                {kind === "modpack"
+                  ? "Browse Modrinth and CurseForge modpacks compatible with this server."
+                  : "Browse Modrinth, CurseForge, Hangar and SpigotMC resources compatible with this server."}
+              </CardDescription>
             </div>
-            <Button type="submit" disabled={isPending}>
-              <Search data-icon="inline-start" />
-              Search
-            </Button>
-          </form>
-        </CardHeader>
 
-        <CardContent>
-          <div className="flex flex-col gap-2">
-            {isPending && projects.length === 0
-              ? Array.from({ length: 8 }).map((_, index) => (
-                  <Skeleton key={index} className="h-20 rounded-md" />
-                ))
-              : null}
-
-            {!isPending && projects.length === 0 ? (
-              <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
-                No compatible resources found.
-              </div>
+            {modpacksAvailable ? (
+              <Tabs
+                value={kind}
+                onValueChange={(value) => {
+                  setKind(value as ResourceKind);
+                  setActiveProvider(null);
+                  setSelectedProject(null);
+                }}
+              >
+                <TabsList className="flex h-auto flex-wrap justify-start">
+                  <TabsTrigger value="resource">
+                    <PackageSearch className="mr-1 size-4" />
+                    Mods
+                  </TabsTrigger>
+                  <TabsTrigger value="modpack">
+                    <Boxes className="mr-1 size-4" />
+                    Modpacks
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             ) : null}
 
-            {projects.map((project) => {
-              const isSelected = selectedProject?.id === project.id;
-              const projectInstalled =
-                projectInstallStates[project.id]?.installed ?? false;
+            {loaders.length > 1 && activeLoaderInfo ? (
+              <Tabs
+                value={activeLoaderInfo.loader}
+                onValueChange={(value) => {
+                  setActiveLoader(value as ResourceLoader);
+                  setActiveProvider(null);
+                }}
+              >
+                <TabsList className="flex h-auto flex-wrap justify-start">
+                  {loaders.map((entry) => (
+                    <TabsTrigger key={entry.loader} value={entry.loader}>
+                      {LOADER_LABELS[entry.loader]}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            ) : activeLoaderInfo ? (
+              <Badge variant="secondary" className="w-fit">
+                {LOADER_LABELS[activeLoaderInfo.loader]}
+              </Badge>
+            ) : null}
 
-              return (
-                <button
-                  key={project.id}
-                  type="button"
-                  onClick={() => setSelectedProject(project)}
-                  className={cn(
-                    "flex min-h-20 w-full gap-3 rounded-md border p-3 text-left transition-colors hover:bg-muted/60",
-                    isSelected && "border-primary bg-muted",
-                  )}
-                >
-                  <Avatar className="size-11 rounded-md">
-                    <AvatarImage src={project.iconUrl ?? undefined} />
-                    <AvatarFallback className="rounded-md">
-                      {getInitials(project.title)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="flex items-center gap-2">
-                      <span className="truncate font-medium">
-                        {project.title}
-                      </span>
-                      {project.categories.slice(0, 2).map((category) => (
-                        <Badge key={category} variant="outline">
-                          {category}
-                        </Badge>
-                      ))}
-                      {projectInstalled ? <InstalledBadge /> : null}
-                    </span>
-                    <span className="line-clamp-2 text-sm text-muted-foreground">
-                      {project.description}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {project.author} · {formatCount(project.downloads)}{" "}
-                      downloads
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="h-fit">
-        <CardHeader>
-          <CardTitle>{selectedProject?.title ?? "Select a resource"}</CardTitle>
-          <CardDescription>
-            {selectedProject
-              ? selectedProject.description
-              : "Choose a Modrinth project to view versions."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          {selectedProject ? (
-            <>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">Modrinth</Badge>
-                <Badge variant="outline">
-                  {formatCount(selectedProject.downloads)} downloads
-                </Badge>
-                <Badge variant="outline">
-                  {formatCount(selectedProject.follows)} follows
-                </Badge>
-              </div>
-
-              <Separator />
-
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="resource-version">Version</Label>
-                <Select
-                  value={selectedVersionId}
-                  onValueChange={setSelectedVersionId}
-                  disabled={versions.length === 0}
-                >
-                  <SelectTrigger id="resource-version" className="w-full">
-                    <SelectValue placeholder="No compatible versions" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {versions.map((version) => (
-                      <SelectItem key={version.id} value={version.id}>
-                        {version.name} · {version.versionNumber}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {selectedVersion ? (
-                <div className="rounded-md border p-3 text-sm">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">
-                      {selectedVersion.versionNumber}
-                    </span>
-                    <Badge variant="outline">{selectedVersion.versionType}</Badge>
-                    <Badge variant="outline">
-                      {formatDate(selectedVersion.publishedAt)}
-                    </Badge>
-                  </div>
-                  <div className="mt-3 flex flex-col gap-1 text-muted-foreground">
-                    <span>
-                      Minecraft:{" "}
-                      {selectedVersion.gameVersions.slice(0, 5).join(", ")}
-                      {selectedVersion.gameVersions.length > 5 ? ", ..." : ""}
-                    </span>
-                    <span>
-                      File: {selectedVersion.primaryFileName ?? "Unavailable"}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-
-              {selectedProjectInstallState.installed ? (
-                <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-                  Installed file detected: {selectedProjectInstallState.fileName}
-                </div>
-              ) : null}
-
-              <Button
-                onClick={handleInstall}
-                disabled={
-                  !canWriteFiles ||
-                  !selectedVersion ||
-                  installAction.isExecuting
+            {provider ? (
+              <Tabs
+                value={provider}
+                onValueChange={(value) =>
+                  setActiveProvider(value as ResourceProvider)
                 }
               >
-                {selectedProjectInstallState.installed ? (
-                  <RefreshCw data-icon="inline-start" />
-                ) : (
-                  <Download data-icon="inline-start" />
-                )}
-                {selectedProjectInstallState.installed
-                  ? "Switch Version"
-                  : "Install"}
+                <TabsList className="flex h-auto flex-wrap justify-start">
+                  {providers.map((entry) => (
+                    <TabsTrigger key={entry} value={entry}>
+                      {PROVIDER_LABELS[entry]}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            ) : null}
+
+            <form
+              className="flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                runSearch();
+              }}
+            >
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  className="pl-9"
+                  placeholder={
+                    activeLoaderInfo
+                      ? `Search ${LOADER_LABELS[activeLoaderInfo.loader]}`
+                      : "Search"
+                  }
+                />
+              </div>
+              <Button type="submit" disabled={isPending || !provider}>
+                <Search data-icon="inline-start" />
+                Search
               </Button>
-              {!canWriteFiles ? (
+            </form>
+
+            {gameVersion ? (
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="compatible-only"
+                  checked={compatibleOnly}
+                  onCheckedChange={setCompatibleOnly}
+                />
+                <Label
+                  htmlFor="compatible-only"
+                  className="text-sm font-normal text-muted-foreground"
+                >
+                  Only show resources for Minecraft {gameVersion}
+                </Label>
+              </div>
+            ) : null}
+          </CardHeader>
+
+          <CardContent>
+            <div className="flex flex-col gap-2">
+              {isPending && projects.length === 0
+                ? Array.from({ length: 8 }).map((_, index) => (
+                    <Skeleton key={index} className="h-20 rounded-md" />
+                  ))
+                : null}
+
+              {!isPending && projects.length === 0 ? (
+                <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+                  No compatible resources found.
+                </div>
+              ) : null}
+
+              {projects.map((project) => {
+                const isSelected =
+                  selectedProject?.id === project.id &&
+                  selectedProject?.provider === project.provider;
+                const entry = installedByProject.get(
+                  installKey(project.provider, project.id),
+                );
+
+                return (
+                  <button
+                    key={`${project.provider}:${project.id}`}
+                    type="button"
+                    onClick={() => setSelectedProject(project)}
+                    className={cn(
+                      "flex min-h-20 w-full gap-3 rounded-md border p-3 text-left transition-colors hover:bg-muted/60",
+                      isSelected && "border-primary bg-muted",
+                    )}
+                  >
+                    <Avatar className="size-11 rounded-md">
+                      <AvatarImage src={project.icon_url ?? undefined} />
+                      <AvatarFallback className="rounded-md">
+                        {getInitials(project.title)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="truncate font-medium">
+                          {project.title}
+                        </span>
+                        {project.categories.slice(0, 2).map((category) => (
+                          <Badge key={category} variant="outline">
+                            {category}
+                          </Badge>
+                        ))}
+                        {entry ? (
+                          <Badge className="gap-1 border-emerald-200 bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+                            <CheckCircle2 className="size-3" />
+                            Installed
+                          </Badge>
+                        ) : null}
+                        {!project.downloadable ? (
+                          <Badge variant="outline">Manual download</Badge>
+                        ) : null}
+                      </span>
+                      <span className="line-clamp-2 text-sm text-muted-foreground">
+                        {project.description}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {project.author ? `${project.author} · ` : ""}
+                        {formatCount(project.downloads)} downloads
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="h-fit">
+          <CardHeader>
+            <CardTitle>{selectedProject?.title ?? "Select a resource"}</CardTitle>
+            <CardDescription>
+              {selectedProject
+                ? selectedProject.description
+                : "Choose a project to view its versions."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-5">
+            {selectedProject ? (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">
+                    {PROVIDER_LABELS[selectedProject.provider]}
+                  </Badge>
+                  <Badge variant="outline">
+                    {formatCount(selectedProject.downloads)} downloads
+                  </Badge>
+                  <Badge variant="outline">
+                    {formatCount(selectedProject.follows)} follows
+                  </Badge>
+                  {selectedProject.page_url ? (
+                    <a
+                      href={selectedProject.page_url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:underline"
+                    >
+                      View on {PROVIDER_LABELS[selectedProject.provider]}
+                      <ExternalLink className="size-3" />
+                    </a>
+                  ) : null}
+                </div>
+
+                <Separator />
+
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="resource-version">Version</Label>
+                  <Select
+                    value={selectedVersionId}
+                    onValueChange={setSelectedVersionId}
+                    disabled={versions.length === 0}
+                  >
+                    <SelectTrigger id="resource-version" className="w-full">
+                      <SelectValue placeholder="No compatible versions" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {versions.map((version) => (
+                        <SelectItem key={version.id} value={version.id}>
+                          {version.name}
+                          {version.version_number !== version.name
+                            ? ` · ${version.version_number}`
+                            : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedVersion ? (
+                  <div className="rounded-md border p-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">
+                        {selectedVersion.version_number}
+                      </span>
+                      <Badge variant="outline">
+                        {selectedVersion.version_type}
+                      </Badge>
+                      {selectedVersion.published_at ? (
+                        <Badge variant="outline">
+                          {formatDate(selectedVersion.published_at)}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <div className="mt-3 flex flex-col gap-1 text-muted-foreground">
+                      <span>
+                        Minecraft:{" "}
+                        {selectedVersion.game_versions.slice(0, 5).join(", ") ||
+                          "Unknown"}
+                        {selectedVersion.game_versions.length > 5 ? ", ..." : ""}
+                      </span>
+                      <span>
+                        File: {selectedVersion.file_name ?? "Unavailable"}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+
+                {selectedInstall ? (
+                  <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+                    Installed: {selectedInstall.file_name}
+                  </div>
+                ) : null}
+
+                <Button
+                  onClick={
+                    kind === "modpack"
+                      ? () => setModpackConfirmOpen(true)
+                      : handleInstall
+                  }
+                  disabled={
+                    !canWriteFiles ||
+                    !selectedVersion ||
+                    selectedVersion.downloadable === false ||
+                    modpackJob?.state === "running"
+                  }
+                >
+                  {selectedInstall ? (
+                    <RefreshCw data-icon="inline-start" />
+                  ) : (
+                    <Download data-icon="inline-start" />
+                  )}
+                  {selectedInstall ? "Switch Version" : "Install"}
+                </Button>
+
+                {selectedVersion?.downloadable === false ? (
+                  <p className="text-sm text-muted-foreground">
+                    {selectedProject.provider === "spigot"
+                      ? "SpigotMC does not allow automated downloads. Download the jar from its page and upload it under Files."
+                      : "This version is hosted outside the provider and has to be downloaded and uploaded manually."}
+                  </p>
+                ) : null}
+                {!canWriteFiles ? (
+                  <p className="text-sm text-muted-foreground">
+                    You need file write permission to install resources.
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+                Search or select a resource from the list.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {installedModpack ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              <Boxes className="size-5" />
+              {installedModpack.title}
+              <Badge variant="secondary">
+                {PROVIDER_LABELS[installedModpack.provider]}
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Installed modpack —{" "}
+              {installedModpack.mods.length > 0
+                ? `${installedModpack.mods.length} mod${
+                    installedModpack.mods.length === 1 ? "" : "s"
+                  }`
+                : "no mods found on disk"}
+              {installedModpack.other_files > 0
+                ? ` and ${installedModpack.other_files} configuration file${
+                    installedModpack.other_files === 1 ? "" : "s"
+                  }`
+                : ""}
+              . These came from the pack, so they are not listed as
+              hand-uploaded files.
+            </CardDescription>
+          </CardHeader>
+          {installedModpack.mods.length > 0 ? (
+            <CardContent className="flex flex-col gap-2">
+              {installedModpack.mods.map((entry) => (
+                <div
+                  key={`${entry.resource_type}:${entry.file_name}`}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+                >
+                  <span
+                    className={cn(
+                      "truncate font-medium",
+                      !entry.enabled && "text-muted-foreground",
+                    )}
+                  >
+                    {entry.file_name}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {!entry.enabled ? (
+                      <Badge variant="outline">Disabled</Badge>
+                    ) : null}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canWriteFiles}
+                      onClick={() =>
+                        handleSetState(
+                          entry.resource_type,
+                          entry.file_name,
+                          entry.file_name,
+                          !entry.enabled,
+                        )
+                      }
+                    >
+                      {entry.enabled ? (
+                        <PowerOff data-icon="inline-start" />
+                      ) : (
+                        <Power data-icon="inline-start" />
+                      )}
+                      {entry.enabled ? "Disable" : "Enable"}
+                    </Button>
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {modpackJob ? (
+        <Card
+          className={cn(
+            modpackJob.state === "failed" && "border-destructive/40 bg-destructive/5",
+          )}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Boxes className="size-5" />
+              {modpackJob.pack ?? "Modpack"}
+              <Badge variant="outline">{modpackJob.step}</Badge>
+            </CardTitle>
+            <CardDescription>
+              {modpackJob.state === "running"
+                ? `Installing in the background${
+                    modpackJob.total > 0
+                      ? ` — ${modpackJob.done} of ${modpackJob.total} files`
+                      : ""
+                  }. You can leave this page.`
+                : modpackJob.state === "failed"
+                  ? (modpackJob.error ??
+                    "The installation failed. Nothing was changed if it failed before the install step.")
+                  : `Installed ${modpackJob.done} file${modpackJob.done === 1 ? "" : "s"}.`}
+            </CardDescription>
+          </CardHeader>
+          {modpackJob.total > 0 ? (
+            <CardContent className="flex flex-col gap-3">
+              <Progress
+                value={Math.round((modpackJob.done / modpackJob.total) * 100)}
+              />
+              {modpackJob.failures.length > 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  You need file write permission to install resources.
+                  {modpackJob.failures.length} file
+                  {modpackJob.failures.length === 1 ? "" : "s"} could not be
+                  fetched (most often a CurseForge author blocking third-party
+                  downloads): {modpackJob.failures.slice(0, 5).join(", ")}
+                  {modpackJob.failures.length > 5 ? ", ..." : ""}
                 </p>
               ) : null}
-            </>
-          ) : (
-            <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
-              Search or select a resource from the list.
+            </CardContent>
+          ) : null}
+        </Card>
+      ) : null}
+
+      <AlertDialog
+        open={modpackConfirmOpen}
+        onOpenChange={setModpackConfirmOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Install {selectedProject?.title ?? "modpack"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This writes the pack&apos;s mods and configuration onto the server.
+              The pack is downloaded and unpacked first, so nothing on the server
+              changes until it is known to be usable.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <Switch
+                id="modpack-backup"
+                checked={modpackBackup}
+                disabled={!backupAvailable}
+                onCheckedChange={setModpackBackup}
+              />
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="modpack-backup">Back up first</Label>
+                <p className="text-sm text-muted-foreground">
+                  {backupAvailable
+                    ? "A backup is taken before anything is written. If it fails, the install does not start."
+                    : "Unavailable: this node has no backup storage configured for the server."}
+                </p>
+              </div>
             </div>
-          )}
-        </CardContent>
+
+            <div className="flex items-start gap-3">
+              <Switch
+                id="modpack-wipe"
+                checked={modpackWipe}
+                onCheckedChange={setModpackWipe}
+              />
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="modpack-wipe">Replace existing mods</Label>
+                <p className="text-sm text-muted-foreground">
+                  Clears the current mod jars so the result matches the pack.
+                  Turn this off to merge the pack into what is already installed.
+                </p>
+              </div>
+            </div>
+
+            {modpackWipe && !modpackBackup ? (
+              <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                Existing mods will be deleted and there is no backup to restore
+                from. Mod configuration shipped with the pack will also overwrite
+                what is on the server.
+              </p>
+            ) : null}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleInstallModpack}>
+              Install
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Card>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-col gap-1.5">
+            <CardTitle className="flex items-center gap-2">
+              Installed
+              {updates.length > 0 ? (
+                <Badge className="gap-1 border-sky-200 bg-sky-100 text-sky-800 hover:bg-sky-100 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300">
+                  <ArrowUpCircle className="size-3" />
+                  {updates.length} update{updates.length === 1 ? "" : "s"}
+                </Badge>
+              ) : null}
+            </CardTitle>
+            <CardDescription>
+            {installed.length === 0
+              ? "Nothing installed through the browser yet."
+              : `${installed.length} resource${installed.length === 1 ? "" : "s"} installed on this server.`}
+            </CardDescription>
+          </div>
+          <span className="flex flex-wrap items-center gap-3">
+            {installed.length > 0 ? (
+              <span className="flex items-center gap-2">
+                <Switch
+                  id="allow-prerelease"
+                  checked={allowPrerelease}
+                  onCheckedChange={setAllowPrerelease}
+                />
+                <Label
+                  htmlFor="allow-prerelease"
+                  className="text-sm font-normal text-muted-foreground"
+                >
+                  Include beta versions
+                </Label>
+              </span>
+            ) : null}
+            {updates.length > 0 ? (
+              <Button
+                size="sm"
+                disabled={!canWriteFiles}
+                onClick={handleUpdateAll}
+              >
+                <ArrowUpCircle data-icon="inline-start" />
+                Update all
+              </Button>
+            ) : null}
+          </span>
+        </CardHeader>
+        {installed.length > 0 ? (
+          <CardContent className="flex flex-col gap-2">
+            {installed.map((entry) => (
+              <div
+                key={installKey(entry.provider, entry.project)}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+              >
+                <div className="flex min-w-0 flex-col">
+                  <span className="flex flex-wrap items-center gap-2 font-medium">
+                    <span className={cn(!entry.enabled && "text-muted-foreground")}>
+                      {entry.title}
+                    </span>
+                    <Badge variant="secondary">
+                      {PROVIDER_LABELS[entry.provider]}
+                    </Badge>
+                    {!entry.enabled ? (
+                      <Badge variant="outline">Disabled</Badge>
+                    ) : null}
+                    {updateByProject.has(
+                      installKey(entry.provider, entry.project),
+                    ) ? (
+                      <Badge className="gap-1 border-sky-200 bg-sky-100 text-sky-800 hover:bg-sky-100 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300">
+                        <ArrowUpCircle className="size-3" />
+                        {
+                          updateByProject.get(
+                            installKey(entry.provider, entry.project),
+                          )?.latest_version_number
+                        }
+                      </Badge>
+                    ) : null}
+                  </span>
+                  <span className="truncate text-sm text-muted-foreground">
+                    {entry.file_name}
+                    {!entry.enabled ? ".disabled" : ""}
+                  </span>
+                </div>
+                <span className="flex items-center gap-2">
+                  {updateByProject.has(
+                    installKey(entry.provider, entry.project),
+                  ) ? (
+                    <Button
+                      size="sm"
+                      disabled={
+                        !canWriteFiles ||
+                        updateByProject.get(
+                          installKey(entry.provider, entry.project),
+                        )?.downloadable === false
+                      }
+                      onClick={() => handleUpdate(entry)}
+                    >
+                      <ArrowUpCircle data-icon="inline-start" />
+                      Update
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canWriteFiles}
+                    onClick={() =>
+                      handleSetState(
+                        entry.resource_type,
+                        entry.file_name,
+                        entry.title,
+                        !entry.enabled,
+                      )
+                    }
+                  >
+                    {entry.enabled ? (
+                      <PowerOff data-icon="inline-start" />
+                    ) : (
+                      <Power data-icon="inline-start" />
+                    )}
+                    {entry.enabled ? "Disable" : "Enable"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canWriteFiles}
+                    onClick={() => handleUninstall(entry)}
+                  >
+                    <Trash2 data-icon="inline-start" />
+                    Remove
+                  </Button>
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        ) : null}
       </Card>
+
+      {unmanaged.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileQuestion className="size-5" />
+              Not installed through the browser
+            </CardTitle>
+            <CardDescription>
+              {unmanaged.length} file
+              {unmanaged.length === 1 ? "" : "s"} on this server that no record
+              points at — uploaded over SFTP or in the file manager, or replaced
+              by hand. You can still enable or disable them here; deleting them
+              is done under Files.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            {unmanaged.map((entry) => (
+              <div
+                key={`${entry.resource_type}:${entry.file_name}`}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-dashed p-3"
+              >
+                <span
+                  className={cn(
+                    "truncate font-medium",
+                    !entry.enabled && "text-muted-foreground",
+                  )}
+                >
+                  {entry.file_name}
+                </span>
+                <span className="flex items-center gap-2">
+                  {!entry.enabled ? (
+                    <Badge variant="outline">Disabled</Badge>
+                  ) : null}
+                  <Badge variant="outline">
+                    {RESOURCE_TYPE_LABELS[entry.resource_type] ??
+                      entry.resource_type}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {formatSize(entry.size)}
+                  </span>
+                  {entry.resource_type === "data_pack" ? null : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canWriteFiles}
+                      onClick={() =>
+                        handleSetState(
+                          entry.resource_type,
+                          entry.file_name,
+                          entry.file_name,
+                          !entry.enabled,
+                        )
+                      }
+                    >
+                      {entry.enabled ? (
+                        <PowerOff data-icon="inline-start" />
+                      ) : (
+                        <Power data-icon="inline-start" />
+                      )}
+                      {entry.enabled ? "Disable" : "Enable"}
+                    </Button>
+                  )}
+                </span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {unreadable.length > 0 ? (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TriangleAlert className="size-5" />
+              Could not read every directory
+            </CardTitle>
+            <CardDescription>
+              The{" "}
+              {unreadable
+                .map((type) => RESOURCE_TYPE_LABELS[type] ?? type)
+                .join(" and ")}{" "}
+              directory could not be listed, so the lists above may be
+              incomplete. Nothing was removed from the records.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
     </div>
   );
 }

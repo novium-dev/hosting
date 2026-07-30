@@ -7,8 +7,10 @@ pub(crate) mod backup;
 pub(crate) mod file;
 pub(crate) mod internal;
 pub(crate) mod minecraft;
+pub(crate) mod modpack;
 pub(crate) mod profile;
 pub(crate) mod project;
+pub(crate) mod resource;
 pub(crate) mod server;
 pub(crate) mod template;
 
@@ -52,9 +54,12 @@ define_error!(file {
 define_error!(resource {
     invalid_payload("The resource payload is invalid" BAD_REQUEST),
     provider_unavailable("The resource provider is currently unavailable" SERVICE_UNAVAILABLE),
+    provider_disabled("The resource provider is not configured on this instance" BAD_REQUEST),
     missing("The specified resource is missing" NOT_FOUND),
     provider_error("The resource provider returned an error" BAD_GATEWAY),
     wrong_template("The resource is not compatible with the server template" BAD_REQUEST),
+    download_unavailable("The resource cannot be downloaded automatically" BAD_REQUEST),
+    not_installed("The resource is not installed on this server" NOT_FOUND),
 });
 
 define_error!(backup {

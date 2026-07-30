@@ -64,6 +64,92 @@ export type HostAndPort = {
 
 export type IndexSetString = Array<string>;
 
+export type InstallModpackPayload = {
+    /**
+     * Take a server backup before anything is written. When this fails the
+     * install does not start.
+     */
+    backup?: boolean;
+    /**
+     * Must be set: this rewrites files on a live server.
+     */
+    confirm?: boolean;
+    loader: ResourceLoader;
+    project: string;
+    provider: ResourceProvider;
+    title?: string | null;
+    version: string;
+    /**
+     * Clear the existing mod jars first, for the end state the pack author
+     * intended. Without it the pack is merged into what is already there.
+     */
+    wipe?: boolean;
+};
+
+export type InstallResourcePayload = {
+    loader: ResourceLoader;
+    project: string;
+    provider: ResourceProvider;
+    /**
+     * Shown in the installed list; falls back to the project id.
+     */
+    title?: string | null;
+    version: string;
+};
+
+/**
+ * The modpack installed on this server, and what it put here.
+ */
+export type InstalledModpack = {
+    /**
+     * Unix seconds.
+     */
+    installed_at: number;
+    /**
+     * The pack's mod jars that are on disk, with their current state.
+     */
+    mods: Array<ModpackMod>;
+    /**
+     * How many of the pack's other files (configs, scripts) are recorded. Not
+     * listed individually — they are not resources and there is nothing to do
+     * with them here.
+     */
+    other_files: number;
+    project: string;
+    provider: ResourceProvider;
+    title: string;
+    version: string;
+};
+
+/**
+ * One installed mod/plugin, as stored in `server_resources`.
+ *
+ * Keyed by `(server, provider, project)`, so a server holds at most one
+ * version of any given project and re-installing is an upsert.
+ */
+export type InstalledResource = {
+    /**
+     * Whether the file is active on disk. Not stored — the `.disabled` suffix
+     * on the file *is* this state, so it is resolved from the directory listing
+     * during reconciliation and can never drift from reality.
+     */
+    enabled: boolean;
+    /**
+     * The base (active) name, which is what install writes. The on-disk file
+     * may carry a `.disabled` suffix; see `enabled`.
+     */
+    file_name: string;
+    /**
+     * Unix seconds.
+     */
+    installed_at: number;
+    project: string;
+    provider: ResourceProvider;
+    resource_type: ResourceType;
+    title: string;
+    version: string;
+};
+
 export type LightNodeInfo = {
     display: string;
     host: string;
@@ -71,6 +157,26 @@ export type LightNodeInfo = {
     maintenance: boolean;
     ssh_host?: string | null;
     ssh_port?: number | null;
+};
+
+export const ModpackJobState = {
+    RUNNING: 'running',
+    COMPLETED: 'completed',
+    FAILED: 'failed'
+} as const;
+
+export type ModpackJobState = typeof ModpackJobState[keyof typeof ModpackJobState];
+
+/**
+ * A mod that came from the installed modpack.
+ */
+export type ModpackMod = {
+    enabled: boolean;
+    /**
+     * The name as it appears on disk.
+     */
+    file_name: string;
+    resource_type: ResourceType;
 };
 
 export type NanoId = string;
@@ -116,12 +222,6 @@ export type PrimaryPortInfo = {
     port: NetworkPort;
 };
 
-export type Resource = {
-    provider: 'modrinth';
-    type: ResourceType;
-    version: string;
-};
-
 export type ResourceDisk = {
     available: number;
     filesystem: string;
@@ -130,6 +230,56 @@ export type ResourceDisk = {
     total: number;
 };
 
+/**
+ * What is being browsed: individual resources, or whole modpacks.
+ *
+ * Modpacks are a different product on both providers — a different
+ * `project_type` on Modrinth and a different class id on `CurseForge` — so the
+ * distinction has to reach the provider calls rather than being a filter.
+ */
+export const ResourceKind = { RESOURCE: 'resource', MODPACK: 'modpack' } as const;
+
+/**
+ * What is being browsed: individual resources, or whole modpacks.
+ *
+ * Modpacks are a different product on both providers — a different
+ * `project_type` on Modrinth and a different class id on `CurseForge` — so the
+ * distinction has to reach the provider calls rather than being a filter.
+ */
+export type ResourceKind = typeof ResourceKind[keyof typeof ResourceKind];
+
+export const ResourceLoader = {
+    PAPER: 'paper',
+    FABRIC: 'fabric',
+    FORGE: 'forge',
+    NEOFORGE: 'neoforge'
+} as const;
+
+export type ResourceLoader = typeof ResourceLoader[keyof typeof ResourceLoader];
+
+export type ResourceLoaderInfo = {
+    loader: ResourceLoader;
+    /**
+     * Providers that also carry modpacks for this loader. Empty for Paper,
+     * which has no modpack concept.
+     */
+    modpack_providers: Array<ResourceProvider>;
+    /**
+     * Providers that both serve this loader and are configured here.
+     */
+    providers: Array<ResourceProvider>;
+    resource_type: ResourceType;
+};
+
+export const ResourceProvider = {
+    MODRINTH: 'modrinth',
+    CURSEFORGE: 'curseforge',
+    HANGAR: 'hangar',
+    SPIGOT: 'spigot'
+} as const;
+
+export type ResourceProvider = typeof ResourceProvider[keyof typeof ResourceProvider];
+
 export const ResourceType = {
     PLUGIN: 'plugin',
     MODIFICATION: 'modification',
@@ -137,6 +287,14 @@ export const ResourceType = {
 } as const;
 
 export type ResourceType = typeof ResourceType[keyof typeof ResourceType];
+
+export const ResourceVersionType = {
+    RELEASE: 'release',
+    BETA: 'beta',
+    ALPHA: 'alpha'
+} as const;
+
+export type ResourceVersionType = typeof ResourceVersionType[keyof typeof ResourceVersionType];
 
 export const Role = {
     ADMIN: 'Admin',
@@ -216,6 +374,17 @@ export type TemplatePortDefinition = {
     internal_port: number;
     placeholder: string;
     protocol: NetworkProtocol;
+};
+
+export type UnmanagedResource = {
+    enabled: boolean;
+    /**
+     * The name as it appears on disk, so a parked file reads as
+     * `Foo.jar.disabled`.
+     */
+    file_name: string;
+    resource_type: ResourceType;
+    size: number;
 };
 
 export type UpdatePortPayload = {
@@ -488,15 +657,9 @@ export type ServerInfoResponses = {
         primary_port?: null | PrimaryPortInfo;
         project: NanoId;
         ram?: number | null;
-        stats?: null | ServerStats;
-        /**
-         * The daemon status label, or `null` when the node is unreachable.
-         */
-        state?: string | null;
-        /**
-         * Epoch milliseconds the server started, or `null` when not running.
-         */
         started_at?: number | null;
+        state?: string | null;
+        stats?: null | ServerStats;
         suspended: boolean;
         swap?: number | null;
         template: string;
@@ -3095,191 +3258,6 @@ export type SetConfigResponses = {
 };
 
 export type SetConfigResponse = SetConfigResponses[keyof SetConfigResponses];
-
-export type GetResourceData = {
-    body: Resource;
-    headers?: {
-        /**
-         * The session token or api key
-         */
-        Authorization?: string;
-    };
-    path: {
-        /**
-         * The server ID
-         */
-        server_id: NanoId;
-    };
-    query?: never;
-    url: '/file/{server_id}/resource';
-};
-
-export type GetResourceErrors = {
-    /**
-     * The resource payload is invalid
-     */
-    '400‏': {
-        error?: {
-            id?: 'resource/invalid_payload';
-            msg?: 'The resource payload is invalid';
-        };
-    };
-    /**
-     * The resource is not compatible with the server template
-     */
-    '400‭': {
-        error?: {
-            id?: 'resource/wrong_template';
-            msg?: 'The resource is not compatible with the server template';
-        };
-    };
-    /**
-     * The specified file violates the sandbox
-     */
-    '400⁡': {
-        error?: {
-            id?: 'file/sandbox_violated';
-            msg?: 'The specified file violates the sandbox';
-        };
-    };
-    /**
-     * The specified file is a directory
-     */
-    '400⁢': {
-        error?: {
-            id?: 'file/is_directory';
-            msg?: 'The specified file is a directory';
-        };
-    };
-    /**
-     * The file exceeds the server's storage quota
-     */
-    '400⁣': {
-        error?: {
-            id?: 'file/quota_exceeded';
-            msg?: 'The file exceeds the server\'s storage quota';
-        };
-    };
-    /**
-     * A file with the specified name already exists
-     */
-    '400⁤': {
-        error?: {
-            id?: 'file/already_exists';
-            msg?: 'A file with the specified name already exists';
-        };
-    };
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403᠎': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * Server not found
-     */
-    '404‍': {
-        error?: {
-            id?: 'server/not_found';
-            msg?: 'Server not found';
-        };
-    };
-    /**
-     * The specified resource is missing
-     */
-    '404‫': {
-        error?: {
-            id?: 'resource/missing';
-            msg?: 'The specified resource is missing';
-        };
-    };
-    /**
-     * The specified file was not found
-     */
-    '404⁠': {
-        error?: {
-            id?: 'file/not_found';
-            msg?: 'The specified file was not found';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500​': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‌': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-    /**
-     * Node operation failed
-     */
-    '502‎': {
-        error?: {
-            id?: 'node/failure';
-            msg?: 'Node operation failed';
-        };
-    };
-    /**
-     * The resource provider returned an error
-     */
-    '502‬': {
-        error?: {
-            id?: 'resource/provider_error';
-            msg?: 'The resource provider returned an error';
-        };
-    };
-    /**
-     * The resource provider is currently unavailable
-     */
-    '503‪': {
-        error?: {
-            id?: 'resource/provider_unavailable';
-            msg?: 'The resource provider is currently unavailable';
-        };
-    };
-    /**
-     * Storage is currently in use
-     */
-    '503‮': {
-        error?: {
-            id?: 'file/storage_unavailable';
-            msg?: 'Storage is currently in use';
-        };
-    };
-};
-
-export type GetResourceError = GetResourceErrors[keyof GetResourceErrors];
-
-export type GetResourceResponses = {
-    /**
-     * Success
-     */
-    204: void;
-};
-
-export type GetResourceResponse = GetResourceResponses[keyof GetResourceResponses];
 
 export type ListBackupsData = {
     body?: never;
@@ -7931,3 +7909,1996 @@ export type DeopUserResponses = {
 };
 
 export type DeopUserResponse = DeopUserResponses[keyof DeopUserResponses];
+
+export type ResourceContextData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/resource/{server_id}';
+};
+
+export type ResourceContextErrors = {
+    /**
+     * The resource is not compatible with the server template
+     */
+    '400‏': {
+        error?: {
+            id?: 'resource/wrong_template';
+            msg?: 'The resource is not compatible with the server template';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‪': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‫': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+};
+
+export type ResourceContextError = ResourceContextErrors[keyof ResourceContextErrors];
+
+export type ResourceContextResponses = {
+    /**
+     * Which loaders a server can take resources for, and who serves them.
+     *
+     * Derived from the template's enabled features so the frontend does not have
+     * to keep its own copy of the feature-to-loader mapping.
+     */
+    200: {
+        /**
+         * Whether a backup could be taken before a destructive install. Drives the
+         * modpack confirm dialog: without it, "back up first" cannot be offered and
+         * the safe default becomes a merge instead of a wipe.
+         */
+        backup_available: boolean;
+        /**
+         * The Minecraft version the server runs, when the template reports one.
+         * Clients use it to pre-fill the compatibility filter.
+         */
+        game_version?: string | null;
+        loaders: Array<ResourceLoaderInfo>;
+    };
+};
+
+export type ResourceContextResponse = ResourceContextResponses[keyof ResourceContextResponses];
+
+export type SearchResourcesData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query: {
+        /**
+         * The resource provider
+         */
+        provider: ResourceProvider;
+        /**
+         * The search query
+         */
+        query?: string | null;
+        /**
+         * The mod/plugin loader to search for
+         */
+        loader: ResourceLoader;
+        /**
+         * Whether to browse individual resources or modpacks
+         */
+        kind?: null | ResourceKind;
+        /**
+         * Restrict results to this Minecraft version
+         */
+        game_version?: string | null;
+        /**
+         * The optional response size limit
+         */
+        limit?: number | null;
+        /**
+         * The number of results to skip
+         */
+        offset?: number | null;
+    };
+    url: '/resource/{server_id}/search';
+};
+
+export type SearchResourcesErrors = {
+    /**
+     * The resource payload is invalid
+     */
+    '400‏': {
+        error?: {
+            id?: 'resource/invalid_payload';
+            msg?: 'The resource payload is invalid';
+        };
+    };
+    /**
+     * The resource provider is not configured on this instance
+     */
+    '400‫': {
+        error?: {
+            id?: 'resource/provider_disabled';
+            msg?: 'The resource provider is not configured on this instance';
+        };
+    };
+    /**
+     * The resource cannot be downloaded automatically
+     */
+    '400‭': {
+        error?: {
+            id?: 'resource/download_unavailable';
+            msg?: 'The resource cannot be downloaded automatically';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified resource is missing
+     */
+    '404‮': {
+        error?: {
+            id?: 'resource/missing';
+            msg?: 'The specified resource is missing';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The resource provider returned an error
+     */
+    '502‬': {
+        error?: {
+            id?: 'resource/provider_error';
+            msg?: 'The resource provider returned an error';
+        };
+    };
+    /**
+     * The resource provider is currently unavailable
+     */
+    '503‪': {
+        error?: {
+            id?: 'resource/provider_unavailable';
+            msg?: 'The resource provider is currently unavailable';
+        };
+    };
+};
+
+export type SearchResourcesError = SearchResourcesErrors[keyof SearchResourcesErrors];
+
+export type SearchResourcesResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        author?: string | null;
+        categories: Array<string>;
+        description: string;
+        /**
+         * Set when the provider knows upfront that the file cannot be fetched
+         * (external hosting, premium resources, distribution opt-out).
+         */
+        downloadable: boolean;
+        downloads: number;
+        follows: number;
+        icon_url?: string | null;
+        /**
+         * Provider-scoped identifier used for every follow-up call.
+         */
+        id: string;
+        /**
+         * The project's page on the provider, for a "view upstream" link.
+         */
+        page_url?: string | null;
+        provider: ResourceProvider;
+        slug: string;
+        title: string;
+    }>;
+};
+
+export type SearchResourcesResponse = SearchResourcesResponses[keyof SearchResourcesResponses];
+
+export type ListResourceVersionsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query: {
+        /**
+         * The resource provider
+         */
+        provider: ResourceProvider;
+        /**
+         * The provider-scoped project id
+         */
+        project: string;
+        /**
+         * The mod/plugin loader to search for
+         */
+        loader: ResourceLoader;
+        /**
+         * Whether to browse individual resources or modpacks
+         */
+        kind?: null | ResourceKind;
+        /**
+         * Restrict results to this Minecraft version
+         */
+        game_version?: string | null;
+    };
+    url: '/resource/{server_id}/versions';
+};
+
+export type ListResourceVersionsErrors = {
+    /**
+     * The resource payload is invalid
+     */
+    '400‏': {
+        error?: {
+            id?: 'resource/invalid_payload';
+            msg?: 'The resource payload is invalid';
+        };
+    };
+    /**
+     * The resource provider is not configured on this instance
+     */
+    '400‫': {
+        error?: {
+            id?: 'resource/provider_disabled';
+            msg?: 'The resource provider is not configured on this instance';
+        };
+    };
+    /**
+     * The resource cannot be downloaded automatically
+     */
+    '400‭': {
+        error?: {
+            id?: 'resource/download_unavailable';
+            msg?: 'The resource cannot be downloaded automatically';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified resource is missing
+     */
+    '404‮': {
+        error?: {
+            id?: 'resource/missing';
+            msg?: 'The specified resource is missing';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The resource provider returned an error
+     */
+    '502‬': {
+        error?: {
+            id?: 'resource/provider_error';
+            msg?: 'The resource provider returned an error';
+        };
+    };
+    /**
+     * The resource provider is currently unavailable
+     */
+    '503‪': {
+        error?: {
+            id?: 'resource/provider_unavailable';
+            msg?: 'The resource provider is currently unavailable';
+        };
+    };
+};
+
+export type ListResourceVersionsError = ListResourceVersionsErrors[keyof ListResourceVersionsErrors];
+
+export type ListResourceVersionsResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        downloadable: boolean;
+        downloads: number;
+        file_name?: string | null;
+        game_versions: Array<string>;
+        /**
+         * Provider-scoped identifier passed back to install this version.
+         */
+        id: string;
+        loaders: Array<string>;
+        name: string;
+        project: string;
+        provider: ResourceProvider;
+        /**
+         * RFC 3339 publish timestamp, when the provider reports one.
+         */
+        published_at?: string | null;
+        version_number: string;
+        version_type: ResourceVersionType;
+    }>;
+};
+
+export type ListResourceVersionsResponse = ListResourceVersionsResponses[keyof ListResourceVersionsResponses];
+
+export type UninstallResourceData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query: {
+        /**
+         * The resource provider
+         */
+        provider: ResourceProvider;
+        /**
+         * The provider-scoped project id
+         */
+        project: string;
+    };
+    url: '/resource/{server_id}/installed';
+};
+
+export type UninstallResourceErrors = {
+    /**
+     * The specified file violates the sandbox
+     */
+    '400‫': {
+        error?: {
+            id?: 'file/sandbox_violated';
+            msg?: 'The specified file violates the sandbox';
+        };
+    };
+    /**
+     * The specified file is a directory
+     */
+    '400‬': {
+        error?: {
+            id?: 'file/is_directory';
+            msg?: 'The specified file is a directory';
+        };
+    };
+    /**
+     * The specified file is not a directory
+     */
+    '400‭': {
+        error?: {
+            id?: 'file/not_directory';
+            msg?: 'The specified file is not a directory';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The resource is not installed on this server
+     */
+    '404‏': {
+        error?: {
+            id?: 'resource/not_installed';
+            msg?: 'The resource is not installed on this server';
+        };
+    };
+    /**
+     * The specified file was not found
+     */
+    '404‮': {
+        error?: {
+            id?: 'file/not_found';
+            msg?: 'The specified file was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‎': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * Storage is currently in use
+     */
+    '503‪': {
+        error?: {
+            id?: 'file/storage_unavailable';
+            msg?: 'Storage is currently in use';
+        };
+    };
+};
+
+export type UninstallResourceError = UninstallResourceErrors[keyof UninstallResourceErrors];
+
+export type UninstallResourceResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UninstallResourceResponse = UninstallResourceResponses[keyof UninstallResourceResponses];
+
+export type ListInstalledResourcesData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/resource/{server_id}/installed';
+};
+
+export type ListInstalledResourcesErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‏': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‪': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+};
+
+export type ListInstalledResourcesError = ListInstalledResourcesErrors[keyof ListInstalledResourcesErrors];
+
+export type ListInstalledResourcesResponses = {
+    /**
+     * What the resource directories actually hold.
+     */
+    200: {
+        /**
+         * Resources installed through the browser, reconciled against disk.
+         */
+        managed: Array<InstalledResource>;
+        modpack?: null | InstalledModpack;
+        /**
+         * Resource files present on disk that no record points at — uploaded over
+         * SFTP, dropped in via the file manager, or replaced by hand. Listed so the
+         * panel reflects the directory rather than only our own bookkeeping.
+         */
+        unmanaged: Array<UnmanagedResource>;
+        /**
+         * Directories that could not be read, so neither list above is complete for
+         * them. Lets a client say "couldn't check" instead of "nothing there".
+         */
+        unreadable: Array<ResourceType>;
+    };
+};
+
+export type ListInstalledResourcesResponse = ListInstalledResourcesResponses[keyof ListInstalledResourcesResponses];
+
+export type InstallResourceData = {
+    body: InstallResourcePayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/resource/{server_id}/install';
+};
+
+export type InstallResourceErrors = {
+    /**
+     * The resource payload is invalid
+     */
+    '400‪': {
+        error?: {
+            id?: 'resource/invalid_payload';
+            msg?: 'The resource payload is invalid';
+        };
+    };
+    /**
+     * The resource provider is not configured on this instance
+     */
+    '400‬': {
+        error?: {
+            id?: 'resource/provider_disabled';
+            msg?: 'The resource provider is not configured on this instance';
+        };
+    };
+    /**
+     * The resource cannot be downloaded automatically
+     */
+    '400‮': {
+        error?: {
+            id?: 'resource/download_unavailable';
+            msg?: 'The resource cannot be downloaded automatically';
+        };
+    };
+    /**
+     * The resource is not compatible with the server template
+     */
+    '400⁡': {
+        error?: {
+            id?: 'resource/wrong_template';
+            msg?: 'The resource is not compatible with the server template';
+        };
+    };
+    /**
+     * The specified file violates the sandbox
+     */
+    '400⁤': {
+        error?: {
+            id?: 'file/sandbox_violated';
+            msg?: 'The specified file violates the sandbox';
+        };
+    };
+    /**
+     * The file exceeds the server's storage quota
+     */
+    '400⁦': {
+        error?: {
+            id?: 'file/quota_exceeded';
+            msg?: 'The file exceeds the server\'s storage quota';
+        };
+    };
+    /**
+     * The specified file is a directory
+     */
+    '400⁧': {
+        error?: {
+            id?: 'file/is_directory';
+            msg?: 'The specified file is a directory';
+        };
+    };
+    /**
+     * A file with the specified name already exists
+     */
+    '400⁨': {
+        error?: {
+            id?: 'file/already_exists';
+            msg?: 'A file with the specified name already exists';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified resource is missing
+     */
+    '404⁠': {
+        error?: {
+            id?: 'resource/missing';
+            msg?: 'The specified resource is missing';
+        };
+    };
+    /**
+     * The specified file was not found
+     */
+    '404⁣': {
+        error?: {
+            id?: 'file/not_found';
+            msg?: 'The specified file was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‏': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * The resource provider returned an error
+     */
+    '502‭': {
+        error?: {
+            id?: 'resource/provider_error';
+            msg?: 'The resource provider returned an error';
+        };
+    };
+    /**
+     * The resource provider is currently unavailable
+     */
+    '503‫': {
+        error?: {
+            id?: 'resource/provider_unavailable';
+            msg?: 'The resource provider is currently unavailable';
+        };
+    };
+    /**
+     * Storage is currently in use
+     */
+    '503⁢': {
+        error?: {
+            id?: 'file/storage_unavailable';
+            msg?: 'Storage is currently in use';
+        };
+    };
+};
+
+export type InstallResourceError = InstallResourceErrors[keyof InstallResourceErrors];
+
+export type InstallResourceResponses = {
+    /**
+     * One installed mod/plugin, as stored in `server_resources`.
+     *
+     * Keyed by `(server, provider, project)`, so a server holds at most one
+     * version of any given project and re-installing is an upsert.
+     */
+    200: {
+        /**
+         * Whether the file is active on disk. Not stored — the `.disabled` suffix
+         * on the file *is* this state, so it is resolved from the directory listing
+         * during reconciliation and can never drift from reality.
+         */
+        enabled: boolean;
+        /**
+         * The base (active) name, which is what install writes. The on-disk file
+         * may carry a `.disabled` suffix; see `enabled`.
+         */
+        file_name: string;
+        /**
+         * Unix seconds.
+         */
+        installed_at: number;
+        project: string;
+        provider: ResourceProvider;
+        resource_type: ResourceType;
+        title: string;
+        version: string;
+    };
+};
+
+export type InstallResourceResponse = InstallResourceResponses[keyof InstallResourceResponses];
+
+export type ListResourceUpdatesData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: {
+        /**
+         * Whether beta/alpha versions count as updates (default false)
+         */
+        allow_prerelease?: boolean | null;
+    };
+    url: '/resource/{server_id}/updates';
+};
+
+export type ListResourceUpdatesErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‏': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‪': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+};
+
+export type ListResourceUpdatesError = ListResourceUpdatesErrors[keyof ListResourceUpdatesErrors];
+
+export type ListResourceUpdatesResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        /**
+         * `false` when the newest version cannot be fetched automatically, so the
+         * update has to be done by hand.
+         */
+        downloadable: boolean;
+        installed_version: string;
+        latest_published_at?: string | null;
+        latest_version: string;
+        latest_version_number: string;
+        latest_version_type: ResourceVersionType;
+        project: string;
+        provider: ResourceProvider;
+        title: string;
+    }>;
+};
+
+export type ListResourceUpdatesResponse = ListResourceUpdatesResponses[keyof ListResourceUpdatesResponses];
+
+export type UpdateResourceData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query: {
+        /**
+         * The resource provider
+         */
+        provider: ResourceProvider;
+        /**
+         * The provider-scoped project id
+         */
+        project: string;
+        /**
+         * Whether beta/alpha versions count as updates (default false)
+         */
+        allow_prerelease?: boolean | null;
+    };
+    url: '/resource/{server_id}/update';
+};
+
+export type UpdateResourceErrors = {
+    /**
+     * The resource payload is invalid
+     */
+    '400‬': {
+        error?: {
+            id?: 'resource/invalid_payload';
+            msg?: 'The resource payload is invalid';
+        };
+    };
+    /**
+     * The resource provider is not configured on this instance
+     */
+    '400‮': {
+        error?: {
+            id?: 'resource/provider_disabled';
+            msg?: 'The resource provider is not configured on this instance';
+        };
+    };
+    /**
+     * The resource cannot be downloaded automatically
+     */
+    '400⁡': {
+        error?: {
+            id?: 'resource/download_unavailable';
+            msg?: 'The resource cannot be downloaded automatically';
+        };
+    };
+    /**
+     * The resource is not compatible with the server template
+     */
+    '400⁤': {
+        error?: {
+            id?: 'resource/wrong_template';
+            msg?: 'The resource is not compatible with the server template';
+        };
+    };
+    /**
+     * The specified file violates the sandbox
+     */
+    '400⁨': {
+        error?: {
+            id?: 'file/sandbox_violated';
+            msg?: 'The specified file violates the sandbox';
+        };
+    };
+    /**
+     * The specified file is a directory
+     */
+    '400⁩': {
+        error?: {
+            id?: 'file/is_directory';
+            msg?: 'The specified file is a directory';
+        };
+    };
+    /**
+     * The file exceeds the server's storage quota
+     */
+    '400⁪': {
+        error?: {
+            id?: 'file/quota_exceeded';
+            msg?: 'The file exceeds the server\'s storage quota';
+        };
+    };
+    /**
+     * A file with the specified name already exists
+     */
+    '400⁫': {
+        error?: {
+            id?: 'file/already_exists';
+            msg?: 'A file with the specified name already exists';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified resource is missing
+     */
+    '404⁢': {
+        error?: {
+            id?: 'resource/missing';
+            msg?: 'The specified resource is missing';
+        };
+    };
+    /**
+     * The resource is not installed on this server
+     */
+    '404⁣': {
+        error?: {
+            id?: 'resource/not_installed';
+            msg?: 'The resource is not installed on this server';
+        };
+    };
+    /**
+     * The specified file was not found
+     */
+    '404⁦': {
+        error?: {
+            id?: 'file/not_found';
+            msg?: 'The specified file was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‪': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‏': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * The resource provider returned an error
+     */
+    '502⁠': {
+        error?: {
+            id?: 'resource/provider_error';
+            msg?: 'The resource provider returned an error';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‫': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+    /**
+     * The resource provider is currently unavailable
+     */
+    '503‭': {
+        error?: {
+            id?: 'resource/provider_unavailable';
+            msg?: 'The resource provider is currently unavailable';
+        };
+    };
+    /**
+     * Storage is currently in use
+     */
+    '503⁧': {
+        error?: {
+            id?: 'file/storage_unavailable';
+            msg?: 'Storage is currently in use';
+        };
+    };
+};
+
+export type UpdateResourceError = UpdateResourceErrors[keyof UpdateResourceErrors];
+
+export type UpdateResourceResponses = {
+    /**
+     * One installed mod/plugin, as stored in `server_resources`.
+     *
+     * Keyed by `(server, provider, project)`, so a server holds at most one
+     * version of any given project and re-installing is an upsert.
+     */
+    200: {
+        /**
+         * Whether the file is active on disk. Not stored — the `.disabled` suffix
+         * on the file *is* this state, so it is resolved from the directory listing
+         * during reconciliation and can never drift from reality.
+         */
+        enabled: boolean;
+        /**
+         * The base (active) name, which is what install writes. The on-disk file
+         * may carry a `.disabled` suffix; see `enabled`.
+         */
+        file_name: string;
+        /**
+         * Unix seconds.
+         */
+        installed_at: number;
+        project: string;
+        provider: ResourceProvider;
+        resource_type: ResourceType;
+        title: string;
+        version: string;
+    };
+};
+
+export type UpdateResourceResponse = UpdateResourceResponses[keyof UpdateResourceResponses];
+
+export type UpdateAllResourcesData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: {
+        /**
+         * Whether beta/alpha versions count as updates (default false)
+         */
+        allow_prerelease?: boolean | null;
+    };
+    url: '/resource/{server_id}/update-all';
+};
+
+export type UpdateAllResourcesErrors = {
+    /**
+     * The resource is not compatible with the server template
+     */
+    '400‏': {
+        error?: {
+            id?: 'resource/wrong_template';
+            msg?: 'The resource is not compatible with the server template';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‪': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‫': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+};
+
+export type UpdateAllResourcesError = UpdateAllResourcesErrors[keyof UpdateAllResourcesErrors];
+
+export type UpdateAllResourcesResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        /**
+         * Why it did not update, when it did not.
+         */
+        error?: string | null;
+        project: string;
+        provider: ResourceProvider;
+        title: string;
+        /**
+         * The version now installed, when it worked.
+         */
+        version?: string | null;
+    }>;
+};
+
+export type UpdateAllResourcesResponse = UpdateAllResourcesResponses[keyof UpdateAllResourcesResponses];
+
+export type SetResourceStateData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query: {
+        /**
+         * The kind of resource (plugin, modification, data_pack)
+         */
+        resource_type: ResourceType;
+        /**
+         * The file path
+         */
+        file: string;
+        /**
+         * Whether the resource should be active
+         */
+        enabled: boolean;
+    };
+    url: '/resource/{server_id}/state';
+};
+
+export type SetResourceStateErrors = {
+    /**
+     * The resource payload is invalid
+     */
+    '400‏': {
+        error?: {
+            id?: 'resource/invalid_payload';
+            msg?: 'The resource payload is invalid';
+        };
+    };
+    /**
+     * The specified file is not a directory
+     */
+    '400‬': {
+        error?: {
+            id?: 'file/not_directory';
+            msg?: 'The specified file is not a directory';
+        };
+    };
+    /**
+     * The specified file violates the sandbox
+     */
+    '400‭': {
+        error?: {
+            id?: 'file/sandbox_violated';
+            msg?: 'The specified file violates the sandbox';
+        };
+    };
+    /**
+     * A file with the specified name already exists
+     */
+    '400‮': {
+        error?: {
+            id?: 'file/already_exists';
+            msg?: 'A file with the specified name already exists';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified file was not found
+     */
+    '404‫': {
+        error?: {
+            id?: 'file/not_found';
+            msg?: 'The specified file was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‎': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * Storage is currently in use
+     */
+    '503‪': {
+        error?: {
+            id?: 'file/storage_unavailable';
+            msg?: 'Storage is currently in use';
+        };
+    };
+};
+
+export type SetResourceStateError = SetResourceStateErrors[keyof SetResourceStateErrors];
+
+export type SetResourceStateResponses = {
+    /**
+     * The state a resource file ended up in.
+     */
+    200: {
+        enabled: boolean;
+        file_name: string;
+        resource_type: ResourceType;
+    };
+};
+
+export type SetResourceStateResponse = SetResourceStateResponses[keyof SetResourceStateResponses];
+
+export type ModpackStatusData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/modpack/{server_id}';
+};
+
+export type ModpackStatusErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ModpackStatusError = ModpackStatusErrors[keyof ModpackStatusErrors];
+
+export type ModpackStatusResponses = {
+    /**
+     * Success
+     */
+    200: null | {
+        /**
+         * Files installed so far, and how many there are in total.
+         */
+        done: number;
+        /**
+         * Why the job failed, when it did.
+         */
+        error?: string | null;
+        /**
+         * Files that could not be installed. The job still completes: on a
+         * 200-mod pack, one dead mirror should not discard the other 199.
+         */
+        failures: Array<string>;
+        finished_at?: number | null;
+        pack?: string | null;
+        /**
+         * Unix seconds.
+         */
+        started_at: number;
+        state: ModpackJobState;
+        /**
+         * Human-readable current step.
+         */
+        step: string;
+        total: number;
+    };
+};
+
+export type ModpackStatusResponse = ModpackStatusResponses[keyof ModpackStatusResponses];
+
+export type InstallModpackData = {
+    body: InstallModpackPayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/modpack/{server_id}/install';
+};
+
+export type InstallModpackErrors = {
+    /**
+     * The resource payload is invalid
+     */
+    '400‏': {
+        error?: {
+            id?: 'resource/invalid_payload';
+            msg?: 'The resource payload is invalid';
+        };
+    };
+    /**
+     * The resource provider is not configured on this instance
+     */
+    '400‫': {
+        error?: {
+            id?: 'resource/provider_disabled';
+            msg?: 'The resource provider is not configured on this instance';
+        };
+    };
+    /**
+     * The resource cannot be downloaded automatically
+     */
+    '400‭': {
+        error?: {
+            id?: 'resource/download_unavailable';
+            msg?: 'The resource cannot be downloaded automatically';
+        };
+    };
+    /**
+     * The resource is not compatible with the server template
+     */
+    '400⁠': {
+        error?: {
+            id?: 'resource/wrong_template';
+            msg?: 'The resource is not compatible with the server template';
+        };
+    };
+    /**
+     * Installing a modpack rewrites server files and must be confirmed
+     */
+    '400⁡': {
+        error?: {
+            id?: 'modpack/not_confirmed';
+            msg?: 'Installing a modpack rewrites server files and must be confirmed';
+        };
+    };
+    /**
+     * A modpack installation is already running for this server
+     */
+    '400⁢': {
+        error?: {
+            id?: 'modpack/already_running';
+            msg?: 'A modpack installation is already running for this server';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified resource is missing
+     */
+    '404‮': {
+        error?: {
+            id?: 'resource/missing';
+            msg?: 'The specified resource is missing';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The resource provider returned an error
+     */
+    '502‬': {
+        error?: {
+            id?: 'resource/provider_error';
+            msg?: 'The resource provider returned an error';
+        };
+    };
+    /**
+     * The resource provider is currently unavailable
+     */
+    '503‪': {
+        error?: {
+            id?: 'resource/provider_unavailable';
+            msg?: 'The resource provider is currently unavailable';
+        };
+    };
+};
+
+export type InstallModpackError = InstallModpackErrors[keyof InstallModpackErrors];
+
+export type InstallModpackResponses = {
+    /**
+     * Progress of the modpack install for one server.
+     *
+     * A pack is one large archive plus hundreds of individual downloads, so this
+     * cannot be an HTTP round trip. The job runs on the backend's task set and the
+     * client polls this.
+     */
+    200: {
+        /**
+         * Files installed so far, and how many there are in total.
+         */
+        done: number;
+        /**
+         * Why the job failed, when it did.
+         */
+        error?: string | null;
+        /**
+         * Files that could not be installed. The job still completes: on a
+         * 200-mod pack, one dead mirror should not discard the other 199.
+         */
+        failures: Array<string>;
+        finished_at?: number | null;
+        pack?: string | null;
+        /**
+         * Unix seconds.
+         */
+        started_at: number;
+        state: ModpackJobState;
+        /**
+         * Human-readable current step.
+         */
+        step: string;
+        total: number;
+    };
+};
+
+export type InstallModpackResponse = InstallModpackResponses[keyof InstallModpackResponses];
