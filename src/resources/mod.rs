@@ -1,6 +1,7 @@
 mod cache;
 mod curseforge;
 mod hangar;
+pub(crate) mod modpack;
 mod modrinth;
 mod spigot;
 

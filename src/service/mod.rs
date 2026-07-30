@@ -7,6 +7,7 @@ pub(crate) mod backup;
 pub(crate) mod file;
 pub(crate) mod internal;
 pub(crate) mod minecraft;
+pub(crate) mod modpack;
 pub(crate) mod profile;
 pub(crate) mod project;
 pub(crate) mod resource;

@@ -110,6 +110,10 @@ pub(crate) struct ResourceContext {
     /// The Minecraft version the server runs, when the template reports one.
     /// Clients use it to pre-fill the compatibility filter.
     pub(crate) game_version: Option<String>,
+    /// Whether a backup could be taken before a destructive install. Drives the
+    /// modpack confirm dialog: without it, "back up first" cannot be offered and
+    /// the safe default becomes a merge instead of a wipe.
+    pub(crate) backup_available: bool,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -216,7 +220,7 @@ const fn is_regular_file(mode: u32) -> bool {
 /// Whether a file name looks like an installable artifact for `resource_type`.
 ///
 /// Keeps `config.yml`, logs and stray files out of the unmanaged list.
-fn is_resource_file(resource_type: ResourceType, name: &str) -> bool {
+pub(crate) fn is_resource_file(resource_type: ResourceType, name: &str) -> bool {
     let lower = name.to_lowercase();
     // `.jar.disabled` is the conventional way to park a plugin without deleting
     // it, so it still counts as a resource file.
@@ -227,6 +231,11 @@ fn is_resource_file(resource_type: ResourceType, name: &str) -> bool {
         ResourceType::Plugin | ResourceType::Modification => extension == Some("jar"),
         ResourceType::DataPack => extension == Some("zip"),
     }
+}
+
+/// The base (active) name of an on-disk resource file.
+pub(crate) fn base_file_name(name: &str) -> String {
+    split_disabled(name).0.to_owned()
 }
 
 /// Resource files on disk that no record claims.
@@ -489,7 +498,7 @@ async fn remove_resource_file(
 }
 
 impl Backend {
-    fn resource_client(&self) -> ResourceClient<'_> {
+    pub(crate) fn resource_client(&self) -> ResourceClient<'_> {
         ResourceClient {
             http: &self.http_client,
             cache: self.cache.clone(),
@@ -763,8 +772,21 @@ pub(crate) impl ResourceService for Backend {
             })
             .collect();
 
+        // Storage configured on the node, and backups not disabled outright for
+        // this server. A full slot still surfaces at install time, where the job
+        // aborts before touching anything.
+        let backup_available = server.backup_limit != Some(0)
+            && sqlx::query_scalar!(
+                r#"SELECT COUNT(*) AS "count!" FROM node_backup_storage WHERE node = $1"#,
+                server.node.id
+            )
+            .fetch_one(&*self.database)
+            .await?
+                > 0;
+
         Ok(ResourceContext {
             loaders,
+            backup_available,
             // Every Minecraft variant stores the version under the same key, so
             // this reads it without having to know which variant it is.
             game_version: server

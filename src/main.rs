@@ -87,6 +87,11 @@ pub(crate) struct Backend {
 
     pub(crate) templates: Arc<RwLock<HashMap<String, Arc<dyn TemplateInner + Send + Sync>>>>,
 
+    /// In-flight and last-finished modpack installs, one per server. A pack is
+    /// hundreds of downloads, so the work runs on a task and clients poll this.
+    pub(crate) modpack_jobs:
+        Arc<RwLock<HashMap<crate::db::server::ServerId, crate::service::modpack::ModpackJob>>>,
+
     #[cfg(feature = "embedded_node")]
     pub(crate) embedded: daemon::Daemon<daemon::WithUserKey>,
 
@@ -279,6 +284,7 @@ async fn main0() {
         node_registrations: Arc::default(),
 
         templates: Arc::default(),
+        modpack_jobs: Arc::default(),
 
         #[cfg(feature = "embedded_node")]
         embedded: embedded.clone(),

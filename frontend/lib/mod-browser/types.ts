@@ -3,6 +3,7 @@ import type {
   InstalledResource,
   ListInstalledResourcesResponse,
   ListResourceUpdatesResponse,
+  ModpackStatusResponse,
   ResourceKind,
   UpdateAllResourcesResponse,
   ListResourceVersionsResponse,
@@ -23,6 +24,7 @@ export type ResourceVersion = ListResourceVersionsResponse[number];
 export type InstalledResources = ListInstalledResourcesResponse;
 export type UnmanagedResource = InstalledResources["unmanaged"][number];
 export type ResourceContext = ResourceContextResponse;
+export type ModpackJob = NonNullable<ModpackStatusResponse>;
 export type ResourceUpdate = ListResourceUpdatesResponse[number];
 export type ResourceUpdateResult = UpdateAllResourcesResponse[number];
 

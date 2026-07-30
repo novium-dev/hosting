@@ -64,6 +64,28 @@ export type HostAndPort = {
 
 export type IndexSetString = Array<string>;
 
+export type InstallModpackPayload = {
+    /**
+     * Take a server backup before anything is written. When this fails the
+     * install does not start.
+     */
+    backup?: boolean;
+    /**
+     * Must be set: this rewrites files on a live server.
+     */
+    confirm?: boolean;
+    loader: ResourceLoader;
+    project: string;
+    provider: ResourceProvider;
+    title?: string | null;
+    version: string;
+    /**
+     * Clear the existing mod jars first, for the end state the pack author
+     * intended. Without it the pack is merged into what is already there.
+     */
+    wipe?: boolean;
+};
+
 export type InstallResourcePayload = {
     loader: ResourceLoader;
     project: string;
@@ -112,6 +134,14 @@ export type LightNodeInfo = {
     ssh_host?: string | null;
     ssh_port?: number | null;
 };
+
+export const ModpackJobState = {
+    RUNNING: 'running',
+    COMPLETED: 'completed',
+    FAILED: 'failed'
+} as const;
+
+export type ModpackJobState = typeof ModpackJobState[keyof typeof ModpackJobState];
 
 export type NanoId = string;
 
@@ -7957,6 +7987,12 @@ export type ResourceContextResponses = {
      */
     200: {
         /**
+         * Whether a backup could be taken before a destructive install. Drives the
+         * modpack confirm dialog: without it, "back up first" cannot be offered and
+         * the safe default becomes a merge instead of a wipe.
+         */
+        backup_available: boolean;
+        /**
          * The Minecraft version the server runs, when the template reports one.
          * Clients use it to pre-fill the compatibility filter.
          */
@@ -9529,3 +9565,303 @@ export type SetResourceStateResponses = {
 };
 
 export type SetResourceStateResponse = SetResourceStateResponses[keyof SetResourceStateResponses];
+
+export type ModpackStatusData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/modpack/{server_id}';
+};
+
+export type ModpackStatusErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ModpackStatusError = ModpackStatusErrors[keyof ModpackStatusErrors];
+
+export type ModpackStatusResponses = {
+    /**
+     * Success
+     */
+    200: null | {
+        /**
+         * Files installed so far, and how many there are in total.
+         */
+        done: number;
+        /**
+         * Why the job failed, when it did.
+         */
+        error?: string | null;
+        /**
+         * Files that could not be installed. The job still completes: on a
+         * 200-mod pack, one dead mirror should not discard the other 199.
+         */
+        failures: Array<string>;
+        finished_at?: number | null;
+        pack?: string | null;
+        /**
+         * Unix seconds.
+         */
+        started_at: number;
+        state: ModpackJobState;
+        /**
+         * Human-readable current step.
+         */
+        step: string;
+        total: number;
+    };
+};
+
+export type ModpackStatusResponse = ModpackStatusResponses[keyof ModpackStatusResponses];
+
+export type InstallModpackData = {
+    body: InstallModpackPayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/modpack/{server_id}/install';
+};
+
+export type InstallModpackErrors = {
+    /**
+     * The resource payload is invalid
+     */
+    '400‏': {
+        error?: {
+            id?: 'resource/invalid_payload';
+            msg?: 'The resource payload is invalid';
+        };
+    };
+    /**
+     * The resource provider is not configured on this instance
+     */
+    '400‫': {
+        error?: {
+            id?: 'resource/provider_disabled';
+            msg?: 'The resource provider is not configured on this instance';
+        };
+    };
+    /**
+     * The resource cannot be downloaded automatically
+     */
+    '400‭': {
+        error?: {
+            id?: 'resource/download_unavailable';
+            msg?: 'The resource cannot be downloaded automatically';
+        };
+    };
+    /**
+     * The resource is not compatible with the server template
+     */
+    '400⁠': {
+        error?: {
+            id?: 'resource/wrong_template';
+            msg?: 'The resource is not compatible with the server template';
+        };
+    };
+    /**
+     * Installing a modpack rewrites server files and must be confirmed
+     */
+    '400⁡': {
+        error?: {
+            id?: 'modpack/not_confirmed';
+            msg?: 'Installing a modpack rewrites server files and must be confirmed';
+        };
+    };
+    /**
+     * A modpack installation is already running for this server
+     */
+    '400⁢': {
+        error?: {
+            id?: 'modpack/already_running';
+            msg?: 'A modpack installation is already running for this server';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified resource is missing
+     */
+    '404‮': {
+        error?: {
+            id?: 'resource/missing';
+            msg?: 'The specified resource is missing';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The resource provider returned an error
+     */
+    '502‬': {
+        error?: {
+            id?: 'resource/provider_error';
+            msg?: 'The resource provider returned an error';
+        };
+    };
+    /**
+     * The resource provider is currently unavailable
+     */
+    '503‪': {
+        error?: {
+            id?: 'resource/provider_unavailable';
+            msg?: 'The resource provider is currently unavailable';
+        };
+    };
+};
+
+export type InstallModpackError = InstallModpackErrors[keyof InstallModpackErrors];
+
+export type InstallModpackResponses = {
+    /**
+     * Progress of the modpack install for one server.
+     *
+     * A pack is one large archive plus hundreds of individual downloads, so this
+     * cannot be an HTTP round trip. The job runs on the backend's task set and the
+     * client polls this.
+     */
+    200: {
+        /**
+         * Files installed so far, and how many there are in total.
+         */
+        done: number;
+        /**
+         * Why the job failed, when it did.
+         */
+        error?: string | null;
+        /**
+         * Files that could not be installed. The job still completes: on a
+         * 200-mod pack, one dead mirror should not discard the other 199.
+         */
+        failures: Array<string>;
+        finished_at?: number | null;
+        pack?: string | null;
+        /**
+         * Unix seconds.
+         */
+        started_at: number;
+        state: ModpackJobState;
+        /**
+         * Human-readable current step.
+         */
+        step: string;
+        total: number;
+    };
+};
+
+export type InstallModpackResponse = InstallModpackResponses[keyof InstallModpackResponses];

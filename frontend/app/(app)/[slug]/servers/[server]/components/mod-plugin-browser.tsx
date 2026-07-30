@@ -21,7 +21,9 @@ import { toast } from "sonner";
 
 import {
   getResourceContextAction,
+  installModpackAction,
   installResourceVersionAction,
+  modpackStatusAction,
   listInstalledResourcesAction,
   listResourceUpdatesAction,
   listResourceVersionsAction,
@@ -53,6 +55,17 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   LOADER_LABELS,
@@ -124,6 +137,9 @@ export function ModPluginBrowser({
   const [query, setQuery] = useState("");
   const [compatibleOnly, setCompatibleOnly] = useState(true);
   const [allowPrerelease, setAllowPrerelease] = useState(false);
+  const [modpackConfirmOpen, setModpackConfirmOpen] = useState(false);
+  const [modpackBackup, setModpackBackup] = useState(true);
+  const [modpackWipe, setModpackWipe] = useState(true);
   const [projects, setProjects] = useState<ResourceProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<ResourceProject | null>(
     null,
@@ -174,6 +190,17 @@ export function ModPluginBrowser({
     [updates],
   );
 
+  // Polled only while a job is in flight; a pack is minutes of work.
+  const { data: modpackJob, mutate: refreshModpackJob } = useSWR(
+    ["modpack-status", serverId],
+    async () => {
+      const result = await modpackStatusAction({ serverId });
+      if (result.serverError) throw new Error(result.serverError);
+      return result.data ?? null;
+    },
+    { refreshInterval: (latest) => (latest?.state === "running" ? 2000 : 0) },
+  );
+
   const installedByProject = useMemo(() => {
     const map = new Map<string, InstalledResource>();
     for (const entry of installed) {
@@ -201,6 +228,15 @@ export function ModPluginBrowser({
       providers.find((entry) => entry === activeProvider) ?? providers[0] ?? null,
     [activeProvider, providers],
   );
+
+  const backupAvailable = context?.backup_available ?? false;
+
+  // Default is back up then wipe; with no backup possible the safe default
+  // becomes a merge, so nothing is destroyed unprotected.
+  useEffect(() => {
+    setModpackBackup(backupAvailable);
+    setModpackWipe(backupAvailable);
+  }, [backupAvailable]);
 
   const gameVersion = context?.game_version ?? null;
   const versionFilter = compatibleOnly && gameVersion ? gameVersion : undefined;
@@ -327,6 +363,31 @@ export function ModPluginBrowser({
 
     toast.success(`${enabled ? "Enabled" : "Disabled"} ${label}`);
     await refreshInstalled();
+  };
+
+  const handleInstallModpack = async () => {
+    if (!activeLoaderInfo || !selectedProject || !selectedVersion) return;
+
+    setModpackConfirmOpen(false);
+
+    const result = await installModpackAction({
+      serverId,
+      provider: selectedProject.provider,
+      project: selectedProject.id,
+      version: selectedVersion.id,
+      loader: activeLoaderInfo.loader,
+      title: selectedProject.title,
+      backup: modpackBackup,
+      wipe: modpackWipe,
+    });
+
+    if (result.serverError) {
+      toast.error(result.serverError);
+      return;
+    }
+
+    toast.success(`Installing ${selectedProject.title} in the background`);
+    await refreshModpackJob();
   };
 
   const handleUpdate = async (entry: InstalledResource) => {
@@ -691,12 +752,16 @@ export function ModPluginBrowser({
                 ) : null}
 
                 <Button
-                  onClick={handleInstall}
+                  onClick={
+                    kind === "modpack"
+                      ? () => setModpackConfirmOpen(true)
+                      : handleInstall
+                  }
                   disabled={
                     !canWriteFiles ||
                     !selectedVersion ||
                     selectedVersion.downloadable === false ||
-                    kind === "modpack"
+                    modpackJob?.state === "running"
                   }
                 >
                   {selectedInstall ? (
@@ -706,14 +771,6 @@ export function ModPluginBrowser({
                   )}
                   {selectedInstall ? "Switch Version" : "Install"}
                 </Button>
-
-                {kind === "modpack" ? (
-                  <p className="text-sm text-muted-foreground">
-                    Modpack installation is not available yet — a pack has to be
-                    unpacked and its mods fetched individually. Browsing and
-                    version listing work today.
-                  </p>
-                ) : null}
 
                 {selectedVersion?.downloadable === false ? (
                   <p className="text-sm text-muted-foreground">
@@ -736,6 +793,117 @@ export function ModPluginBrowser({
           </CardContent>
         </Card>
       </div>
+
+      {modpackJob ? (
+        <Card
+          className={cn(
+            modpackJob.state === "failed" && "border-destructive/40 bg-destructive/5",
+          )}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Boxes className="size-5" />
+              {modpackJob.pack ?? "Modpack"}
+              <Badge variant="outline">{modpackJob.step}</Badge>
+            </CardTitle>
+            <CardDescription>
+              {modpackJob.state === "running"
+                ? `Installing in the background${
+                    modpackJob.total > 0
+                      ? ` — ${modpackJob.done} of ${modpackJob.total} files`
+                      : ""
+                  }. You can leave this page.`
+                : modpackJob.state === "failed"
+                  ? (modpackJob.error ??
+                    "The installation failed. Nothing was changed if it failed before the install step.")
+                  : `Installed ${modpackJob.done} file${modpackJob.done === 1 ? "" : "s"}.`}
+            </CardDescription>
+          </CardHeader>
+          {modpackJob.total > 0 ? (
+            <CardContent className="flex flex-col gap-3">
+              <Progress
+                value={Math.round((modpackJob.done / modpackJob.total) * 100)}
+              />
+              {modpackJob.failures.length > 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {modpackJob.failures.length} file
+                  {modpackJob.failures.length === 1 ? "" : "s"} could not be
+                  fetched (most often a CurseForge author blocking third-party
+                  downloads): {modpackJob.failures.slice(0, 5).join(", ")}
+                  {modpackJob.failures.length > 5 ? ", ..." : ""}
+                </p>
+              ) : null}
+            </CardContent>
+          ) : null}
+        </Card>
+      ) : null}
+
+      <AlertDialog
+        open={modpackConfirmOpen}
+        onOpenChange={setModpackConfirmOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Install {selectedProject?.title ?? "modpack"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This writes the pack&apos;s mods and configuration onto the server.
+              The pack is downloaded and unpacked first, so nothing on the server
+              changes until it is known to be usable.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <Switch
+                id="modpack-backup"
+                checked={modpackBackup}
+                disabled={!backupAvailable}
+                onCheckedChange={setModpackBackup}
+              />
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="modpack-backup">Back up first</Label>
+                <p className="text-sm text-muted-foreground">
+                  {backupAvailable
+                    ? "A backup is taken before anything is written. If it fails, the install does not start."
+                    : "Unavailable: this node has no backup storage configured for the server."}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Switch
+                id="modpack-wipe"
+                checked={modpackWipe}
+                onCheckedChange={setModpackWipe}
+              />
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="modpack-wipe">Replace existing mods</Label>
+                <p className="text-sm text-muted-foreground">
+                  Clears the current mod jars so the result matches the pack.
+                  Turn this off to merge the pack into what is already installed.
+                </p>
+              </div>
+            </div>
+
+            {modpackWipe && !modpackBackup ? (
+              <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                Existing mods will be deleted and there is no backup to restore
+                from. Mod configuration shipped with the pack will also overwrite
+                what is on the server.
+              </p>
+            ) : null}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleInstallModpack}>
+              Install
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">

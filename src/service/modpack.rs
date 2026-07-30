@@ -1,0 +1,648 @@
+use super::*;
+use crate::Backend;
+use crate::auth::Authentication;
+use crate::auth::permissions::ServerPermissions;
+use crate::db::server::resources::delete_installed_files;
+use crate::db::server::{Server, ServerId};
+use crate::resources::modpack::{
+    CURSEFORGE_MANIFEST, MODRINTH_INDEX, Modpack, ModpackFile, OVERRIDES_DIR, SERVER_OVERRIDES_DIR,
+    parse_curseforge_manifest, parse_modrinth_index, safe_pack_path,
+};
+use crate::resources::{
+    ResourceError, ResourceKind, ResourceLoader, ResourceProvider, ResourceType, sanitize_file_name,
+};
+use crate::service::modpack::modpack_service_error::{InstallModpackError, ModpackStatusError};
+use crate::templates::Template as _;
+use crate::templates::games::minecraft::MinecraftTemplate;
+use daemon_common::service::backup::backup_service_error::ServerCreateBackupOrderError;
+use daemon_common::service::files::files_service_error::{
+    ServerCreateDirectoryError, ServerDownloadFileError, ServerListFilesError,
+    ServerUnpackArchiveError, ServerWriteFileByUrlError,
+};
+use serde::{Deserialize, Serialize};
+use tokio::io::AsyncReadExt as _;
+use tracing::{error, info, warn};
+use zelus::error::define_error;
+use zelus::service;
+
+define_error!(modpack {
+    not_confirmed("Installing a modpack rewrites server files and must be confirmed" BAD_REQUEST),
+    already_running("A modpack installation is already running for this server" BAD_REQUEST),
+    manifest_missing("The pack archive contains no usable manifest" BAD_GATEWAY),
+    backup_unavailable("No backup could be created, so the install was not started" BAD_REQUEST),
+});
+
+/// Staging directory for the pack archive and its extracted tree. Kept inside
+/// the server so the daemon's sandbox applies, and removed when the job ends.
+const STAGING_DIR: &str = ".novium-modpack";
+
+/// Largest manifest read back from a server. Real indexes are tens of KiB; this
+/// is a bound so a hostile archive cannot make the backend read forever.
+const MAX_MANIFEST_BYTES: u64 = 0x0080_0000;
+
+/// Where a `CurseForge` pack's files go: its manifest names no paths.
+const CURSEFORGE_FILE_DIR: &str = "mods";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ModpackJobState {
+    Running,
+    Completed,
+    Failed,
+}
+
+/// Progress of the modpack install for one server.
+///
+/// A pack is one large archive plus hundreds of individual downloads, so this
+/// cannot be an HTTP round trip. The job runs on the backend's task set and the
+/// client polls this.
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub(crate) struct ModpackJob {
+    pub(crate) state: ModpackJobState,
+    /// Human-readable current step.
+    pub(crate) step: String,
+    /// Files installed so far, and how many there are in total.
+    pub(crate) done: u32,
+    pub(crate) total: u32,
+    /// Files that could not be installed. The job still completes: on a
+    /// 200-mod pack, one dead mirror should not discard the other 199.
+    pub(crate) failures: Vec<String>,
+    /// Why the job failed, when it did.
+    pub(crate) error: Option<String>,
+    pub(crate) pack: Option<String>,
+    /// Unix seconds.
+    pub(crate) started_at: i64,
+    pub(crate) finished_at: Option<i64>,
+}
+
+impl ModpackJob {
+    fn new(step: &str) -> Self {
+        Self {
+            state: ModpackJobState::Running,
+            step: step.to_owned(),
+            done: 0,
+            total: 0,
+            failures: Vec::new(),
+            error: None,
+            pack: None,
+            started_at: chrono::Utc::now().timestamp(),
+            finished_at: None,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub(crate) struct InstallModpackPayload {
+    pub(crate) provider: ResourceProvider,
+    pub(crate) project: String,
+    pub(crate) version: String,
+    pub(crate) loader: ResourceLoader,
+    #[serde(default)]
+    pub(crate) title: Option<String>,
+    /// Take a server backup before anything is written. When this fails the
+    /// install does not start.
+    #[serde(default)]
+    pub(crate) backup: bool,
+    /// Clear the existing mod jars first, for the end state the pack author
+    /// intended. Without it the pack is merged into what is already there.
+    #[serde(default)]
+    pub(crate) wipe: bool,
+    /// Must be set: this rewrites files on a live server.
+    #[serde(default)]
+    pub(crate) confirm: bool,
+}
+
+impl Backend {
+    /// Replaces the tracked job for `server`, returning nothing.
+    async fn set_job(&self, server: ServerId, job: ModpackJob) {
+        self.modpack_jobs.write().await.insert(server, job);
+    }
+
+    /// Applies `update` to the tracked job, if one is still tracked.
+    async fn update_job(&self, server: ServerId, update: impl FnOnce(&mut ModpackJob)) {
+        if let Some(job) = self.modpack_jobs.write().await.get_mut(&server) {
+            update(job);
+        }
+    }
+
+    async fn fail_job(&self, server: ServerId, reason: &str) {
+        error!("Modpack install failed on server {server}: {reason}");
+        self.update_job(server, |job| {
+            job.state = ModpackJobState::Failed;
+            job.error = Some(reason.to_owned());
+            job.finished_at = Some(chrono::Utc::now().timestamp());
+        })
+        .await;
+    }
+
+    /// Reads a file back from the server into memory, for manifests only.
+    async fn read_server_file(
+        &self,
+        server: &Server,
+        path: String,
+    ) -> Result<Vec<u8>, ServerDownloadFileError> {
+        let data = server
+            .node
+            .server_download_file(server.node_server_id, path, Some(MAX_MANIFEST_BYTES))
+            .await?
+            .1;
+
+        let mut buffer = Vec::new();
+        let mut reader = data.reader();
+        reader
+            .read_to_end(&mut buffer)
+            .await
+            .map_err(ServerDownloadFileError::from)?;
+
+        Ok(buffer)
+    }
+
+    /// Removes every mod jar, so the pack lands on a clean directory.
+    ///
+    /// Only loadable artifacts go: a mod's config directory is left alone, since
+    /// the pack's own overrides are about to be written over it anyway and
+    /// deleting whole trees on a live server is not something to do implicitly.
+    /// The matching records go too, keeping the installed list honest.
+    async fn wipe_mods(&self, server: &Server) -> Result<u32, ServerListFilesError> {
+        let entries = server
+            .node
+            .server_list_files(
+                server.node_server_id,
+                ResourceType::Modification.directory(),
+            )
+            .await?;
+
+        let mut removed = Vec::new();
+        for entry in entries {
+            if !super::resource::is_resource_file(ResourceType::Modification, &entry.name) {
+                continue;
+            }
+
+            let path = format!("{}{}", ResourceType::Modification.path_prefix(), entry.name);
+            match server
+                .node
+                .server_delete_file(server.node_server_id, path.clone(), false)
+                .await
+            {
+                Ok(()) => removed.push(entry.name),
+                Err(err) => warn!("Failed to remove {path} while wiping mods: {err:?}"),
+            }
+        }
+
+        // Records point at base names; strip the parked suffix so a disabled mod
+        // that was just deleted is forgotten too.
+        let bases: Vec<String> = removed
+            .iter()
+            .map(|name| super::resource::base_file_name(name))
+            .collect();
+        if !bases.is_empty()
+            && let Err(err) = delete_installed_files(&self.database, server.id, &bases).await
+        {
+            warn!("Failed to forget wiped mod records: {err:?}");
+        }
+
+        Ok(u32::try_from(removed.len()).unwrap_or(u32::MAX))
+    }
+
+    /// Copies one extracted directory tree over the server.
+    ///
+    /// `server_list_files` is not recursive and there is no move-tree call, so
+    /// this walks the tree itself, creating each directory and copying each file.
+    /// Overrides intentionally overwrite: they are the pack's configuration.
+    async fn apply_overrides(&self, server: &Server, root: &str) -> u32 {
+        let mut queue = vec![String::new()];
+        let mut copied = 0u32;
+
+        while let Some(relative) = queue.pop() {
+            let source_dir = if relative.is_empty() {
+                root.to_owned()
+            } else {
+                format!("{root}/{relative}")
+            };
+
+            let entries = match server
+                .node
+                .server_list_files(server.node_server_id, source_dir.clone())
+                .await
+            {
+                Ok(entries) => entries,
+                // A pack without this override tree is normal.
+                Err(ServerListFilesError::FileNotFound) => continue,
+                Err(err) => {
+                    warn!("Failed to list overrides at {source_dir}: {err:?}");
+                    continue;
+                }
+            };
+
+            for entry in entries {
+                let Some(name) = safe_pack_path(&entry.name) else {
+                    warn!(
+                        "Skipping override entry with an unusable name: {}",
+                        entry.name
+                    );
+                    continue;
+                };
+                let child = if relative.is_empty() {
+                    name.clone()
+                } else {
+                    format!("{relative}/{name}")
+                };
+                let from = format!("{source_dir}/{}", entry.name);
+
+                if entry.mode & 0xF000 == 0x4000 {
+                    if let Err(err) = server
+                        .node
+                        .server_create_directory(server.node_server_id, child.clone(), true)
+                        .await
+                        && !matches!(err, ServerCreateDirectoryError::FileAlreadyExists)
+                    {
+                        warn!("Failed to create override directory {child}: {err:?}");
+                        continue;
+                    }
+                    queue.push(child);
+                } else {
+                    match server
+                        .node
+                        .server_copy_file(server.node_server_id, from.clone(), child.clone())
+                        .await
+                    {
+                        Ok(()) => copied += 1,
+                        Err(err) => warn!("Failed to copy override {from} -> {child}: {err:?}"),
+                    }
+                }
+            }
+        }
+
+        copied
+    }
+
+    /// Resolves the `CurseForge` project/file id pairs a manifest lists into
+    /// download URLs and file names.
+    async fn resolve_curseforge_files(&self, files: Vec<ModpackFile>) -> Vec<ModpackFile> {
+        let mut resolved = Vec::with_capacity(files.len());
+
+        for file in files {
+            let Some((project, version)) = file.curseforge.clone() else {
+                resolved.push(file);
+                continue;
+            };
+
+            match self
+                .resource_client()
+                .resolve(ResourceProvider::Curseforge, &project, &version)
+                .await
+            {
+                Ok(entry) => resolved.push(ModpackFile {
+                    path: format!("{CURSEFORGE_FILE_DIR}/{}", entry.file_name),
+                    url: Some(entry.url.to_string()),
+                    curseforge: None,
+                }),
+                Err(err) => {
+                    // Distribution opt-outs are common in CurseForge packs and
+                    // are reported per file rather than sinking the install.
+                    warn!("Failed to resolve CurseForge pack file {project}/{version}: {err:?}");
+                    resolved.push(ModpackFile {
+                        path: format!("curseforge:{project}"),
+                        url: None,
+                        curseforge: None,
+                    });
+                }
+            }
+        }
+
+        resolved
+    }
+
+    /// Reads whichever manifest the extracted pack carries.
+    async fn read_pack_manifest(
+        &self,
+        server: &Server,
+        extracted: &str,
+    ) -> Result<Modpack, ResourceError> {
+        let modrinth = self
+            .read_server_file(server, format!("{extracted}/{MODRINTH_INDEX}"))
+            .await;
+        if let Ok(raw) = modrinth {
+            return parse_modrinth_index(&raw);
+        }
+
+        let curseforge = self
+            .read_server_file(server, format!("{extracted}/{CURSEFORGE_MANIFEST}"))
+            .await
+            .map_err(|err| {
+                warn!("Neither pack manifest could be read: {err:?}");
+                ResourceError::Missing
+            })?;
+        parse_curseforge_manifest(&curseforge)
+    }
+
+    /// The whole install, start to finish. Reports through the tracked job and
+    /// never returns an error: the job carries the outcome.
+    async fn run_modpack_install(
+        &self,
+        server: Server,
+        payload: InstallModpackPayload,
+        pack_file: String,
+        pack_url: url::Url,
+    ) {
+        let server_id = server.id;
+        let staging = STAGING_DIR.to_owned();
+        let archive = format!("{staging}/{pack_file}");
+        let extracted = format!("{staging}/extracted");
+
+        // A backup has to exist before anything is touched, so a wipe is always
+        // recoverable. Failing here leaves the server exactly as it was.
+        if payload.backup {
+            self.update_job(server_id, |job| {
+                "Creating backup".clone_into(&mut job.step);
+            })
+            .await;
+
+            if let Err(err) = server
+                .node
+                .server_create_backup_order(server.node_server_id)
+                .await
+            {
+                let reason = match err {
+                    ServerCreateBackupOrderError::BackupStorageNoSuitableFound => {
+                        "No backup storage is available on this node"
+                    }
+                    _ => "The backup could not be created",
+                };
+                error!("Modpack backup failed for {server_id}: {err:?}");
+                self.fail_job(server_id, reason).await;
+                return;
+            }
+        }
+
+        self.update_job(server_id, |job| {
+            "Downloading pack".clone_into(&mut job.step);
+        })
+        .await;
+
+        if let Err(err) = server
+            .node
+            .server_create_directory(server.node_server_id, staging.clone(), true)
+            .await
+            && !matches!(err, ServerCreateDirectoryError::FileAlreadyExists)
+        {
+            error!("Failed to create modpack staging directory: {err:?}");
+            self.fail_job(server_id, "The staging directory could not be created")
+                .await;
+            return;
+        }
+
+        if let Err(err) = server
+            .node
+            .server_write_file_by_url(server.node_server_id, archive.clone(), pack_url)
+            .await
+        {
+            error!("Failed to download modpack archive: {err:?}");
+            let reason = match err {
+                ServerWriteFileByUrlError::StorageQuotaReached => {
+                    "The pack does not fit in the server's storage quota"
+                }
+                _ => "The pack archive could not be downloaded",
+            };
+            self.fail_job(server_id, reason).await;
+            self.cleanup_staging(&server, &staging).await;
+            return;
+        }
+
+        self.update_job(server_id, |job| {
+            "Unpacking".clone_into(&mut job.step);
+        })
+        .await;
+
+        if let Err(err) = server
+            .node
+            .server_unpack_archive(server.node_server_id, archive.clone(), extracted.clone())
+            .await
+        {
+            error!("Failed to unpack modpack archive: {err:?}");
+            let reason = match err {
+                ServerUnpackArchiveError::CompressionUnsupported => {
+                    "The pack archive format is not supported"
+                }
+                ServerUnpackArchiveError::StorageQuotaReached => {
+                    "Unpacking the pack would exceed the storage quota"
+                }
+                _ => "The pack archive could not be unpacked",
+            };
+            self.fail_job(server_id, reason).await;
+            self.cleanup_staging(&server, &staging).await;
+            return;
+        }
+
+        self.update_job(server_id, |job| {
+            "Reading manifest".clone_into(&mut job.step);
+        })
+        .await;
+
+        let pack = match self.read_pack_manifest(&server, &extracted).await {
+            Ok(pack) => pack,
+            Err(err) => {
+                error!("Failed to read modpack manifest: {err:?}");
+                self.fail_job(server_id, "The pack contains no usable manifest")
+                    .await;
+                self.cleanup_staging(&server, &staging).await;
+                return;
+            }
+        };
+
+        let files = self.resolve_curseforge_files(pack.files).await;
+        let pack_name = pack.name.clone();
+        let total = u32::try_from(files.len()).unwrap_or(u32::MAX);
+        self.update_job(server_id, |job| {
+            "Installing mods".clone_into(&mut job.step);
+            job.total = total;
+            job.pack = pack_name;
+        })
+        .await;
+
+        if payload.wipe {
+            self.update_job(server_id, |job| {
+                "Clearing existing mods".clone_into(&mut job.step);
+            })
+            .await;
+
+            match self.wipe_mods(&server).await {
+                Ok(removed) => info!("Cleared {removed} mod(s) before installing a pack"),
+                Err(err) => {
+                    error!("Failed to clear mods before a pack install: {err:?}");
+                    self.fail_job(server_id, "The existing mods could not be cleared")
+                        .await;
+                    self.cleanup_staging(&server, &staging).await;
+                    return;
+                }
+            }
+
+            self.update_job(server_id, |job| {
+                "Installing mods".clone_into(&mut job.step);
+            })
+            .await;
+        }
+
+        for file in files {
+            let Some(url) = file.url.as_deref().and_then(|url| url.parse().ok()) else {
+                self.update_job(server_id, |job| {
+                    job.failures.push(file.path.clone());
+                    job.done += 1;
+                })
+                .await;
+                continue;
+            };
+
+            // Nested targets like `config/sodium/options.json` need their parent
+            // to exist first.
+            if let Some((parent, _)) = file.path.rsplit_once('/')
+                && let Err(err) = server
+                    .node
+                    .server_create_directory(server.node_server_id, parent.to_owned(), true)
+                    .await
+                && !matches!(err, ServerCreateDirectoryError::FileAlreadyExists)
+            {
+                warn!("Failed to create {parent} for a pack file: {err:?}");
+            }
+
+            let outcome = server
+                .node
+                .server_write_file_by_url(server.node_server_id, file.path.clone(), url)
+                .await;
+
+            self.update_job(server_id, |job| {
+                if let Err(err) = &outcome {
+                    warn!("Failed to install pack file {}: {err:?}", file.path);
+                    job.failures.push(file.path.clone());
+                }
+                job.done += 1;
+            })
+            .await;
+        }
+
+        self.update_job(server_id, |job| {
+            "Applying pack configuration".clone_into(&mut job.step);
+        })
+        .await;
+
+        // `server-overrides` is applied second so it wins, which is what the
+        // format intends.
+        let mut copied = self
+            .apply_overrides(&server, &format!("{extracted}/{OVERRIDES_DIR}"))
+            .await;
+        copied += self
+            .apply_overrides(&server, &format!("{extracted}/{SERVER_OVERRIDES_DIR}"))
+            .await;
+        info!("Applied {copied} override file(s) for a pack on {server_id}");
+
+        self.cleanup_staging(&server, &staging).await;
+
+        self.update_job(server_id, |job| {
+            job.state = ModpackJobState::Completed;
+            "Done".clone_into(&mut job.step);
+            job.finished_at = Some(chrono::Utc::now().timestamp());
+        })
+        .await;
+    }
+
+    /// Removes the staging tree. Best effort: leftovers are visible in the file
+    /// manager and cost only disk.
+    async fn cleanup_staging(&self, server: &Server, staging: &str) {
+        if let Err(err) = server
+            .node
+            .server_delete_file(server.node_server_id, staging.to_owned(), true)
+            .await
+        {
+            warn!("Failed to clean up modpack staging directory: {err:?}");
+        }
+    }
+}
+
+#[service(path = "/modpack/{server_id}", tag = "modpack", no_sdk)]
+pub(crate) impl ModpackService for Backend {
+    /// Progress of this server's modpack install, if one has run.
+    #[route("", method = GET)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
+    async fn modpack_status(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+    ) -> Result<Option<ModpackJob>, _> {
+        auth.require::<_, _, ModpackStatusError>(server_id, ServerPermissions::FILES_READ)?;
+
+        Ok(self.modpack_jobs.read().await.get(&server_id).cloned())
+    }
+
+    /// Installs a modpack in the background.
+    ///
+    /// This rewrites files on a live server, so `confirm` is mandatory. With
+    /// `backup` the server is backed up first and the install is abandoned if
+    /// that fails; with `wipe` the existing mod jars are cleared so the result
+    /// matches the pack author's intent, and without it the pack is merged into
+    /// what is already installed.
+    ///
+    /// Returns as soon as the job is accepted — a pack is one large archive plus
+    /// hundreds of downloads, so progress is polled from `GET /modpack/{id}`.
+    #[route("/install", method = POST)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, wrong_template}, modpack::{not_confirmed, already_running})]
+    async fn install_modpack(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        payload: InstallModpackPayload,
+    ) -> Result<ModpackJob, _> {
+        auth.require::<_, _, InstallModpackError>(server_id, ServerPermissions::FILES_WRITE)?;
+
+        if !payload.confirm {
+            return Err(InstallModpackError::ModpackNotConfirmed);
+        }
+        if !payload
+            .provider
+            .supports(payload.loader, ResourceKind::Modpack)
+        {
+            return Err(InstallModpackError::ResourceInvalidPayload);
+        }
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(InstallModpackError::ServerNotFound)?;
+
+        if server.template.id() != MinecraftTemplate::ID {
+            return Err(InstallModpackError::ResourceWrongTemplate);
+        }
+
+        // Two packs unpacking into one server would interleave writes.
+        if self
+            .modpack_jobs
+            .read()
+            .await
+            .get(&server_id)
+            .is_some_and(|job| job.state == ModpackJobState::Running)
+        {
+            return Err(InstallModpackError::ModpackAlreadyRunning);
+        }
+
+        // Resolved before accepting the job so a bad request fails as a request,
+        // not as a job the user has to go and inspect.
+        let resolved = self
+            .resource_client()
+            .resolve(payload.provider, &payload.project, &payload.version)
+            .await
+            .map_err(ResourceError::into::<InstallModpackError>)?;
+
+        let pack_file = sanitize_file_name(&resolved.file_name, "modpack.zip");
+        let job = ModpackJob::new("Queued");
+        self.set_job(server_id, job.clone()).await;
+
+        let backend = self.clone();
+        let url = resolved.url;
+        self.server_task_cancellable.lock().await.spawn(async move {
+            backend
+                .run_modpack_install(server, payload, pack_file, url)
+                .await;
+        });
+
+        Ok(job)
+    }
+}

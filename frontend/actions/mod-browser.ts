@@ -11,6 +11,8 @@ import {
   searchResources,
   setResourceState,
   uninstallResource,
+  installModpack,
+  modpackStatus,
 } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
@@ -189,6 +191,48 @@ export const updateAllResourcesAction = authActionClient
         query: { allow_prerelease: parsedInput.allowPrerelease },
       }),
       "Failed to update resources",
+    ),
+  );
+
+export const installModpackAction = authActionClient
+  .inputSchema(
+    z.object({
+      serverId: serverSchema,
+      provider: providerSchema,
+      project: z.string().min(1),
+      version: z.string().min(1),
+      loader: loaderSchema,
+      title: z.string().optional(),
+      backup: z.boolean(),
+      wipe: z.boolean(),
+    }),
+  )
+  .action(async ({ parsedInput }) =>
+    unwrap(
+      await installModpack({
+        path: { server_id: parsedInput.serverId },
+        body: {
+          provider: parsedInput.provider,
+          project: parsedInput.project,
+          version: parsedInput.version,
+          loader: parsedInput.loader,
+          title: parsedInput.title,
+          backup: parsedInput.backup,
+          wipe: parsedInput.wipe,
+          // The dialog is the confirmation; the backend refuses without this.
+          confirm: true,
+        },
+      }),
+      "Failed to start the modpack installation",
+    ),
+  );
+
+export const modpackStatusAction = authActionClient
+  .inputSchema(z.object({ serverId: serverSchema }))
+  .action(async ({ parsedInput }) =>
+    unwrap(
+      await modpackStatus({ path: { server_id: parsedInput.serverId } }),
+      "Failed to read the modpack status",
     ),
   );
 
