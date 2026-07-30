@@ -15,7 +15,7 @@ services:
     container_name: backend_postgres
     network_mode: bridge
     ports:
-      - "5432:5432"
+      - 5432:5432
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: backend
