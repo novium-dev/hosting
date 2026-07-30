@@ -8080,6 +8080,10 @@ export type SearchResourcesResponses = {
          * Provider-scoped identifier used for every follow-up call.
          */
         id: string;
+        /**
+         * The project's page on the provider, for a "view upstream" link.
+         */
+        page_url?: string | null;
         provider: ResourceProvider;
         slug: string;
         title: string;

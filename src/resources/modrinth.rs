@@ -11,6 +11,8 @@ const API: &str = "https://api.modrinth.com/v2";
 
 const PROVIDER: ResourceProvider = ResourceProvider::Modrinth;
 
+const SITE: &str = "https://modrinth.com";
+
 #[derive(Debug, Deserialize)]
 struct SearchResponse {
     hits: Vec<SearchHit>,
@@ -80,12 +82,13 @@ fn version_type(raw: &str) -> ResourceVersionType {
     }
 }
 
-fn to_project(hit: SearchHit) -> ResourceProject {
+fn to_project(hit: SearchHit, project_type: &str) -> ResourceProject {
     let categories = if hit.display_categories.is_empty() {
         hit.categories
     } else {
         hit.display_categories
     };
+    let page_url = format!("{SITE}/{project_type}/{}", hit.slug);
 
     ResourceProject {
         provider: PROVIDER,
@@ -98,6 +101,7 @@ fn to_project(hit: SearchHit) -> ResourceProject {
         downloads: hit.downloads,
         follows: hit.follows,
         categories,
+        page_url: Some(page_url),
         downloadable: true,
     }
 }
@@ -165,7 +169,11 @@ pub(super) async fn search(
     )
     .await?;
 
-    Ok(response.hits.into_iter().map(to_project).collect())
+    Ok(response
+        .hits
+        .into_iter()
+        .map(|hit| to_project(hit, project_type))
+        .collect())
 }
 
 pub(super) async fn versions(

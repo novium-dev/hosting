@@ -52,16 +52,18 @@ struct Version {
     release_date: Option<i64>,
 }
 
-impl Resource {
-    /// Premium resources sit behind `SpigotMC`'s paywall and external ones are
-    /// hosted off-site, so neither can be fetched through Spiget.
-    const fn downloadable(&self) -> bool {
-        !self.external && !self.premium
-    }
-}
+/// `SpigotMC` never serves a jar to a server-side fetch.
+///
+/// Spiget's download endpoint is only a redirect to `spigotmc.org`, which sits
+/// behind bot protection and answers 403 for every non-browser client — checked
+/// against a spread of free, non-external resources. So `SpigotMC` is a
+/// search-and-link provider here: the browser surfaces the resource and its
+/// page, and the jar is uploaded through the file manager. Working around the
+/// protection is not on the table, and there is no other endpoint to use.
+const INSTALLABLE: bool = false;
 
 fn to_project(resource: Resource) -> ResourceProject {
-    let downloadable = resource.downloadable();
+    let page_url = format!("{SPIGOT_BASE}resources/{}/", resource.id);
 
     ResourceProject {
         provider: PROVIDER,
@@ -80,7 +82,8 @@ fn to_project(resource: Resource) -> ResourceProject {
         downloads: resource.downloads,
         follows: resource.likes,
         categories: resource.tested_versions,
-        downloadable,
+        page_url: Some(page_url),
+        downloadable: INSTALLABLE,
     }
 }
 
@@ -102,7 +105,7 @@ fn to_version(resource: &Resource, version: &Version) -> ResourceVersion {
             .and_then(|seconds| DateTime::from_timestamp(seconds, 0))
             .map(|date| date.to_rfc3339()),
         file_name: Some(file_name(&resource.name, &version.name)),
-        downloadable: resource.downloadable(),
+        downloadable: INSTALLABLE,
     }
 }
 
@@ -174,40 +177,15 @@ pub(super) async fn versions(
         .collect())
 }
 
-pub(super) async fn resolve(
-    client: &Client,
-    project: &str,
-    version: &str,
+/// Always reports [`ResourceError::DownloadUnavailable`] — see [`INSTALLABLE`].
+///
+/// The signature matches the other providers so the dispatch in the parent
+/// module stays uniform, and so this becomes a real implementation the day
+/// `SpigotMC` offers a fetchable artifact.
+pub(super) const fn resolve(
+    _client: &Client,
+    _project: &str,
+    _version: &str,
 ) -> Result<ResolvedResource, ResourceError> {
-    let resource = resource(client, project).await?;
-    if !resource.downloadable() {
-        return Err(ResourceError::DownloadUnavailable);
-    }
-
-    let versions: Vec<Version> = fetch_json(
-        PROVIDER,
-        client
-            .get(format!(
-                "{API}/resources/{}/versions",
-                encode_segment(project)
-            ))
-            .query(&[("size", "100"), ("page", "1"), ("sort", "-releaseDate")]),
-    )
-    .await?;
-
-    let version = versions
-        .into_iter()
-        .find(|entry| entry.id.to_string() == version)
-        .ok_or(ResourceError::Missing)?;
-
-    let url = format!(
-        "{API}/resources/{}/versions/{}/download",
-        encode_segment(project),
-        version.id
-    );
-
-    Ok(ResolvedResource {
-        url: url.parse().map_err(|_err| ResourceError::ProviderError)?,
-        file_name: file_name(&resource.name, &version.name),
-    })
+    Err(ResourceError::DownloadUnavailable)
 }

@@ -141,6 +141,12 @@ impl ResourceType {
             Self::DataPack => "world/datapacks/",
         }
     }
+
+    /// The same directory in the absolute, unterminated form the daemon's file
+    /// listing expects.
+    pub(crate) fn directory(self) -> String {
+        format!("/{}", self.path_prefix().trim_end_matches('/'))
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
@@ -165,6 +171,8 @@ pub(crate) struct ResourceProject {
     pub(crate) downloads: u64,
     pub(crate) follows: u64,
     pub(crate) categories: Vec<String>,
+    /// The project's page on the provider, for a "view upstream" link.
+    pub(crate) page_url: Option<String>,
     /// Set when the provider knows upfront that the file cannot be fetched
     /// (external hosting, premium resources, distribution opt-out).
     pub(crate) downloadable: bool,
@@ -481,7 +489,7 @@ impl ResourceClient<'_> {
                     curseforge::resolve(http, api_key, project, version).await
                 }
                 ResourceProvider::Hangar => hangar::resolve(http, project, version).await,
-                ResourceProvider::Spigot => spigot::resolve(http, project, version).await,
+                ResourceProvider::Spigot => spigot::resolve(http, project, version),
             }
         };
 

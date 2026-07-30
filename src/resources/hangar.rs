@@ -14,6 +14,8 @@ const PROVIDER: ResourceProvider = ResourceProvider::Hangar;
 /// Hangar is multi-platform; only the Paper artifacts are relevant here.
 const PLATFORM: &str = "PAPER";
 
+const SITE: &str = "https://hangar.papermc.io";
+
 #[derive(Debug, Deserialize)]
 struct Paged<T> {
     result: Vec<T>,
@@ -107,6 +109,11 @@ fn version_type(channel: Option<&Channel>) -> ResourceVersionType {
 }
 
 fn to_project(project: Project) -> ResourceProject {
+    let page_url = format!(
+        "{SITE}/{}/{}",
+        project.namespace.owner, project.namespace.slug
+    );
+
     ResourceProject {
         provider: PROVIDER,
         id: project.namespace.slug.clone(),
@@ -118,6 +125,7 @@ fn to_project(project: Project) -> ResourceProject {
         downloads: project.stats.downloads,
         follows: project.stats.stars,
         categories: project.category.into_iter().collect(),
+        page_url: Some(page_url),
         downloadable: true,
     }
 }

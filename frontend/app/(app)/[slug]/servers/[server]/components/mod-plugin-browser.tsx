@@ -5,6 +5,7 @@ import useSWR from "swr";
 import {
   CheckCircle2,
   Download,
+  ExternalLink,
   PackageSearch,
   RefreshCw,
   Search,
@@ -462,7 +463,7 @@ export function ModPluginBrowser({
           <CardContent className="flex flex-col gap-5">
             {selectedProject ? (
               <>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="secondary">
                     {PROVIDER_LABELS[selectedProject.provider]}
                   </Badge>
@@ -472,6 +473,17 @@ export function ModPluginBrowser({
                   <Badge variant="outline">
                     {formatCount(selectedProject.follows)} follows
                   </Badge>
+                  {selectedProject.page_url ? (
+                    <a
+                      href={selectedProject.page_url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:underline"
+                    >
+                      View on {PROVIDER_LABELS[selectedProject.provider]}
+                      <ExternalLink className="size-3" />
+                    </a>
+                  ) : null}
                 </div>
 
                 <Separator />
@@ -552,8 +564,9 @@ export function ModPluginBrowser({
 
                 {selectedVersion?.downloadable === false ? (
                   <p className="text-sm text-muted-foreground">
-                    This version is hosted outside the provider and has to be
-                    uploaded manually.
+                    {selectedProject.provider === "spigot"
+                      ? "SpigotMC does not allow automated downloads. Download the jar from its page and upload it under Files."
+                      : "This version is hosted outside the provider and has to be downloaded and uploaded manually."}
                   </p>
                 ) : null}
                 {!canWriteFiles ? (

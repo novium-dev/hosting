@@ -50,6 +50,7 @@ struct Mod {
     download_count: f64,
     thumbs_up_count: Option<f64>,
     logo: Option<Logo>,
+    links: Option<Links>,
     #[serde(default)]
     authors: Vec<Author>,
     #[serde(default)]
@@ -62,6 +63,12 @@ struct Mod {
 #[derive(Debug, Deserialize)]
 struct Logo {
     url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Links {
+    website_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -160,6 +167,7 @@ fn to_project(entry: Mod) -> ResourceProject {
             .into_iter()
             .map(|category| category.name)
             .collect(),
+        page_url: entry.links.and_then(|links| links.website_url),
         downloadable: entry.allow_mod_distribution.unwrap_or(true),
     }
 }
