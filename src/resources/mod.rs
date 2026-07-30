@@ -105,7 +105,7 @@ impl ResourceLoader {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 pub(crate) enum ResourceType {
     #[serde(rename = "plugin")]
     Plugin,

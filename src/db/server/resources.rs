@@ -124,6 +124,24 @@ pub(crate) async fn upsert_installed(
     Ok(())
 }
 
+/// Drops the records for `file_names`, used when a reconciliation finds that
+/// those files are no longer on disk.
+pub(crate) async fn delete_installed_files(
+    database: &PgPool,
+    server: ServerId,
+    file_names: &[String],
+) -> Result<u64, sqlx::Error> {
+    Ok(query!(
+        r#"DELETE FROM server_resources
+           WHERE server = $1 AND file_name = ANY($2)"#,
+        server as ServerId,
+        file_names
+    )
+    .execute(database)
+    .await?
+    .rows_affected())
+}
+
 pub(crate) async fn delete_installed(
     database: &PgPool,
     server: ServerId,

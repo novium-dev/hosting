@@ -4,7 +4,8 @@ use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
 use crate::db::server::ServerId;
 use crate::db::server::resources::{
-    InstalledResource, delete_installed, installed_file, list_installed, upsert_installed,
+    InstalledResource, delete_installed, delete_installed_files, installed_file, list_installed,
+    upsert_installed,
 };
 use crate::resources::{
     MAX_QUERY_LENGTH, MAX_SEARCH_LIMIT, ResourceClient, ResourceError, ResourceLoader,
@@ -18,10 +19,12 @@ use crate::service::template::*;
 use crate::templates::games::minecraft::MinecraftTemplate;
 use crate::templates::{Template as _, TemplateError};
 use daemon_common::service::files::files_service_error::{
-    ServerCreateDirectoryError, ServerDeleteFileError, ServerWriteFileByUrlError,
+    ServerCreateDirectoryError, ServerDeleteFileError, ServerListFilesError,
+    ServerWriteFileByUrlError,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{error, warn};
+use std::collections::{HashMap, HashSet};
+use tracing::{error, info, warn};
 use zelus::service;
 
 define_query_variable!(provider "The resource provider");
@@ -206,9 +209,19 @@ pub(crate) impl ResourceService for Backend {
 
     /// Lists what is installed on this server.
     ///
-    /// Backed by the `server_resources` table rather than by scanning
-    /// `mods/`/`plugins/`, so a client learns the installed set (and which
-    /// exact version it is) in one request.
+    /// The `server_resources` table carries the provider/project/version
+    /// identity that file names cannot express, but the files themselves are the
+    /// truth: anyone can delete or rename a jar over SFTP or in the file
+    /// manager, and neither goes through this service. So the records are
+    /// reconciled against a directory listing on every read, and records whose
+    /// file is gone are dropped — a resource the user removed by hand is not
+    /// installed, however it was removed.
+    ///
+    /// Reconciliation only ever deletes on an authoritative answer (a listing
+    /// that succeeded, or a directory that does not exist and therefore holds
+    /// nothing). Any other daemon fault leaves the records untouched, so an
+    /// unreachable node degrades to slightly stale output instead of discarding
+    /// the version history.
     #[route("/installed", method = GET)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn list_installed_resources(
@@ -221,7 +234,74 @@ pub(crate) impl ResourceService for Backend {
             ServerPermissions::FILES_READ,
         )?;
 
-        Ok(list_installed(&self.database, server_id).await?)
+        let recorded = list_installed(&self.database, server_id).await?;
+        if recorded.is_empty() {
+            return Ok(recorded);
+        }
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(ListInstalledResourcesError::ServerNotFound)?;
+
+        // One listing per directory in play, not one per record: in practice
+        // that is a single call, since a server's resources share a loader.
+        let mut listings: HashMap<ResourceType, Option<HashSet<String>>> = HashMap::new();
+        for resource_type in recorded.iter().map(|resource| resource.resource_type) {
+            // The map itself is the dedup: a directory is listed once, however
+            // many records point into it.
+            if listings.contains_key(&resource_type) {
+                continue;
+            }
+
+            let listing = match server
+                .node
+                .server_list_files(server.node_server_id, resource_type.directory())
+                .await
+            {
+                Ok(entries) => Some(
+                    entries
+                        .into_iter()
+                        .map(|entry| entry.name)
+                        .collect::<HashSet<_>>(),
+                ),
+                // The directory itself is gone, so nothing in it survives.
+                Err(ServerListFilesError::FileNotFound) => Some(HashSet::new()),
+                Err(err) => {
+                    warn!(
+                        "Skipping resource reconciliation for {}: {err:?}",
+                        resource_type.directory()
+                    );
+                    None
+                }
+            };
+            listings.insert(resource_type, listing);
+        }
+
+        let (present, missing): (Vec<_>, Vec<_>) = recorded.into_iter().partition(|resource| {
+            listings
+                .get(&resource.resource_type)
+                .and_then(Option::as_ref)
+                .is_none_or(|files| files.contains(&resource.file_name))
+        });
+
+        if !missing.is_empty() {
+            let files: Vec<String> = missing
+                .iter()
+                .map(|resource| resource.file_name.clone())
+                .collect();
+            info!(
+                "Forgetting {} resource(s) removed outside the panel on server {server_id}: {files:?}",
+                files.len()
+            );
+            // A failed cleanup must not fail the read: the response already
+            // reflects the filesystem, and the next read retries the delete.
+            if let Err(err) = delete_installed_files(&self.database, server_id, &files).await {
+                warn!("Failed to forget removed resources: {err:?}");
+            }
+        }
+
+        Ok(present)
     }
 
     /// Downloads a version onto the server and records it as installed.
