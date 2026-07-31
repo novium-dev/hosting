@@ -26,7 +26,6 @@ pub(crate) struct RouteDomainAdminInfo {
     pub(crate) domain: String,
     pub(crate) provider: String,
     pub(crate) provider_domain_id: Option<String>,
-    pub(crate) srv_service: Option<String>,
     pub(crate) https: bool,
     pub(crate) private: bool,
     pub(crate) projects: Vec<ProjectId>,
@@ -39,7 +38,6 @@ pub(crate) struct RouteDomainPayload {
     pub(crate) domain: String,
     pub(crate) provider: String,
     pub(crate) provider_domain_id: Option<String>,
-    pub(crate) srv_service: Option<String>,
     pub(crate) https: Option<bool>,
     pub(crate) private: Option<bool>,
 }
@@ -48,7 +46,6 @@ pub(crate) struct RouteDomainPayload {
 pub(crate) struct RouteDomainUpdatePayload {
     pub(crate) provider: Option<String>,
     pub(crate) provider_domain_id: Option<String>,
-    pub(crate) srv_service: Option<String>,
     pub(crate) https: Option<bool>,
     pub(crate) private: Option<bool>,
 }
@@ -108,7 +105,6 @@ pub(crate) impl RouteAdminService for Backend {
                 domain: domain.domain,
                 provider: domain.provider,
                 provider_domain_id: domain.provider_domain_id,
-                srv_service: domain.srv_service,
                 https: domain.https,
                 private: domain.private,
                 routes,
@@ -141,14 +137,13 @@ pub(crate) impl RouteAdminService for Backend {
         }
 
         query!(
-            r#"INSERT INTO route_domains (domain, provider, provider_domain_id, srv_service, https, private)
-               VALUES ($1, $2, $3, $4, $5, $6)
+            r#"INSERT INTO route_domains (domain, provider, provider_domain_id, https, private)
+               VALUES ($1, $2, $3, $4, $5)
                ON CONFLICT (domain) DO NOTHING
                RETURNING id"#,
             domain,
             payload.provider,
             payload.provider_domain_id,
-            payload.srv_service,
             payload.https.unwrap_or(true),
             payload.private.unwrap_or(false),
         )
@@ -186,13 +181,10 @@ pub(crate) impl RouteAdminService for Backend {
 
         query!(
             r#"UPDATE route_domains
-               SET provider = $1, provider_domain_id = $2, srv_service = $3, https = $4, private = $5
-               WHERE id = $6"#,
+               SET provider = $1, provider_domain_id = $2, https = $3, private = $4
+               WHERE id = $5"#,
             provider,
-            payload
-                .provider_domain_id
-                .or(domain.provider_domain_id),
-            payload.srv_service.or(domain.srv_service),
+            payload.provider_domain_id.or(domain.provider_domain_id),
             payload.https.unwrap_or(domain.https),
             payload.private.unwrap_or(domain.private),
             domain_id,

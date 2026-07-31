@@ -13,10 +13,6 @@ const DEFAULT_API: &str = "https://api.cloudflare.com/client/v4/";
 
 const DEFAULT_TTL: u32 = 1;
 
-const SRV_PRIORITY: u16 = 0;
-
-const SRV_WEIGHT: u16 = 0;
-
 pub struct CloudflareProvider {
     config: CloudflareConfig,
     client: Client,
@@ -30,24 +26,6 @@ struct AddressRecordPayload<'a> {
     content: &'a str,
     ttl: u32,
     proxied: bool,
-    comment: &'a str,
-}
-
-#[derive(Debug, Serialize)]
-struct SrvData<'a> {
-    priority: u16,
-    weight: u16,
-    port: u16,
-    target: &'a str,
-}
-
-#[derive(Debug, Serialize)]
-struct SrvRecordPayload<'a> {
-    #[serde(rename = "type")]
-    record_type: &'a str,
-    name: String,
-    data: SrvData<'a>,
-    ttl: u32,
     comment: &'a str,
 }
 
@@ -156,6 +134,7 @@ impl RouteProvider for CloudflareProvider {
     ) -> Result<ProvisionedRoute, RouteProviderError> {
         let fqdn = request.fqdn();
         let record_type = Self::address_record_type(&request.target_host);
+        let proxied = self.config.proxied && request.https;
 
         let address_id = self
             .post_record(&AddressRecordPayload {
@@ -163,64 +142,20 @@ impl RouteProvider for CloudflareProvider {
                 name: &fqdn,
                 content: &request.target_host,
                 ttl: self.ttl(),
-                proxied: self.config.proxied && request.https,
+                proxied,
                 comment: &request.label,
             })
             .await?;
 
-        let mut external_ids = vec![address_id];
-        let mut records = vec![RouteRecord {
-            record_type: record_type.to_owned(),
-            name: fqdn.clone(),
-            value: request.target_host.clone(),
-            priority: None,
-            port: None,
-            ttl: Some(self.ttl()),
-            proxied: self.config.proxied && request.https,
-        }];
-
-        if let Some(ref service) = request.srv_service {
-            let name = format!("_{service}._tcp.{fqdn}");
-            let srv_id = self
-                .post_record(&SrvRecordPayload {
-                    record_type: "SRV",
-                    name: name.clone(),
-                    data: SrvData {
-                        priority: SRV_PRIORITY,
-                        weight: SRV_WEIGHT,
-                        port: request.target_port,
-                        target: &fqdn,
-                    },
-                    ttl: self.ttl(),
-                    comment: &request.label,
-                })
-                .await;
-
-            match srv_id {
-                Ok(id) => {
-                    external_ids.push(id);
-                    records.push(RouteRecord {
-                        record_type: "SRV".to_owned(),
-                        name,
-                        value: fqdn,
-                        priority: Some(SRV_PRIORITY),
-                        port: Some(request.target_port),
-                        ttl: Some(self.ttl()),
-                        proxied: false,
-                    });
-                }
-                Err(err) => {
-                    if let Err(cleanup) = self.delete_route(&external_ids).await {
-                        error!("Unable to roll back the Cloudflare record: {cleanup:?}");
-                    }
-                    return Err(err);
-                }
-            }
-        }
-
         Ok(ProvisionedRoute {
-            external_ids,
-            records,
+            external_ids: vec![address_id],
+            records: vec![RouteRecord {
+                record_type: record_type.to_owned(),
+                name: fqdn,
+                value: request.target_host.clone(),
+                ttl: Some(self.ttl()),
+                proxied,
+            }],
         })
     }
 

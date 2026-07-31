@@ -107,7 +107,6 @@ export function AdminDomainsView() {
   const [domain, setDomain] = useState("");
   const [provider, setProvider] = useState("");
   const [providerDomainId, setProviderDomainId] = useState("");
-  const [srvService, setSrvService] = useState("");
   const [https, setHttps] = useState(true);
   const [isPrivate, setIsPrivate] = useState(false);
 
@@ -123,7 +122,6 @@ export function AdminDomainsView() {
     setDomain("");
     setProvider(providers?.[0]?.name ?? "");
     setProviderDomainId("");
-    setSrvService("");
     setHttps(true);
     setIsPrivate(false);
     setCreateOpen(true);
@@ -140,7 +138,6 @@ export function AdminDomainsView() {
           domain,
           provider,
           provider_domain_id: providerDomainId || null,
-          srv_service: srvService || null,
           https,
           private: isPrivate,
         },
@@ -311,11 +308,6 @@ export function AdminDomainsView() {
                 <TableRow key={entry.id}>
                   <TableCell className="font-medium">
                     {entry.domain}
-                    {entry.srv_service ? (
-                      <span className="ml-2 font-mono text-xs text-muted-foreground">
-                        SRV _{entry.srv_service}._tcp
-                      </span>
-                    ) : null}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -452,21 +444,6 @@ export function AdminDomainsView() {
                 </p>
               </div>
             ) : null}
-
-            <div className="space-y-2">
-              <Label htmlFor="domain-srv">SRV service (optional)</Label>
-              <Input
-                id="domain-srv"
-                value={srvService}
-                placeholder="minecraft"
-                autoComplete="off"
-                onChange={(event) => setSrvService(event.target.value.trim())}
-              />
-              <p className="text-xs text-muted-foreground">
-                Also creates an SRV record so clients reach the routed port
-                without typing it.
-              </p>
-            </div>
 
             <div className="flex items-center justify-between rounded-md border p-3">
               <div>

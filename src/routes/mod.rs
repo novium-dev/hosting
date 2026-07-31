@@ -29,8 +29,6 @@ pub struct RouteRecord {
     pub record_type: String,
     pub name: String,
     pub value: String,
-    pub priority: Option<u16>,
-    pub port: Option<u16>,
     pub ttl: Option<u32>,
     pub proxied: bool,
 }
@@ -39,7 +37,6 @@ pub struct RouteRecord {
 pub struct RouteRequest {
     pub domain: String,
     pub provider_domain_id: Option<String>,
-    pub srv_service: Option<String>,
     pub subdomain: String,
     pub https: bool,
     pub target_host: String,

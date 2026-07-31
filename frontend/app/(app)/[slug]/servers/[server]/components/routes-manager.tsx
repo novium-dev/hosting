@@ -327,8 +327,6 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                           <TableHead>Type</TableHead>
                           <TableHead>Name</TableHead>
                           <TableHead>Value</TableHead>
-                          <TableHead>Priority</TableHead>
-                          <TableHead>Port</TableHead>
                           <TableHead>TTL</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -345,12 +343,6 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                             </TableCell>
                             <TableCell className="font-mono text-xs">
                               {record.value}
-                            </TableCell>
-                            <TableCell className="font-mono text-xs">
-                              {record.priority ?? "—"}
-                            </TableCell>
-                            <TableCell className="font-mono text-xs">
-                              {record.port ?? "—"}
                             </TableCell>
                             <TableCell className="font-mono text-xs">
                               {record.ttl === 1 ? "auto" : (record.ttl ?? "—")}

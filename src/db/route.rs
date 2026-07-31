@@ -27,7 +27,6 @@ pub struct RouteDomain {
     pub domain: String,
     pub provider: String,
     pub provider_domain_id: Option<String>,
-    pub srv_service: Option<String>,
     pub https: bool,
     pub private: bool,
 }
@@ -66,7 +65,7 @@ impl Backend {
     ) -> Result<Vec<RouteDomain>, sqlx::Error> {
         query_as!(
             RouteDomain,
-            r#"SELECT id, domain, provider, provider_domain_id, srv_service, https, private
+            r#"SELECT id, domain, provider, provider_domain_id, https, private
                FROM route_domains
                ORDER BY domain"#
         )
@@ -81,7 +80,7 @@ impl Backend {
     ) -> Result<Option<RouteDomain>, sqlx::Error> {
         query_as!(
             RouteDomain,
-            r#"SELECT id, domain, provider, provider_domain_id, srv_service, https, private
+            r#"SELECT id, domain, provider, provider_domain_id, https, private
                FROM route_domains
                WHERE id = $1"#,
             domain_id

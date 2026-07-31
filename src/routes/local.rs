@@ -43,29 +43,6 @@ impl RouteProvider for LocalProvider {
 
         let fqdn = request.fqdn();
         let target = format!("{}:{}", request.target_host, request.target_port);
-
-        let mut records = vec![RouteRecord {
-            record_type: "CNAME".to_owned(),
-            name: fqdn.clone(),
-            value: request.target_host.clone(),
-            priority: None,
-            port: None,
-            ttl: Some(DEFAULT_TTL),
-            proxied: false,
-        }];
-
-        if let Some(ref service) = request.srv_service {
-            records.push(RouteRecord {
-                record_type: "SRV".to_owned(),
-                name: format!("_{service}._tcp.{fqdn}"),
-                value: fqdn.clone(),
-                priority: Some(0),
-                port: Some(request.target_port),
-                ttl: Some(DEFAULT_TTL),
-                proxied: false,
-            });
-        }
-
         let external_id = format!("local-{fqdn}");
 
         if let Ok(mut routes) = self.routes.lock() {
@@ -76,7 +53,13 @@ impl RouteProvider for LocalProvider {
 
         Ok(ProvisionedRoute {
             external_ids: vec![external_id],
-            records,
+            records: vec![RouteRecord {
+                record_type: "CNAME".to_owned(),
+                name: fqdn,
+                value: request.target_host.clone(),
+                ttl: Some(DEFAULT_TTL),
+                proxied: false,
+            }],
         })
     }
 

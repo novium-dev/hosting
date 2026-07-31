@@ -133,13 +133,14 @@ pub(crate) impl RouteService for Backend {
 
             let fqdn = format!("{}.{}", route.subdomain, domain.domain);
             let scheme = if route.https { "https" } else { "http" };
+            let url = format!("{scheme}://{fqdn}");
 
             routes.push(RouteInfo {
                 id: route.id,
                 server: route.server,
                 domain: route.domain,
                 subdomain: route.subdomain,
-                url: format!("{scheme}://{fqdn}"),
+                url,
                 fqdn,
                 https: route.https,
                 port: route.port,
@@ -205,6 +206,10 @@ pub(crate) impl RouteService for Backend {
             return Err(CreateRouteError::RouteDomainNotFound);
         }
 
+        let provider = self
+            .route_provider(&domain.provider)
+            .ok_or(CreateRouteError::RouteProviderUnknown)?;
+
         let https = payload.https.unwrap_or(true);
         if https && !domain.https {
             return Err(CreateRouteError::RouteHttpsUnavailable);
@@ -231,10 +236,6 @@ pub(crate) impl RouteService for Backend {
         let external_port =
             u16::try_from(port.external_port).map_err(|_err| CreateRouteError::RoutePortInvalid)?;
 
-        let provider = self
-            .route_provider(&domain.provider)
-            .ok_or(CreateRouteError::RouteProviderUnknown)?;
-
         let Some(route_id) = query!(
             r#"INSERT INTO routes (server, domain, subdomain, port, https)
                VALUES ($1, $2, $3, $4, $5)
@@ -255,7 +256,6 @@ pub(crate) impl RouteService for Backend {
         let request = RouteRequest {
             domain: domain.domain.clone(),
             provider_domain_id: domain.provider_domain_id.clone(),
-            srv_service: domain.srv_service.clone(),
             subdomain: subdomain.clone(),
             https,
             target_host: port.host,

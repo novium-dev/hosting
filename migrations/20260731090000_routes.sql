@@ -5,7 +5,6 @@ CREATE TABLE route_domains (
     domain varchar(253) NOT NULL UNIQUE,
     provider varchar(64) NOT NULL,
     provider_domain_id varchar(64),
-    srv_service varchar(32),
     https boolean NOT NULL DEFAULT true,
     private boolean NOT NULL DEFAULT false
 );
