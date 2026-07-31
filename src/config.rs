@@ -70,6 +70,7 @@ pub struct RouteConfig {
 pub enum RouteProviderConfig {
     Cloudflare(CloudflareConfig),
     Pangolin(PangolinConfig),
+    Local(LocalConfig),
 }
 
 impl RouteProviderConfig {
@@ -77,8 +78,15 @@ impl RouteProviderConfig {
         match *self {
             Self::Cloudflare(_) => "cloudflare",
             Self::Pangolin(_) => "pangolin",
+            Self::Local(_) => "local",
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct LocalConfig {
+    #[serde(default)]
+    pub fail: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
