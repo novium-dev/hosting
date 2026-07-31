@@ -36,6 +36,9 @@ pub(crate) impl AuthService for Backend {
         Ok(auth.serialized())
     }
 
+    /// Logs in as a seeded admin dev user and returns the raw session token.
+    ///
+    /// Only available when the crate is built with the `auth_dev` feature, which is forbidden in release builds.
     #[route("/login/dev", method = GET, routes = [ dev_auth ])]
     #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure)]
     async fn login_dev(&self) -> Result<String, _> {

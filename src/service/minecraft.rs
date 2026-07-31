@@ -14,6 +14,10 @@ define_query_variable!(
 
 #[service(path = "/minecraft", tag = "minecraft", no_sdk)]
 pub(crate) impl MinecraftService for Backend {
+    /// Bans a player from the Minecraft server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::TERMINAL_WRITE`].
     #[route("/{server_id}/ban", method = GET, query = [ user ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn ban_user(
@@ -30,6 +34,10 @@ pub(crate) impl MinecraftService for Backend {
         Ok(())
     }
 
+    /// Lifts a ban on a player from the Minecraft server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::TERMINAL_WRITE`].
     #[route("/{server_id}/pardon", method = GET, query = [ user ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn pardon_user(
@@ -46,6 +54,10 @@ pub(crate) impl MinecraftService for Backend {
         Ok(())
     }
 
+    /// Grants a player operator status on the Minecraft server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::TERMINAL_WRITE`].
     #[route("/{server_id}/op", method = GET, query = [ user ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn op_user(
@@ -62,6 +74,10 @@ pub(crate) impl MinecraftService for Backend {
         Ok(())
     }
 
+    /// Revokes a player's operator status on the Minecraft server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::TERMINAL_WRITE`].
     #[route("/{server_id}/deop", method = GET, query = [ user ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn deop_user(

@@ -122,7 +122,7 @@ bitflags! {
         /// Depends on [`ServerPermissions::BACKUP_VIEW`]
         const BACKUP_RESTORE = 1 << 12;
 
-        /// Allows the user to view the server's network configuration, including assigned ports and networks.
+        /// Allows the user to view the server's network configuration (assigned ports).
         ///
         /// Depends on [`ProjectPermissions::VIEW`]
         const NETWORK_VIEW = 1 << 15;

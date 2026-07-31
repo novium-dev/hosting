@@ -182,6 +182,9 @@ pub(crate) impl InternalService for Backend {
         }
     }
 
+    /// Authenticates an SFTP/SSH password login against a server's daemon password.
+    ///
+    /// This route should only be used directly by the daemon.
     #[route("/auth/password", no_auth, query = [ node ])]
     #[error(auth::invalid, db::failure <- [sql:*])]
     async fn auth_password(
@@ -193,6 +196,9 @@ pub(crate) impl InternalService for Backend {
         auth_servers_for_password(self, node, auth.username(), auth.password()).await
     }
 
+    /// Authenticates an SFTP/SSH public-key login against a user's registered SSH keys.
+    ///
+    /// This route should only be used directly by the daemon.
     #[route("/auth/publickey", no_auth, query = [ node ])]
     #[error(auth::invalid, db::failure <- [sql:*])]
     async fn auth_publickey(

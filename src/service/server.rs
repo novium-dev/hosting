@@ -37,7 +37,7 @@ pub(crate) struct ServerListInfo {
     template: String,
     node: String,
 
-    /// Only populated when `include` is set and the
+    /// Only populated when `include` is set.
     status: Option<ServerListStatus>,
 }
 
@@ -86,7 +86,6 @@ pub(crate) struct ServerInfo {
     pub(crate) swap: Option<u32>,
     pub(crate) disk: Option<u64>,
     pub(crate) network: Option<ServerNetworkInfo>,
-    //pub(crate) database: Option<Vec<DatabaseAssignmentInfo>>,
     pub(crate) features: HashSet<&'static str>,
     pub(crate) internet_access: bool,
     pub(crate) suspended: bool,
@@ -101,7 +100,6 @@ pub(crate) struct ServerInfo {
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ServerNetworkInfo {
     pub(crate) ports: Vec<NetworkPort>,
-    //pub(crate) networks: Vec<NetworkAssignmentInfo>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToSchema)]
@@ -725,6 +723,10 @@ pub(crate) impl ServerService for Backend {
             })
     }
 
+    /// Gets the server's template-defined build variables.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::BUILD_VIEW`].
     #[route("/{server_id}/variables", method = GET)]
     #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
     async fn server_variables(
@@ -746,6 +748,10 @@ pub(crate) impl ServerService for Backend {
             .map_err(TemplateError::into::<ServerVariablesError>)
     }
 
+    /// Updates the server's template-defined build variables and pushes the resulting build to its node.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::BUILD_EDIT`].
     #[route("/{server_id}/variables", method = PATCH)]
     #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable, input_invalid}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
     async fn update_variables(

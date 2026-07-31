@@ -1,5 +1,3 @@
-// TODO: Use scanner
-
 mod fabric;
 mod forge;
 pub(crate) mod maven;
@@ -776,8 +774,9 @@ pub(crate) struct VersionCache(
 
 #[derive(Readable, Writable, Clone)]
 pub(crate) enum VersionBuild {
-    Range(Option<String>, u16, u16, HashSet<u16>), // version prefix, highest build, lowest builds, build numbers between that are missing
-    Set(Vec<String>),                              // versions
+    /// Version prefix, lowest build, highest build, and build numbers in that range that are missing.
+    Range(Option<String>, u16, u16, HashSet<u16>),
+    Set(Vec<String>),
 }
 
 #[derive(Deserialize)]

@@ -18,6 +18,10 @@ use zelus::service;
 
 #[service(path = "/backup/{server_id}", tag = "backup", no_sdk)]
 pub(crate) impl BackupService for Backend {
+    /// Lists the server's backups.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::BACKUP_VIEW`].
     #[route("", method = GET, raw)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::storage_unavailable)]
     async fn list_backups(
@@ -58,6 +62,10 @@ pub(crate) impl BackupService for Backend {
             .collect_paged(page))
     }
 
+    /// Creates a backup on whichever suitable storage the node picks.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::BACKUP_CREATE`].
     #[route("", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, no_suitable_storage_found, limit_exceeded})]
     async fn create_backup(
@@ -127,6 +135,10 @@ pub(crate) impl BackupService for Backend {
             })
     }
 
+    /// Creates a backup on the given storage.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::BACKUP_CREATE`] and [`ManagementPermissions::BACKUP_STORAGE_SELECT`].
     #[route("/{backup_storage}", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, storage_not_found, storage_incompatible, limit_exceeded})]
     async fn create_backup_with_storage(
@@ -207,6 +219,10 @@ pub(crate) impl BackupService for Backend {
             })
     }
 
+    /// Deletes a backup.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::BACKUP_DELETE`].
     #[route("/{backup_storage}/{backup_id}", method = DELETE)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, not_found, storage_not_found})]
     async fn delete_backup(
@@ -249,6 +265,10 @@ pub(crate) impl BackupService for Backend {
             })
     }
 
+    /// Restores the server from a backup.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::BACKUP_RESTORE`].
     #[route("/{backup_storage}/{backup_id}/restore", method = GET)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, not_found, storage_not_found, quota_exceeded})]
     async fn restore_backup(
@@ -294,6 +314,10 @@ pub(crate) impl BackupService for Backend {
             })
     }
 
+    /// Gets a signed URL to download a backup.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::BACKUP_DOWNLOAD`].
     #[route("/{backup_storage}/{backup_id}", method = GET)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn download_backup(
@@ -320,6 +344,10 @@ pub(crate) impl BackupService for Backend {
             .to_string())
     }
 
+    /// Gets a signed URL to download a live archive of the server's files, built on demand rather than from a stored backup.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_READ`].
     #[route("/rt", method = GET, query = [ compression ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found}, backup::compression_not_allowed)]
     async fn realtime_download_backup(
@@ -349,6 +377,10 @@ pub(crate) impl BackupService for Backend {
             .to_string())
     }
 
+    /// Renames a backup.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::BACKUP_RESTORE`].
     #[route("/{backup_storage}/{backup_id}", method = PATCH)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, not_found, storage_not_found})]
     async fn update_backup(

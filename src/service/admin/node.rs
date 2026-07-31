@@ -77,7 +77,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// using the returned code and registers itself against it.
     ///
     /// # Permissions
-    /// Requires [`ManagementPermission::NODES_MANAGE`].
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, os::failure, node::invalid_host, db::failure <- [sql:*])]
     async fn create_node(
@@ -130,7 +130,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// reconciles it into the backend's stored config.
     ///
     /// # Permissions
-    /// Requires [`ManagementPermission::NODES_MANAGE`].
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("/{node_id}", method = PATCH)]
     #[error(node::{not_found, failure}, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn update_node(&self, #[special] auth: Authentication, node_id: Uuid) -> Result<(), _> {
@@ -179,7 +179,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// Lists all nodes.
     ///
     /// # Permissions
-    /// Requires [`ManagementPermission::NODES_VIEW`].
+    /// Requires [`ManagementPermissions::NODES_VIEW`].
     #[route("", method = GET)]
     #[error(auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*])]
     async fn list_nodes(&self, #[special] auth: Authentication) -> Result<Vec<NodeInfo>, _> {
@@ -207,7 +207,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// Updates maintenance mode for a node.
     ///
     /// # Permissions
-    /// Requires [`ManagementPermission::NODES_MANAGE`].
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("/{node_id}/maintenance", method = PATCH)]
     #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn update_maintenance(
@@ -242,6 +242,10 @@ pub(crate) impl NodeAdminService for Backend {
         .await
     }
 
+    /// Gets live resource usage for a node.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_VIEW`].
     #[route("/{node_id}/metrics", method = GET)]
     #[error(node::not_found, node::failure, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn metrics_node(
@@ -275,6 +279,10 @@ pub(crate) impl NodeAdminService for Backend {
         })
     }
 
+    /// Lists the node's port ranges, keyed by port allocation id, with each range's already-used ports excluded.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_VIEW`].
     #[route("/{node_id}/ports", method = GET)]
     #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn available_ports(
@@ -331,6 +339,10 @@ pub(crate) impl NodeAdminService for Backend {
         Ok(result)
     }
 
+    /// Adds a port range the node can allocate to servers.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("/{node_id}/ports", method = PUT)]
     #[error(node::not_found, port::invalid, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn add_node_port(
@@ -374,6 +386,10 @@ pub(crate) impl NodeAdminService for Backend {
         .await
     }
 
+    /// Removes a port range from the node.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("/{node_id}/ports/{port_id}", method = DELETE)]
     #[error(node::not_found, port::in_use, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn delete_node_port(

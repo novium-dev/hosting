@@ -233,7 +233,7 @@ pub(crate) impl ServerAdminService for Backend {
     /// Deletes a server
     ///
     /// # Permissions
-    /// Requires [`ProjectPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
+    /// Requires [`ProjectPermissions::VIEW`] and [`ManagementPermissions::SERVER_DELETE`].
     #[route("/{server_id}", method = DELETE)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found, unavailable}, node::failure)]
     async fn delete_server(
@@ -424,6 +424,10 @@ pub(crate) impl ServerAdminService for Backend {
         Ok(())
     }
 
+    /// Allocates a new port for the server.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
     #[route("/{server_id}/ports", method = PUT, raw)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*],
         server::{not_found, unavailable},
@@ -564,6 +568,10 @@ pub(crate) impl ServerAdminService for Backend {
     .await
     }
 
+    /// Updates an existing port allocation for the server.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
     #[route("/{server_id}/ports/{port_id}", method = POST)]
     #[error(
     auth::{permission_denied, unreachable},
@@ -790,6 +798,10 @@ pub(crate) impl ServerAdminService for Backend {
     .await
     }
 
+    /// Removes a port allocation from the server.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
     #[route("/{server_id}/ports/{port_id}", method = DELETE)]
     #[error(
     auth::{permission_denied, unreachable},

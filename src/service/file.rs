@@ -34,6 +34,10 @@ struct UrlResponse {
 
 #[service(path = "/file/{server_id}", tag = "file", no_sdk)]
 pub(crate) impl FileService for Backend {
+    /// Lists the contents of a directory on the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_READ`].
     #[route("", method = GET, raw, query = [ file ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, not_directory})]
     async fn list_files(
@@ -76,6 +80,10 @@ pub(crate) impl FileService for Backend {
             .collect_paged(page))
     }
 
+    /// Gets metadata for a single file or directory on the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_READ`].
     #[route("/stat", method = GET, query = [ file ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated})]
     async fn stat_file(
@@ -113,6 +121,10 @@ pub(crate) impl FileService for Backend {
             })
     }
 
+    /// Renames or moves a file or directory on the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_WRITE`].
     #[route("/rename", method = POST, query = [ from, to ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists})]
     async fn rename_file(
@@ -156,6 +168,10 @@ pub(crate) impl FileService for Backend {
         Ok(())
     }
 
+    /// Copies a file on the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_WRITE`].
     #[route("/copy", method = POST, query = [ from, to ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, is_directory, quota_exceeded})]
     async fn copy_file(
@@ -198,6 +214,10 @@ pub(crate) impl FileService for Backend {
         Ok(())
     }
 
+    /// Deletes a file or directory on the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_WRITE`].
     #[route("/delete", method = POST, query = [ file, recursive ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, not_directory, is_directory})]
     async fn delete_file(
@@ -242,6 +262,10 @@ pub(crate) impl FileService for Backend {
         Ok(())
     }
 
+    /// Creates a directory on the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_WRITE`].
     #[route("/mkdir", method = POST, query = [ file, recursive ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded})]
     async fn create_directory(
@@ -292,6 +316,10 @@ pub(crate) impl FileService for Backend {
         Ok(())
     }
 
+    /// Creates a symlink on the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_WRITE`].
     #[route("/symlink", method = POST, query = [ file, content ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded})]
     async fn symlink_file(
@@ -332,6 +360,10 @@ pub(crate) impl FileService for Backend {
             })
     }
 
+    /// Gets a signed URL to download a file from the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_READ`].
     #[route("/download", method = GET, query = [ file, limit ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn download_user(
@@ -357,6 +389,10 @@ pub(crate) impl FileService for Backend {
         })
     }
 
+    /// Gets a signed URL to upload a file to the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_WRITE`].
     #[route("/upload", method = GET, query = [ file ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn upload_user(
@@ -379,6 +415,10 @@ pub(crate) impl FileService for Backend {
         })
     }
 
+    /// Creates an archive from a file or directory on the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_WRITE`].
     #[route("/archive", method = POST, query = [ from, to, compression ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, is_directory, quota_exceeded, compression_unsupported})]
     async fn archive_file(
@@ -431,6 +471,10 @@ pub(crate) impl FileService for Backend {
         Ok(())
     }
 
+    /// Extracts an archive on the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_WRITE`].
     #[route("/unarchive", method = POST, query = [ from, to ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, file::{storage_unavailable, not_found, sandbox_violated, already_exists, quota_exceeded, compression_unsupported})]
     async fn unarchive_file(
@@ -481,6 +525,10 @@ pub(crate) impl FileService for Backend {
         Ok(())
     }
 
+    /// Reads a `.properties`, `.json` or `.yaml`/`.yml` config file on the server as structured JSON.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_READ`].
     #[route("/config", method = GET, query = [ file ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, unsupported_type})]
     async fn get_config(
@@ -603,6 +651,10 @@ pub(crate) impl FileService for Backend {
         }
     }
 
+    /// Writes structured JSON back to a `.properties`, `.json` or `.yaml`/`.yml` config file on the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_WRITE`].
     #[route("/config", method = POST, raw, query = [ file ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::{not_found, config_invalid}, node::failure, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, unsupported_type, content_invalid})]
     async fn set_config(
