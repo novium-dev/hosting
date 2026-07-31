@@ -1,5 +1,6 @@
 import Link from "@/components/link";
 import {
+  Boxes,
   FolderKanban,
   Home,
   KeyRound,
@@ -39,6 +40,12 @@ const adminLinks = [
     href: "/admin/nodes",
     icon: Network,
     permission: ManagementPermission.NODES_VIEW,
+  },
+  {
+    title: "Templates",
+    href: "/admin/templates",
+    icon: Boxes,
+    permission: ManagementPermission.SERVER_MANAGE,
   },
   {
     title: "API keys",

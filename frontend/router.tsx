@@ -17,6 +17,7 @@ import CreateOrganizationPage from "@/app/(app)/create/page";
 
 import AdminLayout from "@/app/(app)/admin/layout";
 import AdminApiKeysPage from "@/app/(app)/admin/api-keys/page";
+import AdminTemplatesPage from "@/app/(app)/admin/templates/page";
 import AdminNodesPage from "@/app/(app)/admin/nodes/page";
 import AdminNodePage from "@/app/(app)/admin/nodes/[node]/page";
 import AdminProjectsPage from "@/app/(app)/admin/projects/page";
@@ -70,6 +71,7 @@ export const router = createBrowserRouter([
               { path: "servers", element: <AdminServersPage /> },
               { path: "servers/create", element: <AdminServerCreatePage /> },
               { path: "servers/:server", element: <AdminServerPage /> },
+              { path: "templates", element: <AdminTemplatesPage /> },
             ],
           },
 

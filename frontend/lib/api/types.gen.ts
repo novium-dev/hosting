@@ -26,6 +26,15 @@ export type BackupStorage = {
     btrfs: string;
 } | 'archive';
 
+export type ChangeServerTemplatePayload = {
+    backup?: boolean | null;
+    template: string;
+    variables?: {
+        [key: string]: string;
+    } | null;
+    wipe?: boolean | null;
+};
+
 export type CreateApiKeyPayload = {
     name: string;
     permissions: number;
@@ -302,6 +311,11 @@ export const ResourceVersionType = {
 
 export type ResourceVersionType = typeof ResourceVersionType[keyof typeof ResourceVersionType];
 
+export type ResyncTemplatePayload = {
+    restart?: boolean | null;
+    template?: string | null;
+};
+
 export const Role = {
     ADMIN: 'Admin',
     MODERATOR: 'Moderator',
@@ -330,6 +344,31 @@ export type ServerResourcePayload = {
     ram?: number | null;
     swap?: number | null;
 };
+
+export type ServerResyncResult = {
+    name: string;
+    project: NanoId;
+    /**
+     * Whether the server was restarted so the new build takes effect now.
+     */
+    restarted: boolean;
+    server: NanoId;
+    status: ServerResyncStatus;
+    template: string;
+};
+
+export const ServerResyncStatus = {
+    UPDATED: 'updated',
+    MIGRATED: 'migrated',
+    NODE_MISSING: 'node_missing',
+    NODE_FAILURE: 'node_failure',
+    TEMPLATE_MISSING: 'template_missing',
+    TEMPLATE_UNAVAILABLE: 'template_unavailable',
+    TEMPLATE_CORRUPTED: 'template_corrupted',
+    FAILURE: 'failure'
+} as const;
+
+export type ServerResyncStatus = typeof ServerResyncStatus[keyof typeof ServerResyncStatus];
 
 export type ServerStats = {
     cpu?: number | null;
@@ -4450,6 +4489,182 @@ export type DeleteServerResponses = {
 };
 
 export type DeleteServerResponse = DeleteServerResponses[keyof DeleteServerResponses];
+
+export type ChangeServerTemplateData = {
+    body: ChangeServerTemplatePayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/admin/server/{server_id}/template';
+};
+
+export type ChangeServerTemplateErrors = {
+    /**
+     * No suitable backup storage was found
+     */
+    '400‭': {
+        error?: {
+            id?: 'backup/no_suitable_storage_found';
+            msg?: 'No suitable backup storage was found';
+        };
+    };
+    /**
+     * The server backup limit has been reached
+     */
+    '400‮': {
+        error?: {
+            id?: 'backup/limit_exceeded';
+            msg?: 'The server backup limit has been reached';
+        };
+    };
+    /**
+     * The template input is invalid
+     */
+    '400⁣': {
+        error?: {
+            id?: 'template/input_invalid';
+            msg?: 'The template input is invalid';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The template does not exist
+     */
+    '404⁠': {
+        error?: {
+            id?: 'template/not_found';
+            msg?: 'The template does not exist';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500⁢': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‪': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * Server is currently in use
+     */
+    '503‏': {
+        error?: {
+            id?: 'server/unavailable';
+            msg?: 'Server is currently in use';
+        };
+    };
+    /**
+     * Storage is currently in use
+     */
+    '503‫': {
+        error?: {
+            id?: 'file/storage_unavailable';
+            msg?: 'Storage is currently in use';
+        };
+    };
+    /**
+     * Backup storage is currently in use
+     */
+    '503‬': {
+        error?: {
+            id?: 'backup/storage_unavailable';
+            msg?: 'Backup storage is currently in use';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503⁡': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+};
+
+export type ChangeServerTemplateError = ChangeServerTemplateErrors[keyof ChangeServerTemplateErrors];
+
+export type ChangeServerTemplateResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type ChangeServerTemplateResponse = ChangeServerTemplateResponses[keyof ChangeServerTemplateResponses];
 
 export type AddPortData = {
     body: AddPortPayload;
@@ -10309,9 +10524,27 @@ export type DeleteApiKeyErrors = {
         };
     };
     /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403​': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
      * API key not found
      */
-    '404‌': {
+    '404‎': {
         error?: {
             id?: 'api_key/not_found';
             msg?: 'API key not found';
@@ -10329,7 +10562,7 @@ export type DeleteApiKeyErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500​': {
+    '500‌': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -10615,6 +10848,160 @@ export type DeleteAnyApiKeyResponses = {
 };
 
 export type DeleteAnyApiKeyResponse = DeleteAnyApiKeyResponses[keyof DeleteAnyApiKeyResponses];
+
+export type ListTemplateUsageData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/template';
+};
+
+export type ListTemplateUsageErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListTemplateUsageError = ListTemplateUsageErrors[keyof ListTemplateUsageErrors];
+
+export type ListTemplateUsageResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        id: string;
+        /**
+         * How many servers on this instance run the template.
+         */
+        servers: number;
+    }>;
+};
+
+export type ListTemplateUsageResponse = ListTemplateUsageResponses[keyof ListTemplateUsageResponses];
+
+export type ResyncTemplateData = {
+    body: ResyncTemplatePayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/template/resync';
+};
+
+export type ResyncTemplateErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The template does not exist
+     */
+    '404‍': {
+        error?: {
+            id?: 'template/not_found';
+            msg?: 'The template does not exist';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ResyncTemplateError = ResyncTemplateErrors[keyof ResyncTemplateErrors];
+
+export type ResyncTemplateResponses = {
+    /**
+     * Success
+     */
+    200: {
+        failed: number;
+        /**
+         * Of those, how many needed their stored configuration migrated first.
+         */
+        migrated: number;
+        restarted: number;
+        servers: Array<ServerResyncResult>;
+        total: number;
+        /**
+         * Servers whose node accepted the regenerated build.
+         */
+        updated: number;
+    };
+};
+
+export type ResyncTemplateResponse = ResyncTemplateResponses[keyof ResyncTemplateResponses];
 
 export type LoginDevData = {
     body?: never;
