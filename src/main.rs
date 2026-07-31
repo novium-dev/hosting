@@ -9,6 +9,7 @@ mod embedded_node;
 mod auth;
 mod http;
 pub(crate) mod resources;
+pub(crate) mod routes;
 pub(crate) mod service;
 mod shutdown;
 pub(crate) mod templates;
@@ -17,6 +18,7 @@ mod utils;
 use crate::auth::oauth::AuthService;
 use crate::config::BackendConfig;
 use crate::db::node::BackendNode;
+use crate::routes::{RouteProviders, load_providers};
 #[cfg(feature = "embedded_node")]
 use crate::embedded_node::setup_embedded_node;
 use crate::templates::TemplateInner;
@@ -75,6 +77,8 @@ pub(crate) struct Backend {
 
     pub(crate) http_client: reqwest::Client,
     pub(crate) curseforge_api_key: Option<Arc<str>>,
+
+    pub(crate) route_providers: Arc<RouteProviders>,
 
     pub(crate) node_registrations: Arc<RwLock<NodeRegistrationMap>>,
 
@@ -268,6 +272,13 @@ async fn main0() {
         .build()
         .expect("Unable to build HTTP client");
 
+    let route_providers = load_providers(&config.routes, &http_client);
+    if route_providers.is_empty() {
+        info!("No route providers configured; routes stay unavailable");
+    } else {
+        info!("Loaded {} route provider(s)", route_providers.len());
+    }
+
     let backend = Backend {
         database,
         cache,
@@ -278,6 +289,8 @@ async fn main0() {
 
         http_client,
         curseforge_api_key: curseforge_api_key.map(Arc::from),
+
+        route_providers: Arc::new(route_providers),
 
         node_registrations: Arc::default(),
 
