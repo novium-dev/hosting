@@ -51,7 +51,10 @@ impl PangolinProvider {
     }
 
     fn endpoint(&self, path: &str) -> String {
-        format!("{}{path}", self.config.api_url.as_str().trim_end_matches('/'))
+        format!(
+            "{}{path}",
+            self.config.api_url.as_str().trim_end_matches('/')
+        )
     }
 }
 
@@ -70,7 +73,10 @@ impl RouteProvider for PangolinProvider {
         request: &RouteRequest,
     ) -> Result<ProvisionedRoute, RouteProviderError> {
         let Some(ref domain_id) = request.provider_domain_id else {
-            error!("The route domain {} has no pangolin domain id", request.domain);
+            error!(
+                "The route domain {} has no pangolin domain id",
+                request.domain
+            );
             return Err(RouteProviderError::Unavailable);
         };
 
@@ -135,7 +141,9 @@ impl RouteProvider for PangolinProvider {
         };
 
         if !target_ok {
-            self.delete_route(&external_ids).await.ok();
+            if let Err(cleanup) = self.delete_route(&external_ids).await {
+                error!("Unable to roll back the Pangolin resource: {cleanup:?}");
+            }
             error!("Pangolin rejected the target creation");
             return Err(RouteProviderError::Rejected);
         }

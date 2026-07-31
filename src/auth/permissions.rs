@@ -126,6 +126,15 @@ bitflags! {
         ///
         /// Depends on [`ProjectPermissions::VIEW`]
         const NETWORK_VIEW = 1 << 15;
+
+        /// Allows the user to view the routes (subdomains) pointing at the server.
+        ///
+        /// Depends on [`ServerPermissions::NETWORK_VIEW`]
+        const ROUTES_VIEW = 1 << 17;
+        /// Allows the user to create and delete routes for the server.
+        ///
+        /// Depends on [`ServerPermissions::ROUTES_VIEW`]
+        const ROUTES_MANAGE = 1 << 18;
     }
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
@@ -202,6 +211,14 @@ bitflags! {
         /// Allows the user to enable and disable feature flags on any project.
         ///
         const FEATURES_MANAGE = 1 << 47;
+
+        /// Allows the user to view all route domains on this instance, including private ones.
+        ///
+        const DOMAINS_VIEW = 1 << 48;
+        /// Allows the user to create, edit and delete route domains on this instance.
+        ///
+        /// Depends on [`ManagementPermissions::DOMAINS_VIEW`]
+        const DOMAINS_MANAGE = 1 << 49;
     }
 }
 
@@ -400,6 +417,9 @@ impl ServerPermissions {
         self.with_dependency(Self::BACKUP_DELETE, Self::BACKUP_VIEW);
         self.with_dependency(Self::BACKUP_RESTORE, Self::BACKUP_VIEW);
 
+        self.with_dependency(Self::ROUTES_VIEW, Self::NETWORK_VIEW);
+        self.with_dependency(Self::ROUTES_MANAGE, Self::ROUTES_VIEW | Self::NETWORK_VIEW);
+
         self
     }
 
@@ -431,6 +451,7 @@ impl ManagementPermissions {
         self.with_dependency(Self::USER_MANAGE, Self::USER_VIEW);
         self.with_dependency(Self::API_KEYS_MANAGE, Self::API_KEYS_VIEW);
         self.with_dependency(Self::NODES_MANAGE, Self::NODES_VIEW);
+        self.with_dependency(Self::DOMAINS_MANAGE, Self::DOMAINS_VIEW);
         self
     }
 

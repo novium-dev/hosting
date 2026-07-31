@@ -100,7 +100,10 @@ impl CloudflareProvider {
         self.config.ttl.unwrap_or(DEFAULT_TTL)
     }
 
-    async fn post_record<P: Serialize + Sync>(&self, payload: &P) -> Result<String, RouteProviderError> {
+    async fn post_record<P: Serialize + Sync>(
+        &self,
+        payload: &P,
+    ) -> Result<String, RouteProviderError> {
         let response = self
             .client
             .post(self.records_url()?)
@@ -207,7 +210,9 @@ impl RouteProvider for CloudflareProvider {
                     });
                 }
                 Err(err) => {
-                    self.delete_route(&external_ids).await.ok();
+                    if let Err(cleanup) = self.delete_route(&external_ids).await {
+                        error!("Unable to roll back the Cloudflare record: {cleanup:?}");
+                    }
                     return Err(err);
                 }
             }
@@ -234,7 +239,8 @@ impl RouteProvider for CloudflareProvider {
                     RouteProviderError::Unavailable
                 })?;
 
-            if !response.status().is_success() && response.status() != reqwest::StatusCode::NOT_FOUND
+            if !response.status().is_success()
+                && response.status() != reqwest::StatusCode::NOT_FOUND
             {
                 error!(
                     "Cloudflare rejected the record deletion with status {}",

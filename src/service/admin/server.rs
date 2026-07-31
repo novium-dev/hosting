@@ -239,9 +239,11 @@ pub(crate) impl ServerAdminService for Backend {
         auth.require::<_, _, DeleteServerError>(server_id, ProjectPermissions::VIEW)?;
         auth.require::<_, _, DeleteServerError>((), ManagementPermissions::SERVER_DELETE)?;
 
+        let routes = self.server_routes_with_provider(server_id).await?;
+
         let backend = self.clone();
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| Box::pin(async move {
+        let result = conn.transaction(|tx| Box::pin(async move {
             use daemon_common::service::server::server_service_error::DeleteServerError as DaemonDeleteServerError;
 
             let Some(server) = backend.resolve_server(&mut **tx, server_id).await? else {
@@ -267,7 +269,13 @@ pub(crate) impl ServerAdminService for Backend {
                     Err(DeleteServerError::NodeFailure)
                 },
             }
-        })).await
+        })).await;
+
+        if result.is_ok() {
+            self.deprovision_routes(&routes).await;
+        }
+
+        result
     }
 
     /// Switches a server to a different template.
@@ -816,9 +824,11 @@ pub(crate) impl ServerAdminService for Backend {
             .await
             .map_err(TemplateError::into::<DeletePortError>)?;
 
+        let routes = self.port_routes_with_provider(port_id).await?;
+
         let mut conn = self.database.acquire().await?;
 
-        conn.transaction(|tx| {
+        let result = conn.transaction(|tx| {
             Box::pin(async move {
                 let result = query!(
                     "DELETE FROM server_ports WHERE id=$1 AND server=$2",
@@ -869,7 +879,13 @@ pub(crate) impl ServerAdminService for Backend {
                 Ok(())
             })
         })
-        .await
+        .await;
+
+        if result.is_ok() {
+            self.deprovision_routes(&routes).await;
+        }
+
+        result
     }
 }
 

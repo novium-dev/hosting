@@ -18,9 +18,9 @@ mod utils;
 use crate::auth::oauth::AuthService;
 use crate::config::BackendConfig;
 use crate::db::node::BackendNode;
-use crate::routes::{RouteProviders, load_providers};
 #[cfg(feature = "embedded_node")]
 use crate::embedded_node::setup_embedded_node;
+use crate::routes::{RouteProviders, load_providers};
 use crate::templates::TemplateInner;
 use crate::templates::games::hytale::HytaleTemplate;
 use crate::templates::games::satisfactory::SatisfactoryTemplate;

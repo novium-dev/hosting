@@ -12,6 +12,7 @@ pub(crate) mod modpack;
 pub(crate) mod profile;
 pub(crate) mod project;
 pub(crate) mod resource;
+pub(crate) mod route;
 pub(crate) mod server;
 pub(crate) mod template;
 
@@ -84,6 +85,21 @@ define_error!(port {
     in_use("The specified port range is still in use by a server" BAD_REQUEST),
 });
 
+define_error!(route {
+    not_found("The specified route was not found" NOT_FOUND),
+    domain_not_found("The specified route domain was not found" NOT_FOUND),
+    domain_exists("A route domain with this name already exists" BAD_REQUEST),
+    domain_invalid("The specified route domain is invalid" BAD_REQUEST),
+    domain_in_use("The route domain is still used by routes" BAD_REQUEST),
+    subdomain_invalid("The specified subdomain is invalid" BAD_REQUEST),
+    subdomain_taken("The specified subdomain is already taken" BAD_REQUEST),
+    port_invalid("The selected port is not a TCP port of this server" BAD_REQUEST),
+    https_unavailable("HTTPS is not available for the selected domain" BAD_REQUEST),
+    provider_unknown("The specified route provider is not configured on this instance" BAD_REQUEST),
+    provider_unavailable("The route provider is currently unavailable" SERVICE_UNAVAILABLE),
+    provider_error("The route provider rejected the request" BAD_GATEWAY),
+});
+
 define_error!(node {
     not_found("The specified node was not found" BAD_REQUEST),
     failure("Node operation failed" BAD_GATEWAY),
@@ -128,6 +144,14 @@ define_path_variable!(
 
 define_path_variable!(
     project_id "The project ID"
+);
+
+define_path_variable!(
+    route_id "The route ID"
+);
+
+define_path_variable!(
+    domain_id "The route domain ID"
 );
 
 define_path_variable!(
