@@ -155,7 +155,7 @@ pub(crate) impl RouteService for Backend {
 
     /// Creates a route for the server and provisions it at the domain's provider.
     ///
-    /// The selected port has to be a TCP port allocated to the server.
+    /// The selected port has to be a port of the server that is marked as an HTTP port.
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::ROUTES_MANAGE`].
@@ -163,7 +163,7 @@ pub(crate) impl RouteService for Backend {
     #[error(
         auth::{permission_denied, unreachable},
         server::not_found,
-        route::{domain_not_found, subdomain_invalid, subdomain_taken, port_invalid, https_unavailable, provider_unknown, provider_unavailable, provider_error},
+        route::{domain_not_found, subdomain_invalid, subdomain_taken, port_invalid, port_not_http, https_unavailable, provider_unknown, provider_unavailable, provider_error},
         db::failure <- [sql:*]
     )]
     async fn create_route(
@@ -218,6 +218,7 @@ pub(crate) impl RouteService for Backend {
         let port = query!(
             r#"SELECT
                 host,
+                http,
                 protocol AS "protocol: NetworkProtocol",
                 lower(external_port) AS "external_port!"
                FROM server_ports
@@ -231,6 +232,10 @@ pub(crate) impl RouteService for Backend {
 
         if port.protocol != NetworkProtocol::Tcp {
             return Err(CreateRouteError::RoutePortInvalid);
+        }
+
+        if !port.http {
+            return Err(CreateRouteError::RoutePortNotHttp);
         }
 
         let external_port =

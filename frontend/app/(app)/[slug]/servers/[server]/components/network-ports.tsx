@@ -36,6 +36,7 @@ type PortRow = {
   externalEnd: number;
   host: string;
   bind: string | null;
+  http: boolean;
   isPrimary: boolean;
 };
 
@@ -68,6 +69,7 @@ function toPortRows(
             : port.external_port_end,
         host: port.host,
         bind: port.bind ?? null,
+        http: port.http,
         isPrimary,
       };
     })
@@ -105,6 +107,7 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
   const hasPorts = useMemo(() => ports.length > 0, [ports]);
 
   return (
+    <div className="space-y-4">
     <Card>
       <CardHeader className="space-y-4">
         <div>
@@ -160,7 +163,7 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
                 {ports.map((port) => (
                   <TableRow key={port.id}>
                     <TableCell className="font-medium">{port.name}</TableCell>
-                    <TableCell>{port.protocol}</TableCell>
+                    <TableCell>{port.http ? "HTTP" : port.protocol}</TableCell>
                     <TableCell>{port.internalPort}</TableCell>
                     <TableCell>
                       {port.externalStart === port.externalEnd
@@ -186,5 +189,35 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
         )}
       </CardContent>
     </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Setting up a port</CardTitle>
+          <CardDescription>
+            How the two kinds of ports are reached.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          <div className="space-y-1">
+            <p className="font-medium">Raw ports (TCP/UDP)</p>
+            <p className="text-muted-foreground">
+              Game traffic — Minecraft, Satisfactory, a query port. Your software
+              listens on the internal port; players connect to the host and the
+              external port shown above. Nothing else to configure.
+            </p>
+          </div>
+          <div className="space-y-1">
+            <p className="font-medium">HTTP ports</p>
+            <p className="text-muted-foreground">
+              Anything that speaks HTTP — a web map like BlueMap, a panel, an
+              API. Have an admin tick &quot;HTTP port&quot; on the allocation,
+              then give it a subdomain under Routes instead of handing out a
+              host and port. HTTP ports are TCP ports as far as the node is
+              concerned.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

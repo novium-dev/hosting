@@ -107,7 +107,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
       setRoutes(routesResponse.data);
       setPorts(
         (serverResponse.data?.network?.ports ?? []).filter(
-          (port) => String(port.protocol) === "tcp",
+          (port) => port.http && String(port.protocol) === "tcp",
         ),
       );
 
@@ -213,7 +213,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
             <div>
               <CardTitle>Routes</CardTitle>
               <CardDescription>
-                Point a subdomain at one of this server&apos;s TCP ports.
+                Point a subdomain at one of this server&apos;s HTTP ports.
               </CardDescription>
             </div>
             {canManage ? (
@@ -238,7 +238,9 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
             <p className="py-8 text-center text-sm text-muted-foreground">
               {domains.length === 0
                 ? "No domains are available for this project yet."
-                : "No routes yet."}
+                : ports.length === 0
+                  ? "This server has no HTTP port to route to yet."
+                  : "No routes yet."}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -358,6 +360,43 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
         </Card>
       ) : null}
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Setting up a route</CardTitle>
+          <CardDescription>
+            What a route can point at, and what to do when it can&apos;t.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          <div className="space-y-1">
+            <p className="font-medium">1. Have an HTTP port</p>
+            <p className="text-muted-foreground">
+              Routes only work for ports that serve HTTP — a web map like
+              BlueMap, a panel, an API. If the port you want is missing from the
+              list, ask an admin to tick &quot;HTTP port&quot; on that allocation
+              under the server&apos;s ports. Game ports such as Minecraft&apos;s
+              25565 stay raw TCP and are reached by host and port instead.
+            </p>
+          </div>
+          <div className="space-y-1">
+            <p className="font-medium">2. Pick a subdomain</p>
+            <p className="text-muted-foreground">
+              Choose a name and one of the domains offered to your project.
+              Private domains only show up when an admin granted them to you.
+              HTTPS is on by default where the domain supports it.
+            </p>
+          </div>
+          <div className="space-y-1">
+            <p className="font-medium">3. Point your software at the port</p>
+            <p className="text-muted-foreground">
+              Your software has to listen on the port&apos;s internal port. The
+              route sends traffic to the external port shown next to it, so no
+              configuration inside the server changes.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
@@ -420,13 +459,13 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                 <SelectContent>
                   {ports.map((port) => (
                     <SelectItem key={port.id} value={String(port.id)}>
-                      {port.name} — {port.host}:{port.external_port_start} (TCP)
+                      {port.name} — {port.host}:{port.external_port_start} (HTTP)
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Only TCP ports can be routed.
+                Only ports marked as HTTP ports can be routed.
               </p>
             </div>
 

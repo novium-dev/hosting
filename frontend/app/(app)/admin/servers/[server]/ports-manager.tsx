@@ -78,6 +78,7 @@ type PortFormState = {
   externalEnd: string;
   host: string;
   bind: string;
+  http: boolean;
 };
 
 const EMPTY_FORM: PortFormState = {
@@ -88,6 +89,7 @@ const EMPTY_FORM: PortFormState = {
   externalEnd: "",
   host: "",
   bind: "",
+  http: false,
 };
 
 type SelectablePortRange = {
@@ -108,6 +110,7 @@ function formFromPort(port: AdminPortRow): PortFormState {
     externalEnd: String(port.externalEnd),
     host: port.host,
     bind: port.bind ?? "",
+    http: port.http,
   };
 }
 
@@ -330,6 +333,7 @@ export function PortsManager({
       externalEnd,
       host: form.host.trim(),
       bind: form.bind.trim(),
+      http: form.http && form.protocol === "tcp",
     };
   };
   const formErrors = getFormErrors();
@@ -358,6 +362,7 @@ export function PortsManager({
           name: values.name,
           protocol: values.protocol,
           internal_port: values.internalPort,
+          http: values.http,
           external_port: {
             start: values.externalStart,
             end: values.externalEnd,
@@ -394,6 +399,7 @@ export function PortsManager({
           name: values.name,
           protocol: values.protocol,
           internal_port: values.internalPort,
+          http: values.http,
           host: values.host || null,
           bind: values.bind || null,
           external_port: {
@@ -529,7 +535,9 @@ export function PortsManager({
                 {ports.map((port) => (
                   <TableRow key={port.id}>
                     <TableCell className="font-medium">{port.name}</TableCell>
-                    <TableCell className="uppercase">{port.protocol}</TableCell>
+                    <TableCell className="uppercase">
+                      {port.http ? "http" : port.protocol}
+                    </TableCell>
                     <TableCell>{port.internalPort}</TableCell>
                     <TableCell>
                       {port.externalStart === port.externalEnd
@@ -737,20 +745,31 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
         <FieldError>{errors.name}</FieldError>
       </div>
 
-      <Select
-        value={form.protocol}
-        onValueChange={(value) =>
-          setForm((prev) => ({ ...prev, protocol: value as NetworkProtocol }))
-        }
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Protocol" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="tcp">TCP</SelectItem>
-          <SelectItem value="udp">UDP</SelectItem>
-        </SelectContent>
-      </Select>
+      <div className="space-y-2">
+        <Select
+          value={form.http ? "http" : form.protocol}
+          onValueChange={(value) =>
+            setForm((prev) =>
+              value === "http"
+                ? { ...prev, protocol: "tcp", http: true }
+                : { ...prev, protocol: value as NetworkProtocol, http: false },
+            )
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Protocol" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tcp">TCP</SelectItem>
+            <SelectItem value="udp">UDP</SelectItem>
+            <SelectItem value="http">HTTP</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          HTTP is a TCP port that serves HTTP — only those can get a subdomain
+          route.
+        </p>
+      </div>
 
       <div className="space-y-2">
         <Input

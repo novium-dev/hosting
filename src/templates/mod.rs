@@ -26,6 +26,7 @@ pub struct TemplatePortDefinition {
     pub internal_port: u16,
     pub placeholder: String,
     pub remappable: bool,
+    pub http: bool,
 }
 
 pub trait Template {

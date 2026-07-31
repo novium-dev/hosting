@@ -247,6 +247,7 @@ pub(crate) impl ServerService for Backend {
                 protocol AS "protocol: NetworkProtocol",
                 external_ip,
                 internal_port,
+                http,
                 lower(external_port) AS "external_port_start!",
                 upper(external_port) - 1 AS "external_port_end!"
             FROM server_ports WHERE server = $1"#,
@@ -260,6 +261,7 @@ pub(crate) impl ServerService for Backend {
                 record.id.cast_unsigned(),
                 ServerPort {
                     host: record.host,
+                    http: record.http,
                     bind: auth
                         .has((), ManagementPermissions::SERVER_MANAGE)
                         .then_some(record.external_ip),
@@ -285,6 +287,7 @@ pub(crate) impl ServerService for Backend {
                 port: NetworkPort {
                     id,
                     name: port.name,
+                    http: port.http,
                     protocol: port.protocol,
                     internal_port: port.internal_port,
                     external_port_start: *port.external_port.start(),
@@ -303,6 +306,7 @@ pub(crate) impl ServerService for Backend {
                     .map(|(id, port)| NetworkPort {
                         id: *id,
                         name: port.name.clone(),
+                        http: port.http,
                         protocol: port.protocol,
                         internal_port: port.internal_port,
                         external_port_start: *port.external_port.start(),

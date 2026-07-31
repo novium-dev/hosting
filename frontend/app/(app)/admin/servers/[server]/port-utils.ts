@@ -13,6 +13,7 @@ export type AdminPortRow = {
   externalEnd: number;
   host: string;
   bind: string | null;
+  http: boolean;
 };
 
 type RawPortCandidate = Partial<NetworkPort> & {
@@ -73,6 +74,7 @@ function parsePortCandidate(
     externalEnd,
     host,
     bind: typeof candidate.bind === "string" ? candidate.bind : null,
+    http: candidate.http === true,
   };
 }
 
