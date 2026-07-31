@@ -16,6 +16,8 @@ export const ServerPermission = {
   USER_EDIT: 2 ** 14,
   NETWORK_VIEW: 2 ** 15,
   ADMIN_MANAGEMENT: 2 ** 16,
+  ROUTES_VIEW: 2 ** 17,
+  ROUTES_MANAGE: 2 ** 18,
 } as const;
 
 export const ManagementPermission = {
@@ -35,6 +37,8 @@ export const ManagementPermission = {
   DATABASE_DELETE: 2 ** 45,
   LIMITS_BYPASS: 2 ** 46,
   FEATURES_MANAGE: 2 ** 47,
+  DOMAINS_VIEW: 2 ** 48,
+  DOMAINS_MANAGE: 2 ** 49,
 } as const;
 
 const serverDependencyMap = [
@@ -46,12 +50,16 @@ const serverDependencyMap = [
   [ServerPermission.BACKUP_DELETE, ServerPermission.BACKUP_VIEW],
   [ServerPermission.BACKUP_RESTORE, ServerPermission.BACKUP_VIEW],
   [ServerPermission.USER_EDIT, ServerPermission.USER_VIEW],
+  [ServerPermission.ROUTES_VIEW, ServerPermission.NETWORK_VIEW],
+  [ServerPermission.ROUTES_MANAGE, ServerPermission.ROUTES_VIEW],
+  [ServerPermission.ROUTES_MANAGE, ServerPermission.NETWORK_VIEW],
 ] as const;
 
 const managementDependencyMap = [
   [ManagementPermission.USER_MANAGE, ManagementPermission.USER_VIEW],
   [ManagementPermission.API_KEYS_MANAGE, ManagementPermission.API_KEYS_VIEW],
   [ManagementPermission.NODES_MANAGE, ManagementPermission.NODES_VIEW],
+  [ManagementPermission.DOMAINS_MANAGE, ManagementPermission.DOMAINS_VIEW],
 ] as const;
 
 const serverPermissionValues = Object.values(ServerPermission);

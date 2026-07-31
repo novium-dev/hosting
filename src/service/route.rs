@@ -62,6 +62,10 @@ pub(crate) impl RouteService for Backend {
         #[special] auth: Authentication,
         project: Option<ProjectId>,
     ) -> Result<Vec<RouteDomainInfo>, _> {
+        if auth.user_id().is_none() {
+            return Err(ListRouteDomainsError::AuthInvalid);
+        }
+
         if let Some(project) = project {
             auth.require::<_, _, ListRouteDomainsError>(project, ProjectPermissions::VIEW)?;
         }

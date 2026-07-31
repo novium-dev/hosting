@@ -2,6 +2,7 @@ import Link from "@/components/link";
 import {
   Boxes,
   FolderKanban,
+  Globe,
   Globe2,
   Home,
   KeyRound,
@@ -86,6 +87,12 @@ const adminGroups = [
         href: "/admin/nodes",
         icon: Network,
         permission: ManagementPermission.NODES_VIEW,
+      },
+      {
+        title: "Domains",
+        href: "/admin/domains",
+        icon: Globe,
+        permission: ManagementPermission.DOMAINS_VIEW,
       },
     ],
   },
