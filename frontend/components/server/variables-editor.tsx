@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback, useMemo, useState } from "react";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/searchable-select";
@@ -177,13 +179,21 @@ export function buildNestedVariableIndex(payload: VariablePayloadLike | null) {
   return index;
 }
 
+function parseVariableValue(variable: VariableField): VariableValue {
+  if (isCheckboxConfig(variable.data)) {
+    return variable.current === "true";
+  }
+
+  return variable.current ?? "";
+}
+
 export function getInitialVariableState(payload: VariablePayloadLike) {
   const variables: Record<string, VariableValue> = {};
   const nestedPath: Record<string, string> = {};
 
   payload.groups.forEach((group) => {
     group.variables.forEach((variable) => {
-      variables[variable.id] = variable.current ?? "";
+      variables[variable.id] = parseVariableValue(variable);
 
       if (isNestedPointer(variable.data) && variable.current) {
         nestedPath[`${variable.data.data_index}:${variable.data.field_index}`] =
@@ -195,21 +205,26 @@ export function getInitialVariableState(payload: VariablePayloadLike) {
   return { nestedPath, variables };
 }
 
+export function variableValueToString(value: VariableValue | undefined) {
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return String(value ?? "");
+}
+
 export function variableValuesToStrings(
   variables: Record<string, VariableValue>,
 ) {
   return Object.fromEntries(
-    Object.entries(variables).map(([key, value]) => {
-      if (typeof value === "boolean") {
-        return [key, value ? "true" : "false"];
-      }
-
-      if (typeof value === "number") {
-        return [key, String(value)];
-      }
-
-      return [key, String(value ?? "")];
-    }),
+    Object.entries(variables).map(([key, value]) => [
+      key,
+      variableValueToString(value),
+    ]),
   );
 }
 
@@ -381,6 +396,89 @@ export function applyNestedVariableChange({
 
     return next;
   });
+}
+
+export function useVariableEditor(payload: VariablePayloadLike | null) {
+  const [variables, setVariables] = useState<Record<string, VariableValue>>({});
+  const [savedVariables, setSavedVariables] = useState<
+    Record<string, VariableValue>
+  >({});
+  const [nestedPath, setNestedPath] = useState<Record<string, string>>({});
+
+  const nestedIndex = useMemo(
+    () => buildNestedVariableIndex(payload),
+    [payload],
+  );
+  const errors = useMemo(
+    () => getVariableErrors(payload, variables),
+    [payload, variables],
+  );
+
+  const reset = useCallback((next: VariablePayloadLike | null) => {
+    const state = next
+      ? getInitialVariableState(next)
+      : { nestedPath: {}, variables: {} };
+
+    setVariables(state.variables);
+    setSavedVariables(state.variables);
+    setNestedPath(state.nestedPath);
+  }, []);
+
+  const onNestedChange = useCallback(
+    (
+      variable: VariableField,
+      pointer: NestedVariablePointer,
+      value: string,
+    ) => {
+      applyNestedVariableChange({
+        nestedIndex,
+        payload,
+        pointer,
+        setNestedPath,
+        setVariables,
+        value,
+        variable,
+        variables,
+      });
+    },
+    [nestedIndex, payload, variables],
+  );
+
+  const isFieldDirty = useCallback(
+    (id: string) =>
+      variableValueToString(variables[id]) !==
+      variableValueToString(savedVariables[id]),
+    [savedVariables, variables],
+  );
+
+  const hasChanges = useMemo(() => {
+    const keys = new Set([
+      ...Object.keys(savedVariables),
+      ...Object.keys(variables),
+    ]);
+
+    return [...keys].some(
+      (key) =>
+        variableValueToString(variables[key]) !==
+        variableValueToString(savedVariables[key]),
+    );
+  }, [savedVariables, variables]);
+
+  const markSaved = useCallback(() => {
+    setSavedVariables({ ...variables });
+  }, [variables]);
+
+  return {
+    errors,
+    hasChanges,
+    isFieldDirty,
+    markSaved,
+    nestedPath,
+    onNestedChange,
+    reset,
+    setVariables,
+    variables,
+  };
 }
 
 export function VariableFields({

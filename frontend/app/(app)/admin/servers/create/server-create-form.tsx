@@ -24,14 +24,8 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import {
-  applyNestedVariableChange,
-  buildNestedVariableIndex,
-  getInitialVariableState,
-  getVariableErrors,
-  type NestedVariablePointer,
-  type VariableField,
+  useVariableEditor,
   VariableFields,
-  type VariableValue,
   variableValuesToStrings,
 } from "@/components/server/variables-editor";
 import {
@@ -342,30 +336,26 @@ export function ServerCreateForm({
   const [swap, setSwap] = useState("0");
   const [internetAccess, setInternetAccess] = useState(true);
 
-  const [variables, setVariables] = useState<Record<string, VariableValue>>({});
   const [ports, setPorts] = useState<Record<string, number>>({});
   const [templateDetails, setTemplateDetails] =
     useState<TemplateInfoResponse | null>(null);
+
+  const {
+    errors: variableErrors,
+    nestedPath,
+    onNestedChange,
+    reset: resetVariables,
+    setVariables,
+    variables,
+  } = useVariableEditor(templateDetails?.variables ?? null);
   const [availablePortMap, setAvailablePortMap] =
     useState<AvailablePortsResponse | null>(null);
   const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
-  const [nestedPath, setNestedPath] = useState<Record<string, string>>({});
 
   const selectedNode = useMemo(() => {
     return nodes.find((entry) => entry.id === node) ?? null;
   }, [nodes, node]);
 
-  const nestedVariableIndex = useMemo(
-    () =>
-      buildNestedVariableIndex(
-        templateDetails ? templateDetails.variables : null,
-      ),
-    [templateDetails],
-  );
-  const variableErrors = getVariableErrors(
-    templateDetails?.variables ?? null,
-    variables,
-  );
 
   const allowedPortRanges = useMemo<SelectablePortRange[]>(() => {
     if (!selectedNode) {
@@ -463,7 +453,7 @@ export function ServerCreateForm({
   useEffect(() => {
     if (!template) {
       setTemplateDetails(null);
-      setVariables({});
+      resetVariables(null);
       setPorts({});
       return;
     }
@@ -476,21 +466,18 @@ export function ServerCreateForm({
         const info = result?.data?.data;
         if (!info) {
           setTemplateDetails(null);
-          setVariables({});
+          resetVariables(null);
           setPorts({});
           return;
         }
 
-        const initialState = getInitialVariableState(info.variables);
-
-        setVariables(initialState.variables);
-        setNestedPath(initialState.nestedPath);
+        resetVariables(info.variables);
         setTemplateDetails(info);
       })
       .catch(() => {
         toast.error("Failed to load template info");
       });
-  }, [template, executeTemplateInfo]);
+  }, [template, executeTemplateInfo, resetVariables]);
 
   useEffect(() => {
     if (!templateDetails) {
@@ -589,11 +576,7 @@ export function ServerCreateForm({
       return;
     }
 
-    const variableValidationErrors = getVariableErrors(
-      templateDetails?.variables ?? null,
-      variables,
-    );
-    if (Object.keys(variableValidationErrors).length > 0) {
+    if (Object.keys(variableErrors).length > 0) {
       toast.error("Fix invalid template variables before creating the server");
       return;
     }
@@ -613,23 +596,6 @@ export function ServerCreateForm({
       swap: toNullableNumber(swap),
       variables: variablesAsStrings,
       ports,
-    });
-  };
-
-  const onNestedVariableChange = (
-    variable: VariableField,
-    pointer: NestedVariablePointer,
-    nextValue: string,
-  ) => {
-    applyNestedVariableChange({
-      nestedIndex: nestedVariableIndex,
-      payload: templateDetails?.variables ?? null,
-      pointer,
-      setNestedPath,
-      setVariables,
-      value: nextValue,
-      variable,
-      variables,
     });
   };
 
@@ -862,7 +828,7 @@ export function ServerCreateForm({
               canViewSecrets
               errors={variableErrors}
               nestedPath={nestedPath}
-              onNestedChange={onNestedVariableChange}
+              onNestedChange={onNestedChange}
               payload={templateDetails.variables}
               setVariables={setVariables}
               variables={variables}

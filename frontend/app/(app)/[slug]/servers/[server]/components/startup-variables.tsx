@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,14 +13,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  applyNestedVariableChange,
-  buildNestedVariableIndex,
-  getInitialVariableState,
-  getVariableErrors,
-  type NestedVariablePointer,
-  type VariableField,
+  useVariableEditor,
   VariableFields,
-  type VariableValue,
   variableValuesToStrings,
 } from "@/components/server/variables-editor";
 import { serverVariables, updateVariables } from "@/lib/api";
@@ -37,56 +31,20 @@ export function StartupVariables({
   serverId,
 }: StartupVariablesProps) {
   const [payload, setPayload] = useState<VariablePayload | null>(null);
-  const [variables, setVariables] = useState<Record<string, VariableValue>>({});
-  const [initialVariables, setInitialVariables] = useState<
-    Record<string, VariableValue>
-  >({});
-  const [nestedPath, setNestedPath] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  const normalizeVariableValue = (value: VariableValue | undefined) => {
-    if (typeof value === "boolean") {
-      return value ? "true" : "false";
-    }
-
-    if (typeof value === "number") {
-      return String(value);
-    }
-
-    return String(value ?? "");
-  };
-
-  const isFieldDirty = (id: string) => {
-    return (
-      normalizeVariableValue(variables[id]) !==
-      normalizeVariableValue(initialVariables[id])
-    );
-  };
-
-  const hasChanges = useMemo(() => {
-    const keys = new Set([
-      ...Object.keys(initialVariables),
-      ...Object.keys(variables),
-    ]);
-
-    for (const key of keys) {
-      if (
-        normalizeVariableValue(variables[key]) !==
-        normalizeVariableValue(initialVariables[key])
-      ) {
-        return true;
-      }
-    }
-
-    return false;
-  }, [initialVariables, variables]);
-
-  const nestedVariableIndex = useMemo(
-    () => buildNestedVariableIndex(payload ?? null),
-    [payload],
-  );
-  const variableErrors = getVariableErrors(payload ?? null, variables);
+  const {
+    errors: variableErrors,
+    hasChanges,
+    isFieldDirty,
+    markSaved,
+    nestedPath,
+    onNestedChange,
+    reset,
+    setVariables,
+    variables,
+  } = useVariableEditor(payload ?? null);
 
   useEffect(() => {
     let mounted = true;
@@ -108,12 +66,7 @@ export function StartupVariables({
         }
 
         setPayload(response.data);
-
-        const initialState = getInitialVariableState(response.data);
-
-        setVariables(initialState.variables);
-        setInitialVariables(initialState.variables);
-        setNestedPath(initialState.nestedPath);
+        reset(response.data);
       } catch {
         if (mounted) {
           toast.error("Failed to load startup variables");
@@ -130,31 +83,13 @@ export function StartupVariables({
     return () => {
       mounted = false;
     };
-  }, [serverId]);
-
-  const onNestedVariableChange = (
-    variable: VariableField,
-    pointer: NestedVariablePointer,
-    nextValue: string,
-  ) => {
-    applyNestedVariableChange({
-      nestedIndex: nestedVariableIndex,
-      payload: payload ?? null,
-      pointer,
-      setNestedPath,
-      setVariables,
-      value: nextValue,
-      variable,
-      variables,
-    });
-  };
+  }, [serverId, reset]);
 
   const saveVariables = async () => {
     setIsSaving(true);
 
     try {
-      const errors = getVariableErrors(payload ?? null, variables);
-      if (Object.keys(errors).length > 0) {
+      if (Object.keys(variableErrors).length > 0) {
         toast.error("Fix invalid startup variables before saving");
         return;
       }
@@ -170,7 +105,7 @@ export function StartupVariables({
         throw new Error("Failed to save startup variables");
       }
 
-      setInitialVariables({ ...variables });
+      markSaved();
       toast.success("Startup variables updated");
     } catch {
       toast.error("Failed to save startup variables");
@@ -225,7 +160,7 @@ export function StartupVariables({
           errors={variableErrors}
           isFieldDirty={isFieldDirty}
           nestedPath={nestedPath}
-          onNestedChange={onNestedVariableChange}
+          onNestedChange={onNestedChange}
           payload={payload}
           setVariables={setVariables}
           variables={variables}
