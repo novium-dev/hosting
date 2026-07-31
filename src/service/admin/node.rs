@@ -42,9 +42,6 @@ pub(crate) struct NodeInfo {
     pub(crate) ports: Vec<NodePortAllocation>,
 }
 
-/// Public SSH/SFTP endpoint, or `None` to disable SSH/SFTP. `host` is a plain
-/// string (domain or IP) parsed into a [`Host`] on the server; the daemon's
-/// `HostAndPort` uses `url::Host`, which does not deserialize from a bare string.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SshEndpointRequest {
     pub host: String,
@@ -54,7 +51,6 @@ pub struct SshEndpointRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SetupNodeConfigRequest {
     pub base_url: Url,
-    /// Public host (domain or IP) clients use to reach game servers on this node.
     pub default_host: String,
     pub ssh: Option<SshEndpointRequest>,
 
@@ -315,9 +311,6 @@ pub(crate) impl NodeAdminService for Backend {
         })
         .collect();
 
-        // Keyed by the port allocation id (the frontend looks it up by id and
-        // derives the protocol from the allocation), with `exclude` listing the
-        // ports already taken by other servers on the node.
         let mut result: HashMap<String, Vec<PortRange>> = HashMap::new();
         for port in &node.ports {
             let exclude = (port.start..=port.end)

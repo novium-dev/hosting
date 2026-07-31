@@ -1,12 +1,3 @@
-//! Pushing a server's current template output back to its node.
-//!
-//! Templates live in this binary: a fix to one (a corrected Dockerfile, a
-//! changed config file, a new environment variable) only reaches a server the
-//! next time its build payload is generated and sent. Nothing does that on its
-//! own — servers keep running whatever payload they were created with — so this
-//! module rebuilds the payload from the template and pushes it, for one server
-//! or for every server using a template.
-
 use crate::Backend;
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
@@ -17,12 +8,8 @@ use serde_json::Value;
 use sqlx::{query, types::JsonValue};
 use tracing::{error, warn};
 
-/// The lifecycle labels a daemon reports for a server that is not stopped.
-/// Only those get restarted, so a resync never starts a server nobody asked to
-/// run.
 const RUNNING_LABELS: [&str; 4] = ["running", "unhealthy", "starting", "restarting"];
 
-/// Whether a daemon's lifecycle label means the server is not stopped.
 #[must_use]
 pub fn is_running_label(label: &str) -> bool {
     RUNNING_LABELS.contains(&label)
@@ -31,22 +18,13 @@ pub fn is_running_label(label: &str) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ServerResyncStatus {
-    /// The template output was regenerated and pushed to the node.
     Updated,
-    /// Same, but the stored template configuration was missing fields the
-    /// template expects today; they were filled in from its defaults first.
     Migrated,
-    /// The server's node is not registered on this instance.
     NodeMissing,
-    /// The node refused or could not be reached.
     NodeFailure,
-    /// The server's template does not exist in this build.
     TemplateMissing,
-    /// The template's cache has not been built yet.
     TemplateUnavailable,
-    /// The stored configuration is unreadable, even after migration.
     TemplateCorrupted,
-    /// The database or the cache failed.
     Failure,
 }
 
@@ -64,11 +42,9 @@ pub struct ServerResyncResult {
     pub project: ProjectId,
     pub template: String,
     pub status: ServerResyncStatus,
-    /// Whether the server was restarted so the new build takes effect now.
     pub restarted: bool,
 }
 
-/// A server as far as a resync is concerned.
 struct ResyncTarget {
     id: ServerId,
     name: String,
@@ -80,18 +56,11 @@ struct ResyncTarget {
 }
 
 impl Backend {
-    /// Resyncs every server, optionally narrowed to one template.
-    ///
-    /// Servers are processed with a small amount of concurrency: each one costs
-    /// at least one node round trip, and instances have far more servers than
-    /// nodes, but hammering a node with every one of its servers at once is not
-    /// worth the latency saved.
     pub async fn resync_servers(
         &self,
         template: Option<&str>,
         restart: bool,
     ) -> Result<Vec<ServerResyncResult>, sqlx::Error> {
-        /// How many servers are resynced at the same time.
         const CONCURRENCY: usize = 8;
 
         let targets = query!(
@@ -130,8 +99,6 @@ impl Backend {
         )
     }
 
-    /// Resyncs a single server, reporting why it failed instead of aborting the
-    /// run: one broken server must not stop the rest from getting the fix.
     async fn resync_server(&self, target: ResyncTarget, restart: bool) -> ServerResyncResult {
         let result = |status, restarted| ServerResyncResult {
             server: target.id,
@@ -166,9 +133,6 @@ impl Backend {
         {
             Ok(build) => (build, None),
             Err(TemplateError::Corrupted) => {
-                // The usual reason a template stops reading its own data is that
-                // it gained a field the stored configuration predates, so try
-                // once more with the template's current defaults underneath.
                 let defaults = match template.default_extra(self.cache.clone()).await {
                     Ok(defaults) => defaults,
                     Err(err) => {
@@ -204,7 +168,6 @@ impl Backend {
             }
         };
 
-        // Derived from the template alone, so the ports have to be re-added.
         match self.port_environment(&*self.database, target.id).await {
             Ok(environment) => build.environment.extend(environment),
             Err(err) => {
@@ -213,8 +176,6 @@ impl Backend {
             }
         }
 
-        // Ports and resources stay untouched: only what the template produces is
-        // being replaced here.
         if let Err(err) = node
             .update_server(node_server_id, None, Some(build), None, None)
             .await
@@ -232,8 +193,6 @@ impl Backend {
             .execute(&*self.database)
             .await
             {
-                // The node already has the new build; losing the migrated
-                // configuration only means the next resync migrates again.
                 error!(
                     "Unable to store migrated configuration of server {}: {err:?}",
                     target.id
@@ -248,8 +207,6 @@ impl Backend {
             return result(status, false);
         }
 
-        // A pushed build only takes effect on the next start, so a running
-        // server keeps the old one until it is cycled.
         let running = node
             .server_status(node_server_id)
             .await
@@ -272,10 +229,6 @@ impl Backend {
     }
 }
 
-/// Overlays `current` onto `defaults`, so fields a newer template added appear
-/// with their default value while everything the server has configured wins.
-///
-/// Only objects are merged; a value the server set is never second-guessed.
 fn merge_defaults(defaults: &Value, current: &Value) -> Value {
     match (defaults, current) {
         (Value::Object(defaults), Value::Object(current)) => {

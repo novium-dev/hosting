@@ -56,15 +56,10 @@ pub const CACHE_KEY_PREFIX: &str = "novium:";
 pub struct NodeRegistration {
     time: Instant,
     name: String,
-    /// Public host clients connect to for game servers. Chosen by the admin at
-    /// node creation (the daemon no longer reports it, since it usually differs
-    /// from the base URL).
     default_host: String,
     config: SetupNodeConfig,
 }
 
-/// Pending node provisioning: maps a setup code to the moment it was issued and
-/// the intended [`NodeConfig`] the daemon pulls during setup.
 type NodeRegistrationMap = HashMap<String, NodeRegistration>;
 
 #[derive(Clone)]
@@ -76,19 +71,13 @@ pub(crate) struct Backend {
     pub(crate) config: Arc<BackendConfig>,
     pub(crate) nodes: Arc<RwLock<HashMap<Uuid, Arc<BackendNode>>>>,
 
-    /// Shared outbound HTTP client for the resource providers. Reused so
-    /// connections to Modrinth/`CurseForge`/Hangar/Spiget stay pooled instead of
-    /// being rebuilt per request.
     pub(crate) http_client: reqwest::Client,
-    /// Resolved once at startup; `None` disables the `CurseForge` provider.
     pub(crate) curseforge_api_key: Option<Arc<str>>,
 
     pub(crate) node_registrations: Arc<RwLock<NodeRegistrationMap>>,
 
     pub(crate) templates: Arc<RwLock<HashMap<String, Arc<dyn TemplateInner + Send + Sync>>>>,
 
-    /// In-flight and last-finished modpack installs, one per server. A pack is
-    /// hundreds of downloads, so the work runs on a task and clients poll this.
     pub(crate) modpack_jobs:
         Arc<RwLock<HashMap<crate::db::server::ServerId, crate::service::modpack::ModpackJob>>>,
 

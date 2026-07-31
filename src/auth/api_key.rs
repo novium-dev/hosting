@@ -27,27 +27,17 @@ use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
-/// Marks a token as one of ours, so a mis-pasted secret is recognisable.
 pub const TOKEN_PREFIX: &str = "nvm_";
-/// Random part of a token, in characters of the URL-safe alphabet.
 const TOKEN_LENGTH: usize = 48;
-/// How much of a token is stored in the clear to identify it in the UI.
 const DISPLAY_PREFIX_LENGTH: usize = TOKEN_PREFIX.len() + 8;
 
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
 pub static API_KEY_REGEX: lazy_regex::Lazy<Regex> =
     lazy_regex!("Bearer\\s{1,}nvm_[A-Za-z0-9_-]{48}");
 
-/// An authenticated API key, resolved from an `Authorization: Bearer` header.
-///
-/// The permissions are never read straight from the key: they are the owner's
-/// current permissions intersected with the bits the key was created with, so a
-/// key follows its owner's access and a project key cannot reach outside its
-/// project.
 #[derive(Debug)]
 pub struct ApiKeyAuthentication {
     pub id: i32,
-    /// The user the key belongs to and acts as.
     pub user: i32,
     pub project: Option<ProjectId>,
     permissions: i64,
@@ -77,10 +67,6 @@ impl ApiKeyAuthentication {
     }
 }
 
-/// Whether the request authenticates with an API key rather than a session.
-///
-/// Sessions use the `Session` scheme (or the cookie), so anything else in the
-/// header must not be parsed as one.
 pub fn is_api_key_request(headers: &HeaderMap) -> bool {
     headers
         .get(AUTHORIZATION)
@@ -117,7 +103,6 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .await
             .inspect_err(|err| error!("Unable to acquire database connection: {err:?}"))?;
 
-        // Stamping the last use in the lookup keeps it to a single round trip.
         let Some(key) = query!(
             r#"UPDATE api_keys SET last_used = now()
              WHERE token_hash = $1
@@ -175,7 +160,6 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
     }
 }
 
-/// The secret half of an API key. Only ever stored hashed.
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct ApiKeyToken(String);
@@ -188,12 +172,10 @@ impl ApiKeyToken {
         ))
     }
 
-    /// Hex-encoded SHA-256, the form stored in `api_keys.token_hash`.
     pub fn hash(&self) -> String {
         hex::encode(Sha256::digest(self.0.as_bytes()))
     }
 
-    /// The non-secret leading segment shown in the UI.
     pub fn display_prefix(&self) -> String {
         self.0.chars().take(DISPLAY_PREFIX_LENGTH).collect()
     }

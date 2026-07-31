@@ -4,25 +4,15 @@ use sqlx::{PgPool, query, query_as};
 use crate::db::server::ServerId;
 use crate::resources::{ResourceProvider, ResourceType};
 
-/// One installed mod/plugin, as stored in `server_resources`.
-///
-/// Keyed by `(server, provider, project)`, so a server holds at most one
-/// version of any given project and re-installing is an upsert.
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub(crate) struct InstalledResource {
     pub(crate) provider: ResourceProvider,
     pub(crate) project: String,
     pub(crate) version: String,
     pub(crate) resource_type: ResourceType,
-    /// The base (active) name, which is what install writes. The on-disk file
-    /// may carry a `.disabled` suffix; see `enabled`.
     pub(crate) file_name: String,
     pub(crate) title: String,
-    /// Whether the file is active on disk. Not stored — the `.disabled` suffix
-    /// on the file *is* this state, so it is resolved from the directory listing
-    /// during reconciliation and can never drift from reality.
     pub(crate) enabled: bool,
-    /// Unix seconds.
     pub(crate) installed_at: i64,
 }
 
@@ -37,9 +27,6 @@ struct InstalledRecord {
 }
 
 impl InstalledRecord {
-    /// Rows written by an older or newer build could name a provider or type
-    /// this binary does not know; those are skipped rather than failing the
-    /// whole listing.
     fn into_resource(self) -> Option<InstalledResource> {
         Some(InstalledResource {
             provider: ResourceProvider::parse_str(&self.provider)?,
@@ -48,7 +35,6 @@ impl InstalledRecord {
             resource_type: ResourceType::parse_str(&self.resource_type)?,
             file_name: self.file_name,
             title: self.title,
-            // Assumed active until a directory listing says otherwise.
             enabled: true,
             installed_at: self.installed_at.timestamp(),
         })
@@ -74,11 +60,6 @@ pub(crate) async fn list_installed(
     .collect())
 }
 
-/// The file currently installed for `(server, provider, project)`, if any.
-///
-/// Used to delete the previous jar when switching versions; without it a
-/// version switch would leave both jars in place and the server would refuse to
-/// start on the duplicate plugin.
 pub(crate) async fn installed_file(
     database: &PgPool,
     server: ServerId,
@@ -101,8 +82,6 @@ pub(crate) async fn installed_file(
     }))
 }
 
-/// Records `resource` as installed, replacing whatever was recorded for the
-/// same `(server, provider, project)`.
 pub(crate) async fn upsert_installed(
     database: &PgPool,
     server: ServerId,
@@ -132,8 +111,6 @@ pub(crate) async fn upsert_installed(
     Ok(())
 }
 
-/// Drops the records for `file_names`, used when a reconciliation finds that
-/// those files are no longer on disk.
 pub(crate) async fn delete_installed_files(
     database: &PgPool,
     server: ServerId,
@@ -169,21 +146,13 @@ pub(crate) async fn delete_installed(
         > 0)
 }
 
-/// The modpack installed on a server, with the files it wrote.
-///
-/// Kept apart from `server_resources`: a pack's mods are not individually
-/// managed — updating one mod out from under a pack would break its coherence —
-/// but they still need attributing to the pack rather than showing up as files
-/// nobody owns.
 #[derive(Debug, Clone)]
 pub(crate) struct ModpackRecord {
     pub(crate) provider: ResourceProvider,
     pub(crate) project: String,
     pub(crate) version: String,
     pub(crate) title: String,
-    /// Server-relative paths the pack installed, e.g. `mods/sodium.jar`.
     pub(crate) files: Vec<String>,
-    /// Unix seconds.
     pub(crate) installed_at: i64,
 }
 
@@ -201,8 +170,6 @@ pub(crate) async fn get_modpack(
     .await?
     .and_then(|record| {
         Some(ModpackRecord {
-            // A provider this build does not know is skipped, same as for
-            // installed resources.
             provider: ResourceProvider::parse_str(&record.provider)?,
             project: record.project,
             version: record.version,

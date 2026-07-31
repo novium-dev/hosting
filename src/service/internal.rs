@@ -125,10 +125,7 @@ pub(crate) impl InternalService for Backend {
             let cert = CertificateDer::from(cert);
 
             let config = registration.config.clone();
-            // Public host is chosen by the admin at node creation (the daemon no
-            // longer reports it).
             let default_host = registration.default_host.clone();
-            // Public SSH/SFTP host + port, or `None` (unset) to disable SSH/SFTP.
             let ssh_host = config
                 .ssh
                 .as_ref()

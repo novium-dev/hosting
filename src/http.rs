@@ -56,8 +56,6 @@ impl Backend {
             .into_openapi()
             .split_for_parts();
 
-        // Mount the entire API (services, internal/daemon routes, and docs) under
-        // `/api` so it never collides with the client-side SPA served at the root.
         let mut router = axum::Router::new().nest("/api", api_router);
 
         #[cfg(debug_assertions)]
@@ -68,9 +66,6 @@ impl Backend {
         #[cfg(not(debug_assertions))]
         let _ = api;
 
-        // Serve the built client-only SPA (Vite export) same-origin: `/api/*` is
-        // matched above; everything else falls through to `ServeDir`, which serves
-        // hashed assets or `index.html` for client-side routes.
         if let Some(dir) = self.config.resolved_frontend_dir() {
             if dir.is_dir() {
                 info!("Serving frontend from {}", dir.display());

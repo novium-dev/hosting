@@ -25,13 +25,6 @@ pub struct TemplatePortDefinition {
     pub protocol: NetworkProtocol,
     pub internal_port: u16,
     pub placeholder: String,
-    /// Whether the container may listen on a different port than the one
-    /// players connect to.
-    ///
-    /// Games that advertise their own port number to clients (Satisfactory)
-    /// never reach the client behind a remap, so for those the allocation
-    /// binds the external port inside the container as well and hands it to
-    /// the entrypoint via [`crate::utils::server::port_environment_key`].
     pub remappable: bool,
 }
 
@@ -172,9 +165,6 @@ pub trait TemplateInner {
         ports: &HashMap<u32, ServerPort>,
     ) -> Result<Option<(u32, ServerPort, u16)>, TemplateError>;
 
-    /// Initializes the template. When `skip_cache_update` is set, an existing
-    /// cache is used as-is and no background refresh task is started (a missing
-    /// cache is still generated once, as the template is unusable without it).
     async fn init(
         &self,
         cache_client: ConnectionManager,
@@ -228,13 +218,13 @@ async fn save_cache<T: Writable<LittleEndian> + Send + Sync>(
 #[derive(Debug)]
 pub enum TemplateError {
     Corrupted,
-    Unavailable, // Cache missing
+    Unavailable,
     Redis(RedisError),
 }
 
 #[derive(Debug)]
 pub enum ThinTemplateError {
-    Unavailable, // Cache missing
+    Unavailable,
     Redis(RedisError),
 }
 

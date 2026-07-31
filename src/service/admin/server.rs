@@ -109,17 +109,12 @@ pub(crate) impl ServerAdminService for Backend {
             .default_ports()
             .await
             .map_err(ThinTemplateError::into::<CreateServerError>)?;
-        // Non-remappable definitions that share a declared internal port are the
-        // TCP and UDP half of one game port, so they have to stay a pair once the
-        // external number is what gets bound inside the container.
         let mut bound_externally = HashMap::new();
         for (port, external_port) in &ports {
             let definition = port_definitions
                 .get(port)
                 .ok_or(CreateServerError::TemplatePortDefinitionUnknown)?;
 
-            // Remapping is invisible to most games, but some advertise their own
-            // port to clients and only work when both numbers agree.
             let internal_port = if definition.remappable {
                 definition.internal_port
             } else {
@@ -227,7 +222,7 @@ pub(crate) impl ServerAdminService for Backend {
             }))
                 .await
         }).await
-            .expect("Unable to execute create server task") // tokio::task::spawn only returns an error, if the task panics, so we panic again
+            .expect("Unable to execute create server task")
     }
 
     /// Deletes a server
@@ -340,8 +335,6 @@ pub(crate) impl ServerAdminService for Backend {
             return Err(ChangeServerTemplateError::TemplateNotFound);
         };
 
-        // Files being replaced under a running process leaves a server in a
-        // state neither template describes.
         if (backup || wipe)
             && server
                 .node
@@ -352,8 +345,6 @@ pub(crate) impl ServerAdminService for Backend {
             return Err(ChangeServerTemplateError::ServerUnavailable);
         }
 
-        // Everything that can fail without side effects happens first, so a
-        // rejected configuration never costs a backup or a wipe.
         let extra = template
             .default_extra(self.cache.clone())
             .await
@@ -373,7 +364,6 @@ pub(crate) impl ServerAdminService for Backend {
             .await
             .map_err(TemplateError::into::<ChangeServerTemplateError>)?;
 
-        // Derived from the template alone, so the ports have to be re-added.
         build
             .environment
             .extend(self.port_environment(&*self.database, server_id).await?);
@@ -463,8 +453,6 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(AddPortError::ServerNotFound)?;
 
-        // Carries no port information on its own, so the port environment is
-        // merged in once the new allocation is known.
         let build = server
             .template
             .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
@@ -528,7 +516,6 @@ pub(crate) impl ServerAdminService for Backend {
             )
             .fetch_one(&mut **tx)
             .await?;
-
 
             let rows = query!(
                 r#"SELECT name, internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
@@ -602,8 +589,6 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(UpdatePortError::ServerNotFound)?;
 
-        // Carries no port information on its own, so the port environment is
-        // merged in once the new allocation is known.
         let build = server
             .template
             .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
@@ -825,8 +810,6 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(DeletePortError::ServerNotFound)?;
 
-        // Carries no port information on its own, so the port environment is
-        // merged in once the new allocation is known.
         let build = server
             .template
             .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
@@ -890,16 +873,10 @@ pub(crate) impl ServerAdminService for Backend {
     }
 }
 
-/// Takes the backup that precedes a template switch.
-///
-/// The daemon only answers once the backup exists, so returning `Ok` here means
-/// the files are safe and the wipe that follows cannot outrun it.
 async fn create_backup_before_switch(
     server: &crate::db::server::Server,
     auth: &Authentication,
 ) -> Result<(), ChangeServerTemplateError> {
-    // The same slot accounting the backup service does: a switch must not be a
-    // way around a project's backup limit.
     if !auth.has((), ManagementPermissions::LIMITS_BYPASS)
         && let Some(limit) = server.backup_limit
     {

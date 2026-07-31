@@ -115,9 +115,6 @@ pub(crate) impl AuthService for Backend {
 
         let _ = OAuthFlow::remove(&state, &mut self.cache.clone()).await;
 
-        // Deliver the session as an httpOnly cookie and redirect to a clean URL
-        // (no `?session=` leaking the token into history/logs). Same-origin
-        // serving means the browser sends the cookie on the next navigation.
         let redirect_destination =
             Url::parse(&flow.redirect_url).map_err(|_err| CallbackError::AuthFailure)?;
 

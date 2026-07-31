@@ -11,7 +11,6 @@ const API: &str = "https://hangar.papermc.io/api/v1";
 
 const PROVIDER: ResourceProvider = ResourceProvider::Hangar;
 
-/// Hangar is multi-platform; only the Paper artifacts are relevant here.
 const PLATFORM: &str = "PAPER";
 
 const SITE: &str = "https://hangar.papermc.io";
@@ -79,7 +78,6 @@ struct VersionStats {
 )]
 struct Download {
     file_info: Option<FileInfo>,
-    /// Set instead of `download_url` when the author hosts the jar elsewhere.
     external_url: Option<String>,
     download_url: Option<String>,
 }
@@ -89,10 +87,6 @@ struct FileInfo {
     name: String,
 }
 
-/// Hangar has no release-type field; it has user-defined channels. The stock
-/// channels are Release/Snapshot/Alpha, and third-party ones are named after
-/// the same idea, so match on the name and treat anything unknown as a
-/// pre-release rather than claiming it is stable.
 fn version_type(channel: Option<&Channel>) -> ResourceVersionType {
     let Some(channel) = channel else {
         return ResourceVersionType::Release;
@@ -138,8 +132,6 @@ fn to_version(project: &str, version: Version) -> ResourceVersion {
 
     ResourceVersion {
         provider: PROVIDER,
-        // Hangar addresses versions by name, not by numeric id, so the name is
-        // what has to round-trip back to us for the download.
         id: version.name.clone(),
         project: project.to_owned(),
         name: version.name.clone(),
@@ -241,8 +233,6 @@ pub(super) async fn resolve(
         .get(PLATFORM)
         .ok_or(ResourceError::DownloadUnavailable)?;
 
-    // `download_url` points at Hangar's CDN for hosted jars; `external_url` is
-    // the author's own host. Prefer the CDN, which is the one Hangar counts.
     let url = download
         .download_url
         .clone()

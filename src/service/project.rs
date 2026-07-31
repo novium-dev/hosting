@@ -90,7 +90,7 @@ pub(crate) impl ProjectService for Backend {
     #[error(db::failure <- [sql:*], auth::unreachable)]
     async fn create_project(
         &self,
-        #[special] auth: UserAuthentication, // we only want users to create projects, not api
+        #[special] auth: UserAuthentication,
         slug: String,
         name: String,
     ) -> Result<String, _> {
@@ -114,7 +114,7 @@ pub(crate) impl ProjectService for Backend {
     #[error(db::failure <- [sql:*], auth::unreachable)]
     async fn check_project_slug(
         &self,
-        #[special] _auth: Authentication, // only authenticated users may probe slug availability
+        #[special] _auth: Authentication,
         slug: String,
     ) -> Result<bool, _> {
         let taken = query_scalar!(

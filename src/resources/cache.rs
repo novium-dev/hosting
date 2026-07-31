@@ -7,12 +7,6 @@ use tracing::warn;
 
 use super::ResourceError;
 
-/// Reads `key` from Valkey, falling back to `fetch` on a miss and storing the
-/// normalized result for `ttl` seconds.
-///
-/// Cache faults are logged and treated as a miss: a degraded cache should make
-/// the resource browser slower, not broken. Only the normalized shape is
-/// stored, so a provider changing its payload never poisons a live cache.
 pub(crate) async fn cached<T, F>(
     cache: &mut ConnectionManager,
     key: &str,

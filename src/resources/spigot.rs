@@ -7,10 +7,7 @@ use super::{
     ResourceVersion, ResourceVersionType, encode_segment, fetch_json, sanitize_file_name,
 };
 
-/// `SpigotMC` has no official API; Spiget is the long-standing community mirror
-/// and is what every third-party client uses.
 const API: &str = "https://api.spiget.org/v2";
-/// Icons are served by `SpigotMC` itself and come back as relative paths.
 const SPIGOT_BASE: &str = "https://www.spigotmc.org/";
 
 const PROVIDER: ResourceProvider = ResourceProvider::Spigot;
@@ -48,18 +45,9 @@ struct Version {
     name: String,
     #[serde(default)]
     downloads: u64,
-    /// Unix seconds.
     release_date: Option<i64>,
 }
 
-/// `SpigotMC` never serves a jar to a server-side fetch.
-///
-/// Spiget's download endpoint is only a redirect to `spigotmc.org`, which sits
-/// behind bot protection and answers 403 for every non-browser client — checked
-/// against a spread of free, non-external resources. So `SpigotMC` is a
-/// search-and-link provider here: the browser surfaces the resource and its
-/// page, and the jar is uploaded through the file manager. Working around the
-/// protection is not on the table, and there is no other endpoint to use.
 const INSTALLABLE: bool = false;
 
 fn to_project(resource: Resource) -> ResourceProject {
@@ -70,8 +58,6 @@ fn to_project(resource: Resource) -> ResourceProject {
         id: resource.id.to_string(),
         slug: resource.id.to_string(),
         title: resource.name,
-        // Spiget only exposes a numeric author id here; resolving names would
-        // cost one request per hit, which is not worth it for a byline.
         author: None,
         description: resource.tag,
         icon_url: resource
@@ -94,8 +80,6 @@ fn to_version(resource: &Resource, version: &Version) -> ResourceVersion {
         project: resource.id.to_string(),
         name: version.name.clone(),
         version_number: version.name.clone(),
-        // Spiget exposes no release channel; everything on SpigotMC is a
-        // published release.
         version_type: ResourceVersionType::Release,
         game_versions: resource.tested_versions.clone(),
         loaders: vec!["paper".to_owned()],
@@ -109,8 +93,6 @@ fn to_version(resource: &Resource, version: &Version) -> ResourceVersion {
     }
 }
 
-/// Spiget serves the jar without a usable `Content-Disposition`, so the name is
-/// built from the resource and version instead.
 fn file_name(resource: &str, version: &str) -> String {
     sanitize_file_name(&format!("{resource}-{version}.jar"), "spigot-resource.jar")
 }
@@ -127,7 +109,6 @@ pub(super) async fn search(
     client: &Client,
     query: &ResourceQuery,
 ) -> Result<Vec<ResourceProject>, ResourceError> {
-    // Spiget pages are 1-based, unlike every other provider here.
     let page = (query.offset / u32::from(query.limit.max(1))) + 1;
     let params = [
         ("size", query.limit.to_string()),
@@ -156,8 +137,6 @@ pub(super) async fn versions(
     client: &Client,
     project: &str,
 ) -> Result<Vec<ResourceVersion>, ResourceError> {
-    // The version list carries no resource metadata, so the resource is needed
-    // for the file name and the tested game versions.
     let resource = resource(client, project).await?;
 
     let versions: Vec<Version> = fetch_json(
@@ -177,11 +156,6 @@ pub(super) async fn versions(
         .collect())
 }
 
-/// Always reports [`ResourceError::DownloadUnavailable`] — see [`INSTALLABLE`].
-///
-/// The signature matches the other providers so the dispatch in the parent
-/// module stays uniform, and so this becomes a real implementation the day
-/// `SpigotMC` offers a fetchable artifact.
 pub(super) const fn resolve(
     _client: &Client,
     _project: &str,

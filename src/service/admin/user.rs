@@ -29,9 +29,7 @@ pub(crate) struct AdminUserProjectInfo {
     pub(crate) id: ProjectId,
     pub(crate) slug: String,
     pub(crate) name: String,
-    /// Whether this user owns the project.
     pub(crate) owner: bool,
-    /// The user's effective permission bits in the project.
     pub(crate) permissions: i64,
     pub(crate) server_count: i64,
 }

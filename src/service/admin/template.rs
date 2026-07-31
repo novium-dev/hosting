@@ -15,16 +15,13 @@ use zelus::service;
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct TemplateUsageInfo {
     pub(crate) id: String,
-    /// How many servers on this instance run the template.
     pub(crate) servers: i64,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ResyncReport {
     pub(crate) total: usize,
-    /// Servers whose node accepted the regenerated build.
     pub(crate) updated: usize,
-    /// Of those, how many needed their stored configuration migrated first.
     pub(crate) migrated: usize,
     pub(crate) failed: usize,
     pub(crate) restarted: usize,
@@ -64,8 +61,6 @@ pub(crate) impl TemplateAdminService for Backend {
             })
             .collect();
 
-        // Templates a server still references but this build no longer knows
-        // are worth seeing here, since they can never be resynced.
         templates.extend(
             counts
                 .into_iter()

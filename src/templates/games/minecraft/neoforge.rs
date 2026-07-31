@@ -1,5 +1,3 @@
-// https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml
-
 use reqwest::Client;
 use std::collections::{HashMap, HashSet};
 use tracing::error;

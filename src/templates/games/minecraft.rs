@@ -428,7 +428,6 @@ impl Template for MinecraftTemplate {
             backup_exclude,
             files_write: extra.files_write(),
 
-            // Default unprivileged user
             uid: None,
             gid: None,
 
@@ -506,30 +505,35 @@ impl Template for MinecraftTemplate {
                     .layer::<2, _, _>(move |modification| {
                         let mut vec = Vec::new();
                         for (_, ver, _, map) in &current {
-                            if MinecraftServerModification::Vanilla == *modification {
-                                vec.push(((*ver).clone(), VariableContent::Disabled {}));
-                            } else if let Some(build) = map.get(modification) {
-                                vec.push((
-                                    (*ver).clone(),
-                                    match build.clone() {
-                                        VersionBuild::Range(
-                                            prefix,
-                                            range_start,
-                                            range_end,
-                                            exclude,
-                                        ) => VariableContent::NumberRange {
-                                            prefix,
-                                            range_start,
-                                            range_end,
-                                            exclude,
-                                        },
-                                        VersionBuild::Set(content) => VariableContent::StringSet {
-                                            content: IndexSet::from_iter(content),
-                                        },
-                                    },
-                                ));
-                            } else {
-                                // Vanilla is the only `MinecraftServerModification`, that doesn't require a mod version.
+                            match *modification {
+                                MinecraftServerModification::Vanilla => {
+                                    vec.push(((*ver).clone(), VariableContent::Disabled {}));
+                                }
+                                _ => {
+                                    if let Some(build) = map.get(modification) {
+                                        vec.push((
+                                            (*ver).clone(),
+                                            match build.clone() {
+                                                VersionBuild::Range(
+                                                    prefix,
+                                                    range_start,
+                                                    range_end,
+                                                    exclude,
+                                                ) => VariableContent::NumberRange {
+                                                    prefix,
+                                                    range_start,
+                                                    range_end,
+                                                    exclude,
+                                                },
+                                                VersionBuild::Set(content) => {
+                                                    VariableContent::StringSet {
+                                                        content: IndexSet::from_iter(content),
+                                                    }
+                                                }
+                                            },
+                                        ));
+                                    }
+                                }
                             }
                         }
                         vec
@@ -742,7 +746,7 @@ impl Template for MinecraftTemplate {
     }
 
     fn default_internet_access(&self) -> bool {
-        true // online-mode
+        true
     }
 
     async fn init(&self, _redis_client: ConnectionManager) -> Result<(), RedisError> {
@@ -774,7 +778,6 @@ pub(crate) struct VersionCache(
 
 #[derive(Readable, Writable, Clone)]
 pub(crate) enum VersionBuild {
-    /// Version prefix, lowest build, highest build, and build numbers in that range that are missing.
     Range(Option<String>, u16, u16, HashSet<u16>),
     Set(Vec<String>),
 }

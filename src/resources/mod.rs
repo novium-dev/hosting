@@ -22,19 +22,11 @@ use crate::service::{
     error_resource_provider_unavailable::FromResourceProviderUnavailable,
 };
 
-/// How long a search page stays cached. Short enough that a freshly published
-/// project shows up quickly, long enough to absorb the typing burst a search
-/// box produces.
 const SEARCH_TTL: u64 = 300;
-/// How long a project's version list stays cached.
 const VERSIONS_TTL: u64 = 300;
-/// How long a resolved download URL stays cached. Some providers hand out
-/// signed URLs, so this stays well below the usual signature lifetime.
 const RESOLVE_TTL: u64 = 900;
 
-/// Largest page a client may request from a provider.
 pub(crate) const MAX_SEARCH_LIMIT: u8 = 50;
-/// Longest accepted search query, mirroring what the providers accept.
 pub(crate) const MAX_QUERY_LENGTH: usize = 120;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
@@ -65,11 +57,6 @@ impl ResourceProvider {
             .find(|provider| provider.as_str() == value)
     }
 
-    /// Whether the provider hosts `kind` for `loader`.
-    ///
-    /// Hangar and `SpigotMC` are Bukkit-lineage plugin repositories, so they only
-    /// ever apply to Paper servers and never carry modpacks. Modpacks are a
-    /// modloader concept, so they do not exist for Paper on any provider either.
     pub(crate) const fn supports(self, loader: ResourceLoader, kind: ResourceKind) -> bool {
         match kind {
             ResourceKind::Resource => match self {
@@ -84,11 +71,6 @@ impl ResourceProvider {
     }
 }
 
-/// What is being browsed: individual resources, or whole modpacks.
-///
-/// Modpacks are a different product on both providers — a different
-/// `project_type` on Modrinth and a different class id on `CurseForge` — so the
-/// distinction has to reach the provider calls rather than being a filter.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ResourceKind {
@@ -124,7 +106,6 @@ impl ResourceLoader {
         }
     }
 
-    /// Where a resource for this loader is installed.
     pub(crate) const fn resource_type(self) -> ResourceType {
         match self {
             Self::Paper => ResourceType::Plugin,
@@ -161,7 +142,6 @@ impl ResourceType {
         }
     }
 
-    /// Directory (with trailing separator) the resource is written into.
     pub(crate) const fn path_prefix(self) -> &'static str {
         match self {
             Self::Plugin => "plugins/",
@@ -170,8 +150,6 @@ impl ResourceType {
         }
     }
 
-    /// The same directory in the absolute, unterminated form the daemon's file
-    /// listing expects.
     pub(crate) fn directory(self) -> String {
         format!("/{}", self.path_prefix().trim_end_matches('/'))
     }
@@ -185,11 +163,9 @@ pub(crate) enum ResourceVersionType {
     Alpha,
 }
 
-/// A project as shown in the browser, normalized across providers.
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub(crate) struct ResourceProject {
     pub(crate) provider: ResourceProvider,
-    /// Provider-scoped identifier used for every follow-up call.
     pub(crate) id: String,
     pub(crate) slug: String,
     pub(crate) title: String,
@@ -199,18 +175,13 @@ pub(crate) struct ResourceProject {
     pub(crate) downloads: u64,
     pub(crate) follows: u64,
     pub(crate) categories: Vec<String>,
-    /// The project's page on the provider, for a "view upstream" link.
     pub(crate) page_url: Option<String>,
-    /// Set when the provider knows upfront that the file cannot be fetched
-    /// (external hosting, premium resources, distribution opt-out).
     pub(crate) downloadable: bool,
 }
 
-/// A single downloadable version of a [`ResourceProject`].
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub(crate) struct ResourceVersion {
     pub(crate) provider: ResourceProvider,
-    /// Provider-scoped identifier passed back to install this version.
     pub(crate) id: String,
     pub(crate) project: String,
     pub(crate) name: String,
@@ -219,20 +190,17 @@ pub(crate) struct ResourceVersion {
     pub(crate) game_versions: Vec<String>,
     pub(crate) loaders: Vec<String>,
     pub(crate) downloads: u64,
-    /// RFC 3339 publish timestamp, when the provider reports one.
     pub(crate) published_at: Option<String>,
     pub(crate) file_name: Option<String>,
     pub(crate) downloadable: bool,
 }
 
-/// The file a version resolves to, ready to hand to the daemon.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ResolvedResource {
     pub(crate) url: Url,
     pub(crate) file_name: String,
 }
 
-/// Everything a provider needs to answer a search.
 #[derive(Debug, Clone)]
 pub(crate) struct ResourceQuery {
     pub(crate) query: String,
@@ -244,8 +212,6 @@ pub(crate) struct ResourceQuery {
 }
 
 impl ResourceQuery {
-    /// Cache-key fragment. Every field that changes the upstream request has to
-    /// appear here, or two different searches would share one entry.
     fn cache_key(&self) -> String {
         format!(
             "{}:{}:{}:{}:{}:{}",
@@ -277,7 +243,6 @@ impl From<RedisError> for ResourceError {
 }
 
 impl ResourceError {
-    /// Short, stable reason for per-item reporting in batch operations.
     pub(crate) const fn reason(&self) -> &'static str {
         match self {
             Self::InvalidPayload => "The resource request was invalid",
@@ -313,12 +278,6 @@ impl ResourceError {
     }
 }
 
-/// Sends `request` and decodes the JSON body, mapping transport and status
-/// faults onto [`ResourceError`].
-///
-/// A 404 becomes [`ResourceError::Missing`] so callers can tell "no such
-/// project" apart from "the provider is broken"; every other non-success status
-/// is the provider's fault and is logged with its body.
 pub(crate) async fn fetch_json<T: DeserializeOwned>(
     provider: ResourceProvider,
     request: RequestBuilder,
@@ -356,8 +315,6 @@ pub(crate) async fn fetch_json<T: DeserializeOwned>(
         .map_err(|_err| ResourceError::ProviderError)
 }
 
-/// Percent-encodes a single path segment so provider-supplied ids (Hangar
-/// version names contain `+`, for instance) survive URL construction.
 pub(crate) fn encode_segment(segment: &str) -> String {
     let mut encoded = String::with_capacity(segment.len());
     for byte in segment.bytes() {
@@ -370,12 +327,7 @@ pub(crate) fn encode_segment(segment: &str) -> String {
     encoded
 }
 
-/// Rejects ids that could escape a URL path or a file name. Providers hand out
-/// opaque ids; anything outside this set did not come from them.
 pub(crate) fn validate_id(id: &str, max_len: usize) -> Result<(), ResourceError> {
-    // `.` has to stay allowed (Hangar version names look like `1.2.3+45`), but a
-    // `..` segment would be collapsed by URL parsing and could reach an endpoint
-    // other than the one being built.
     if id.is_empty()
         || id.len() > max_len
         || id.contains("..")
@@ -388,12 +340,8 @@ pub(crate) fn validate_id(id: &str, max_len: usize) -> Result<(), ResourceError>
     Ok(())
 }
 
-/// Longest file name written to a server, comfortably inside the 255-byte limit
-/// every relevant filesystem imposes.
 const MAX_FILE_NAME: usize = 200;
 
-/// Strips path separators and control characters from a provider-supplied file
-/// name so it can only ever land inside the intended directory.
 pub(crate) fn sanitize_file_name(name: &str, fallback: &str) -> String {
     let cleaned: String = name
         .chars()
@@ -414,8 +362,6 @@ pub(crate) fn sanitize_file_name(name: &str, fallback: &str) -> String {
         return trimmed.to_owned();
     }
 
-    // Truncating blindly would cut the extension off, and a jar written without
-    // `.jar` is silently never loaded. Keep the extension and shorten the stem.
     let extension = trimmed
         .rsplit_once('.')
         .map(|(_stem, extension)| extension)
@@ -431,8 +377,6 @@ pub(crate) fn sanitize_file_name(name: &str, fallback: &str) -> String {
     )
 }
 
-/// Entry point the services use; owns the HTTP client, the Valkey handle and
-/// the provider credentials for one request.
 pub(crate) struct ResourceClient<'a> {
     pub(crate) http: &'a Client,
     pub(crate) cache: ConnectionManager,
@@ -440,8 +384,6 @@ pub(crate) struct ResourceClient<'a> {
 }
 
 impl ResourceClient<'_> {
-    /// Providers usable right now — `CurseForge` drops out when no API key is
-    /// configured, since every one of its endpoints requires one.
     pub(crate) fn available(&self) -> Vec<ResourceProvider> {
         ResourceProvider::ALL
             .into_iter()
@@ -485,8 +427,6 @@ impl ResourceClient<'_> {
         }
 
         let key = format!("search:{}:{}", provider.as_str(), query.cache_key());
-        // Copied out so the fetch future never borrows `self`, which stays
-        // mutably borrowed for the cache handle.
         let (http, api_key) = (self.http, self.curseforge_api_key);
         let fetch = async move {
             match provider {
@@ -577,9 +517,6 @@ mod tests {
 
     #[test]
     fn replaces_separators_so_a_name_cannot_escape_its_directory() {
-        // The guarantee is that no separator survives, so the result can only
-        // ever name a file inside the intended directory. Leftover dots are
-        // harmless without one.
         let sanitized = sanitize_file_name("../../etc/passwd", "fallback.jar");
 
         assert!(!sanitized.contains('/'), "got {sanitized}");
@@ -594,8 +531,6 @@ mod tests {
 
     #[test]
     fn truncating_a_long_name_keeps_its_extension() {
-        // A jar written without `.jar` is silently never loaded, so the
-        // extension has to survive the length cap.
         let long = format!("{}.jar", "a".repeat(400));
 
         let sanitized = sanitize_file_name(&long, "fallback.jar");

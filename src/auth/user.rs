@@ -39,8 +39,6 @@ use zelus::types::DocumentedType;
 
 const DAEMON_PASSWORD_LENGTH: usize = 32;
 
-/// Name of the httpOnly cookie that carries the session token. The backend
-/// sets it on OAuth callback and clears it on logout; the SPA never reads it.
 pub const SESSION_COOKIE_NAME: &str = "session";
 
 #[derive(Debug)]
@@ -114,10 +112,6 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .await
             .expect("Extension not registered");
 
-        // Prefer the `Authorization: Session <token>` header (API clients); fall
-        // back to the httpOnly `session` cookie (browser SPA, same-origin).
-        // A `Bearer` header is an API key and is resolved by
-        // [`ApiKeyAuthentication`] instead, so it must not be parsed here.
         let header = if is_api_key_request(&parts.headers) {
             None
         } else {
@@ -261,9 +255,6 @@ impl Session {
     }
 }
 
-/// Builds the `Set-Cookie` header value that stores `session` as an httpOnly
-/// cookie for `session_lifetime` seconds. Same-origin serving lets us use
-/// `SameSite=Lax`; `Secure` is derived from the configured public URL scheme.
 fn session_cookie_header(backend: &Backend, session: &str, max_age: u64) -> HeaderValue {
     let secure = if backend.config.cookie_secure() {
         "; Secure"
@@ -276,7 +267,6 @@ fn session_cookie_header(backend: &Backend, session: &str, max_age: u64) -> Head
     .expect("session cookie is a valid header value")
 }
 
-/// `Set-Cookie` value that persists the current session on the client.
 pub fn set_session_cookie(backend: &Backend, session: &Session) -> HeaderValue {
     session_cookie_header(
         backend,
@@ -285,14 +275,10 @@ pub fn set_session_cookie(backend: &Backend, session: &Session) -> HeaderValue {
     )
 }
 
-/// `Set-Cookie` value that immediately clears the session cookie.
 pub fn clear_session_cookie(backend: &Backend) -> HeaderValue {
     session_cookie_header(backend, "", 0)
 }
 
-/// Wraps any documented response, appending one or more `Set-Cookie` headers.
-/// Implements zelus's [`DocumentedResultResponse`] by delegating to the inner
-/// type, so it can be returned from `#[route(..., raw)]` handlers.
 pub struct WithCookies<T> {
     inner: T,
     cookies: Vec<HeaderValue>,

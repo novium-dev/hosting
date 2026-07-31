@@ -147,7 +147,6 @@ impl Backend {
     }
 }
 
-/// Inserts the logical storage layout for a node.
 pub(crate) async fn insert_storages(
     tx: &mut Transaction<'_, Postgres>,
     id: &Uuid,
@@ -179,7 +178,6 @@ pub(crate) async fn insert_storages(
     Ok(())
 }
 
-/// Replaces the logical storage layout for an existing node (delete + insert).
 pub(crate) async fn replace_storages(
     tx: &mut Transaction<'_, Postgres>,
     id: &Uuid,

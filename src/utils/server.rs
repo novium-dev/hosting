@@ -9,16 +9,8 @@ use sqlx::{Executor, Postgres, query, types::JsonValue};
 use std::collections::HashMap;
 use tracing::{error, warn};
 
-/// Prefix of the environment variables that tell a container which port
-/// numbers it was assigned.
 const PORT_ENVIRONMENT_PREFIX: &str = "NOVIUM_PORT_";
 
-/// Environment variable a container reads to learn the port it has to listen
-/// on for the port definition called `name`.
-///
-/// The value is the port *inside* the container, which for non-remappable
-/// ports (see [`crate::templates::TemplatePortDefinition::remappable`]) is
-/// also the port players connect to.
 pub fn port_environment_key(name: &str) -> String {
     let mut key = String::with_capacity(PORT_ENVIRONMENT_PREFIX.len().saturating_add(name.len()));
     key.push_str(PORT_ENVIRONMENT_PREFIX);
@@ -33,12 +25,6 @@ pub fn port_environment_key(name: &str) -> String {
 }
 
 impl Backend {
-    /// Builds the [`port_environment_key`] environment from a server's current
-    /// port allocation.
-    ///
-    /// This has to be merged into every build payload that is pushed to a node,
-    /// as the payload itself is derived from the template variables alone and
-    /// therefore carries no port information.
     pub async fn port_environment(
         &self,
         conn: impl Executor<'_, Database = Postgres>,

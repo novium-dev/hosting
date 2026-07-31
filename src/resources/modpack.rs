@@ -1,48 +1,24 @@
-//! Parsing of the two modpack archive formats.
-//!
-//! A pack is a zip carrying a manifest plus an `overrides/` tree. The two
-//! providers describe their contents very differently:
-//!
-//! * Modrinth's `modrinth.index.json` lists each file with a direct download URL
-//!   and the path it belongs at, so no further provider calls are needed.
-//! * `CurseForge`'s `manifest.json` lists project/file id pairs, which have to be
-//!   resolved to URLs through the API, and gives no target path — everything
-//!   goes into `mods/`.
-//!
-//! Everything here is pure: the orchestration that fetches and writes lives in
-//! the service, so these rules can be tested without a node.
-
 use serde::Deserialize;
 
 use super::{ResourceError, sanitize_file_name};
 
-/// The `overrides/` directory inside a pack, copied over the server as-is.
 pub(crate) const OVERRIDES_DIR: &str = "overrides";
-/// Server-specific overrides, applied after (and winning over) `overrides/`.
 pub(crate) const SERVER_OVERRIDES_DIR: &str = "server-overrides";
 
-/// Modrinth's index file name inside a `.mrpack`.
 pub(crate) const MODRINTH_INDEX: &str = "modrinth.index.json";
-/// `CurseForge`'s manifest file name inside a pack zip.
 pub(crate) const CURSEFORGE_MANIFEST: &str = "manifest.json";
 
-/// One file a pack wants on the server.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ModpackFile {
-    /// Path relative to the server root, already sanitized.
     pub(crate) path: String,
-    /// Where to fetch it. Empty for `CurseForge` entries until resolved.
     pub(crate) url: Option<String>,
-    /// `CurseForge` project/file ids, for the entries that still need resolving.
     pub(crate) curseforge: Option<(String, String)>,
 }
 
-/// What a pack declares about itself.
 #[derive(Debug, Clone)]
 pub(crate) struct Modpack {
     pub(crate) name: Option<String>,
     pub(crate) version: Option<String>,
-    /// The Minecraft version the pack targets, when it says.
     pub(crate) game_version: Option<String>,
     pub(crate) files: Vec<ModpackFile>,
 }
@@ -105,11 +81,6 @@ const fn default_required() -> bool {
     true
 }
 
-/// Rejects a pack path that would escape the server root.
-///
-/// Pack manifests are third-party input, so `../` and absolute paths have to be
-/// refused rather than normalized — silently relocating a file is worse than
-/// skipping it. Each segment is sanitized the same way a resource file name is.
 pub(crate) fn safe_pack_path(path: &str) -> Option<String> {
     if path.is_empty() || path.starts_with('/') || path.starts_with('\\') {
         return None;
@@ -133,21 +104,14 @@ pub(crate) fn safe_pack_path(path: &str) -> Option<String> {
     Some(segments.join("/"))
 }
 
-/// Whether a Modrinth index entry applies to a server install.
-///
-/// `env.server` of `unsupported` marks a client-only file — shaders, resource
-/// packs, client HUD mods. Installing those onto a server wastes bandwidth and,
-/// for client-only mods, stops the server booting.
 fn wanted_on_server(env: Option<&ModrinthEnv>) -> bool {
     env.and_then(|env| env.server.as_deref())
         .is_none_or(|server| server != "unsupported")
 }
 
 pub(crate) fn parse_modrinth_index(raw: &[u8]) -> Result<Modpack, ResourceError> {
-    let index: ModrinthIndex = serde_json::from_slice(raw).map_err(|_err| {
-        // A pack whose index will not parse is not something to guess about.
-        ResourceError::ProviderError
-    })?;
+    let index: ModrinthIndex =
+        serde_json::from_slice(raw).map_err(|_err| ResourceError::ProviderError)?;
 
     let files = index
         .files
@@ -155,7 +119,6 @@ pub(crate) fn parse_modrinth_index(raw: &[u8]) -> Result<Modpack, ResourceError>
         .filter(|file| wanted_on_server(file.env.as_ref()))
         .filter_map(|file| {
             let path = safe_pack_path(&file.path)?;
-            // Mirrors are listed in preference order.
             let url = file.downloads.into_iter().next()?;
             Some(ModpackFile {
                 path,
@@ -182,8 +145,6 @@ pub(crate) fn parse_curseforge_manifest(raw: &[u8]) -> Result<Modpack, ResourceE
         .into_iter()
         .filter(|file| file.required)
         .map(|file| ModpackFile {
-            // CurseForge gives no target path; a modpack's files are all mods.
-            // The real name arrives with the resolved file.
             path: String::new(),
             url: None,
             curseforge: Some((file.project_id.to_string(), file.file_id.to_string())),
@@ -231,8 +192,6 @@ mod tests {
 
     #[test]
     fn skips_client_only_files() {
-        // A client-only mod on a server is wasted bandwidth at best and stops it
-        // booting at worst.
         let raw = br#"{
             "files": [
                 { "path": "mods/server.jar", "downloads": ["https://cdn/s.jar"],
@@ -262,7 +221,6 @@ mod tests {
 
     #[test]
     fn refuses_paths_that_escape_the_server_root() {
-        // Manifests are third-party input.
         assert_eq!(safe_pack_path("../../etc/passwd"), None);
         assert_eq!(safe_pack_path("/etc/passwd"), None);
         assert_eq!(safe_pack_path("mods/../../escape.jar"), None);
@@ -317,7 +275,6 @@ mod tests {
 
         assert_eq!(pack.name.as_deref(), Some("CF Pack"));
         assert_eq!(pack.game_version.as_deref(), Some("1.21.1"));
-        // Optional files are the pack author's opt-outs; only required ones ship.
         assert_eq!(
             pack.files
                 .iter()
@@ -339,8 +296,6 @@ mod tests {
 
     #[test]
     fn an_unparseable_manifest_is_an_error_not_an_empty_pack() {
-        // Treating a broken manifest as "no files" would silently install nothing
-        // and report success.
         parse_modrinth_index(b"not json").expect_err("must not parse");
         parse_curseforge_manifest(b"{{{").expect_err("must not parse");
     }

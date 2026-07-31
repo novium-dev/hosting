@@ -17,17 +17,11 @@ use url::{ParseError, Url};
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
 pub static BRANCH_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!(r"[A-Za-z0-9\\._/-]+");
 
-/// Repository URL variable regex. Allows an empty value (git disabled — the
-/// project is uploaded manually) or a valid `http(s)` URL.
 pub(crate) const REPOSITORY_URL_REGEX: &str = r"^$|^https?://(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)$";
 
-/// Git username/password (token) — any single-line value, including empty.
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
 pub static GIT_CREDENTIAL_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!(r"^[^\r\n]*$");
 
-/// The shared "Git" variables used by the generic templates. All fields are
-/// optional: an empty `url` disables git checkout; empty credentials mean no
-/// authentication.
 pub(crate) struct GitFields {
     pub url: RepositoryURL,
     pub branch: String,
@@ -35,8 +29,6 @@ pub(crate) struct GitFields {
     pub password: String,
 }
 
-/// Builds the shared "Git" variable group (URL, branch, username, secret
-/// password/token).
 pub(crate) fn git_variable_group(git: GitFields) -> VariableGroupBuilder {
     VariableGroupBuilder::new(Some("Git"))
         .regex_variable(
@@ -73,8 +65,6 @@ pub(crate) fn git_variable_group(git: GitFields) -> VariableGroupBuilder {
         )
 }
 
-/// Environment variables consumed by the generic Dockerfiles for the (optional,
-/// optionally authenticated) git checkout.
 pub(crate) fn git_environment(git: GitFields) -> [(String, String); 4] {
     [
         ("REPOSITORY_URL".to_owned(), git.url.into()),
@@ -84,7 +74,6 @@ pub(crate) fn git_environment(git: GitFields) -> [(String, String); 4] {
     ]
 }
 
-/// Extracts and validates the shared git variables. Returns `None` if invalid.
 pub(crate) fn parse_git_fields(variables: &HashMap<String, String>) -> Option<GitFields> {
     let repository_url_raw = variables.get("repository_url")?;
     let repository_branch_raw = variables.get("repository_branch")?;

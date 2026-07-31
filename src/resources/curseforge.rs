@@ -11,21 +11,14 @@ const API: &str = "https://api.curseforge.com/v1";
 
 const PROVIDER: ResourceProvider = ResourceProvider::Curseforge;
 
-/// `CurseForge`'s game id for Minecraft.
 const GAME_ID: &str = "432";
-/// Class ids partition a game's projects; 6 is "Mods", 5 is "Bukkit Plugins",
-/// 4471 is "Modpacks".
 const CLASS_MODS: &str = "6";
 const CLASS_BUKKIT_PLUGINS: &str = "5";
 const CLASS_MODPACKS: &str = "4471";
 
-/// `sortField=6` is total downloads.
 const SORT_DOWNLOADS: &str = "6";
-/// `sortField=1` is `CurseForge`'s own relevance ranking.
 const SORT_RELEVANCY: &str = "1";
 
-/// Loader names `CurseForge` mixes into a file's `gameVersions` array alongside
-/// actual Minecraft versions. Used to split the two apart again.
 const LOADER_NAMES: [&str; 8] = [
     "Forge", "Fabric", "NeoForge", "Quilt", "Bukkit", "Spigot", "Paper", "Cauldron",
 ];
@@ -57,8 +50,6 @@ struct Mod {
     authors: Vec<Author>,
     #[serde(default)]
     categories: Vec<Category>,
-    /// `false` when the author opted out of third-party downloads, which makes
-    /// every file's `downloadUrl` null.
     allow_mod_distribution: Option<bool>,
 }
 
@@ -103,8 +94,6 @@ struct File {
     download_url: Option<String>,
 }
 
-/// `CurseForge` reports counts as JSON numbers that can exceed what an integer
-/// field would hold cleanly; they arrive as floats and are clamped here.
 #[expect(
     clippy::cast_sign_loss,
     reason = "guarded by the positivity check above"
@@ -125,8 +114,6 @@ const fn version_type(release_type: u8) -> ResourceVersionType {
     }
 }
 
-/// The `modLoaderType` value `CurseForge` expects for a loader, or `None` for
-/// Bukkit-lineage plugins, which are selected by class id instead.
 const fn loader_type(loader: ResourceLoader) -> Option<&'static str> {
     match loader {
         ResourceLoader::Forge => Some("1"),
@@ -288,8 +275,6 @@ pub(super) async fn resolve(
     .await?;
 
     let file = response.data;
-    // Authors can forbid third-party downloads, in which case CurseForge still
-    // lists the file but omits the URL. There is no legitimate way around it.
     let url = file
         .download_url
         .ok_or(ResourceError::DownloadUnavailable)?;

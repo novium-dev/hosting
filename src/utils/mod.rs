@@ -32,7 +32,6 @@ pub struct PageSplit {
     pub limit: u32,
     pub page: u32,
 
-    // to be filled by apply_pagesplit
     total_pages: u32,
     total_records: u64,
 }
@@ -143,7 +142,7 @@ impl<'a, T: Iterator<Item = E> + 'a, E: 'a> PageSplitExtension<Box<dyn Iterator<
             if page.limit == 0 {
                 page.total_pages = 1;
                 page.total_records = self.count() as u64;
-                return Box::new(Vec::new().into_iter()); // Not allowed to devide by zero
+                return Box::new(Vec::new().into_iter());
             }
             let vec: Vec<_> = self.collect();
 

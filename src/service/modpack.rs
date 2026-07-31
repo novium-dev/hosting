@@ -34,18 +34,12 @@ define_error!(modpack {
     backup_unavailable("No backup could be created, so the install was not started" BAD_REQUEST),
 });
 
-/// Staging directory for the pack archive and its extracted tree. Kept inside
-/// the server so the daemon's sandbox applies, and removed when the job ends.
 const STAGING_DIR: &str = ".novium-modpack";
 
-/// Largest manifest read back from a server. Real indexes are tens of KiB; this
-/// is a bound so a hostile archive cannot make the backend read forever.
 const MAX_MANIFEST_BYTES: u64 = 0x0080_0000;
 
-/// Longest pack title stored, matching the column width.
 const MAX_PACK_TITLE: usize = 255;
 
-/// Where a `CurseForge` pack's files go: its manifest names no paths.
 const CURSEFORGE_FILE_DIR: &str = "mods";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
@@ -56,26 +50,15 @@ pub(crate) enum ModpackJobState {
     Failed,
 }
 
-/// Progress of the modpack install for one server.
-///
-/// A pack is one large archive plus hundreds of individual downloads, so this
-/// cannot be an HTTP round trip. The job runs on the backend's task set and the
-/// client polls this.
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub(crate) struct ModpackJob {
     pub(crate) state: ModpackJobState,
-    /// Human-readable current step.
     pub(crate) step: String,
-    /// Files installed so far, and how many there are in total.
     pub(crate) done: u32,
     pub(crate) total: u32,
-    /// Files that could not be installed. The job still completes: on a
-    /// 200-mod pack, one dead mirror should not discard the other 199.
     pub(crate) failures: Vec<String>,
-    /// Why the job failed, when it did.
     pub(crate) error: Option<String>,
     pub(crate) pack: Option<String>,
-    /// Unix seconds.
     pub(crate) started_at: i64,
     pub(crate) finished_at: Option<i64>,
 }
@@ -104,26 +87,19 @@ pub(crate) struct InstallModpackPayload {
     pub(crate) loader: ResourceLoader,
     #[serde(default)]
     pub(crate) title: Option<String>,
-    /// Take a server backup before anything is written. When this fails the
-    /// install does not start.
     #[serde(default)]
     pub(crate) backup: bool,
-    /// Clear the existing mod jars first, for the end state the pack author
-    /// intended. Without it the pack is merged into what is already there.
     #[serde(default)]
     pub(crate) wipe: bool,
-    /// Must be set: this rewrites files on a live server.
     #[serde(default)]
     pub(crate) confirm: bool,
 }
 
 impl Backend {
-    /// Replaces the tracked job for `server`, returning nothing.
     async fn set_job(&self, server: ServerId, job: ModpackJob) {
         self.modpack_jobs.write().await.insert(server, job);
     }
 
-    /// Applies `update` to the tracked job, if one is still tracked.
     async fn update_job(&self, server: ServerId, update: impl FnOnce(&mut ModpackJob)) {
         if let Some(job) = self.modpack_jobs.write().await.get_mut(&server) {
             update(job);
@@ -140,7 +116,6 @@ impl Backend {
         .await;
     }
 
-    /// Reads a file back from the server into memory, for manifests only.
     async fn read_server_file(
         &self,
         server: &Server,
@@ -162,12 +137,6 @@ impl Backend {
         Ok(buffer)
     }
 
-    /// Removes every mod jar, so the pack lands on a clean directory.
-    ///
-    /// Only loadable artifacts go: a mod's config directory is left alone, since
-    /// the pack's own overrides are about to be written over it anyway and
-    /// deleting whole trees on a live server is not something to do implicitly.
-    /// The matching records go too, keeping the installed list honest.
     async fn wipe_mods(&self, server: &Server) -> Result<u32, ServerListFilesError> {
         let entries = server
             .node
@@ -194,8 +163,6 @@ impl Backend {
             }
         }
 
-        // Records point at base names; strip the parked suffix so a disabled mod
-        // that was just deleted is forgotten too.
         let bases: Vec<String> = removed
             .iter()
             .map(|name| super::resource::base_file_name(name))
@@ -209,11 +176,6 @@ impl Backend {
         Ok(u32::try_from(removed.len()).unwrap_or(u32::MAX))
     }
 
-    /// Copies one extracted directory tree over the server.
-    ///
-    /// `server_list_files` is not recursive and there is no move-tree call, so
-    /// this walks the tree itself, creating each directory and copying each file.
-    /// Overrides intentionally overwrite: they are the pack's configuration.
     async fn apply_overrides(&self, server: &Server, root: &str) -> u32 {
         let mut queue = vec![String::new()];
         let mut copied = 0u32;
@@ -231,7 +193,6 @@ impl Backend {
                 .await
             {
                 Ok(entries) => entries,
-                // A pack without this override tree is normal.
                 Err(ServerListFilesError::FileNotFound) => continue,
                 Err(err) => {
                     warn!("Failed to list overrides at {source_dir}: {err:?}");
@@ -281,8 +242,6 @@ impl Backend {
         copied
     }
 
-    /// Resolves the `CurseForge` project/file id pairs a manifest lists into
-    /// download URLs and file names.
     async fn resolve_curseforge_files(&self, files: Vec<ModpackFile>) -> Vec<ModpackFile> {
         let mut resolved = Vec::with_capacity(files.len());
 
@@ -303,8 +262,6 @@ impl Backend {
                     curseforge: None,
                 }),
                 Err(err) => {
-                    // Distribution opt-outs are common in CurseForge packs and
-                    // are reported per file rather than sinking the install.
                     warn!("Failed to resolve CurseForge pack file {project}/{version}: {err:?}");
                     resolved.push(ModpackFile {
                         path: format!("curseforge:{project}"),
@@ -318,7 +275,6 @@ impl Backend {
         resolved
     }
 
-    /// Reads whichever manifest the extracted pack carries.
     async fn read_pack_manifest(
         &self,
         server: &Server,
@@ -341,8 +297,6 @@ impl Backend {
         parse_curseforge_manifest(&curseforge)
     }
 
-    /// The whole install, start to finish. Reports through the tracked job and
-    /// never returns an error: the job carries the outcome.
     async fn run_modpack_install(
         &self,
         server: Server,
@@ -355,8 +309,6 @@ impl Backend {
         let archive = format!("{staging}/{pack_file}");
         let extracted = format!("{staging}/extracted");
 
-        // A backup has to exist before anything is touched, so a wipe is always
-        // recoverable. Failing here leaves the server exactly as it was.
         if payload.backup {
             self.update_job(server_id, |job| {
                 "Creating backup".clone_into(&mut job.step);
@@ -471,8 +423,6 @@ impl Backend {
             })
             .await;
 
-            // The previous pack's files are what just went, so its record goes
-            // too rather than describing mods that are no longer there.
             if let Err(err) = delete_modpack(&self.database, server_id).await {
                 warn!("Failed to clear the previous modpack record: {err:?}");
             }
@@ -506,8 +456,6 @@ impl Backend {
                 continue;
             };
 
-            // Nested targets like `config/sodium/options.json` need their parent
-            // to exist first.
             if let Some((parent, _)) = file.path.rsplit_once('/')
                 && let Err(err) = server
                     .node
@@ -542,8 +490,6 @@ impl Backend {
         })
         .await;
 
-        // `server-overrides` is applied second so it wins, which is what the
-        // format intends.
         let mut copied = self
             .apply_overrides(&server, &format!("{extracted}/{OVERRIDES_DIR}"))
             .await;
@@ -552,9 +498,6 @@ impl Backend {
             .await;
         info!("Applied {copied} override file(s) for a pack on {server_id}");
 
-        // Recorded so the pack's mods are attributed to it rather than looking
-        // like files nobody owns: the installer writes jars directly, without a
-        // record per mod.
         let record = ModpackRecord {
             provider: payload.provider,
             project: payload.project.clone(),
@@ -584,8 +527,6 @@ impl Backend {
         .await;
     }
 
-    /// Removes the staging tree. Best effort: leftovers are visible in the file
-    /// manager and cost only disk.
     async fn cleanup_staging(&self, server: &Server, staging: &str) {
         if let Err(err) = server
             .node
@@ -651,7 +592,6 @@ pub(crate) impl ModpackService for Backend {
             return Err(InstallModpackError::ResourceWrongTemplate);
         }
 
-        // Two packs unpacking into one server would interleave writes.
         if self
             .modpack_jobs
             .read()
@@ -662,8 +602,6 @@ pub(crate) impl ModpackService for Backend {
             return Err(InstallModpackError::ModpackAlreadyRunning);
         }
 
-        // Resolved before accepting the job so a bad request fails as a request,
-        // not as a job the user has to go and inspect.
         let resolved = self
             .resource_client()
             .resolve(payload.provider, &payload.project, &payload.version)

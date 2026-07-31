@@ -60,25 +60,14 @@ define_query_variable!(
     allow_prerelease "Whether beta/alpha versions count as updates (default false)"
 );
 
-/// Default page size, matching what the browser shows without scrolling.
 const DEFAULT_LIMIT: u8 = 24;
 
-/// Longest title stored for an installed resource, matching the column width.
 const MAX_TITLE_LENGTH: usize = 255;
 
-/// Mask selecting the file-type bits out of a Unix mode.
 const FILE_TYPE_MASK: u32 = 0xF000;
 
-/// Suffix that parks a resource without deleting it. Paper, Fabric and Forge
-/// all load by extension, so a `.jar.disabled` file is simply ignored — which
-/// makes the on-disk name the whole state, with nothing to keep in sync.
 const DISABLED_SUFFIX: &str = ".disabled";
 
-/// Splits an on-disk name into its base name and whether it is active.
-///
-/// Case-insensitive, to stay consistent with [`is_resource_file`]: otherwise a
-/// `Foo.jar.DISABLED` would be accepted as a resource but reported active, and
-/// its record would be reconciled away as missing.
 fn split_disabled(name: &str) -> (&str, bool) {
     if name.to_lowercase().ends_with(DISABLED_SUFFIX) {
         (
@@ -91,7 +80,6 @@ fn split_disabled(name: &str) -> (&str, bool) {
     }
 }
 
-/// The on-disk name a base name takes in the given state.
 fn state_file_name(base: &str, enabled: bool) -> String {
     if enabled {
         base.to_owned()
@@ -100,19 +88,10 @@ fn state_file_name(base: &str, enabled: bool) -> String {
     }
 }
 
-/// Which loaders a server can take resources for, and who serves them.
-///
-/// Derived from the template's enabled features so the frontend does not have
-/// to keep its own copy of the feature-to-loader mapping.
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ResourceContext {
     pub(crate) loaders: Vec<ResourceLoaderInfo>,
-    /// The Minecraft version the server runs, when the template reports one.
-    /// Clients use it to pre-fill the compatibility filter.
     pub(crate) game_version: Option<String>,
-    /// Whether a backup could be taken before a destructive install. Drives the
-    /// modpack confirm dialog: without it, "back up first" cannot be offered and
-    /// the safe default becomes a merge instead of a wipe.
     pub(crate) backup_available: bool,
 }
 
@@ -120,10 +99,7 @@ pub(crate) struct ResourceContext {
 pub(crate) struct ResourceLoaderInfo {
     pub(crate) loader: ResourceLoader,
     pub(crate) resource_type: ResourceType,
-    /// Providers that both serve this loader and are configured here.
     pub(crate) providers: Vec<ResourceProvider>,
-    /// Providers that also carry modpacks for this loader. Empty for Paper,
-    /// which has no modpack concept.
     pub(crate) modpack_providers: Vec<ResourceProvider>,
 }
 
@@ -133,12 +109,10 @@ pub(crate) struct InstallResourcePayload {
     pub(crate) project: String,
     pub(crate) version: String,
     pub(crate) loader: ResourceLoader,
-    /// Shown in the installed list; falls back to the project id.
     #[serde(default)]
     pub(crate) title: Option<String>,
 }
 
-/// Maps a template feature onto the loader it enables.
 const FEATURE_LOADERS: [(&str, ResourceLoader); 4] = [
     ("minecraft_plugins_paper", ResourceLoader::Paper),
     ("minecraft_mods_fabric", ResourceLoader::Fabric),
@@ -146,60 +120,40 @@ const FEATURE_LOADERS: [(&str, ResourceLoader); 4] = [
     ("minecraft_mods_neoforge", ResourceLoader::Neoforge),
 ];
 
-/// A mod that came from the installed modpack.
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ModpackMod {
     pub(crate) resource_type: ResourceType,
-    /// The name as it appears on disk.
     pub(crate) file_name: String,
     pub(crate) enabled: bool,
 }
 
-/// The modpack installed on this server, and what it put here.
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct InstalledModpack {
     pub(crate) provider: ResourceProvider,
     pub(crate) project: String,
     pub(crate) version: String,
     pub(crate) title: String,
-    /// Unix seconds.
     pub(crate) installed_at: i64,
-    /// The pack's mod jars that are on disk, with their current state.
     pub(crate) mods: Vec<ModpackMod>,
-    /// How many of the pack's other files (configs, scripts) are recorded. Not
-    /// listed individually — they are not resources and there is nothing to do
-    /// with them here.
     pub(crate) other_files: u32,
 }
 
-/// What the resource directories actually hold.
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct InstalledResources {
-    /// Resources installed through the browser, reconciled against disk.
     pub(crate) managed: Vec<InstalledResource>,
-    /// The installed modpack, when there is one. Its mods are listed here rather
-    /// than under `unmanaged`: they belong to the pack, not to nobody.
     pub(crate) modpack: Option<InstalledModpack>,
-    /// Resource files present on disk that no record points at — uploaded over
-    /// SFTP, dropped in via the file manager, or replaced by hand. Listed so the
-    /// panel reflects the directory rather than only our own bookkeeping.
     pub(crate) unmanaged: Vec<UnmanagedResource>,
-    /// Directories that could not be read, so neither list above is complete for
-    /// them. Lets a client say "couldn't check" instead of "nothing there".
     pub(crate) unreadable: Vec<ResourceType>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct UnmanagedResource {
     pub(crate) resource_type: ResourceType,
-    /// The name as it appears on disk, so a parked file reads as
-    /// `Foo.jar.disabled`.
     pub(crate) file_name: String,
     pub(crate) size: u64,
     pub(crate) enabled: bool,
 }
 
-/// An installed resource that has a newer version available.
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ResourceUpdate {
     pub(crate) provider: ResourceProvider,
@@ -210,24 +164,18 @@ pub(crate) struct ResourceUpdate {
     pub(crate) latest_version_number: String,
     pub(crate) latest_version_type: ResourceVersionType,
     pub(crate) latest_published_at: Option<String>,
-    /// `false` when the newest version cannot be fetched automatically, so the
-    /// update has to be done by hand.
     pub(crate) downloadable: bool,
 }
 
-/// The outcome of one resource in a batch update.
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ResourceUpdateResult {
     pub(crate) provider: ResourceProvider,
     pub(crate) project: String,
     pub(crate) title: String,
-    /// The version now installed, when it worked.
     pub(crate) version: Option<String>,
-    /// Why it did not update, when it did not.
     pub(crate) error: Option<String>,
 }
 
-/// The state a resource file ended up in.
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ResourceState {
     pub(crate) resource_type: ResourceType,
@@ -235,24 +183,14 @@ pub(crate) struct ResourceState {
     pub(crate) enabled: bool,
 }
 
-/// One directory's contents: the resource files in it, or `None` when it could
-/// not be read.
 type Listing = Option<Vec<(String, u64)>>;
 
-/// Whether a listing entry is a plain file (not a directory or symlink).
-///
-/// Plugin directories are full of per-plugin data folders, so this matters.
 const fn is_regular_file(mode: u32) -> bool {
     mode & FILE_TYPE_MASK == FileMode::REG.bits()
 }
 
-/// Whether a file name looks like an installable artifact for `resource_type`.
-///
-/// Keeps `config.yml`, logs and stray files out of the unmanaged list.
 pub(crate) fn is_resource_file(resource_type: ResourceType, name: &str) -> bool {
     let lower = name.to_lowercase();
-    // `.jar.disabled` is the conventional way to park a plugin without deleting
-    // it, so it still counts as a resource file.
     let base = lower.strip_suffix(".disabled").unwrap_or(lower.as_str());
     let extension = Path::new(base).extension().and_then(OsStr::to_str);
 
@@ -262,16 +200,10 @@ pub(crate) fn is_resource_file(resource_type: ResourceType, name: &str) -> bool 
     }
 }
 
-/// The base (active) name of an on-disk resource file.
 pub(crate) fn base_file_name(name: &str) -> String {
     split_disabled(name).0.to_owned()
 }
 
-/// Splits a pack-relative path into the resource directory it targets and the
-/// file name in it, for the paths that land in one at all.
-///
-/// A pack writes plenty of files that are not resources — `config/...`,
-/// `kubejs/...` — and those are counted, not listed.
 fn split_resource_path(path: &str) -> Option<(ResourceType, &str)> {
     [
         ResourceType::Plugin,
@@ -281,17 +213,10 @@ fn split_resource_path(path: &str) -> Option<(ResourceType, &str)> {
     .into_iter()
     .find_map(|resource_type| {
         let name = path.strip_prefix(resource_type.path_prefix())?;
-        // Only files directly in the directory; a nested path is a mod's own
-        // data, not a loadable artifact.
         (!name.is_empty() && !name.contains('/')).then_some((resource_type, name))
     })
 }
 
-/// Resource files on disk that no record claims.
-///
-/// Records store the base name, so both `Foo.jar` and `Foo.jar.disabled` count
-/// as claimed by a record for `Foo.jar` — otherwise disabling a managed plugin
-/// would make it show up as somebody else's file.
 fn collect_unmanaged(
     listings: &HashMap<ResourceType, Listing>,
     managed: &[InstalledResource],
@@ -301,7 +226,6 @@ fn collect_unmanaged(
         .iter()
         .map(|resource| (resource.resource_type, resource.file_name.as_str()))
         .collect();
-    // A pack's mods are the pack's, so they are not unmanaged either.
     claimed.extend(
         pack_files
             .iter()
@@ -331,18 +255,6 @@ fn collect_unmanaged(
     unmanaged
 }
 
-/// Splits records into (still on disk, gone from disk), resolving each surviving
-/// record's `enabled` flag from the name actually found.
-///
-/// A record matches either `Foo.jar` or `Foo.jar.disabled`, so parking a plugin
-/// — through this service or by hand over SFTP — keeps its provider/version
-/// history instead of reading as a removal.
-///
-/// `listings` maps a directory to the files in it, or to `None` when it could
-/// not be read. An unreadable directory is not evidence of removal, so its
-/// records are kept untouched — that is what keeps an unreachable node from
-/// wiping the install history. A directory that is missing entirely is readable
-/// *and* empty, and belongs in the map as `Some(empty)`.
 fn partition_present(
     recorded: Vec<InstalledResource>,
     listings: &HashMap<ResourceType, Listing>,
@@ -355,14 +267,10 @@ fn partition_present(
             .get(&resource.resource_type)
             .and_then(Option::as_ref)
         else {
-            // Nothing is known about the directory, so nothing is concluded.
             present.push(resource);
             continue;
         };
 
-        // Split each name found rather than building the one expected, so the
-        // suffix is matched on the same (case-insensitive) terms everywhere.
-        // Base names stay an exact match: file names are case-sensitive.
         let mut has_active = false;
         let mut has_parked = false;
         for (name, _size) in files {
@@ -387,16 +295,9 @@ fn partition_present(
     (present, missing)
 }
 
-/// Everything that can go wrong writing a resource onto a server.
-///
-/// The install path is shared by three routes with different generated error
-/// enums, so it reports through one type that is mapped once per route — the
-/// same shape as [`ResourceError::into`] and `TemplateError::into`.
 #[derive(Debug)]
 pub(crate) enum InstallError {
     Resource(ResourceError),
-    /// The resolved file is not an artifact this directory can load — a modpack
-    /// archive rather than a mod, for instance.
     UnexpectedFileType,
     Node,
     StorageUnavailable,
@@ -415,8 +316,6 @@ impl From<sqlx::Error> for InstallError {
 }
 
 impl InstallError {
-    /// Short, stable reason for per-item reporting in a batch update, where one
-    /// failure must not sink the whole response.
     pub(crate) const fn reason(&self) -> &'static str {
         match self {
             Self::Resource(resource) => resource.reason(),
@@ -466,18 +365,6 @@ impl InstallError {
     }
 }
 
-/// The newest version in a provider's list.
-///
-/// Providers mostly return newest-first, but none of them contract to, so this
-/// prefers the publish timestamp where one is given and falls back to the
-/// provider's own order. There is no version ordering that holds across four
-/// providers, so an "update" is defined as *the newest published version differs
-/// from the installed one* rather than as a semver comparison.
-///
-/// Pre-releases are skipped unless `allow_prerelease` is set: "update all" is a
-/// bulk mutation of a live server, and quietly moving every mod onto the latest
-/// beta is not what it should do. A project with nothing but pre-releases still
-/// reports one, since otherwise it could never be updated at all.
 fn newest_version(
     versions: Vec<ResourceVersion>,
     allow_prerelease: bool,
@@ -493,8 +380,6 @@ fn newest_version(
 
             let replace = match &best {
                 None => true,
-                // Only a comparable pair of timestamps can displace the
-                // incumbent; otherwise the provider's ordering stands.
                 Some((Some(current), _)) => stamp.is_some_and(|candidate| candidate > *current),
                 Some((None, _)) => false,
             };
@@ -518,11 +403,6 @@ fn newest_version(
     newest(releases).or_else(|| newest(prereleases))
 }
 
-/// Removes a resource file, whether it is currently active or parked.
-///
-/// A disabled plugin lives under `.jar.disabled`, so deleting only the base name
-/// would leave it on disk. Neither form being present is success: the caller is
-/// removing it either way.
 async fn remove_resource_file(
     server: &Server,
     resource_type: ResourceType,
@@ -562,11 +442,6 @@ impl Backend {
         }
     }
 
-    /// The loader each resource type resolves to on this server, plus the
-    /// Minecraft version to stay compatible with.
-    ///
-    /// Updates have to be filtered to the server's own loader and game version,
-    /// or the "latest" version offered could be one the server cannot run.
     async fn update_target(
         &self,
         server: &Server,
@@ -591,8 +466,6 @@ impl Backend {
         Ok((loaders, game_version))
     }
 
-    /// The newest version available for an installed resource, or `None` when it
-    /// is already the newest (or nothing compatible could be found).
     async fn available_update(
         &self,
         resource: &InstalledResource,
@@ -616,7 +489,6 @@ impl Backend {
             )
             .await
             .inspect_err(|err| {
-                // One unreachable provider must not sink the whole report.
                 warn!(
                     "Failed to check updates for {}/{}: {err:?}",
                     resource.provider.as_str(),
@@ -628,11 +500,6 @@ impl Backend {
         newest_version(versions, allow_prerelease).filter(|latest| latest.id != resource.version)
     }
 
-    /// Downloads `version` onto `server` and records it as installed.
-    ///
-    /// Shared by install and update: an update is an install of a newer version
-    /// over the same `(provider, project)` record, with exactly the same
-    /// replace-then-clean-up semantics.
     async fn install_version(
         &self,
         server: &Server,
@@ -653,11 +520,6 @@ impl Backend {
             .await
             .map_err(InstallError::Resource)?;
 
-        // Guards the modpack case: browsing modpacks means a client can name a
-        // modpack project here, and its `.mrpack`/`.zip` archive would be written
-        // into `mods/` where nothing would ever load it. Checking the resolved
-        // artifact rather than a client-declared kind means this holds however
-        // the request was built.
         if !is_resource_file(resource_type, &resolved.file_name) {
             warn!(
                 "Refusing to install {} as a {}: not a loadable artifact",
@@ -726,15 +588,6 @@ impl Backend {
                 }
             })?;
 
-        // Superseded files only go once the new one is on disk. Failures here
-        // leave a stale file behind, which is recoverable through the file
-        // manager, so they must not fail the install.
-        //
-        // The write above lands on the active name, so a parked copy of that
-        // same name is now a stale duplicate — and leaving it would make the
-        // resource impossible to disable afterwards. It has to go even when the
-        // file name did not change, which is why this is not folded into the
-        // `previous_file` case below.
         let parked = format!(
             "{}{}",
             resource_type.path_prefix(),
@@ -749,8 +602,6 @@ impl Backend {
             Err(err) => warn!("Failed to remove superseded parked resource {parked}: {err:?}"),
         }
 
-        // A previous file under a different name is a leftover of the old
-        // version, in whichever state it was left.
         if let Some((previous_file, previous_type)) = previous
             && previous_file != resolved.file_name
             && let Err(err) = remove_resource_file(server, previous_type, &previous_file).await
@@ -759,8 +610,6 @@ impl Backend {
         }
 
         let installed = InstalledResource {
-            // The column is varchar(255); an over-long title would fail the
-            // upsert *after* the file is on disk, orphaning it.
             title: title.map_or_else(
                 || project.to_owned(),
                 |title| title.chars().take(MAX_TITLE_LENGTH).collect(),
@@ -770,7 +619,6 @@ impl Backend {
             version: version.to_owned(),
             resource_type,
             file_name: resolved.file_name,
-            // Install always writes the active name.
             enabled: true,
             installed_at: chrono::Utc::now().timestamp(),
         };
@@ -828,9 +676,6 @@ pub(crate) impl ResourceService for Backend {
             })
             .collect();
 
-        // Storage configured on the node, and backups not disabled outright for
-        // this server. A full slot still surfaces at install time, where the job
-        // aborts before touching anything.
         let backup_available = server.backup_limit != Some(0)
             && sqlx::query_scalar!(
                 r#"SELECT COUNT(*) AS "count!" FROM node_backup_storage WHERE node = $1"#,
@@ -843,8 +688,6 @@ pub(crate) impl ResourceService for Backend {
         Ok(ResourceContext {
             loaders,
             backup_available,
-            // Every Minecraft variant stores the version under the same key, so
-            // this reads it without having to know which variant it is.
             game_version: server
                 .template_extra
                 .get("minecraft_version")
@@ -957,8 +800,6 @@ pub(crate) impl ResourceService for Backend {
 
         let modpack = get_modpack(&self.database, server_id).await?;
 
-        // Recorded pack paths that land in a resource directory, so they can be
-        // shown under the pack and kept out of the unmanaged list.
         let pack_files: HashSet<(ResourceType, String)> = modpack
             .as_ref()
             .map(|pack| {
@@ -975,11 +816,6 @@ pub(crate) impl ResourceService for Backend {
             .await?
             .ok_or(ListInstalledResourcesError::ServerNotFound)?;
 
-        // Which directories to look at comes from the template, not from the
-        // records: a server with nothing recorded can still hold hand-uploaded
-        // jars, and those are exactly what `unmanaged` is for. Stale records
-        // pointing at a directory the template no longer uses are included too,
-        // so they can still be reconciled away.
         let mut directories: HashSet<ResourceType> = server
             .template
             .enabled_features(self.cache.clone(), server.template_extra.clone())
@@ -994,8 +830,6 @@ pub(crate) impl ResourceService for Backend {
             })
             .collect();
         directories.extend(recorded.iter().map(|resource| resource.resource_type));
-        // A pack can be the only thing installed, and its mods still have to be
-        // reported, so its directories are listed too.
         directories.extend(
             pack_files
                 .iter()
@@ -1017,7 +851,6 @@ pub(crate) impl ResourceService for Backend {
                         .map(|entry| (entry.name, entry.size))
                         .collect::<Vec<_>>(),
                 ),
-                // The directory itself is gone, so nothing in it survives.
                 Err(ServerListFilesError::FileNotFound) => Some(Vec::new()),
                 Err(err) => {
                     warn!(
@@ -1042,15 +875,11 @@ pub(crate) impl ResourceService for Backend {
                 "Forgetting {} resource(s) removed outside the panel on server {server_id}: {files:?}",
                 files.len()
             );
-            // A failed cleanup must not fail the read: the response already
-            // reflects the filesystem, and the next read retries the delete.
             if let Err(err) = delete_installed_files(&self.database, server_id, &files).await {
                 warn!("Failed to forget removed resources: {err:?}");
             }
         }
 
-        // The pack's mods are reported from the directory listing, like
-        // everything else, so a mod deleted or parked by hand reads correctly.
         let modpack = modpack.map(|pack| {
             let mut mods = Vec::new();
             let mut other_files = 0u32;
@@ -1235,7 +1064,6 @@ pub(crate) impl ResourceService for Backend {
                 allow_prerelease.unwrap_or(false),
             )
             .await
-            // Nothing newer to install; the caller is already current.
             .ok_or(UpdateResourceError::ResourceMissing)?;
         let loader = *loaders
             .get(&resource.resource_type)
@@ -1361,9 +1189,6 @@ pub(crate) impl ResourceService for Backend {
             .await?
             .ok_or(UninstallResourceError::ServerNotFound)?;
 
-        // Removes whichever of the active/parked names is there. Already gone on
-        // disk is success too: the record is the stale thing, so dropping it
-        // below is exactly the right outcome.
         match remove_resource_file(&server, resource_type, &file_name).await {
             Ok(()) => {}
             Err(err) => {
@@ -1423,16 +1248,11 @@ pub(crate) impl ResourceService for Backend {
     ) -> Result<ResourceState, _> {
         auth.require::<_, _, SetResourceStateError>(server_id, ServerPermissions::FILES_WRITE)?;
 
-        // Data packs are zips loaded by directory scan; `.zip.disabled` is not a
-        // convention Minecraft honours, so there is nothing to toggle.
         if matches!(resource_type, ResourceType::DataPack) {
             return Err(SetResourceStateError::ResourceInvalidPayload);
         }
 
-        // The caller may name the file in either state; only the base matters.
         let (base, _) = split_disabled(&file);
-        // A bare file name inside the resource directory, nothing else: no
-        // separators, no traversal, and it has to look like a resource.
         if base.is_empty()
             || base.len() > 255
             || base.contains('/')
@@ -1449,9 +1269,6 @@ pub(crate) impl ResourceService for Backend {
             .await?
             .ok_or(SetResourceStateError::ServerNotFound)?;
 
-        // Read the directory first so the outcome is decided from what is
-        // actually there: that makes the no-op case explicit instead of
-        // inferring it from a rename failure.
         let present = server
             .node
             .server_list_files(server.node_server_id, resource_type.directory())
@@ -1487,15 +1304,10 @@ pub(crate) impl ResourceService for Backend {
         };
 
         if exists(&target) {
-            // Both names present. Reporting success here would be a lie for a
-            // disable — the active file would stay loaded — and picking one to
-            // delete could throw away a different version. Say so instead and
-            // let the file manager resolve it.
             if exists(&current) {
                 return Err(SetResourceStateError::FileAlreadyExists);
             }
 
-            // Already in the requested state.
             return Ok(ResourceState {
                 resource_type,
                 file_name: target,
@@ -1569,7 +1381,6 @@ mod tests {
         }
     }
 
-    /// A readable directory holding `files`.
     fn listing(files: &[&str]) -> Vec<(String, u64)> {
         files
             .iter()
@@ -1618,8 +1429,6 @@ mod tests {
 
     #[test]
     fn treats_a_renamed_file_as_removed() {
-        // A rename cannot be mapped back to a version, so the record is stale
-        // and the file becomes an unmanaged plugin.
         let listings = HashMap::from([(ResourceType::Plugin, Some(listing(&["a-renamed.jar"])))]);
 
         let (present, missing) =
@@ -1642,7 +1451,6 @@ mod tests {
 
     #[test]
     fn an_unreadable_directory_never_drops_records() {
-        // The safety property: a daemon fault must not be read as removal.
         let listings = HashMap::from([(ResourceType::Plugin, None)]);
 
         let (present, missing) = partition_present(
@@ -1668,8 +1476,6 @@ mod tests {
 
     #[test]
     fn the_disabled_suffix_is_matched_case_insensitively() {
-        // `is_resource_file` lowercases, so this has to agree or the record for
-        // `Foo.jar` would be judged missing while the file sits right there.
         assert_eq!(split_disabled("Foo.jar.DISABLED"), ("Foo.jar", false));
         assert_eq!(split_disabled("Foo.jar.Disabled"), ("Foo.jar", false));
 
@@ -1683,7 +1489,6 @@ mod tests {
         assert!(collect_unmanaged(&listings, &present, &HashSet::new()).is_empty());
     }
 
-    /// Existing cases all use release versions; this keeps them readable.
     fn newest_version_release(versions: Vec<ResourceVersion>) -> Option<ResourceVersion> {
         newest_version(versions, false)
     }
@@ -1707,8 +1512,6 @@ mod tests {
 
     #[test]
     fn newest_version_uses_the_publish_timestamp_not_list_order() {
-        // Deliberately out of order, and mixing the `Z` and `+00:00` spellings
-        // that different providers emit.
         let picked = newest_version_release(vec![
             version("old", Some("2026-01-01T00:00:00Z")),
             version("newest", Some("2026-06-01T12:00:00+00:00")),
@@ -1720,8 +1523,6 @@ mod tests {
 
     #[test]
     fn newest_version_compares_across_timezone_offsets() {
-        // 2026-01-01T01:00:00+02:00 is 23:00 the previous day in UTC, so the
-        // later-looking string is actually older.
         let picked = newest_version_release(vec![
             version("earlier", Some("2026-01-01T01:00:00+02:00")),
             version("later", Some("2026-01-01T00:30:00Z")),
@@ -1732,8 +1533,6 @@ mod tests {
 
     #[test]
     fn newest_version_falls_back_to_provider_order_without_timestamps() {
-        // Providers list newest first, so the first entry wins when there is
-        // nothing to compare.
         let picked = newest_version_release(vec![version("first", None), version("second", None)]);
 
         assert_eq!(picked.map(|entry| entry.id), Some("first".to_owned()));
@@ -1758,7 +1557,6 @@ mod tests {
 
     #[test]
     fn a_newer_prerelease_does_not_count_as_an_update_by_default() {
-        // "Update all" must not quietly move a live server onto betas.
         let picked = newest_version(
             vec![
                 prerelease("beta", "2026-07-01T00:00:00Z"),
@@ -1811,7 +1609,6 @@ mod tests {
 
     #[test]
     fn a_disabled_managed_file_stays_managed_and_reports_disabled() {
-        // The whole point: parking a plugin must not read as a removal.
         let listings = HashMap::from([(
             ResourceType::Plugin,
             Some(listing(&["World Events.jar.disabled"])),
@@ -1880,7 +1677,6 @@ mod tests {
             split_resource_path("plugins/essentials.jar"),
             Some((ResourceType::Plugin, "essentials.jar"))
         );
-        // Config trees and a mod's own data directory are not resources.
         assert_eq!(split_resource_path("config/sodium/options.json"), None);
         assert_eq!(split_resource_path("mods/nested/thing.jar"), None);
         assert_eq!(split_resource_path("mods/"), None);
@@ -1889,8 +1685,6 @@ mod tests {
 
     #[test]
     fn a_modpacks_mods_are_not_reported_as_unmanaged() {
-        // The whole point: a pack writes jars directly, with no record per mod,
-        // so without attribution every one of them looked hand-uploaded.
         let listings = HashMap::from([(
             ResourceType::Modification,
             Some(listing(&["from-pack.jar", "hand-uploaded.jar"])),
@@ -1910,7 +1704,6 @@ mod tests {
 
     #[test]
     fn a_disabled_modpack_mod_is_still_attributed_to_the_pack() {
-        // Parking a pack mod must not hand it back to the unmanaged list.
         let listings = HashMap::from([(
             ResourceType::Modification,
             Some(listing(&["from-pack.jar.disabled"])),
@@ -1922,7 +1715,6 @@ mod tests {
 
     #[test]
     fn a_pack_file_in_another_directory_does_not_claim_a_mod() {
-        // `config/foo.jar` must not silence `mods/foo.jar`.
         let listings = HashMap::from([(ResourceType::Modification, Some(listing(&["foo.jar"])))]);
         let pack_files = HashSet::from([(ResourceType::Plugin, "foo.jar".to_owned())]);
 
@@ -1951,7 +1743,6 @@ mod tests {
 
     #[test]
     fn ignores_non_resource_files_and_config_clutter() {
-        // A plugin directory is mostly per-plugin data; only jars are resources.
         let listings = HashMap::from([(
             ResourceType::Plugin,
             Some(listing(&[
@@ -2003,7 +1794,6 @@ mod tests {
 
     #[test]
     fn an_unreadable_directory_reports_no_unmanaged_files() {
-        // Nothing is known about it, so claiming it is empty would be a lie.
         let listings = HashMap::from([(ResourceType::Plugin, None)]);
 
         assert!(collect_unmanaged(&listings, &[], &HashSet::new()).is_empty());
@@ -2011,7 +1801,6 @@ mod tests {
 
     #[test]
     fn a_record_dropped_by_reconciliation_does_not_claim_its_file() {
-        // The record is gone and so is the file, so neither list mentions it.
         let listings = HashMap::from([(ResourceType::Plugin, Some(listing(&["kept.jar"])))]);
         let (present, missing) = partition_present(
             vec![
@@ -2027,9 +1816,6 @@ mod tests {
 
     #[test]
     fn a_hand_replaced_jar_moves_from_managed_to_unmanaged() {
-        // The user swapped Foo-1.0.jar for Foo-2.0.jar over SFTP: the stale
-        // record is dropped and the new file surfaces as unmanaged, so the panel
-        // still shows exactly what is on disk.
         let listings = HashMap::from([(ResourceType::Plugin, Some(listing(&["Foo-2.0.jar"])))]);
         let (present, missing) =
             partition_present(vec![record("Foo-1.0.jar", ResourceType::Plugin)], &listings);
@@ -2047,7 +1833,6 @@ mod tests {
 
     #[test]
     fn directories_are_reconciled_independently() {
-        // Plugins listed fine, mods unreadable: only the plugin record may go.
         let listings = HashMap::from([
             (ResourceType::Plugin, Some(listing(&[]))),
             (ResourceType::Modification, None),

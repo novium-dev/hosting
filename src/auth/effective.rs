@@ -7,18 +7,10 @@ use sqlx::{PgConnection, query, query_scalar};
 use std::collections::HashMap;
 use tracing::error;
 
-/// The full permission picture of a user: the instance-wide bits their role
-/// grants, the per-project grants (owned projects count as a full grant) and the
-/// per-server bits resolved from those.
-///
-/// Both the session guard and the API key guard build one of these; a key masks
-/// it down to what the key itself was created with (see [`Self::masked`]).
 pub struct EffectivePermissions {
     pub permissions: i64,
     pub projects: HashMap<ProjectId, i64>,
     pub servers: HashMap<ServerId, i64>,
-    /// The project each server in `servers` belongs to. Kept so a project-scoped
-    /// API key can drop every server outside its project.
     server_projects: HashMap<ServerId, ProjectId>,
 }
 
@@ -127,12 +119,6 @@ impl EffectivePermissions {
         })
     }
 
-    /// Restricts this picture to what an API key may do.
-    ///
-    /// Every bit is intersected with the key's own `mask`, so a key is always
-    /// bounded by its owner's current access. A key scoped to a `project` keeps
-    /// only that project and its servers and loses every instance-wide bit,
-    /// since management permissions are not project-scoped.
     #[must_use]
     pub fn masked(self, mask: i64, project: Option<ProjectId>) -> Self {
         let Some(project) = project else {
@@ -152,13 +138,6 @@ impl EffectivePermissions {
             };
         };
 
-        // A project-scoped key falls back to no permissions outside its
-        // project: `permissions` is what the permission resolver uses for
-        // anything absent from the maps below.
-        //
-        // The project grant is resolved the same way the permission traits do
-        // it (grant | instance-wide bits), so a key created by someone whose
-        // access comes from their role rather than from membership still works.
         let projects = HashMap::from([(
             project,
             (self.projects.get(&project).copied().unwrap_or_default() | self.permissions) & mask,

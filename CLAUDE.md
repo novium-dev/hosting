@@ -68,7 +68,7 @@ The clippy config in `Cargo.toml` is deliberately strict (`pedantic` + `nursery`
 
 ### Comments
 
-No useless comments — don't restate what the code already says, don't leave commented-out code, don't add file-header/description comments. Only write a comment when it carries WHY: a hidden constraint, a subtle invariant, a workaround for a specific bug, or behavior that would surprise a reader. If removing the comment wouldn't confuse a future reader, don't write it.
+No comments in the code, period — no file/module headers, no explanatory `//` or `///` notes, no commented-out code, no TODOs. Code should read clearly enough on its own (naming, structure) that it doesn't need narration. The one exception is route documentation, below.
 
 Every `#[route(...)]` handler must have a `///` doc comment directly above it describing what the endpoint does (these feed the OpenAPI docs at `/docs`). If the handler calls `auth.require`, add a `# Permissions` section listing the required permission(s), e.g.:
 

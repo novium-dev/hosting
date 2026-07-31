@@ -25,26 +25,19 @@ define_error!(api_key {
 pub(crate) struct ApiKeyInfo {
     pub(crate) id: i32,
     pub(crate) name: String,
-    /// The non-secret leading segment of the token; the token itself is only
-    /// ever returned once, when the key is created.
     pub(crate) prefix: String,
-    /// The project the key is scoped to, or `null` for an instance-wide key.
     pub(crate) project: Option<ProjectId>,
     pub(crate) project_slug: Option<String>,
     pub(crate) permissions: i64,
-    /// The user the key acts as.
     pub(crate) user: i32,
     pub(crate) username: String,
-    /// Unix seconds.
     pub(crate) created_at: i64,
-    /// Unix seconds, or `null` if the key has never been used.
     pub(crate) last_used: Option<i64>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct CreatedApiKey {
     pub(crate) id: i32,
-    /// The token. This is the only time it is ever returned.
     pub(crate) key: String,
 }
 
@@ -174,7 +167,7 @@ pub(crate) impl ApiKeyService for Backend {
     #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found <- [sql:foreign_key], api_key::permissions_exceeded)]
     async fn create_api_key(
         &self,
-        #[special] auth: UserAuthentication, // keys are minted by users, never by other keys
+        #[special] auth: UserAuthentication,
         name: String,
         project: Option<ProjectId>,
         permissions: i64,
@@ -297,12 +290,6 @@ pub(crate) impl ApiKeyService for Backend {
     }
 }
 
-/// Resolves the permission bits a key may be created with, or fails if they
-/// exceed what the creating user holds.
-///
-/// Dependencies are expanded first (the same way a permission check expands
-/// them), so a key asking for `FILES_WRITE` is stored — and checked against the
-/// creator — as `FILES_WRITE | FILES_READ`.
 fn grantable_permissions<
     E: FromAuthPermissionDenied + FromProjectNotFound + FromApiKeyPermissionsExceeded,
 >(
@@ -314,8 +301,6 @@ fn grantable_permissions<
         Some(project) => {
             auth.require::<_, _, E>(project, ProjectPermissions::VIEW)?;
 
-            // A project key only ever carries project and server bits;
-            // management permissions are instance-wide by definition.
             let scope = ProjectPermissions::all().bits() | ServerPermissions::all().bits();
             (
                 with_dependencies(permissions) & scope,
@@ -339,11 +324,6 @@ fn grantable_permissions<
     }
 }
 
-/// Expands every permission scope's dependencies over a raw bitfield.
-///
-/// Each scope only sees its own bits: `from_bits_retain` keeps foreign ones, and
-/// `ProjectPermissions` would then read a management-only key as "non-empty" and
-/// hand it project `VIEW`.
 fn with_dependencies(permissions: i64) -> i64 {
     let project_scope = ProjectPermissions::all().bits() | ServerPermissions::all().bits();
 

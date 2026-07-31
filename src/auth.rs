@@ -65,8 +65,6 @@ impl Authentication {
         }
     }
 
-    /// The user this request acts as, whether directly or through one of their
-    /// API keys.
     pub const fn user_id(&self) -> Option<i32> {
         match *self {
             Self::User(ref auth) => Some(auth.id),

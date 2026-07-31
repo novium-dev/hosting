@@ -64,8 +64,6 @@ struct VersionFile {
 }
 
 impl Version {
-    /// Modrinth marks one file per version as primary; older versions
-    /// occasionally mark none, in which case the first file is the jar.
     fn primary_file(&self) -> Option<&VersionFile> {
         self.files
             .iter()
@@ -129,9 +127,6 @@ pub(super) async fn search(
     client: &Client,
     query: &ResourceQuery,
 ) -> Result<Vec<ResourceProject>, ResourceError> {
-    // Modrinth models a Paper plugin as `project_type:plugin`, a modpack as
-    // `project_type:modpack` and everything else as `project_type:mod`; the
-    // loader itself is a category facet in all cases.
     let project_type = match (query.kind, query.loader) {
         (ResourceKind::Modpack, _) => "modpack",
         (ResourceKind::Resource, ResourceLoader::Paper) => "plugin",

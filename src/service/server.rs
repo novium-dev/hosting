@@ -37,7 +37,6 @@ pub(crate) struct ServerListInfo {
     template: String,
     node: String,
 
-    /// Only populated when `include` is set.
     status: Option<ServerListStatus>,
 }
 
@@ -91,7 +90,6 @@ pub(crate) struct ServerInfo {
     pub(crate) suspended: bool,
     pub(crate) primary_port: Option<PrimaryPortInfo>,
 
-    /// Daemon data (only present when the daemon is reachable)
     pub(crate) stats: Option<ServerStats>,
     pub(crate) state: Option<String>,
     pub(crate) started_at: Option<i64>,
@@ -159,9 +157,6 @@ pub(crate) impl ServerService for Backend {
 
         let templates = self.templates.read().await;
 
-        // When requested, fetch each server's live status from its daemon. This
-        // is opt-in (via `include`) because it costs one RPC per server and is
-        // only needed by the project server overview.
         let mut statuses: HashMap<ServerId, ServerListStatus> = if include == Some(true) {
             futures::future::join_all(servers.iter().filter_map(|server| {
                 nodes.get(&server.node).map(|node| {
@@ -788,7 +783,6 @@ pub(crate) impl ServerService for Backend {
             .await
             .map_err(TemplateError::into::<UpdateVariablesError>)?;
 
-        // Derived from the variables alone, so the ports have to be re-added.
         new_build
             .environment
             .extend(self.port_environment(&*self.database, server_id).await?);

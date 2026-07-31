@@ -1,5 +1,3 @@
-// https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml
-
 use reqwest::Client;
 use std::collections::HashMap;
 use tracing::error;
