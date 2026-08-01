@@ -179,6 +179,45 @@ export function formatCpuUsage(current: unknown, max: unknown) {
   return `${currentNumber.toFixed(2)}% / ${maxNumber.toFixed(2)}%`;
 }
 
+const MIB_SCALES = [
+  { min: 1024 * 1024, factor: 1024 * 1024, unit: "TiB" },
+  { min: 1024, factor: 1024, unit: "GiB" },
+  { min: 0, factor: 1, unit: "MiB" },
+];
+
+function mibScale(value: number) {
+  return MIB_SCALES.find((scale) => value >= scale.min) ?? MIB_SCALES[2];
+}
+
+function formatScaled(value: number) {
+  if (value >= 100) return value.toFixed(0);
+  if (value >= 10) return value.toFixed(1);
+  return value.toFixed(2);
+}
+
+export function formatUsageCompact(current: unknown, max: unknown): string {
+  const value = current == null ? null : toFiniteNumber(current);
+  const limit = max == null ? null : toFiniteNumber(max);
+
+  if (value === null && limit === null) {
+    return "-- / --";
+  }
+
+  const scale = mibScale(limit ?? value ?? 0);
+  const valueText = value === null ? "--" : formatScaled(value / scale.factor);
+
+  if (limit === null) {
+    return `${valueText} ${scale.unit} / ∞`;
+  }
+
+  return `${valueText} / ${formatScaled(limit / scale.factor)} ${scale.unit}`;
+}
+
+export function formatCpuCompact(current: unknown): string {
+  const value = current == null ? null : toFiniteNumber(current);
+  return value === null ? "--" : `${formatScaled(value)}%`;
+}
+
 export function formatUptime(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) {
     return "--";
