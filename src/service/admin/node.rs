@@ -144,18 +144,22 @@ pub(crate) impl NodeAdminService for Backend {
             base_url,
             storages,
             backups,
+            ssh_port,
         } = node.config().await.map_err(|err| {
             error!("Failed to pull config from node {node_id}: {err:?}");
             UpdateNodeError::NodeFailure
         })?;
+
+        let ssh_port: Option<i32> = ssh_port.map(i32::from);
 
         let mut conn = self.database.acquire().await?;
         let backend = self.clone();
         conn.transaction(|tx| {
             Box::pin(async move {
                 query!(
-                    "UPDATE nodes SET url = $1 WHERE id = $2",
+                    "UPDATE nodes SET url = $1, ssh_port = $2 WHERE id = $3",
                     base_url.as_str(),
+                    ssh_port,
                     node_id
                 )
                 .execute(&mut **tx)
