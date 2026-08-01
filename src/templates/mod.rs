@@ -105,6 +105,19 @@ pub trait Template {
         }
     }
 
+    fn primary_port_named(
+        &self,
+        ports: &HashMap<u32, ServerPort>,
+        name: &'static str,
+    ) -> impl Future<Output = Option<(u32, ServerPort, u16)>> + Send + Sync {
+        async move {
+            ports
+                .iter()
+                .find(|(_id, port)| port.name == name)
+                .map(|(id, port)| (*id, port.clone(), *port.external_port.start()))
+        }
+    }
+
     fn init(
         &self,
         cache_client: ConnectionManager,

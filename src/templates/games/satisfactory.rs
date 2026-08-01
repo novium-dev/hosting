@@ -16,6 +16,9 @@ use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemp
 const SATISFACTORY_APP_ID: u32 = 1_690_800;
 const SERVER_PORT: u16 = 7777;
 const RELIABLE_PORT: u16 = 8888;
+const SERVER_PORT_TCP_NAME: &str = "satisfactory_tcp";
+const SERVER_PORT_UDP_NAME: &str = "satisfactory_udp";
+const RELIABLE_PORT_NAME: &str = "reliable_messaging";
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct SatisfactoryExtra {
@@ -198,7 +201,7 @@ impl Template for SatisfactoryTemplate {
     ) -> Result<HashMap<String, TemplatePortDefinition>, ThinTemplateError> {
         Ok(HashMap::from([
             (
-                "satisfactory_tcp".to_owned(),
+                SERVER_PORT_TCP_NAME.to_owned(),
                 TemplatePortDefinition {
                     protocol: NetworkProtocol::Tcp,
                     internal_port: SERVER_PORT,
@@ -207,7 +210,7 @@ impl Template for SatisfactoryTemplate {
                 },
             ),
             (
-                "satisfactory_udp".to_owned(),
+                SERVER_PORT_UDP_NAME.to_owned(),
                 TemplatePortDefinition {
                     protocol: NetworkProtocol::Udp,
                     internal_port: SERVER_PORT,
@@ -216,7 +219,7 @@ impl Template for SatisfactoryTemplate {
                 },
             ),
             (
-                "reliable_messaging".to_owned(),
+                RELIABLE_PORT_NAME.to_owned(),
                 TemplatePortDefinition {
                     protocol: NetworkProtocol::Tcp,
                     internal_port: RELIABLE_PORT,
@@ -348,8 +351,7 @@ impl Template for SatisfactoryTemplate {
         _extra: Self::Extra,
         ports: &HashMap<u32, ServerPort>,
     ) -> Option<(u32, ServerPort, u16)> {
-        self.primary_port0(ports, SERVER_PORT, NetworkProtocol::Tcp)
-            .await
+        self.primary_port_named(ports, SERVER_PORT_TCP_NAME).await
     }
 
     fn default_internet_access(&self) -> bool {
