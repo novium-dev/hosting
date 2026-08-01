@@ -329,7 +329,6 @@ export default function ClientServerSectionPage() {
       ) : activeSection.key === "settings" ? (
         <ServerSettings
           serverId={server}
-          slug={slug}
           nodeHostname={serverData?.node.ssh_host ?? "Unknown"}
           username={session?.user.name ?? "-"}
           sshPort={serverData?.node.ssh_port ?? null}

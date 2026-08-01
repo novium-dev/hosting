@@ -32,7 +32,6 @@ import OrganizationPage from "@/app/(app)/[slug]/page";
 import SettingsPage from "@/app/(app)/[slug]/settings/page";
 import MembersPage from "@/app/(app)/[slug]/members/page";
 import ApiKeysPage from "@/app/(app)/[slug]/api-keys/page";
-import ProfileLayout from "@/app/(app)/[slug]/profile/layout";
 import ProfilePage from "@/app/(app)/[slug]/profile/page";
 import ServerLayout from "@/app/(app)/[slug]/servers/[server]/layout";
 import ServerSectionPage from "@/app/(app)/[slug]/servers/[server]/[[...section]]/page";
@@ -85,8 +84,7 @@ export const router = createBrowserRouter([
               { path: "api-keys", element: <ApiKeysPage /> },
               {
                 path: "profile",
-                element: <ProfileLayout />,
-                children: [{ index: true, element: <ProfilePage /> }],
+                element: <ProfilePage />,
               },
               {
                 path: "servers/:server",

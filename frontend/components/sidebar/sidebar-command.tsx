@@ -14,6 +14,7 @@ import {
   Users2Icon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
+import { useSettingsDialog } from "@/hooks/use-settings-dialog";
 import { useParams, useRouter } from "@/lib/navigation";
 import { useEffect, useState } from "react";
 
@@ -55,6 +56,7 @@ export function SidebarCommand({
 
   const { data: session } = authClient.useSession();
   const { theme, setTheme } = useTheme();
+  const { open: openSettings } = useSettingsDialog();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -108,8 +110,14 @@ export function SidebarCommand({
         {
           icon: UserIcon,
           label: "Profile",
-          href: `/${slug}/profile`,
-          keywords: ["personal", "details", "account"],
+          action: () => openSettings("profile"),
+          keywords: ["personal", "details", "account", "settings"],
+        },
+        {
+          icon: KeyRoundIcon,
+          label: "Daemon Auth",
+          action: () => openSettings("daemon"),
+          keywords: ["ssh", "sftp", "password", "keys"],
         },
         {
           icon: BellIcon,
@@ -160,13 +168,15 @@ export function SidebarCommand({
       );
 
   function runCommand(command: CommandMenuItem) {
-    if (command.href) {
-      router.push(command.href);
-    } else if (command.action) {
-      command.action();
-    }
-
     setOpen(false);
+
+    requestAnimationFrame(() => {
+      if (command.href) {
+        router.push(command.href);
+      } else if (command.action) {
+        command.action();
+      }
+    });
   }
 
   return (

@@ -23,12 +23,12 @@ import { Button } from "@/components/ui/button";
 import { appConfig } from "@/constants/config";
 import { authClient } from "@/lib/auth-client";
 import { useTheme } from "@/components/theme-provider";
-import { useParams } from "@/lib/navigation";
 import { useRouter } from "@/lib/navigation";
+import { useSettingsDialog } from "@/hooks/use-settings-dialog";
 
 export function NavUserMenu() {
   const router = useRouter();
-  const { slug } = useParams<{ slug?: string }>();
+  const { open: openSettings } = useSettingsDialog();
 
   const { data: session } = authClient.useSession();
   const { theme, setTheme } = useTheme();
@@ -83,12 +83,8 @@ export function NavUserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem
-            onClick={() => {
-              if (!slug) return;
-              router.push(`/${slug}/profile`);
-            }}
+            onClick={() => openSettings("profile")}
             className="w-full cursor-pointer"
-            disabled={!slug}
           >
             <Settings className="size-4" />
             <span className="text-sm">Profile Settings</span>

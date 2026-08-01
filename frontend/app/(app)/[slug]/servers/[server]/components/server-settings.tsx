@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "@/components/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "@/lib/navigation";
+import { useSettingsDialog } from "@/hooks/use-settings-dialog";
 import { Copy, ExternalLink, FolderOpen, Loader2, Network } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,7 +19,6 @@ import { serverInfo, updateServer } from "@/lib/api";
 
 type ServerSettingsProps = {
   serverId: string;
-  slug: string;
   username: string;
   nodeHostname: string;
   sshPort: number | null;
@@ -27,12 +26,12 @@ type ServerSettingsProps = {
 
 export function ServerSettings({
   serverId,
-  slug,
   username,
   nodeHostname,
   sshPort,
 }: ServerSettingsProps) {
   const router = useRouter();
+  const { open: openSettings } = useSettingsDialog();
   const [name, setName] = useState("");
   const [initialName, setInitialName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -240,14 +239,17 @@ export function ServerSettings({
           </div>
           <div className="flex flex-col gap-2 rounded-lg border bg-background/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
-              Your SFTP password is the daemon password shown on your profile.
+              Your SFTP password is the daemon password shown in your settings.
               You can also add SSH public keys there.
             </p>
-            <Button asChild variant="outline" className="shrink-0">
-              <Link href={`/${slug}/profile`}>
-                <ExternalLink className="size-4" />
-                Open Profile
-              </Link>
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => openSettings("daemon")}
+            >
+              <ExternalLink className="size-4" />
+              Daemon Auth
             </Button>
           </div>
         </CardContent>
