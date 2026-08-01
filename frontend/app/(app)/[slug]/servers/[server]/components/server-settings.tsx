@@ -68,9 +68,7 @@ export function ServerSettings({
     const host = nodeHostname || "Unknown";
     const portPart = sshPort ? `:${sshPort}` : "";
 
-    setSftpUrl(
-      `sftp://${encodeURIComponent(username)}@${host}${portPart}/${encodeURIComponent(serverId)}`,
-    );
+    setSftpUrl(`sftp://${encodeURIComponent(username)}@${host}${portPart}`);
   }, [serverId, username, nodeHostname, sshPort]);
 
   const canSave =
@@ -186,74 +184,74 @@ export function ServerSettings({
       </Card>
 
       {sshPort != null && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Network className="size-5 text-muted-foreground" />
-            SFTP Access
-          </CardTitle>
-          <CardDescription>
-            Use your daemon password for SFTP password auth, or configure SSH
-            public key auth from your profile.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Username</p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input readOnly value={username} className="font-mono" />
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Network className="size-5 text-muted-foreground" />
+              SFTP Access
+            </CardTitle>
+            <CardDescription>
+              Use your daemon password for SFTP password auth, or configure SSH
+              public key auth from your profile.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Username</p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input readOnly value={username} className="font-mono" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    void copyUsername();
+                  }}
+                >
+                  <Copy className="size-4" />
+                  Copy
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Open with SFTP</p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input readOnly value={sftpUrl} className="font-mono" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    void copySftpUrl();
+                  }}
+                  disabled={!sftpUrl}
+                >
+                  <Copy className="size-4" />
+                  Copy
+                </Button>
+                <Button asChild variant="outline" className="shrink-0">
+                  <a href={sftpUrl}>
+                    <FolderOpen className="size-4" />
+                    Open
+                  </a>
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 rounded-lg border bg-background/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Your SFTP password is the daemon password shown in your
+                settings. You can also add SSH public keys there.
+              </p>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  void copyUsername();
-                }}
+                className="shrink-0"
+                onClick={() => openSettings("daemon")}
               >
-                <Copy className="size-4" />
-                Copy
+                <ExternalLink className="size-4" />
+                Daemon Auth
               </Button>
             </div>
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Open with SFTP</p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input readOnly value={sftpUrl} className="font-mono" />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  void copySftpUrl();
-                }}
-                disabled={!sftpUrl}
-              >
-                <Copy className="size-4" />
-                Copy
-              </Button>
-              <Button asChild variant="outline" className="shrink-0">
-                <a href={sftpUrl}>
-                  <FolderOpen className="size-4" />
-                  Open
-                </a>
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 rounded-lg border bg-background/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Your SFTP password is the daemon password shown in your settings.
-              You can also add SSH public keys there.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              className="shrink-0"
-              onClick={() => openSettings("daemon")}
-            >
-              <ExternalLink className="size-4" />
-              Daemon Auth
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
