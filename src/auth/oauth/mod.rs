@@ -71,8 +71,6 @@ impl OAuthProvider {
 pub struct AuthUser {
     pub(crate) sub: String,
     pub(crate) email: String,
-    email_verified: bool,
-    name: String,
     #[serde(default)]
     pub(crate) given_name: Option<String>,
     #[serde(default)]
@@ -150,5 +148,22 @@ impl AuthService {
             .access_token()
             .secret()
             .clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ignores_null_claims_the_backend_does_not_use() {
+        let user: AuthUser = serde_json::from_str(
+            r#"{"sub":"abc","email_verified":true,"name":null,"email":"user@example.com","given_name":null}"#,
+        )
+        .expect("user info should deserialize");
+
+        assert_eq!(user.sub, "abc");
+        assert_eq!(user.email, "user@example.com");
+        assert_eq!(user.given_name, None);
     }
 }
