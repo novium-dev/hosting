@@ -1,18 +1,25 @@
 import { isReservedSlug } from "@/constants/reserved-slugs";
 import { z } from "zod";
 
+export const SLUG_PATTERN = /^[a-z0-9-]+$/;
+export const SLUG_MAX_LENGTH = 64;
+
 const slugSchema = z
   .string()
   .min(1, { message: "Slug is required" })
-  .regex(/^[a-z0-9-]+$/, {
-    message: "Slug must contain only lowercase letters, numbers, and hyphens",
+  .max(SLUG_MAX_LENGTH, {
+    message: `Slug must be at most ${SLUG_MAX_LENGTH} characters`,
+  })
+  .regex(SLUG_PATTERN, {
+    message:
+      "Slug must contain only lowercase letters, numbers, and hyphens — no spaces or special characters",
   })
   .refine((slug) => !isReservedSlug(slug), {
     message: "This slug is reserved and cannot be used",
   });
 
 export const createOrganizationSchema = z.object({
-  name: z.string(),
+  name: z.string().min(1, { message: "Name is required" }),
   slug: slugSchema,
 });
 

@@ -24,7 +24,12 @@ import { isReservedSlug } from "@/constants/reserved-slugs";
 import { TextEllipsis } from "@/components/ui/text-ellipsis";
 import { authClient } from "@/lib/auth-client";
 import type { AppOrganization } from "@/lib/auth";
-import { createOrganizationSchema } from "@/types/organization.schema";
+import {
+  SLUG_MAX_LENGTH,
+  SLUG_PATTERN,
+  createOrganizationSchema,
+} from "@/types/organization.schema";
+import { slugify } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
 import { IconCheck, IconX } from "@tabler/icons-react";
@@ -68,6 +73,11 @@ export function CreateOrganizationForm({
 
   const handleSlugCheck = useCallback(
     async (slug: string) => {
+      if (!SLUG_PATTERN.test(slug) || slug.length > SLUG_MAX_LENGTH) {
+        setIsSlugError(true);
+        return;
+      }
+
       if (isReservedSlug(slug)) {
         setIsSlugError(true);
         form.setError("slug", {
@@ -106,15 +116,17 @@ export function CreateOrganizationForm({
   }, [slugToCheck, handleSlugCheck]);
 
   const watchName = form.watch("name");
+  const hasSlugError = isSlugError || form.formState.errors.slug !== undefined;
 
   useEffect(() => {
     if (watchName.trim() === "") {
       form.setValue("slug", "");
+      setSlugToCheck("");
       return;
     }
-    const slug = watchName.toLowerCase().replace(/ /g, "-");
+    const slug = slugify(watchName, SLUG_MAX_LENGTH);
     setSlugToCheck(slug);
-    form.setValue("slug", slug);
+    form.setValue("slug", slug, { shouldValidate: true });
   }, [watchName, form]);
 
   return (
@@ -172,7 +184,7 @@ export function CreateOrganizationForm({
                     <InputGroupAddon align="inline-end">
                       {isValidatingSlug ? (
                         <Spinner />
-                      ) : isSlugError ? (
+                      ) : !field.value ? null : hasSlugError ? (
                         <div className="bg-destructive text-white flex size-4 items-center justify-center rounded-full">
                           <IconX className="size-3" />
                         </div>
@@ -185,6 +197,10 @@ export function CreateOrganizationForm({
                   </InputGroup>
                 </FormControl>
                 <FormMessage />
+                <FormDescription>
+                  Only lowercase letters, numbers, and hyphens — no spaces or
+                  special characters.
+                </FormDescription>
               </FormItem>
             )}
           />
@@ -192,7 +208,10 @@ export function CreateOrganizationForm({
             type="submit"
             className="w-full"
             disabled={
-              action.isExecuting || !form.formState.isValid || isValidatingSlug
+              action.isExecuting ||
+              !form.formState.isValid ||
+              isValidatingSlug ||
+              hasSlugError
             }
             loading={action.isExecuting}
           >

@@ -119,8 +119,24 @@ export const restartServer = <ThrowOnError extends boolean = false>(options: Opt
  */
 export const killServer = <ThrowOnError extends boolean = false>(options: Options<KillServerData, ThrowOnError>) => (options.client ?? client).get<KillServerResponses, KillServerErrors, ThrowOnError>({ url: '/server/{server_id}/kill', ...options });
 
+/**
+ *  Gets the server's template-defined build variables.
+ *
+ *  Gets the server's template-defined build variables.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::BUILD_VIEW`.
+ */
 export const serverVariables = <ThrowOnError extends boolean = false>(options: Options<ServerVariablesData, ThrowOnError>) => (options.client ?? client).get<ServerVariablesResponses, ServerVariablesErrors, ThrowOnError>({ url: '/server/{server_id}/variables', ...options });
 
+/**
+ *  Updates the server's template-defined build variables and pushes the resulting build to its node.
+ *
+ *  Updates the server's template-defined build variables and pushes the resulting build to its node.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::BUILD_EDIT`.
+ */
 export const updateVariables = <ThrowOnError extends boolean = false>(options: Options<UpdateVariablesData, ThrowOnError>) => (options.client ?? client).patch<UpdateVariablesResponses, UpdateVariablesErrors, ThrowOnError>({
     url: '/server/{server_id}/variables',
     ...options,
@@ -130,30 +146,134 @@ export const updateVariables = <ThrowOnError extends boolean = false>(options: O
     }
 });
 
+/**
+ *  Lists the contents of a directory on the server.
+ *
+ *  Lists the contents of a directory on the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_READ`.
+ */
 export const listFiles = <ThrowOnError extends boolean = false>(options: Options<ListFilesData, ThrowOnError>) => (options.client ?? client).get<ListFilesResponses, ListFilesErrors, ThrowOnError>({ url: '/file/{server_id}', ...options });
 
+/**
+ *  Gets metadata for a single file or directory on the server.
+ *
+ *  Gets metadata for a single file or directory on the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_READ`.
+ */
 export const statFile = <ThrowOnError extends boolean = false>(options: Options<StatFileData, ThrowOnError>) => (options.client ?? client).get<StatFileResponses, StatFileErrors, ThrowOnError>({ url: '/file/{server_id}/stat', ...options });
 
+/**
+ *  Renames or moves a file or directory on the server.
+ *
+ *  Renames or moves a file or directory on the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_WRITE`.
+ */
 export const renameFile = <ThrowOnError extends boolean = false>(options: Options<RenameFileData, ThrowOnError>) => (options.client ?? client).post<RenameFileResponses, RenameFileErrors, ThrowOnError>({ url: '/file/{server_id}/rename', ...options });
 
+/**
+ *  Copies a file on the server.
+ *
+ *  Copies a file on the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_WRITE`.
+ */
 export const copyFile = <ThrowOnError extends boolean = false>(options: Options<CopyFileData, ThrowOnError>) => (options.client ?? client).post<CopyFileResponses, CopyFileErrors, ThrowOnError>({ url: '/file/{server_id}/copy', ...options });
 
+/**
+ *  Deletes a file or directory on the server.
+ *
+ *  Deletes a file or directory on the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_WRITE`.
+ */
 export const deleteFile = <ThrowOnError extends boolean = false>(options: Options<DeleteFileData, ThrowOnError>) => (options.client ?? client).post<DeleteFileResponses, DeleteFileErrors, ThrowOnError>({ url: '/file/{server_id}/delete', ...options });
 
+/**
+ *  Creates a directory on the server.
+ *
+ *  Creates a directory on the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_WRITE`.
+ */
 export const createDirectory = <ThrowOnError extends boolean = false>(options: Options<CreateDirectoryData, ThrowOnError>) => (options.client ?? client).post<CreateDirectoryResponses, CreateDirectoryErrors, ThrowOnError>({ url: '/file/{server_id}/mkdir', ...options });
 
+/**
+ *  Creates a symlink on the server.
+ *
+ *  Creates a symlink on the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_WRITE`.
+ */
 export const symlinkFile = <ThrowOnError extends boolean = false>(options: Options<SymlinkFileData, ThrowOnError>) => (options.client ?? client).post<SymlinkFileResponses, SymlinkFileErrors, ThrowOnError>({ url: '/file/{server_id}/symlink', ...options });
 
+/**
+ *  Gets a signed URL to download a file from the server.
+ *
+ *  Gets a signed URL to download a file from the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_READ`.
+ */
 export const downloadUser = <ThrowOnError extends boolean = false>(options: Options<DownloadUserData, ThrowOnError>) => (options.client ?? client).get<DownloadUserResponses, DownloadUserErrors, ThrowOnError>({ url: '/file/{server_id}/download', ...options });
 
+/**
+ *  Gets a signed URL to upload a file to the server.
+ *
+ *  Gets a signed URL to upload a file to the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_WRITE`.
+ */
 export const uploadUser = <ThrowOnError extends boolean = false>(options: Options<UploadUserData, ThrowOnError>) => (options.client ?? client).get<UploadUserResponses, UploadUserErrors, ThrowOnError>({ url: '/file/{server_id}/upload', ...options });
 
+/**
+ *  Creates an archive from a file or directory on the server.
+ *
+ *  Creates an archive from a file or directory on the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_WRITE`.
+ */
 export const archiveFile = <ThrowOnError extends boolean = false>(options: Options<ArchiveFileData, ThrowOnError>) => (options.client ?? client).post<ArchiveFileResponses, ArchiveFileErrors, ThrowOnError>({ url: '/file/{server_id}/archive', ...options });
 
+/**
+ *  Extracts an archive on the server.
+ *
+ *  Extracts an archive on the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_WRITE`.
+ */
 export const unarchiveFile = <ThrowOnError extends boolean = false>(options: Options<UnarchiveFileData, ThrowOnError>) => (options.client ?? client).post<UnarchiveFileResponses, UnarchiveFileErrors, ThrowOnError>({ url: '/file/{server_id}/unarchive', ...options });
 
+/**
+ *  Reads a `.properties`, `.json` or `.yaml`/`.yml` config file on the server as structured JSON.
+ *
+ *  Reads a `.properties`, `.json` or `.yaml`/`.yml` config file on the server as structured JSON.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_READ`.
+ */
 export const getConfig = <ThrowOnError extends boolean = false>(options: Options<GetConfigData, ThrowOnError>) => (options.client ?? client).get<GetConfigResponses, GetConfigErrors, ThrowOnError>({ url: '/file/{server_id}/config', ...options });
 
+/**
+ *  Writes structured JSON back to a `.properties`, `.json` or `.yaml`/`.yml` config file on the server.
+ *
+ *  Writes structured JSON back to a `.properties`, `.json` or `.yaml`/`.yml` config file on the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_WRITE`.
+ */
 export const setConfig = <ThrowOnError extends boolean = false>(options: Options<SetConfigData, ThrowOnError>) => (options.client ?? client).post<SetConfigResponses, SetConfigErrors, ThrowOnError>({
     url: '/file/{server_id}/config',
     ...options,
@@ -163,16 +283,64 @@ export const setConfig = <ThrowOnError extends boolean = false>(options: Options
     }
 });
 
+/**
+ *  Lists the server's backups.
+ *
+ *  Lists the server's backups.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::BACKUP_VIEW`.
+ */
 export const listBackups = <ThrowOnError extends boolean = false>(options: Options<ListBackupsData, ThrowOnError>) => (options.client ?? client).get<ListBackupsResponses, ListBackupsErrors, ThrowOnError>({ url: '/backup/{server_id}', ...options });
 
+/**
+ *  Creates a backup on whichever suitable storage the node picks.
+ *
+ *  Creates a backup on whichever suitable storage the node picks.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::BACKUP_CREATE`.
+ */
 export const createBackup = <ThrowOnError extends boolean = false>(options: Options<CreateBackupData, ThrowOnError>) => (options.client ?? client).put<CreateBackupResponses, CreateBackupErrors, ThrowOnError>({ url: '/backup/{server_id}', ...options });
 
+/**
+ *  Creates a backup on the given storage.
+ *
+ *  Creates a backup on the given storage.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::BACKUP_CREATE` and `ManagementPermissions::BACKUP_STORAGE_SELECT`.
+ */
 export const createBackupWithStorage = <ThrowOnError extends boolean = false>(options: Options<CreateBackupWithStorageData, ThrowOnError>) => (options.client ?? client).put<CreateBackupWithStorageResponses, CreateBackupWithStorageErrors, ThrowOnError>({ url: '/backup/{server_id}/{backup_storage}', ...options });
 
+/**
+ *  Deletes a backup.
+ *
+ *  Deletes a backup.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::BACKUP_DELETE`.
+ */
 export const deleteBackup = <ThrowOnError extends boolean = false>(options: Options<DeleteBackupData, ThrowOnError>) => (options.client ?? client).delete<DeleteBackupResponses, DeleteBackupErrors, ThrowOnError>({ url: '/backup/{server_id}/{backup_storage}/{backup_id}', ...options });
 
+/**
+ *  Gets a signed URL to download a backup.
+ *
+ *  Gets a signed URL to download a backup.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::BACKUP_DOWNLOAD`.
+ */
 export const downloadBackup = <ThrowOnError extends boolean = false>(options: Options<DownloadBackupData, ThrowOnError>) => (options.client ?? client).get<DownloadBackupResponses, DownloadBackupErrors, ThrowOnError>({ url: '/backup/{server_id}/{backup_storage}/{backup_id}', ...options });
 
+/**
+ *  Renames a backup.
+ *
+ *  Renames a backup.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::BACKUP_RESTORE`.
+ */
 export const updateBackup = <ThrowOnError extends boolean = false>(options: Options<UpdateBackupData, ThrowOnError>) => (options.client ?? client).patch<UpdateBackupResponses, UpdateBackupErrors, ThrowOnError>({
     url: '/backup/{server_id}/{backup_storage}/{backup_id}',
     ...options,
@@ -182,8 +350,24 @@ export const updateBackup = <ThrowOnError extends boolean = false>(options: Opti
     }
 });
 
+/**
+ *  Restores the server from a backup.
+ *
+ *  Restores the server from a backup.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::BACKUP_RESTORE`.
+ */
 export const restoreBackup = <ThrowOnError extends boolean = false>(options: Options<RestoreBackupData, ThrowOnError>) => (options.client ?? client).get<RestoreBackupResponses, RestoreBackupErrors, ThrowOnError>({ url: '/backup/{server_id}/{backup_storage}/{backup_id}/restore', ...options });
 
+/**
+ *  Gets a signed URL to download a live archive of the server's files, built on demand rather than from a stored backup.
+ *
+ *  Gets a signed URL to download a live archive of the server's files, built on demand rather than from a stored backup.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_READ`.
+ */
 export const realtimeDownloadBackup = <ThrowOnError extends boolean = false>(options: Options<RealtimeDownloadBackupData, ThrowOnError>) => (options.client ?? client).get<RealtimeDownloadBackupResponses, RealtimeDownloadBackupErrors, ThrowOnError>({ url: '/backup/{server_id}/rt', ...options });
 
 /**
@@ -209,7 +393,7 @@ export const createServer = <ThrowOnError extends boolean = false>(options: Opti
  *  Deletes a server<br/>
  * <br/>
  * # Permissions<br/>
- * Requires `ProjectPermissions::VIEW` and `ManagementPermissions::SERVER_MANAGE`.
+ * Requires `ProjectPermissions::VIEW` and `ManagementPermissions::SERVER_DELETE`.
  */
 export const deleteServer = <ThrowOnError extends boolean = false>(options: Options<DeleteServerData, ThrowOnError>) => (options.client ?? client).delete<DeleteServerResponses, DeleteServerErrors, ThrowOnError>({ url: '/admin/server/{server_id}', ...options });
 
@@ -247,6 +431,14 @@ export const changeServerTemplate = <ThrowOnError extends boolean = false>(optio
     }
 });
 
+/**
+ *  Allocates a new port for the server.
+ *
+ *  Allocates a new port for the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ProjectPermissions::VIEW` and `ManagementPermissions::SERVER_MANAGE`.
+ */
 export const addPort = <ThrowOnError extends boolean = false>(options: Options<AddPortData, ThrowOnError>) => (options.client ?? client).put<AddPortResponses, AddPortErrors, ThrowOnError>({
     url: '/admin/server/{server_id}/ports',
     ...options,
@@ -256,8 +448,24 @@ export const addPort = <ThrowOnError extends boolean = false>(options: Options<A
     }
 });
 
+/**
+ *  Removes a port allocation from the server.
+ *
+ *  Removes a port allocation from the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ProjectPermissions::VIEW` and `ManagementPermissions::SERVER_MANAGE`.
+ */
 export const deletePort = <ThrowOnError extends boolean = false>(options: Options<DeletePortData, ThrowOnError>) => (options.client ?? client).delete<DeletePortResponses, DeletePortErrors, ThrowOnError>({ url: '/admin/server/{server_id}/ports/{port_id}', ...options });
 
+/**
+ *  Updates an existing port allocation for the server.
+ *
+ *  Updates an existing port allocation for the server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ProjectPermissions::VIEW` and `ManagementPermissions::SERVER_MANAGE`.
+ */
 export const updatePort = <ThrowOnError extends boolean = false>(options: Options<UpdatePortData, ThrowOnError>) => (options.client ?? client).post<UpdatePortResponses, UpdatePortErrors, ThrowOnError>({
     url: '/admin/server/{server_id}/ports/{port_id}',
     ...options,
@@ -273,7 +481,7 @@ export const updatePort = <ThrowOnError extends boolean = false>(options: Option
  *  Lists all nodes.<br/>
  * <br/>
  * # Permissions<br/>
- * Requires `ManagementPermission::NODES_VIEW`.
+ * Requires `ManagementPermissions::NODES_VIEW`.
  */
 export const listNodes = <ThrowOnError extends boolean = false>(options?: Options<ListNodesData, ThrowOnError>) => (options?.client ?? client).get<ListNodesResponses, ListNodesErrors, ThrowOnError>({ url: '/admin/node', ...options });
 
@@ -286,7 +494,7 @@ export const listNodes = <ThrowOnError extends boolean = false>(options?: Option
  * using the returned code and registers itself against it.<br/>
  * <br/>
  * # Permissions<br/>
- * Requires `ManagementPermission::NODES_MANAGE`.
+ * Requires `ManagementPermissions::NODES_MANAGE`.
  */
 export const createNode = <ThrowOnError extends boolean = false>(options: Options<CreateNodeData, ThrowOnError>) => (options.client ?? client).put<CreateNodeResponses, CreateNodeErrors, ThrowOnError>({
     url: '/admin/node',
@@ -304,7 +512,7 @@ export const createNode = <ThrowOnError extends boolean = false>(options: Option
  * reconciles it into the backend's stored config.<br/>
  * <br/>
  * # Permissions<br/>
- * Requires `ManagementPermission::NODES_MANAGE`.
+ * Requires `ManagementPermissions::NODES_MANAGE`.
  */
 export const updateNode = <ThrowOnError extends boolean = false>(options: Options<UpdateNodeData, ThrowOnError>) => (options.client ?? client).patch<UpdateNodeResponses, UpdateNodeErrors, ThrowOnError>({ url: '/admin/node/{node_id}', ...options });
 
@@ -314,7 +522,7 @@ export const updateNode = <ThrowOnError extends boolean = false>(options: Option
  *  Updates maintenance mode for a node.<br/>
  * <br/>
  * # Permissions<br/>
- * Requires `ManagementPermission::NODES_MANAGE`.
+ * Requires `ManagementPermissions::NODES_MANAGE`.
  */
 export const updateMaintenance = <ThrowOnError extends boolean = false>(options: Options<UpdateMaintenanceData, ThrowOnError>) => (options.client ?? client).patch<UpdateMaintenanceResponses, UpdateMaintenanceErrors, ThrowOnError>({
     url: '/admin/node/{node_id}/maintenance',
@@ -325,10 +533,34 @@ export const updateMaintenance = <ThrowOnError extends boolean = false>(options:
     }
 });
 
+/**
+ *  Gets live resource usage for a node.
+ *
+ *  Gets live resource usage for a node.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_VIEW`.
+ */
 export const metricsNode = <ThrowOnError extends boolean = false>(options: Options<MetricsNodeData, ThrowOnError>) => (options.client ?? client).get<MetricsNodeResponses, MetricsNodeErrors, ThrowOnError>({ url: '/admin/node/{node_id}/metrics', ...options });
 
+/**
+ *  Lists the node's port ranges, keyed by port allocation id, with each range's already-used ports excluded.
+ *
+ *  Lists the node's port ranges, keyed by port allocation id, with each range's already-used ports excluded.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_VIEW`.
+ */
 export const availablePorts = <ThrowOnError extends boolean = false>(options: Options<AvailablePortsData, ThrowOnError>) => (options.client ?? client).get<AvailablePortsResponses, AvailablePortsErrors, ThrowOnError>({ url: '/admin/node/{node_id}/ports', ...options });
 
+/**
+ *  Adds a port range the node can allocate to servers.
+ *
+ *  Adds a port range the node can allocate to servers.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_MANAGE`.
+ */
 export const addNodePort = <ThrowOnError extends boolean = false>(options: Options<AddNodePortData, ThrowOnError>) => (options.client ?? client).put<AddNodePortResponses, AddNodePortErrors, ThrowOnError>({
     url: '/admin/node/{node_id}/ports',
     ...options,
@@ -338,6 +570,14 @@ export const addNodePort = <ThrowOnError extends boolean = false>(options: Optio
     }
 });
 
+/**
+ *  Removes a port range from the node.
+ *
+ *  Removes a port range from the node.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_MANAGE`.
+ */
 export const deleteNodePort = <ThrowOnError extends boolean = false>(options: Options<DeleteNodePortData, ThrowOnError>) => (options.client ?? client).delete<DeleteNodePortResponses, DeleteNodePortErrors, ThrowOnError>({ url: '/admin/node/{node_id}/ports/{port_id}', ...options });
 
 /**
@@ -588,16 +828,62 @@ export const daemonRegister = <ThrowOnError extends boolean = false>(options: Op
     }
 });
 
+/**
+ *  Authenticates an SFTP/SSH password login against a server's daemon password.
+ *
+ *  Authenticates an SFTP/SSH password login against a server's daemon password.<br/>
+ * <br/>
+ * This route should only be used directly by the daemon.
+ */
 export const authPassword = <ThrowOnError extends boolean = false>(options: Options<AuthPasswordData, ThrowOnError>) => (options.client ?? client).get<AuthPasswordResponses, AuthPasswordErrors, ThrowOnError>({ url: '/internal/auth/password', ...options });
 
+/**
+ *  Authenticates an SFTP/SSH public-key login against a user's registered SSH keys.
+ *
+ *  Authenticates an SFTP/SSH public-key login against a user's registered SSH keys.<br/>
+ * <br/>
+ * This route should only be used directly by the daemon.
+ */
 export const authPublickey = <ThrowOnError extends boolean = false>(options: Options<AuthPublickeyData, ThrowOnError>) => (options.client ?? client).get<AuthPublickeyResponses, AuthPublickeyErrors, ThrowOnError>({ url: '/internal/auth/publickey', ...options });
 
+/**
+ *  Bans a player from the Minecraft server.
+ *
+ *  Bans a player from the Minecraft server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::TERMINAL_WRITE`.
+ */
 export const banUser = <ThrowOnError extends boolean = false>(options: Options<BanUserData, ThrowOnError>) => (options.client ?? client).get<BanUserResponses, BanUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/ban', ...options });
 
+/**
+ *  Lifts a ban on a player from the Minecraft server.
+ *
+ *  Lifts a ban on a player from the Minecraft server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::TERMINAL_WRITE`.
+ */
 export const pardonUser = <ThrowOnError extends boolean = false>(options: Options<PardonUserData, ThrowOnError>) => (options.client ?? client).get<PardonUserResponses, PardonUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/pardon', ...options });
 
+/**
+ *  Grants a player operator status on the Minecraft server.
+ *
+ *  Grants a player operator status on the Minecraft server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::TERMINAL_WRITE`.
+ */
 export const opUser = <ThrowOnError extends boolean = false>(options: Options<OpUserData, ThrowOnError>) => (options.client ?? client).get<OpUserResponses, OpUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/op', ...options });
 
+/**
+ *  Revokes a player's operator status on the Minecraft server.
+ *
+ *  Revokes a player's operator status on the Minecraft server.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::TERMINAL_WRITE`.
+ */
 export const deopUser = <ThrowOnError extends boolean = false>(options: Options<DeopUserData, ThrowOnError>) => (options.client ?? client).get<DeopUserResponses, DeopUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/deop', ...options });
 
 /**
@@ -883,4 +1169,11 @@ export const resyncTemplate = <ThrowOnError extends boolean = false>(options: Op
     }
 });
 
+/**
+ *  Logs in as a seeded admin dev user and returns the raw session token.
+ *
+ *  Logs in as a seeded admin dev user and returns the raw session token.<br/>
+ * <br/>
+ * Only available when the crate is built with the `auth_dev` feature, which is forbidden in release builds.
+ */
 export const loginDev = <ThrowOnError extends boolean = false>(options?: Options<LoginDevData, ThrowOnError>) => (options?.client ?? client).get<LoginDevResponses, LoginDevErrors, ThrowOnError>({ url: '/auth/login/dev', ...options });

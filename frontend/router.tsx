@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router-dom";
 import RootLayout from "@/app/layout";
 import ErrorPage from "@/app/error/page";
 import HomePage from "@/app/page";
+import PreviewPage from "@/app/preview-page";
 import {
   NotFound,
   RouteErrorBoundary,
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
     children: [
       { path: "/error", element: <ErrorPage /> },
+      { path: "/preview", element: <PreviewPage /> },
 
       // Auth group: signin (redirects to onboarding if already signed in).
       {

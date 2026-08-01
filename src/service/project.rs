@@ -5,9 +5,10 @@ use crate::auth::permissions::{ProjectPermissions, ServerPermissions};
 use crate::auth::user::UserAuthentication;
 use crate::db::project::ProjectId;
 use crate::service::error_project_not_found::FromProjectNotFound;
+use crate::service::error_project_slug_invalid::FromProjectSlugInvalid;
 use crate::service::project::project_service_error::{
-    DeleteProjectError, GetProjectError, ListProjectUsersError, ListProjectsError,
-    RemoveProjectUserError, SetProjectUserError, UpdateProjectError,
+    CreateProjectError, DeleteProjectError, GetProjectError, ListProjectUsersError,
+    ListProjectsError, RemoveProjectUserError, SetProjectUserError, UpdateProjectError,
 };
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use serde::Serialize;
@@ -16,6 +17,42 @@ use zelus::{define_query_variable, service};
 
 define_query_variable!(own "Only include projects owned by or shared with the current user");
 define_query_variable!(slug "The project slug to check for availability");
+
+const SLUG_MAX_LENGTH: usize = 64;
+
+const RESERVED_SLUGS: &[&str] = &[
+    "accept-invitation",
+    "admin",
+    "api",
+    "auth",
+    "create",
+    "error",
+    "login",
+    "logout",
+    "novium",
+    "onboarding",
+    "profile",
+    "settings",
+    "signin",
+    "signout",
+    "signup",
+    "static",
+];
+
+fn validate_slug<E: FromProjectSlugInvalid>(slug: &str) -> Result<(), E> {
+    let valid = !slug.is_empty()
+        && slug.len() <= SLUG_MAX_LENGTH
+        && slug
+            .chars()
+            .all(|char| char.is_ascii_lowercase() || char.is_ascii_digit() || char == '-')
+        && !RESERVED_SLUGS.contains(&slug);
+
+    if valid {
+        Ok(())
+    } else {
+        Err(<E as FromProjectSlugInvalid>::from())
+    }
+}
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ProjectInfo {
@@ -87,13 +124,15 @@ pub(crate) impl ProjectService for Backend {
 
     /// Creates a new project owned by the current user.
     #[route("", method = PUT)]
-    #[error(db::failure <- [sql:*], auth::unreachable)]
+    #[error(db::failure <- [sql:*], auth::unreachable, project::slug_invalid)]
     async fn create_project(
         &self,
         #[special] auth: UserAuthentication,
         slug: String,
         name: String,
     ) -> Result<String, _> {
+        validate_slug::<CreateProjectError>(&slug)?;
+
         let id = ProjectId::generate();
 
         query!(
@@ -166,7 +205,7 @@ pub(crate) impl ProjectService for Backend {
 
     /// Updates project metadata.
     #[route("/{project_id}", method = PATCH)]
-    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found <- [sql:not_found], user::not_found <- [sql:foreign_key])]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found <- [sql:not_found], slug_invalid}, user::not_found <- [sql:foreign_key])]
     async fn update_project(
         &self,
         #[special] auth: Authentication,
@@ -176,6 +215,10 @@ pub(crate) impl ProjectService for Backend {
         owner: Option<i32>,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateProjectError>(project_id, ProjectPermissions::ADMIN_MANAGEMENT)?;
+
+        if let Some(slug) = slug.as_deref() {
+            validate_slug::<UpdateProjectError>(slug)?;
+        }
 
         let mut tx = self.database.begin().await?;
 

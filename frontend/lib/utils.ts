@@ -5,6 +5,25 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const transliterations: Record<string, string> = {
+  ä: "ae",
+  ö: "oe",
+  ü: "ue",
+  ß: "ss",
+};
+
+export function slugify(value: string, maxLength = 64) {
+  return value
+    .toLowerCase()
+    .replace(/[äöüß]/g, (char) => transliterations[char] ?? char)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+/, "")
+    .slice(0, maxLength)
+    .replace(/-+$/, "");
+}
+
 export function titleCase(str: string) {
   return str
     .split(/[\s-_]+/)
