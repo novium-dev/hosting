@@ -330,10 +330,11 @@ export function ServerCreateForm({
   const [node, setNode] = useState<string>(nodes[0]?.id ?? "");
   const [storage, setStorage] = useState(nodes[0]?.serverStorages?.[0] ?? "");
 
-  const [cpu, setCpu] = useState("");
-  const [ram, setRam] = useState("");
-  const [disk, setDisk] = useState("");
+  const [cpu, setCpu] = useState("100");
+  const [ram, setRam] = useState("1024");
+  const [disk, setDisk] = useState("4048");
   const [swap, setSwap] = useState("0");
+  const [backupLimit, setBackupLimit] = useState("0");
   const [internetAccess, setInternetAccess] = useState(true);
 
   const [ports, setPorts] = useState<Record<string, number>>({});
@@ -594,6 +595,7 @@ export function ServerCreateForm({
       ram: toNullableNumber(ram),
       disk: toNullableNumber(disk),
       swap: toNullableNumber(swap),
+      backupLimit: toNullableNumber(backupLimit),
       variables: variablesAsStrings,
       ports,
     });
@@ -802,6 +804,20 @@ export function ServerCreateForm({
                 onChange={(event) => setSwap(event.target.value)}
                 placeholder="e.g. 1024"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="backup-limit">Backup Limit</Label>
+              <Input
+                id="backup-limit"
+                type="number"
+                min={0}
+                value={backupLimit}
+                onChange={(event) => setBackupLimit(event.target.value)}
+                placeholder="e.g. 3"
+              />
+              <p className="text-xs text-muted-foreground">
+                0 disables backups, empty means unlimited.
+              </p>
             </div>
           </div>
         </div>
