@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "@/components/link";
 import {
   AlertTriangle,
@@ -193,6 +193,11 @@ export function ServerManagementBar({
     setUsagePercents(initialUsage.percents);
   }, [initialUsage]);
 
+  const limitsRef = useRef({ cpuLimit, diskLimit, ramLimit, swapLimit });
+  useEffect(() => {
+    limitsRef.current = { cpuLimit, diskLimit, ramLimit, swapLimit };
+  }, [cpuLimit, diskLimit, ramLimit, swapLimit]);
+
   useEffect(() => {
     if (!addressCopied) {
       return;
@@ -215,9 +220,6 @@ export function ServerManagementBar({
   useEffect(() => {
     let mounted = true;
     let socket: WebSocket | null = null;
-
-    setUsage(initialUsage.usage);
-    setUsagePercents(initialUsage.percents);
 
     const connectStats = async () => {
       try {
@@ -242,6 +244,11 @@ export function ServerManagementBar({
 
         socket = new WebSocket(socketUrl);
         socket.binaryType = "arraybuffer";
+
+        if (!mounted) {
+          socket.close();
+          return;
+        }
 
         socket.onopen = () => {
           if (!mounted) {
@@ -281,14 +288,16 @@ export function ServerManagementBar({
                 unknown
               >;
 
+              const limits = limitsRef.current;
               const ramCurrent = payload.ram ?? payload.mem;
-              const ramMax = payload.ram_max ?? payload.mem_max ?? ramLimit;
+              const ramMax =
+                payload.ram_max ?? payload.mem_max ?? limits.ramLimit;
               const cpuCurrent = payload.cpu ?? payload.cpu_absolute;
-              const cpuMax = payload.cpu_max ?? cpuLimit;
+              const cpuMax = payload.cpu_max ?? limits.cpuLimit;
               const diskCurrent = payload.disk ?? payload.storage;
               const diskMax =
-                payload.disk_max ?? payload.storage_max ?? diskLimit;
-              const swapMax = payload.swap_max ?? swapLimit;
+                payload.disk_max ?? payload.storage_max ?? limits.diskLimit;
+              const swapMax = payload.swap_max ?? limits.swapLimit;
 
               setUsage({
                 cpu: formatCpuUsage(cpuCurrent, cpuMax),
@@ -365,7 +374,7 @@ export function ServerManagementBar({
       mounted = false;
       socket?.close();
     };
-  }, [initialUsage, cpuLimit, diskLimit, ramLimit, serverId, swapLimit]);
+  }, [serverId]);
 
   const executePowerAction = async (action: PowerAction) => {
     setPendingAction(action);
