@@ -300,8 +300,12 @@ pub(crate) impl NodeAdminService for Backend {
             .cloned()
             .ok_or(AvailablePortsError::NodeNotFound)?;
 
-        let used: HashSet<u16> = query!(
-            r#"SELECT lower(server_ports.external_port) AS "external_port_start!", upper(server_ports.external_port) - 1 AS "external_port_end!"
+        let mut used: HashMap<NetworkProtocol, HashSet<u16>> = HashMap::new();
+        for row in query!(
+            r#"SELECT
+                   server_ports.protocol AS "protocol: NetworkProtocol",
+                   lower(server_ports.external_port) AS "external_port_start!",
+                   upper(server_ports.external_port) - 1 AS "external_port_end!"
                FROM servers
                JOIN server_ports ON server_ports.server = servers.id
                WHERE servers.node = $1"#,
@@ -309,17 +313,21 @@ pub(crate) impl NodeAdminService for Backend {
         )
         .fetch_all(&*self.database)
         .await?
-        .into_iter()
-        .flat_map(|row| {
-            (row.external_port_start..=row.external_port_end).filter_map(|port| port.try_into().ok())
-        })
-        .collect();
+        {
+            used.entry(row.protocol).or_default().extend(
+                (row.external_port_start..=row.external_port_end)
+                    .filter_map(|port| u16::try_from(port).ok()),
+            );
+        }
 
         let mut result: HashMap<String, Vec<PortRange>> = HashMap::new();
         for port in &node.ports {
+            let used_for_protocol = used.get(&port.protocol);
             let exclude = (port.start..=port.end)
-                .filter_map(|candidate| candidate.try_into().ok())
-                .filter(|candidate| used.contains(candidate))
+                .filter_map(|candidate| u16::try_from(candidate).ok())
+                .filter(|candidate| {
+                    used_for_protocol.is_some_and(|ports| ports.contains(candidate))
+                })
                 .collect();
             result
                 .entry(port.id.to_string())
