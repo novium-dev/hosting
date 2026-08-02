@@ -6,7 +6,9 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type ComponentType,
   type DragEvent,
+  type ReactNode,
 } from "react";
 import { useRouter } from "@/lib/navigation";
 import {
@@ -58,6 +60,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -104,6 +112,12 @@ type FilesManagerProps = {
 };
 
 type FileRow = ListFilesResponses[200][number];
+
+type ActionMenuItem = ComponentType<{
+  children?: ReactNode;
+  className?: string;
+  onSelect?: (event: Event) => void;
+}>;
 
 /*
 Delete/archive/unarchive/upload are not in undo history yet, since true reversal is backend-dependent and can be destructive if guessed.
@@ -1185,6 +1199,29 @@ export function FilesManager({
       : ["View", "Permissions", "Download"];
   };
 
+  const renderEntryActions = (entry: FileRow, Item: ActionMenuItem) =>
+    getActionsForEntry(entry).map((action) => {
+      const ActionIcon = getActionIcon(action);
+      const destructive = action === "Delete";
+
+      return (
+        <Item
+          key={`${entry.relative_path}-${action}`}
+          onSelect={() => {
+            void onAction(entry, action);
+          }}
+          className={
+            destructive ? "text-destructive focus:text-destructive" : undefined
+          }
+        >
+          <ActionIcon
+            className={`size-4 ${destructive ? "text-destructive" : "text-muted-foreground"}`}
+          />
+          {action}
+        </Item>
+      );
+    });
+
   return (
     <Card>
       <CardHeader className="space-y-4">
@@ -1370,115 +1407,108 @@ export function FilesManager({
                   const directory = kind === "directory";
 
                   return (
-                    <TableRow
+                    <ContextMenu
                       key={entry.relative_path || `${entry.name}-${entry.mode}`}
-                      className={
-                        directory &&
-                        dropTargetPath ===
-                          normalizePath(joinPath(currentPath, entry.name))
-                          ? "bg-primary/5"
-                          : ""
-                      }
-                      onDragOver={
-                        directory
-                          ? (event) =>
-                              handleDragOverTarget(
-                                event,
-                                normalizePath(
-                                  joinPath(currentPath, entry.name),
-                                ),
-                              )
-                          : undefined
-                      }
-                      onDragLeave={
-                        directory
-                          ? () =>
-                              handleDragLeaveTarget(
-                                normalizePath(
-                                  joinPath(currentPath, entry.name),
-                                ),
-                              )
-                          : undefined
-                      }
-                      onDrop={
-                        directory
-                          ? (event) => {
-                              void handleDropToPath(
-                                event,
-                                normalizePath(
-                                  joinPath(currentPath, entry.name),
-                                ),
-                              );
-                            }
-                          : undefined
-                      }
                     >
-                      <TableCell>
-                        {directory ? (
-                          <button
-                            type="button"
-                            draggable
-                            onDragStart={(event) =>
-                              handleEntryDragStart(event, entry)
-                            }
-                            onDragEnd={handleEntryDragEnd}
-                            onClick={() =>
-                              void refresh(joinPath(currentPath, entry.name))
-                            }
-                            className="inline-flex cursor-grab items-center gap-2 font-medium hover:text-primary active:cursor-grabbing"
-                          >
-                            <Folder className="size-4" />
-                            {entry.name}
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            draggable
-                            onDragStart={(event) =>
-                              handleEntryDragStart(event, entry)
-                            }
-                            onDragEnd={handleEntryDragEnd}
-                            onClick={() => handleFileClick(entry)}
-                            className="inline-flex cursor-grab items-center gap-2 hover:text-primary active:cursor-grabbing"
-                          >
-                            <File className="size-4" />
-                            {entry.name}
-                          </button>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {directory ? "-" : formatBytes(entry.size)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button type="button" size="sm" variant="ghost">
-                              <MoreHorizontal className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44">
-                            {getActionsForEntry(entry).map((action) => {
-                              const ActionIcon = getActionIcon(action);
-
-                              return (
-                                <DropdownMenuItem
-                                  key={`${entry.relative_path}-${action}`}
-                                  onSelect={() => {
-                                    void onAction(entry, action);
-                                  }}
-                                  className={action === "Delete" ? "text-destructive focus:text-destructive" : undefined}
-                                >
-                                  <ActionIcon
-                                    className={`size-4 ${action === "Delete" ? "text-destructive" : "text-muted-foreground"}`}
-                                  />
-                                  {action}
-                                </DropdownMenuItem>
-                              );
-                            })}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                      <ContextMenuTrigger asChild>
+                        <TableRow
+                          className={
+                            directory &&
+                            dropTargetPath ===
+                              normalizePath(joinPath(currentPath, entry.name))
+                              ? "bg-primary/5"
+                              : ""
+                          }
+                          onDragOver={
+                            directory
+                              ? (event) =>
+                                  handleDragOverTarget(
+                                    event,
+                                    normalizePath(
+                                      joinPath(currentPath, entry.name),
+                                    ),
+                                  )
+                              : undefined
+                          }
+                          onDragLeave={
+                            directory
+                              ? () =>
+                                  handleDragLeaveTarget(
+                                    normalizePath(
+                                      joinPath(currentPath, entry.name),
+                                    ),
+                                  )
+                              : undefined
+                          }
+                          onDrop={
+                            directory
+                              ? (event) => {
+                                  void handleDropToPath(
+                                    event,
+                                    normalizePath(
+                                      joinPath(currentPath, entry.name),
+                                    ),
+                                  );
+                                }
+                              : undefined
+                          }
+                        >
+                          <TableCell>
+                            {directory ? (
+                              <button
+                                type="button"
+                                draggable
+                                onDragStart={(event) =>
+                                  handleEntryDragStart(event, entry)
+                                }
+                                onDragEnd={handleEntryDragEnd}
+                                onClick={() =>
+                                  void refresh(
+                                    joinPath(currentPath, entry.name),
+                                  )
+                                }
+                                className="inline-flex cursor-grab items-center gap-2 font-medium hover:text-primary active:cursor-grabbing"
+                              >
+                                <Folder className="size-4" />
+                                {entry.name}
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                draggable
+                                onDragStart={(event) =>
+                                  handleEntryDragStart(event, entry)
+                                }
+                                onDragEnd={handleEntryDragEnd}
+                                onClick={() => handleFileClick(entry)}
+                                className="inline-flex cursor-grab items-center gap-2 hover:text-primary active:cursor-grabbing"
+                              >
+                                <File className="size-4" />
+                                {entry.name}
+                              </button>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {directory ? "-" : formatBytes(entry.size)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button type="button" size="sm" variant="ghost">
+                                  <MoreHorizontal className="size-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                {renderEntryActions(entry, DropdownMenuItem)}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent className="w-44">
+                        {renderEntryActions(entry, ContextMenuItem)}
+                      </ContextMenuContent>
+                    </ContextMenu>
                   );
                 })}
               </TableBody>
