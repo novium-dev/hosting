@@ -122,7 +122,7 @@ function getEntriesForNode(node: unknown): string[] {
     const prefix = node.prefix ?? "";
     const values: string[] = [];
 
-    for (let build = start; build <= end; build += 1) {
+    for (let build = end; build >= start; build -= 1) {
       if (!excluded.has(build)) {
         values.push(`${prefix}${build}`);
       }
