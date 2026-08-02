@@ -80,6 +80,15 @@ type OpsEntry = {
   bypassesPlayerLimit?: boolean;
 };
 
+type BanEntry = {
+  uuid?: string;
+  name?: string;
+  created?: string;
+  source?: string;
+  expires?: string;
+  reason?: string;
+};
+
 type MinecraftPlayerManagerProps = {
   serverId: string;
   canManagePlayers: boolean;
@@ -149,6 +158,12 @@ function getPlayerKeys(player: MinecraftPlayer) {
   return [player.id, player.name].map((value) => value.toLowerCase());
 }
 
+function getBanKeys(entry: BanEntry) {
+  return [entry.uuid, entry.name]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase());
+}
+
 export function MinecraftPlayerManager({
   serverId,
   canManagePlayers,
@@ -157,6 +172,7 @@ export function MinecraftPlayerManager({
     null,
   );
   const [ops, setOps] = useState<OpsEntry[]>([]);
+  const [bans, setBans] = useState<BanEntry[]>([]);
   const [connection, setConnection] = useState<
     "connecting" | "connected" | "disconnected"
   >("connecting");
@@ -168,33 +184,40 @@ export function MinecraftPlayerManager({
     [ops],
   );
 
-  const loadOps = async () => {
+  const loadJsonFile = async (file: string): Promise<unknown[]> => {
     try {
       const response = await downloadUser({
         path: { server_id: serverId },
-        query: { file: "/ops.json", limit: 1024 * 1024 },
+        query: { file, limit: 1024 * 1024 },
       });
 
       if (response.error || !response.data?.url) {
-        setOps([]);
-        return;
+        return [];
       }
 
       const fileResponse = await fetch(response.data.url);
       if (!fileResponse.ok) {
-        setOps([]);
-        return;
+        return [];
       }
 
       const data = (await fileResponse.json()) as unknown;
-      setOps(Array.isArray(data) ? (data as OpsEntry[]) : []);
+      return Array.isArray(data) ? data : [];
     } catch {
-      setOps([]);
+      return [];
     }
+  };
+
+  const loadOps = async () => {
+    setOps((await loadJsonFile("/ops.json")) as OpsEntry[]);
+  };
+
+  const loadBans = async () => {
+    setBans((await loadJsonFile("/banned-players.json")) as BanEntry[]);
   };
 
   useEffect(() => {
     void loadOps();
+    void loadBans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverId]);
 
@@ -323,6 +346,27 @@ export function MinecraftPlayerManager({
           ),
         );
       }
+
+      if (action === "ban") {
+        setBans((current) => [
+          ...current.filter(
+            (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
+          ),
+          { uuid: player.id, name: player.name },
+        ]);
+      }
+
+      if (action === "pardon") {
+        setBans((current) =>
+          current.filter(
+            (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
+          ),
+        );
+      }
+
+      if (action === "ban" || action === "pardon") {
+        window.setTimeout(() => void loadBans(), 1500);
+      }
     } finally {
       setPendingAction(null);
     }
@@ -438,25 +482,6 @@ export function MinecraftPlayerManager({
                           <TooltipTrigger asChild>
                             <Button
                               type="button"
-                              variant="outline"
-                              size="icon"
-                              disabled={
-                                !canManagePlayers ||
-                                pendingAction === `pardon:${player.name}`
-                              }
-                              onClick={() =>
-                                executePlayerAction("pardon", player)
-                              }
-                            >
-                              <RotateCcw />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Pardon player</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="button"
                               variant="destructive"
                               size="icon"
                               disabled={
@@ -478,6 +503,79 @@ export function MinecraftPlayerManager({
             </TableBody>
           </Table>
         )}
+
+        <div className="mt-6 space-y-3">
+          <div className="space-y-0.5">
+            <h3 className="flex items-center gap-2 text-sm font-medium">
+              <Ban className="size-4 text-muted-foreground" />
+              Banned players
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Read from banned-players.json. Banned players cannot join, so they
+              never show up in the online list.
+            </p>
+          </div>
+
+          {bans.length === 0 ? (
+            <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+              No banned players.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Player</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bans.map((entry) => {
+                  const name = entry.name ?? entry.uuid ?? "Unknown";
+
+                  return (
+                    <TableRow key={`${entry.uuid ?? ""}:${name}`}>
+                      <TableCell className="font-medium">{name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {entry.reason ?? "-"}
+                        {entry.expires && entry.expires !== "forever"
+                          ? ` (until ${entry.expires})`
+                          : ""}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                disabled={
+                                  !canManagePlayers ||
+                                  !entry.name ||
+                                  pendingAction === `pardon:${entry.name}`
+                                }
+                                onClick={() =>
+                                  executePlayerAction("pardon", {
+                                    id: entry.uuid ?? "",
+                                    name: entry.name ?? "",
+                                  })
+                                }
+                              >
+                                <RotateCcw />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Pardon player</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
