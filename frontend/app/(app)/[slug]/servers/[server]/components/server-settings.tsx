@@ -3,9 +3,26 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "@/lib/navigation";
 import { useSettingsDialog } from "@/hooks/use-settings-dialog";
-import { Copy, ExternalLink, FolderOpen, Loader2, Network } from "lucide-react";
+import {
+  Copy,
+  ExternalLink,
+  FolderOpen,
+  Loader2,
+  Network,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,14 +31,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { serverInfo, updateServer } from "@/lib/api";
+import { Label } from "@/components/ui/label";
+import { listBackups, serverInfo, updateServer, wipeServer } from "@/lib/api";
 
 type ServerSettingsProps = {
   serverId: string;
   username: string;
   nodeHostname: string;
   sshPort: number | null;
+  canWriteFiles: boolean;
+  canCreateBackup: boolean;
 };
 
 export function ServerSettings({
@@ -29,6 +50,8 @@ export function ServerSettings({
   username,
   nodeHostname,
   sshPort,
+  canWriteFiles,
+  canCreateBackup,
 }: ServerSettingsProps) {
   const router = useRouter();
   const { open: openSettings } = useSettingsDialog();
@@ -37,6 +60,10 @@ export function ServerSettings({
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [sftpUrl, setSftpUrl] = useState("");
+  const [wipeOpen, setWipeOpen] = useState(false);
+  const [isWiping, setIsWiping] = useState(false);
+  const [wipeWithBackup, setWipeWithBackup] = useState(false);
+  const [backupSlotFree, setBackupSlotFree] = useState(false);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -70,6 +97,26 @@ export function ServerSettings({
 
     setSftpUrl(`sftp://${encodeURIComponent(username)}@${host}${portPart}`);
   }, [serverId, username, nodeHostname, sshPort]);
+
+  const refreshBackupSlot = useCallback(async () => {
+    if (!canCreateBackup) {
+      setBackupSlotFree(false);
+      return;
+    }
+
+    const [info, backups] = await Promise.all([
+      serverInfo({ path: { server_id: serverId } }),
+      listBackups({ path: { server_id: serverId } }),
+    ]);
+
+    if (info.error || !info.data || backups.error || !backups.data) {
+      setBackupSlotFree(false);
+      return;
+    }
+
+    const limit = info.data.limits.backup ?? null;
+    setBackupSlotFree(limit === null || backups.data.length < limit);
+  }, [canCreateBackup, serverId]);
 
   const canSave =
     name.trim().length > 0 && name.trim() !== initialName && !isSaving;
@@ -105,6 +152,35 @@ export function ServerSettings({
       router.refresh();
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const onWipe = async () => {
+    setIsWiping(true);
+
+    try {
+      const withBackup = wipeWithBackup && canCreateBackup && backupSlotFree;
+      const response = await wipeServer({
+        path: { server_id: serverId },
+        body: withBackup,
+      });
+
+      if (response.error) {
+        toast.error(
+          response.error.error?.msg ?? "Failed to wipe the server files",
+        );
+        return;
+      }
+
+      toast.success(
+        withBackup
+          ? "Backup started and server files wiped"
+          : "Server files wiped",
+      );
+      setWipeOpen(false);
+      setWipeWithBackup(false);
+    } finally {
+      setIsWiping(false);
     }
   };
 
@@ -253,6 +329,79 @@ export function ServerSettings({
           </CardContent>
         </Card>
       )}
+
+      {canWriteFiles && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle>Wipe Server Files</CardTitle>
+            <CardDescription>
+              Deletes every file on the server. The next start recreates the
+              template&apos;s files from scratch. Stop the server first.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setWipeWithBackup(false);
+                setWipeOpen(true);
+                void refreshBackupSlot();
+              }}
+              disabled={isWiping}
+            >
+              <Trash2 className="size-4" />
+              Wipe Files
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <AlertDialog open={wipeOpen} onOpenChange={setWipeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Wipe all server files?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This deletes every file of server {serverId}, including worlds and
+              configs. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {canCreateBackup && backupSlotFree && (
+            <div className="flex items-start gap-3 rounded-lg border p-3">
+              <Checkbox
+                id="wipe-backup"
+                checked={wipeWithBackup}
+                onCheckedChange={(checked) =>
+                  setWipeWithBackup(checked === true)
+                }
+                disabled={isWiping}
+              />
+              <div className="space-y-1">
+                <Label htmlFor="wipe-backup">Create a backup first</Label>
+                <p className="text-xs text-muted-foreground">
+                  The wipe is cancelled if the backup fails, so the files are
+                  never deleted without it.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isWiping}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault();
+                void onWipe();
+              }}
+              disabled={isWiping}
+            >
+              {wipeWithBackup ? "Back Up and Wipe" : "Wipe Files"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

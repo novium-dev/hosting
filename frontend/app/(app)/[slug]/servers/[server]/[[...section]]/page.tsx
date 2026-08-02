@@ -226,6 +226,10 @@ export default function ClientServerSectionPage() {
     effectivePermissions,
     ServerPermission.FILES_WRITE,
   );
+  const canCreateBackup = hasServerPermission(
+    effectivePermissions,
+    ServerPermission.BACKUP_CREATE,
+  );
   const canManagePlayers = hasServerPermission(
     effectivePermissions,
     ServerPermission.USER_EDIT,
@@ -332,6 +336,8 @@ export default function ClientServerSectionPage() {
           nodeHostname={serverData?.node.ssh_host ?? "Unknown"}
           username={session?.user.name ?? "-"}
           sshPort={serverData?.node.ssh_port ?? null}
+          canWriteFiles={canWriteFiles}
+          canCreateBackup={canCreateBackup}
         />
       ) : activeSection.key === "startup" ? (
         <StartupVariables
