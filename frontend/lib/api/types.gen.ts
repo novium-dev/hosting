@@ -173,7 +173,7 @@ export type NodeRegistrationRequest = {
     default_bind: string;
 };
 
-export type Option = null | string;
+export type Option = null | boolean;
 
 export type PortRange = {
     end: number;
@@ -1223,6 +1223,137 @@ export type KillServerResponses = {
 };
 
 export type KillServerResponse = KillServerResponses[keyof KillServerResponses];
+
+export type WipeServerData = {
+    body: Option;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/server/{server_id}/wipe';
+};
+
+export type WipeServerErrors = {
+    /**
+     * No suitable backup storage was found
+     */
+    '400‬': {
+        error?: {
+            id?: 'backup/no_suitable_storage_found';
+            msg?: 'No suitable backup storage was found';
+        };
+    };
+    /**
+     * The server backup limit has been reached
+     */
+    '400‭': {
+        error?: {
+            id?: 'backup/limit_exceeded';
+            msg?: 'The server backup limit has been reached';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‏': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * Server is currently in use
+     */
+    '503‎': {
+        error?: {
+            id?: 'server/unavailable';
+            msg?: 'Server is currently in use';
+        };
+    };
+    /**
+     * Storage is currently in use
+     */
+    '503‪': {
+        error?: {
+            id?: 'file/storage_unavailable';
+            msg?: 'Storage is currently in use';
+        };
+    };
+    /**
+     * Backup storage is currently in use
+     */
+    '503‫': {
+        error?: {
+            id?: 'backup/storage_unavailable';
+            msg?: 'Backup storage is currently in use';
+        };
+    };
+};
+
+export type WipeServerError = WipeServerErrors[keyof WipeServerErrors];
+
+export type WipeServerResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type WipeServerResponse = WipeServerResponses[keyof WipeServerResponses];
 
 export type ServerVariablesData = {
     body?: never;
@@ -10750,60 +10881,3 @@ export type ResyncTemplateResponses = {
 };
 
 export type ResyncTemplateResponse = ResyncTemplateResponses[keyof ResyncTemplateResponses];
-
-export type LoginDevData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/auth/login/dev';
-};
-
-export type LoginDevErrors = {
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500᠎': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-    /**
-     * Cache operation failed
-     */
-    '500​': {
-        error?: {
-            id?: 'cache/failure';
-            msg?: 'Cache operation failed';
-        };
-    };
-    /**
-     * OS operation failed
-     */
-    '500‌': {
-        error?: {
-            id?: 'os/failure';
-            msg?: 'OS operation failed';
-        };
-    };
-};
-
-export type LoginDevError = LoginDevErrors[keyof LoginDevErrors];
-
-export type LoginDevResponses = {
-    /**
-     * Success
-     */
-    200: string;
-};
-
-export type LoginDevResponse = LoginDevResponses[keyof LoginDevResponses];

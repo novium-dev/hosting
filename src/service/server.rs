@@ -8,15 +8,20 @@ use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, Server
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
+use crate::db::server::resync::is_running_label;
 use crate::service::server::server_service_error::{
     KillServerError, RestartServerError, ServerInfoError, ServerStatsError, ServerTerminalError,
     ServerVariablesError, StartServerError, StopServerError, UpdateServerError,
-    UpdateVariablesError,
+    UpdateVariablesError, WipeServerError,
 };
 use crate::service::template::*;
 use crate::templates::TemplateError;
 use crate::templates::variable::VariablePayload;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
+use daemon_common::service::backup::backup_service_error::{
+    ServerCreateBackupOrderError, ServerListBackupsError,
+};
+use daemon_common::service::files::files_service_error::WipeServerError as DaemonWipeServerError;
 use daemon_common::service::server::{ServerNetworkPayload, ServerResourcePayload, ServerStats};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query};
@@ -714,6 +719,117 @@ pub(crate) impl ServerService for Backend {
                 | DaemonKillServerError::ServerNotFound) => {
                     error!("Failed to restart server: {err:?}");
                     KillServerError::NodeFailure
+                }
+            })
+    }
+
+    /// Deletes every file of the server.
+    ///
+    /// The files are gone for good — `backup` takes a full backup first, and the
+    /// wipe is abandoned if that backup fails, so the files are never dropped
+    /// without the backup that was asked for. The next start recreates the
+    /// template's files from scratch. Refused while the server is running.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_WRITE`], and
+    /// [`ServerPermissions::BACKUP_CREATE`] plus a free backup slot to take a
+    /// backup.
+    #[route("/{server_id}/wipe", method = POST)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*],
+        server::{not_found, unavailable}, node::failure, file::storage_unavailable,
+        backup::{storage_unavailable, no_suitable_storage_found, limit_exceeded})]
+    async fn wipe_server(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        backup: Option<bool>,
+    ) -> Result<(), _> {
+        auth.require::<_, _, WipeServerError>(server_id, ServerPermissions::FILES_WRITE)?;
+
+        let backup = backup.unwrap_or_default();
+        if backup {
+            auth.require::<_, _, WipeServerError>(server_id, ServerPermissions::BACKUP_CREATE)?;
+        }
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(WipeServerError::ServerNotFound)?;
+
+        if server
+            .node
+            .server_status(server.node_server_id)
+            .await
+            .is_ok_and(|status| is_running_label(&status.state.label))
+        {
+            return Err(WipeServerError::ServerUnavailable);
+        }
+
+        if backup {
+            if !auth.has((), ManagementPermissions::LIMITS_BYPASS)
+                && let Some(limit) = server.backup_limit
+            {
+                let used = server
+                    .node
+                    .server_list_backups(server.node_server_id)
+                    .await
+                    .map_err(|err| match err {
+                        ServerListBackupsError::StorageMutexLocked => {
+                            WipeServerError::BackupStorageUnavailable
+                        }
+                        err @ (ServerListBackupsError::Communication(_)
+                        | ServerListBackupsError::AuthInvalid
+                        | ServerListBackupsError::StorageNotFound
+                        | ServerListBackupsError::SqlFailure
+                        | ServerListBackupsError::StorageFailure) => {
+                            error!("Failed to list backups of server {server_id}: {err:?}");
+                            WipeServerError::NodeFailure
+                        }
+                    })?
+                    .len();
+
+                if used as u64 >= u64::from(limit) {
+                    return Err(WipeServerError::BackupLimitExceeded);
+                }
+            }
+
+            server
+                .node
+                .server_create_backup_order(server.node_server_id)
+                .await
+                .map_err(|err| match err {
+                    ServerCreateBackupOrderError::StorageMutexLocked => {
+                        WipeServerError::BackupStorageUnavailable
+                    }
+                    ServerCreateBackupOrderError::BackupStorageNoSuitableFound => {
+                        WipeServerError::BackupNoSuitableStorageFound
+                    }
+                    err @ (ServerCreateBackupOrderError::Communication(_)
+                    | ServerCreateBackupOrderError::AuthInvalid
+                    | ServerCreateBackupOrderError::StorageNotFound
+                    | ServerCreateBackupOrderError::SqlFailure
+                    | ServerCreateBackupOrderError::StorageFailure) => {
+                        error!("Failed to back up server {server_id} before wipe: {err:?}");
+                        WipeServerError::NodeFailure
+                    }
+                })?;
+        }
+
+        server
+            .node
+            .wipe_server(server.node_server_id)
+            .await
+            .map_err(|err| match err {
+                DaemonWipeServerError::StorageMutexLocked => {
+                    WipeServerError::FileStorageUnavailable
+                }
+                err @ (DaemonWipeServerError::Communication(_)
+                | DaemonWipeServerError::AuthInvalid
+                | DaemonWipeServerError::StorageNotFound
+                | DaemonWipeServerError::StorageFailure
+                | DaemonWipeServerError::SqlFailure) => {
+                    error!("Failed to wipe server {server_id}: {err:?}");
+                    WipeServerError::NodeFailure
                 }
             })
     }
