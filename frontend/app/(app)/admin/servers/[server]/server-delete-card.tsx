@@ -87,7 +87,7 @@ export function ServerDeleteCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {serverName}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes server {serverId}. This action cannot be
+              This permanently deletes {serverName}. This action cannot be
               undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

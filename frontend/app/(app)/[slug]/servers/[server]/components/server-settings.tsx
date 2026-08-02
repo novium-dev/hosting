@@ -360,9 +360,11 @@ export function ServerSettings({
       <AlertDialog open={wipeOpen} onOpenChange={setWipeOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Wipe all server files?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Wipe all files of {initialName || "this server"}?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This deletes every file of server {serverId}, including worlds and
+              This deletes every file of the server, including worlds and
               configs. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -23,6 +23,7 @@ export type VariableField = {
   current?: string | null;
   data: unknown;
   id: string;
+  name?: string | null;
 };
 
 export type VariableGroup = {
@@ -524,7 +525,7 @@ export function VariableFields({
             const error = errors?.[variable.id];
             const label = (
               <div className="flex items-center gap-2">
-                <Label>{variable.id}</Label>
+                <Label>{variable.name || variable.id}</Label>
                 {dirty && (
                   <span className="text-xs font-medium text-amber-600">
                     Edited
