@@ -20,6 +20,7 @@ use crate::db::node::BackendNode;
 #[cfg(feature = "embedded_node")]
 use crate::embedded_node::setup_embedded_node;
 use crate::templates::TemplateInner;
+use crate::templates::games::hytale::HytaleTemplate;
 use crate::templates::games::satisfactory::SatisfactoryTemplate;
 use crate::templates::generic::go::GoTemplate;
 use crate::templates::generic::java::JavaTemplate;
@@ -180,6 +181,13 @@ async fn load_templates(backend: &Backend) {
         .await
         .expect("Unable to initialize satisfactory template");
     templates.insert(satisfactory.id().to_owned(), Arc::new(satisfactory));
+
+    let hytale = HytaleTemplate;
+    hytale
+        .init(backend.cache.clone(), skip_cache_update)
+        .await
+        .expect("Unable to initialize hytale template");
+    templates.insert(hytale.id().to_owned(), Arc::new(hytale));
 }
 
 #[tokio::main]
