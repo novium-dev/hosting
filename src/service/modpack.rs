@@ -2,6 +2,7 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
+use crate::db::feature::ProjectFeature;
 use crate::db::server::resources::{
     ModpackRecord, delete_installed_files, delete_modpack, upsert_modpack,
 };
@@ -542,13 +543,15 @@ impl Backend {
 pub(crate) impl ModpackService for Backend {
     /// Progress of this server's modpack install, if one has run.
     #[route("", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn modpack_status(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<Option<ModpackJob>, _> {
         auth.require::<_, _, ModpackStatusError>(server_id, ServerPermissions::FILES_READ)?;
+        self.require_server_feature::<ModpackStatusError>(server_id, ProjectFeature::ModInstaller)
+            .await?;
 
         Ok(self.modpack_jobs.read().await.get(&server_id).cloned())
     }
@@ -564,7 +567,7 @@ pub(crate) impl ModpackService for Backend {
     /// Returns as soon as the job is accepted — a pack is one large archive plus
     /// hundreds of downloads, so progress is polled from `GET /modpack/{id}`.
     #[route("/install", method = POST)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, wrong_template}, modpack::{not_confirmed, already_running})]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, wrong_template}, modpack::{not_confirmed, already_running})]
     async fn install_modpack(
         &self,
         #[special] auth: Authentication,
@@ -572,6 +575,8 @@ pub(crate) impl ModpackService for Backend {
         payload: InstallModpackPayload,
     ) -> Result<ModpackJob, _> {
         auth.require::<_, _, InstallModpackError>(server_id, ServerPermissions::FILES_WRITE)?;
+        self.require_server_feature::<InstallModpackError>(server_id, ProjectFeature::ModInstaller)
+            .await?;
 
         if !payload.confirm {
             return Err(InstallModpackError::ModpackNotConfirmed);

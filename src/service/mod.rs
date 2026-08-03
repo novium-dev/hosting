@@ -88,6 +88,10 @@ define_error!(node {
     invalid_host("The specified SSH host is invalid" BAD_REQUEST),
 });
 
+define_error!(feature {
+    disabled("This feature is not enabled for the project" FORBIDDEN),
+});
+
 define_error!(region {
     not_found("The specified region was not found" NOT_FOUND),
     not_empty("Region still has nodes assigned" BAD_REQUEST),
