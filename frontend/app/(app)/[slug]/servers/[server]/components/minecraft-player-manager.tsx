@@ -19,6 +19,11 @@ import {
   pardonUser,
   serverStats,
 } from "@/lib/api";
+import {
+  readHealthCheckPayload,
+  readPlayersFromHealthCheck,
+  type ServerPlayer,
+} from "@/lib/server-players";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,10 +47,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-type MinecraftPlayer = {
-  id: string;
-  name: string;
-};
+type MinecraftPlayer = ServerPlayer;
 
 type MinecraftHealthCheck = {
   host: string;
@@ -96,56 +98,10 @@ type MinecraftPlayerManagerProps = {
 
 type PlayerAction = "ban" | "pardon" | "op" | "deop";
 
-function parseHealthCheck(value: unknown): MinecraftHealthCheck | null {
-  if (!value) {
-    return null;
-  }
+function readVersionName(healthCheck: MinecraftHealthCheck | null) {
+  const name = healthCheck?.server_info?.version?.name;
 
-  if (typeof value === "string") {
-    try {
-      return JSON.parse(value) as MinecraftHealthCheck;
-    } catch {
-      return null;
-    }
-  }
-
-  if (typeof value === "object") {
-    return value as MinecraftHealthCheck;
-  }
-
-  return null;
-}
-
-function readHealthCheck(message: string): MinecraftHealthCheck | null {
-  const raw = message.startsWith("STATS!") ? message.slice(6) : message;
-
-  let payload: Record<string, unknown>;
-  try {
-    payload = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-
-  // Old format: the health check is nested inside the stats payload.
-  if (payload.healthcheck != null || payload.health_check != null) {
-    return parseHealthCheck(payload.healthcheck ?? payload.health_check);
-  }
-
-  // New format (new server versions): the message is the health check itself.
-  if (payload.server_info != null) {
-    return parseHealthCheck(payload);
-  }
-
-  return null;
-}
-
-function getPlayers(healthCheck: MinecraftHealthCheck | null) {
-  const players =
-    healthCheck?.server_info?.players?.Sample ??
-    healthCheck?.server_info?.players?.sample ??
-    [];
-
-  return players ?? [];
+  return typeof name === "string" ? name : null;
 }
 
 function getOpKeys(entry: OpsEntry) {
@@ -155,7 +111,9 @@ function getOpKeys(entry: OpsEntry) {
 }
 
 function getPlayerKeys(player: MinecraftPlayer) {
-  return [player.id, player.name].map((value) => value.toLowerCase());
+  return [player.id, player.name]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase());
 }
 
 function getBanKeys(entry: BanEntry) {
@@ -178,7 +136,10 @@ export function MinecraftPlayerManager({
   >("connecting");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
-  const players = useMemo(() => getPlayers(healthCheck), [healthCheck]);
+  const players = useMemo(
+    () => readPlayersFromHealthCheck("minecraft", healthCheck)?.list ?? [],
+    [healthCheck],
+  );
   const opKeys = useMemo(
     () => new Set(ops.flatMap((entry) => getOpKeys(entry))),
     [ops],
@@ -271,9 +232,9 @@ export function MinecraftPlayerManager({
             return;
           }
 
-          const nextHealthCheck = readHealthCheck(event.data);
-          if (nextHealthCheck) {
-            setHealthCheck(nextHealthCheck);
+          const payload = readHealthCheckPayload(event.data);
+          if (payload && readPlayersFromHealthCheck("minecraft", payload)) {
+            setHealthCheck(payload as MinecraftHealthCheck);
           }
         };
       } catch {
@@ -332,7 +293,7 @@ export function MinecraftPlayerManager({
                 getOpKeys(entry).includes(key),
               ),
           ),
-          { uuid: player.id, name: player.name },
+          { uuid: player.id ?? undefined, name: player.name },
         ]);
       }
 
@@ -352,7 +313,7 @@ export function MinecraftPlayerManager({
           ...current.filter(
             (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
           ),
-          { uuid: player.id, name: player.name },
+          { uuid: player.id ?? undefined, name: player.name },
         ]);
       }
 
@@ -374,6 +335,7 @@ export function MinecraftPlayerManager({
 
   const online = healthCheck?.server_info?.players?.online ?? players.length;
   const max = healthCheck?.server_info?.players?.max ?? null;
+  const versionName = readVersionName(healthCheck);
 
   return (
     <Card>
@@ -395,11 +357,7 @@ export function MinecraftPlayerManager({
             {online}
             {max === null ? "" : ` / ${max}`} online
           </Badge>
-          {healthCheck?.server_info?.version?.name ? (
-            <Badge variant="outline">
-              {healthCheck.server_info.version.name}
-            </Badge>
-          ) : null}
+          {versionName ? <Badge variant="outline">{versionName}</Badge> : null}
         </div>
       </CardHeader>
       <CardContent>

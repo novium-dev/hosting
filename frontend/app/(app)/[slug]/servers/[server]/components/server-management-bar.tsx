@@ -14,6 +14,7 @@ import {
   Server,
   Shield,
   ShieldAlert,
+  Users,
   Waypoints,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -35,6 +36,16 @@ import {
   startServer,
   stopServer,
 } from "@/lib/api";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  readServerPlayers,
+  supportsPlayers,
+  type ServerPlayers,
+} from "@/lib/server-players";
 import { cn, titleCase } from "@/lib/utils";
 import {
   HIGH_USAGE_THRESHOLD,
@@ -169,6 +180,7 @@ export function ServerManagementBar({
     initialStartedAt ?? null,
   );
   const [now, setNow] = useState<number>(() => Date.now());
+  const [players, setPlayers] = useState<ServerPlayers | null>(null);
   const [controls, setControls] = useState<ControlState>(() =>
     controlsFromState(seededStatus),
   );
@@ -281,6 +293,11 @@ export function ServerManagementBar({
 
           const message = event.data;
 
+          const nextPlayers = readServerPlayers(template, message);
+          if (nextPlayers) {
+            setPlayers(nextPlayers);
+          }
+
           if (message.startsWith("STATS!")) {
             try {
               const payload = JSON.parse(message.slice(6)) as Record<
@@ -374,7 +391,13 @@ export function ServerManagementBar({
       mounted = false;
       socket?.close();
     };
-  }, [serverId]);
+  }, [serverId, template]);
+
+  useEffect(() => {
+    if (status !== "running") {
+      setPlayers(null);
+    }
+  }, [status]);
 
   const executePowerAction = async (action: PowerAction) => {
     setPendingAction(action);
@@ -433,6 +456,12 @@ export function ServerManagementBar({
   const canCopyAddress = address !== "Address unavailable";
   const uptimeMs =
     status === "running" && startedAt !== null ? now - startedAt : null;
+  const playerCount = players
+    ? players.max !== null
+      ? `${players.online}/${players.max}`
+      : String(players.online)
+    : null;
+  const playerNames = players?.list?.map((player) => player.name) ?? [];
 
   const handleCopyAddress = async () => {
     if (!canCopyAddress) {
@@ -531,6 +560,27 @@ export function ServerManagementBar({
                   <Clock className="size-4" />
                   {formatUptime(uptimeMs)}
                 </span>
+              )}
+              {playerCount && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Users className="size-4" />
+                      {playerCount}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {playerNames.length > 0 ? (
+                      <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
+                        {playerNames.map((name) => (
+                          <span key={name}>{name}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      "Players online"
+                    )}
+                  </TooltipContent>
+                </Tooltip>
               )}
               {suspended && <Badge variant="destructive">Suspended</Badge>}
               {nodeMaintenance && (
