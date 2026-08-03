@@ -90,7 +90,7 @@ impl Template for SatisfactoryTemplate {
         Ok(ServerBuildPayload {
             image: ServerBuildImage {
                 dockerfile: include_str!("satisfactory.Dockerfile").to_owned(),
-                default_tag: Some("satisfactory-steamcmd-r3".to_owned()),
+                default_tag: Some("satisfactory-steamcmd-r42069".to_owned()),
                 tag: None,
                 args: HashMap::new(),
                 parents: Vec::new(),

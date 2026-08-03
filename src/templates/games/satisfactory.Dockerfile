@@ -112,10 +112,15 @@ RUN set -eux; \
         echo 'chmod +x "$binary"'; \
         echo ''; \
         echo 'echo "### Starting Satisfactory ($binary) on port $server_port, reliable port $reliable_port..."'; \
-        echo 'exec "$binary" FactoryGame -Port="$server_port" -ReliablePort="$reliable_port" -Unattended -Log'; \
+        echo 'exec "$binary" FactoryGame -Port="$server_port" -ServerAPIPort="$server_port" -ReliablePort="$reliable_port" -Unattended -Log'; \
     } > /usr/local/bin/satisfactory-entrypoint \
     && chmod +x /usr/local/bin/satisfactory-entrypoint
 
 WORKDIR /work
 STOPSIGNAL SIGTERM
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/satisfactory-entrypoint"]
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15m --retries=5 \
+    CMD curl -sSk --fail "https://localhost:${NOVIUM_PORT_SATISFACTORY_TCP:-7777}/api/v1" \
+        -H "Content-Type: application/json" \
+        -d '{"function":"HealthCheck","data":{"clientCustomData":""}}'
