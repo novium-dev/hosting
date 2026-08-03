@@ -6,6 +6,7 @@ RUN dpkg --add-architecture i386 \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
+        jq \
         lib32gcc-s1 \
         libgcc-s1 \
         libgcc-s1:i386 \
@@ -116,11 +117,42 @@ RUN set -eux; \
     } > /usr/local/bin/satisfactory-entrypoint \
     && chmod +x /usr/local/bin/satisfactory-entrypoint
 
+RUN set -eux; \
+    { \
+        echo '#!/bin/bash'; \
+        echo 'set -uo pipefail'; \
+        echo ''; \
+        echo 'api="https://localhost:${NOVIUM_PORT_SATISFACTORY_TCP:-7777}/api/v1"'; \
+        echo ''; \
+        echo 'api_call() {'; \
+        echo '  curl -sk --fail --max-time 5 -H "Content-Type: application/json" "$@" "$api"'; \
+        echo '}'; \
+        echo ''; \
+        echo 'if ! api_call -d "{\"function\":\"HealthCheck\",\"data\":{\"clientCustomData\":\"\"}}" > /dev/null; then'; \
+        echo '  exit 1'; \
+        echo 'fi'; \
+        echo ''; \
+        echo 'token="$(api_call -d "{\"function\":\"PasswordlessLogin\",\"data\":{\"minimumPrivilegeLevel\":\"Client\"}}" | jq -r ".data.authenticationToken // empty" 2>/dev/null)"'; \
+        echo ''; \
+        echo 'state=""'; \
+        echo 'if [[ -n "$token" ]]; then'; \
+        echo '  state="$(api_call -H "Authorization: Bearer $token" -d "{\"function\":\"QueryServerState\",\"data\":{}}")"'; \
+        echo 'fi'; \
+        echo ''; \
+        echo 'if [[ -z "$state" ]]; then'; \
+        echo '  echo "{\"players\":null}"'; \
+        echo '  exit 0'; \
+        echo 'fi'; \
+        echo ''; \
+        echo 'printf "%s" "$state" | jq -c ".data.serverGameState | {players:{online:.numConnectedPlayers,max:.playerLimit},session:.activeSessionName,phase:.gamePhase,tier:.techTier,tick_rate:.averageTickRate,duration:.totalGameDuration,paused:.isGamePaused,running:.isGameRunning}" 2>/dev/null || echo "{\"players\":null}"'; \
+        echo ''; \
+        echo 'exit 0'; \
+    } > /usr/local/bin/satisfactory-healthcheck \
+    && chmod +x /usr/local/bin/satisfactory-healthcheck
+
 WORKDIR /work
 STOPSIGNAL SIGTERM
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/satisfactory-entrypoint"]
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15m --retries=5 \
-    CMD curl -sSk --fail "https://localhost:${NOVIUM_PORT_SATISFACTORY_TCP:-7777}/api/v1" \
-        -H "Content-Type: application/json" \
-        -d '{"function":"HealthCheck","data":{"clientCustomData":""}}'
+    CMD /usr/local/bin/satisfactory-healthcheck
