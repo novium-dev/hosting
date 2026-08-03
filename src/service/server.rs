@@ -95,6 +95,7 @@ pub(crate) struct ServerInfo {
     pub(crate) features: HashSet<&'static str>,
     pub(crate) internet_access: bool,
     pub(crate) suspended: bool,
+    pub(crate) suspension_reason: Option<String>,
     pub(crate) primary_port: Option<PrimaryPortInfo>,
 
     pub(crate) stats: Option<ServerStats>,
@@ -356,6 +357,7 @@ pub(crate) impl ServerService for Backend {
                 ssh_port: server.node.ssh_port,
             },
             suspended: server.suspended,
+            suspension_reason: server.suspension_reason.clone(),
         })
     }
 
@@ -366,9 +368,10 @@ pub(crate) impl ServerService for Backend {
     /// Requires [`ProjectPermissions::ADMIN_MANAGEMENT`] to rename a server.
     /// Requires [`ManagementPermissions::SERVER_MANAGE`] to update resources, internet access,
     /// backup limits or custom dockerfile.
-    /// Requires [`ManagementPermissions::SERVER_SUSPEND`] to (un)suspend a server.
+    /// Requires [`ManagementPermissions::SERVER_SUSPEND`] to (un)suspend a server or to change
+    /// the reason a server is suspended for.
     #[route("/{server_id}", method = PATCH)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, template::{corrupted, unavailable})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, suspension_reason_required, not_suspended}, node::failure, template::{corrupted, unavailable})]
     async fn update_server(
         &self,
         #[special] auth: Authentication,
@@ -377,6 +380,7 @@ pub(crate) impl ServerService for Backend {
         resource: Option<ServerResourcePayload>,
         custom_dockerfile: Option<String>,
         suspended: Option<bool>,
+        suspension_reason: Option<String>,
         internet_access: Option<bool>,
         limits: Option<ServerLimits>,
     ) -> Result<(), _> {
@@ -397,8 +401,14 @@ pub(crate) impl ServerService for Backend {
             auth.require::<_, _, UpdateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
         }
 
-        if suspended.is_some() {
+        if suspended.is_some() || suspension_reason.is_some() {
             auth.require::<_, _, UpdateServerError>((), ManagementPermissions::SERVER_SUSPEND)?;
+        }
+
+        let suspension_reason = suspension_reason.map(|reason| reason.trim().to_owned());
+
+        if suspended == Some(true) && suspension_reason.as_ref().is_none_or(String::is_empty) {
+            return Err(UpdateServerError::ServerSuspensionReasonRequired);
         }
 
         let backup_limit = limits.map(|limits| limits.backup);
@@ -414,6 +424,17 @@ pub(crate) impl ServerService for Backend {
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(UpdateServerError::ServerNotFound)?;
+
+        if suspended.is_none()
+            && let Some(reason) = suspension_reason.as_ref()
+        {
+            if !server.suspended {
+                return Err(UpdateServerError::ServerNotSuspended);
+            }
+            if reason.is_empty() {
+                return Err(UpdateServerError::ServerSuspensionReasonRequired);
+            }
+        }
 
         let new_build = if custom_dockerfile.is_some() {
             let mut build = server
@@ -471,17 +492,33 @@ pub(crate) impl ServerService for Backend {
                     .inspect_err(|err| error!("Failed to update server (name): {err:?}"))?;
                 }
 
-                if let Some(suspended) = suspended {
-                    query!(
-                        "UPDATE servers SET suspended = $1 WHERE id = $2",
-                        suspended,
-                        &server_id
-                    )
-                    .execute(&mut **tx)
-                    .await
-                    .inspect_err(|err| {
-                        error!("Failed to update server (suspended): {err:?}");
-                    })?;
+                match (suspended, suspension_reason) {
+                    (Some(suspended), reason) => {
+                        query!(
+                            "UPDATE servers SET suspended = $1, suspension_reason = $2 WHERE id = $3",
+                            suspended,
+                            suspended.then_some(reason).flatten(),
+                            &server_id
+                        )
+                        .execute(&mut **tx)
+                        .await
+                        .inspect_err(|err| {
+                            error!("Failed to update server (suspended): {err:?}");
+                        })?;
+                    }
+                    (None, Some(reason)) => {
+                        query!(
+                            "UPDATE servers SET suspension_reason = $1 WHERE id = $2",
+                            reason,
+                            &server_id
+                        )
+                        .execute(&mut **tx)
+                        .await
+                        .inspect_err(|err| {
+                            error!("Failed to update server (suspension_reason): {err:?}");
+                        })?;
+                    }
+                    (None, None) => {}
                 }
 
                 if let Some(internet_access) = internet_access {

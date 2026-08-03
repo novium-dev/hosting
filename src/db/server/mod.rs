@@ -25,6 +25,7 @@ pub struct Server {
     pub swap: Option<u32>,
     pub disk: Option<u64>,
     pub suspended: bool,
+    pub suspension_reason: Option<String>,
     pub internet_access: bool,
 
     pub backup_limit: Option<u32>,

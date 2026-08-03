@@ -26,6 +26,8 @@ define_error!(server {
     not_found("Server not found" NOT_FOUND),
     storage_not_found("The specified storage was not found" BAD_REQUEST),
     unavailable("Server is currently in use" SERVICE_UNAVAILABLE),
+    suspension_reason_required("Suspending a server requires a reason" BAD_REQUEST),
+    not_suspended("The server is not suspended" BAD_REQUEST),
     config_invalid("The server config file is invalid" BAD_REQUEST)
 });
 

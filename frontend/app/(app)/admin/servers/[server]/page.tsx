@@ -104,6 +104,7 @@ export default function AdminServerManagementPage() {
   const initialAdminSettings = {
     internetAccess: data.internet_access,
     suspended: data.suspended,
+    suspensionReason: data.suspension_reason ?? null,
     backupLimit: data.limits.backup ?? null,
     cpu: data.cpu ?? null,
     ram: data.ram ?? null,
@@ -127,6 +128,11 @@ export default function AdminServerManagementPage() {
               <CardDescription>
                 ID: {data.id} | Project: {data.project}
               </CardDescription>
+              {data.suspended && data.suspension_reason ? (
+                <CardDescription className="text-destructive">
+                  Suspended: {data.suspension_reason}
+                </CardDescription>
+              ) : null}
             </div>
 
             {panelPath ? (

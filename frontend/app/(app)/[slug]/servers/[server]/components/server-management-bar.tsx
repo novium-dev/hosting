@@ -74,6 +74,7 @@ type ServerManagementBarProps = {
   nodeDisplay: string;
   template: string;
   suspended: boolean;
+  suspensionReason?: string | null;
   nodeMaintenance: boolean;
   actionsDisabled?: boolean;
   disabledReason?: string;
@@ -135,6 +136,7 @@ export function ServerManagementBar({
   nodeDisplay,
   template,
   suspended,
+  suspensionReason,
   nodeMaintenance,
   actionsDisabled = false,
   disabledReason,
@@ -582,7 +584,17 @@ export function ServerManagementBar({
                   </TooltipContent>
                 </Tooltip>
               )}
-              {suspended && <Badge variant="destructive">Suspended</Badge>}
+              {suspended &&
+                (suspensionReason ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="destructive">Suspended</Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>{suspensionReason}</TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Badge variant="destructive">Suspended</Badge>
+                ))}
               {nodeMaintenance && (
                 <Badge variant="destructive">Node In Maintenance</Badge>
               )}

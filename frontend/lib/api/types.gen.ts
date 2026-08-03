@@ -391,6 +391,7 @@ export type UpdateServerPayload = {
     name?: string | null;
     resource?: null | ServerResourcePayload;
     suspended?: boolean | null;
+    suspension_reason?: string | null;
 };
 
 export type UpdateUserPayload = {
@@ -643,6 +644,7 @@ export type ServerInfoResponses = {
         state?: string | null;
         stats?: null | ServerStats;
         suspended: boolean;
+        suspension_reason?: string | null;
         swap?: number | null;
         template: string;
     };
@@ -669,6 +671,24 @@ export type UpdateServerData = {
 };
 
 export type UpdateServerErrors = {
+    /**
+     * Suspending a server requires a reason
+     */
+    '400‏': {
+        error?: {
+            id?: 'server/suspension_reason_required';
+            msg?: 'Suspending a server requires a reason';
+        };
+    };
+    /**
+     * The server is not suspended
+     */
+    '400‪': {
+        error?: {
+            id?: 'server/not_suspended';
+            msg?: 'The server is not suspended';
+        };
+    };
     /**
      * Invalid authentication credentials
      */
@@ -726,7 +746,7 @@ export type UpdateServerErrors = {
     /**
      * The template was unable to read the server data
      */
-    '500‪': {
+    '500‬': {
         error?: {
             id?: 'template/corrupted';
             msg?: 'The template was unable to read the server data';
@@ -735,7 +755,7 @@ export type UpdateServerErrors = {
     /**
      * Node operation failed
      */
-    '502‏': {
+    '502‫': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -744,7 +764,7 @@ export type UpdateServerErrors = {
     /**
      * The template is unavailable at the moment
      */
-    '503‫': {
+    '503‭': {
         error?: {
             id?: 'template/unavailable';
             msg?: 'The template is unavailable at the moment';

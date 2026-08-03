@@ -297,7 +297,8 @@ export default function ClientServerSectionPage() {
             </CardTitle>
             <CardDescription className="text-destructive">
               {blockReason === "suspended"
-                ? "This server is suspended and actions are currently blocked."
+                ? (serverData?.suspension_reason ??
+                  "This server is suspended and actions are currently blocked.")
                 : `Node ${serverData?.node.display ?? "Unknown"} is in maintenance mode, so server actions are currently blocked.`}
             </CardDescription>
           </CardHeader>

@@ -161,6 +161,7 @@ export default function ServerLayout() {
           nodeDisplay={serverData.node.display}
           template={serverData.template}
           suspended={serverData.suspended}
+          suspensionReason={serverData.suspension_reason ?? null}
           nodeMaintenance={serverData.node.maintenance}
           adminHref={
             canManageServers ? `/admin/servers/${serverData.id}` : undefined

@@ -47,7 +47,8 @@ export const serverInfo = <ThrowOnError extends boolean = false>(options: Option
  * Requires `ProjectPermissions::ADMIN_MANAGEMENT` to rename a server.<br/>
  * Requires `ManagementPermissions::SERVER_MANAGE` to update resources, internet access,<br/>
  * backup limits or custom dockerfile.<br/>
- * Requires `ManagementPermissions::SERVER_SUSPEND` to (un)suspend a server.
+ * Requires `ManagementPermissions::SERVER_SUSPEND` to (un)suspend a server or to change<br/>
+ * the reason a server is suspended for.
  */
 export const updateServer = <ThrowOnError extends boolean = false>(options: Options<UpdateServerData, ThrowOnError>) => (options.client ?? client).patch<UpdateServerResponses, UpdateServerErrors, ThrowOnError>({
     url: '/server/{server_id}',

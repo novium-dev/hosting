@@ -24,6 +24,7 @@ type ServerAdminSettingsProps = {
   initial: {
     internetAccess: boolean;
     suspended: boolean;
+    suspensionReason: string | null;
     backupLimit: number | null;
     cpu: number | null;
     ram: number | null;
@@ -36,6 +37,7 @@ type ServerAdminSettingsProps = {
 type FormState = {
   internetAccess: boolean;
   suspended: boolean;
+  suspensionReason: string;
   backupLimit: string;
   cpu: string;
   ram: string;
@@ -64,6 +66,7 @@ function buildInitialForm(
   return {
     internetAccess: initial.internetAccess,
     suspended: initial.suspended,
+    suspensionReason: initial.suspensionReason ?? "",
     backupLimit: toInputValue(initial.backupLimit),
     cpu: toInputValue(initial.cpu),
     ram: toInputValue(initial.ram),
@@ -121,13 +124,19 @@ export function ServerAdminSettings({
       return;
     }
 
-    const hasSuspendChange = isFieldDirty("suspended");
+    const hasSuspendChange =
+      isFieldDirty("suspended") || isFieldDirty("suspensionReason");
     const hasManagementChange = (Object.keys(form) as Array<keyof FormState>)
-      .filter((field) => field !== "suspended")
+      .filter((field) => field !== "suspended" && field !== "suspensionReason")
       .some((field) => isFieldDirty(field));
 
     if (hasSuspendChange && !canSuspend) {
       toast.error("You do not have permission to suspend this server");
+      return;
+    }
+
+    if (form.suspended && !form.suspensionReason.trim()) {
+      toast.error("Suspending a server requires a reason");
       return;
     }
 
@@ -155,7 +164,13 @@ export function ServerAdminSettings({
               disk,
             },
           }),
-          ...(canSuspend && { suspended: form.suspended }),
+          ...(canSuspend &&
+            hasSuspendChange && {
+              ...(isFieldDirty("suspended") && { suspended: form.suspended }),
+              ...(form.suspended && {
+                suspension_reason: form.suspensionReason.trim(),
+              }),
+            }),
         },
       });
 
@@ -225,12 +240,46 @@ export function ServerAdminSettings({
               id="suspended"
               checked={form.suspended}
               onCheckedChange={(checked) =>
-                setForm((prev) => ({ ...prev, suspended: checked }))
+                setForm((prev) => ({
+                  ...prev,
+                  suspended: checked,
+                  suspensionReason: checked ? prev.suspensionReason : "",
+                }))
               }
               disabled={!canSuspend}
             />
           </div>
         </div>
+
+        {form.suspended ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="suspension-reason">Suspension Reason</Label>
+              {isFieldDirty("suspensionReason") ? (
+                <span className="text-xs font-medium text-amber-600">
+                  Edited
+                </span>
+              ) : null}
+            </div>
+            <Textarea
+              id="suspension-reason"
+              value={form.suspensionReason}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  suspensionReason: event.target.value,
+                }))
+              }
+              placeholder="Why is this server suspended?"
+              rows={2}
+              maxLength={512}
+              disabled={!canSuspend}
+            />
+            <p className="text-xs text-muted-foreground">
+              Shown to everyone who can see this server.
+            </p>
+          </div>
+        ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
