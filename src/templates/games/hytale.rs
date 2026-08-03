@@ -110,6 +110,10 @@ static POSITIVE_INTEGER_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!(r"^[1-9][0-
 static RELATIVE_PATH_REGEX: lazy_regex::Lazy<Regex> =
     lazy_regex!(r"^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$");
 
+#[expect(clippy::non_std_lazy_statics, reason = "external crate")]
+static OPTIONAL_RELATIVE_PATH_REGEX: lazy_regex::Lazy<Regex> =
+    lazy_regex!(r"^([A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*)?$");
+
 fn is_relative_path(value: &str) -> bool {
     RELATIVE_PATH_REGEX.is_match(value) && value.split('/').all(|part| part != "." && part != "..")
 }
@@ -131,7 +135,7 @@ impl Template for HytaleTemplate {
         Ok(ServerBuildPayload {
             image: ServerBuildImage {
                 dockerfile: include_str!("hytale.Dockerfile").to_owned(),
-                default_tag: Some("hytale-r1".to_owned()),
+                default_tag: Some("hytale-r2".to_owned()),
                 tag: None,
                 args: HashMap::new(),
                 parents: Vec::new(),
@@ -140,6 +144,8 @@ impl Template for HytaleTemplate {
             backup_exclude: HashSet::from([
                 "Server/".to_owned(),
                 "logs/".to_owned(),
+                "game.zip".to_owned(),
+                "Assets.zip".to_owned(),
                 "hytale-downloader".to_owned(),
                 ".hytale-downloader-credentials.json".to_owned(),
                 extra.assets_path.clone(),
@@ -194,7 +200,7 @@ impl Template for HytaleTemplate {
             auto_update: true,
             patchline: HytalePatchline::Default,
             auth_mode: HytaleAuthMode::Authenticated,
-            assets_path: "Assets.zip".to_owned(),
+            assets_path: String::new(),
             accept_early_plugins: false,
             allow_op: false,
             backups: HytaleBackups {
@@ -237,8 +243,8 @@ impl Template for HytaleTemplate {
                         "assets_path",
                         "Assets File Path",
                         Some(extra.assets_path),
-                        RELATIVE_PATH_REGEX.as_str(),
-                        "Assets.zip",
+                        OPTIONAL_RELATIVE_PATH_REGEX.as_str(),
+                        "Leave empty to detect automatically",
                         false,
                     ),
             )
@@ -347,8 +353,13 @@ impl Template for HytaleTemplate {
             return Ok(None);
         };
 
-        if !is_relative_path(&extra.assets_path) || !is_relative_path(&extra.backups.dir) {
-            debug!("Variables rejected: assets_path or backup_dir is not a relative path");
+        if !extra.assets_path.is_empty() && !is_relative_path(&extra.assets_path) {
+            debug!("Variables rejected: assets_path is not a relative path");
+            return Ok(None);
+        }
+
+        if !is_relative_path(&extra.backups.dir) {
+            debug!("Variables rejected: backup_dir is not a relative path");
             return Ok(None);
         }
 

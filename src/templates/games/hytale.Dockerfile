@@ -23,7 +23,27 @@ RUN set -eux; \
         echo 'mkdir -p .tmp'; \
         echo ''; \
         echo 'server_port="${NOVIUM_PORT_HYTALE:-5520}"'; \
-        echo 'assets_path="${ASSETS_PATH:-Assets.zip}"'; \
+        echo 'archive="game.zip"'; \
+        echo ''; \
+        echo 'find_jar() {'; \
+        echo '  find . -maxdepth 3 -type f -name HytaleServer.jar -print -quit 2>/dev/null || true'; \
+        echo '}'; \
+        echo ''; \
+        echo 'find_assets() {'; \
+        echo '  if [[ -n "${ASSETS_PATH:-}" && -f "${ASSETS_PATH:-}" ]]; then'; \
+        echo '    printf "%s" "$ASSETS_PATH"'; \
+        echo '    return'; \
+        echo '  fi'; \
+        echo ''; \
+        echo '  local detected'; \
+        echo '  detected="$(find . -maxdepth 3 -type f -name "Assets*.zip" -print -quit 2>/dev/null || true)"'; \
+        echo ''; \
+        echo '  if [[ -n "$detected" ]]; then'; \
+        echo '    printf "%s" "$detected"'; \
+        echo '  elif [[ -f "$archive" ]]; then'; \
+        echo '    printf "%s" "$archive"'; \
+        echo '  fi'; \
+        echo '}'; \
         echo ''; \
         echo 'if [[ ! -x ./hytale-downloader ]]; then'; \
         echo '  echo "### Installing the Hytale downloader..."'; \
@@ -40,7 +60,9 @@ RUN set -eux; \
         echo '  downloader+=(-patchline "$PATCHLINE")'; \
         echo 'fi'; \
         echo ''; \
-        echo 'if [[ "${AUTO_UPDATE:-1}" == "1" || ! -d ./Server ]]; then'; \
+        echo 'jar="$(find_jar)"'; \
+        echo ''; \
+        echo 'if [[ "${AUTO_UPDATE:-1}" == "1" || -z "$jar" ]]; then'; \
         echo '  if [[ ! -f .hytale-downloader-credentials.json ]]; then'; \
         echo '    echo "### Hytale needs a one time login. Open the URL below and enter the code,"'; \
         echo '    echo "### the download starts by itself once you are done."'; \
@@ -56,14 +78,21 @@ RUN set -eux; \
         echo ''; \
         echo '  echo "### Installed: ${installed:-none}, latest: ${latest:-unknown}"'; \
         echo ''; \
-        echo '  if [[ -z "$latest" || "$installed" != "$latest" || ! -d ./Server ]]; then'; \
+        echo '  if [[ -z "$latest" || "$installed" != "$latest" || -z "$jar" ]]; then'; \
         echo '    echo "### Downloading server files, this can take a while..."'; \
-        echo '    if "${downloader[@]}"; then'; \
+        echo '    rm -f "$archive"'; \
+        echo ''; \
+        echo '    if "${downloader[@]}" -download-path "$archive"; then'; \
+        echo '      echo "### Extracting $archive..."'; \
+        echo '      unzip -qo "$archive" -d .'; \
+        echo '      jar="$(find_jar)"'; \
+        echo ''; \
         echo '      if [[ -n "$latest" ]]; then'; \
         echo '        echo "$latest" > .current_version'; \
         echo '      fi'; \
+        echo ''; \
         echo '      echo "### Download complete."'; \
-        echo '    elif [[ -d ./Server ]]; then'; \
+        echo '    elif [[ -n "$jar" ]]; then'; \
         echo '      echo "### Download failed, starting the installed version." >&2'; \
         echo '    else'; \
         echo '      echo "### Download failed and no server files are installed." >&2'; \
@@ -74,17 +103,23 @@ RUN set -eux; \
         echo '  fi'; \
         echo 'fi'; \
         echo ''; \
-        echo 'if [[ ! -f "$assets_path" ]]; then'; \
-        echo '  echo "### Assets archive $assets_path not found." >&2'; \
+        echo 'if [[ -z "$jar" ]]; then'; \
+        echo '  echo "### HytaleServer.jar not found. /work contains:" >&2'; \
+        echo '  ls -1 >&2'; \
         echo '  exit 1'; \
         echo 'fi'; \
         echo ''; \
-        echo 'if [[ ! -f ./Server/HytaleServer.jar ]]; then'; \
-        echo '  echo "### Server/HytaleServer.jar not found." >&2'; \
+        echo 'assets="$(find_assets)"'; \
+        echo ''; \
+        echo 'if [[ -z "$assets" ]]; then'; \
+        echo '  echo "### No assets archive found, set the assets path variable. /work contains:" >&2'; \
+        echo '  ls -1 >&2'; \
         echo '  exit 1'; \
         echo 'fi'; \
         echo ''; \
-        echo 'args=(--assets "$assets_path" --auth-mode "${AUTH_MODE:-authenticated}" --bind "0.0.0.0:$server_port" --transport QUIC)'; \
+        echo 'echo "### Using jar $jar with assets $assets"'; \
+        echo ''; \
+        echo 'args=(--assets "$assets" --auth-mode "${AUTH_MODE:-authenticated}" --bind "0.0.0.0:$server_port" --transport QUIC)'; \
         echo ''; \
         echo 'if [[ "${ACCEPT_EARLY_PLUGINS:-0}" == "1" ]]; then'; \
         echo '  args+=(--accept-early-plugins)'; \
@@ -100,7 +135,7 @@ RUN set -eux; \
         echo ''; \
         echo 'echo "### Starting Hytale on UDP port $server_port..."'; \
         echo ''; \
-        echo 'exec java -Xms128M -XX:MaxRAMPercentage=95.0 -Djava.io.tmpdir=/work/.tmp -Dterminal.jline=false -Dterminal.ansi=true -jar ./Server/HytaleServer.jar "${args[@]}"'; \
+        echo 'exec java -Xms128M -XX:MaxRAMPercentage=95.0 -Djava.io.tmpdir=/work/.tmp -Dterminal.jline=false -Dterminal.ansi=true -jar "$jar" "${args[@]}"'; \
     } > /usr/local/bin/hytale-entrypoint \
     && chmod +x /usr/local/bin/hytale-entrypoint
 
