@@ -12,10 +12,11 @@ use zelus::service;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::node::{NodePortAllocation, replace_storages};
+use crate::db::region::RegionId;
 use crate::db::server::ports::NetworkProtocol;
 use crate::service::admin::node::node_admin_service_error::{
     AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodePortError, ListNodesError,
-    MetricsNodeError, UpdateMaintenanceError, UpdateNodeError,
+    MetricsNodeError, UpdateMaintenanceError, UpdateNodeError, UpdateNodeRegionError,
 };
 use crate::service::error_os_failure::FromOsFailure;
 use crate::service::*;
@@ -33,6 +34,7 @@ pub(crate) struct NodeInfo {
     pub(crate) id: Uuid,
     pub(crate) display: String,
     pub(crate) maintenance: bool,
+    pub(crate) region: RegionId,
     pub(crate) default_bind: String,
     pub(crate) default_host: String,
     pub(crate) ssh_host: Option<String>,
@@ -75,14 +77,22 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("", method = PUT)]
-    #[error(auth::{permission_denied, unreachable}, os::failure, node::invalid_host, db::failure <- [sql:*])]
+    #[error(auth::{permission_denied, unreachable}, os::failure, node::invalid_host, region::not_found <- [sql:not_found], db::failure <- [sql:*])]
     async fn create_node(
         &self,
         #[special] auth: Authentication,
         name: String,
+        region: RegionId,
         config: SetupNodeConfigRequest,
     ) -> Result<String, _> {
         auth.require::<_, _, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        query!(
+            r#"SELECT id AS "id: RegionId" FROM regions WHERE id = $1"#,
+            &region
+        )
+        .fetch_one(&*self.database)
+        .await?;
 
         let code = gen_code::<CreateNodeError>()?;
 
@@ -111,6 +121,7 @@ pub(crate) impl NodeAdminService for Backend {
             time: Instant::now(),
             name,
             default_host: config.default_host,
+            region,
             config: final_config,
         };
 
@@ -193,6 +204,7 @@ pub(crate) impl NodeAdminService for Backend {
                 id: node.id,
                 display: node.display.clone(),
                 maintenance: node.maintenance,
+                region: node.region,
                 default_bind: node.default_bind.clone(),
                 default_host: node.default_host.clone(),
                 ssh_host: node.ssh_host.clone(),
@@ -237,6 +249,44 @@ pub(crate) impl NodeAdminService for Backend {
                 backend.sync_nodes(tx).await?;
 
                 Ok::<_, UpdateMaintenanceError>(())
+            })
+        })
+        .await
+    }
+
+    /// Moves a node into another region.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
+    #[route("/{node_id}/region", method = PATCH)]
+    #[error(node::not_found, region::not_found <- [sql:foreign_key], auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn update_node_region(
+        &self,
+        #[special] auth: Authentication,
+        node_id: Uuid,
+        region: RegionId,
+    ) -> Result<(), _> {
+        auth.require::<_, _, UpdateNodeRegionError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        if self.nodes.read().await.get(&node_id).is_none() {
+            return Err(UpdateNodeRegionError::NodeNotFound);
+        }
+
+        let mut conn = self.database.acquire().await?;
+        let backend = self.clone();
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                query!(
+                    "UPDATE nodes SET region = $1 WHERE id = $2",
+                    &region,
+                    node_id
+                )
+                .execute(&mut **tx)
+                .await?;
+
+                backend.sync_nodes(tx).await?;
+
+                Ok::<_, UpdateNodeRegionError>(())
             })
         })
         .await

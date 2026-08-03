@@ -59,6 +59,7 @@ impl Backend {
                         project AS "project: ProjectId",
                         name,
                         suspended AS "suspended: bool",
+                        suspension_reason,
                         custom_dockerfile,
                         internet_access AS "internet_access: bool",
                         cpu,
@@ -98,6 +99,7 @@ impl Backend {
                     id: server.id,
                     name: server.name,
                     suspended: server.suspended,
+                    suspension_reason: server.suspension_reason,
                     custom_dockerfile: server.custom_dockerfile,
                     internet_access: server.internet_access,
 

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddNodePortData, AddNodePortErrors, AddNodePortResponses, AddPortData, AddPortErrors, AddPortResponses, AddSshKeyData, AddSshKeyErrors, AddSshKeyResponses, ArchiveFileData, ArchiveFileErrors, ArchiveFileResponses, AuthPasswordData, AuthPasswordErrors, AuthPasswordResponses, AuthPublickeyData, AuthPublickeyErrors, AuthPublickeyResponses, AvailablePortsData, AvailablePortsErrors, AvailablePortsResponses, BanUserData, BanUserErrors, BanUserResponses, CallbackData, CallbackErrors, ChangeServerTemplateData, ChangeServerTemplateErrors, ChangeServerTemplateResponses, CheckProjectSlugData, CheckProjectSlugErrors, CheckProjectSlugResponses, CopyFileData, CopyFileErrors, CopyFileResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, CreateBackupWithStorageData, CreateBackupWithStorageErrors, CreateBackupWithStorageResponses, CreateDirectoryData, CreateDirectoryErrors, CreateDirectoryResponses, CreateNodeData, CreateNodeErrors, CreateNodeResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateServerData, CreateServerErrors, CreateServerResponses, DaemonConfigData, DaemonConfigErrors, DaemonConfigResponses, DaemonPasswordData, DaemonPasswordErrors, DaemonPasswordResponses, DaemonRegisterData, DaemonRegisterErrors, DaemonRegisterResponses, DaemonRootKeyData, DaemonRootKeyErrors, DaemonRootKeyResponses, DeleteAnyApiKeyData, DeleteAnyApiKeyErrors, DeleteAnyApiKeyResponses, DeleteApiKeyData, DeleteApiKeyErrors, DeleteApiKeyResponses, DeleteBackupData, DeleteBackupErrors, DeleteBackupResponses, DeleteFileData, DeleteFileErrors, DeleteFileResponses, DeleteNodePortData, DeleteNodePortErrors, DeleteNodePortResponses, DeletePortData, DeletePortErrors, DeletePortResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteServerData, DeleteServerErrors, DeleteServerResponses, DeleteSshKeyData, DeleteSshKeyErrors, DeleteSshKeyResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeopUserData, DeopUserErrors, DeopUserResponses, DownloadBackupData, DownloadBackupErrors, DownloadBackupResponses, DownloadUserData, DownloadUserErrors, DownloadUserResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetUserData, GetUserErrors, GetUserResponses, InstallModpackData, InstallModpackErrors, InstallModpackResponses, InstallResourceData, InstallResourceErrors, InstallResourceResponses, KillServerData, KillServerErrors, KillServerResponses, ListAllApiKeysData, ListAllApiKeysErrors, ListAllApiKeysResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListBackupsData, ListBackupsErrors, ListBackupsResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListInstalledResourcesData, ListInstalledResourcesErrors, ListInstalledResourcesResponses, ListNodesData, ListNodesErrors, ListNodesResponses, ListProjectApiKeysData, ListProjectApiKeysErrors, ListProjectApiKeysResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectUsersData, ListProjectUsersErrors, ListProjectUsersResponses, ListResourceUpdatesData, ListResourceUpdatesErrors, ListResourceUpdatesResponses, ListResourceVersionsData, ListResourceVersionsErrors, ListResourceVersionsResponses, ListServersData, ListServersErrors, ListServersResponses, ListSshKeysData, ListSshKeysErrors, ListSshKeysResponses, ListTemplatesData, ListTemplatesErrors, ListTemplatesResponses, ListTemplateUsageData, ListTemplateUsageErrors, ListTemplateUsageResponses, ListUserProjectsData, ListUserProjectsErrors, ListUserProjectsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LogoutData, LogoutErrors, LogoutResponses, MeData, MeErrors, MeResponses, MetricsNodeData, MetricsNodeErrors, MetricsNodeResponses, ModpackStatusData, ModpackStatusErrors, ModpackStatusResponses, OpUserData, OpUserErrors, OpUserResponses, PardonUserData, PardonUserErrors, PardonUserResponses, RealtimeDownloadBackupData, RealtimeDownloadBackupErrors, RealtimeDownloadBackupResponses, RemoveProjectUserData, RemoveProjectUserErrors, RemoveProjectUserResponses, RenameFileData, RenameFileErrors, RenameFileResponses, RerollDaemonPasswordData, RerollDaemonPasswordErrors, RerollDaemonPasswordResponses, ResourceContextData, ResourceContextErrors, ResourceContextResponses, RestartServerData, RestartServerErrors, RestartServerResponses, RestoreBackupData, RestoreBackupErrors, RestoreBackupResponses, ResyncTemplateData, ResyncTemplateErrors, ResyncTemplateResponses, SearchResourcesData, SearchResourcesErrors, SearchResourcesResponses, ServerInfoData, ServerInfoErrors, ServerInfoResponses, ServerStatsData, ServerStatsErrors, ServerStatsResponses, ServerTerminalData, ServerTerminalErrors, ServerTerminalResponses, ServerVariablesData, ServerVariablesErrors, ServerVariablesResponses, SetConfigData, SetConfigErrors, SetConfigResponses, SetProjectUserData, SetProjectUserErrors, SetProjectUserResponses, SetResourceStateData, SetResourceStateErrors, SetResourceStateResponses, StartServerData, StartServerErrors, StartServerResponses, StatFileData, StatFileErrors, StatFileResponses, StopServerData, StopServerErrors, StopServerResponses, SymlinkFileData, SymlinkFileErrors, SymlinkFileResponses, TemplateInfoData, TemplateInfoErrors, TemplateInfoResponses, UnarchiveFileData, UnarchiveFileErrors, UnarchiveFileResponses, UninstallResourceData, UninstallResourceErrors, UninstallResourceResponses, UpdateAllResourcesData, UpdateAllResourcesErrors, UpdateAllResourcesResponses, UpdateApiKeyData, UpdateApiKeyErrors, UpdateApiKeyResponses, UpdateBackupData, UpdateBackupErrors, UpdateBackupResponses, UpdateMaintenanceData, UpdateMaintenanceErrors, UpdateMaintenanceResponses, UpdateNodeData, UpdateNodeErrors, UpdateNodeResponses, UpdatePortData, UpdatePortErrors, UpdatePortResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateResourceData, UpdateResourceErrors, UpdateResourceResponses, UpdateServerData, UpdateServerErrors, UpdateServerResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateVariablesData, UpdateVariablesErrors, UpdateVariablesResponses, UploadUserData, UploadUserErrors, UploadUserResponses, WipeServerData, WipeServerErrors, WipeServerResponses } from './types.gen';
+import type { AddNodePortData, AddNodePortErrors, AddNodePortResponses, AddPortData, AddPortErrors, AddPortResponses, AddSshKeyData, AddSshKeyErrors, AddSshKeyResponses, ArchiveFileData, ArchiveFileErrors, ArchiveFileResponses, AuthPasswordData, AuthPasswordErrors, AuthPasswordResponses, AuthPublickeyData, AuthPublickeyErrors, AuthPublickeyResponses, AvailablePortsData, AvailablePortsErrors, AvailablePortsResponses, BanUserData, BanUserErrors, BanUserResponses, CallbackData, CallbackErrors, ChangeServerTemplateData, ChangeServerTemplateErrors, ChangeServerTemplateResponses, CheckProjectSlugData, CheckProjectSlugErrors, CheckProjectSlugResponses, CopyFileData, CopyFileErrors, CopyFileResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, CreateBackupWithStorageData, CreateBackupWithStorageErrors, CreateBackupWithStorageResponses, CreateDirectoryData, CreateDirectoryErrors, CreateDirectoryResponses, CreateNodeData, CreateNodeErrors, CreateNodeResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRegionData, CreateRegionErrors, CreateRegionResponses, CreateServerData, CreateServerErrors, CreateServerResponses, DaemonConfigData, DaemonConfigErrors, DaemonConfigResponses, DaemonPasswordData, DaemonPasswordErrors, DaemonPasswordResponses, DaemonRegisterData, DaemonRegisterErrors, DaemonRegisterResponses, DaemonRootKeyData, DaemonRootKeyErrors, DaemonRootKeyResponses, DeleteAnyApiKeyData, DeleteAnyApiKeyErrors, DeleteAnyApiKeyResponses, DeleteApiKeyData, DeleteApiKeyErrors, DeleteApiKeyResponses, DeleteBackupData, DeleteBackupErrors, DeleteBackupResponses, DeleteFileData, DeleteFileErrors, DeleteFileResponses, DeleteNodePortData, DeleteNodePortErrors, DeleteNodePortResponses, DeletePortData, DeletePortErrors, DeletePortResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteRegionData, DeleteRegionErrors, DeleteRegionResponses, DeleteServerData, DeleteServerErrors, DeleteServerResponses, DeleteSshKeyData, DeleteSshKeyErrors, DeleteSshKeyResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeopUserData, DeopUserErrors, DeopUserResponses, DownloadBackupData, DownloadBackupErrors, DownloadBackupResponses, DownloadUserData, DownloadUserErrors, DownloadUserResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetUserData, GetUserErrors, GetUserResponses, InstallModpackData, InstallModpackErrors, InstallModpackResponses, InstallResourceData, InstallResourceErrors, InstallResourceResponses, KillServerData, KillServerErrors, KillServerResponses, ListAllApiKeysData, ListAllApiKeysErrors, ListAllApiKeysResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListBackupsData, ListBackupsErrors, ListBackupsResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListInstalledResourcesData, ListInstalledResourcesErrors, ListInstalledResourcesResponses, ListNodesData, ListNodesErrors, ListNodesResponses, ListProjectApiKeysData, ListProjectApiKeysErrors, ListProjectApiKeysResponses, ListProjectFeaturesData, ListProjectFeaturesErrors, ListProjectFeaturesResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectUsersData, ListProjectUsersErrors, ListProjectUsersResponses, ListRegionsData, ListRegionsErrors, ListRegionsResponses, ListResourceUpdatesData, ListResourceUpdatesErrors, ListResourceUpdatesResponses, ListResourceVersionsData, ListResourceVersionsErrors, ListResourceVersionsResponses, ListServersData, ListServersErrors, ListServersResponses, ListSshKeysData, ListSshKeysErrors, ListSshKeysResponses, ListTemplatesData, ListTemplatesErrors, ListTemplatesResponses, ListTemplateUsageData, ListTemplateUsageErrors, ListTemplateUsageResponses, ListUserProjectsData, ListUserProjectsErrors, ListUserProjectsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LogoutData, LogoutErrors, LogoutResponses, MeData, MeErrors, MeResponses, MetricsNodeData, MetricsNodeErrors, MetricsNodeResponses, ModpackStatusData, ModpackStatusErrors, ModpackStatusResponses, OpUserData, OpUserErrors, OpUserResponses, PardonUserData, PardonUserErrors, PardonUserResponses, RealtimeDownloadBackupData, RealtimeDownloadBackupErrors, RealtimeDownloadBackupResponses, RemoveProjectUserData, RemoveProjectUserErrors, RemoveProjectUserResponses, RenameFileData, RenameFileErrors, RenameFileResponses, RerollDaemonPasswordData, RerollDaemonPasswordErrors, RerollDaemonPasswordResponses, ResourceContextData, ResourceContextErrors, ResourceContextResponses, RestartServerData, RestartServerErrors, RestartServerResponses, RestoreBackupData, RestoreBackupErrors, RestoreBackupResponses, ResyncTemplateData, ResyncTemplateErrors, ResyncTemplateResponses, SearchResourcesData, SearchResourcesErrors, SearchResourcesResponses, ServerInfoData, ServerInfoErrors, ServerInfoResponses, ServerStatsData, ServerStatsErrors, ServerStatsResponses, ServerTerminalData, ServerTerminalErrors, ServerTerminalResponses, ServerVariablesData, ServerVariablesErrors, ServerVariablesResponses, SetConfigData, SetConfigErrors, SetConfigResponses, SetProjectFeaturesData, SetProjectFeaturesErrors, SetProjectFeaturesResponses, SetProjectUserData, SetProjectUserErrors, SetProjectUserResponses, SetResourceStateData, SetResourceStateErrors, SetResourceStateResponses, StartServerData, StartServerErrors, StartServerResponses, StatFileData, StatFileErrors, StatFileResponses, StopServerData, StopServerErrors, StopServerResponses, SymlinkFileData, SymlinkFileErrors, SymlinkFileResponses, TemplateInfoData, TemplateInfoErrors, TemplateInfoResponses, UnarchiveFileData, UnarchiveFileErrors, UnarchiveFileResponses, UninstallResourceData, UninstallResourceErrors, UninstallResourceResponses, UpdateAllResourcesData, UpdateAllResourcesErrors, UpdateAllResourcesResponses, UpdateApiKeyData, UpdateApiKeyErrors, UpdateApiKeyResponses, UpdateBackupData, UpdateBackupErrors, UpdateBackupResponses, UpdateMaintenanceData, UpdateMaintenanceErrors, UpdateMaintenanceResponses, UpdateNodeData, UpdateNodeErrors, UpdateNodeRegionData, UpdateNodeRegionErrors, UpdateNodeRegionResponses, UpdateNodeResponses, UpdatePortData, UpdatePortErrors, UpdatePortResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateRegionData, UpdateRegionErrors, UpdateRegionResponses, UpdateResourceData, UpdateResourceErrors, UpdateResourceResponses, UpdateServerData, UpdateServerErrors, UpdateServerResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateVariablesData, UpdateVariablesErrors, UpdateVariablesResponses, UploadUserData, UploadUserErrors, UploadUserResponses, WipeServerData, WipeServerErrors, WipeServerResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -47,7 +47,8 @@ export const serverInfo = <ThrowOnError extends boolean = false>(options: Option
  * Requires `ProjectPermissions::ADMIN_MANAGEMENT` to rename a server.<br/>
  * Requires `ManagementPermissions::SERVER_MANAGE` to update resources, internet access,<br/>
  * backup limits or custom dockerfile.<br/>
- * Requires `ManagementPermissions::SERVER_SUSPEND` to (un)suspend a server.
+ * Requires `ManagementPermissions::SERVER_SUSPEND` to (un)suspend a server or to change<br/>
+ * the reason a server is suspended for.
  */
 export const updateServer = <ThrowOnError extends boolean = false>(options: Options<UpdateServerData, ThrowOnError>) => (options.client ?? client).patch<UpdateServerResponses, UpdateServerErrors, ThrowOnError>({
     url: '/server/{server_id}',
@@ -550,6 +551,23 @@ export const updateNode = <ThrowOnError extends boolean = false>(options: Option
  */
 export const updateMaintenance = <ThrowOnError extends boolean = false>(options: Options<UpdateMaintenanceData, ThrowOnError>) => (options.client ?? client).patch<UpdateMaintenanceResponses, UpdateMaintenanceErrors, ThrowOnError>({
     url: '/admin/node/{node_id}/maintenance',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ *  Moves a node into another region.
+ *
+ *  Moves a node into another region.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_MANAGE`.
+ */
+export const updateNodeRegion = <ThrowOnError extends boolean = false>(options: Options<UpdateNodeRegionData, ThrowOnError>) => (options.client ?? client).patch<UpdateNodeRegionResponses, UpdateNodeRegionErrors, ThrowOnError>({
+    url: '/admin/node/{node_id}/region',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -1186,6 +1204,87 @@ export const listTemplateUsage = <ThrowOnError extends boolean = false>(options?
  */
 export const resyncTemplate = <ThrowOnError extends boolean = false>(options: Options<ResyncTemplateData, ThrowOnError>) => (options.client ?? client).post<ResyncTemplateResponses, ResyncTemplateErrors, ThrowOnError>({
     url: '/admin/template/resync',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ *  Lists all regions together with the number of nodes assigned to each.
+ *
+ *  Lists all regions together with the number of nodes assigned to each.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_VIEW`.
+ */
+export const listRegions = <ThrowOnError extends boolean = false>(options?: Options<ListRegionsData, ThrowOnError>) => (options?.client ?? client).get<ListRegionsResponses, ListRegionsErrors, ThrowOnError>({ url: '/admin/region', ...options });
+
+/**
+ *  Creates a new region nodes can be assigned to.
+ *
+ *  Creates a new region nodes can be assigned to.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_MANAGE`.
+ */
+export const createRegion = <ThrowOnError extends boolean = false>(options: Options<CreateRegionData, ThrowOnError>) => (options.client ?? client).put<CreateRegionResponses, CreateRegionErrors, ThrowOnError>({
+    url: '/admin/region',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ *  Deletes a region. The region must not have any nodes assigned to it.
+ *
+ *  Deletes a region. The region must not have any nodes assigned to it.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_MANAGE`.
+ */
+export const deleteRegion = <ThrowOnError extends boolean = false>(options: Options<DeleteRegionData, ThrowOnError>) => (options.client ?? client).delete<DeleteRegionResponses, DeleteRegionErrors, ThrowOnError>({ url: '/admin/region/{region_id}', ...options });
+
+/**
+ *  Updates a region's slug or display name.
+ *
+ *  Updates a region's slug or display name.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_MANAGE`.
+ */
+export const updateRegion = <ThrowOnError extends boolean = false>(options: Options<UpdateRegionData, ThrowOnError>) => (options.client ?? client).patch<UpdateRegionResponses, UpdateRegionErrors, ThrowOnError>({
+    url: '/admin/region/{region_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ *  Lists every feature flag this instance knows about.
+ *
+ *  Lists every feature flag this instance knows about.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::FEATURES_MANAGE`.
+ */
+export const listProjectFeatures = <ThrowOnError extends boolean = false>(options?: Options<ListProjectFeaturesData, ThrowOnError>) => (options?.client ?? client).get<ListProjectFeaturesResponses, ListProjectFeaturesErrors, ThrowOnError>({ url: '/admin/project/features', ...options });
+
+/**
+ *  Replaces the set of feature flags enabled for a project.
+ *
+ *  Replaces the set of feature flags enabled for a project.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::FEATURES_MANAGE`.
+ */
+export const setProjectFeatures = <ThrowOnError extends boolean = false>(options: Options<SetProjectFeaturesData, ThrowOnError>) => (options.client ?? client).put<SetProjectFeaturesResponses, SetProjectFeaturesErrors, ThrowOnError>({
+    url: '/admin/project/{project_id}/features',
     ...options,
     headers: {
         'Content-Type': 'application/json',

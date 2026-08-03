@@ -26,6 +26,8 @@ define_error!(server {
     not_found("Server not found" NOT_FOUND),
     storage_not_found("The specified storage was not found" BAD_REQUEST),
     unavailable("Server is currently in use" SERVICE_UNAVAILABLE),
+    suspension_reason_required("Suspending a server requires a reason" BAD_REQUEST),
+    not_suspended("The server is not suspended" BAD_REQUEST),
     config_invalid("The server config file is invalid" BAD_REQUEST)
 });
 
@@ -88,6 +90,17 @@ define_error!(node {
     invalid_host("The specified SSH host is invalid" BAD_REQUEST),
 });
 
+define_error!(feature {
+    disabled("This feature is not enabled for the project" FORBIDDEN),
+});
+
+define_error!(region {
+    not_found("The specified region was not found" NOT_FOUND),
+    not_empty("Region still has nodes assigned" BAD_REQUEST),
+    slug_invalid("The slug must be 1-64 characters of lowercase letters, numbers or hyphens" BAD_REQUEST),
+    slug_taken("A region with this slug already exists" BAD_REQUEST),
+});
+
 define_error!(db {
     failure("Database operation failed" INTERNAL_SERVER_ERROR),
 });
@@ -119,6 +132,10 @@ define_path_variable!(
 
 define_path_variable!(
     user_id "The user ID"
+);
+
+define_path_variable!(
+    region_id "The region ID"
 );
 
 define_query_variable!(

@@ -160,7 +160,7 @@ pub(crate) impl InternalService for Backend {
             let backend = self.clone();
             self.database.acquire().await?
                 .transaction(move |tx| Box::pin(async move {
-                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host,ssh_host,ssh_port) VALUES ($1, $2, $3, $4, $5, $6, $7)", &uuid, registration.name, config.base_url.as_str(), &default_bind, &default_host, ssh_host, ssh_port)
+                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host,ssh_host,ssh_port,region) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", &uuid, registration.name, config.base_url.as_str(), &default_bind, &default_host, ssh_host, ssh_port, &registration.region)
                         .execute(&mut **tx)
                         .await
                         .inspect_err(|err| error!("Failed to insert node: {err:?}"))?;

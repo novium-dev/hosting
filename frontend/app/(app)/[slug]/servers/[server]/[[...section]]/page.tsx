@@ -21,7 +21,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { serverInfo } from "@/lib/api";
+import { ProjectFeature, serverInfo } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { useOrganization } from "@/hooks/use-organization";
 import { useSearchParams } from "@/lib/navigation";
@@ -51,6 +51,7 @@ type ServerSection = {
   permission: number;
   requiresMinecraftResources?: boolean;
   requiresMinecraftServer?: boolean;
+  requiresProjectFeature?: ProjectFeature;
 };
 
 const SERVER_SECTIONS: ServerSection[] = [
@@ -82,6 +83,7 @@ const SERVER_SECTIONS: ServerSection[] = [
     description: "Browse and install Minecraft mods or plugins.",
     permission: ServerPermission.FILES_READ,
     requiresMinecraftResources: true,
+    requiresProjectFeature: ProjectFeature.MOD_INSTALLER,
   },
   {
     key: "players",
@@ -128,13 +130,24 @@ const SERVER_SECTIONS: ServerSection[] = [
   },
 ];
 
-function getVisibleSections(permissions: number, features: string[]) {
+function getVisibleSections(
+  permissions: number,
+  features: string[],
+  projectFeatures: ProjectFeature[],
+) {
   const isMinecraftServer = features.some((feature) =>
     feature.startsWith("minecraft_"),
   );
 
   return SERVER_SECTIONS.filter((entry) => {
     if (!hasServerPermission(permissions, entry.permission)) {
+      return false;
+    }
+
+    if (
+      entry.requiresProjectFeature &&
+      !projectFeatures.includes(entry.requiresProjectFeature)
+    ) {
       return false;
     }
 
@@ -181,6 +194,7 @@ export default function ClientServerSectionPage() {
   const visibleSections = getVisibleSections(
     effectivePermissions,
     serverData?.features ?? [],
+    org?.features ?? [],
   );
   const activeSection = getActiveSection(visibleSections, section);
 
@@ -283,7 +297,8 @@ export default function ClientServerSectionPage() {
             </CardTitle>
             <CardDescription className="text-destructive">
               {blockReason === "suspended"
-                ? "This server is suspended and actions are currently blocked."
+                ? (serverData?.suspension_reason ??
+                  "This server is suspended and actions are currently blocked.")
                 : `Node ${serverData?.node.display ?? "Unknown"} is in maintenance mode, so server actions are currently blocked.`}
             </CardDescription>
           </CardHeader>

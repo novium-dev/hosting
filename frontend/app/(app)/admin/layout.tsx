@@ -1,10 +1,28 @@
 import { Outlet } from "react-router-dom";
-import { AdminNavbar } from "@/components/navigation/admin-navbar";
+import { AdminSidebar } from "@/components/navigation/admin-sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { authClient } from "@/lib/auth-client";
+import { usePathname } from "@/lib/navigation";
 import { hasAnyManagementPermission } from "@/lib/permissions";
+
+const sectionTitles: Record<string, string> = {
+  users: "Users",
+  "api-keys": "API keys",
+  projects: "Projects",
+  servers: "Servers",
+  templates: "Templates",
+  regions: "Regions",
+  nodes: "Nodes",
+};
 
 export default function AdminLayout() {
   const { data: session, isLoading } = authClient.useSession();
+  const pathname = usePathname();
 
   if (isLoading) return null;
 
@@ -19,12 +37,23 @@ export default function AdminLayout() {
     );
   }
 
+  const section = pathname.split("/").filter(Boolean)[1] ?? "";
+
   return (
-    <div className="min-h-svh bg-background">
-      <AdminNavbar permissions={session.user.permissions} />
-      <main className="mx-auto w-full max-w-400">
-        <Outlet />
-      </main>
-    </div>
+    <SidebarProvider>
+      <AdminSidebar permissions={session.user.permissions} />
+      <SidebarInset>
+        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur supports-backdrop-filter:bg-background/70 md:px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-1 h-4" />
+          <span className="text-sm font-medium">
+            {sectionTitles[section] ?? "Administration"}
+          </span>
+        </header>
+        <main className="w-full max-w-400">
+          <Outlet />
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

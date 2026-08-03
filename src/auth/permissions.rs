@@ -198,6 +198,10 @@ bitflags! {
         /// Allows the user to bypass global and server-specific limits.
         ///
         const LIMITS_BYPASS = 1 << 46;
+
+        /// Allows the user to enable and disable feature flags on any project.
+        ///
+        const FEATURES_MANAGE = 1 << 47;
     }
 }
 

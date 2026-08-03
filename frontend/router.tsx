@@ -20,6 +20,7 @@ import AdminApiKeysPage from "@/app/(app)/admin/api-keys/page";
 import AdminTemplatesPage from "@/app/(app)/admin/templates/page";
 import AdminNodesPage from "@/app/(app)/admin/nodes/page";
 import AdminNodePage from "@/app/(app)/admin/nodes/[node]/page";
+import AdminRegionsPage from "@/app/(app)/admin/regions/page";
 import AdminProjectsPage from "@/app/(app)/admin/projects/page";
 import AdminUsersPage from "@/app/(app)/admin/users/page";
 import AdminUserPage from "@/app/(app)/admin/users/[user]/page";
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
             children: [
               { path: "nodes", element: <AdminNodesPage /> },
               { path: "nodes/:node", element: <AdminNodePage /> },
+              { path: "regions", element: <AdminRegionsPage /> },
               { path: "projects", element: <AdminProjectsPage /> },
               { path: "users", element: <AdminUsersPage /> },
               { path: "api-keys", element: <AdminApiKeysPage /> },

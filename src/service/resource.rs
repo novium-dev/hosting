@@ -2,6 +2,7 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
+use crate::db::feature::ProjectFeature;
 use crate::db::server::resources::{
     InstalledResource, delete_installed, delete_installed_files, get_modpack, installed_file,
     list_installed, upsert_installed,
@@ -633,13 +634,18 @@ impl Backend {
 pub(crate) impl ResourceService for Backend {
     /// Reports which loaders and providers this server can browse.
     #[route("", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::wrong_template, template::{corrupted, unavailable})]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::wrong_template, template::{corrupted, unavailable})]
     async fn resource_context(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<ResourceContext, _> {
         auth.require::<_, _, ResourceContextError>(server_id, ServerPermissions::FILES_READ)?;
+        self.require_server_feature::<ResourceContextError>(
+            server_id,
+            ProjectFeature::ModInstaller,
+        )
+        .await?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -702,7 +708,7 @@ pub(crate) impl ResourceService for Backend {
     /// typing burst in the search box costs one upstream request per distinct
     /// query rather than one per keystroke per client.
     #[route("/search", method = GET, query = [ provider, query, loader, kind, game_version, limit, offset ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing})]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing})]
     async fn search_resources(
         &self,
         #[special] auth: Authentication,
@@ -716,6 +722,11 @@ pub(crate) impl ResourceService for Backend {
         offset: Option<u32>,
     ) -> Result<Vec<ResourceProject>, _> {
         auth.require::<_, _, SearchResourcesError>(server_id, ServerPermissions::FILES_READ)?;
+        self.require_server_feature::<SearchResourcesError>(
+            server_id,
+            ProjectFeature::ModInstaller,
+        )
+        .await?;
 
         let query = query.unwrap_or_default();
         if query.len() > MAX_QUERY_LENGTH {
@@ -740,7 +751,7 @@ pub(crate) impl ResourceService for Backend {
 
     /// Lists the versions of a project that fit `loader`.
     #[route("/versions", method = GET, query = [ provider, project, loader, kind, game_version ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing})]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing})]
     async fn list_resource_versions(
         &self,
         #[special] auth: Authentication,
@@ -752,6 +763,11 @@ pub(crate) impl ResourceService for Backend {
         game_version: Option<String>,
     ) -> Result<Vec<ResourceVersion>, _> {
         auth.require::<_, _, ListResourceVersionsError>(server_id, ServerPermissions::FILES_READ)?;
+        self.require_server_feature::<ListResourceVersionsError>(
+            server_id,
+            ProjectFeature::ModInstaller,
+        )
+        .await?;
 
         self.resource_client()
             .versions(
@@ -785,7 +801,7 @@ pub(crate) impl ResourceService for Backend {
     /// the directory in `unreadable`, so an unreachable node degrades to
     /// "couldn't check" instead of discarding the version history.
     #[route("/installed", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, template::{corrupted, unavailable})]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, template::{corrupted, unavailable})]
     async fn list_installed_resources(
         &self,
         #[special] auth: Authentication,
@@ -795,6 +811,11 @@ pub(crate) impl ResourceService for Backend {
             server_id,
             ServerPermissions::FILES_READ,
         )?;
+        self.require_server_feature::<ListInstalledResourcesError>(
+            server_id,
+            ProjectFeature::ModInstaller,
+        )
+        .await?;
 
         let recorded = list_installed(&self.database, server_id).await?;
 
@@ -932,7 +953,7 @@ pub(crate) impl ResourceService for Backend {
     /// is written first, then the previous one is removed, so a failed download
     /// leaves the working version in place.
     #[route("/install", method = POST)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, wrong_template}, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, already_exists})]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, wrong_template}, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, already_exists})]
     async fn install_resource(
         &self,
         #[special] auth: Authentication,
@@ -940,6 +961,11 @@ pub(crate) impl ResourceService for Backend {
         payload: InstallResourcePayload,
     ) -> Result<InstalledResource, _> {
         auth.require::<_, _, InstallResourceError>(server_id, ServerPermissions::FILES_WRITE)?;
+        self.require_server_feature::<InstallResourceError>(
+            server_id,
+            ProjectFeature::ModInstaller,
+        )
+        .await?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -969,7 +995,7 @@ pub(crate) impl ResourceService for Backend {
     /// goes through the Valkey cache, so repeat visits are nearly free; a
     /// provider that cannot be reached is skipped rather than failing the report.
     #[route("/updates", method = GET, query = [ allow_prerelease ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, template::{corrupted, unavailable})]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, template::{corrupted, unavailable})]
     async fn list_resource_updates(
         &self,
         #[special] auth: Authentication,
@@ -977,6 +1003,11 @@ pub(crate) impl ResourceService for Backend {
         allow_prerelease: Option<bool>,
     ) -> Result<Vec<ResourceUpdate>, _> {
         auth.require::<_, _, ListResourceUpdatesError>(server_id, ServerPermissions::FILES_READ)?;
+        self.require_server_feature::<ListResourceUpdatesError>(
+            server_id,
+            ProjectFeature::ModInstaller,
+        )
+        .await?;
 
         let recorded = list_installed(&self.database, server_id).await?;
         if recorded.is_empty() {
@@ -1025,7 +1056,7 @@ pub(crate) impl ResourceService for Backend {
 
     /// Updates one installed resource to the newest compatible version.
     #[route("/update", method = POST, query = [ provider, project, allow_prerelease ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, template::{corrupted, unavailable}, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, not_installed, wrong_template}, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, already_exists})]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, template::{corrupted, unavailable}, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, not_installed, wrong_template}, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, already_exists})]
     async fn update_resource(
         &self,
         #[special] auth: Authentication,
@@ -1035,6 +1066,8 @@ pub(crate) impl ResourceService for Backend {
         allow_prerelease: Option<bool>,
     ) -> Result<InstalledResource, _> {
         auth.require::<_, _, UpdateResourceError>(server_id, ServerPermissions::FILES_WRITE)?;
+        self.require_server_feature::<UpdateResourceError>(server_id, ProjectFeature::ModInstaller)
+            .await?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -1087,7 +1120,7 @@ pub(crate) impl ResourceService for Backend {
     /// four providers, one unreachable provider or one distribution-blocked file
     /// should not stop the rest from updating.
     #[route("/update-all", method = POST, query = [ allow_prerelease ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::wrong_template, template::{corrupted, unavailable})]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::wrong_template, template::{corrupted, unavailable})]
     async fn update_all_resources(
         &self,
         #[special] auth: Authentication,
@@ -1095,6 +1128,11 @@ pub(crate) impl ResourceService for Backend {
         allow_prerelease: Option<bool>,
     ) -> Result<Vec<ResourceUpdateResult>, _> {
         auth.require::<_, _, UpdateAllResourcesError>(server_id, ServerPermissions::FILES_WRITE)?;
+        self.require_server_feature::<UpdateAllResourcesError>(
+            server_id,
+            ProjectFeature::ModInstaller,
+        )
+        .await?;
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -1169,7 +1207,7 @@ pub(crate) impl ResourceService for Backend {
 
     /// Removes an installed resource's file and its record.
     #[route("/installed", method = DELETE, query = [ provider, project ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, resource::not_installed, file::{storage_unavailable, sandbox_violated, is_directory, not_directory, not_found})]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, resource::not_installed, file::{storage_unavailable, sandbox_violated, is_directory, not_directory, not_found})]
     async fn uninstall_resource(
         &self,
         #[special] auth: Authentication,
@@ -1178,6 +1216,11 @@ pub(crate) impl ResourceService for Backend {
         project: String,
     ) -> Result<(), _> {
         auth.require::<_, _, UninstallResourceError>(server_id, ServerPermissions::FILES_WRITE)?;
+        self.require_server_feature::<UninstallResourceError>(
+            server_id,
+            ProjectFeature::ModInstaller,
+        )
+        .await?;
 
         let (file_name, resource_type) =
             installed_file(&self.database, server_id, provider, &project)
@@ -1237,7 +1280,7 @@ pub(crate) impl ResourceService for Backend {
     /// Idempotent — asking for the state a file is already in succeeds without
     /// touching the filesystem.
     #[route("/state", method = POST, query = [ resource_type, file, enabled ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, resource::invalid_payload, file::{storage_unavailable, not_found, not_directory, sandbox_violated, already_exists})]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, resource::invalid_payload, file::{storage_unavailable, not_found, not_directory, sandbox_violated, already_exists})]
     async fn set_resource_state(
         &self,
         #[special] auth: Authentication,
@@ -1247,6 +1290,11 @@ pub(crate) impl ResourceService for Backend {
         enabled: bool,
     ) -> Result<ResourceState, _> {
         auth.require::<_, _, SetResourceStateError>(server_id, ServerPermissions::FILES_WRITE)?;
+        self.require_server_feature::<SetResourceStateError>(
+            server_id,
+            ProjectFeature::ModInstaller,
+        )
+        .await?;
 
         if matches!(resource_type, ResourceType::DataPack) {
             return Err(SetResourceStateError::ResourceInvalidPayload);

@@ -28,6 +28,7 @@ const backupEntrySchema = z
 
 const createNodeSchema = z.object({
   name: z.string().min(1, "Node name is required"),
+  region: z.string().min(1, "Region is required"),
   baseUrl: z.string().min(1, "Base URL is required"),
   defaultHost: z.string().min(1, "Default host is required"),
   // Optional SSH/SFTP endpoint. When unset, SSH/SFTP is disabled for the node.
@@ -64,6 +65,7 @@ export const createNodeAction = authActionClient
     const response = await createNode({
       body: {
         name: parsedInput.name,
+        region: parsedInput.region,
         config: {
           base_url: parsedInput.baseUrl,
           default_host: parsedInput.defaultHost,

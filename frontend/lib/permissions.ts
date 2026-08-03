@@ -34,6 +34,7 @@ export const ManagementPermission = {
   DATABASE_CREATE: 2 ** 44,
   DATABASE_DELETE: 2 ** 45,
   LIMITS_BYPASS: 2 ** 46,
+  FEATURES_MANAGE: 2 ** 47,
 } as const;
 
 const serverDependencyMap = [
