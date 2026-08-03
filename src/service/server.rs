@@ -22,7 +22,9 @@ use daemon_common::service::backup::backup_service_error::{
     ServerCreateBackupOrderError, ServerListBackupsError,
 };
 use daemon_common::service::files::files_service_error::WipeServerError as DaemonWipeServerError;
-use daemon_common::service::server::{ServerNetworkPayload, ServerResourcePayload, ServerStats};
+use daemon_common::service::server::{
+    ServerBuildImage, ServerNetworkPayload, ServerResourcePayload, ServerStats,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query};
 use tracing::{error, warn};
@@ -366,7 +368,7 @@ pub(crate) impl ServerService for Backend {
     /// backup limits or custom dockerfile.
     /// Requires [`ManagementPermissions::SERVER_SUSPEND`] to (un)suspend a server.
     #[route("/{server_id}", method = PATCH)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, template::{corrupted, unavailable})]
     async fn update_server(
         &self,
         #[special] auth: Authentication,
@@ -413,13 +415,35 @@ pub(crate) impl ServerService for Backend {
             .await?
             .ok_or(UpdateServerError::ServerNotFound)?;
 
-        if resource.is_some() || internet_access.is_some() {
+        let new_build = if custom_dockerfile.is_some() {
+            let mut build = server
+                .template
+                .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
+                .await
+                .map_err(TemplateError::into::<UpdateServerError>)?;
+
+            if let Some(dockerfile) = custom_dockerfile.clone().flatten() {
+                build.image = ServerBuildImage {
+                    default_tag: None,
+                    tag: Some(format!("custom_{}", server.id)),
+                    parents: vec![build.image],
+                    args: HashMap::new(),
+                    dockerfile,
+                    base: Some(0),
+                };
+            }
+            Some(build)
+        } else {
+            None
+        };
+
+        if resource.is_some() || internet_access.is_some() || new_build.is_some() {
             server
                 .node
                 .update_server(
                     server.node_server_id,
                     resource.clone(),
-                    None,
+                    new_build,
                     None,
                     internet_access.map(|internet_access| ServerNetworkPayload {
                         internet_access,
@@ -445,33 +469,6 @@ pub(crate) impl ServerService for Backend {
                     .execute(&mut **tx)
                     .await
                     .inspect_err(|err| error!("Failed to update server (name): {err:?}"))?;
-                }
-
-                if let Some(resource) = resource {
-                    query!(
-                        "UPDATE servers SET cpu = $1, ram = $2, swap = $3, disk = $4 WHERE id = $5",
-                        resource.cpu,
-                        resource.ram.map(u32::cast_signed),
-                        resource.swap.map(u32::cast_signed),
-                        resource.disk.map(u64::cast_signed),
-                        &server_id
-                    )
-                    .execute(&mut **tx)
-                    .await
-                    .inspect_err(|err| error!("Failed to update server (resource): {err:?}"))?;
-                }
-
-                if let Some(custom_dockerfile) = custom_dockerfile {
-                    query!(
-                        "UPDATE servers SET custom_dockerfile = $1 WHERE id = $2",
-                        custom_dockerfile,
-                        &server_id
-                    )
-                    .execute(&mut **tx)
-                    .await
-                    .inspect_err(|err| {
-                        error!("Failed to update server (custom_dockerfile): {err:?}");
-                    })?;
                 }
 
                 if let Some(suspended) = suspended {
@@ -519,11 +516,9 @@ pub(crate) impl ServerService for Backend {
         .await?;
 
         if suspended == Some(true) {
-            let _ =
-                tokio::task::spawn(
-                    async move { server.node.stop_server(server.node_server_id).await },
-                )
-                .await;
+            let node = Arc::clone(&server.node);
+            let node_server_id = server.node_server_id;
+            let _ = tokio::task::spawn(async move { node.stop_server(node_server_id).await }).await;
         }
 
         Ok(())
@@ -898,6 +893,17 @@ pub(crate) impl ServerService for Backend {
             )
             .await
             .map_err(TemplateError::into::<UpdateVariablesError>)?;
+
+        if let Some(custom_dockerfile) = &server.custom_dockerfile {
+            new_build.image = ServerBuildImage {
+                default_tag: None,
+                tag: Some(format!("custom_{}", server.id)),
+                parents: vec![new_build.image],
+                args: HashMap::new(),
+                dockerfile: custom_dockerfile.clone(),
+                base: Some(0),
+            };
+        }
 
         new_build
             .environment
