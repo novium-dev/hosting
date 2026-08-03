@@ -58,6 +58,7 @@ pub struct NodeRegistration {
     time: Instant,
     name: String,
     default_host: String,
+    region: crate::db::region::RegionId,
     config: SetupNodeConfig,
 }
 
