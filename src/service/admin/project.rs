@@ -7,9 +7,15 @@ use crate::service::admin::project::project_admin_service_error::{
     ListProjectFeaturesError, SetProjectFeaturesError,
 };
 use crate::service::*;
+use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query};
 use std::collections::HashSet;
 use zelus::service;
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ProjectFeaturesRequest {
+    pub features: Vec<ProjectFeature>,
+}
 
 #[service(path = "/admin/project", tag = "project", no_sdk)]
 pub(crate) impl ProjectAdminService for Backend {
@@ -42,9 +48,11 @@ pub(crate) impl ProjectAdminService for Backend {
         &self,
         #[special] auth: Authentication,
         project_id: ProjectId,
-        features: HashSet<ProjectFeature>,
+        features: ProjectFeaturesRequest,
     ) -> Result<(), _> {
         auth.require::<_, _, SetProjectFeaturesError>((), ManagementPermissions::FEATURES_MANAGE)?;
+
+        let features: HashSet<ProjectFeature> = features.features.into_iter().collect();
 
         let mut conn = self.database.acquire().await?;
         conn.transaction(|tx| {

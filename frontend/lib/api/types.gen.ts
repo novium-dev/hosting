@@ -78,8 +78,6 @@ export type HashMap = {
     [key: string]: string;
 };
 
-export type HashSet = Array<'mod_installer'>;
-
 export type HostAndPort = {
     host: string;
     port: number;
@@ -196,6 +194,10 @@ export type PrimaryPortInfo = {
 export const ProjectFeature = { MOD_INSTALLER: 'mod_installer' } as const;
 
 export type ProjectFeature = typeof ProjectFeature[keyof typeof ProjectFeature];
+
+export type ProjectFeaturesRequest = {
+    features: Array<ProjectFeature>;
+};
 
 export type ResourceDisk = {
     available: number;
@@ -11521,7 +11523,7 @@ export type ListProjectFeaturesResponses = {
 export type ListProjectFeaturesResponse = ListProjectFeaturesResponses[keyof ListProjectFeaturesResponses];
 
 export type SetProjectFeaturesData = {
-    body: HashSet;
+    body: ProjectFeaturesRequest;
     headers?: {
         /**
          * The session token or api key
