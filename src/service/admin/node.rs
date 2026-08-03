@@ -87,9 +87,12 @@ pub(crate) impl NodeAdminService for Backend {
     ) -> Result<String, _> {
         auth.require::<_, _, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
-        query!(r#"SELECT id AS "id: RegionId" FROM regions WHERE id = $1"#, &region)
-            .fetch_one(&*self.database)
-            .await?;
+        query!(
+            r#"SELECT id AS "id: RegionId" FROM regions WHERE id = $1"#,
+            &region
+        )
+        .fetch_one(&*self.database)
+        .await?;
 
         let code = gen_code::<CreateNodeError>()?;
 

@@ -4,6 +4,7 @@ import useSWR from "swr";
 import {
   AlertTriangle,
   Cpu,
+  Globe2,
   HardDrive,
   MemoryStick,
   Network,
@@ -20,7 +21,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { availablePorts, listNodes, metricsNode } from "@/lib/api";
+import {
+  availablePorts,
+  listNodes,
+  listRegions,
+  metricsNode,
+} from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { hasManagementPermission, ManagementPermission } from "@/lib/permissions";
 import { NodePortsManager } from "./node-ports-manager";
@@ -61,13 +67,19 @@ export default function AdminNodeManagementPage() {
   const { data: bundle } = useSWR(
     canView && node ? ["admin-node", node] : null,
     async () => {
-      const [nodesResponse, metricsResponse, availableResponse] =
+      const [nodesResponse, metricsResponse, availableResponse, regionsResponse] =
         await Promise.all([
           listNodes(),
           metricsNode({ path: { node_id: node } }).catch(() => null),
           availablePorts({ path: { node_id: node } }),
+          listRegions(),
         ]);
-      return { nodesResponse, metricsResponse, availableResponse };
+      return {
+        nodesResponse,
+        metricsResponse,
+        availableResponse,
+        regionsResponse,
+      };
     },
   );
 
@@ -75,7 +87,8 @@ export default function AdminNodeManagementPage() {
   if (!session || !canView) return <NotFoundView />;
   if (!bundle) return null;
 
-  const { nodesResponse, metricsResponse, availableResponse } = bundle;
+  const { nodesResponse, metricsResponse, availableResponse, regionsResponse } =
+    bundle;
   const nodes = nodesResponse.error ? [] : (nodesResponse.data ?? []);
   const currentNode = nodes.find((entry) => entry.id === node) ?? null;
 
@@ -90,6 +103,10 @@ export default function AdminNodeManagementPage() {
   const canManageNodes = hasManagementPermission(
     session.user.permissions,
     ManagementPermission.NODES_MANAGE,
+  );
+  const regions = regionsResponse.error ? [] : (regionsResponse.data ?? []);
+  const currentRegion = regions.find(
+    (region) => region.id === currentNode.region,
   );
 
   return (
@@ -119,6 +136,11 @@ export default function AdminNodeManagementPage() {
           )}
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <InfoCard
+              icon={Globe2}
+              title="Region"
+              value={currentRegion?.display ?? currentNode.region}
+            />
             <InfoCard
               icon={Network}
               title="Network"
@@ -177,6 +199,8 @@ export default function AdminNodeManagementPage() {
         backupStorages={currentNode.backup_storages}
         serverStorages={currentNode.server_storages}
         initialMaintenance={currentNode.maintenance}
+        initialRegion={currentNode.region}
+        regions={regions}
         canManage={canManageNodes}
       />
     </div>

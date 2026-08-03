@@ -3,6 +3,7 @@
 import { CheckIcon, CopyIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import useSWR from "swr";
 
 import { useAction } from "@/lib/action-hooks";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { createNodeAction } from "@/actions/nodes";
+import { listRegions } from "@/lib/api";
 
 type StorageType = "directory" | "btrfs";
 type BackupType = "archive" | "btrfs";
@@ -55,6 +57,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
   const [copied, setCopied] = useState(false);
 
   const [name, setName] = useState("");
+  const [region, setRegion] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [defaultHost, setDefaultHost] = useState("");
   const [sshHost, setSshHost] = useState("");
@@ -75,8 +78,14 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
     },
   });
 
+  const { data: regions } = useSWR("admin/regions", async () => {
+    const response = await listRegions();
+    return response.error ? [] : (response.data ?? []);
+  });
+
   const resetForm = () => {
     setName("");
+    setRegion("");
     setBaseUrl("");
     setDefaultHost("");
     setSshHost("");
@@ -97,6 +106,11 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (region === "") {
+      toast.error("Select a region for the node");
+      return;
+    }
+
     // An empty SSH host disables SSH/SFTP for the node.
     let sshConfig: { host: string; port: number } | undefined;
     const trimmedSshHost = sshHost.trim();
@@ -111,6 +125,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
 
     await createNodeRegistration.executeAsync({
       name: name.trim(),
+      region,
       baseUrl: baseUrl.trim(),
       defaultHost: defaultHost.trim(),
       ssh: sshConfig,
@@ -208,6 +223,26 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                     placeholder="my-node"
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="node-region">Region</Label>
+                  <Select value={region} onValueChange={setRegion}>
+                    <SelectTrigger id="node-region" className="w-full">
+                      <SelectValue placeholder="Select a region" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(regions ?? []).map((entry) => (
+                        <SelectItem key={entry.id} value={entry.id}>
+                          {entry.display}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {regions?.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No regions yet — create one under Regions first.
+                    </p>
+                  ) : null}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="node-base-url">Base URL</Label>

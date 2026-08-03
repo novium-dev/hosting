@@ -44,10 +44,16 @@ export type CreateApiKeyPayload = {
 export type CreateNodePayload = {
     config: SetupNodeConfigRequest;
     name: string;
+    region: NanoId;
 };
 
 export type CreateProjectPayload = {
     name: string;
+    slug: string;
+};
+
+export type CreateRegionPayload = {
+    display: string;
     slug: string;
 };
 
@@ -362,6 +368,11 @@ export type UpdatePortPayload = {
 export type UpdateProjectPayload = {
     name?: string | null;
     owner?: number | null;
+    slug?: string | null;
+};
+
+export type UpdateRegionPayload = {
+    display?: string | null;
     slug?: string | null;
 };
 
@@ -705,12 +716,30 @@ export type UpdateServerErrors = {
         };
     };
     /**
+     * The template was unable to read the server data
+     */
+    '500‪': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
      * Node operation failed
      */
     '502‏': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‫': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
         };
     };
 };
@@ -5176,6 +5205,7 @@ export type ListNodesResponses = {
         id: string;
         maintenance: boolean;
         ports: Array<NodePortAllocation>;
+        region: NanoId;
         server_storages: Array<string>;
         ssh_host?: string | null;
         ssh_port?: number | null;
@@ -5226,6 +5256,15 @@ export type CreateNodeErrors = {
         };
     };
     /**
+     * The specified region was not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'region/not_found';
+            msg?: 'The specified region was not found';
+        };
+    };
+    /**
      * Authentication storage is unreachable
      */
     '500​': {
@@ -5246,7 +5285,7 @@ export type CreateNodeErrors = {
     /**
      * Database operation failed
      */
-    '500‎': {
+    '500‏': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -5427,6 +5466,92 @@ export type UpdateMaintenanceResponses = {
 };
 
 export type UpdateMaintenanceResponse = UpdateMaintenanceResponses[keyof UpdateMaintenanceResponses];
+
+export type UpdateNodeRegionData = {
+    body: NanoId;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The node identifier
+         */
+        node_id: string;
+    };
+    query?: never;
+    url: '/admin/node/{node_id}/region';
+};
+
+export type UpdateNodeRegionErrors = {
+    /**
+     * The specified node was not found
+     */
+    '400᠎': {
+        error?: {
+            id?: 'node/not_found';
+            msg?: 'The specified node was not found';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403‌': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified region was not found
+     */
+    '404​': {
+        error?: {
+            id?: 'region/not_found';
+            msg?: 'The specified region was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‍': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type UpdateNodeRegionError = UpdateNodeRegionErrors[keyof UpdateNodeRegionErrors];
+
+export type UpdateNodeRegionResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UpdateNodeRegionResponse = UpdateNodeRegionResponses[keyof UpdateNodeRegionResponses];
 
 export type MetricsNodeData = {
     body?: never;
@@ -10881,3 +11006,333 @@ export type ResyncTemplateResponses = {
 };
 
 export type ResyncTemplateResponse = ResyncTemplateResponses[keyof ResyncTemplateResponses];
+
+export type ListRegionsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/region';
+};
+
+export type ListRegionsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListRegionsError = ListRegionsErrors[keyof ListRegionsErrors];
+
+export type ListRegionsResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        display: string;
+        id: NanoId;
+        node_count: number;
+        slug: string;
+    }>;
+};
+
+export type ListRegionsResponse = ListRegionsResponses[keyof ListRegionsResponses];
+
+export type CreateRegionData = {
+    body: CreateRegionPayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/region';
+};
+
+export type CreateRegionErrors = {
+    /**
+     * The slug must be 1-64 characters of lowercase letters, numbers or hyphens
+     */
+    '400‌': {
+        error?: {
+            id?: 'region/slug_invalid';
+            msg?: 'The slug must be 1-64 characters of lowercase letters, numbers or hyphens';
+        };
+    };
+    /**
+     * A region with this slug already exists
+     */
+    '400‍': {
+        error?: {
+            id?: 'region/slug_taken';
+            msg?: 'A region with this slug already exists';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type CreateRegionError = CreateRegionErrors[keyof CreateRegionErrors];
+
+export type CreateRegionResponses = {
+    /**
+     * Success
+     */
+    200: string;
+};
+
+export type CreateRegionResponse = CreateRegionResponses[keyof CreateRegionResponses];
+
+export type DeleteRegionData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The region ID
+         */
+        region_id: NanoId;
+    };
+    query?: never;
+    url: '/admin/region/{region_id}';
+};
+
+export type DeleteRegionErrors = {
+    /**
+     * Region still has nodes assigned
+     */
+    '400‍': {
+        error?: {
+            id?: 'region/not_empty';
+            msg?: 'Region still has nodes assigned';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified region was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'region/not_found';
+            msg?: 'The specified region was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type DeleteRegionError = DeleteRegionErrors[keyof DeleteRegionErrors];
+
+export type DeleteRegionResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteRegionResponse = DeleteRegionResponses[keyof DeleteRegionResponses];
+
+export type UpdateRegionData = {
+    body: UpdateRegionPayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The region ID
+         */
+        region_id: NanoId;
+    };
+    query?: never;
+    url: '/admin/region/{region_id}';
+};
+
+export type UpdateRegionErrors = {
+    /**
+     * The slug must be 1-64 characters of lowercase letters, numbers or hyphens
+     */
+    '400‍': {
+        error?: {
+            id?: 'region/slug_invalid';
+            msg?: 'The slug must be 1-64 characters of lowercase letters, numbers or hyphens';
+        };
+    };
+    /**
+     * A region with this slug already exists
+     */
+    '400‎': {
+        error?: {
+            id?: 'region/slug_taken';
+            msg?: 'A region with this slug already exists';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified region was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'region/not_found';
+            msg?: 'The specified region was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type UpdateRegionError = UpdateRegionErrors[keyof UpdateRegionErrors];
+
+export type UpdateRegionResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UpdateRegionResponse = UpdateRegionResponses[keyof UpdateRegionResponses];
