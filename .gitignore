@@ -1,10 +1,9 @@
 target/
 .idea/
-mariadb/data/
-mariadb/sockets/
-valkey/data/
-valkey/sockets/
-postgres/
+/mariadb
+/valkey/data/
+/valkey/sockets/
+/postgres/
 /storage/
 /storages/
 /backups/
@@ -33,3 +32,6 @@ gen/*
 config.toml
 /my-better-t-app
 /frontend/dist
+
+# database_agent compile-time schema database (scripts/dev/database_agent_db.sh)
+dev/database_agent.db

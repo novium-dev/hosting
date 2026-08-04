@@ -1,0 +1,19 @@
+use std::process::Command;
+
+fn main() {
+    println!("cargo:rerun-if-changed=.git/HEAD");
+    let output = Command::new("git")
+        .args(["rev-parse", "--short", "HEAD"])
+        .output()
+        .expect("Failed to execute command");
+
+    let git_hash = String::from_utf8_lossy(&output.stdout);
+
+    println!("cargo:rustc-env=GIT_HASH={git_hash}");
+
+    if let Ok(env) = std::env::var("DATABASE_AGENT_DATABASE_URL") {
+        println!("cargo:rustc-env=DATABASE_URL={env}");
+    } else {
+        println!("cargo:rustc-env=DATABASE_URL=sqlite://dev/database_agent.db");
+    }
+}
