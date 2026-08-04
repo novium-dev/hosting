@@ -5,8 +5,8 @@ use bollard::auth::DockerCredentials;
 use bollard::errors::Error::DockerResponseServerError;
 use bollard::exec::{CreateExecOptions, StartExecOptions, StartExecResults};
 use bollard::models::{
-    ContainerCreateBody, ContainerStateStatusEnum, ContainerUpdateBody, HostConfig,
-    HostConfigLogConfig, Mount, MountType, Resources,
+    ContainerCreateBody, ContainerInspectResponse, ContainerStateStatusEnum, ContainerUpdateBody,
+    HostConfig, HostConfigLogConfig, Mount, MountType, Resources,
 };
 use bollard::query_parameters::{
     CreateContainerOptions, CreateImageOptions, KillContainerOptions, ListContainersOptions,
@@ -278,14 +278,14 @@ pub struct DockerHandle {
     docker: Docker,
     config: Arc<AgentConfig>,
     usage: Arc<RwLock<ResourceUsage>>,
-    stats_task: JoinHandle<()>,
-    state_task: JoinHandle<()>,
+    usage_task: JoinHandle<()>,
+    lifecycle_task: JoinHandle<()>,
 }
 
 impl Drop for DockerHandle {
     fn drop(&mut self) {
-        self.stats_task.abort();
-        self.state_task.abort();
+        self.usage_task.abort();
+        self.lifecycle_task.abort();
     }
 }
 
@@ -298,13 +298,13 @@ impl DockerHandle {
     ) -> Self {
         let usage = Arc::new(RwLock::new(ResourceUsage::default()));
 
-        let stats_task = tokio::spawn(Self::stats_loop(
+        let usage_task = tokio::spawn(Self::stats_loop(
             docker.clone(),
             container_id.clone(),
             Arc::clone(&usage),
             instance,
         ));
-        let state_task = tokio::spawn(Self::state_loop(
+        let lifecycle_task = tokio::spawn(Self::state_loop(
             docker.clone(),
             container_id.clone(),
             Arc::clone(&usage),
@@ -316,8 +316,8 @@ impl DockerHandle {
             docker,
             config,
             usage,
-            stats_task,
-            state_task,
+            usage_task,
+            lifecycle_task,
         }
     }
 
@@ -408,6 +408,10 @@ impl DockerHandle {
         Ok(())
     }
 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "the cpu percentage does not need full integer precision"
+    )]
     async fn stats_loop(
         docker: Docker,
         container_id: String,
@@ -428,6 +432,7 @@ impl DockerHandle {
 
             let (stats, ()) =
                 tokio::join!(stream.next(), tokio::time::sleep(Duration::from_secs(1)));
+            drop(stream);
 
             let Some(stats) = stats else { break };
             let stats = match stats {
@@ -466,23 +471,26 @@ impl DockerHandle {
                 let total = cpu_usage.total_usage.unwrap_or_default();
                 let now = Instant::now();
 
-                usage.cpu_absolute = previous_instant.map_or(0.0, |previous| {
+                usage.cpu_absolute = previous_instant.map_or(0.0f64, |previous| {
                     let cpu_delta = total.saturating_sub(previous_cpu) as f64;
                     let wall_delta = now.duration_since(previous).as_nanos() as f64;
 
-                    if wall_delta > 0.0 && cpu_delta > 0.0 {
-                        ((cpu_delta / wall_delta) * 100.0 * 1000.0).round() / 1000.0
+                    if wall_delta > 0.0f64 && cpu_delta > 0.0f64 {
+                        ((cpu_delta / wall_delta) * 100.0f64 * 1000.0f64).round() / 1000.0f64
                     } else {
-                        0.0
+                        0.0f64
                     }
                 });
 
                 previous_cpu = total;
                 previous_instant = Some(now);
             }
+
+            drop(usage);
         }
     }
 
+    #[expect(clippy::infinite_loop, reason = "the task runs until it is aborted")]
     async fn state_loop(
         docker: Docker,
         container_id: String,
@@ -496,7 +504,7 @@ impl DockerHandle {
                 Ok(inspect) => inspect,
                 Err(DockerResponseServerError {
                     status_code: 404, ..
-                }) => Default::default(),
+                }) => ContainerInspectResponse::default(),
                 Err(err) => {
                     tracing::warn!(instance = %instance, "failed to inspect container: {err:?}");
                     continue;
@@ -514,7 +522,8 @@ impl DockerHandle {
                             chrono::Utc::now()
                                 .signed_duration_since(started.with_timezone(&chrono::Utc))
                                 .num_milliseconds()
-                                .max(0) as u64
+                                .max(0)
+                                .cast_unsigned()
                         });
                     (ContainerState::Running, uptime)
                 }
@@ -525,6 +534,7 @@ impl DockerHandle {
             let mut usage = usage.write();
             usage.state = container_state;
             usage.uptime = uptime;
+            drop(usage);
         }
     }
 
@@ -594,7 +604,7 @@ impl DockerHandle {
         Ok(())
     }
 
-    pub async fn logs(&self, lines: Option<usize>) -> BoxStream<'static, anyhow::Result<Bytes>> {
+    pub fn logs(&self, lines: Option<usize>) -> BoxStream<'static, anyhow::Result<Bytes>> {
         self.docker
             .logs(
                 &self.container_id,

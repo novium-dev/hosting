@@ -124,14 +124,14 @@ impl Agent {
         {
             use utoipa_swagger_ui::SwaggerUi;
             router = router.merge(SwaggerUi::new("/docs").url("/docs/openapi.json", api));
-        }
+        };
         #[cfg(not(debug_assertions))]
         let _ = api;
 
         router.layer(TraceLayer::new_for_http())
     }
 
-    pub async fn serve_http(&self, handle: Handle<SocketAddr>) -> anyhow::Result<()> {
+    pub fn serve_http(&self, handle: Handle<SocketAddr>) {
         let bind = self.config.api.bind;
         let router = self.router();
 
@@ -144,8 +144,6 @@ impl Agent {
                 .await
                 .inspect_err(|err| error!("failed to serve the http server: {err}"));
         });
-
-        Ok(())
     }
 }
 

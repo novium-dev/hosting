@@ -112,8 +112,9 @@ impl Connection {
 impl Instance {
     pub async fn connection(&self) -> anyhow::Result<Connection> {
         let socket = self.socket_path().await;
+        let kind = self.database_type().await;
 
-        Ok(match self.data.read().await.database_type {
+        Ok(match kind {
             DatabaseType::Mariadb => Connection::Mariadb(mariadb::MariadbConnection::new(&socket)),
             DatabaseType::Mongodb => {
                 self.ensure_mongodb_root().await?;

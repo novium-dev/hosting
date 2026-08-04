@@ -8,7 +8,7 @@ use crate::store::data;
 use crate::utils::generate_password;
 use anyhow::Context as _;
 use core::ops::Deref;
-use core::sync::atomic::AtomicU64;
+use core::sync::atomic::{AtomicU64, Ordering};
 use database_agent_common::identifier::UserIdentifier;
 use database_agent_common::types::{
     ApiInstance, ContainerState, DatabaseType, ResourceUsage, StoredDatabase, StoredInstance,
@@ -18,7 +18,7 @@ use docker::{DockerHandle, ExecOptions};
 use futures_util::StreamExt as _;
 use manager::RouteInserter;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use tokio::io::{AsyncRead, AsyncWriteExt as _};
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
@@ -59,8 +59,8 @@ impl Instance {
     pub fn new(agent: Agent, data: StoredInstance) -> Self {
         Self(Arc::new_cyclic(|weak| InnerInstance {
             uuid: data.uuid,
-            route_inserter: agent.routes.inserter(weak.clone(), data.database_type),
-            disk_checker_task: tokio::spawn(disk_checker::run(weak.clone())),
+            route_inserter: agent.routes.inserter(Weak::clone(weak), data.database_type),
+            disk_checker_task: tokio::spawn(disk_checker::run(Weak::clone(weak))),
             agent,
             data: RwLock::new(data),
             handle: RwLock::new(None),
@@ -92,22 +92,21 @@ impl Instance {
     }
 
     pub async fn container_state(&self) -> ContainerState {
-        match self.handle.read().await.as_ref() {
-            Some(handle) => handle.state(),
-            None => ContainerState::Offline,
-        }
+        self.handle
+            .read()
+            .await
+            .as_ref()
+            .map_or(ContainerState::Offline, |handle| handle.state())
     }
 
     pub async fn resource_usage(&self) -> ResourceUsage {
-        match self.handle.read().await.as_ref() {
-            Some(handle) => handle.resource_usage(&self.disk_usage),
-            None => ResourceUsage {
-                disk_bytes: self
-                    .disk_usage
-                    .load(core::sync::atomic::Ordering::Relaxed),
+        self.handle.read().await.as_ref().map_or_else(
+            || ResourceUsage {
+                disk_bytes: self.disk_usage.load(Ordering::Relaxed),
                 ..Default::default()
             },
-        }
+            |handle| handle.resource_usage(&self.disk_usage),
+        )
     }
 
     pub async fn to_api_response(&self) -> anyhow::Result<ApiInstance> {
@@ -157,21 +156,27 @@ impl Instance {
 
     pub async fn ensure_mongodb_root(&self) -> anyhow::Result<()> {
         let socket = self.socket_path().await;
-
         let mut data = self.data.write().await;
-        if data.root_password.is_some() {
-            return Ok(());
+
+        let result = async {
+            if data.root_password.is_some() {
+                return Ok(());
+            }
+
+            let password = generate_password();
+            connection::mongodb::MongodbConnection::new(socket, None)?
+                .create_root(&password)
+                .await?;
+
+            data::set_root_password(self.agent.store.write(), self.uuid, &password).await?;
+            data.root_password = Some(password);
+
+            Ok(())
         }
+        .await;
+        drop(data);
 
-        let password = generate_password();
-        connection::mongodb::MongodbConnection::new(socket, None)?
-            .create_root(&password)
-            .await?;
-
-        data::set_root_password(self.agent.store.write(), self.uuid, &password).await?;
-        data.root_password = Some(password);
-
-        Ok(())
+        result
     }
 
     pub async fn resync_users(&self) -> anyhow::Result<()> {
@@ -354,7 +359,8 @@ impl Instance {
 
     pub async fn sync_container_resources(&self) -> anyhow::Result<()> {
         let data = self.data.read().await.clone();
-        if let Some(handle) = self.handle.read().await.as_ref() {
+        let handle = self.handle.read().await.clone();
+        if let Some(handle) = handle {
             handle.update_resources(&data).await?;
         }
 
@@ -374,7 +380,8 @@ impl Instance {
         self.destroy_container().await?;
         self.create_container().await?;
 
-        let result = match self.handle.read().await.as_ref() {
+        let handle = self.handle.read().await.clone();
+        let result = match handle {
             Some(handle) => handle.start().await,
             None => Err(anyhow::anyhow!("the instance has no container")),
         };
@@ -385,7 +392,8 @@ impl Instance {
 
     pub async fn stop(&self) -> anyhow::Result<()> {
         let guard = self.power_lock.lock().await;
-        let result = match self.handle.read().await.as_ref() {
+        let handle = self.handle.read().await.clone();
+        let result = match handle {
             Some(handle) => handle.stop().await,
             None => Ok(()),
         };
@@ -396,7 +404,8 @@ impl Instance {
 
     pub async fn kill(&self) -> anyhow::Result<()> {
         let guard = self.power_lock.lock().await;
-        let result = match self.handle.read().await.as_ref() {
+        let handle = self.handle.read().await.clone();
+        let result = match handle {
             Some(handle) => handle.kill().await,
             None => Ok(()),
         };
@@ -409,19 +418,26 @@ impl Instance {
         &self,
         lines: Option<usize>,
     ) -> futures_util::stream::BoxStream<'static, anyhow::Result<bytes::Bytes>> {
-        match self.handle.read().await.as_ref() {
-            Some(handle) => handle.logs(lines).await,
-            None => futures_util::stream::empty().boxed(),
-        }
+        self.handle
+            .read()
+            .await
+            .as_ref()
+            .map_or_else(|| futures_util::stream::empty().boxed(), |handle| handle.logs(lines))
     }
 
     async fn exec(&self, options: ExecOptions) -> anyhow::Result<docker::ExecStream> {
-        match self.handle.read().await.as_ref() {
+        let handle = self.handle.read().await.clone();
+
+        match handle {
             Some(handle) => handle.exec(options).await,
             None => Err(anyhow::anyhow!("the instance has no container")),
         }
     }
 
+    #[expect(
+        clippy::option_if_let_else,
+        reason = "the command templates read better as a match"
+    )]
     pub async fn export(
         &self,
         database: Option<&str>,
@@ -474,6 +490,10 @@ impl Instance {
         )))
     }
 
+    #[expect(
+        clippy::option_if_let_else,
+        reason = "the command templates read better as a match"
+    )]
     pub async fn import(
         &self,
         database: Option<&str>,

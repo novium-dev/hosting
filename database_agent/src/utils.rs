@@ -17,7 +17,7 @@ pub fn generate_password() -> String {
         .sample_string(&mut rng, PASSWORD_LENGTH)
         .into_bytes();
 
-    for _ in 0..rng.random_range(1..=5) {
+    for _ in 0..rng.random_range(1u8..=5u8) {
         let position = rng.random_range(0..password.len());
         let special = rng.random_range(0..PASSWORD_SPECIAL_CHARS.len());
         if let (Some(slot), Some(&character)) =
@@ -47,6 +47,7 @@ pub fn is_silent_error(error: &io::Error) -> bool {
     )
 }
 
+#[expect(clippy::infinite_loop, reason = "the listener runs until the task is aborted")]
 pub async fn accept_loop<
     F: FnMut(TcpStream, SocketAddr) -> Fut,
     Fut: Future<Output = io::Result<()>> + Send + 'static,

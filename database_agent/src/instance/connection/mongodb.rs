@@ -61,7 +61,7 @@ impl MongodbConnection {
         match self
             .client
             .database(ADMIN_DATABASE)
-            .run_command(doc! { "usersInfo": 1_i32 })
+            .run_command(doc! { "usersInfo": 1i32 })
             .await
         {
             Ok(_) => Ok(false),
@@ -116,7 +116,7 @@ impl MongodbConnection {
         let stats = self
             .client
             .database(name)
-            .run_command(doc! { "dbStats": 1_i32, "scale": 1_i32 })
+            .run_command(doc! { "dbStats": 1i32, "scale": 1i32 })
             .await?;
 
         Ok(match stats.get("dataSize") {

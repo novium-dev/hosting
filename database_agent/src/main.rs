@@ -77,7 +77,7 @@ async fn run() -> anyhow::Result<()> {
     subsystems::spawn_all(&agent);
 
     let handle = Handle::new();
-    agent.serve_http(handle.clone()).await?;
+    agent.serve_http(handle.clone());
 
     info!("Ready");
 

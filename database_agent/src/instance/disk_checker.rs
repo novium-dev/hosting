@@ -19,11 +19,9 @@ pub async fn run(instance: Weak<InnerInstance>) {
         };
         let instance = Instance(inner);
 
-        {
-            let permit = instance.agent.disk_check_semaphore.acquire().await;
-            instance.check_disk_usage().await;
-            drop(permit);
-        }
+        let permit = instance.agent.disk_check_semaphore.acquire().await;
+        instance.check_disk_usage().await;
+        drop(permit);
 
         let interval = instance.agent.config.disk_check_interval.max(1);
         drop(instance);
@@ -50,7 +48,7 @@ impl Instance {
 
         let disk_limit = self.data.read().await.disk;
         if disk_limit > 0
-            && usage >= disk_limit as u64 * MEGABYTE
+            && usage >= disk_limit.cast_unsigned() * MEGABYTE
             && self.container_state().await == ContainerState::Running
         {
             tracing::warn!(
@@ -66,7 +64,7 @@ impl Instance {
 
     pub async fn is_disk_full(&self) -> bool {
         let disk_limit = self.data.read().await.disk;
-        disk_limit != 0 && self.disk_usage.load(Ordering::Relaxed) >= disk_limit as u64 * MEGABYTE
+        disk_limit != 0 && self.disk_usage.load(Ordering::Relaxed) >= disk_limit.cast_unsigned() * MEGABYTE
     }
 }
 

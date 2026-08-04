@@ -69,13 +69,11 @@ impl InstanceService for Agent {
             .await
             .ok_or(UpdateInstanceError::InstanceNotFound)?;
 
-        {
-            let mut stored = instance.data.write().await;
-            data::apply_update(&mut stored, update);
-            data::update_instance(self.store.write(), &stored)
-                .await
-                .or_store_failure::<UpdateInstanceError>("failed to update an instance")?;
-        }
+        let mut stored = instance.data.write().await;
+        data::apply_update(&mut stored, update);
+        let stored_result = data::update_instance(self.store.write(), &stored).await;
+        drop(stored);
+        stored_result.or_store_failure::<UpdateInstanceError>("failed to update an instance")?;
 
         instance
             .sync_container_resources()

@@ -1,10 +1,3 @@
-#![expect(
-    clippy::big_endian_bytes,
-    clippy::little_endian_bytes,
-    clippy::default_numeric_fallback,
-    reason = "the wire protocol fixes both the byte order and the integer widths"
-)]
-
 mod auth;
 mod protocol;
 

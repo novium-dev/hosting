@@ -1,3 +1,4 @@
+pub mod database;
 pub mod feature;
 pub mod node;
 pub mod project;

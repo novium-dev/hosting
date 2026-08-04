@@ -1,3 +1,8 @@
+#![expect(
+    clippy::cast_sign_loss,
+    reason = "the wire protocol fixes the byte order, the integer widths and the encodings"
+)]
+
 use crate::utils::bad;
 use std::io;
 use tokio::io::{AsyncRead, AsyncReadExt as _};

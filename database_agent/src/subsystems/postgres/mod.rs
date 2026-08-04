@@ -1,3 +1,8 @@
+#![expect(
+    clippy::big_endian_bytes,
+    reason = "the wire protocol fixes the byte order, the integer widths and the encodings"
+)]
+
 mod protocol;
 mod scram;
 

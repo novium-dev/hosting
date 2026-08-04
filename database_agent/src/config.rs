@@ -13,11 +13,11 @@ fn default_socket_dir() -> PathBuf {
     PathBuf::from("/run/novium-database-agent")
 }
 
-fn default_disk_check_interval() -> u64 {
+const fn default_disk_check_interval() -> u64 {
     60
 }
 
-fn default_disk_check_concurrency() -> usize {
+const fn default_disk_check_concurrency() -> usize {
     5
 }
 
@@ -29,11 +29,11 @@ fn default_docker_socket() -> String {
     "/var/run/docker.sock".to_owned()
 }
 
-fn default_tmpfs_size() -> u64 {
+const fn default_tmpfs_size() -> u64 {
     100
 }
 
-fn default_container_pid_limit() -> i64 {
+const fn default_container_pid_limit() -> i64 {
     512
 }
 

@@ -1,6 +1,11 @@
+#![expect(
+    clippy::big_endian_bytes,
+    reason = "the wire protocol fixes the byte order, the integer widths and the encodings"
+)]
+
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, Mac as _};
 use rand::Rng as _;
 use sha2::{Digest as _, Sha256};
 
@@ -81,11 +86,11 @@ pub fn field(message: &str, prefix: &str) -> Option<String> {
 }
 
 pub fn bare_after_gs2(client_first: &str) -> Option<&str> {
-    let mut commas = 0;
+    let mut commas = 0u8;
     for (index, character) in client_first.char_indices() {
         if character == ',' {
-            commas += 1;
-            if commas == 2 {
+            commas += 1u8;
+            if commas == 2u8 {
                 return client_first.get(index.saturating_add(1)..);
             }
         }

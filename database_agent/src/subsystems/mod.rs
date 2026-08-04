@@ -20,7 +20,7 @@ pub struct SubsystemRegistry {
 }
 
 impl SubsystemRegistry {
-    pub fn connections(&self, kind: DatabaseType) -> &Arc<SubsystemConnections> {
+    pub const fn connections(&self, kind: DatabaseType) -> &Arc<SubsystemConnections> {
         match kind {
             DatabaseType::Mariadb => &self.mariadb,
             DatabaseType::Mongodb => &self.mongodb,

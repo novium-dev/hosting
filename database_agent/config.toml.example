@@ -1,0 +1,49 @@
+# Identifies this agent to the backend. Generate one with `uuidgen`.
+id = "00000000-0000-0000-0000-000000000000"
+
+data_dir = "/var/lib/novium-database-agent/data"
+socket_dir = "/run/novium-database-agent"
+
+# Disk usage is rescanned per instance on this interval (seconds); an instance
+# over its limit is stopped. `disk_check_concurrency` caps parallel scans.
+disk_check_interval = 60
+disk_check_concurrency = 5
+
+# The backend talks to this API with `Authorization: Bearer <token>`. The agent
+# is not user facing and speaks plain HTTP, so keep it on a private network.
+[api]
+bind = "0.0.0.0:8090"
+token = "<token>"
+
+[store]
+url = "sqlite:///var/lib/novium-database-agent/data/agent.db?mode=rwc"
+
+[docker]
+socket = "/var/run/docker.sock"
+tmpfs_size = 100
+container_pid_limit = 512
+rootless = false
+log_driver = "local"
+
+# [docker.registries."ghcr.io"]
+# username = "<username>"
+# password = "<password>"
+
+# One shared listener per engine. Instances stay on unix sockets with
+# `network_mode: none`; clients connect here as `u<8 hex>_<label>` and the agent
+# proxies them to the instance that owns the user.
+[postgres]
+enabled = true
+bind = "0.0.0.0:5432"
+
+[mariadb]
+enabled = true
+bind = "0.0.0.0:3306"
+
+[mongodb]
+enabled = true
+bind = "0.0.0.0:27017"
+
+[redis]
+enabled = true
+bind = "0.0.0.0:6379"
