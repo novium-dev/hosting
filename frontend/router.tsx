@@ -34,6 +34,7 @@ import OrganizationPage from "@/app/(app)/[slug]/page";
 import SettingsPage from "@/app/(app)/[slug]/settings/page";
 import MembersPage from "@/app/(app)/[slug]/members/page";
 import ApiKeysPage from "@/app/(app)/[slug]/api-keys/page";
+import DatabasesPage from "@/app/(app)/[slug]/databases/page";
 import ProfilePage from "@/app/(app)/[slug]/profile/page";
 import ServerLayout from "@/app/(app)/[slug]/servers/[server]/layout";
 import ServerSectionPage from "@/app/(app)/[slug]/servers/[server]/[[...section]]/page";
@@ -86,6 +87,7 @@ export const router = createBrowserRouter([
               { path: "settings", element: <SettingsPage /> },
               { path: "members", element: <MembersPage /> },
               { path: "api-keys", element: <ApiKeysPage /> },
+              { path: "databases", element: <DatabasesPage /> },
               {
                 path: "profile",
                 element: <ProfilePage />,

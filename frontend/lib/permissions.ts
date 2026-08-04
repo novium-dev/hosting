@@ -18,6 +18,8 @@ export const ServerPermission = {
   ADMIN_MANAGEMENT: 2 ** 16,
   ROUTES_VIEW: 2 ** 17,
   ROUTES_MANAGE: 2 ** 18,
+  DATABASE_VIEW: 2 ** 19,
+  DATABASE_MANAGE: 2 ** 20,
 } as const;
 
 export const ManagementPermission = {
@@ -39,6 +41,8 @@ export const ManagementPermission = {
   FEATURES_MANAGE: 2 ** 47,
   DOMAINS_VIEW: 2 ** 48,
   DOMAINS_MANAGE: 2 ** 49,
+  DATABASE_HOSTS_VIEW: 2 ** 50,
+  DATABASE_HOSTS_MANAGE: 2 ** 51,
 } as const;
 
 const serverDependencyMap = [
@@ -53,6 +57,7 @@ const serverDependencyMap = [
   [ServerPermission.ROUTES_VIEW, ServerPermission.NETWORK_VIEW],
   [ServerPermission.ROUTES_MANAGE, ServerPermission.ROUTES_VIEW],
   [ServerPermission.ROUTES_MANAGE, ServerPermission.NETWORK_VIEW],
+  [ServerPermission.DATABASE_MANAGE, ServerPermission.DATABASE_VIEW],
 ] as const;
 
 const managementDependencyMap = [
@@ -60,6 +65,12 @@ const managementDependencyMap = [
   [ManagementPermission.API_KEYS_MANAGE, ManagementPermission.API_KEYS_VIEW],
   [ManagementPermission.NODES_MANAGE, ManagementPermission.NODES_VIEW],
   [ManagementPermission.DOMAINS_MANAGE, ManagementPermission.DOMAINS_VIEW],
+  [
+    ManagementPermission.DATABASE_HOSTS_MANAGE,
+    ManagementPermission.DATABASE_HOSTS_VIEW,
+  ],
+  [ManagementPermission.DATABASE_CREATE, ManagementPermission.DATABASE_HOSTS_VIEW],
+  [ManagementPermission.DATABASE_DELETE, ManagementPermission.DATABASE_HOSTS_VIEW],
 ] as const;
 
 const serverPermissionValues = Object.values(ServerPermission);
@@ -222,6 +233,13 @@ export const SERVER_PERMISSION_GROUPS: {
     group: "Network",
     permissions: [{ bit: ServerPermission.NETWORK_VIEW, label: "View network & ports" }],
   },
+  {
+    group: "Databases",
+    permissions: [
+      { bit: ServerPermission.DATABASE_VIEW, label: "View databases & credentials" },
+      { bit: ServerPermission.DATABASE_MANAGE, label: "Create & delete databases" },
+    ],
+  },
 ];
 
 /**
@@ -262,6 +280,27 @@ export const MANAGEMENT_PERMISSION_GROUPS: {
     ],
   },
   {
+    group: "Database hosts",
+    permissions: [
+      {
+        bit: ManagementPermission.DATABASE_HOSTS_VIEW,
+        label: "View database hosts",
+      },
+      {
+        bit: ManagementPermission.DATABASE_HOSTS_MANAGE,
+        label: "Manage database hosts",
+      },
+      {
+        bit: ManagementPermission.DATABASE_CREATE,
+        label: "Create database instances",
+      },
+      {
+        bit: ManagementPermission.DATABASE_DELETE,
+        label: "Delete database instances",
+      },
+    ],
+  },
+  {
     group: "Storage & network",
     permissions: [
       {
@@ -270,8 +309,6 @@ export const MANAGEMENT_PERMISSION_GROUPS: {
       },
       { bit: ManagementPermission.NETWORK_CREATE, label: "Create networks" },
       { bit: ManagementPermission.NETWORK_DELETE, label: "Delete networks" },
-      { bit: ManagementPermission.DATABASE_CREATE, label: "Create databases" },
-      { bit: ManagementPermission.DATABASE_DELETE, label: "Delete databases" },
     ],
   },
   {

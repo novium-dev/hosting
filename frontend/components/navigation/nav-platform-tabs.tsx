@@ -16,6 +16,11 @@ const items = [
     path: "/members",
   },
   {
+    id: "databases",
+    title: "Databases",
+    path: "/databases",
+  },
+  {
     id: "api-keys",
     title: "API keys",
     path: "/api-keys",

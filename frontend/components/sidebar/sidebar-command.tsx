@@ -2,6 +2,7 @@
 
 import {
   BellIcon,
+  DatabaseIcon,
   HomeIcon,
   KeyRoundIcon,
   LogOutIcon,
@@ -95,6 +96,12 @@ export function SidebarCommand({
           label: "Members",
           href: `/${slug}/members`,
           keywords: ["users", "collaborators", "invite"],
+        },
+        {
+          icon: DatabaseIcon,
+          label: "Databases",
+          href: `/${slug}/databases`,
+          keywords: ["postgres", "mariadb", "mysql", "mongodb", "redis", "sql"],
         },
         {
           icon: KeyRoundIcon,
