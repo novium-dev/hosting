@@ -558,6 +558,7 @@ dependencies = [
  "concat-idents",
  "daemon",
  "daemon_common",
+ "database_agent_common",
  "ed25519-dalek",
  "either",
  "futures",
@@ -1547,6 +1548,30 @@ name = "data-encoding"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4ae5f15dda3c708c0ade84bfee31ccab44a3da4f88015ed22f63732abe300c8"
+
+[[package]]
+name = "database_agent"
+version = "0.1.0"
+
+[[package]]
+name = "database_agent_common"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "bytes",
+ "chrono",
+ "futures-util",
+ "http",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "url",
+ "utoipa",
+ "uuid",
+ "zelus",
+]
 
 [[package]]
 name = "debugid"

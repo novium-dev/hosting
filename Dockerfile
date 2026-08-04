@@ -58,7 +58,7 @@ STOPSIGNAL SIGINT
 
 EXPOSE 80
 
-# The backend serves the client-only SPA from this directory (see src/http.rs).
+# The backend serves the client-only SPA from this directory (see backend/src/http.rs).
 ENV BACKEND_FRONTEND_DIR=/frontend
 
 # Copy the binary directly to bin directory (/bin)

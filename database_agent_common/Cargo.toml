@@ -1,0 +1,64 @@
+[package]
+name = "database_agent_common"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lints]
+workspace = true
+
+[features]
+default = ["service"]
+service = [
+    "dep:zelus",
+    "dep:axum",
+    "dep:tokio",
+    "dep:tokio-util",
+    "dep:bytes",
+    "dep:futures-util",
+]
+sdk = ["service", "dep:reqwest", "dep:http", "dep:url"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
+utoipa.workspace = true
+
+[dependencies.zelus]
+workspace = true
+features = ["error", "io"]
+optional = true
+
+[dependencies.axum]
+workspace = true
+optional = true
+
+[dependencies.tokio]
+workspace = true
+optional = true
+
+[dependencies.tokio-util]
+workspace = true
+optional = true
+
+[dependencies.bytes]
+workspace = true
+optional = true
+
+[dependencies.futures-util]
+workspace = true
+optional = true
+
+[dependencies.reqwest]
+workspace = true
+optional = true
+
+[dependencies.http]
+workspace = true
+optional = true
+
+[dependencies.url]
+workspace = true
+optional = true
