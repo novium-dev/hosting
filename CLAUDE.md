@@ -82,6 +82,33 @@ Builds pull two git dependencies over SSH — `novium-dev/daemon` (`daemon`/`dae
 
 **Agent auth** is a shared bearer token from `[api] token`, checked with `constant_time_eq` in an axum middleware over zelus's `with_auth` router group. The agent is not user facing and speaks plain HTTP; keep it on a private network.
 
+### Running the agent on macOS
+
+The agent must run on **Linux**, not on the macOS host. It reaches its instances over a bind-mounted unix socket, and a macOS process cannot connect to one: the socket file shows up on the shared filesystem, but the listening socket lives inside the Docker VM, so `connect()` fails with `ECONNREFUSED`.
+
+Run it in an OrbStack Linux machine instead, which shares the same Docker daemon — bind mounts and unix sockets then behave exactly as in production:
+
+```bash
+./scripts/dev/database_agent_orb.sh start     # build + run as a systemd --user unit
+./scripts/dev/database_agent_orb.sh forward   # expose its ports on macOS
+./scripts/dev/database_agent_orb.sh logs
+```
+
+The script builds inside the machine with a machine-local `CARGO_TARGET_DIR`, so the macOS `target/` is untouched, and seeds cargo's git cache from `~/.cargo/git/db` on first run — the workspace lockfile pins the SSH-only `daemon` repo, which a fresh machine cannot fetch itself.
+
+Two OrbStack specifics land in the generated `~/database-agent/config.toml`:
+
+- `[docker] socket` is `/run/user/<uid>/docker.sock`, not `/var/run/docker.sock`. The latter exists but is `root:docker`, and the agent's user is not in that group.
+- `[docker] rootless = true`. OrbStack's per-user daemon remaps container uids, so chowning the socket and volume directories to the image's uid — what the agent does otherwise — makes them *unreadable* to the container, and the engine fails to start with `Permission denied`.
+
+Host↔machine routing (`<machine>.orb.local`) is not reliable on every Mac, so `forward` tunnels the ports over OrbStack's SSH instead:
+
+```bash
+psql "postgresql://u1a2b3c4d_app:<password>@127.0.0.1:15432/<database>"
+```
+
+A relay stays up as long as the client's TCP connection is half-open, so with the tunnel in place `system/status` can keep counting a connection for ~30s after the client exits — that is ssh's channel teardown, not a leak.
+
 ## Before finishing a change
 
 Always run `cargo fmt --all` to format, then `cargo clippy --all-targets --workspace` to verify. Both are enforced in CI and the clippy config is strict, so a change isn't done until clippy passes clean.
