@@ -1557,17 +1557,15 @@ version = "0.1.0"
 name = "database_agent_common"
 version = "0.1.0"
 dependencies = [
+ "arrayvec",
  "axum",
  "bytes",
  "chrono",
  "futures-util",
- "http",
- "reqwest 0.12.28",
  "serde",
  "serde_json",
  "tokio",
  "tokio-util",
- "url",
  "utoipa",
  "uuid",
  "zelus",

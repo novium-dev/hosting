@@ -7,6 +7,7 @@ reqwest.git = "https://github.com/0xIO32/reqwest.git"
 
 [workspace.dependencies]
 anyhow = "1.0"
+arrayvec = "0.7.6"
 async-trait = "0.1.89"
 base64 = "0.22.1"
 bitflags = "2.11.1"
@@ -70,7 +71,7 @@ features = ["serde", "preserve_order"]
 
 [workspace.dependencies.utoipa]
 version = "5.4.0"
-features = ["macros", "preserve_path_order", "uuid", "indexmap"]
+features = ["macros", "preserve_path_order", "uuid", "indexmap", "chrono"]
 
 [workspace.dependencies.utoipa-axum]
 version = "0.2.0"
