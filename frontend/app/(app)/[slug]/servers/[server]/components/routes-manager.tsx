@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ExternalLink, Globe, Loader2, Plus, Trash2 } from "lucide-react";
+import { Copy, ExternalLink, Globe, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -70,6 +70,14 @@ type Domain = ListRouteDomainsResponse[number];
 
 const SUBDOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
+type ManualRecord = {
+  type: string;
+  name: string;
+  value: string;
+};
+
+const IP_PATTERN = /^[0-9.]+$|:/;
+
 /** Mirrors the backend: the SRV service name is derived from the port's name. */
 function serviceName(name: string) {
   return name
@@ -94,6 +102,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Route | null>(null);
 
+  const [manualPortId, setManualPortId] = useState<string>("");
   const [subdomain, setSubdomain] = useState("");
   const [domainId, setDomainId] = useState<string>("");
   const [portId, setPortId] = useState<string>("");
@@ -167,8 +176,44 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
     [selectablePorts, portId],
   );
 
-  const httpConfigured = domains.some((domain) => domain.http_available);
-  const tcpConfigured = domains.some((domain) => domain.tcp_available);
+  const manualPort = useMemo(
+    () => ports.find((port) => String(port.id) === manualPortId) ?? ports[0],
+    [ports, manualPortId],
+  );
+
+  const manualRecords = useMemo<ManualRecord[]>(() => {
+    if (!manualPort) return [];
+
+    if (manualPort.http) {
+      const route = routes.find(
+        (entry) => entry.port === manualPort.id && entry.kind === "http",
+      );
+
+      return route
+        ? [{ type: "CNAME", name: "your-domain", value: route.fqdn }]
+        : [];
+    }
+
+    const protocol = String(manualPort.protocol).toLowerCase();
+    const service = serviceName(manualPort.name);
+    const records: ManualRecord[] = [
+      {
+        type: "SRV",
+        name: `_${service}._${protocol}.your-domain`,
+        value: `0 0 ${manualPort.external_port_start} ${manualPort.host}`,
+      },
+    ];
+
+    if (IP_PATTERN.test(manualPort.host)) {
+      records.push({
+        type: "A",
+        name: "your-domain",
+        value: manualPort.host,
+      });
+    }
+
+    return records;
+  }, [manualPort, routes]);
 
   const isHttpRoute = selectedPort?.http === true;
   const srvService = selectedPort
@@ -217,6 +262,15 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
       );
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const copy = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success("Copied");
+    } catch {
+      toast.error("Failed to copy");
     }
   };
 
@@ -377,109 +431,84 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
         </CardContent>
       </Card>
 
-      {routes.some((route) => route.records.length > 0) ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>DNS records</CardTitle>
-            <CardDescription>
-              What was created for your routes — Cloudflare records for TCP
-              routes, the Pangolin resource and its target for HTTP routes.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {routes
-              .filter((route) => route.records.length > 0)
-              .map((route) => (
-                <div key={route.id} className="space-y-2">
-                  <p className="text-sm font-medium">{route.fqdn}</p>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Value</TableHead>
-                          <TableHead>TTL</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {route.records.map((record, index) => (
-                          <TableRow key={`${route.id}-${index}`}>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {record.record_type}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="font-mono text-xs">
-                              {record.name}
-                            </TableCell>
-                            <TableCell className="font-mono text-xs">
-                              {record.value}
-                            </TableCell>
-                            <TableCell className="font-mono text-xs">
-                              {record.ttl === 1 ? "auto" : (record.ttl ?? "—")}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              ))}
-          </CardContent>
-        </Card>
-      ) : null}
-
       <Card>
         <CardHeader>
-          <CardTitle>Setting up a route</CardTitle>
-          <CardDescription>
-            What a route can point at, and what to do when it can&apos;t.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          {tcpConfigured ? (
-            <div className="space-y-1">
-              <p className="font-medium">TCP and UDP ports — game traffic</p>
-              <p className="text-muted-foreground">
-                A raw TCP port such as Minecraft&apos;s 25565 gets an SRV
-                record, so players just enter{" "}
-                <code className="font-mono">your-name.the-domain</code> and
-                their client finds the port on its own. The service name decides
-                which clients look it up (
-                <code className="font-mono">minecraft</code> becomes{" "}
-                <code className="font-mono">_minecraft._tcp</code>) and defaults
-                to the port&apos;s name.
-              </p>
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+            <div>
+              <CardTitle>Point your own domain here</CardTitle>
+              <CardDescription>
+                The records to drop into your own DNS to reach a port. Pick the
+                port and copy them over.
+              </CardDescription>
             </div>
-          ) : null}
-          {httpConfigured ? (
-            <div className="space-y-1">
-              <p className="font-medium">HTTP ports — web traffic</p>
-              <p className="text-muted-foreground">
-                A port marked as an HTTP port — a web map like BlueMap, a panel,
-                an API — is published as a reverse-proxied resource instead,
-                reachable at the subdomain with HTTPS and no port in the URL. If
-                the port you want is still listed as raw TCP, ask an admin to
-                switch its protocol to HTTP under the server&apos;s ports.
-              </p>
-            </div>
-          ) : null}
-          {!httpConfigured && !tcpConfigured ? (
-            <p className="text-muted-foreground">
-              No domain offered to this project can carry routes yet. An admin
-              has to link a domain to Pangolin for HTTP routes, or configure
-              Cloudflare for TCP routes.
-            </p>
-          ) : null}
-          <div className="space-y-1">
-            <p className="font-medium">Either way</p>
-            <p className="text-muted-foreground">
-              Your software keeps listening on the port&apos;s internal port and
-              nothing inside the server changes. Private domains only show up
-              when an admin granted them to your project.
-            </p>
+            <Select value={manualPortId} onValueChange={setManualPortId}>
+              <SelectTrigger className="w-full sm:w-[280px]">
+                <SelectValue placeholder="Port" />
+              </SelectTrigger>
+              <SelectContent>
+                {ports.map((port) => (
+                  <SelectItem key={port.id} value={String(port.id)}>
+                    {port.name} — {port.host}:{port.external_port_start} (
+                    {port.http ? "HTTP" : String(port.protocol).toUpperCase()})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+        </CardHeader>
+        <CardContent>
+          {manualRecords.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {ports.length === 0
+                ? "This server has no ports yet."
+                : "Create a route for this port first — your own domain then points at it."}
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Value</TableHead>
+                    <TableHead className="w-0" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {manualRecords.map((record) => (
+                    <TableRow key={`${record.type}-${record.name}`}>
+                      <TableCell>
+                        <Badge variant="outline">{record.type}</Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {record.name}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {record.value}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => void copy(record.value)}
+                        >
+                          <Copy className="size-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            Replace <code className="font-mono">your-domain</code> with the name
+            you own.{" "}
+            {manualPort?.http
+              ? "An HTTP port is served through the reverse proxy, so your domain points at the route's address."
+              : "Clients that look the service up find the port on their own, so nobody has to type it."}
+          </p>
         </CardContent>
       </Card>
 

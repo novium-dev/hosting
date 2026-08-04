@@ -108,115 +108,88 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
 
   return (
     <div className="space-y-4">
-    <Card>
-      <CardHeader className="space-y-4">
-        <div>
-          <CardTitle>Network</CardTitle>
-          <CardDescription>
-            View all exposed network ports for this server.
-          </CardDescription>
-        </div>
-
-        <div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              void refresh();
-            }}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <RefreshCcw className="size-4" />
-            )}
-            Refresh
-          </Button>
-        </div>
-      </CardHeader>
-
-      <CardContent>
-        {isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Loading network ports...
-          </div>
-        ) : !hasPorts ? (
-          <p className="text-sm text-muted-foreground">
-            No network ports are configured for this server.
-          </p>
-        ) : (
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Protocol</TableHead>
-                  <TableHead>Internal</TableHead>
-                  <TableHead>External</TableHead>
-                  <TableHead>Host / Bind</TableHead>
-                  <TableHead>Role</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ports.map((port) => (
-                  <TableRow key={port.id}>
-                    <TableCell className="font-medium">{port.name}</TableCell>
-                    <TableCell>{port.http ? "HTTP" : port.protocol}</TableCell>
-                    <TableCell>{port.internalPort}</TableCell>
-                    <TableCell>
-                      {port.externalStart === port.externalEnd
-                        ? port.externalStart
-                        : `${port.externalStart}-${port.externalEnd}`}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {port.host}
-                      {port.bind ? ` (${port.bind})` : ""}
-                    </TableCell>
-                    <TableCell>
-                      {port.isPrimary ? (
-                        <Badge variant="default">Primary</Badge>
-                      ) : (
-                        <Badge variant="secondary">Additional</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-
       <Card>
-        <CardHeader>
-          <CardTitle>Setting up a port</CardTitle>
-          <CardDescription>
-            How the two kinds of ports are reached.
-          </CardDescription>
+        <CardHeader className="space-y-4">
+          <div>
+            <CardTitle>Network</CardTitle>
+            <CardDescription>
+              Every port exposed for this server. Raw ports are reached by host
+              and port, HTTP ports through a route.
+            </CardDescription>
+          </div>
+
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void refresh();
+              }}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="size-4" />
+              )}
+              Refresh
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          <div className="space-y-1">
-            <p className="font-medium">TCP and UDP ports</p>
-            <p className="text-muted-foreground">
-              Game traffic — Minecraft, Satisfactory, a query port. Your software
-              listens on the internal port; players connect to the host and the
-              external port shown above. A TCP port can also get an SRV record
-              under Routes, which lets players drop the port from the address.
+
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Loading network ports...
+            </div>
+          ) : !hasPorts ? (
+            <p className="text-sm text-muted-foreground">
+              No network ports are configured for this server.
             </p>
-          </div>
-          <div className="space-y-1">
-            <p className="font-medium">HTTP ports</p>
-            <p className="text-muted-foreground">
-              Anything that speaks HTTP — a web map like BlueMap, a panel, an
-              API. Have an admin set the port&apos;s protocol to HTTP, then give
-              it a subdomain under Routes: it is published through the reverse
-              proxy with HTTPS and no port in the URL. HTTP ports are TCP ports
-              as far as the node is concerned.
-            </p>
-          </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Protocol</TableHead>
+                    <TableHead>Internal</TableHead>
+                    <TableHead>External</TableHead>
+                    <TableHead>Host / Bind</TableHead>
+                    <TableHead>Role</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ports.map((port) => (
+                    <TableRow key={port.id}>
+                      <TableCell className="font-medium">{port.name}</TableCell>
+                      <TableCell>
+                        {port.http ? "HTTP" : port.protocol}
+                      </TableCell>
+                      <TableCell>{port.internalPort}</TableCell>
+                      <TableCell>
+                        {port.externalStart === port.externalEnd
+                          ? port.externalStart
+                          : `${port.externalStart}-${port.externalEnd}`}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {port.host}
+                        {port.bind ? ` (${port.bind})` : ""}
+                      </TableCell>
+                      <TableCell>
+                        {port.isPrimary ? (
+                          <Badge variant="default">Primary</Badge>
+                        ) : (
+                          <Badge variant="secondary">Additional</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
