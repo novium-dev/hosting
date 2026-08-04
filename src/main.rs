@@ -9,6 +9,7 @@ mod embedded_node;
 mod auth;
 mod http;
 pub(crate) mod resources;
+pub(crate) mod routes;
 pub(crate) mod service;
 mod shutdown;
 pub(crate) mod templates;
@@ -19,6 +20,7 @@ use crate::config::BackendConfig;
 use crate::db::node::BackendNode;
 #[cfg(feature = "embedded_node")]
 use crate::embedded_node::setup_embedded_node;
+use crate::routes::RouteBackends;
 use crate::templates::TemplateInner;
 use crate::templates::games::hytale::HytaleTemplate;
 use crate::templates::games::satisfactory::SatisfactoryTemplate;
@@ -75,6 +77,8 @@ pub(crate) struct Backend {
 
     pub(crate) http_client: reqwest::Client,
     pub(crate) curseforge_api_key: Option<Arc<str>>,
+
+    pub(crate) route_backends: Arc<RouteBackends>,
 
     pub(crate) node_registrations: Arc<RwLock<NodeRegistrationMap>>,
 
@@ -268,6 +272,8 @@ async fn main0() {
         .build()
         .expect("Unable to build HTTP client");
 
+    let route_backends = RouteBackends::new(&config.routes, &http_client);
+
     let backend = Backend {
         database,
         cache,
@@ -278,6 +284,8 @@ async fn main0() {
 
         http_client,
         curseforge_api_key: curseforge_api_key.map(Arc::from),
+
+        route_backends: Arc::new(route_backends),
 
         node_registrations: Arc::default(),
 

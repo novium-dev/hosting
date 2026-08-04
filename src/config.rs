@@ -19,6 +19,8 @@ pub struct BackendConfig {
     pub skip_template_cache_update: Option<bool>,
     #[serde(default)]
     pub resources: ResourceConfig,
+    #[serde(default)]
+    pub routes: RouteConfig,
     #[cfg(feature = "embedded_node")]
     pub daemon: EmbeddedNodeConfig,
 }
@@ -55,6 +57,32 @@ impl ResourceConfig {
             .or_else(|| std::env::var("BACKEND_CURSEFORGE_API_KEY").ok())
             .filter(|key| !key.is_empty())
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct RouteConfig {
+    #[serde(default)]
+    pub cloudflare: Option<CloudflareConfig>,
+    #[serde(default)]
+    pub pangolin: Option<PangolinConfig>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CloudflareConfig {
+    pub api_token: String,
+    pub zone_id: String,
+    #[serde(default)]
+    pub ttl: Option<u32>,
+    #[serde(default)]
+    pub api_url: Option<Url>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PangolinConfig {
+    pub api_url: Url,
+    pub api_key: String,
+    pub org_id: String,
+    pub site_id: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

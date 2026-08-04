@@ -2,6 +2,7 @@ import Link from "@/components/link";
 import { useParams } from "react-router-dom";
 import useSWR from "swr";
 import {
+  Globe,
   Network,
   Archive,
   FolderTree,
@@ -38,6 +39,7 @@ import { BackupsManager } from "../components/backups-manager";
 import { FileEditor } from "../components/file-editor";
 import { FilesManager } from "../components/files-manager";
 import { NetworkPorts } from "../components/network-ports";
+import { RoutesManager } from "../components/routes-manager";
 import { ServerSettings } from "../components/server-settings";
 import { StartupVariables } from "../components/startup-variables";
 import { ModPluginBrowser } from "../components/mod-plugin-browser";
@@ -99,6 +101,13 @@ const SERVER_SECTIONS: ServerSection[] = [
     icon: Network,
     description: "View network allocations and active server ports.",
     permission: ServerPermission.NETWORK_VIEW,
+  },
+  {
+    key: "routes",
+    label: "Routes",
+    icon: Globe,
+    description: "Point subdomains at the server's TCP ports.",
+    permission: ServerPermission.ROUTES_VIEW,
   },
   /*
   {
@@ -345,6 +354,14 @@ export default function ClientServerSectionPage() {
         <BackupsManager serverId={server} />
       ) : activeSection.key === "network" ? (
         <NetworkPorts serverId={server} />
+      ) : activeSection.key === "routes" ? (
+        <RoutesManager
+          serverId={server}
+          canManage={hasServerPermission(
+            effectivePermissions,
+            ServerPermission.ROUTES_MANAGE,
+          )}
+        />
       ) : activeSection.key === "settings" ? (
         <ServerSettings
           serverId={server}

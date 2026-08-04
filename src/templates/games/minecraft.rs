@@ -470,6 +470,7 @@ impl Template for MinecraftTemplate {
                 internal_port: 25565,
                 placeholder: "Minecraft".to_owned(),
                 remappable: true,
+                http: false,
             },
         )]))
     }

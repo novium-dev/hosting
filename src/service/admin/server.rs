@@ -137,6 +137,7 @@ pub(crate) impl ServerAdminService for Backend {
                 internal_port,
                 name: port.clone(),
                 protocol: definition.protocol,
+                http: definition.http,
                 external_port_start: *external_port,
                 external_port_end: *external_port,
                 host: node.default_host().to_owned(),
@@ -212,8 +213,8 @@ pub(crate) impl ServerAdminService for Backend {
                     .inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
                 for port in &ports2 {
-                    query!("INSERT INTO server_ports (server,host,name,internal_port,external_ip,external_port,protocol) VALUES ($1, $2, $3, $4, $5, int4range($6, $7, '[]'), $8)",
-                            &id, &port.host, port.name, i32::from(port.internal_port), port.bind.as_deref().unwrap_or_else(|| node.default_bind()), i32::from(port.external_port_start), i32::from(port.external_port_end), port.protocol as NetworkProtocol)
+                    query!("INSERT INTO server_ports (server,host,name,internal_port,external_ip,external_port,protocol,http) VALUES ($1, $2, $3, $4, $5, int4range($6, $7, '[]'), $8, $9)",
+                            &id, &port.host, port.name, i32::from(port.internal_port), port.bind.as_deref().unwrap_or_else(|| node.default_bind()), i32::from(port.external_port_start), i32::from(port.external_port_end), port.protocol as NetworkProtocol, port.http)
                         .execute(&mut **tx)
                         .await
                         .inspect_err(|err| error!("Failed to insert server (ports): {err:?}"))?;
@@ -239,9 +240,11 @@ pub(crate) impl ServerAdminService for Backend {
         auth.require::<_, _, DeleteServerError>(server_id, ProjectPermissions::VIEW)?;
         auth.require::<_, _, DeleteServerError>((), ManagementPermissions::SERVER_DELETE)?;
 
+        let routes = self.server_routes(server_id).await?;
+
         let backend = self.clone();
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| Box::pin(async move {
+        let result = conn.transaction(|tx| Box::pin(async move {
             use daemon_common::service::server::server_service_error::DeleteServerError as DaemonDeleteServerError;
 
             let Some(server) = backend.resolve_server(&mut **tx, server_id).await? else {
@@ -267,7 +270,13 @@ pub(crate) impl ServerAdminService for Backend {
                     Err(DeleteServerError::NodeFailure)
                 },
             }
-        })).await
+        })).await;
+
+        if result.is_ok() {
+            self.deprovision_routes(&routes).await;
+        }
+
+        result
     }
 
     /// Switches a server to a different template.
@@ -416,6 +425,9 @@ pub(crate) impl ServerAdminService for Backend {
 
     /// Allocates a new port for the server.
     ///
+    /// `http` marks the port as serving HTTP. Such a port stays a TCP port for the node,
+    /// but it is the only kind of port a route (subdomain) can be created for.
+    ///
     /// # Permissions
     /// Requires [`ProjectPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
     #[route("/{server_id}/ports", method = PUT, raw)]
@@ -432,6 +444,7 @@ pub(crate) impl ServerAdminService for Backend {
         protocol: NetworkProtocol,
         internal_port: u16,
         external_port: PortRange,
+        http: Option<bool>,
     ) -> Result<(), _> {
         if external_port.start > external_port.end {
             return Err(AddPortError::PortInvalid);
@@ -502,8 +515,8 @@ pub(crate) impl ServerAdminService for Backend {
             }
 
             query!(
-                "INSERT INTO server_ports (server, host, name, protocol, internal_port, external_port, external_ip)
-                 VALUES ($1, $2, $3, $4, $5, int4range($6, $7, '[]'), $8)
+                "INSERT INTO server_ports (server, host, name, protocol, internal_port, external_port, external_ip, http)
+                 VALUES ($1, $2, $3, $4, $5, int4range($6, $7, '[]'), $8, $9)
                  RETURNING id",
                 &server.id,
                 server.node.default_host(),
@@ -512,7 +525,8 @@ pub(crate) impl ServerAdminService for Backend {
                 i32::from(internal_port),
                 i32::from(*external.start()),
                 i32::from(*external.end()),
-                server.node.default_bind()
+                server.node.default_bind(),
+                http.unwrap_or(false) && protocol == NetworkProtocol::Tcp
             )
             .fetch_one(&mut **tx)
             .await?;
@@ -557,6 +571,8 @@ pub(crate) impl ServerAdminService for Backend {
 
     /// Updates an existing port allocation for the server.
     ///
+    /// Changing only `http` is a backend-side change and does not touch the node.
+    ///
     /// # Permissions
     /// Requires [`ProjectPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
     #[route("/{server_id}/ports/{port_id}", method = POST)]
@@ -580,9 +596,38 @@ pub(crate) impl ServerAdminService for Backend {
         external_port: Option<PortRange>,
         host: Option<String>,
         bind: Option<String>,
+        http: Option<bool>,
     ) -> Result<(), UpdatePortError> {
         auth.require::<_, _, UpdatePortError>(server_id, ProjectPermissions::VIEW)?;
         auth.require::<_, _, UpdatePortError>((), ManagementPermissions::SERVER_MANAGE)?;
+
+        if name.is_none()
+            && protocol.is_none()
+            && internal_port.is_none()
+            && external_port.is_none()
+            && host.is_none()
+            && bind.is_none()
+        {
+            let Some(http) = http else {
+                return Ok(());
+            };
+
+            let updated = query!(
+                r#"UPDATE server_ports SET http = $1
+                   WHERE id = $2 AND server = $3 AND protocol = 'tcp'"#,
+                http,
+                port_id,
+                &server_id,
+            )
+            .execute(&*self.database)
+            .await?;
+
+            if updated.rows_affected() == 0 {
+                return Err(UpdatePortError::PortInvalid);
+            }
+
+            return Ok(());
+        }
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -682,6 +727,17 @@ pub(crate) impl ServerAdminService for Backend {
                 query!(
                     "UPDATE server_ports SET name=$1 WHERE id=$2 AND server=$3",
                     name,
+                    port_id,
+                    &server.id
+                )
+                .execute(&mut **tx)
+                .await?;
+            }
+
+            if let Some(http) = http {
+                query!(
+                    "UPDATE server_ports SET http=$1 WHERE id=$2 AND server=$3",
+                    http && protocol_parsed == NetworkProtocol::Tcp,
                     port_id,
                     &server.id
                 )
@@ -816,9 +872,11 @@ pub(crate) impl ServerAdminService for Backend {
             .await
             .map_err(TemplateError::into::<DeletePortError>)?;
 
+        let routes = self.port_routes(port_id).await?;
+
         let mut conn = self.database.acquire().await?;
 
-        conn.transaction(|tx| {
+        let result = conn.transaction(|tx| {
             Box::pin(async move {
                 let result = query!(
                     "DELETE FROM server_ports WHERE id=$1 AND server=$2",
@@ -869,7 +927,13 @@ pub(crate) impl ServerAdminService for Backend {
                 Ok(())
             })
         })
-        .await
+        .await;
+
+        if result.is_ok() {
+            self.deprovision_routes(&routes).await;
+        }
+
+        result
     }
 }
 

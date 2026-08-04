@@ -221,6 +221,7 @@ impl Template for HytaleTemplate {
                 internal_port: SERVER_PORT,
                 placeholder: "Hytale".to_owned(),
                 remappable: true,
+                http: false,
             },
         )]))
     }

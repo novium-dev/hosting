@@ -12,6 +12,7 @@ export type AddNodePortPayload = {
 
 export type AddPortPayload = {
     external_port: PortRange;
+    http?: boolean | null;
     internal_port: number;
     name: string;
     protocol: NetworkProtocol;
@@ -155,6 +156,7 @@ export type NetworkPort = {
     external_port_end: number;
     external_port_start: number;
     host: string;
+    http: boolean;
     id: number;
     internal_port: number;
     name: string;
@@ -265,6 +267,48 @@ export const Role = {
 
 export type Role = typeof Role[keyof typeof Role];
 
+export type RouteDomainPayload = {
+    domain: string;
+    https?: boolean | null;
+    pangolin_domain_id?: string | null;
+    private?: boolean | null;
+};
+
+export type RouteDomainUpdatePayload = {
+    https?: boolean | null;
+    pangolin_domain_id?: string | null;
+    private?: boolean | null;
+};
+
+export const RouteKind = { HTTP: 'http', TCP: 'tcp' } as const;
+
+export type RouteKind = typeof RouteKind[keyof typeof RouteKind];
+
+export type RoutePayload = {
+    domain: number;
+    https?: boolean | null;
+    port: number;
+    service?: string | null;
+    subdomain: string;
+};
+
+export type RouteRecord = {
+    name: string;
+    port?: number | null;
+    priority?: number | null;
+    record_type: string;
+    ttl?: number | null;
+    value: string;
+};
+
+export const RouteStatus = {
+    PENDING: 'pending',
+    ACTIVE: 'active',
+    FAILED: 'failed'
+} as const;
+
+export type RouteStatus = typeof RouteStatus[keyof typeof RouteStatus];
+
 export type ServerLimits = {
     backup?: number | null;
 };
@@ -346,6 +390,7 @@ export type SshEndpointRequest = {
 };
 
 export type TemplatePortDefinition = {
+    http: boolean;
     internal_port: number;
     placeholder: string;
     protocol: NetworkProtocol;
@@ -368,6 +413,7 @@ export type UpdatePortPayload = {
     bind?: string | null;
     external_port?: null | PortRange;
     host?: string | null;
+    http?: boolean | null;
     internal_port?: number | null;
     name?: string | null;
     protocol?: null | NetworkProtocol;
@@ -11618,3 +11664,1012 @@ export type SetProjectFeaturesResponses = {
 };
 
 export type SetProjectFeaturesResponse = SetProjectFeaturesResponses[keyof SetProjectFeaturesResponses];
+
+export type ListRouteDomainsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * The project the domains are listed for
+         */
+        project?: null | NanoId;
+    };
+    url: '/route/domains';
+};
+
+export type ListRouteDomainsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListRouteDomainsError = ListRouteDomainsErrors[keyof ListRouteDomainsErrors];
+
+export type ListRouteDomainsResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        domain: string;
+        http_available: boolean;
+        https: boolean;
+        id: number;
+        private: boolean;
+        tcp_available: boolean;
+    }>;
+};
+
+export type ListRouteDomainsResponse = ListRouteDomainsResponses[keyof ListRouteDomainsResponses];
+
+export type ListRoutesData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/route/{server_id}';
+};
+
+export type ListRoutesErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListRoutesError = ListRoutesErrors[keyof ListRoutesErrors];
+
+export type ListRoutesResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        address: string;
+        domain: number;
+        external_port: number;
+        fqdn: string;
+        https: boolean;
+        id: number;
+        kind: RouteKind;
+        port: number;
+        records: Array<RouteRecord>;
+        server: NanoId;
+        service?: string | null;
+        status: RouteStatus;
+        subdomain: string;
+    }>;
+};
+
+export type ListRoutesResponse = ListRoutesResponses[keyof ListRoutesResponses];
+
+export type CreateRouteData = {
+    body: RoutePayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/route/{server_id}';
+};
+
+export type CreateRouteErrors = {
+    /**
+     * The specified subdomain is invalid
+     */
+    '400‎': {
+        error?: {
+            id?: 'route/subdomain_invalid';
+            msg?: 'The specified subdomain is invalid';
+        };
+    };
+    /**
+     * The specified subdomain is already taken
+     */
+    '400‏': {
+        error?: {
+            id?: 'route/subdomain_taken';
+            msg?: 'The specified subdomain is already taken';
+        };
+    };
+    /**
+     * The selected port is not a TCP port of this server
+     */
+    '400‪': {
+        error?: {
+            id?: 'route/port_invalid';
+            msg?: 'The selected port is not a TCP port of this server';
+        };
+    };
+    /**
+     * The specified SRV service name is invalid
+     */
+    '400‫': {
+        error?: {
+            id?: 'route/service_invalid';
+            msg?: 'The specified SRV service name is invalid';
+        };
+    };
+    /**
+     * HTTPS is not available for the selected domain
+     */
+    '400‬': {
+        error?: {
+            id?: 'route/https_unavailable';
+            msg?: 'HTTPS is not available for the selected domain';
+        };
+    };
+    /**
+     * Routes of this kind are not configured on this instance
+     */
+    '400‭': {
+        error?: {
+            id?: 'route/kind_unavailable';
+            msg?: 'Routes of this kind are not configured on this instance';
+        };
+    };
+    /**
+     * The route domain is not linked to a Pangolin domain
+     */
+    '400‮': {
+        error?: {
+            id?: 'route/domain_not_linked';
+            msg?: 'The route domain is not linked to a Pangolin domain';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified route domain was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'route/domain_not_found';
+            msg?: 'The specified route domain was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500⁢': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The route backend rejected the request
+     */
+    '502⁡': {
+        error?: {
+            id?: 'route/backend_error';
+            msg?: 'The route backend rejected the request';
+        };
+    };
+    /**
+     * The route backend is currently unavailable
+     */
+    '503⁠': {
+        error?: {
+            id?: 'route/backend_unavailable';
+            msg?: 'The route backend is currently unavailable';
+        };
+    };
+};
+
+export type CreateRouteError = CreateRouteErrors[keyof CreateRouteErrors];
+
+export type CreateRouteResponses = {
+    /**
+     * Success
+     */
+    200: {
+        address: string;
+        domain: number;
+        external_port: number;
+        fqdn: string;
+        https: boolean;
+        id: number;
+        kind: RouteKind;
+        port: number;
+        records: Array<RouteRecord>;
+        server: NanoId;
+        service?: string | null;
+        status: RouteStatus;
+        subdomain: string;
+    };
+};
+
+export type CreateRouteResponse = CreateRouteResponses[keyof CreateRouteResponses];
+
+export type DeleteRouteData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+        /**
+         * The route ID
+         */
+        route_id: number;
+    };
+    query?: never;
+    url: '/route/{server_id}/{route_id}';
+};
+
+export type DeleteRouteErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified route was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'route/not_found';
+            msg?: 'The specified route was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‪': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The route backend rejected the request
+     */
+    '502‏': {
+        error?: {
+            id?: 'route/backend_error';
+            msg?: 'The route backend rejected the request';
+        };
+    };
+    /**
+     * The route backend is currently unavailable
+     */
+    '503‎': {
+        error?: {
+            id?: 'route/backend_unavailable';
+            msg?: 'The route backend is currently unavailable';
+        };
+    };
+};
+
+export type DeleteRouteError = DeleteRouteErrors[keyof DeleteRouteErrors];
+
+export type DeleteRouteResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteRouteResponse = DeleteRouteResponses[keyof DeleteRouteResponses];
+
+export type RouteBackendsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/route/backends';
+};
+
+export type RouteBackendsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type RouteBackendsError = RouteBackendsErrors[keyof RouteBackendsErrors];
+
+export type RouteBackendsResponses = {
+    /**
+     * Success
+     */
+    200: {
+        cloudflare: boolean;
+        pangolin: boolean;
+    };
+};
+
+export type RouteBackendsResponse = RouteBackendsResponses[keyof RouteBackendsResponses];
+
+export type ListRouteDomainsAdminData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/route/domains';
+};
+
+export type ListRouteDomainsAdminErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListRouteDomainsAdminError = ListRouteDomainsAdminErrors[keyof ListRouteDomainsAdminErrors];
+
+export type ListRouteDomainsAdminResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        domain: string;
+        http_available: boolean;
+        https: boolean;
+        id: number;
+        pangolin_domain_id?: string | null;
+        private: boolean;
+        projects: Array<NanoId>;
+        routes: number;
+        tcp_available: boolean;
+    }>;
+};
+
+export type ListRouteDomainsAdminResponse = ListRouteDomainsAdminResponses[keyof ListRouteDomainsAdminResponses];
+
+export type CreateRouteDomainData = {
+    body: RouteDomainPayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/route/domains';
+};
+
+export type CreateRouteDomainErrors = {
+    /**
+     * The specified route domain is invalid
+     */
+    '400‌': {
+        error?: {
+            id?: 'route/domain_invalid';
+            msg?: 'The specified route domain is invalid';
+        };
+    };
+    /**
+     * A route domain with this name already exists
+     */
+    '400‍': {
+        error?: {
+            id?: 'route/domain_exists';
+            msg?: 'A route domain with this name already exists';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type CreateRouteDomainError = CreateRouteDomainErrors[keyof CreateRouteDomainErrors];
+
+export type CreateRouteDomainResponses = {
+    /**
+     * Success
+     */
+    200: number;
+};
+
+export type CreateRouteDomainResponse = CreateRouteDomainResponses[keyof CreateRouteDomainResponses];
+
+export type DeleteRouteDomainData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The route domain ID
+         */
+        domain_id: number;
+    };
+    query?: never;
+    url: '/admin/route/domains/{domain_id}';
+};
+
+export type DeleteRouteDomainErrors = {
+    /**
+     * The route domain is still used by routes
+     */
+    '400‍': {
+        error?: {
+            id?: 'route/domain_in_use';
+            msg?: 'The route domain is still used by routes';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified route domain was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'route/domain_not_found';
+            msg?: 'The specified route domain was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type DeleteRouteDomainError = DeleteRouteDomainErrors[keyof DeleteRouteDomainErrors];
+
+export type DeleteRouteDomainResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteRouteDomainResponse = DeleteRouteDomainResponses[keyof DeleteRouteDomainResponses];
+
+export type UpdateRouteDomainData = {
+    body: RouteDomainUpdatePayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The route domain ID
+         */
+        domain_id: number;
+    };
+    query?: never;
+    url: '/admin/route/domains/{domain_id}';
+};
+
+export type UpdateRouteDomainErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified route domain was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'route/domain_not_found';
+            msg?: 'The specified route domain was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type UpdateRouteDomainError = UpdateRouteDomainErrors[keyof UpdateRouteDomainErrors];
+
+export type UpdateRouteDomainResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UpdateRouteDomainResponse = UpdateRouteDomainResponses[keyof UpdateRouteDomainResponses];
+
+export type DenyDomainProjectData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The route domain ID
+         */
+        domain_id: number;
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+    };
+    query?: never;
+    url: '/admin/route/domains/{domain_id}/projects/{project_id}';
+};
+
+export type DenyDomainProjectErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type DenyDomainProjectError = DenyDomainProjectErrors[keyof DenyDomainProjectErrors];
+
+export type DenyDomainProjectResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DenyDomainProjectResponse = DenyDomainProjectResponses[keyof DenyDomainProjectResponses];
+
+export type AllowDomainProjectData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The route domain ID
+         */
+        domain_id: number;
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+    };
+    query?: never;
+    url: '/admin/route/domains/{domain_id}/projects/{project_id}';
+};
+
+export type AllowDomainProjectErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified route domain was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'route/domain_not_found';
+            msg?: 'The specified route domain was not found';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type AllowDomainProjectError = AllowDomainProjectErrors[keyof AllowDomainProjectErrors];
+
+export type AllowDomainProjectResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type AllowDomainProjectResponse = AllowDomainProjectResponses[keyof AllowDomainProjectResponses];

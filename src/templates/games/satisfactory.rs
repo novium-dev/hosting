@@ -207,6 +207,7 @@ impl Template for SatisfactoryTemplate {
                     internal_port: SERVER_PORT,
                     placeholder: "Satisfactory TCP".to_owned(),
                     remappable: false,
+                    http: false,
                 },
             ),
             (
@@ -216,6 +217,7 @@ impl Template for SatisfactoryTemplate {
                     internal_port: SERVER_PORT,
                     placeholder: "Satisfactory UDP".to_owned(),
                     remappable: false,
+                    http: false,
                 },
             ),
             (
@@ -225,6 +227,7 @@ impl Template for SatisfactoryTemplate {
                     internal_port: RELIABLE_PORT,
                     placeholder: "Reliable Messaging".to_owned(),
                     remappable: false,
+                    http: false,
                 },
             ),
         ]))

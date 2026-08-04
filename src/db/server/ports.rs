@@ -10,6 +10,7 @@ pub struct ServerPort {
     pub internal_port: u16,
     pub external_port: RangeInclusive<u16>,
     pub bind: Option<String>,
+    pub http: bool,
 }
 
 #[derive(
@@ -33,6 +34,7 @@ pub struct NetworkPort {
     pub internal_port: u16,
     pub protocol: NetworkProtocol,
     pub bind: Option<String>, // Only visible to admins
+    pub http: bool,
 }
 
 impl Display for NetworkProtocol {
@@ -69,6 +71,7 @@ pub(crate) fn merge_ports(ports: &mut Vec<NetworkPort>) {
                     && port2.protocol == port1.protocol
                     && port2.bind == port1.bind
                     && port2.host == port1.host
+                    && port2.http == port1.http
                 {
                     port1.external_port_end = port2.external_port_end;
                     remove = Some(index2);
