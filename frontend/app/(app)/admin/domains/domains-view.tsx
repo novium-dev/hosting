@@ -162,7 +162,9 @@ export function AdminDomainsView() {
       });
 
       if (response.error) {
-        throw new Error(errorMessage(response.error, "Failed to update domain"));
+        throw new Error(
+          errorMessage(response.error, "Failed to update domain"),
+        );
       }
 
       await mutate();
@@ -184,7 +186,9 @@ export function AdminDomainsView() {
       });
 
       if (response.error) {
-        throw new Error(errorMessage(response.error, "Failed to delete domain"));
+        throw new Error(
+          errorMessage(response.error, "Failed to delete domain"),
+        );
       }
 
       toast.success("Domain deleted");
@@ -232,7 +236,9 @@ export function AdminDomainsView() {
       });
 
       if (response.error) {
-        throw new Error(errorMessage(response.error, "Failed to revoke access"));
+        throw new Error(
+          errorMessage(response.error, "Failed to revoke access"),
+        );
       }
 
       await mutate();
@@ -250,8 +256,8 @@ export function AdminDomainsView() {
           <h1 className="text-xl font-semibold">Domains</h1>
           <p className="text-sm text-muted-foreground">
             Domains users can put their routes under. HTTP ports become Pangolin
-            resources, TCP ports get a Cloudflare SRV record. A private domain is
-            only offered to the projects you grant it to.
+            resources, TCP ports get a Cloudflare SRV record. A private domain
+            is only offered to the projects you grant it to.
           </p>
         </div>
         {canManage ? (
@@ -297,9 +303,7 @@ export function AdminDomainsView() {
             <TableBody>
               {domains?.map((entry) => (
                 <TableRow key={entry.id}>
-                  <TableCell className="font-medium">
-                    {entry.domain}
-                  </TableCell>
+                  <TableCell className="font-medium">{entry.domain}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-1">
                       <Badge
@@ -333,38 +337,47 @@ export function AdminDomainsView() {
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap items-center gap-1">
-                      {entry.projects.map((project) => (
-                        <Badge
-                          key={project}
-                          variant="secondary"
-                          className="gap-1"
-                        >
-                          {projectName(project)}
-                          {canManage ? (
-                            <button
-                              type="button"
-                              onClick={() => void revoke(entry, project)}
+                    {
+                      // only if private
+                      entry.private ? (
+                        <div className="flex flex-wrap items-center gap-1">
+                          {entry.projects.map((project) => (
+                            <Badge
+                              key={project}
+                              variant="secondary"
+                              className="gap-1"
                             >
-                              <X className="size-3" />
-                            </button>
+                              {projectName(project)}
+                              {canManage ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void revoke(entry, project)}
+                                >
+                                  <X className="size-3" />
+                                </button>
+                              ) : null}
+                            </Badge>
+                          ))}
+                          {canManage ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setGrantTarget(entry);
+                                setGrantProject("");
+                              }}
+                            >
+                              <Plus className="size-3" />
+                            </Button>
                           ) : null}
-                        </Badge>
-                      ))}
-                      {canManage ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setGrantTarget(entry);
-                            setGrantProject("");
-                          }}
-                        >
-                          <Plus className="size-3" />
-                        </Button>
-                      ) : null}
-                    </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          All projects
+                        </p>
+                      )
+                    }
                   </TableCell>
                   <TableCell className="font-mono text-sm">
                     {entry.routes}
@@ -467,7 +480,9 @@ export function AdminDomainsView() {
               onClick={() => void submit()}
               disabled={isSubmitting || !domain}
             >
-              {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
+              {isSubmitting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : null}
               Add domain
             </Button>
           </DialogFooter>
@@ -539,7 +554,9 @@ export function AdminDomainsView() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSubmitting}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={isSubmitting}
               onClick={(event) => {
