@@ -35,7 +35,7 @@ define_error!(server {
 
 define_error!(project {
     not_found("Project not found" NOT_FOUND),
-    not_empty("Project still has servers" BAD_REQUEST),
+    not_empty("Project still has servers or databases" BAD_REQUEST),
     slug_invalid("The slug must be 1-64 characters of lowercase letters, numbers or hyphens, and must not be reserved" BAD_REQUEST),
 });
 

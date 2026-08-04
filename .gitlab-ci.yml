@@ -45,11 +45,13 @@ stages:
   before_script:
     - rustc --version && cargo --version
     - mkdir .cargo_home -p
-    - apk add --no-cache openssh-client-default libxml2-utils musl-dev ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21 clang21-static lld21 git postgresql18-client curl btrfs-progs-dev --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+    - apk add --no-cache openssh-client-default libxml2-utils musl-dev ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21 clang21-static lld21 git postgresql18-client sqlite curl btrfs-progs-dev --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - apk upgrade --no-cache gcc --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
     - until pg_isready --host db --username postgres --dbname postgres; do sleep 1; done
     - crates/sqlx-cli/bin/sqlx database create --database-url "$BACKEND_DATABASE_URL"
     - crates/sqlx-cli/bin/sqlx migrate run --database-url "$BACKEND_DATABASE_URL" --source "backend/migrations"
+    # database_agent's query macros are checked against a sqlite schema database
+    - ./scripts/dev/database_agent_db.sh
     - eval $(ssh-agent -s)
     - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
   services:
@@ -244,3 +246,19 @@ deploy:
     - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} --tag $CI_REGISTRY_IMAGE:latest --ssh default .
     - docker push $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8}
     - docker push $CI_REGISTRY_IMAGE:latest
+
+# Builds the database agent image. It runs on its own hosts (a database host
+# registered in the admin UI), so it ships as a separate image from the
+# all-in-one backend one above.
+deploy_database_agent:
+  extends: .docker-deploy-default
+  variables:
+    IMAGE: "$CI_REGISTRY_IMAGE/database-agent"
+  script:
+    - apk add --no-cache openssh-client-default --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+    - eval $(ssh-agent -s)
+    - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
+    - docker pull $IMAGE:latest || true
+    - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $IMAGE:latest --tag $IMAGE:${CI_COMMIT_SHA:0:8} --tag $IMAGE:latest --ssh default --file database_agent.Dockerfile .
+    - docker push $IMAGE:${CI_COMMIT_SHA:0:8}
+    - docker push $IMAGE:latest

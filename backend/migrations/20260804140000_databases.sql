@@ -29,7 +29,7 @@ CREATE INDEX database_instances_type_idx ON database_instances (type);
 
 CREATE TABLE project_databases (
     id char(6) PRIMARY KEY,
-    project char(6) NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    project char(6) NOT NULL REFERENCES projects (id),
     instance uuid NOT NULL REFERENCES database_instances (id),
     name varchar(63) NOT NULL,
     remote_name varchar(63) NOT NULL,
