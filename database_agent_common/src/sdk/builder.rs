@@ -59,7 +59,10 @@ impl DatabaseAgentSDK {
 }
 
 impl DatabaseAgentSDKBuilder<RequiresIdentifier> {
-    pub const fn with_identifier(self, identifier: Uuid) -> DatabaseAgentSDKBuilder<RequiresBaseURL> {
+    pub const fn with_identifier(
+        self,
+        identifier: Uuid,
+    ) -> DatabaseAgentSDKBuilder<RequiresBaseURL> {
         DatabaseAgentSDKBuilder(identifier)
     }
 }

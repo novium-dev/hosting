@@ -49,7 +49,10 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
     let params = negotiate(&mut stream).await?;
 
     let user = params.get("user").cloned().unwrap_or_default();
-    let database = params.get("database").cloned().unwrap_or_else(|| user.clone());
+    let database = params
+        .get("database")
+        .cloned()
+        .unwrap_or_else(|| user.clone());
     tracing::debug!("[{peer}] startup: user={user:?} database={database:?}");
 
     let identifier = UserIdentifier::from_str(&user).ok();
@@ -76,12 +79,8 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
     }
 
     if !scram::authenticate_client(&mut stream, &credentials.password).await? {
-        return protocol::send_error(
-            &mut stream,
-            INVALID_AUTHORIZATION,
-            "authentication failed",
-        )
-        .await;
+        return protocol::send_error(&mut stream, INVALID_AUTHORIZATION, "authentication failed")
+            .await;
     }
     protocol::write_msg(&mut stream, b'R', &0i32.to_be_bytes()).await?;
     tracing::info!("[{peer}] {user:?}@{database:?} authenticated");

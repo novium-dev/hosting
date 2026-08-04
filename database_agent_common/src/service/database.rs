@@ -13,17 +13,13 @@ pub trait DatabaseService {
     /// Creates a database on an instance.
     #[route("", method = PUT)]
     #[error(instance::{not_found, offline}, database::{name_invalid, name_taken, failure}, store::failure)]
-    async fn create_database(&self, instance_id: Uuid, name: String)
-    -> Result<StoredDatabase, _>;
+    async fn create_database(&self, instance_id: Uuid, name: String) -> Result<StoredDatabase, _>;
 
     /// Returns a single database.
     #[route("/{database_id}", method = GET)]
     #[error(instance::not_found, database::not_found, store::failure)]
-    async fn get_database(
-        &self,
-        instance_id: Uuid,
-        database_id: Uuid,
-    ) -> Result<StoredDatabase, _>;
+    async fn get_database(&self, instance_id: Uuid, database_id: Uuid)
+    -> Result<StoredDatabase, _>;
 
     /// Deletes a database and every user granted on it.
     #[route("/{database_id}", method = DELETE)]

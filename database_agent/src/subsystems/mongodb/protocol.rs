@@ -58,9 +58,7 @@ pub fn sasl_error(message: &str) -> Document {
     }
 }
 
-pub async fn read_message<S: AsyncRead + Unpin>(
-    stream: &mut S,
-) -> io::Result<(i32, i32, Vec<u8>)> {
+pub async fn read_message<S: AsyncRead + Unpin>(stream: &mut S) -> io::Result<(i32, i32, Vec<u8>)> {
     let length = stream.read_i32_le().await? as usize;
     let request_id = stream.read_i32_le().await?;
     let _response_to = stream.read_i32_le().await?;

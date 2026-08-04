@@ -73,8 +73,12 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
                     .ok()
                     .and_then(|id| agent.routes.find(KIND, &id));
                 let Some(credentials) = credentials else {
-                    write_op_msg(&mut stream, request_id, &sasl_error("authentication failed"))
-                        .await?;
+                    write_op_msg(
+                        &mut stream,
+                        request_id,
+                        &sasl_error("authentication failed"),
+                    )
+                    .await?;
                     return Ok(());
                 };
 
@@ -139,8 +143,12 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
                 let client_final = String::from_utf8_lossy(payload).into_owned();
 
                 let Some(server_final) = started.verify(&client_final) else {
-                    write_op_msg(&mut stream, request_id, &sasl_error("authentication failed"))
-                        .await?;
+                    write_op_msg(
+                        &mut stream,
+                        request_id,
+                        &sasl_error("authentication failed"),
+                    )
+                    .await?;
                     return Ok(());
                 };
 

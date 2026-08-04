@@ -59,8 +59,7 @@ impl Session {
         let proof = scram::field(client_final, "p=")?;
         let without_proof = client_final.rsplit_once(",p=").map(|(head, _)| head)?;
 
-        let salted =
-            scram::pbkdf2_sha256(self.password.as_bytes(), &self.salt, SCRAM_ITERATIONS);
+        let salted = scram::pbkdf2_sha256(self.password.as_bytes(), &self.salt, SCRAM_ITERATIONS);
         let auth_message = format!("{},{},{}", self.bare, self.server_first, without_proof);
         let (_, expected) = scram::client_proof(&salted, &auth_message);
 
@@ -87,7 +86,12 @@ pub fn parse_client_first(client_first: &str) -> Option<(String, String, String)
 pub async fn backend_auth(socket: &Path, user: &str, password: &str) -> io::Result<UnixStream> {
     let mut backend = UnixStream::connect(socket).await?;
 
-    write_op_msg_request(&mut backend, 1, &doc! { "ismaster": 1, "$db": ADMIN_DATABASE }).await?;
+    write_op_msg_request(
+        &mut backend,
+        1,
+        &doc! { "ismaster": 1, "$db": ADMIN_DATABASE },
+    )
+    .await?;
     read_message(&mut backend).await?;
 
     let client_nonce = scram::encode(&scram::random_bytes::<{ scram::NONCE_LENGTH }>());
@@ -116,8 +120,7 @@ pub async fn backend_auth(socket: &Path, user: &str, password: &str) -> io::Resu
     )
     .map_err(|_err| bad("non-utf8 server-first"))?;
 
-    let combined_nonce =
-        scram::field(&server_first, "r=").ok_or_else(|| bad("no server nonce"))?;
+    let combined_nonce = scram::field(&server_first, "r=").ok_or_else(|| bad("no server nonce"))?;
     let salt = scram::field(&server_first, "s=")
         .as_deref()
         .and_then(scram::decode)

@@ -45,11 +45,7 @@ impl PostgresConnection {
         Ok(())
     }
 
-    pub async fn create_user(
-        &self,
-        user: &UserIdentifier,
-        password: &str,
-    ) -> anyhow::Result<()> {
+    pub async fn create_user(&self, user: &UserIdentifier, password: &str) -> anyhow::Result<()> {
         self.execute(&format!(
             "CREATE ROLE {} LOGIN PASSWORD {}",
             quote_ident(&user.to_string()),

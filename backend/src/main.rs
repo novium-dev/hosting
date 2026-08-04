@@ -17,6 +17,7 @@ mod utils;
 
 use crate::auth::oauth::AuthService;
 use crate::config::BackendConfig;
+use crate::db::database::BackendDatabaseHost;
 use crate::db::node::BackendNode;
 #[cfg(feature = "embedded_node")]
 use crate::embedded_node::setup_embedded_node;
@@ -74,6 +75,7 @@ pub(crate) struct Backend {
 
     pub(crate) config: Arc<BackendConfig>,
     pub(crate) nodes: Arc<RwLock<HashMap<Uuid, Arc<BackendNode>>>>,
+    pub(crate) database_hosts: Arc<RwLock<HashMap<Uuid, Arc<BackendDatabaseHost>>>>,
 
     pub(crate) http_client: reqwest::Client,
     pub(crate) curseforge_api_key: Option<Arc<str>>,
@@ -281,6 +283,7 @@ async fn main0() {
 
         config: Arc::new(config),
         nodes: Arc::default(),
+        database_hosts: Arc::default(),
 
         http_client,
         curseforge_api_key: curseforge_api_key.map(Arc::from),
@@ -315,6 +318,16 @@ async fn main0() {
         .transaction(|tx| Box::pin(async move { backend2.sync_nodes(tx).await }))
         .await
         .expect("Unable to sync nodes cache");
+
+    let backend3 = backend.clone();
+    backend
+        .database
+        .acquire()
+        .await
+        .expect("Unable to acquire database connection")
+        .transaction(|tx| Box::pin(async move { backend3.sync_database_hosts(tx).await }))
+        .await
+        .expect("Unable to sync database hosts cache");
 
     info!("Initializing Templates...");
 

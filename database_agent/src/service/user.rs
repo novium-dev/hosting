@@ -58,11 +58,7 @@ impl UserService for Agent {
             .or_user_failure("failed to create a user")
     }
 
-    async fn get_user(
-        &self,
-        instance_id: Uuid,
-        user_id: Uuid,
-    ) -> Result<StoredUser, GetUserError> {
+    async fn get_user(&self, instance_id: Uuid, user_id: Uuid) -> Result<StoredUser, GetUserError> {
         self.instance(instance_id)
             .await
             .ok_or(GetUserError::InstanceNotFound)?;

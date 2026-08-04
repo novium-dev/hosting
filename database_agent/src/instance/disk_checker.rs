@@ -64,7 +64,8 @@ impl Instance {
 
     pub async fn is_disk_full(&self) -> bool {
         let disk_limit = self.data.read().await.disk;
-        disk_limit != 0 && self.disk_usage.load(Ordering::Relaxed) >= disk_limit.cast_unsigned() * MEGABYTE
+        disk_limit != 0
+            && self.disk_usage.load(Ordering::Relaxed) >= disk_limit.cast_unsigned() * MEGABYTE
     }
 }
 

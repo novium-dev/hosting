@@ -75,10 +75,7 @@ impl Agent {
             .cloned()
     }
 
-    pub async fn spawn_instance(
-        &self,
-        create: StoredInstanceCreate,
-    ) -> anyhow::Result<Instance> {
+    pub async fn spawn_instance(&self, create: StoredInstanceCreate) -> anyhow::Result<Instance> {
         let stored = data::insert_instance(self.store.write(), create).await?;
 
         let instance = Instance::new(self.clone(), stored);

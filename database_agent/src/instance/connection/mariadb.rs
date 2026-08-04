@@ -119,12 +119,11 @@ impl MariadbConnection {
 
     pub async fn database_size(&self, name: &str) -> anyhow::Result<i64> {
         let mut conn = self.conn().await?;
-        let size: Option<Option<i64>> =
-            "SELECT CAST(SUM(data_length + index_length) AS SIGNED)
+        let size: Option<Option<i64>> = "SELECT CAST(SUM(data_length + index_length) AS SIGNED)
              FROM information_schema.tables WHERE table_schema = ?"
-                .with((name,))
-                .first(&mut conn)
-                .await?;
+            .with((name,))
+            .first(&mut conn)
+            .await?;
         conn.disconnect().await?;
 
         Ok(size.flatten().unwrap_or_default())

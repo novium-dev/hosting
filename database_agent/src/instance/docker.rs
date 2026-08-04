@@ -10,8 +10,8 @@ use bollard::models::{
 };
 use bollard::query_parameters::{
     CreateContainerOptions, CreateImageOptions, KillContainerOptions, ListContainersOptions,
-    ListImagesOptions, LogsOptions, RemoveContainerOptions, StartContainerOptions,
-    StatsOptions, StopContainerOptions,
+    ListImagesOptions, LogsOptions, RemoveContainerOptions, StartContainerOptions, StatsOptions,
+    StopContainerOptions,
 };
 use bytes::Bytes;
 use core::pin::Pin;
@@ -167,11 +167,7 @@ fn container_config(data: &StoredInstance, config: &AgentConfig) -> ContainerCre
     if let Some(timezone) = data.timezone.as_ref().or(config.docker.timezone.as_ref()) {
         env.push(format!("TZ={timezone}"));
     }
-    env.extend(
-        data.env
-            .iter()
-            .map(|(key, value)| format!("{key}={value}")),
-    );
+    env.extend(data.env.iter().map(|(key, value)| format!("{key}={value}")));
 
     ContainerCreateBody {
         hostname: Some(data.uuid.to_string()),
@@ -261,10 +257,7 @@ async fn find_container(docker: &Docker, name: &str) -> Option<String> {
     docker
         .list_containers(Some(ListContainersOptions {
             all: true,
-            filters: Some(HashMap::from([(
-                "name".to_owned(),
-                vec![name.to_owned()],
-            )])),
+            filters: Some(HashMap::from([("name".to_owned(), vec![name.to_owned()])])),
             ..Default::default()
         }))
         .await
@@ -290,12 +283,7 @@ impl Drop for DockerHandle {
 }
 
 impl DockerHandle {
-    fn new(
-        container_id: String,
-        docker: Docker,
-        config: Arc<AgentConfig>,
-        instance: Uuid,
-    ) -> Self {
+    fn new(container_id: String, docker: Docker, config: Arc<AgentConfig>, instance: Uuid) -> Self {
         let usage = Arc::new(RwLock::new(ResourceUsage::default()));
 
         let usage_task = tokio::spawn(Self::stats_loop(

@@ -68,7 +68,7 @@ impl Backend {
             .inspect_err(|err| error!("Failed to select database host ports: {err:?}"))?
             .into_iter()
             .filter_map(|row| {
-                let kind = DatabaseType::from_str(&row.type).ok()?;
+                let kind = DatabaseType::from_str(&row.r#type).ok()?;
                 Some((kind, u16::try_from(row.port).ok()?))
             })
             .collect();

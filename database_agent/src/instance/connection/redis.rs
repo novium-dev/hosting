@@ -14,9 +14,7 @@ fn value_to_json(value: Value) -> serde_json::Value {
         }
         Value::SimpleString(string) => serde_json::Value::String(string),
         Value::VerbatimString { text, .. } => serde_json::Value::String(text),
-        Value::BigNumber(number) => {
-            serde_json::Value::String(String::from_utf8_lossy(&number).into_owned())
-        }
+        Value::BigNumber(number) => serde_json::Value::String(number.to_string()),
         Value::Okay => serde_json::Value::String("OK".to_owned()),
         Value::Array(values) | Value::Set(values) => {
             serde_json::Value::Array(values.into_iter().map(value_to_json).collect())

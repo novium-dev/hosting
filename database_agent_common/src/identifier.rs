@@ -114,7 +114,8 @@ impl<P: IdentifierPrefix> FromStr for StructuredIdentifier<P> {
         }
 
         Self::from_parts(
-            u32::from_str_radix(short_uuid, 16).map_err(|_err| IdentifierError::ShortUuidInvalid)?,
+            u32::from_str_radix(short_uuid, 16)
+                .map_err(|_err| IdentifierError::ShortUuidInvalid)?,
             label,
         )
     }

@@ -45,10 +45,9 @@ async fn identify<S: tokio::io::AsyncWrite + Unpin>(
     match String::from_utf8_lossy(first).to_ascii_uppercase().as_str() {
         "AUTH" => {
             let (user, password) = match *arguments {
-                [_, ref user, ref password, ..] => (
-                    String::from_utf8_lossy(user).into_owned(),
-                    password.clone(),
-                ),
+                [_, ref user, ref password, ..] => {
+                    (String::from_utf8_lossy(user).into_owned(), password.clone())
+                }
                 [_, ref password] => ("default".to_owned(), password.clone()),
                 _ => {
                     stream
@@ -93,10 +92,7 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
     let credentials = user_id
         .and_then(|id| agent.routes.find(KIND, &id))
         .filter(|candidate| {
-            constant_time_eq::constant_time_eq(
-                &identity.password,
-                candidate.password.as_bytes(),
-            )
+            constant_time_eq::constant_time_eq(&identity.password, candidate.password.as_bytes())
         });
 
     let Some(credentials) = credentials else {
@@ -109,7 +105,9 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
             "[{peer}] rejected: instance {} is suspended",
             credentials.instance.uuid
         );
-        return stream.write_all(b"-ERR the database is suspended\r\n").await;
+        return stream
+            .write_all(b"-ERR the database is suspended\r\n")
+            .await;
     }
 
     let mut backend = UnixStream::connect(&credentials.instance.socket_path().await).await?;

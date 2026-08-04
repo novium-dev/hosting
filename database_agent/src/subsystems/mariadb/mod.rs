@@ -182,9 +182,7 @@ async fn backend_auth(
                 scramble
                     .get_mut(..available)
                     .ok_or_else(|| bad("short backend scramble"))?
-                    .copy_from_slice(
-                        packet.get_slice(cursor..cursor.saturating_add(available))?,
-                    );
+                    .copy_from_slice(packet.get_slice(cursor..cursor.saturating_add(available))?);
 
                 let token = auth::native_token(&scramble, password.as_bytes());
                 write_packet(&mut backend, sequence.wrapping_add(1), &token).await?;

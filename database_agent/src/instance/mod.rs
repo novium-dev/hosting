@@ -218,9 +218,7 @@ impl Instance {
     pub async fn delete_database(&self, database: &StoredDatabase) -> anyhow::Result<()> {
         self.require_online("delete a database").await?;
 
-        for user in
-            data::database_users(self.agent.store.read(), self.uuid, database.uuid).await?
-        {
+        for user in data::database_users(self.agent.store.read(), self.uuid, database.uuid).await? {
             self.delete_user(&user).await?;
         }
 
@@ -331,8 +329,7 @@ impl Instance {
         }
 
         let data = self.data.read().await.clone();
-        let handle =
-            DockerHandle::create(&self.agent.docker, &self.agent.config, &data).await?;
+        let handle = DockerHandle::create(&self.agent.docker, &self.agent.config, &data).await?;
         *self.handle.write().await = Some(Arc::new(handle));
 
         Ok(())
@@ -418,11 +415,10 @@ impl Instance {
         &self,
         lines: Option<usize>,
     ) -> futures_util::stream::BoxStream<'static, anyhow::Result<bytes::Bytes>> {
-        self.handle
-            .read()
-            .await
-            .as_ref()
-            .map_or_else(|| futures_util::stream::empty().boxed(), |handle| handle.logs(lines))
+        self.handle.read().await.as_ref().map_or_else(
+            || futures_util::stream::empty().boxed(),
+            |handle| handle.logs(lines),
+        )
     }
 
     async fn exec(&self, options: ExecOptions) -> anyhow::Result<docker::ExecStream> {
@@ -463,9 +459,9 @@ impl Instance {
                     Some(database) => {
                         format!("mariadb-dump --socket='{socket}' -u root '{database}' {strip}")
                     }
-                    None => format!(
-                        "mariadb-dump --socket='{socket}' -u root --all-databases {strip}"
-                    ),
+                    None => {
+                        format!("mariadb-dump --socket='{socket}' -u root --all-databases {strip}")
+                    }
                 }
             }
             DatabaseType::Mongodb => {
@@ -486,7 +482,9 @@ impl Instance {
             .await?;
 
         Ok(Box::new(tokio_util::io::StreamReader::new(
-            stream.output.map(|chunk| chunk.map_err(std::io::Error::other)),
+            stream
+                .output
+                .map(|chunk| chunk.map_err(std::io::Error::other)),
         )))
     }
 
@@ -625,10 +623,12 @@ fn identifier(user: &StoredUser) -> anyhow::Result<UserIdentifier> {
 }
 
 fn mongodb_shell_auth(data: &StoredInstance) -> String {
-    data.root_password.as_deref().map_or_else(String::new, |password| {
-        format!(
-            " -u {} -p '{password}' --authenticationDatabase admin",
-            connection::mongodb::ROOT_USERNAME
-        )
-    })
+    data.root_password
+        .as_deref()
+        .map_or_else(String::new, |password| {
+            format!(
+                " -u {} -p '{password}' --authenticationDatabase admin",
+                connection::mongodb::ROOT_USERNAME
+            )
+        })
 }

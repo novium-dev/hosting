@@ -5,6 +5,7 @@ pub(crate) mod admin;
 pub(crate) mod api_key;
 pub(crate) mod auth;
 pub(crate) mod backup;
+pub(crate) mod database;
 pub(crate) mod file;
 pub(crate) mod internal;
 pub(crate) mod minecraft;
@@ -124,6 +125,20 @@ define_error!(db {
     failure("Database operation failed" INTERNAL_SERVER_ERROR),
 });
 
+define_error!(database {
+    not_found("The specified database was not found" NOT_FOUND),
+    name_invalid("The database name must be 1-20 characters of lowercase letters or digits" BAD_REQUEST),
+    name_taken("A database with this name already exists in the project" BAD_REQUEST),
+    limit_exceeded("The project database limit has been reached" BAD_REQUEST),
+    type_unavailable("No database host offers this database type" SERVICE_UNAVAILABLE),
+    host_not_found("The specified database host was not found" NOT_FOUND),
+    host_not_empty("The database host still has instances" BAD_REQUEST),
+    instance_not_found("The specified database instance was not found" NOT_FOUND),
+    instance_not_empty("The database instance still has project databases" BAD_REQUEST),
+    agent_unreachable("The database agent is currently unreachable" SERVICE_UNAVAILABLE),
+    agent_error("The database agent rejected the request" BAD_GATEWAY),
+});
+
 define_error!(cache {
     failure("Cache operation failed" INTERNAL_SERVER_ERROR),
     unreachable("Cache is unreachable" SERVICE_UNAVAILABLE),
@@ -163,6 +178,18 @@ define_path_variable!(
 
 define_path_variable!(
     region_id "The region ID"
+);
+
+define_path_variable!(
+    database_id "The database ID"
+);
+
+define_path_variable!(
+    host_id "The database host ID"
+);
+
+define_path_variable!(
+    instance_id "The database instance ID"
 );
 
 define_query_variable!(

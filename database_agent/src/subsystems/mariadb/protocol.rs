@@ -65,12 +65,7 @@ pub fn server_handshake(scramble: &[u8; 20]) -> io::Result<Vec<u8>> {
     Ok(packet)
 }
 
-pub fn handshake_response(
-    user: &str,
-    token: &[u8],
-    database: &str,
-    client_caps: u32,
-) -> Vec<u8> {
+pub fn handshake_response(user: &str, token: &[u8], database: &str, client_caps: u32) -> Vec<u8> {
     let caps = BACKEND_REQUIRED_CAPS | (client_caps & BACKEND_FORWARDABLE_CAPS);
 
     let mut packet = caps.to_le_bytes().to_vec();

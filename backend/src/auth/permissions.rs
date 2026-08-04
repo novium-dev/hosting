@@ -60,6 +60,16 @@ bitflags! {
         const USER_EDIT = 1 << 14;
         /// Allows the user to manage project metadata and servers.
         const ADMIN_MANAGEMENT = 1 << 16;
+
+        /// Allows the user to see the project's databases and their connection details.
+        ///
+        /// Depends on [`ProjectPermissions::VIEW`]
+        const DATABASE_VIEW = 1 << 19;
+        /// Allows the user to create and delete the project's databases and to
+        /// rotate their passwords.
+        ///
+        /// Depends on [`ProjectPermissions::DATABASE_VIEW`]
+        const DATABASE_MANAGE = 1 << 20;
     }
 
     /// Permission set on a per-server basis
@@ -197,11 +207,13 @@ bitflags! {
         ///
         const NETWORK_DELETE = 1 << 43;
 
-        /// Allows the user to create databases of any kind.
+        /// Allows the user to create database instances on a database host.
         ///
+        /// Depends on [`ManagementPermissions::DATABASE_HOSTS_VIEW`]
         const DATABASE_CREATE = 1 << 44;
-        /// Allows the user to delete databases of any kind.
+        /// Allows the user to delete database instances from a database host.
         ///
+        /// Depends on [`ManagementPermissions::DATABASE_HOSTS_VIEW`]
         const DATABASE_DELETE = 1 << 45;
 
         /// Allows the user to bypass global and server-specific limits.
@@ -219,6 +231,14 @@ bitflags! {
         ///
         /// Depends on [`ManagementPermissions::DOMAINS_VIEW`]
         const DOMAINS_MANAGE = 1 << 49;
+
+        /// Allows the user to view all registered database hosts on this instance.
+        ///
+        const DATABASE_HOSTS_VIEW = 1 << 50;
+        /// Allows the user to register, edit and unregister database hosts.
+        ///
+        /// Depends on [`ManagementPermissions::DATABASE_HOSTS_VIEW`]
+        const DATABASE_HOSTS_MANAGE = 1 << 51;
     }
 }
 
@@ -404,8 +424,6 @@ impl<E: FromAuthPermissionDenied> Permission<(), E> for ManagementPermissions {
     }
 }
 
-// TODO: Permission handling of databases and networks
-
 impl ServerPermissions {
     pub fn with_dependencies(mut self) -> Self {
         self.with_dependency(Self::TERMINAL_WRITE, Self::TERMINAL_READ);
@@ -436,6 +454,7 @@ impl ProjectPermissions {
             self |= Self::VIEW;
         }
         self.with_dependency(Self::USER_EDIT, Self::USER_VIEW);
+        self.with_dependency(Self::DATABASE_MANAGE, Self::DATABASE_VIEW);
         self
     }
 
@@ -452,6 +471,9 @@ impl ManagementPermissions {
         self.with_dependency(Self::API_KEYS_MANAGE, Self::API_KEYS_VIEW);
         self.with_dependency(Self::NODES_MANAGE, Self::NODES_VIEW);
         self.with_dependency(Self::DOMAINS_MANAGE, Self::DOMAINS_VIEW);
+        self.with_dependency(Self::DATABASE_HOSTS_MANAGE, Self::DATABASE_HOSTS_VIEW);
+        self.with_dependency(Self::DATABASE_CREATE, Self::DATABASE_HOSTS_VIEW);
+        self.with_dependency(Self::DATABASE_DELETE, Self::DATABASE_HOSTS_VIEW);
         self
     }
 

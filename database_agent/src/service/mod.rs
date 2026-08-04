@@ -107,13 +107,12 @@ impl Agent {
         });
 
         let agent = self.clone();
-        let authenticated =
-            authenticated
-                .into_openapi()
-                .layer(axum::middleware::from_fn(move |request, next| {
-                    let agent = agent.clone();
-                    async move { agent.authenticate(request, next).await }
-                }));
+        let authenticated = authenticated
+            .into_openapi()
+            .layer(axum::middleware::from_fn(move |request, next| {
+                let agent = agent.clone();
+                async move { agent.authenticate(request, next).await }
+            }));
 
         let (mut router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
             .merge(authenticated)

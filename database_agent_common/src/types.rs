@@ -135,14 +135,12 @@ impl VolumeMappingEntry<'_> {
     #[must_use]
     pub fn host_path(&self, data_dir: &Path) -> PathBuf {
         let mut path = data_dir.join("volumes");
-        path.extend(
-            Path::new(self.host_name)
-                .components()
-                .filter_map(|component| match component {
-                    Component::Normal(part) => Some(part),
-                    _ => None,
-                }),
-        );
+        path.extend(Path::new(self.host_name).components().filter_map(
+            |component| match component {
+                Component::Normal(part) => Some(part),
+                _ => None,
+            },
+        ));
         path
     }
 

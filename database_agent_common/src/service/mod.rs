@@ -65,15 +65,14 @@ pub trait DatabaseAgentServices:
 }
 
 pub trait DatabaseAgentServicesClientImpl:
-    InstanceServiceClientImpl + DatabaseServiceClientImpl + UserServiceClientImpl + SystemServiceClientImpl
+    InstanceServiceClientImpl
+    + DatabaseServiceClientImpl
+    + UserServiceClientImpl
+    + SystemServiceClientImpl
 {
 }
 
 pub trait DatabaseAgentServicesURL:
-    DatabaseAgentServices
-    + InstanceServiceURL
-    + DatabaseServiceURL
-    + UserServiceURL
-    + SystemServiceURL
+    DatabaseAgentServices + InstanceServiceURL + DatabaseServiceURL + UserServiceURL + SystemServiceURL
 {
 }
