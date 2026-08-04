@@ -111,17 +111,20 @@ impl Agent {
                 async move { agent.authenticate(request, next).await }
             }));
 
-        #[allow(unused_mut)] // needed for debug_assertions cfg
-        let (mut router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
+        let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
             .merge(authenticated)
             .merge(public.into_openapi())
             .split_for_parts();
 
         #[cfg(debug_assertions)]
-        {
+        let router = {
             use utoipa_swagger_ui::SwaggerUi;
-            router = router.merge(SwaggerUi::new("/docs").url("/docs/openapi.json", api));
+            router.merge(SwaggerUi::new("/docs").url("/docs/openapi.json", api))
         };
+
+        #[cfg(not(debug_assertions))]
+        let router = router;
+
         #[cfg(not(debug_assertions))]
         let _ = api;
 
