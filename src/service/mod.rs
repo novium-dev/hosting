@@ -91,14 +91,15 @@ define_error!(route {
     domain_exists("A route domain with this name already exists" BAD_REQUEST),
     domain_invalid("The specified route domain is invalid" BAD_REQUEST),
     domain_in_use("The route domain is still used by routes" BAD_REQUEST),
+    domain_not_linked("The route domain is not linked to a Pangolin domain" BAD_REQUEST),
     subdomain_invalid("The specified subdomain is invalid" BAD_REQUEST),
     subdomain_taken("The specified subdomain is already taken" BAD_REQUEST),
-    port_invalid("The selected port is not a port of this server" BAD_REQUEST),
-    port_not_http("The selected port is not marked as an HTTP port" BAD_REQUEST),
+    port_invalid("The selected port is not a TCP port of this server" BAD_REQUEST),
+    service_invalid("The specified SRV service name is invalid" BAD_REQUEST),
     https_unavailable("HTTPS is not available for the selected domain" BAD_REQUEST),
-    provider_unknown("The specified route provider is not configured on this instance" BAD_REQUEST),
-    provider_unavailable("The route provider is currently unavailable" SERVICE_UNAVAILABLE),
-    provider_error("The route provider rejected the request" BAD_GATEWAY),
+    kind_unavailable("Routes of this kind are not configured on this instance" BAD_REQUEST),
+    backend_unavailable("The route backend is currently unavailable" SERVICE_UNAVAILABLE),
+    backend_error("The route backend rejected the request" BAD_GATEWAY),
 });
 
 define_error!(node {

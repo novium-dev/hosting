@@ -20,7 +20,7 @@ use crate::config::BackendConfig;
 use crate::db::node::BackendNode;
 #[cfg(feature = "embedded_node")]
 use crate::embedded_node::setup_embedded_node;
-use crate::routes::{RouteProviders, load_providers};
+use crate::routes::RouteBackends;
 use crate::templates::TemplateInner;
 use crate::templates::games::hytale::HytaleTemplate;
 use crate::templates::games::satisfactory::SatisfactoryTemplate;
@@ -78,7 +78,7 @@ pub(crate) struct Backend {
     pub(crate) http_client: reqwest::Client,
     pub(crate) curseforge_api_key: Option<Arc<str>>,
 
-    pub(crate) route_providers: Arc<RouteProviders>,
+    pub(crate) route_backends: Arc<RouteBackends>,
 
     pub(crate) node_registrations: Arc<RwLock<NodeRegistrationMap>>,
 
@@ -272,12 +272,7 @@ async fn main0() {
         .build()
         .expect("Unable to build HTTP client");
 
-    let route_providers = load_providers(&config.routes, &http_client);
-    if route_providers.is_empty() {
-        info!("No route providers configured; routes stay unavailable");
-    } else {
-        info!("Loaded {} route provider(s)", route_providers.len());
-    }
+    let route_backends = RouteBackends::new(&config.routes, &http_client);
 
     let backend = Backend {
         database,
@@ -290,7 +285,7 @@ async fn main0() {
         http_client,
         curseforge_api_key: curseforge_api_key.map(Arc::from),
 
-        route_providers: Arc::new(route_providers),
+        route_backends: Arc::new(route_backends),
 
         node_registrations: Arc::default(),
 

@@ -1,2 +1,2 @@
 ALTER TABLE server_ports
-    ADD COLUMN http boolean NOT NULL DEFAULT false;
+    ADD COLUMN IF NOT EXISTS http boolean NOT NULL DEFAULT false;

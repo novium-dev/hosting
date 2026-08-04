@@ -62,39 +62,15 @@ impl ResourceConfig {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct RouteConfig {
     #[serde(default)]
-    pub providers: HashMap<String, RouteProviderConfig>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum RouteProviderConfig {
-    Cloudflare(CloudflareConfig),
-    Pangolin(PangolinConfig),
-    Local(LocalConfig),
-}
-
-impl RouteProviderConfig {
-    pub const fn kind(&self) -> &'static str {
-        match *self {
-            Self::Cloudflare(_) => "cloudflare",
-            Self::Pangolin(_) => "pangolin",
-            Self::Local(_) => "local",
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct LocalConfig {
+    pub cloudflare: Option<CloudflareConfig>,
     #[serde(default)]
-    pub fail: bool,
+    pub pangolin: Option<PangolinConfig>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CloudflareConfig {
     pub api_token: String,
     pub zone_id: String,
-    #[serde(default)]
-    pub proxied: bool,
     #[serde(default)]
     pub ttl: Option<u32>,
     #[serde(default)]

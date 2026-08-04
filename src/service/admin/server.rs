@@ -240,7 +240,7 @@ pub(crate) impl ServerAdminService for Backend {
         auth.require::<_, _, DeleteServerError>(server_id, ProjectPermissions::VIEW)?;
         auth.require::<_, _, DeleteServerError>((), ManagementPermissions::SERVER_DELETE)?;
 
-        let routes = self.server_routes_with_provider(server_id).await?;
+        let routes = self.server_routes(server_id).await?;
 
         let backend = self.clone();
         let mut conn = self.database.acquire().await?;
@@ -872,7 +872,7 @@ pub(crate) impl ServerAdminService for Backend {
             .await
             .map_err(TemplateError::into::<DeletePortError>)?;
 
-        let routes = self.port_routes_with_provider(port_id).await?;
+        let routes = self.port_routes(port_id).await?;
 
         let mut conn = self.database.acquire().await?;
 

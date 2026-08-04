@@ -5,7 +5,9 @@ use crate::db::project::ProjectId;
 use crate::db::route::{RouteStatus, decode_records};
 use crate::db::server::ServerId;
 use crate::db::server::ports::NetworkProtocol;
-use crate::routes::{RouteProviderError, RouteRecord, RouteRequest, is_valid_subdomain};
+use crate::routes::{
+    RouteError, RouteKind, RouteRecord, RouteRequest, is_valid_label, service_name,
+};
 use crate::service::route::route_service_error::{
     CreateRouteError, DeleteRouteError, ListRouteDomainsError, ListRoutesError,
 };
@@ -18,12 +20,17 @@ use zelus::{define_query_variable, service};
 define_query_variable!(project "The project the domains are listed for");
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "mirrors the domain's flags in the api response"
+)]
 pub(crate) struct RouteDomainInfo {
     pub(crate) id: i32,
     pub(crate) domain: String,
     pub(crate) https: bool,
     pub(crate) private: bool,
-    pub(crate) provider: String,
+    pub(crate) http_available: bool,
+    pub(crate) tcp_available: bool,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -33,7 +40,9 @@ pub(crate) struct RouteInfo {
     pub(crate) domain: i32,
     pub(crate) subdomain: String,
     pub(crate) fqdn: String,
-    pub(crate) url: String,
+    pub(crate) address: String,
+    pub(crate) kind: RouteKind,
+    pub(crate) service: Option<String>,
     pub(crate) https: bool,
     pub(crate) port: i32,
     pub(crate) external_port: u16,
@@ -46,12 +55,16 @@ pub(crate) struct RoutePayload {
     pub(crate) domain: i32,
     pub(crate) subdomain: String,
     pub(crate) port: i32,
+    pub(crate) service: Option<String>,
     pub(crate) https: Option<bool>,
 }
 
 #[service(path = "/route", tag = "route", no_sdk)]
 pub(crate) impl RouteService for Backend {
     /// Lists the route domains that can be used for new routes.
+    ///
+    /// `http_available` and `tcp_available` tell which kinds of routes the domain can carry:
+    /// HTTP routes need Pangolin and a linked Pangolin domain, TCP routes need Cloudflare.
     ///
     /// Private domains are only listed when the given project has been granted access to them,
     /// or when the caller holds [`ManagementPermissions::DOMAINS_VIEW`].
@@ -90,13 +103,14 @@ pub(crate) impl RouteService for Backend {
             .await?
             .into_iter()
             .filter(|domain| all || !domain.private || granted.contains(&domain.id))
-            .filter(|domain| self.route_provider(&domain.provider).is_some())
             .map(|domain| RouteDomainInfo {
                 id: domain.id,
                 domain: domain.domain,
                 https: domain.https,
                 private: domain.private,
-                provider: domain.provider,
+                http_available: self.route_backends.supports(RouteKind::Http)
+                    && domain.pangolin_domain_id.is_some(),
+                tcp_available: self.route_backends.supports(RouteKind::Tcp),
             })
             .collect())
     }
@@ -132,16 +146,23 @@ pub(crate) impl RouteService for Backend {
             .unwrap_or_default();
 
             let fqdn = format!("{}.{}", route.subdomain, domain.domain);
-            let scheme = if route.https { "https" } else { "http" };
-            let url = format!("{scheme}://{fqdn}");
+            let address = match route.kind {
+                RouteKind::Http => {
+                    let scheme = if route.https { "https" } else { "http" };
+                    format!("{scheme}://{fqdn}")
+                }
+                RouteKind::Tcp => fqdn.clone(),
+            };
 
             routes.push(RouteInfo {
                 id: route.id,
                 server: route.server,
                 domain: route.domain,
                 subdomain: route.subdomain,
-                url,
+                address,
                 fqdn,
+                kind: route.kind,
+                service: route.service,
                 https: route.https,
                 port: route.port,
                 external_port,
@@ -153,9 +174,15 @@ pub(crate) impl RouteService for Backend {
         Ok(routes)
     }
 
-    /// Creates a route for the server and provisions it at the domain's provider.
+    /// Creates a route for the server and provisions it.
     ///
-    /// The selected port has to be a port of the server that is marked as an HTTP port.
+    /// The kind of route follows the selected port: a port marked as an HTTP port becomes a
+    /// Pangolin resource reachable at the subdomain, any other TCP port gets a Cloudflare SRV
+    /// record so clients reach it without typing the port. UDP ports cannot be routed.
+    ///
+    /// `service` is the SRV service name for TCP routes (`minecraft` produces
+    /// `_minecraft._tcp.<subdomain>.<domain>`) and defaults to the port's name.
+    /// `https` only applies to HTTP routes.
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::ROUTES_MANAGE`].
@@ -163,7 +190,8 @@ pub(crate) impl RouteService for Backend {
     #[error(
         auth::{permission_denied, unreachable},
         server::not_found,
-        route::{domain_not_found, subdomain_invalid, subdomain_taken, port_invalid, port_not_http, https_unavailable, provider_unknown, provider_unavailable, provider_error},
+        route::{domain_not_found, subdomain_invalid, subdomain_taken, port_invalid, service_invalid,
+            https_unavailable, kind_unavailable, domain_not_linked, backend_unavailable, backend_error},
         db::failure <- [sql:*]
     )]
     async fn create_route(
@@ -175,7 +203,7 @@ pub(crate) impl RouteService for Backend {
         auth.require::<_, _, CreateRouteError>(server_id, ServerPermissions::ROUTES_MANAGE)?;
 
         let subdomain = payload.subdomain.trim().to_lowercase();
-        if !is_valid_subdomain(&subdomain) {
+        if !is_valid_label(&subdomain) {
             return Err(CreateRouteError::RouteSubdomainInvalid);
         }
 
@@ -206,17 +234,9 @@ pub(crate) impl RouteService for Backend {
             return Err(CreateRouteError::RouteDomainNotFound);
         }
 
-        let provider = self
-            .route_provider(&domain.provider)
-            .ok_or(CreateRouteError::RouteProviderUnknown)?;
-
-        let https = payload.https.unwrap_or(true);
-        if https && !domain.https {
-            return Err(CreateRouteError::RouteHttpsUnavailable);
-        }
-
         let port = query!(
             r#"SELECT
+                name,
                 host,
                 http,
                 protocol AS "protocol: NetworkProtocol",
@@ -234,22 +254,55 @@ pub(crate) impl RouteService for Backend {
             return Err(CreateRouteError::RoutePortInvalid);
         }
 
-        if !port.http {
-            return Err(CreateRouteError::RoutePortNotHttp);
+        let kind = if port.http {
+            RouteKind::Http
+        } else {
+            RouteKind::Tcp
+        };
+
+        if !self.route_backends.supports(kind) {
+            return Err(CreateRouteError::RouteKindUnavailable);
         }
+
+        if matches!(kind, RouteKind::Http) && domain.pangolin_domain_id.is_none() {
+            return Err(CreateRouteError::RouteDomainNotLinked);
+        }
+
+        let https = matches!(kind, RouteKind::Http) && payload.https.unwrap_or(true);
+        if https && !domain.https {
+            return Err(CreateRouteError::RouteHttpsUnavailable);
+        }
+
+        let service = match kind {
+            RouteKind::Http => None,
+            RouteKind::Tcp => {
+                let service = payload.service.map_or_else(
+                    || service_name(&port.name),
+                    |service| service.trim().to_lowercase(),
+                );
+
+                if !is_valid_label(&service) || service.len() > 32 {
+                    return Err(CreateRouteError::RouteServiceInvalid);
+                }
+
+                Some(service)
+            }
+        };
 
         let external_port =
             u16::try_from(port.external_port).map_err(|_err| CreateRouteError::RoutePortInvalid)?;
 
         let Some(route_id) = query!(
-            r#"INSERT INTO routes (server, domain, subdomain, port, https)
-               VALUES ($1, $2, $3, $4, $5)
+            r#"INSERT INTO routes (server, domain, subdomain, port, kind, service, https)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
                ON CONFLICT (domain, subdomain) DO NOTHING
                RETURNING id"#,
             &server_id,
             domain.id,
             subdomain,
             payload.port,
+            kind as RouteKind,
+            service,
             https,
         )
         .fetch_optional(&*self.database)
@@ -260,15 +313,17 @@ pub(crate) impl RouteService for Backend {
 
         let request = RouteRequest {
             domain: domain.domain.clone(),
-            provider_domain_id: domain.provider_domain_id.clone(),
             subdomain: subdomain.clone(),
+            kind,
+            service: service.clone(),
+            pangolin_domain_id: domain.pangolin_domain_id.clone(),
             https,
             target_host: port.host,
             target_port: external_port,
             label: format!("{} ({server_id})", server.name),
         };
 
-        let provisioned = match provider.create_route(&request).await {
+        let provisioned = match self.route_backends.create(&request).await {
             Ok(provisioned) => provisioned,
             Err(err) => {
                 if let Err(cleanup) = query!("DELETE FROM routes WHERE id = $1", route_id)
@@ -279,8 +334,9 @@ pub(crate) impl RouteService for Backend {
                 }
 
                 return Err(match err {
-                    RouteProviderError::Unavailable => CreateRouteError::RouteProviderUnavailable,
-                    RouteProviderError::Rejected => CreateRouteError::RouteProviderError,
+                    RouteError::Unavailable => CreateRouteError::RouteBackendUnavailable,
+                    RouteError::Rejected => CreateRouteError::RouteBackendError,
+                    RouteError::DomainNotLinked => CreateRouteError::RouteDomainNotLinked,
                 });
             }
         };
@@ -303,7 +359,9 @@ pub(crate) impl RouteService for Backend {
             domain: domain.id,
             subdomain,
             fqdn: request.fqdn(),
-            url: request.url(),
+            address: request.address(),
+            kind,
+            service,
             https,
             port: payload.port,
             external_port,
@@ -312,7 +370,7 @@ pub(crate) impl RouteService for Backend {
         })
     }
 
-    /// Deletes a route and removes it from the domain's provider.
+    /// Deletes a route and removes it from its backend.
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::ROUTES_MANAGE`].
@@ -320,7 +378,7 @@ pub(crate) impl RouteService for Backend {
     #[error(
         auth::{permission_denied, unreachable},
         server::not_found,
-        route::{not_found, provider_unavailable, provider_error},
+        route::{not_found, backend_unavailable, backend_error},
         db::failure <- [sql:*]
     )]
     async fn delete_route(
@@ -332,10 +390,9 @@ pub(crate) impl RouteService for Backend {
         auth.require::<_, _, DeleteRouteError>(server_id, ServerPermissions::ROUTES_MANAGE)?;
 
         let route = query!(
-            r#"SELECT routes.external_ids, route_domains.provider
+            r#"SELECT external_ids, kind AS "kind: RouteKind"
                FROM routes
-               JOIN route_domains ON route_domains.id = routes.domain
-               WHERE routes.id = $1 AND routes.server = $2"#,
+               WHERE id = $1 AND server = $2"#,
             route_id,
             &server_id
         )
@@ -343,15 +400,15 @@ pub(crate) impl RouteService for Backend {
         .await?
         .ok_or(DeleteRouteError::RouteNotFound)?;
 
-        if let Some(provider) = self.route_provider(&route.provider) {
-            provider
-                .delete_route(&route.external_ids)
-                .await
-                .map_err(|err| match err {
-                    RouteProviderError::Unavailable => DeleteRouteError::RouteProviderUnavailable,
-                    RouteProviderError::Rejected => DeleteRouteError::RouteProviderError,
-                })?;
-        }
+        self.route_backends
+            .delete(route.kind, &route.external_ids)
+            .await
+            .map_err(|err| match err {
+                RouteError::Unavailable | RouteError::DomainNotLinked => {
+                    DeleteRouteError::RouteBackendUnavailable
+                }
+                RouteError::Rejected => DeleteRouteError::RouteBackendError,
+            })?;
 
         query!("DELETE FROM routes WHERE id = $1", route_id)
             .execute(&*self.database)

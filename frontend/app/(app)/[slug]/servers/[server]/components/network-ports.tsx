@@ -199,21 +199,22 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <div className="space-y-1">
-            <p className="font-medium">Raw ports (TCP/UDP)</p>
+            <p className="font-medium">TCP and UDP ports</p>
             <p className="text-muted-foreground">
               Game traffic — Minecraft, Satisfactory, a query port. Your software
               listens on the internal port; players connect to the host and the
-              external port shown above. Nothing else to configure.
+              external port shown above. A TCP port can also get an SRV record
+              under Routes, which lets players drop the port from the address.
             </p>
           </div>
           <div className="space-y-1">
             <p className="font-medium">HTTP ports</p>
             <p className="text-muted-foreground">
               Anything that speaks HTTP — a web map like BlueMap, a panel, an
-              API. Have an admin tick &quot;HTTP port&quot; on the allocation,
-              then give it a subdomain under Routes instead of handing out a
-              host and port. HTTP ports are TCP ports as far as the node is
-              concerned.
+              API. Have an admin set the port&apos;s protocol to HTTP, then give
+              it a subdomain under Routes: it is published through the reverse
+              proxy with HTTPS and no port in the URL. HTTP ports are TCP ports
+              as far as the node is concerned.
             </p>
           </div>
         </CardContent>

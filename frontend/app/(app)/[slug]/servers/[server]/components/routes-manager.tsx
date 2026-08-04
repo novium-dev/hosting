@@ -89,6 +89,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
   const [subdomain, setSubdomain] = useState("");
   const [domainId, setDomainId] = useState<string>("");
   const [portId, setPortId] = useState<string>("");
+  const [service, setService] = useState("");
   const [https, setHttps] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -107,7 +108,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
       setRoutes(routesResponse.data);
       setPorts(
         (serverResponse.data?.network?.ports ?? []).filter(
-          (port) => port.http && String(port.protocol) === "tcp",
+          (port) => String(port.protocol) === "tcp",
         ),
       );
 
@@ -134,21 +135,32 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
     [domains, domainId],
   );
 
-  const httpsAvailable = selectedDomain?.https ?? true;
+  const selectedPort = useMemo(
+    () => ports.find((port) => String(port.id) === portId),
+    [ports, portId],
+  );
+
+  const isHttpRoute = selectedPort?.http === true;
+  const httpsAvailable = isHttpRoute && (selectedDomain?.https ?? true);
+  const kindAvailable = isHttpRoute
+    ? (selectedDomain?.http_available ?? false)
+    : (selectedDomain?.tcp_available ?? false);
 
   const subdomainValid =
     subdomain.length > 0 && SUBDOMAIN_PATTERN.test(subdomain);
+  const serviceValid = service.length === 0 || SUBDOMAIN_PATTERN.test(service);
 
   const openCreate = () => {
     setSubdomain("");
     setDomainId(domains[0] ? String(domains[0].id) : "");
     setPortId(ports[0] ? String(ports[0].id) : "");
+    setService("");
     setHttps(domains[0]?.https ?? true);
     setCreateOpen(true);
   };
 
   const submit = async () => {
-    if (!subdomainValid || !domainId || !portId) return;
+    if (!subdomainValid || !serviceValid || !domainId || !portId) return;
 
     setIsSubmitting(true);
 
@@ -159,6 +171,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
           domain: Number(domainId),
           subdomain,
           port: Number(portId),
+          service: isHttpRoute || service.length === 0 ? null : service,
           https: https && httpsAvailable,
         },
       });
@@ -213,7 +226,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
             <div>
               <CardTitle>Routes</CardTitle>
               <CardDescription>
-                Point a subdomain at one of this server&apos;s HTTP ports.
+                Point a subdomain at one of this server&apos;s TCP ports.
               </CardDescription>
             </div>
             {canManage ? (
@@ -239,7 +252,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
               {domains.length === 0
                 ? "No domains are available for this project yet."
                 : ports.length === 0
-                  ? "This server has no HTTP port to route to yet."
+                  ? "This server has no TCP port to route to yet."
                   : "No routes yet."}
             </p>
           ) : (
@@ -248,6 +261,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Address</TableHead>
+                    <TableHead>Kind</TableHead>
                     <TableHead>Port</TableHead>
                     <TableHead>HTTPS</TableHead>
                     <TableHead>Status</TableHead>
@@ -258,24 +272,42 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                   {routes.map((route) => (
                     <TableRow key={route.id}>
                       <TableCell>
-                        <a
-                          className="inline-flex items-center gap-1.5 font-medium hover:underline"
-                          href={route.url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          <Globe className="size-4 text-muted-foreground" />
-                          {route.fqdn}
-                          <ExternalLink className="size-3 text-muted-foreground" />
-                        </a>
+                        {route.kind === "http" ? (
+                          <a
+                            className="inline-flex items-center gap-1.5 font-medium hover:underline"
+                            href={route.address}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <Globe className="size-4 text-muted-foreground" />
+                            {route.fqdn}
+                            <ExternalLink className="size-3 text-muted-foreground" />
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 font-medium">
+                            <Globe className="size-4 text-muted-foreground" />
+                            {route.fqdn}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {route.kind === "http"
+                            ? "HTTP"
+                            : `SRV${route.service ? ` _${route.service}` : ""}`}
+                        </Badge>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         {route.external_port}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={route.https ? "default" : "secondary"}>
-                          {route.https ? "on" : "off"}
-                        </Badge>
+                        {route.kind === "http" ? (
+                          <Badge variant={route.https ? "default" : "secondary"}>
+                            {route.https ? "on" : "off"}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -312,8 +344,8 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
           <CardHeader>
             <CardTitle>DNS records</CardTitle>
             <CardDescription>
-              The records the provider created for your routes. Use them to
-              verify your setup or to mirror the route on your own domain.
+              What was created for your routes — Cloudflare records for TCP
+              routes, the Pangolin resource and its target for HTTP routes.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -369,29 +401,33 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <div className="space-y-1">
-            <p className="font-medium">1. Have an HTTP port</p>
+            <p className="font-medium">TCP ports — game traffic</p>
             <p className="text-muted-foreground">
-              Routes only work for ports that serve HTTP — a web map like
-              BlueMap, a panel, an API. If the port you want is missing from the
-              list, ask an admin to tick &quot;HTTP port&quot; on that allocation
-              under the server&apos;s ports. Game ports such as Minecraft&apos;s
-              25565 stay raw TCP and are reached by host and port instead.
+              A raw TCP port such as Minecraft&apos;s 25565 gets an SRV record,
+              so players just enter{" "}
+              <code className="font-mono">your-name.the-domain</code> and their
+              client finds the port on its own. The service name decides which
+              clients look it up (<code className="font-mono">minecraft</code>{" "}
+              becomes <code className="font-mono">_minecraft._tcp</code>) and
+              defaults to the port&apos;s name.
             </p>
           </div>
           <div className="space-y-1">
-            <p className="font-medium">2. Pick a subdomain</p>
+            <p className="font-medium">HTTP ports — web traffic</p>
             <p className="text-muted-foreground">
-              Choose a name and one of the domains offered to your project.
-              Private domains only show up when an admin granted them to you.
-              HTTPS is on by default where the domain supports it.
+              A port marked as an HTTP port — a web map like BlueMap, a panel, an
+              API — is published as a reverse-proxied resource instead, reachable
+              at the subdomain with HTTPS and no port in the URL. If the port you
+              want is still listed as raw TCP, ask an admin to switch its
+              protocol to HTTP under the server&apos;s ports.
             </p>
           </div>
           <div className="space-y-1">
-            <p className="font-medium">3. Point your software at the port</p>
+            <p className="font-medium">Either way</p>
             <p className="text-muted-foreground">
-              Your software has to listen on the port&apos;s internal port. The
-              route sends traffic to the external port shown next to it, so no
-              configuration inside the server changes.
+              Your software keeps listening on the port&apos;s internal port and
+              nothing inside the server changes. Private domains only show up
+              when an admin granted them to your project.
             </p>
           </div>
         </CardContent>
@@ -459,32 +495,71 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                 <SelectContent>
                   {ports.map((port) => (
                     <SelectItem key={port.id} value={String(port.id)}>
-                      {port.name} — {port.host}:{port.external_port_start} (HTTP)
+                      {port.name} — {port.host}:{port.external_port_start} (
+                      {port.http ? "HTTP" : "TCP"})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Only ports marked as HTTP ports can be routed.
+                {isHttpRoute
+                  ? "An HTTP port becomes a reverse-proxied resource on the subdomain."
+                  : "A raw TCP port gets an SRV record on the subdomain."}
               </p>
+              {!kindAvailable && selectedDomain ? (
+                <p className="text-xs text-destructive">
+                  {isHttpRoute
+                    ? "HTTP routes are not available for this domain yet."
+                    : "TCP routes are not available on this instance yet."}
+                </p>
+              ) : null}
             </div>
 
-            <div className="flex items-center justify-between rounded-md border p-3">
-              <div>
-                <Label htmlFor="route-https">HTTPS</Label>
-                <p className="text-xs text-muted-foreground">
-                  {httpsAvailable
-                    ? "Serve this route over HTTPS."
-                    : "This domain does not offer HTTPS."}
-                </p>
+            {isHttpRoute ? (
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div>
+                  <Label htmlFor="route-https">HTTPS</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedDomain?.https ?? true
+                      ? "Serve this route over HTTPS."
+                      : "This domain does not offer HTTPS."}
+                  </p>
+                </div>
+                <Switch
+                  id="route-https"
+                  checked={https && httpsAvailable}
+                  disabled={!(selectedDomain?.https ?? true)}
+                  onCheckedChange={setHttps}
+                />
               </div>
-              <Switch
-                id="route-https"
-                checked={https && httpsAvailable}
-                disabled={!httpsAvailable}
-                onCheckedChange={setHttps}
-              />
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="route-service">SRV service</Label>
+                <Input
+                  id="route-service"
+                  value={service}
+                  placeholder={selectedPort?.name ?? "minecraft"}
+                  autoComplete="off"
+                  onChange={(event) =>
+                    setService(event.target.value.toLowerCase())
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Creates{" "}
+                  <code className="font-mono">
+                    _{service || selectedPort?.name || "minecraft"}._tcp.
+                    {subdomain || "your-name"}.
+                    {selectedDomain?.domain ?? "the-domain"}
+                  </code>
+                  . Leave empty to use the port&apos;s name.
+                </p>
+                {!serviceValid ? (
+                  <p className="text-xs text-destructive">
+                    Only lowercase letters, digits and dashes are allowed.
+                  </p>
+                ) : null}
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -498,7 +573,14 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
             <Button
               type="button"
               onClick={() => void submit()}
-              disabled={isSubmitting || !subdomainValid || !domainId || !portId}
+              disabled={
+                isSubmitting ||
+                !subdomainValid ||
+                !serviceValid ||
+                !kindAvailable ||
+                !domainId ||
+                !portId
+              }
             >
               {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
               Create route

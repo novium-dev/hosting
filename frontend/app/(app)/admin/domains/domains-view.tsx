@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { Loader2, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -50,7 +50,7 @@ import {
   denyDomainProject,
   listProjects,
   listRouteDomainsAdmin,
-  listRouteProviders,
+  routeBackends,
   updateRouteDomain,
   type ListRouteDomainsAdminResponse,
 } from "@/lib/api";
@@ -88,9 +88,9 @@ export function AdminDomainsView() {
     return response.data ?? [];
   });
 
-  const { data: providers } = useSWR("admin-route-providers", async () => {
-    const response = await listRouteProviders();
-    return response.data ?? [];
+  const { data: backends } = useSWR("admin-route-backends", async () => {
+    const response = await routeBackends();
+    return response.data ?? { cloudflare: false, pangolin: false };
   });
 
   const { data: projects } = useSWR("admin-route-projects", async () => {
@@ -105,30 +105,23 @@ export function AdminDomainsView() {
   const [grantProject, setGrantProject] = useState("");
 
   const [domain, setDomain] = useState("");
-  const [provider, setProvider] = useState("");
-  const [providerDomainId, setProviderDomainId] = useState("");
+  const [pangolinDomainId, setPangolinDomainId] = useState("");
   const [https, setHttps] = useState(true);
   const [isPrivate, setIsPrivate] = useState(false);
-
-  const selectedProvider = useMemo(
-    () => providers?.find((entry) => entry.name === provider),
-    [providers, provider],
-  );
 
   const projectName = (id: string) =>
     projects?.find((project) => project.id === id)?.slug ?? id;
 
   const openCreate = () => {
     setDomain("");
-    setProvider(providers?.[0]?.name ?? "");
-    setProviderDomainId("");
+    setPangolinDomainId("");
     setHttps(true);
     setIsPrivate(false);
     setCreateOpen(true);
   };
 
   const submit = async () => {
-    if (!domain || !provider) return;
+    if (!domain) return;
 
     setIsSubmitting(true);
 
@@ -136,8 +129,7 @@ export function AdminDomainsView() {
       const response = await createRouteDomain({
         body: {
           domain,
-          provider,
-          provider_domain_id: providerDomainId || null,
+          pangolin_domain_id: pangolinDomainId || null,
           https,
           private: isPrivate,
         },
@@ -257,27 +249,26 @@ export function AdminDomainsView() {
         <div>
           <h1 className="text-xl font-semibold">Domains</h1>
           <p className="text-sm text-muted-foreground">
-            Domains users can put their routes under. A private domain is only
-            offered to the projects you grant it to.
+            Domains users can put their routes under. HTTP ports become Pangolin
+            resources, TCP ports get a Cloudflare SRV record. A private domain is
+            only offered to the projects you grant it to.
           </p>
         </div>
         {canManage ? (
-          <Button
-            type="button"
-            onClick={openCreate}
-            disabled={(providers?.length ?? 0) === 0}
-          >
+          <Button type="button" onClick={openCreate}>
             <Plus className="size-4" />
             New domain
           </Button>
         ) : null}
       </div>
 
-      {(providers?.length ?? 0) === 0 ? (
+      {backends && !backends.cloudflare && !backends.pangolin ? (
         <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          No route providers are configured. Add a provider under
-          <code className="mx-1 font-mono">[routes.providers]</code>
-          in the backend config first.
+          Neither route backend is configured. Add
+          <code className="mx-1 font-mono">[routes.cloudflare]</code>
+          for TCP routes (SRV records) or
+          <code className="mx-1 font-mono">[routes.pangolin]</code>
+          for HTTP routes to the backend config.
         </p>
       ) : null}
 
@@ -310,11 +301,17 @@ export function AdminDomainsView() {
                     {entry.domain}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{entry.provider}</Badge>
-                      {entry.available ? null : (
-                        <Badge variant="destructive">not configured</Badge>
-                      )}
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Badge
+                        variant={entry.http_available ? "default" : "secondary"}
+                      >
+                        HTTP
+                      </Badge>
+                      <Badge
+                        variant={entry.tcp_available ? "default" : "secondary"}
+                      >
+                        TCP
+                      </Badge>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -415,41 +412,24 @@ export function AdminDomainsView() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="domain-provider">Provider</Label>
-              <Select value={provider} onValueChange={setProvider}>
-                <SelectTrigger id="domain-provider" className="w-full">
-                  <SelectValue placeholder="Provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  {providers?.map((entry) => (
-                    <SelectItem key={entry.name} value={entry.name}>
-                      {entry.name} ({entry.kind})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="domain-pangolin-id">Pangolin domain ID</Label>
+              <Input
+                id="domain-pangolin-id"
+                value={pangolinDomainId}
+                autoComplete="off"
+                onChange={(event) => setPangolinDomainId(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                The domain&apos;s ID in Pangolin. Required for HTTP routes; TCP
+                routes go through Cloudflare and do not need it.
+              </p>
             </div>
-
-            {selectedProvider?.requires_provider_domain_id ? (
-              <div className="space-y-2">
-                <Label htmlFor="domain-provider-id">Provider domain ID</Label>
-                <Input
-                  id="domain-provider-id"
-                  value={providerDomainId}
-                  autoComplete="off"
-                  onChange={(event) => setProviderDomainId(event.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  The domain&apos;s ID in {selectedProvider.kind}.
-                </p>
-              </div>
-            ) : null}
 
             <div className="flex items-center justify-between rounded-md border p-3">
               <div>
                 <Label htmlFor="domain-https">HTTPS</Label>
                 <p className="text-xs text-muted-foreground">
-                  Users may enable HTTPS for routes on this domain.
+                  Users may enable HTTPS for HTTP routes on this domain.
                 </p>
               </div>
               <Switch
@@ -485,7 +465,7 @@ export function AdminDomainsView() {
             <Button
               type="button"
               onClick={() => void submit()}
-              disabled={isSubmitting || !domain || !provider}
+              disabled={isSubmitting || !domain}
             >
               {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
               Add domain

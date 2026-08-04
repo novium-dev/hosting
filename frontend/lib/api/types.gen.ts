@@ -270,28 +270,32 @@ export type Role = typeof Role[keyof typeof Role];
 export type RouteDomainPayload = {
     domain: string;
     https?: boolean | null;
+    pangolin_domain_id?: string | null;
     private?: boolean | null;
-    provider: string;
-    provider_domain_id?: string | null;
 };
 
 export type RouteDomainUpdatePayload = {
     https?: boolean | null;
+    pangolin_domain_id?: string | null;
     private?: boolean | null;
-    provider?: string | null;
-    provider_domain_id?: string | null;
 };
+
+export const RouteKind = { HTTP: 'http', TCP: 'tcp' } as const;
+
+export type RouteKind = typeof RouteKind[keyof typeof RouteKind];
 
 export type RoutePayload = {
     domain: number;
     https?: boolean | null;
     port: number;
+    service?: string | null;
     subdomain: string;
 };
 
 export type RouteRecord = {
     name: string;
-    proxied: boolean;
+    port?: number | null;
+    priority?: number | null;
     record_type: string;
     ttl?: number | null;
     value: string;
@@ -11735,10 +11739,11 @@ export type ListRouteDomainsResponses = {
      */
     200: Array<{
         domain: string;
+        http_available: boolean;
         https: boolean;
         id: number;
         private: boolean;
-        provider: string;
+        tcp_available: boolean;
     }>;
 };
 
@@ -11817,17 +11822,19 @@ export type ListRoutesResponses = {
      * Success
      */
     200: Array<{
+        address: string;
         domain: number;
         external_port: number;
         fqdn: string;
         https: boolean;
         id: number;
+        kind: RouteKind;
         port: number;
         records: Array<RouteRecord>;
         server: NanoId;
+        service?: string | null;
         status: RouteStatus;
         subdomain: string;
-        url: string;
     }>;
 };
 
@@ -11871,21 +11878,21 @@ export type CreateRouteErrors = {
         };
     };
     /**
-     * The selected port is not a port of this server
+     * The selected port is not a TCP port of this server
      */
     '400‪': {
         error?: {
             id?: 'route/port_invalid';
-            msg?: 'The selected port is not a port of this server';
+            msg?: 'The selected port is not a TCP port of this server';
         };
     };
     /**
-     * The selected port is not marked as an HTTP port
+     * The specified SRV service name is invalid
      */
     '400‫': {
         error?: {
-            id?: 'route/port_not_http';
-            msg?: 'The selected port is not marked as an HTTP port';
+            id?: 'route/service_invalid';
+            msg?: 'The specified SRV service name is invalid';
         };
     };
     /**
@@ -11898,12 +11905,21 @@ export type CreateRouteErrors = {
         };
     };
     /**
-     * The specified route provider is not configured on this instance
+     * Routes of this kind are not configured on this instance
      */
     '400‭': {
         error?: {
-            id?: 'route/provider_unknown';
-            msg?: 'The specified route provider is not configured on this instance';
+            id?: 'route/kind_unavailable';
+            msg?: 'Routes of this kind are not configured on this instance';
+        };
+    };
+    /**
+     * The route domain is not linked to a Pangolin domain
+     */
+    '400‮': {
+        error?: {
+            id?: 'route/domain_not_linked';
+            msg?: 'The route domain is not linked to a Pangolin domain';
         };
     };
     /**
@@ -11954,28 +11970,28 @@ export type CreateRouteErrors = {
     /**
      * Database operation failed
      */
-    '500⁡': {
+    '500⁢': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
         };
     };
     /**
-     * The route provider rejected the request
+     * The route backend rejected the request
      */
-    '502⁠': {
+    '502⁡': {
         error?: {
-            id?: 'route/provider_error';
-            msg?: 'The route provider rejected the request';
+            id?: 'route/backend_error';
+            msg?: 'The route backend rejected the request';
         };
     };
     /**
-     * The route provider is currently unavailable
+     * The route backend is currently unavailable
      */
-    '503‮': {
+    '503⁠': {
         error?: {
-            id?: 'route/provider_unavailable';
-            msg?: 'The route provider is currently unavailable';
+            id?: 'route/backend_unavailable';
+            msg?: 'The route backend is currently unavailable';
         };
     };
 };
@@ -11987,17 +12003,19 @@ export type CreateRouteResponses = {
      * Success
      */
     200: {
+        address: string;
         domain: number;
         external_port: number;
         fqdn: string;
         https: boolean;
         id: number;
+        kind: RouteKind;
         port: number;
         records: Array<RouteRecord>;
         server: NanoId;
+        service?: string | null;
         status: RouteStatus;
         subdomain: string;
-        url: string;
     };
 };
 
@@ -12081,21 +12099,21 @@ export type DeleteRouteErrors = {
         };
     };
     /**
-     * The route provider rejected the request
+     * The route backend rejected the request
      */
     '502‏': {
         error?: {
-            id?: 'route/provider_error';
-            msg?: 'The route provider rejected the request';
+            id?: 'route/backend_error';
+            msg?: 'The route backend rejected the request';
         };
     };
     /**
-     * The route provider is currently unavailable
+     * The route backend is currently unavailable
      */
     '503‎': {
         error?: {
-            id?: 'route/provider_unavailable';
-            msg?: 'The route provider is currently unavailable';
+            id?: 'route/backend_unavailable';
+            msg?: 'The route backend is currently unavailable';
         };
     };
 };
@@ -12111,7 +12129,7 @@ export type DeleteRouteResponses = {
 
 export type DeleteRouteResponse = DeleteRouteResponses[keyof DeleteRouteResponses];
 
-export type ListRouteProvidersData = {
+export type RouteBackendsData = {
     body?: never;
     headers?: {
         /**
@@ -12121,10 +12139,10 @@ export type ListRouteProvidersData = {
     };
     path?: never;
     query?: never;
-    url: '/admin/route/providers';
+    url: '/admin/route/backends';
 };
 
-export type ListRouteProvidersErrors = {
+export type RouteBackendsErrors = {
     /**
      * Invalid authentication credentials
      */
@@ -12163,20 +12181,19 @@ export type ListRouteProvidersErrors = {
     };
 };
 
-export type ListRouteProvidersError = ListRouteProvidersErrors[keyof ListRouteProvidersErrors];
+export type RouteBackendsError = RouteBackendsErrors[keyof RouteBackendsErrors];
 
-export type ListRouteProvidersResponses = {
+export type RouteBackendsResponses = {
     /**
      * Success
      */
-    200: Array<{
-        kind: string;
-        name: string;
-        requires_provider_domain_id: boolean;
-    }>;
+    200: {
+        cloudflare: boolean;
+        pangolin: boolean;
+    };
 };
 
-export type ListRouteProvidersResponse = ListRouteProvidersResponses[keyof ListRouteProvidersResponses];
+export type RouteBackendsResponse = RouteBackendsResponses[keyof RouteBackendsResponses];
 
 export type ListRouteDomainsAdminData = {
     body?: never;
@@ -12237,15 +12254,15 @@ export type ListRouteDomainsAdminResponses = {
      * Success
      */
     200: Array<{
-        available: boolean;
         domain: string;
+        http_available: boolean;
         https: boolean;
         id: number;
+        pangolin_domain_id?: string | null;
         private: boolean;
         projects: Array<NanoId>;
-        provider: string;
-        provider_domain_id?: string | null;
         routes: number;
+        tcp_available: boolean;
     }>;
 };
 
@@ -12284,15 +12301,6 @@ export type CreateRouteDomainErrors = {
         };
     };
     /**
-     * The specified route provider is not configured on this instance
-     */
-    '400‎': {
-        error?: {
-            id?: 'route/provider_unknown';
-            msg?: 'The specified route provider is not configured on this instance';
-        };
-    };
-    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -12322,7 +12330,7 @@ export type CreateRouteDomainErrors = {
     /**
      * Database operation failed
      */
-    '500‏': {
+    '500‎': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -12447,15 +12455,6 @@ export type UpdateRouteDomainData = {
 
 export type UpdateRouteDomainErrors = {
     /**
-     * The specified route provider is not configured on this instance
-     */
-    '400‍': {
-        error?: {
-            id?: 'route/provider_unknown';
-            msg?: 'The specified route provider is not configured on this instance';
-        };
-    };
-    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -12494,7 +12493,7 @@ export type UpdateRouteDomainErrors = {
     /**
      * Database operation failed
      */
-    '500‎': {
+    '500‍': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';

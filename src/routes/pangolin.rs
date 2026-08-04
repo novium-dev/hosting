@@ -1,8 +1,5 @@
 use crate::config::PangolinConfig;
-use crate::routes::{
-    ProvisionedRoute, RouteProvider, RouteProviderError, RouteRecord, RouteRequest,
-};
-use async_trait::async_trait;
+use crate::routes::{ProvisionedRoute, RouteError, RouteRecord, RouteRequest};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -10,12 +7,10 @@ use tracing::error;
 #[derive(Debug, Serialize)]
 struct ResourcePayload<'a> {
     name: &'a str,
-    http: bool,
-    protocol: &'a str,
     subdomain: &'a str,
     #[serde(rename = "domainId")]
     domain_id: &'a str,
-    ssl: bool,
+    mode: &'a str,
 }
 
 #[derive(Debug, Serialize)]
@@ -24,6 +19,7 @@ struct TargetPayload<'a> {
     site_id: i64,
     ip: &'a str,
     port: u16,
+    mode: &'a str,
     method: &'a str,
     enabled: bool,
 }
@@ -40,12 +36,12 @@ struct PangolinResponse<T> {
     data: Option<T>,
 }
 
-pub struct PangolinProvider {
+pub struct PangolinClient {
     config: PangolinConfig,
     client: Client,
 }
 
-impl PangolinProvider {
+impl PangolinClient {
     pub const fn new(config: PangolinConfig, client: Client) -> Self {
         Self { config, client }
     }
@@ -56,47 +52,27 @@ impl PangolinProvider {
             self.config.api_url.as_str().trim_end_matches('/')
         )
     }
-}
 
-#[async_trait]
-impl RouteProvider for PangolinProvider {
-    fn kind(&self) -> &'static str {
-        "pangolin"
-    }
-
-    fn requires_provider_domain_id(&self) -> bool {
-        true
-    }
-
-    async fn create_route(
-        &self,
-        request: &RouteRequest,
-    ) -> Result<ProvisionedRoute, RouteProviderError> {
-        let Some(ref domain_id) = request.provider_domain_id else {
-            error!(
-                "The route domain {} has no pangolin domain id",
-                request.domain
-            );
-            return Err(RouteProviderError::Unavailable);
+    pub async fn create(&self, request: &RouteRequest) -> Result<ProvisionedRoute, RouteError> {
+        let Some(ref domain_id) = request.pangolin_domain_id else {
+            return Err(RouteError::DomainNotLinked);
         };
 
         let response = self
             .client
-            .put(self.endpoint(&format!("/org/{}/resource", self.config.org_id)))
+            .put(self.endpoint(&format!("/org/{}/public-resource", self.config.org_id)))
             .bearer_auth(&self.config.api_key)
             .json(&ResourcePayload {
                 name: &request.label,
-                http: true,
-                protocol: "tcp",
                 subdomain: &request.subdomain,
                 domain_id,
-                ssl: request.https,
+                mode: "http",
             })
             .send()
             .await
             .map_err(|err| {
                 error!("Failed to reach Pangolin: {err:?}");
-                RouteProviderError::Unavailable
+                RouteError::Unavailable
             })?;
 
         let status = response.status();
@@ -105,14 +81,14 @@ impl RouteProvider for PangolinProvider {
             .await
             .map_err(|err| {
                 error!("Failed to decode the Pangolin response: {err:?}");
-                RouteProviderError::Rejected
+                RouteError::Rejected
             })?;
 
         let resource = match body.data {
             Some(data) if body.success => data,
             _ => {
                 error!("Pangolin rejected the resource creation with status {status}");
-                return Err(RouteProviderError::Rejected);
+                return Err(RouteError::Rejected);
             }
         };
 
@@ -120,13 +96,14 @@ impl RouteProvider for PangolinProvider {
 
         let target = self
             .client
-            .put(self.endpoint(&format!("/resource/{}/target", resource.resource_id)))
+            .put(self.endpoint(&format!("/public-resource/{}/target", resource.resource_id)))
             .bearer_auth(&self.config.api_key)
             .json(&TargetPayload {
                 site_id: self.config.site_id,
                 ip: &request.target_host,
                 port: request.target_port,
-                method: if request.https { "https" } else { "http" },
+                mode: "http",
+                method: "http",
                 enabled: true,
             })
             .send()
@@ -141,11 +118,11 @@ impl RouteProvider for PangolinProvider {
         };
 
         if !target_ok {
-            if let Err(cleanup) = self.delete_route(&external_ids).await {
+            if let Err(cleanup) = self.delete(&external_ids).await {
                 error!("Unable to roll back the Pangolin resource: {cleanup:?}");
             }
             error!("Pangolin rejected the target creation");
-            return Err(RouteProviderError::Rejected);
+            return Err(RouteError::Rejected);
         }
 
         Ok(ProvisionedRoute {
@@ -154,32 +131,34 @@ impl RouteProvider for PangolinProvider {
                 RouteRecord {
                     record_type: "RESOURCE".to_owned(),
                     name: request.fqdn(),
-                    value: request.url(),
+                    value: request.address(),
+                    priority: None,
+                    port: None,
                     ttl: None,
-                    proxied: true,
                 },
                 RouteRecord {
                     record_type: "TARGET".to_owned(),
                     name: request.fqdn(),
                     value: format!("{}:{}", request.target_host, request.target_port),
+                    priority: None,
+                    port: Some(request.target_port),
                     ttl: None,
-                    proxied: true,
                 },
             ],
         })
     }
 
-    async fn delete_route(&self, external_ids: &[String]) -> Result<(), RouteProviderError> {
+    pub async fn delete(&self, external_ids: &[String]) -> Result<(), RouteError> {
         for id in external_ids {
             let response = self
                 .client
-                .delete(self.endpoint(&format!("/resource/{id}")))
+                .delete(self.endpoint(&format!("/public-resource/{id}")))
                 .bearer_auth(&self.config.api_key)
                 .send()
                 .await
                 .map_err(|err| {
                     error!("Failed to reach Pangolin: {err:?}");
-                    RouteProviderError::Unavailable
+                    RouteError::Unavailable
                 })?;
 
             if !response.status().is_success()
@@ -189,7 +168,7 @@ impl RouteProvider for PangolinProvider {
                     "Pangolin rejected the resource deletion with status {}",
                     response.status()
                 );
-                return Err(RouteProviderError::Rejected);
+                return Err(RouteError::Rejected);
             }
         }
 

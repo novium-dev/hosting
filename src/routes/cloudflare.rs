@@ -1,8 +1,5 @@
 use crate::config::CloudflareConfig;
-use crate::routes::{
-    ProvisionedRoute, RouteProvider, RouteProviderError, RouteRecord, RouteRequest,
-};
-use async_trait::async_trait;
+use crate::routes::{ProvisionedRoute, RouteError, RouteRecord, RouteRequest, service_name};
 use core::net::IpAddr;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -13,7 +10,11 @@ const DEFAULT_API: &str = "https://api.cloudflare.com/client/v4/";
 
 const DEFAULT_TTL: u32 = 1;
 
-pub struct CloudflareProvider {
+const SRV_PRIORITY: u16 = 0;
+
+const SRV_WEIGHT: u16 = 0;
+
+pub struct CloudflareClient {
     config: CloudflareConfig,
     client: Client,
 }
@@ -29,6 +30,24 @@ struct AddressRecordPayload<'a> {
     comment: &'a str,
 }
 
+#[derive(Debug, Serialize)]
+struct SrvData<'a> {
+    priority: u16,
+    weight: u16,
+    port: u16,
+    target: &'a str,
+}
+
+#[derive(Debug, Serialize)]
+struct SrvRecordPayload<'a> {
+    #[serde(rename = "type")]
+    record_type: &'a str,
+    name: &'a str,
+    data: SrvData<'a>,
+    ttl: u32,
+    comment: &'a str,
+}
+
 #[derive(Debug, Deserialize)]
 struct CloudflareResult {
     id: String,
@@ -40,13 +59,14 @@ struct CloudflareResponse {
     result: Option<CloudflareResult>,
 }
 
-impl CloudflareProvider {
+impl CloudflareClient {
     pub const fn new(config: CloudflareConfig, client: Client) -> Self {
         Self { config, client }
     }
 
-    fn api(&self) -> Result<Url, RouteProviderError> {
-        self.config
+    fn records_url(&self) -> Result<Url, RouteError> {
+        let api = self
+            .config
             .api_url
             .clone()
             .map_or_else(
@@ -61,16 +81,13 @@ impl CloudflareProvider {
             )
             .map_err(|err| {
                 error!("Invalid Cloudflare api url: {err:?}");
-                RouteProviderError::Unavailable
-            })
-    }
+                RouteError::Unavailable
+            })?;
 
-    fn records_url(&self) -> Result<Url, RouteProviderError> {
-        self.api()?
-            .join(&format!("zones/{}/dns_records", self.config.zone_id))
+        api.join(&format!("zones/{}/dns_records", self.config.zone_id))
             .map_err(|err| {
                 error!("Invalid Cloudflare zone: {err:?}");
-                RouteProviderError::Unavailable
+                RouteError::Unavailable
             })
     }
 
@@ -78,10 +95,7 @@ impl CloudflareProvider {
         self.config.ttl.unwrap_or(DEFAULT_TTL)
     }
 
-    async fn post_record<P: Serialize + Sync>(
-        &self,
-        payload: &P,
-    ) -> Result<String, RouteProviderError> {
+    async fn post_record<P: Serialize + Sync>(&self, payload: &P) -> Result<String, RouteError> {
         let response = self
             .client
             .post(self.records_url()?)
@@ -91,75 +105,106 @@ impl CloudflareProvider {
             .await
             .map_err(|err| {
                 error!("Failed to reach Cloudflare: {err:?}");
-                RouteProviderError::Unavailable
+                RouteError::Unavailable
             })?;
 
         let status = response.status();
         let body = response.json::<CloudflareResponse>().await.map_err(|err| {
             error!("Failed to decode the Cloudflare response: {err:?}");
-            RouteProviderError::Rejected
+            RouteError::Rejected
         })?;
 
         match body.result {
             Some(result) if body.success => Ok(result.id),
             _ => {
                 error!("Cloudflare rejected the record creation with status {status}");
-                Err(RouteProviderError::Rejected)
+                Err(RouteError::Rejected)
             }
         }
     }
 
-    fn address_record_type(target: &str) -> &'static str {
-        match target.parse::<IpAddr>() {
-            Ok(IpAddr::V4(_)) => "A",
-            Ok(IpAddr::V6(_)) => "AAAA",
-            Err(_) => "CNAME",
-        }
-    }
-}
-
-#[async_trait]
-impl RouteProvider for CloudflareProvider {
-    fn kind(&self) -> &'static str {
-        "cloudflare"
-    }
-
-    fn requires_provider_domain_id(&self) -> bool {
-        false
-    }
-
-    async fn create_route(
-        &self,
-        request: &RouteRequest,
-    ) -> Result<ProvisionedRoute, RouteProviderError> {
+    pub async fn create(&self, request: &RouteRequest) -> Result<ProvisionedRoute, RouteError> {
         let fqdn = request.fqdn();
-        let record_type = Self::address_record_type(&request.target_host);
-        let proxied = self.config.proxied && request.https;
+        let service = request
+            .service
+            .clone()
+            .unwrap_or_else(|| service_name(&request.label));
 
-        let address_id = self
-            .post_record(&AddressRecordPayload {
-                record_type,
-                name: &fqdn,
-                content: &request.target_host,
+        let mut external_ids = Vec::new();
+        let mut records = Vec::new();
+
+        let srv_target = match request.target_host.parse::<IpAddr>() {
+            Ok(address) => {
+                let record_type = if address.is_ipv4() { "A" } else { "AAAA" };
+                let id = self
+                    .post_record(&AddressRecordPayload {
+                        record_type,
+                        name: &fqdn,
+                        content: &request.target_host,
+                        ttl: self.ttl(),
+                        proxied: false,
+                        comment: &request.label,
+                    })
+                    .await?;
+
+                external_ids.push(id);
+                records.push(RouteRecord {
+                    record_type: record_type.to_owned(),
+                    name: fqdn.clone(),
+                    value: request.target_host.clone(),
+                    priority: None,
+                    port: None,
+                    ttl: Some(self.ttl()),
+                });
+
+                fqdn.clone()
+            }
+            Err(_) => request.target_host.clone(),
+        };
+
+        let name = format!("_{service}._tcp.{fqdn}");
+        let srv = self
+            .post_record(&SrvRecordPayload {
+                record_type: "SRV",
+                name: &name,
+                data: SrvData {
+                    priority: SRV_PRIORITY,
+                    weight: SRV_WEIGHT,
+                    port: request.target_port,
+                    target: &srv_target,
+                },
                 ttl: self.ttl(),
-                proxied,
                 comment: &request.label,
             })
-            .await?;
+            .await;
+
+        match srv {
+            Ok(id) => {
+                external_ids.push(id);
+                records.push(RouteRecord {
+                    record_type: "SRV".to_owned(),
+                    name,
+                    value: srv_target,
+                    priority: Some(SRV_PRIORITY),
+                    port: Some(request.target_port),
+                    ttl: Some(self.ttl()),
+                });
+            }
+            Err(err) => {
+                if let Err(cleanup) = self.delete(&external_ids).await {
+                    error!("Unable to roll back the Cloudflare records: {cleanup:?}");
+                }
+                return Err(err);
+            }
+        }
 
         Ok(ProvisionedRoute {
-            external_ids: vec![address_id],
-            records: vec![RouteRecord {
-                record_type: record_type.to_owned(),
-                name: fqdn,
-                value: request.target_host.clone(),
-                ttl: Some(self.ttl()),
-                proxied,
-            }],
+            external_ids,
+            records,
         })
     }
 
-    async fn delete_route(&self, external_ids: &[String]) -> Result<(), RouteProviderError> {
+    pub async fn delete(&self, external_ids: &[String]) -> Result<(), RouteError> {
         let base = self.records_url()?;
 
         for id in external_ids {
@@ -171,7 +216,7 @@ impl RouteProvider for CloudflareProvider {
                 .await
                 .map_err(|err| {
                     error!("Failed to reach Cloudflare: {err:?}");
-                    RouteProviderError::Unavailable
+                    RouteError::Unavailable
                 })?;
 
             if !response.status().is_success()
@@ -181,7 +226,7 @@ impl RouteProvider for CloudflareProvider {
                     "Cloudflare rejected the record deletion with status {}",
                     response.status()
                 );
-                return Err(RouteProviderError::Rejected);
+                return Err(RouteError::Rejected);
             }
         }
 

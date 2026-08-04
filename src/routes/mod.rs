@@ -1,27 +1,30 @@
 pub mod cloudflare;
-#[cfg(debug_assertions)]
-pub mod local;
 pub mod pangolin;
 
-use crate::config::{RouteConfig, RouteProviderConfig};
-use crate::routes::cloudflare::CloudflareProvider;
-#[cfg(debug_assertions)]
-use crate::routes::local::LocalProvider;
-use crate::routes::pangolin::PangolinProvider;
-use async_trait::async_trait;
+use crate::config::RouteConfig;
+use crate::routes::cloudflare::CloudflareClient;
+use crate::routes::pangolin::PangolinClient;
 use lazy_regex::regex_is_match;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::Arc;
-use tracing::warn;
-
-pub type RouteProviders = HashMap<String, Arc<dyn RouteProvider + Send + Sync>>;
+use tracing::info;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RouteProviderError {
+pub enum RouteError {
     Unavailable,
     Rejected,
+    DomainNotLinked,
+}
+
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, sqlx::Type, utoipa::ToSchema,
+)]
+#[sqlx(type_name = "route_kind", rename_all = "lowercase")]
+pub enum RouteKind {
+    #[serde(rename = "http")]
+    Http,
+    #[serde(rename = "tcp")]
+    Tcp,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
@@ -29,15 +32,18 @@ pub struct RouteRecord {
     pub record_type: String,
     pub name: String,
     pub value: String,
+    pub priority: Option<u16>,
+    pub port: Option<u16>,
     pub ttl: Option<u32>,
-    pub proxied: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct RouteRequest {
     pub domain: String,
-    pub provider_domain_id: Option<String>,
     pub subdomain: String,
+    pub kind: RouteKind,
+    pub service: Option<String>,
+    pub pangolin_domain_id: Option<String>,
     pub https: bool,
     pub target_host: String,
     pub target_port: u16,
@@ -46,16 +52,17 @@ pub struct RouteRequest {
 
 impl RouteRequest {
     pub fn fqdn(&self) -> String {
-        if self.subdomain.is_empty() {
-            self.domain.clone()
-        } else {
-            format!("{}.{}", self.subdomain, self.domain)
-        }
+        format!("{}.{}", self.subdomain, self.domain)
     }
 
-    pub fn url(&self) -> String {
-        let scheme = if self.https { "https" } else { "http" };
-        format!("{scheme}://{}", self.fqdn())
+    pub fn address(&self) -> String {
+        match self.kind {
+            RouteKind::Http => {
+                let scheme = if self.https { "https" } else { "http" };
+                format!("{scheme}://{}", self.fqdn())
+            }
+            RouteKind::Tcp => self.fqdn(),
+        }
     }
 }
 
@@ -65,58 +72,92 @@ pub struct ProvisionedRoute {
     pub records: Vec<RouteRecord>,
 }
 
-#[async_trait]
-pub trait RouteProvider {
-    fn kind(&self) -> &'static str;
-
-    fn requires_provider_domain_id(&self) -> bool;
-
-    async fn create_route(
-        &self,
-        request: &RouteRequest,
-    ) -> Result<ProvisionedRoute, RouteProviderError>;
-
-    async fn delete_route(&self, external_ids: &[String]) -> Result<(), RouteProviderError>;
+pub struct RouteBackends {
+    cloudflare: Option<CloudflareClient>,
+    pangolin: Option<PangolinClient>,
 }
 
-pub fn load_providers(config: &RouteConfig, client: &Client) -> RouteProviders {
-    let mut providers = RouteProviders::new();
+impl RouteBackends {
+    pub fn new(config: &RouteConfig, client: &Client) -> Self {
+        let cloudflare = config
+            .cloudflare
+            .clone()
+            .map(|config| CloudflareClient::new(config, client.clone()));
+        let pangolin = config
+            .pangolin
+            .clone()
+            .map(|config| PangolinClient::new(config, client.clone()));
 
-    for (name, provider) in &config.providers {
-        let provider: Arc<dyn RouteProvider + Send + Sync> = match *provider {
-            RouteProviderConfig::Cloudflare(ref config) => {
-                Arc::new(CloudflareProvider::new(config.clone(), client.clone()))
+        info!(
+            "Route backends: cloudflare {}, pangolin {}",
+            if cloudflare.is_some() {
+                "configured"
+            } else {
+                "missing"
+            },
+            if pangolin.is_some() {
+                "configured"
+            } else {
+                "missing"
             }
-            RouteProviderConfig::Pangolin(ref config) => {
-                Arc::new(PangolinProvider::new(config.clone(), client.clone()))
-            }
-            RouteProviderConfig::Local(ref config) => {
-                #[cfg(debug_assertions)]
-                {
-                    warn!("Route provider {name} is a local test provider");
-                    Arc::new(LocalProvider::new(config.clone()))
-                }
-                #[cfg(not(debug_assertions))]
-                {
-                    let _ = config;
-                    warn!(
-                        "Route provider {name} is a local test provider and stays disabled in release builds"
-                    );
-                    continue;
-                }
-            }
-        };
+        );
 
-        providers.insert(name.clone(), provider);
+        Self {
+            cloudflare,
+            pangolin,
+        }
     }
 
-    providers
+    pub const fn supports(&self, kind: RouteKind) -> bool {
+        match kind {
+            RouteKind::Http => self.pangolin.is_some(),
+            RouteKind::Tcp => self.cloudflare.is_some(),
+        }
+    }
+
+    pub async fn create(&self, request: &RouteRequest) -> Result<ProvisionedRoute, RouteError> {
+        match request.kind {
+            RouteKind::Http => {
+                self.pangolin
+                    .as_ref()
+                    .ok_or(RouteError::Unavailable)?
+                    .create(request)
+                    .await
+            }
+            RouteKind::Tcp => {
+                self.cloudflare
+                    .as_ref()
+                    .ok_or(RouteError::Unavailable)?
+                    .create(request)
+                    .await
+            }
+        }
+    }
+
+    pub async fn delete(&self, kind: RouteKind, external_ids: &[String]) -> Result<(), RouteError> {
+        match kind {
+            RouteKind::Http => {
+                self.pangolin
+                    .as_ref()
+                    .ok_or(RouteError::Unavailable)?
+                    .delete(external_ids)
+                    .await
+            }
+            RouteKind::Tcp => {
+                self.cloudflare
+                    .as_ref()
+                    .ok_or(RouteError::Unavailable)?
+                    .delete(external_ids)
+                    .await
+            }
+        }
+    }
 }
 
-pub fn is_valid_subdomain(subdomain: &str) -> bool {
-    !subdomain.is_empty()
-        && subdomain.len() <= 63
-        && regex_is_match!(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", subdomain)
+pub fn is_valid_label(label: &str) -> bool {
+    !label.is_empty()
+        && label.len() <= 63
+        && regex_is_match!(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", label)
 }
 
 pub fn is_valid_domain(domain: &str) -> bool {
@@ -126,4 +167,19 @@ pub fn is_valid_domain(domain: &str) -> bool {
             r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$",
             domain
         )
+}
+
+pub fn service_name(name: &str) -> String {
+    let mut service = String::with_capacity(name.len());
+    for character in name.chars() {
+        if character.is_ascii_alphanumeric() {
+            service.extend(character.to_lowercase());
+            continue;
+        }
+
+        if !service.is_empty() && !service.ends_with('-') {
+            service.push('-');
+        }
+    }
+    service.trim_end_matches('-').to_owned()
 }

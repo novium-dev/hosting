@@ -2,11 +2,10 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::project::ProjectId;
-use crate::routes::is_valid_domain;
+use crate::routes::{RouteKind, is_valid_domain};
 use crate::service::admin::route::route_admin_service_error::{
     AllowDomainProjectError, CreateRouteDomainError, DeleteRouteDomainError,
-    DenyDomainProjectError, ListRouteDomainsAdminError, ListRouteProvidersError,
-    UpdateRouteDomainError,
+    DenyDomainProjectError, ListRouteDomainsAdminError, RouteBackendsError, UpdateRouteDomainError,
 };
 use crate::service::*;
 use serde::{Deserialize, Serialize};
@@ -14,65 +13,60 @@ use sqlx::{query, query_scalar};
 use zelus::service;
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
-pub(crate) struct RouteProviderInfo {
-    pub(crate) name: String,
-    pub(crate) kind: String,
-    pub(crate) requires_provider_domain_id: bool,
+pub(crate) struct RouteBackendInfo {
+    pub(crate) cloudflare: bool,
+    pub(crate) pangolin: bool,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "mirrors the domain's flags in the api response"
+)]
 pub(crate) struct RouteDomainAdminInfo {
     pub(crate) id: i32,
     pub(crate) domain: String,
-    pub(crate) provider: String,
-    pub(crate) provider_domain_id: Option<String>,
+    pub(crate) pangolin_domain_id: Option<String>,
     pub(crate) https: bool,
     pub(crate) private: bool,
     pub(crate) projects: Vec<ProjectId>,
     pub(crate) routes: i64,
-    pub(crate) available: bool,
+    pub(crate) http_available: bool,
+    pub(crate) tcp_available: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToSchema)]
 pub(crate) struct RouteDomainPayload {
     pub(crate) domain: String,
-    pub(crate) provider: String,
-    pub(crate) provider_domain_id: Option<String>,
+    pub(crate) pangolin_domain_id: Option<String>,
     pub(crate) https: Option<bool>,
     pub(crate) private: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToSchema)]
 pub(crate) struct RouteDomainUpdatePayload {
-    pub(crate) provider: Option<String>,
-    pub(crate) provider_domain_id: Option<String>,
+    pub(crate) pangolin_domain_id: Option<String>,
     pub(crate) https: Option<bool>,
     pub(crate) private: Option<bool>,
 }
 
 #[service(path = "/admin/route", tag = "route", no_sdk)]
 pub(crate) impl RouteAdminService for Backend {
-    /// Lists the route providers configured in the backend config.
+    /// Reports which route backends the backend config provides.
+    ///
+    /// Cloudflare carries TCP routes (SRV records), Pangolin carries HTTP routes.
     ///
     /// # Permissions
     /// Requires [`ManagementPermissions::DOMAINS_VIEW`].
-    #[route("/providers", method = GET)]
+    #[route("/backends", method = GET)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
-    async fn list_route_providers(
-        &self,
-        #[special] auth: Authentication,
-    ) -> Result<Vec<RouteProviderInfo>, _> {
-        auth.require::<_, _, ListRouteProvidersError>((), ManagementPermissions::DOMAINS_VIEW)?;
+    async fn route_backends(&self, #[special] auth: Authentication) -> Result<RouteBackendInfo, _> {
+        auth.require::<_, _, RouteBackendsError>((), ManagementPermissions::DOMAINS_VIEW)?;
 
-        Ok(self
-            .route_providers
-            .iter()
-            .map(|(name, provider)| RouteProviderInfo {
-                name: name.clone(),
-                kind: provider.kind().to_owned(),
-                requires_provider_domain_id: provider.requires_provider_domain_id(),
-            })
-            .collect())
+        Ok(RouteBackendInfo {
+            cloudflare: self.route_backends.supports(RouteKind::Tcp),
+            pangolin: self.route_backends.supports(RouteKind::Http),
+        })
     }
 
     /// Lists every route domain on this instance.
@@ -100,11 +94,12 @@ pub(crate) impl RouteAdminService for Backend {
                 projects: self
                     .route_domain_projects(&*self.database, domain.id)
                     .await?,
-                available: self.route_provider(&domain.provider).is_some(),
+                http_available: self.route_backends.supports(RouteKind::Http)
+                    && domain.pangolin_domain_id.is_some(),
+                tcp_available: self.route_backends.supports(RouteKind::Tcp),
                 id: domain.id,
                 domain: domain.domain,
-                provider: domain.provider,
-                provider_domain_id: domain.provider_domain_id,
+                pangolin_domain_id: domain.pangolin_domain_id,
                 https: domain.https,
                 private: domain.private,
                 routes,
@@ -116,10 +111,13 @@ pub(crate) impl RouteAdminService for Backend {
 
     /// Registers a new route domain users can create routes under.
     ///
+    /// `pangolin_domain_id` links the domain to its Pangolin domain and is required before
+    /// HTTP routes can be created under it. TCP routes only need Cloudflare to be configured.
+    ///
     /// # Permissions
     /// Requires [`ManagementPermissions::DOMAINS_MANAGE`].
     #[route("/domains", method = PUT)]
-    #[error(auth::{permission_denied, unreachable}, route::{domain_invalid, domain_exists, provider_unknown}, db::failure <- [sql:*])]
+    #[error(auth::{permission_denied, unreachable}, route::{domain_invalid, domain_exists}, db::failure <- [sql:*])]
     async fn create_route_domain(
         &self,
         #[special] auth: Authentication,
@@ -132,18 +130,13 @@ pub(crate) impl RouteAdminService for Backend {
             return Err(CreateRouteDomainError::RouteDomainInvalid);
         }
 
-        if self.route_provider(&payload.provider).is_none() {
-            return Err(CreateRouteDomainError::RouteProviderUnknown);
-        }
-
         query!(
-            r#"INSERT INTO route_domains (domain, provider, provider_domain_id, https, private)
-               VALUES ($1, $2, $3, $4, $5)
+            r#"INSERT INTO route_domains (domain, pangolin_domain_id, https, private)
+               VALUES ($1, $2, $3, $4)
                ON CONFLICT (domain) DO NOTHING
                RETURNING id"#,
             domain,
-            payload.provider,
-            payload.provider_domain_id,
+            payload.pangolin_domain_id,
             payload.https.unwrap_or(true),
             payload.private.unwrap_or(false),
         )
@@ -160,7 +153,7 @@ pub(crate) impl RouteAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::DOMAINS_MANAGE`].
     #[route("/domains/{domain_id}", method = PATCH)]
-    #[error(auth::{permission_denied, unreachable}, route::{domain_not_found, provider_unknown}, db::failure <- [sql:*])]
+    #[error(auth::{permission_denied, unreachable}, route::domain_not_found, db::failure <- [sql:*])]
     async fn update_route_domain(
         &self,
         #[special] auth: Authentication,
@@ -174,17 +167,11 @@ pub(crate) impl RouteAdminService for Backend {
             .await?
             .ok_or(UpdateRouteDomainError::RouteDomainNotFound)?;
 
-        let provider = payload.provider.unwrap_or(domain.provider);
-        if self.route_provider(&provider).is_none() {
-            return Err(UpdateRouteDomainError::RouteProviderUnknown);
-        }
-
         query!(
             r#"UPDATE route_domains
-               SET provider = $1, provider_domain_id = $2, https = $3, private = $4
-               WHERE id = $5"#,
-            provider,
-            payload.provider_domain_id.or(domain.provider_domain_id),
+               SET pangolin_domain_id = $1, https = $2, private = $3
+               WHERE id = $4"#,
+            payload.pangolin_domain_id.or(domain.pangolin_domain_id),
             payload.https.unwrap_or(domain.https),
             payload.private.unwrap_or(domain.private),
             domain_id,
