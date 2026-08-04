@@ -7,7 +7,9 @@ export const databaseTypes = [
   "redis",
 ] as const;
 
-export const powerActions = ["start", "stop", "restart"] as const;
+export const powerActions = ["start", "stop", "restart", "kill"] as const;
+
+export type PowerAction = (typeof powerActions)[number];
 
 export const createInstanceSchema = z.object({
   projectId: z.string(),

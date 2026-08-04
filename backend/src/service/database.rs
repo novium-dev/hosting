@@ -155,7 +155,6 @@ pub(crate) impl DatabaseService for Backend {
 
         let mut infos = Vec::with_capacity(instances.len());
         for instance in instances {
-            // A host that is down should not take the whole list with it.
             let remote = instance.host.sdk.get_instance(instance.id).await.ok();
 
             infos.push(ProjectInstanceInfo {
@@ -260,7 +259,6 @@ pub(crate) impl DatabaseService for Backend {
             return Err(err.into());
         }
 
-        // Bring it up so the project can use it straight away.
         if let Err(err) = host
             .sdk
             .power_instance(remote.data.uuid, PowerAction::Start)
@@ -323,7 +321,7 @@ pub(crate) impl DatabaseService for Backend {
         Ok(())
     }
 
-    /// Starts, stops or restarts an instance.
+    /// Starts, stops, restarts or kills an instance.
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::DATABASE_MANAGE`].

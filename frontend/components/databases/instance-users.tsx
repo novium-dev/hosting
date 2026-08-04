@@ -19,6 +19,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -176,88 +183,95 @@ export function InstanceUsers({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">Users</h2>
-          <p className="text-sm text-muted-foreground">
-            Each one connects with the name shown, which carries its own id.
-          </p>
-        </div>
-        {canManage ? (
-          <Button type="button" onClick={() => setCreating(true)}>
-            <Plus className="size-4" />
-            New user
-          </Button>
-        ) : null}
-      </div>
+      <Card>
+        <CardHeader className="space-y-4">
+          <div>
+            <CardTitle>Users</CardTitle>
+            <CardDescription>
+              Each one connects with the name shown, which carries its own id.
+            </CardDescription>
+          </div>
 
-      {isLoading ? (
-        <Skeleton className="h-24 w-full" />
-      ) : error ? (
-        <p className="text-sm text-destructive">Failed to load the users.</p>
-      ) : !data?.length ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-center">
-          <UserRound className="size-5 text-muted-foreground" />
-          <p className="text-sm font-medium">No users yet</p>
-          <p className="text-sm text-muted-foreground">
-            Create one to get a connection string.
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-muted">
-          <Table>
-            <TableHeader className="bg-muted/40">
-              <TableRow>
-                <TableHead>Username</TableHead>
-                <TableHead>Connection</TableHead>
-                <TableHead className="w-0" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((user) => (
-                <TableRow key={user.uuid}>
-                  <TableCell className="font-mono text-xs">
-                    {user.identifier}
-                  </TableCell>
-                  <TableCell className="max-w-md">
-                    <ConnectionCell user={user} />
-                  </TableCell>
-                  <TableCell>
-                    {canManage ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="size-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onSelect={() =>
-                              void rotate.executeAsync({
-                                projectId,
-                                instanceId,
-                                userId: user.uuid,
-                              })
-                            }
-                          >
-                            Rotate password
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onSelect={() => setPendingDelete(user)}
-                          >
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : null}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+          {canManage ? (
+            <div>
+              <Button type="button" onClick={() => setCreating(true)}>
+                <Plus className="size-4" />
+                New user
+              </Button>
+            </div>
+          ) : null}
+        </CardHeader>
+
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : error ? (
+            <p className="text-sm text-destructive">Failed to load the users.</p>
+          ) : !data?.length ? (
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-center">
+              <UserRound className="size-5 text-muted-foreground" />
+              <p className="text-sm font-medium">No users yet</p>
+              <p className="text-sm text-muted-foreground">
+                Create one to get a connection string.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Username</TableHead>
+                    <TableHead>Connection</TableHead>
+                    <TableHead className="w-0" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.map((user) => (
+                    <TableRow key={user.uuid}>
+                      <TableCell className="font-mono text-xs">
+                        {user.identifier}
+                      </TableCell>
+                      <TableCell className="max-w-md">
+                        <ConnectionCell user={user} />
+                      </TableCell>
+                      <TableCell>
+                        {canManage ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="size-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onSelect={() =>
+                                  void rotate.executeAsync({
+                                    projectId,
+                                    instanceId,
+                                    userId: user.uuid,
+                                  })
+                                }
+                              >
+                                Rotate password
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() => setPendingDelete(user)}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent>
