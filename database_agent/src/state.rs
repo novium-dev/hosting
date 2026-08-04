@@ -77,9 +77,17 @@ impl Agent {
 
     pub async fn spawn_instance(&self, create: StoredInstanceCreate) -> anyhow::Result<Instance> {
         let stored = data::insert_instance(self.store.write(), create).await?;
+        let uuid = stored.uuid;
 
         let instance = Instance::new(self.clone(), stored);
-        instance.create_container().await?;
+        if let Err(err) = instance.create_container().await {
+            drop(instance);
+            if let Err(cleanup) = data::delete_instance(self.store.write(), uuid).await {
+                tracing::error!(instance = %uuid, "failed to roll back the stored instance: {cleanup}");
+            }
+            return Err(err);
+        }
+
         self.instances.write().await.push(instance.clone());
 
         Ok(instance)
