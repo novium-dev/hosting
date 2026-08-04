@@ -1327,11 +1327,11 @@ export const listRoutes = <ThrowOnError extends boolean = false>(options: Option
  *  Creates a route for the server and provisions it.<br/>
  * <br/>
  * The kind of route follows the selected port: a port marked as an HTTP port becomes a<br/>
- * Pangolin resource reachable at the subdomain, any other TCP port gets a Cloudflare SRV<br/>
- * record so clients reach it without typing the port. UDP ports cannot be routed.<br/>
+ * Pangolin resource reachable at the subdomain, any other port gets a Cloudflare SRV record<br/>
+ * so clients reach it without typing the port.<br/>
  * <br/>
- * `service` is the SRV service name for TCP routes (`minecraft` produces<br/>
- * `_minecraft._tcp.<subdomain>.<domain>`) and defaults to the port's name.<br/>
+ * The SRV service name comes from the port's name, so a port named `minecraft` publishes<br/>
+ * `_minecraft._tcp.<subdomain>.<domain>`, and a UDP port publishes `_<name>._udp.…`.<br/>
  * `https` only applies to HTTP routes.<br/>
  * <br/>
  * # Permissions<br/>

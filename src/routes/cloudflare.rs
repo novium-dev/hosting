@@ -206,6 +206,7 @@ impl CloudflareClient {
             .service
             .clone()
             .unwrap_or_else(|| service_name(&request.label));
+        let protocol = request.kind.srv_protocol();
 
         let mut external_ids = Vec::new();
         let mut records = Vec::new();
@@ -242,7 +243,7 @@ impl CloudflareClient {
             Err(_) => request.target_host.clone(),
         };
 
-        let name = format!("_{service}._tcp.{fqdn}");
+        let name = format!("_{service}._{protocol}.{fqdn}");
         let srv = self
             .post_record(
                 &zone,

@@ -55,7 +55,6 @@ pub(crate) struct RoutePayload {
     pub(crate) domain: i32,
     pub(crate) subdomain: String,
     pub(crate) port: i32,
-    pub(crate) service: Option<String>,
     pub(crate) https: Option<bool>,
 }
 
@@ -153,7 +152,7 @@ pub(crate) impl RouteService for Backend {
                     let scheme = if route.https { "https" } else { "http" };
                     format!("{scheme}://{fqdn}")
                 }
-                RouteKind::Tcp => fqdn.clone(),
+                RouteKind::Tcp | RouteKind::Udp => fqdn.clone(),
             };
 
             routes.push(RouteInfo {
@@ -179,11 +178,11 @@ pub(crate) impl RouteService for Backend {
     /// Creates a route for the server and provisions it.
     ///
     /// The kind of route follows the selected port: a port marked as an HTTP port becomes a
-    /// Pangolin resource reachable at the subdomain, any other TCP port gets a Cloudflare SRV
-    /// record so clients reach it without typing the port. UDP ports cannot be routed.
+    /// Pangolin resource reachable at the subdomain, any other port gets a Cloudflare SRV record
+    /// so clients reach it without typing the port.
     ///
-    /// `service` is the SRV service name for TCP routes (`minecraft` produces
-    /// `_minecraft._tcp.<subdomain>.<domain>`) and defaults to the port's name.
+    /// The SRV service name comes from the port's name, so a port named `minecraft` publishes
+    /// `_minecraft._tcp.<subdomain>.<domain>`, and a UDP port publishes `_<name>._udp.…`.
     /// `https` only applies to HTTP routes.
     ///
     /// # Permissions
@@ -253,14 +252,10 @@ pub(crate) impl RouteService for Backend {
         .await?
         .ok_or(CreateRouteError::RoutePortInvalid)?;
 
-        if port.protocol != NetworkProtocol::Tcp {
-            return Err(CreateRouteError::RoutePortInvalid);
-        }
-
-        let kind = if port.http {
-            RouteKind::Http
-        } else {
-            RouteKind::Tcp
+        let kind = match (port.http, port.protocol) {
+            (true, _) => RouteKind::Http,
+            (false, NetworkProtocol::Tcp) => RouteKind::Tcp,
+            (false, NetworkProtocol::Udp) => RouteKind::Udp,
         };
 
         if !self.route_backends.supports(kind) {
@@ -273,7 +268,7 @@ pub(crate) impl RouteService for Backend {
 
         let zone_id = match kind {
             RouteKind::Http => None,
-            RouteKind::Tcp => match domain.cloudflare_zone_id.clone() {
+            RouteKind::Tcp | RouteKind::Udp => match domain.cloudflare_zone_id.clone() {
                 Some(zone) => Some(zone),
                 None => {
                     let zone = self
@@ -308,11 +303,8 @@ pub(crate) impl RouteService for Backend {
 
         let service = match kind {
             RouteKind::Http => None,
-            RouteKind::Tcp => {
-                let service = payload.service.map_or_else(
-                    || service_name(&port.name),
-                    |service| service.trim().to_lowercase(),
-                );
+            RouteKind::Tcp | RouteKind::Udp => {
+                let service = service_name(&port.name);
 
                 if !is_valid_label(&service) || service.len() > 32 {
                     return Err(CreateRouteError::RouteServiceInvalid);

@@ -280,7 +280,11 @@ export type RouteDomainUpdatePayload = {
     private?: boolean | null;
 };
 
-export const RouteKind = { HTTP: 'http', TCP: 'tcp' } as const;
+export const RouteKind = {
+    HTTP: 'http',
+    TCP: 'tcp',
+    UDP: 'udp'
+} as const;
 
 export type RouteKind = typeof RouteKind[keyof typeof RouteKind];
 
@@ -288,7 +292,6 @@ export type RoutePayload = {
     domain: number;
     https?: boolean | null;
     port: number;
-    service?: string | null;
     subdomain: string;
 };
 
@@ -11878,21 +11881,21 @@ export type CreateRouteErrors = {
         };
     };
     /**
-     * The selected port is not a TCP port of this server
+     * The selected port does not belong to this server
      */
     '400‪': {
         error?: {
             id?: 'route/port_invalid';
-            msg?: 'The selected port is not a TCP port of this server';
+            msg?: 'The selected port does not belong to this server';
         };
     };
     /**
-     * The specified SRV service name is invalid
+     * The port's name cannot be used as an SRV service name
      */
     '400‫': {
         error?: {
             id?: 'route/service_invalid';
-            msg?: 'The specified SRV service name is invalid';
+            msg?: 'The port\'s name cannot be used as an SRV service name';
         };
     };
     /**

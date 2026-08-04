@@ -26,6 +26,22 @@ pub enum RouteKind {
     Http,
     #[serde(rename = "tcp")]
     Tcp,
+    #[serde(rename = "udp")]
+    Udp,
+}
+
+impl RouteKind {
+    /// The protocol label an SRV record is published under.
+    pub const fn srv_protocol(self) -> &'static str {
+        match self {
+            Self::Udp => "udp",
+            Self::Http | Self::Tcp => "tcp",
+        }
+    }
+
+    pub const fn is_srv(self) -> bool {
+        matches!(self, Self::Tcp | Self::Udp)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
@@ -63,7 +79,7 @@ impl RouteRequest {
                 let scheme = if self.https { "https" } else { "http" };
                 format!("{scheme}://{}", self.fqdn())
             }
-            RouteKind::Tcp => self.fqdn(),
+            RouteKind::Tcp | RouteKind::Udp => self.fqdn(),
         }
     }
 }
@@ -121,7 +137,7 @@ impl RouteBackends {
     pub const fn supports(&self, kind: RouteKind) -> bool {
         match kind {
             RouteKind::Http => self.pangolin.is_some(),
-            RouteKind::Tcp => self.cloudflare.is_some(),
+            RouteKind::Tcp | RouteKind::Udp => self.cloudflare.is_some(),
         }
     }
 
@@ -134,7 +150,7 @@ impl RouteBackends {
                     .create(request)
                     .await
             }
-            RouteKind::Tcp => {
+            RouteKind::Tcp | RouteKind::Udp => {
                 self.cloudflare
                     .as_ref()
                     .ok_or(RouteError::Unavailable)?
@@ -153,7 +169,7 @@ impl RouteBackends {
                     .delete(handle.external_ids)
                     .await
             }
-            RouteKind::Tcp => {
+            RouteKind::Tcp | RouteKind::Udp => {
                 let cloudflare = self.cloudflare.as_ref().ok_or(RouteError::Unavailable)?;
                 let zone = match handle.zone_id {
                     Some(zone) => zone.to_owned(),

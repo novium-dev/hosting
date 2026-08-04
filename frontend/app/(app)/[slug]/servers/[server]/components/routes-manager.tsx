@@ -70,6 +70,14 @@ type Domain = ListRouteDomainsResponse[number];
 
 const SUBDOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
+/** Mirrors the backend: the SRV service name is derived from the port's name. */
+function serviceName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function errorMessage(
   error: { error?: { msg?: string } } | undefined,
   fallback: string,
@@ -89,7 +97,6 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
   const [subdomain, setSubdomain] = useState("");
   const [domainId, setDomainId] = useState<string>("");
   const [portId, setPortId] = useState<string>("");
-  const [service, setService] = useState("");
   const [https, setHttps] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -108,11 +115,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
       }
 
       setRoutes(routesResponse.data);
-      setPorts(
-        (serverResponse.data?.network?.ports ?? []).filter(
-          (port) => String(port.protocol) === "tcp",
-        ),
-      );
+      setPorts(serverResponse.data?.network?.ports ?? []);
 
       const project = serverResponse.data?.project;
       const domainsResponse = await listRouteDomains(
@@ -168,23 +171,25 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
   const tcpConfigured = domains.some((domain) => domain.tcp_available);
 
   const isHttpRoute = selectedPort?.http === true;
+  const srvService = selectedPort
+    ? serviceName(selectedPort.name)
+    : "minecraft";
+  const srvProtocol = String(selectedPort?.protocol ?? "tcp").toLowerCase();
   const httpsAvailable = isHttpRoute && (selectedDomain?.https ?? true);
 
   const subdomainValid =
     subdomain.length > 0 && SUBDOMAIN_PATTERN.test(subdomain);
-  const serviceValid = service.length === 0 || SUBDOMAIN_PATTERN.test(service);
 
   const openCreate = () => {
     setSubdomain("");
     setDomainId(domains[0] ? String(domains[0].id) : "");
     setPortId(routablePorts[0] ? String(routablePorts[0].id) : "");
-    setService("");
     setHttps(domains[0]?.https ?? true);
     setCreateOpen(true);
   };
 
   const submit = async () => {
-    if (!subdomainValid || !serviceValid || !domainId || !portId) return;
+    if (!subdomainValid || !domainId || !portId) return;
 
     setIsSubmitting(true);
 
@@ -195,7 +200,6 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
           domain: Number(domainId),
           subdomain,
           port: Number(portId),
-          service: isHttpRoute || service.length === 0 ? null : service,
           https: https && httpsAvailable,
         },
       });
@@ -250,7 +254,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
             <div>
               <CardTitle>Routes</CardTitle>
               <CardDescription>
-                Point a subdomain at one of this server&apos;s TCP ports.
+                Point a subdomain at one of this server&apos;s ports.
               </CardDescription>
             </div>
             {canManage ? (
@@ -322,7 +326,11 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                         <Badge variant="outline">
                           {route.kind === "http"
                             ? "HTTP"
-                            : `SRV${route.service ? ` _${route.service}` : ""}`}
+                            : `SRV${
+                                route.service
+                                  ? ` _${route.service}._${route.kind}`
+                                  : ` ${route.kind.toUpperCase()}`
+                              }`}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
@@ -432,7 +440,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
         <CardContent className="space-y-4 text-sm">
           {tcpConfigured ? (
             <div className="space-y-1">
-              <p className="font-medium">TCP ports — game traffic</p>
+              <p className="font-medium">TCP and UDP ports — game traffic</p>
               <p className="text-muted-foreground">
                 A raw TCP port such as Minecraft&apos;s 25565 gets an SRV
                 record, so players just enter{" "}
@@ -480,8 +488,8 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
           <DialogHeader>
             <DialogTitle>New route</DialogTitle>
             <DialogDescription>
-              Pick a subdomain, the domain it lives under and the TCP port it
-              points at.
+              Pick a subdomain, the domain it lives under and the port it points
+              at.
             </DialogDescription>
           </DialogHeader>
 
@@ -550,7 +558,8 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                   {selectablePorts.map((port) => (
                     <SelectItem key={port.id} value={String(port.id)}>
                       {port.name} — {port.host}:{port.external_port_start} (
-                      {port.http ? "HTTP" : "TCP"})
+                      {port.http ? "HTTP" : String(port.protocol).toUpperCase()}
+                      )
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -558,7 +567,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
               <p className="text-xs text-muted-foreground">
                 {isHttpRoute
                   ? "An HTTP port becomes a reverse-proxied resource on the subdomain."
-                  : "A raw TCP port gets an SRV record on the subdomain."}
+                  : "A raw port gets an SRV record on the subdomain."}
               </p>
               {selectablePorts.length === 0 ? (
                 <p className="text-xs text-destructive">
@@ -585,32 +594,15 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                 />
               </div>
             ) : (
-              <div className="space-y-2">
-                <Label htmlFor="route-service">SRV service</Label>
-                <Input
-                  id="route-service"
-                  value={service}
-                  placeholder={selectedPort?.name ?? "minecraft"}
-                  autoComplete="off"
-                  onChange={(event) =>
-                    setService(event.target.value.toLowerCase())
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Creates{" "}
-                  <code className="font-mono">
-                    _{service || selectedPort?.name || "minecraft"}._tcp.
-                    {subdomain || "your-name"}.
-                    {selectedDomain?.domain ?? "the-domain"}
-                  </code>
-                  . Leave empty to use the port&apos;s name.
-                </p>
-                {!serviceValid ? (
-                  <p className="text-xs text-destructive">
-                    Only lowercase letters, digits and dashes are allowed.
-                  </p>
-                ) : null}
-              </div>
+              <p className="rounded-md border p-3 text-xs text-muted-foreground">
+                Creates{" "}
+                <code className="font-mono">
+                  _{srvService}._{srvProtocol}.{subdomain || "your-name"}.
+                  {selectedDomain?.domain ?? "the-domain"}
+                </code>
+                , so clients that look the service up reach the port on their
+                own. The service name comes from the port.
+              </p>
             )}
           </div>
 
@@ -625,13 +617,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
             <Button
               type="button"
               onClick={() => void submit()}
-              disabled={
-                isSubmitting ||
-                !subdomainValid ||
-                !serviceValid ||
-                !domainId ||
-                !portId
-              }
+              disabled={isSubmitting || !subdomainValid || !domainId || !portId}
             >
               {isSubmitting ? (
                 <Loader2 className="size-4 animate-spin" />
