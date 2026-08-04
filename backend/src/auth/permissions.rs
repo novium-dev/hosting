@@ -207,15 +207,6 @@ bitflags! {
         ///
         const NETWORK_DELETE = 1 << 43;
 
-        /// Allows the user to create database instances on a database host.
-        ///
-        /// Depends on [`ManagementPermissions::DATABASE_HOSTS_VIEW`]
-        const DATABASE_CREATE = 1 << 44;
-        /// Allows the user to delete database instances from a database host.
-        ///
-        /// Depends on [`ManagementPermissions::DATABASE_HOSTS_VIEW`]
-        const DATABASE_DELETE = 1 << 45;
-
         /// Allows the user to bypass global and server-specific limits.
         ///
         const LIMITS_BYPASS = 1 << 46;
@@ -472,8 +463,6 @@ impl ManagementPermissions {
         self.with_dependency(Self::NODES_MANAGE, Self::NODES_VIEW);
         self.with_dependency(Self::DOMAINS_MANAGE, Self::DOMAINS_VIEW);
         self.with_dependency(Self::DATABASE_HOSTS_MANAGE, Self::DATABASE_HOSTS_VIEW);
-        self.with_dependency(Self::DATABASE_CREATE, Self::DATABASE_HOSTS_VIEW);
-        self.with_dependency(Self::DATABASE_DELETE, Self::DATABASE_HOSTS_VIEW);
         self
     }
 

@@ -35,8 +35,6 @@ export const ManagementPermission = {
   BACKUP_STORAGE_SELECT: 2 ** 41,
   NETWORK_CREATE: 2 ** 42,
   NETWORK_DELETE: 2 ** 43,
-  DATABASE_CREATE: 2 ** 44,
-  DATABASE_DELETE: 2 ** 45,
   LIMITS_BYPASS: 2 ** 46,
   FEATURES_MANAGE: 2 ** 47,
   DOMAINS_VIEW: 2 ** 48,
@@ -69,8 +67,6 @@ const managementDependencyMap = [
     ManagementPermission.DATABASE_HOSTS_MANAGE,
     ManagementPermission.DATABASE_HOSTS_VIEW,
   ],
-  [ManagementPermission.DATABASE_CREATE, ManagementPermission.DATABASE_HOSTS_VIEW],
-  [ManagementPermission.DATABASE_DELETE, ManagementPermission.DATABASE_HOSTS_VIEW],
 ] as const;
 
 const serverPermissionValues = Object.values(ServerPermission);
@@ -288,15 +284,7 @@ export const MANAGEMENT_PERMISSION_GROUPS: {
       },
       {
         bit: ManagementPermission.DATABASE_HOSTS_MANAGE,
-        label: "Manage database hosts",
-      },
-      {
-        bit: ManagementPermission.DATABASE_CREATE,
-        label: "Create database instances",
-      },
-      {
-        bit: ManagementPermission.DATABASE_DELETE,
-        label: "Delete database instances",
+        label: "Manage database hosts & instances",
       },
     ],
   },

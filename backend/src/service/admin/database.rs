@@ -376,7 +376,7 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// Creates a database instance on a host and registers it.
     ///
     /// # Permissions
-    /// Requires [`ManagementPermissions::DATABASE_CREATE`].
+    /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host/{host_id}/instance", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, database::{host_not_found, agent_error},
         db::failure <- [sql:*])]
@@ -388,7 +388,7 @@ pub(crate) impl DatabaseAdminService for Backend {
     ) -> Result<CreatedId, _> {
         auth.require::<_, _, CreateDatabaseInstanceError>(
             (),
-            ManagementPermissions::DATABASE_CREATE,
+            ManagementPermissions::DATABASE_HOSTS_MANAGE,
         )?;
 
         let host = self
@@ -421,7 +421,7 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// Deletes a database instance that carries no project databases.
     ///
     /// # Permissions
-    /// Requires [`ManagementPermissions::DATABASE_DELETE`].
+    /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host/{host_id}/instance/{instance_id}", method = DELETE)]
     #[error(auth::{permission_denied, unreachable},
         database::{host_not_found, instance_not_found, instance_not_empty, agent_error},
@@ -434,7 +434,7 @@ pub(crate) impl DatabaseAdminService for Backend {
     ) -> Result<(), _> {
         auth.require::<_, _, DeleteDatabaseInstanceError>(
             (),
-            ManagementPermissions::DATABASE_DELETE,
+            ManagementPermissions::DATABASE_HOSTS_MANAGE,
         )?;
 
         let host = self

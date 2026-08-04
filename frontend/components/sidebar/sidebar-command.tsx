@@ -29,7 +29,9 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { appConfig } from "@/constants/config";
+import { useOrganization } from "@/hooks/use-organization";
 import { authClient } from "@/lib/auth-client";
+import { ServerPermission, hasServerPermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 type CommandMenuItem = {
@@ -56,6 +58,7 @@ export function SidebarCommand({
   const slug = params.slug;
 
   const { data: session } = authClient.useSession();
+  const { data: organization } = useOrganization(slug);
   const { theme, setTheme } = useTheme();
   const { open: openSettings } = useSettingsDialog();
   const [open, setOpen] = useState(false);
@@ -97,12 +100,26 @@ export function SidebarCommand({
           href: `/${slug}/members`,
           keywords: ["users", "collaborators", "invite"],
         },
-        {
-          icon: DatabaseIcon,
-          label: "Databases",
-          href: `/${slug}/databases`,
-          keywords: ["postgres", "mariadb", "mysql", "mongodb", "redis", "sql"],
-        },
+        ...(hasServerPermission(
+          organization?.permissions ?? 0,
+          ServerPermission.DATABASE_VIEW,
+        )
+          ? [
+              {
+                icon: DatabaseIcon,
+                label: "Databases",
+                href: `/${slug}/databases`,
+                keywords: [
+                  "postgres",
+                  "mariadb",
+                  "mysql",
+                  "mongodb",
+                  "redis",
+                  "sql",
+                ],
+              },
+            ]
+          : []),
         {
           icon: KeyRoundIcon,
           label: "API keys",

@@ -5,7 +5,13 @@ import useSWR from "swr";
 import { CreateDatabaseDialog } from "@/components/databases/create-database-dialog";
 import { DatabasesTable } from "@/components/databases/databases-table";
 import { listProjectDatabases } from "@/lib/api";
-import { ServerPermission, hasServerPermission } from "@/lib/permissions";
+import { authClient } from "@/lib/auth-client";
+import {
+  ManagementPermission,
+  ServerPermission,
+  hasManagementPermission,
+  hasServerPermission,
+} from "@/lib/permissions";
 
 /** Mirrors MAX_PROJECT_DATABASES in the backend. */
 const DATABASE_LIMIT = 4;
@@ -17,6 +23,7 @@ interface DatabasesViewProps {
 }
 
 export function DatabasesView({ projectId, permissions }: DatabasesViewProps) {
+  const { data: session } = authClient.useSession();
   const {
     data: databases,
     error,
@@ -36,7 +43,14 @@ export function DatabasesView({ projectId, permissions }: DatabasesViewProps) {
     permissions,
     ServerPermission.DATABASE_MANAGE,
   );
-  const atLimit = (databases?.length ?? 0) >= DATABASE_LIMIT;
+  // The backend lets LIMITS_BYPASS holders go past the cap, so the UI must not
+  // block them at it.
+  const bypassesLimit = hasManagementPermission(
+    session?.user.permissions ?? 0,
+    ManagementPermission.LIMITS_BYPASS,
+  );
+  const atLimit =
+    !bypassesLimit && (databases?.length ?? 0) >= DATABASE_LIMIT;
 
   return (
     <div className="space-y-6">
@@ -45,7 +59,9 @@ export function DatabasesView({ projectId, permissions }: DatabasesViewProps) {
           <h1 className="text-xl font-semibold">Databases</h1>
           <p className="text-sm text-muted-foreground">
             Each database is reachable from anywhere with the credentials below.
-            A project can hold up to {DATABASE_LIMIT}.
+            {bypassesLimit
+              ? " Your role lets you go past the usual limit."
+              : ` A project can hold up to ${DATABASE_LIMIT}.`}
           </p>
         </div>
         {canManage ? (
