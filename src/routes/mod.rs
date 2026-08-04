@@ -14,6 +14,7 @@ pub enum RouteError {
     Unavailable,
     Rejected,
     DomainNotLinked,
+    ZoneNotFound,
 }
 
 #[derive(
@@ -43,6 +44,7 @@ pub struct RouteRequest {
     pub subdomain: String,
     pub kind: RouteKind,
     pub service: Option<String>,
+    pub zone_id: Option<String>,
     pub pangolin_domain_id: Option<String>,
     pub https: bool,
     pub target_host: String,
@@ -64,6 +66,14 @@ impl RouteRequest {
             RouteKind::Tcp => self.fqdn(),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RouteHandle<'a> {
+    pub kind: RouteKind,
+    pub domain: &'a str,
+    pub zone_id: Option<&'a str>,
+    pub external_ids: &'a [String],
 }
 
 #[derive(Debug, Clone)]
@@ -134,23 +144,35 @@ impl RouteBackends {
         }
     }
 
-    pub async fn delete(&self, kind: RouteKind, external_ids: &[String]) -> Result<(), RouteError> {
-        match kind {
+    pub async fn delete(&self, handle: RouteHandle<'_>) -> Result<(), RouteError> {
+        match handle.kind {
             RouteKind::Http => {
                 self.pangolin
                     .as_ref()
                     .ok_or(RouteError::Unavailable)?
-                    .delete(external_ids)
+                    .delete(handle.external_ids)
                     .await
             }
             RouteKind::Tcp => {
-                self.cloudflare
-                    .as_ref()
-                    .ok_or(RouteError::Unavailable)?
-                    .delete(external_ids)
-                    .await
+                let cloudflare = self.cloudflare.as_ref().ok_or(RouteError::Unavailable)?;
+                let zone = match handle.zone_id {
+                    Some(zone) => zone.to_owned(),
+                    None => cloudflare.zone(handle.domain).await?,
+                };
+
+                cloudflare.delete(&zone, handle.external_ids).await
             }
         }
+    }
+
+    /// Looks up the Cloudflare zone carrying a domain, so TCP routes know where their
+    /// records live without the zone being configured by hand.
+    pub async fn zone(&self, domain: &str) -> Result<String, RouteError> {
+        self.cloudflare
+            .as_ref()
+            .ok_or(RouteError::Unavailable)?
+            .zone(domain)
+            .await
     }
 }
 

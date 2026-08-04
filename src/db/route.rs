@@ -1,7 +1,7 @@
 use crate::Backend;
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
-use crate::routes::{RouteKind, RouteRecord};
+use crate::routes::{RouteHandle, RouteKind, RouteRecord};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{Executor, Postgres, query, query_as};
@@ -25,6 +25,7 @@ pub struct RouteDomain {
     pub id: i32,
     pub domain: String,
     pub pangolin_domain_id: Option<String>,
+    pub cloudflare_zone_id: Option<String>,
     pub https: bool,
     pub private: bool,
 }
@@ -34,6 +35,8 @@ pub struct StoredRoute {
     pub id: i32,
     pub server: ServerId,
     pub domain: i32,
+    pub domain_name: String,
+    pub zone_id: Option<String>,
     pub subdomain: String,
     pub port: i32,
     pub kind: RouteKind,
@@ -42,6 +45,17 @@ pub struct StoredRoute {
     pub status: RouteStatus,
     pub external_ids: Vec<String>,
     pub records: Value,
+}
+
+impl StoredRoute {
+    pub fn handle(&self) -> RouteHandle<'_> {
+        RouteHandle {
+            kind: self.kind,
+            domain: &self.domain_name,
+            zone_id: self.zone_id.as_deref(),
+            external_ids: &self.external_ids,
+        }
+    }
 }
 
 pub fn decode_records(records: &Value) -> Vec<RouteRecord> {
@@ -58,7 +72,7 @@ impl Backend {
     ) -> Result<Vec<RouteDomain>, sqlx::Error> {
         query_as!(
             RouteDomain,
-            r#"SELECT id, domain, pangolin_domain_id, https, private
+            r#"SELECT id, domain, pangolin_domain_id, cloudflare_zone_id, https, private
                FROM route_domains
                ORDER BY domain"#
         )
@@ -73,7 +87,7 @@ impl Backend {
     ) -> Result<Option<RouteDomain>, sqlx::Error> {
         query_as!(
             RouteDomain,
-            r#"SELECT id, domain, pangolin_domain_id, https, private
+            r#"SELECT id, domain, pangolin_domain_id, cloudflare_zone_id, https, private
                FROM route_domains
                WHERE id = $1"#,
             domain_id
@@ -104,20 +118,23 @@ impl Backend {
         query_as!(
             StoredRoute,
             r#"SELECT
-                id,
-                server AS "server: ServerId",
-                domain,
-                subdomain,
-                port,
-                kind AS "kind: RouteKind",
-                service,
-                https,
-                status AS "status: RouteStatus",
-                external_ids,
-                records
+                routes.id,
+                routes.server AS "server: ServerId",
+                routes.domain,
+                route_domains.domain AS domain_name,
+                route_domains.cloudflare_zone_id AS zone_id,
+                routes.subdomain,
+                routes.port,
+                routes.kind AS "kind: RouteKind",
+                routes.service,
+                routes.https,
+                routes.status AS "status: RouteStatus",
+                routes.external_ids,
+                routes.records
                FROM routes
-               WHERE server = $1
-               ORDER BY id"#,
+               JOIN route_domains ON route_domains.id = routes.domain
+               WHERE routes.server = $1
+               ORDER BY routes.id"#,
             &server
         )
         .fetch_all(executor)
@@ -126,11 +143,7 @@ impl Backend {
 
     pub(crate) async fn deprovision_routes(&self, routes: &[StoredRoute]) {
         for route in routes {
-            if let Err(err) = self
-                .route_backends
-                .delete(route.kind, &route.external_ids)
-                .await
-            {
+            if let Err(err) = self.route_backends.delete(route.handle()).await {
                 error!(
                     "Unable to remove route {} at its backend: {err:?}",
                     route.id
@@ -150,19 +163,22 @@ impl Backend {
         query_as!(
             StoredRoute,
             r#"SELECT
-                id,
-                server AS "server: ServerId",
-                domain,
-                subdomain,
-                port,
-                kind AS "kind: RouteKind",
-                service,
-                https,
-                status AS "status: RouteStatus",
-                external_ids,
-                records
+                routes.id,
+                routes.server AS "server: ServerId",
+                routes.domain,
+                route_domains.domain AS domain_name,
+                route_domains.cloudflare_zone_id AS zone_id,
+                routes.subdomain,
+                routes.port,
+                routes.kind AS "kind: RouteKind",
+                routes.service,
+                routes.https,
+                routes.status AS "status: RouteStatus",
+                routes.external_ids,
+                routes.records
                FROM routes
-               WHERE port = $1"#,
+               JOIN route_domains ON route_domains.id = routes.domain
+               WHERE routes.port = $1"#,
             port_id
         )
         .fetch_all(&*self.database)
@@ -176,6 +192,7 @@ impl core::fmt::Display for crate::routes::RouteError {
             Self::Unavailable => "backend unavailable",
             Self::Rejected => "backend rejected the request",
             Self::DomainNotLinked => "domain is not linked at the backend",
+            Self::ZoneNotFound => "no cloudflare zone carries this domain",
         })
     }
 }

@@ -3,6 +3,8 @@ use crate::routes::{ProvisionedRoute, RouteError, RouteRecord, RouteRequest, ser
 use core::net::IpAddr;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use tokio::sync::RwLock;
 use tracing::error;
 use url::Url;
 
@@ -17,6 +19,7 @@ const SRV_WEIGHT: u16 = 0;
 pub struct CloudflareClient {
     config: CloudflareConfig,
     client: Client,
+    zones: RwLock<HashMap<String, String>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -59,14 +62,23 @@ struct CloudflareResponse {
     result: Option<CloudflareResult>,
 }
 
+#[derive(Debug, Deserialize)]
+struct CloudflareZonesResponse {
+    success: bool,
+    result: Option<Vec<CloudflareResult>>,
+}
+
 impl CloudflareClient {
-    pub const fn new(config: CloudflareConfig, client: Client) -> Self {
-        Self { config, client }
+    pub fn new(config: CloudflareConfig, client: Client) -> Self {
+        Self {
+            config,
+            client,
+            zones: RwLock::new(HashMap::new()),
+        }
     }
 
-    fn records_url(&self) -> Result<Url, RouteError> {
-        let api = self
-            .config
+    fn api(&self) -> Result<Url, RouteError> {
+        self.config
             .api_url
             .clone()
             .map_or_else(
@@ -82,9 +94,12 @@ impl CloudflareClient {
             .map_err(|err| {
                 error!("Invalid Cloudflare api url: {err:?}");
                 RouteError::Unavailable
-            })?;
+            })
+    }
 
-        api.join(&format!("zones/{}/dns_records", self.config.zone_id))
+    fn records_url(&self, zone: &str) -> Result<Url, RouteError> {
+        self.api()?
+            .join(&format!("zones/{zone}/dns_records"))
             .map_err(|err| {
                 error!("Invalid Cloudflare zone: {err:?}");
                 RouteError::Unavailable
@@ -95,10 +110,67 @@ impl CloudflareClient {
         self.config.ttl.unwrap_or(DEFAULT_TTL)
     }
 
-    async fn post_record<P: Serialize + Sync>(&self, payload: &P) -> Result<String, RouteError> {
+    /// Looks the zone of a domain up by name, keeping resolved zones in memory.
+    pub async fn zone(&self, domain: &str) -> Result<String, RouteError> {
+        if let Some(zone) = self.zones.read().await.get(domain) {
+            return Ok(zone.clone());
+        }
+
+        let mut url = self.api()?.join("zones").map_err(|err| {
+            error!("Invalid Cloudflare api url: {err:?}");
+            RouteError::Unavailable
+        })?;
+        url.query_pairs_mut().append_pair("name", domain);
+
         let response = self
             .client
-            .post(self.records_url()?)
+            .get(url)
+            .bearer_auth(&self.config.api_token)
+            .send()
+            .await
+            .map_err(|err| {
+                error!("Failed to reach Cloudflare: {err:?}");
+                RouteError::Unavailable
+            })?;
+
+        let status = response.status();
+        let body = response
+            .json::<CloudflareZonesResponse>()
+            .await
+            .map_err(|err| {
+                error!("Failed to decode the Cloudflare zone response: {err:?}");
+                RouteError::Rejected
+            })?;
+
+        if !body.success {
+            error!("Cloudflare rejected the zone lookup with status {status}");
+            return Err(RouteError::Rejected);
+        }
+
+        let Some(zone) = body
+            .result
+            .and_then(|zones| zones.into_iter().next())
+            .map(|zone| zone.id)
+        else {
+            return Err(RouteError::ZoneNotFound);
+        };
+
+        self.zones
+            .write()
+            .await
+            .insert(domain.to_owned(), zone.clone());
+
+        Ok(zone)
+    }
+
+    async fn post_record<P: Serialize + Sync>(
+        &self,
+        zone: &str,
+        payload: &P,
+    ) -> Result<String, RouteError> {
+        let response = self
+            .client
+            .post(self.records_url(zone)?)
             .bearer_auth(&self.config.api_token)
             .json(payload)
             .send()
@@ -124,6 +196,11 @@ impl CloudflareClient {
     }
 
     pub async fn create(&self, request: &RouteRequest) -> Result<ProvisionedRoute, RouteError> {
+        let zone = match request.zone_id {
+            Some(ref zone) => zone.clone(),
+            None => self.zone(&request.domain).await?,
+        };
+
         let fqdn = request.fqdn();
         let service = request
             .service
@@ -137,14 +214,17 @@ impl CloudflareClient {
             Ok(address) => {
                 let record_type = if address.is_ipv4() { "A" } else { "AAAA" };
                 let id = self
-                    .post_record(&AddressRecordPayload {
-                        record_type,
-                        name: &fqdn,
-                        content: &request.target_host,
-                        ttl: self.ttl(),
-                        proxied: false,
-                        comment: &request.label,
-                    })
+                    .post_record(
+                        &zone,
+                        &AddressRecordPayload {
+                            record_type,
+                            name: &fqdn,
+                            content: &request.target_host,
+                            ttl: self.ttl(),
+                            proxied: false,
+                            comment: &request.label,
+                        },
+                    )
                     .await?;
 
                 external_ids.push(id);
@@ -164,18 +244,21 @@ impl CloudflareClient {
 
         let name = format!("_{service}._tcp.{fqdn}");
         let srv = self
-            .post_record(&SrvRecordPayload {
-                record_type: "SRV",
-                name: &name,
-                data: SrvData {
-                    priority: SRV_PRIORITY,
-                    weight: SRV_WEIGHT,
-                    port: request.target_port,
-                    target: &srv_target,
+            .post_record(
+                &zone,
+                &SrvRecordPayload {
+                    record_type: "SRV",
+                    name: &name,
+                    data: SrvData {
+                        priority: SRV_PRIORITY,
+                        weight: SRV_WEIGHT,
+                        port: request.target_port,
+                        target: &srv_target,
+                    },
+                    ttl: self.ttl(),
+                    comment: &request.label,
                 },
-                ttl: self.ttl(),
-                comment: &request.label,
-            })
+            )
             .await;
 
         match srv {
@@ -191,7 +274,7 @@ impl CloudflareClient {
                 });
             }
             Err(err) => {
-                if let Err(cleanup) = self.delete(&external_ids).await {
+                if let Err(cleanup) = self.delete(&zone, &external_ids).await {
                     error!("Unable to roll back the Cloudflare records: {cleanup:?}");
                 }
                 return Err(err);
@@ -204,8 +287,8 @@ impl CloudflareClient {
         })
     }
 
-    pub async fn delete(&self, external_ids: &[String]) -> Result<(), RouteError> {
-        let base = self.records_url()?;
+    pub async fn delete(&self, zone: &str, external_ids: &[String]) -> Result<(), RouteError> {
+        let base = self.records_url(zone)?;
 
         for id in external_ids {
             let response = self

@@ -70,7 +70,6 @@ pub struct RouteConfig {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CloudflareConfig {
     pub api_token: String,
-    pub zone_id: String,
     #[serde(default)]
     pub ttl: Option<u32>,
     #[serde(default)]

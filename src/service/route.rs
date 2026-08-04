@@ -64,7 +64,8 @@ pub(crate) impl RouteService for Backend {
     /// Lists the route domains that can be used for new routes.
     ///
     /// `http_available` and `tcp_available` tell which kinds of routes the domain can carry:
-    /// HTTP routes need Pangolin and a linked Pangolin domain, TCP routes need Cloudflare.
+    /// HTTP routes need Pangolin and a linked Pangolin domain, TCP routes need Cloudflare and a
+    /// resolved zone for the domain.
     ///
     /// Private domains are only listed when the given project has been granted access to them,
     /// or when the caller holds [`ManagementPermissions::DOMAINS_VIEW`].
@@ -110,7 +111,8 @@ pub(crate) impl RouteService for Backend {
                 private: domain.private,
                 http_available: self.route_backends.supports(RouteKind::Http)
                     && domain.pangolin_domain_id.is_some(),
-                tcp_available: self.route_backends.supports(RouteKind::Tcp),
+                tcp_available: self.route_backends.supports(RouteKind::Tcp)
+                    && domain.cloudflare_zone_id.is_some(),
             })
             .collect())
     }
@@ -191,7 +193,8 @@ pub(crate) impl RouteService for Backend {
         auth::{permission_denied, unreachable},
         server::not_found,
         route::{domain_not_found, subdomain_invalid, subdomain_taken, port_invalid, service_invalid,
-            https_unavailable, kind_unavailable, domain_not_linked, backend_unavailable, backend_error},
+            https_unavailable, kind_unavailable, domain_not_linked, zone_not_found,
+            backend_unavailable, backend_error},
         db::failure <- [sql:*]
     )]
     async fn create_route(
@@ -268,6 +271,36 @@ pub(crate) impl RouteService for Backend {
             return Err(CreateRouteError::RouteDomainNotLinked);
         }
 
+        let zone_id = match kind {
+            RouteKind::Http => None,
+            RouteKind::Tcp => match domain.cloudflare_zone_id.clone() {
+                Some(zone) => Some(zone),
+                None => {
+                    let zone = self
+                        .route_backends
+                        .zone(&domain.domain)
+                        .await
+                        .map_err(|err| match err {
+                            RouteError::ZoneNotFound | RouteError::DomainNotLinked => {
+                                CreateRouteError::RouteZoneNotFound
+                            }
+                            RouteError::Unavailable => CreateRouteError::RouteBackendUnavailable,
+                            RouteError::Rejected => CreateRouteError::RouteBackendError,
+                        })?;
+
+                    query!(
+                        "UPDATE route_domains SET cloudflare_zone_id = $1 WHERE id = $2",
+                        zone,
+                        domain.id,
+                    )
+                    .execute(&*self.database)
+                    .await?;
+
+                    Some(zone)
+                }
+            },
+        };
+
         let https = matches!(kind, RouteKind::Http) && payload.https.unwrap_or(true);
         if https && !domain.https {
             return Err(CreateRouteError::RouteHttpsUnavailable);
@@ -316,6 +349,7 @@ pub(crate) impl RouteService for Backend {
             subdomain: subdomain.clone(),
             kind,
             service: service.clone(),
+            zone_id,
             pangolin_domain_id: domain.pangolin_domain_id.clone(),
             https,
             target_host: port.host,
@@ -337,6 +371,7 @@ pub(crate) impl RouteService for Backend {
                     RouteError::Unavailable => CreateRouteError::RouteBackendUnavailable,
                     RouteError::Rejected => CreateRouteError::RouteBackendError,
                     RouteError::DomainNotLinked => CreateRouteError::RouteDomainNotLinked,
+                    RouteError::ZoneNotFound => CreateRouteError::RouteZoneNotFound,
                 });
             }
         };
@@ -389,24 +424,20 @@ pub(crate) impl RouteService for Backend {
     ) -> Result<(), _> {
         auth.require::<_, _, DeleteRouteError>(server_id, ServerPermissions::ROUTES_MANAGE)?;
 
-        let route = query!(
-            r#"SELECT external_ids, kind AS "kind: RouteKind"
-               FROM routes
-               WHERE id = $1 AND server = $2"#,
-            route_id,
-            &server_id
-        )
-        .fetch_optional(&*self.database)
-        .await?
-        .ok_or(DeleteRouteError::RouteNotFound)?;
+        let route = self
+            .routes_of_server(&*self.database, server_id)
+            .await?
+            .into_iter()
+            .find(|route| route.id == route_id)
+            .ok_or(DeleteRouteError::RouteNotFound)?;
 
         self.route_backends
-            .delete(route.kind, &route.external_ids)
+            .delete(route.handle())
             .await
             .map_err(|err| match err {
-                RouteError::Unavailable | RouteError::DomainNotLinked => {
-                    DeleteRouteError::RouteBackendUnavailable
-                }
+                RouteError::Unavailable
+                | RouteError::DomainNotLinked
+                | RouteError::ZoneNotFound => DeleteRouteError::RouteBackendUnavailable,
                 RouteError::Rejected => DeleteRouteError::RouteBackendError,
             })?;
 

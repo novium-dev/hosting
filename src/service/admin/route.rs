@@ -2,14 +2,16 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::project::ProjectId;
-use crate::routes::{RouteKind, is_valid_domain};
+use crate::routes::{RouteError, RouteKind, is_valid_domain};
 use crate::service::admin::route::route_admin_service_error::{
     AllowDomainProjectError, CreateRouteDomainError, DeleteRouteDomainError,
-    DenyDomainProjectError, ListRouteDomainsAdminError, RouteBackendsError, UpdateRouteDomainError,
+    DenyDomainProjectError, ListRouteDomainsAdminError, ResolveDomainZoneError, RouteBackendsError,
+    UpdateRouteDomainError,
 };
 use crate::service::*;
 use serde::{Deserialize, Serialize};
 use sqlx::{query, query_scalar};
+use tracing::warn;
 use zelus::service;
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -27,6 +29,7 @@ pub(crate) struct RouteDomainAdminInfo {
     pub(crate) id: i32,
     pub(crate) domain: String,
     pub(crate) pangolin_domain_id: Option<String>,
+    pub(crate) cloudflare_zone_id: Option<String>,
     pub(crate) https: bool,
     pub(crate) private: bool,
     pub(crate) projects: Vec<ProjectId>,
@@ -96,10 +99,12 @@ pub(crate) impl RouteAdminService for Backend {
                     .await?,
                 http_available: self.route_backends.supports(RouteKind::Http)
                     && domain.pangolin_domain_id.is_some(),
-                tcp_available: self.route_backends.supports(RouteKind::Tcp),
+                tcp_available: self.route_backends.supports(RouteKind::Tcp)
+                    && domain.cloudflare_zone_id.is_some(),
                 id: domain.id,
                 domain: domain.domain,
                 pangolin_domain_id: domain.pangolin_domain_id,
+                cloudflare_zone_id: domain.cloudflare_zone_id,
                 https: domain.https,
                 private: domain.private,
                 routes,
@@ -112,7 +117,9 @@ pub(crate) impl RouteAdminService for Backend {
     /// Registers a new route domain users can create routes under.
     ///
     /// `pangolin_domain_id` links the domain to its Pangolin domain and is required before
-    /// HTTP routes can be created under it. TCP routes only need Cloudflare to be configured.
+    /// HTTP routes can be created under it. The Cloudflare zone carrying the domain is looked
+    /// up by name right away; when the domain is not in Cloudflare, TCP routes stay unavailable
+    /// until the zone is resolved (see the zone endpoint).
     ///
     /// # Permissions
     /// Requires [`ManagementPermissions::DOMAINS_MANAGE`].
@@ -130,7 +137,7 @@ pub(crate) impl RouteAdminService for Backend {
             return Err(CreateRouteDomainError::RouteDomainInvalid);
         }
 
-        query!(
+        let id = query!(
             r#"INSERT INTO route_domains (domain, pangolin_domain_id, https, private)
                VALUES ($1, $2, $3, $4)
                ON CONFLICT (domain) DO NOTHING
@@ -143,7 +150,74 @@ pub(crate) impl RouteAdminService for Backend {
         .fetch_optional(&*self.database)
         .await?
         .map(|row| row.id)
-        .ok_or(CreateRouteDomainError::RouteDomainExists)
+        .ok_or(CreateRouteDomainError::RouteDomainExists)?;
+
+        if self.route_backends.supports(RouteKind::Tcp) {
+            match self.route_backends.zone(&domain).await {
+                Ok(zone) => {
+                    query!(
+                        "UPDATE route_domains SET cloudflare_zone_id = $1 WHERE id = $2",
+                        zone,
+                        id,
+                    )
+                    .execute(&*self.database)
+                    .await?;
+                }
+                Err(err) => {
+                    warn!("Unable to resolve the Cloudflare zone of {domain}: {err:?}");
+                }
+            }
+        }
+
+        Ok(id)
+    }
+
+    /// Looks the Cloudflare zone carrying the domain up by name and stores it.
+    ///
+    /// Only needed when the lookup was not possible while the domain was created, for
+    /// instance because it was added to Cloudflare afterwards.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::DOMAINS_MANAGE`].
+    #[route("/domains/{domain_id}/zone", method = POST)]
+    #[error(auth::{permission_denied, unreachable}, route::{domain_not_found, zone_not_found, kind_unavailable, backend_unavailable, backend_error}, db::failure <- [sql:*])]
+    async fn resolve_domain_zone(
+        &self,
+        #[special] auth: Authentication,
+        domain_id: i32,
+    ) -> Result<String, _> {
+        auth.require::<_, _, ResolveDomainZoneError>((), ManagementPermissions::DOMAINS_MANAGE)?;
+
+        let domain = self
+            .route_domain(&*self.database, domain_id)
+            .await?
+            .ok_or(ResolveDomainZoneError::RouteDomainNotFound)?;
+
+        if !self.route_backends.supports(RouteKind::Tcp) {
+            return Err(ResolveDomainZoneError::RouteKindUnavailable);
+        }
+
+        let zone = self
+            .route_backends
+            .zone(&domain.domain)
+            .await
+            .map_err(|err| match err {
+                RouteError::ZoneNotFound | RouteError::DomainNotLinked => {
+                    ResolveDomainZoneError::RouteZoneNotFound
+                }
+                RouteError::Unavailable => ResolveDomainZoneError::RouteBackendUnavailable,
+                RouteError::Rejected => ResolveDomainZoneError::RouteBackendError,
+            })?;
+
+        query!(
+            "UPDATE route_domains SET cloudflare_zone_id = $1 WHERE id = $2",
+            zone,
+            domain_id,
+        )
+        .execute(&*self.database)
+        .await?;
+
+        Ok(zone)
     }
 
     /// Updates a route domain.

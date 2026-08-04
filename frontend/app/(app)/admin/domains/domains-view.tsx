@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { Loader2, Plus, Trash2, X } from "lucide-react";
+import { Loader2, Plus, RefreshCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -50,6 +50,7 @@ import {
   denyDomainProject,
   listProjects,
   listRouteDomainsAdmin,
+  resolveDomainZone,
   routeBackends,
   updateRouteDomain,
   type ListRouteDomainsAdminResponse,
@@ -229,6 +230,29 @@ export function AdminDomainsView() {
     }
   };
 
+  const resolveZone = async (entry: Domain) => {
+    setIsSubmitting(true);
+
+    try {
+      const response = await resolveDomainZone({
+        path: { domain_id: entry.id },
+      });
+
+      if (response.error) {
+        throw new Error(errorMessage(response.error, "Failed to resolve zone"));
+      }
+
+      toast.success(`Zone of ${entry.domain} resolved`);
+      await mutate();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to resolve zone",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const revoke = async (entry: Domain, project: string) => {
     try {
       const response = await denyDomainProject({
@@ -256,8 +280,9 @@ export function AdminDomainsView() {
           <h1 className="text-xl font-semibold">Domains</h1>
           <p className="text-sm text-muted-foreground">
             Domains users can put their routes under. HTTP ports become Pangolin
-            resources, TCP ports get a Cloudflare SRV record. A private domain
-            is only offered to the projects you grant it to.
+            resources, TCP ports get a Cloudflare SRV record — the Cloudflare
+            zone is looked up by domain name when you add it. A private domain is
+            only offered to the projects you grant it to.
           </p>
         </div>
         {canManage ? (
@@ -307,11 +332,29 @@ export function AdminDomainsView() {
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-1">
                       {entry.http_available ? <Badge>HTTP</Badge> : null}
-                      {entry.tcp_available ? <Badge>TCP</Badge> : null}
+                      {entry.tcp_available ? (
+                        <Badge title={entry.cloudflare_zone_id ?? undefined}>
+                          TCP
+                        </Badge>
+                      ) : null}
                       {!entry.http_available && !entry.tcp_available ? (
                         <span className="text-sm text-muted-foreground">
                           nothing yet
                         </span>
+                      ) : null}
+                      {canManage &&
+                      backends?.cloudflare &&
+                      !entry.cloudflare_zone_id ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={isSubmitting}
+                          onClick={() => void resolveZone(entry)}
+                        >
+                          <RefreshCcw className="size-3" />
+                          Find zone
+                        </Button>
                       ) : null}
                     </div>
                   </TableCell>
@@ -431,7 +474,8 @@ export function AdminDomainsView() {
               />
               <p className="text-xs text-muted-foreground">
                 The domain&apos;s ID in Pangolin. Required for HTTP routes; TCP
-                routes go through Cloudflare and do not need it.
+                routes go through Cloudflare, whose zone is resolved from the
+                domain name.
               </p>
             </div>
 

@@ -11923,6 +11923,15 @@ export type CreateRouteErrors = {
         };
     };
     /**
+     * No Cloudflare zone carries the route domain
+     */
+    '400⁠': {
+        error?: {
+            id?: 'route/zone_not_found';
+            msg?: 'No Cloudflare zone carries the route domain';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -11970,7 +11979,7 @@ export type CreateRouteErrors = {
     /**
      * Database operation failed
      */
-    '500⁢': {
+    '500⁣': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -11979,7 +11988,7 @@ export type CreateRouteErrors = {
     /**
      * The route backend rejected the request
      */
-    '502⁡': {
+    '502⁢': {
         error?: {
             id?: 'route/backend_error';
             msg?: 'The route backend rejected the request';
@@ -11988,7 +11997,7 @@ export type CreateRouteErrors = {
     /**
      * The route backend is currently unavailable
      */
-    '503⁠': {
+    '503⁡': {
         error?: {
             id?: 'route/backend_unavailable';
             msg?: 'The route backend is currently unavailable';
@@ -12254,6 +12263,7 @@ export type ListRouteDomainsAdminResponses = {
      * Success
      */
     200: Array<{
+        cloudflare_zone_id?: string | null;
         domain: string;
         http_available: boolean;
         https: boolean;
@@ -12348,6 +12358,119 @@ export type CreateRouteDomainResponses = {
 };
 
 export type CreateRouteDomainResponse = CreateRouteDomainResponses[keyof CreateRouteDomainResponses];
+
+export type ResolveDomainZoneData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The route domain ID
+         */
+        domain_id: number;
+    };
+    query?: never;
+    url: '/admin/route/domains/{domain_id}/zone';
+};
+
+export type ResolveDomainZoneErrors = {
+    /**
+     * No Cloudflare zone carries the route domain
+     */
+    '400‍': {
+        error?: {
+            id?: 'route/zone_not_found';
+            msg?: 'No Cloudflare zone carries the route domain';
+        };
+    };
+    /**
+     * Routes of this kind are not configured on this instance
+     */
+    '400‎': {
+        error?: {
+            id?: 'route/kind_unavailable';
+            msg?: 'Routes of this kind are not configured on this instance';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified route domain was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'route/domain_not_found';
+            msg?: 'The specified route domain was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‫': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The route backend rejected the request
+     */
+    '502‪': {
+        error?: {
+            id?: 'route/backend_error';
+            msg?: 'The route backend rejected the request';
+        };
+    };
+    /**
+     * The route backend is currently unavailable
+     */
+    '503‏': {
+        error?: {
+            id?: 'route/backend_unavailable';
+            msg?: 'The route backend is currently unavailable';
+        };
+    };
+};
+
+export type ResolveDomainZoneError = ResolveDomainZoneErrors[keyof ResolveDomainZoneErrors];
+
+export type ResolveDomainZoneResponses = {
+    /**
+     * Success
+     */
+    200: string;
+};
+
+export type ResolveDomainZoneResponse = ResolveDomainZoneResponses[keyof ResolveDomainZoneResponses];
 
 export type DeleteRouteDomainData = {
     body?: never;

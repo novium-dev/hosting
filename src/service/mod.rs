@@ -96,6 +96,7 @@ define_error!(route {
     subdomain_taken("The specified subdomain is already taken" BAD_REQUEST),
     port_invalid("The selected port is not a TCP port of this server" BAD_REQUEST),
     service_invalid("The specified SRV service name is invalid" BAD_REQUEST),
+    zone_not_found("No Cloudflare zone carries the route domain" BAD_REQUEST),
     https_unavailable("HTTPS is not available for the selected domain" BAD_REQUEST),
     kind_unavailable("Routes of this kind are not configured on this instance" BAD_REQUEST),
     backend_unavailable("The route backend is currently unavailable" SERVICE_UNAVAILABLE),
