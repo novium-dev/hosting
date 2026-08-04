@@ -5,6 +5,7 @@ use core::time::Duration;
 use rand::RngExt as _;
 use rand::distr::SampleString as _;
 use std::io;
+use subtle::ConstantTimeEq as _;
 use tokio::net::{TcpListener, TcpStream};
 
 const PASSWORD_LENGTH: usize = 24;
@@ -29,6 +30,13 @@ pub fn generate_password() -> String {
     }
 
     String::from_utf8_lossy(&password).into_owned()
+}
+
+/// Compares two byte strings without leaking where they first differ. Unequal
+/// lengths compare false, in constant time for the common length.
+#[must_use]
+pub fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
+    left.ct_eq(right).into()
 }
 
 #[must_use]

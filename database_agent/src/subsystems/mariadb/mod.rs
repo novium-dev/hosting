@@ -2,7 +2,7 @@ mod auth;
 mod protocol;
 
 use crate::state::Agent;
-use crate::utils::{SafeSliceExt as _, accept_loop, bad};
+use crate::utils::{SafeSliceExt as _, accept_loop, bad, constant_time_eq};
 use core::net::SocketAddr;
 use core::str::FromStr as _;
 use database_agent_common::identifier::UserIdentifier;
@@ -90,7 +90,7 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
         sequence = switched_sequence;
     }
 
-    if !constant_time_eq::constant_time_eq(
+    if !constant_time_eq(
         &token,
         &auth::native_token(&scramble, credentials.password.as_bytes()),
     ) {

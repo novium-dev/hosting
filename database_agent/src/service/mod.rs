@@ -87,10 +87,7 @@ impl Agent {
             .and_then(|value| value.strip_prefix("Bearer "))
             .unwrap_or_default();
 
-        if !constant_time_eq::constant_time_eq(
-            presented.as_bytes(),
-            self.config.api.token.as_bytes(),
-        ) {
+        if !crate::utils::constant_time_eq(presented.as_bytes(), self.config.api.token.as_bytes()) {
             return BlankError::AuthInvalid.into_response();
         }
 

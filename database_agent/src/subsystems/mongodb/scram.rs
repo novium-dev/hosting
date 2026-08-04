@@ -5,7 +5,7 @@
 
 use super::protocol::{binary, op_msg_doc, read_message, write_op_msg_request};
 use crate::subsystems::scram;
-use crate::utils::bad;
+use crate::utils::{bad, constant_time_eq};
 use bson::doc;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -64,7 +64,7 @@ impl Session {
         let (_, expected) = scram::client_proof(&salted, &auth_message);
 
         let given = scram::decode(&proof)?;
-        if !constant_time_eq::constant_time_eq(&expected, &given) {
+        if !constant_time_eq(&expected, &given) {
             return None;
         }
 

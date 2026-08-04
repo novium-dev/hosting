@@ -5,7 +5,7 @@
 
 use super::protocol::{read_msg, write_msg};
 use crate::subsystems::scram;
-use crate::utils::{SafeArrayExt as _, SafeSliceExt as _, bad};
+use crate::utils::{SafeArrayExt as _, SafeSliceExt as _, bad, constant_time_eq};
 use postgres_protocol::authentication::sasl::{ChannelBinding, ScramSha256};
 use postgres_protocol::message::frontend::{
     password_message, sasl_initial_response, sasl_response,
@@ -78,7 +78,7 @@ pub async fn authenticate_client<S: AsyncRead + AsyncWrite + Unpin>(
     let Some(given) = scram::decode(&proof) else {
         return Err(bad("malformed client proof"));
     };
-    if !constant_time_eq::constant_time_eq(&expected, &given) {
+    if !constant_time_eq(&expected, &given) {
         return Ok(false);
     }
 

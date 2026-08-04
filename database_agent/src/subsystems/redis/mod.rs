@@ -1,7 +1,7 @@
 mod resp;
 
 use crate::state::Agent;
-use crate::utils::accept_loop;
+use crate::utils::{accept_loop, constant_time_eq};
 use core::net::SocketAddr;
 use core::str::FromStr as _;
 use database_agent_common::identifier::UserIdentifier;
@@ -91,9 +91,7 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
     let user_id = UserIdentifier::from_str(&identity.user).ok();
     let credentials = user_id
         .and_then(|id| agent.routes.find(KIND, &id))
-        .filter(|candidate| {
-            constant_time_eq::constant_time_eq(&identity.password, candidate.password.as_bytes())
-        });
+        .filter(|candidate| constant_time_eq(&identity.password, candidate.password.as_bytes()));
 
     let Some(credentials) = credentials else {
         tracing::debug!("[{peer}] rejected the auth for user {:?}", identity.user);

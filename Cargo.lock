@@ -1250,12 +1250,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "constant_time_eq"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a1ec0cfec728a79a5109075543131387f911cb4d07716436d7ae20533657a96"
-
-[[package]]
 name = "convert_case"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1704,7 +1698,6 @@ dependencies = [
  "bson 3.1.0",
  "bytes",
  "chrono",
- "constant_time_eq",
  "database_agent_common",
  "futures-util",
  "hmac 0.12.1",
@@ -1722,6 +1715,7 @@ dependencies = [
  "sha1 0.10.7",
  "sha2 0.10.9",
  "sqlx",
+ "subtle",
  "tokio",
  "tokio-postgres",
  "tokio-util",
