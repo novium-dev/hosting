@@ -22,6 +22,8 @@ import AdminNodesPage from "@/app/(app)/admin/nodes/page";
 import AdminNodePage from "@/app/(app)/admin/nodes/[node]/page";
 import AdminRegionsPage from "@/app/(app)/admin/regions/page";
 import AdminDomainsPage from "@/app/(app)/admin/domains/page";
+import AdminDatabasesPage from "@/app/(app)/admin/databases/page";
+import AdminDatabaseHostPage from "@/app/(app)/admin/databases/[host]/page";
 import AdminProjectsPage from "@/app/(app)/admin/projects/page";
 import AdminUsersPage from "@/app/(app)/admin/users/page";
 import AdminUserPage from "@/app/(app)/admin/users/[user]/page";
@@ -34,6 +36,7 @@ import OrganizationPage from "@/app/(app)/[slug]/page";
 import SettingsPage from "@/app/(app)/[slug]/settings/page";
 import MembersPage from "@/app/(app)/[slug]/members/page";
 import ApiKeysPage from "@/app/(app)/[slug]/api-keys/page";
+import DatabasesPage from "@/app/(app)/[slug]/databases/page";
 import ProfilePage from "@/app/(app)/[slug]/profile/page";
 import ServerLayout from "@/app/(app)/[slug]/servers/[server]/layout";
 import ServerSectionPage from "@/app/(app)/[slug]/servers/[server]/[[...section]]/page";
@@ -67,6 +70,8 @@ export const router = createBrowserRouter([
               { path: "nodes/:node", element: <AdminNodePage /> },
               { path: "regions", element: <AdminRegionsPage /> },
               { path: "domains", element: <AdminDomainsPage /> },
+              { path: "databases", element: <AdminDatabasesPage /> },
+              { path: "databases/:host", element: <AdminDatabaseHostPage /> },
               { path: "projects", element: <AdminProjectsPage /> },
               { path: "users", element: <AdminUsersPage /> },
               { path: "api-keys", element: <AdminApiKeysPage /> },
@@ -86,6 +91,7 @@ export const router = createBrowserRouter([
               { path: "settings", element: <SettingsPage /> },
               { path: "members", element: <MembersPage /> },
               { path: "api-keys", element: <ApiKeysPage /> },
+              { path: "databases", element: <DatabasesPage /> },
               {
                 path: "profile",
                 element: <ProfilePage />,

@@ -1,0 +1,67 @@
+[package]
+name = "database_agent"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+base64.workspace = true
+bytes.workspace = true
+chrono = { workspace = true, features = ["clock", "serde"] }
+futures-util.workspace = true
+parking_lot.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+toml.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid = { workspace = true, features = ["v4", "serde"] }
+
+axum.workspace = true
+axum-server.workspace = true
+tower-http.workspace = true
+utoipa.workspace = true
+utoipa-axum.workspace = true
+utoipa-swagger-ui.workspace = true
+
+rustls.workspace = true
+
+subtle = "2.6.1"
+hmac = "0.12.1"
+itertools = "0.15.0"
+rustc-hash = "2.1.2"
+sha1 = "0.10.7"
+
+bollard = "0.21.0"
+bson = "3.1.0"
+mongodb = "3.7.0"
+mysql_async = { version = "0.37.0", default-features = false, features = [
+    "minimal",
+] }
+postgres-protocol = "0.6.12"
+tokio-postgres = { version = "0.7.18", default-features = false }
+
+[dependencies.redis]
+workspace = true
+features = ["tokio-comp"]
+
+[dependencies.sqlx]
+workspace = true
+features = ["sqlite"]
+
+[dependencies.zelus]
+workspace = true
+features = ["error", "io"]
+
+[dependencies.database_agent_common]
+workspace = true
+features = ["service"]

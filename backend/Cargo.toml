@@ -1,0 +1,109 @@
+[package]
+name = "backend"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[features]
+default = []
+auth_dev = []
+embedded_node = ["daemon"]
+
+[lints]
+workspace = true
+
+[dependencies]
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+futures.workspace = true
+ed25519-dalek = "3.0.0-pre.6"
+rustls.workspace = true
+indexmap = "2.14.0"
+regex = "1.12.3"
+async-trait.workspace = true
+anyhow.workspace = true
+signal-hook = "0.4.4"
+tokio-util.workspace = true
+
+rand.workspace = true
+chrono.workspace = true
+hex.workspace = true
+sha2.workspace = true
+
+axum.workspace = true
+axum-extra.workspace = true
+axum-server.workspace = true
+reqwest.workspace = true
+
+uuid.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml_ng = "0.10"
+
+java-properties = "2.0.0"
+serde-xml-rs = "0.8.2"
+nanoid = "0.5.0"
+base64.workspace = true
+
+bitflags.workspace = true
+arrayvec.workspace = true
+concat-idents = "1.1.5"
+http.workspace = true
+url.workspace = true
+lazy-regex.workspace = true
+oauth2 = "5.0.0"
+ssh-key = "0.6.7"
+either = "1.16.0"
+bytes.workspace = true
+
+redis.workspace = true
+toml.workspace = true
+utoipa.workspace = true
+utoipa-axum.workspace = true
+utoipa-swagger-ui.workspace = true
+tower-http.workspace = true
+
+[dependencies.sqlx]
+workspace = true
+features = ["postgres"]
+
+[dependencies.database_agent_common]
+workspace = true
+features = ["sdk"]
+
+[dependencies.daemon_common]
+git = "ssh://git@github.com/novium-dev/daemon.git"
+default-features = false
+features = ["sdk", "backend", "ssh"]
+
+[dependencies.zelus]
+workspace = true
+features = ["error", "io", "sqlx", "redis"]
+
+[dependencies.daemon]
+git = "ssh://git@github.com/novium-dev/daemon.git"
+default-features = false
+features = ["btrfs"]
+optional = true
+
+[dependencies.sentry]
+version = "0.48.2"
+default-features = false
+features = [
+    "backtrace",
+    "contexts",
+    "debug-images",
+    "panic",
+    "rustls",
+    "log",
+    "tower",
+    "tower-axum-matched-path",
+    "tracing",
+    "reqwest",
+]
+
+[dependencies.speedy]
+version = "0.8.7"
+features = ["speedy-derive", "indexmap_v2"]

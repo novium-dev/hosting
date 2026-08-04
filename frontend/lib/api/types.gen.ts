@@ -23,6 +23,12 @@ export type AddSshKeyPayload = {
     public_key: string;
 };
 
+export type ApiInstance = StoredInstance & {
+    backend_auth_error?: string | null;
+    database_count: number;
+    utilization: ResourceUsage;
+};
+
 export type BackupStorage = {
     btrfs: string;
 } | 'archive';
@@ -36,16 +42,45 @@ export type ChangeServerTemplatePayload = {
     wipe?: boolean | null;
 };
 
+export const ContainerState = {
+    OFFLINE: 'offline',
+    RUNNING: 'running',
+    STARTING: 'starting',
+    STOPPING: 'stopping'
+} as const;
+
+export type ContainerState = typeof ContainerState[keyof typeof ContainerState];
+
 export type CreateApiKeyPayload = {
     name: string;
     permissions: number;
     project?: null | NanoId;
 };
 
+export type CreateDatabaseHost = {
+    display: string;
+    ports?: {
+        [key: string]: number;
+    };
+    public_host: string;
+    region: NanoId;
+    token: string;
+    url: string;
+};
+
+export type CreateDatabaseInstance = StoredInstanceCreate & {
+    display: string;
+};
+
 export type CreateNodePayload = {
     config: SetupNodeConfigRequest;
     name: string;
     region: NanoId;
+};
+
+export type CreateProjectDatabase = {
+    name: string;
+    type: DatabaseType;
 };
 
 export type CreateProjectPayload = {
@@ -74,6 +109,15 @@ export type CreateServerPayload = {
         [key: string]: string;
     };
 };
+
+export const DatabaseType = {
+    MARIADB: 'mariadb',
+    MONGODB: 'mongodb',
+    POSTGRES: 'postgres',
+    REDIS: 'redis'
+} as const;
+
+export type DatabaseType = typeof DatabaseType[keyof typeof DatabaseType];
 
 export type HashMap = {
     [key: string]: string;
@@ -246,6 +290,15 @@ export const ResourceType = {
 
 export type ResourceType = typeof ResourceType[keyof typeof ResourceType];
 
+export type ResourceUsage = {
+    cpu_absolute: number;
+    disk_bytes: number;
+    memory_bytes: number;
+    memory_limit_bytes: number;
+    state: ContainerState;
+    uptime: number;
+};
+
 export const ResourceVersionType = {
     RELEASE: 'release',
     BETA: 'beta',
@@ -392,6 +445,49 @@ export type SshEndpointRequest = {
     port: number;
 };
 
+export type StoredInstance = {
+    cmd?: Array<string> | null;
+    cpu: number;
+    created: string;
+    database_type: DatabaseType;
+    disk: number;
+    env: {
+        [key: string]: string;
+    };
+    image: string;
+    image_gid: number;
+    image_uid: number;
+    io_weight?: number | null;
+    memory: number;
+    socket_path: string;
+    suspended: boolean;
+    swap: number;
+    timezone?: string | null;
+    uuid: string;
+    uuid_short: number;
+    volumes: VolumeMapping;
+};
+
+export type StoredInstanceCreate = {
+    cmd?: Array<string> | null;
+    cpu: number;
+    database_type: DatabaseType;
+    disk: number;
+    env?: {
+        [key: string]: string;
+    };
+    image: string;
+    image_gid: number;
+    image_uid: number;
+    io_weight?: number | null;
+    memory: number;
+    socket_path: string;
+    suspended?: boolean;
+    swap: number;
+    timezone?: string | null;
+    volumes?: VolumeMapping;
+};
+
 export type TemplatePortDefinition = {
     http: boolean;
     internal_port: number;
@@ -410,6 +506,18 @@ export type UnmanagedResource = {
 export type UpdateApiKeyPayload = {
     name?: string | null;
     permissions?: number | null;
+};
+
+export type UpdateDatabaseHost = {
+    display?: string | null;
+    maintenance?: boolean | null;
+    ports?: {
+        [key: string]: number;
+    } | null;
+    public_host?: string | null;
+    region?: null | NanoId;
+    token?: string | null;
+    url?: string | null;
 };
 
 export type UpdatePortPayload = {
@@ -478,6 +586,10 @@ export type VariableType = IndexSetString | {
     placeholder: string;
     regex: string;
     secret: boolean;
+};
+
+export type VolumeMapping = {
+    [key: string]: string;
 };
 
 export type Bool = boolean;
@@ -12799,3 +12911,1125 @@ export type AllowDomainProjectResponses = {
 };
 
 export type AllowDomainProjectResponse = AllowDomainProjectResponses[keyof AllowDomainProjectResponses];
+
+export type ListProjectDatabasesData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+    };
+    query?: never;
+    url: '/project/{project_id}/database';
+};
+
+export type ListProjectDatabasesErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListProjectDatabasesError = ListProjectDatabasesErrors[keyof ListProjectDatabasesErrors];
+
+export type ListProjectDatabasesResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        created: string;
+        database: string;
+        host: string;
+        id: NanoId;
+        name: string;
+        password: string;
+        port: number;
+        type: DatabaseType;
+        uri: string;
+        username: string;
+    }>;
+};
+
+export type ListProjectDatabasesResponse = ListProjectDatabasesResponses[keyof ListProjectDatabasesResponses];
+
+export type CreateProjectDatabaseData = {
+    body: CreateProjectDatabase;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+    };
+    query?: never;
+    url: '/project/{project_id}/database';
+};
+
+export type CreateProjectDatabaseErrors = {
+    /**
+     * The database name must be 1-20 characters of lowercase letters or digits
+     */
+    '400‍': {
+        error?: {
+            id?: 'database/name_invalid';
+            msg?: 'The database name must be 1-20 characters of lowercase letters or digits';
+        };
+    };
+    /**
+     * A database with this name already exists in the project
+     */
+    '400‎': {
+        error?: {
+            id?: 'database/name_taken';
+            msg?: 'A database with this name already exists in the project';
+        };
+    };
+    /**
+     * The project database limit has been reached
+     */
+    '400‏': {
+        error?: {
+            id?: 'database/limit_exceeded';
+            msg?: 'The project database limit has been reached';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‬': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‫': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+    /**
+     * No database host offers this database type
+     */
+    '503‪': {
+        error?: {
+            id?: 'database/type_unavailable';
+            msg?: 'No database host offers this database type';
+        };
+    };
+};
+
+export type CreateProjectDatabaseError = CreateProjectDatabaseErrors[keyof CreateProjectDatabaseErrors];
+
+export type CreateProjectDatabaseResponses = {
+    /**
+     * Success
+     */
+    200: {
+        created: string;
+        database: string;
+        host: string;
+        id: NanoId;
+        name: string;
+        password: string;
+        port: number;
+        type: DatabaseType;
+        uri: string;
+        username: string;
+    };
+};
+
+export type CreateProjectDatabaseResponse = CreateProjectDatabaseResponses[keyof CreateProjectDatabaseResponses];
+
+export type DeleteProjectDatabaseData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The database ID
+         */
+        database_id: NanoId;
+    };
+    query?: never;
+    url: '/project/{project_id}/database/{database_id}';
+};
+
+export type DeleteProjectDatabaseErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified database was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/not_found';
+            msg?: 'The specified database was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‎': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+};
+
+export type DeleteProjectDatabaseError = DeleteProjectDatabaseErrors[keyof DeleteProjectDatabaseErrors];
+
+export type DeleteProjectDatabaseResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteProjectDatabaseResponse = DeleteProjectDatabaseResponses[keyof DeleteProjectDatabaseResponses];
+
+export type GetProjectDatabaseData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The database ID
+         */
+        database_id: NanoId;
+    };
+    query?: never;
+    url: '/project/{project_id}/database/{database_id}';
+};
+
+export type GetProjectDatabaseErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified database was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/not_found';
+            msg?: 'The specified database was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type GetProjectDatabaseError = GetProjectDatabaseErrors[keyof GetProjectDatabaseErrors];
+
+export type GetProjectDatabaseResponses = {
+    /**
+     * Success
+     */
+    200: {
+        created: string;
+        database: string;
+        host: string;
+        id: NanoId;
+        name: string;
+        password: string;
+        port: number;
+        type: DatabaseType;
+        uri: string;
+        username: string;
+    };
+};
+
+export type GetProjectDatabaseResponse = GetProjectDatabaseResponses[keyof GetProjectDatabaseResponses];
+
+export type RotateProjectDatabasePasswordData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The database ID
+         */
+        database_id: NanoId;
+    };
+    query?: never;
+    url: '/project/{project_id}/database/{database_id}/rotate';
+};
+
+export type RotateProjectDatabasePasswordErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified database was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/not_found';
+            msg?: 'The specified database was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‎': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+};
+
+export type RotateProjectDatabasePasswordError = RotateProjectDatabasePasswordErrors[keyof RotateProjectDatabasePasswordErrors];
+
+export type RotateProjectDatabasePasswordResponses = {
+    /**
+     * Success
+     */
+    200: {
+        created: string;
+        database: string;
+        host: string;
+        id: NanoId;
+        name: string;
+        password: string;
+        port: number;
+        type: DatabaseType;
+        uri: string;
+        username: string;
+    };
+};
+
+export type RotateProjectDatabasePasswordResponse = RotateProjectDatabasePasswordResponses[keyof RotateProjectDatabasePasswordResponses];
+
+export type ListDatabaseHostsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/database/host';
+};
+
+export type ListDatabaseHostsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListDatabaseHostsError = ListDatabaseHostsErrors[keyof ListDatabaseHostsErrors];
+
+export type ListDatabaseHostsResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        display: string;
+        id: string;
+        instance_count: number;
+        maintenance: boolean;
+        ports: {
+            [key: string]: number;
+        };
+        public_host: string;
+        region: NanoId;
+        url: string;
+    }>;
+};
+
+export type ListDatabaseHostsResponse = ListDatabaseHostsResponses[keyof ListDatabaseHostsResponses];
+
+export type CreateDatabaseHostData = {
+    body: CreateDatabaseHost;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/database/host';
+};
+
+export type CreateDatabaseHostErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified region was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'region/not_found';
+            msg?: 'The specified region was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type CreateDatabaseHostError = CreateDatabaseHostErrors[keyof CreateDatabaseHostErrors];
+
+export type CreateDatabaseHostResponses = {
+    /**
+     * Success
+     */
+    200: {
+        id: string;
+    };
+};
+
+export type CreateDatabaseHostResponse = CreateDatabaseHostResponses[keyof CreateDatabaseHostResponses];
+
+export type DeleteDatabaseHostData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The database host ID
+         */
+        host_id: string;
+    };
+    query?: never;
+    url: '/admin/database/host/{host_id}';
+};
+
+export type DeleteDatabaseHostErrors = {
+    /**
+     * The database host still has instances
+     */
+    '400‍': {
+        error?: {
+            id?: 'database/host_not_empty';
+            msg?: 'The database host still has instances';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified database host was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'database/host_not_found';
+            msg?: 'The specified database host was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type DeleteDatabaseHostError = DeleteDatabaseHostErrors[keyof DeleteDatabaseHostErrors];
+
+export type DeleteDatabaseHostResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteDatabaseHostResponse = DeleteDatabaseHostResponses[keyof DeleteDatabaseHostResponses];
+
+export type UpdateDatabaseHostData = {
+    body: UpdateDatabaseHost;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The database host ID
+         */
+        host_id: string;
+    };
+    query?: never;
+    url: '/admin/database/host/{host_id}';
+};
+
+export type UpdateDatabaseHostErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified database host was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'database/host_not_found';
+            msg?: 'The specified database host was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type UpdateDatabaseHostError = UpdateDatabaseHostErrors[keyof UpdateDatabaseHostErrors];
+
+export type UpdateDatabaseHostResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UpdateDatabaseHostResponse = UpdateDatabaseHostResponses[keyof UpdateDatabaseHostResponses];
+
+export type ListDatabaseInstancesData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The database host ID
+         */
+        host_id: string;
+    };
+    query?: never;
+    url: '/admin/database/host/{host_id}/instance';
+};
+
+export type ListDatabaseInstancesErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified database host was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'database/host_not_found';
+            msg?: 'The specified database host was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListDatabaseInstancesError = ListDatabaseInstancesErrors[keyof ListDatabaseInstancesErrors];
+
+export type ListDatabaseInstancesResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        database_count: number;
+        display: string;
+        host: string;
+        id: string;
+        remote?: null | ApiInstance;
+        type: DatabaseType;
+    }>;
+};
+
+export type ListDatabaseInstancesResponse = ListDatabaseInstancesResponses[keyof ListDatabaseInstancesResponses];
+
+export type CreateDatabaseInstanceData = {
+    body: CreateDatabaseInstance;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The database host ID
+         */
+        host_id: string;
+    };
+    query?: never;
+    url: '/admin/database/host/{host_id}/instance';
+};
+
+export type CreateDatabaseInstanceErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified database host was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'database/host_not_found';
+            msg?: 'The specified database host was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‍': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+};
+
+export type CreateDatabaseInstanceError = CreateDatabaseInstanceErrors[keyof CreateDatabaseInstanceErrors];
+
+export type CreateDatabaseInstanceResponses = {
+    /**
+     * Success
+     */
+    200: {
+        id: string;
+    };
+};
+
+export type CreateDatabaseInstanceResponse = CreateDatabaseInstanceResponses[keyof CreateDatabaseInstanceResponses];
+
+export type DeleteDatabaseInstanceData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The database host ID
+         */
+        host_id: string;
+        /**
+         * The database instance ID
+         */
+        instance_id: string;
+    };
+    query?: never;
+    url: '/admin/database/host/{host_id}/instance/{instance_id}';
+};
+
+export type DeleteDatabaseInstanceErrors = {
+    /**
+     * The database instance still has project databases
+     */
+    '400‎': {
+        error?: {
+            id?: 'database/instance_not_empty';
+            msg?: 'The database instance still has project databases';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified database host was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'database/host_not_found';
+            msg?: 'The specified database host was not found';
+        };
+    };
+    /**
+     * The specified database instance was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/instance_not_found';
+            msg?: 'The specified database instance was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‪': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‏': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+};
+
+export type DeleteDatabaseInstanceError = DeleteDatabaseInstanceErrors[keyof DeleteDatabaseInstanceErrors];
+
+export type DeleteDatabaseInstanceResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteDatabaseInstanceResponse = DeleteDatabaseInstanceResponses[keyof DeleteDatabaseInstanceResponses];

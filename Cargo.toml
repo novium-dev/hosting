@@ -1,18 +1,104 @@
-[package]
-name = "backend"
-version = "0.1.0"
-edition = "2024"
-publish = false
+[workspace]
+members = ["backend", "database_agent", "database_agent_common"]
+resolver = "3"
 
 [patch.crates-io]
 reqwest.git = "https://github.com/0xIO32/reqwest.git"
 
-[features]
-default = []
-auth_dev = []
-embedded_node = ["daemon"]
+[workspace.dependencies]
+anyhow = "1.0"
+arrayvec = "0.7.6"
+async-trait = "0.1.89"
+base64 = "0.22.1"
+bitflags = "2.11.1"
+bytes = "1.11.1"
+chrono = "0.4.44"
+futures = "0.3.32"
+futures-util = "0.3.32"
+hex = "0.4.3"
+http = "1.4.0"
+lazy-regex = "3.6.0"
+parking_lot = "0.12.5"
+rand = "0.10.1"
+rustls = "0.23.35"
+serde = "1.0"
+serde_json = "1.0"
+sha2 = "0.10.9"
+tokio = { version = "1.52.3", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io"] }
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+url = "2.5.8"
+uuid = "1.13.1"
 
-[lints.rust]
+axum = "0.8.9"
+axum-extra = { version = "0.12.6", features = ["typed-header", "cookie"] }
+axum-server = "0.8.0"
+
+database_agent_common = { path = "database_agent_common", default-features = false }
+
+[workspace.dependencies.reqwest]
+version = "0.12.28"
+default-features = false
+features = [
+    "charset",
+    "http2",
+    "json",
+    "rustls-tls-webpki-roots-no-provider",
+    "stream",
+]
+
+[workspace.dependencies.sqlx]
+version = "0.9.0"
+default-features = false
+features = [
+    "chrono",
+    "macros",
+    "migrate",
+    "runtime-tokio",
+    "tls-rustls-aws-lc-rs",
+    "uuid",
+]
+
+[workspace.dependencies.redis]
+version = "1.2.1"
+default-features = false
+features = [
+    "uuid",
+    "json",
+    "tls-rustls",
+    "tls-rustls-webpki-roots",
+    "tokio-rustls-comp",
+    "connection-manager",
+]
+
+[workspace.dependencies.toml]
+version = "1.1.2+spec-1.1.0"
+features = ["serde", "preserve_order"]
+
+[workspace.dependencies.utoipa]
+version = "5.4.0"
+features = ["macros", "preserve_path_order", "uuid", "indexmap", "chrono"]
+
+[workspace.dependencies.utoipa-axum]
+version = "0.2.0"
+
+[workspace.dependencies.utoipa-swagger-ui]
+version = "9.0.2"
+features = ["axum"]
+
+[workspace.dependencies.tower-http]
+version = "0.6.8"
+features = ["cors", "auth", "trace", "fs"]
+
+[workspace.dependencies.zelus]
+git = "https://github.com/0xIO32/zelus.git"
+default-features = false
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
+
+[workspace.lints.rust]
 unused = { level = "deny", priority = -1 }
 private_bounds = "allow"
 deprecated = "warn"
@@ -22,7 +108,7 @@ refining-impl-trait = "deny"
 keyword-idents = "deny"
 future-incompatible = "deny"
 
-[lints.clippy]
+[workspace.lints.clippy]
 correctness = { level = "deny", priority = -1 }
 suspicious = { level = "deny", priority = -1 }
 complexity = { level = "deny", priority = -1 }
@@ -191,133 +277,3 @@ alloc_instead_of_core = "deny"
 big_endian_bytes = "deny"
 host_endian_bytes = "deny"
 little_endian_bytes = "deny"
-
-
-[dependencies]
-tokio = { version = "1.52.3", features = ["full"] }
-tracing = "0.1.44"
-tracing-subscriber = "0.3.23"
-futures = "0.3.32"
-ed25519-dalek = "3.0.0-pre.6"
-rustls = "0.23.35"
-indexmap = "2.14.0"
-regex = "1.12.3"
-async-trait = "0.1.89"
-anyhow = "1.0"
-signal-hook = "0.4.4"
-tokio-util = { version = "0.7", features = ["io"] }
-
-rand = "0.10.1"
-chrono = "0.4.44"
-hex = "0.4.3"
-sha2 = "0.10.9"
-
-axum = "0.8.9"
-axum-extra = { version = "0.12.6", features = ["typed-header", "cookie"] }
-axum-server = "0.8.0"
-reqwest = { version = "0.12.28", default-features = false, features = [
-    "charset",
-    "http2",
-    "json",
-    "rustls-tls-webpki-roots-no-provider",
-    "stream",
-] }
-
-uuid = "1.13.1"
-
-serde = "1.0"
-serde_json = "1.0"
-serde_yaml_ng = "0.10"
-
-java-properties = "2.0.0"
-serde-xml-rs = "0.8.2"
-nanoid = "0.5.0"
-base64 = "0.22.1"
-
-sqlx = { version = "0.9.0", default-features = false, features = [
-    "postgres",
-    "runtime-tokio",
-    "tls-rustls-aws-lc-rs",
-    "uuid",
-    "chrono",
-] }
-bitflags = "2.11.1"
-arrayvec = "0.7.6"
-concat-idents = "1.1.5"
-http = "1.4.0"
-url = "2.5.8"
-lazy-regex = "3.6.0"
-oauth2 = "5.0.0"
-ssh-key = "0.6.7"
-either = "1.16.0"
-bytes = "1.11.1"
-
-[profile.dev.package.sqlx-macros]
-opt-level = 3
-
-[dependencies.daemon_common]
-git = "ssh://git@github.com/novium-dev/daemon.git"
-default-features = false
-features = ["sdk", "backend", "ssh"]
-
-[dependencies.zelus]
-git = "https://github.com/0xIO32/zelus.git"
-default-features = false
-features = ["error", "io", "sqlx", "redis"]
-
-[dependencies.daemon]
-git = "ssh://git@github.com/novium-dev/daemon.git"
-default-features = false
-features = ["btrfs"]
-optional = true
-
-[dependencies.sentry]
-version = "0.48.2"
-default-features = false
-features = [
-    "backtrace",
-    "contexts",
-    "debug-images",
-    "panic",
-    "rustls",
-    "log",
-    "tower",
-    "tower-axum-matched-path",
-    "tracing",
-    "reqwest",
-]
-
-[dependencies.utoipa]
-version = "5.4.0"
-features = ["macros", "preserve_path_order", "uuid", "indexmap"]
-
-[dependencies.utoipa-axum]
-version = "0.2.0"
-
-[dependencies.utoipa-swagger-ui]
-version = "9.0.2"
-features = ["axum"]
-
-[dependencies.tower-http]
-version = "0.6.8"
-features = ["cors", "auth", "trace", "fs"]
-
-[dependencies.redis]
-version = "1.2.1"
-default-features = false
-features = [
-    "uuid",
-    "json",
-    "tls-rustls",
-    "tls-rustls-webpki-roots",
-    "tokio-rustls-comp",
-    "connection-manager",
-]
-
-[dependencies.toml]
-version = "1.1.2+spec-1.1.0"
-features = ["serde", "preserve_order"]
-
-[dependencies.speedy]
-version = "0.8.7"
-features = ["speedy-derive", "indexmap_v2"]
