@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Boxes, PlusIcon, Trash2Icon } from "lucide-react";
+import { Boxes, PencilIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import Link from "@/components/link";
@@ -30,18 +30,24 @@ import {
   deleteDatabaseInstance,
   type ListDatabaseInstancesResponses,
 } from "@/lib/api";
-import { CreateInstanceDialog } from "./create-instance-dialog";
+import { EditInstanceDialog } from "./edit-instance-dialog";
 
-export type DatabaseInstanceRow =
-  ListDatabaseInstancesResponses[200][number];
+export type DatabaseInstanceRow = ListDatabaseInstancesResponses[200][number];
 
 function stateBadge(instance: DatabaseInstanceRow) {
-  const state = instance.remote?.utilization?.state;
-
   if (!instance.remote) return <Badge variant="destructive">Unreachable</Badge>;
+  if (instance.remote.suspended)
+    return <Badge variant="destructive">Suspended</Badge>;
+
+  const state = instance.remote.utilization?.state;
   if (state === "running") return <Badge>Running</Badge>;
 
   return <Badge variant="secondary">{state ?? "Offline"}</Badge>;
+}
+
+function formatMib(value: number | null | undefined) {
+  if (!value) return "—";
+  return value >= 1024 ? `${(value / 1024).toFixed(1)} GiB` : `${value} MiB`;
 }
 
 export function DatabaseInstancesTable({
@@ -57,7 +63,7 @@ export function DatabaseInstancesTable({
   canManage: boolean;
   onChanged: () => void;
 }) {
-  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<DatabaseInstanceRow | null>(null);
   const [deleting, setDeleting] = useState<DatabaseInstanceRow | null>(null);
   const [isDeletePending, setIsDeletePending] = useState(false);
 
@@ -87,25 +93,17 @@ export function DatabaseInstancesTable({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            <Link href="/admin/databases" className="hover:underline">
-              Database hosts
-            </Link>
-          </p>
-          <h1 className="text-xl font-semibold">{hostName}</h1>
-          <p className="text-sm text-muted-foreground">
-            Each instance is one database engine in a container. Project
-            databases are placed on an instance of the engine they asked for.
-          </p>
-        </div>
-        {canManage ? (
-          <Button type="button" onClick={() => setCreating(true)}>
-            <PlusIcon data-icon="inline-start" />
-            Create instance
-          </Button>
-        ) : null}
+      <div>
+        <p className="text-sm text-muted-foreground">
+          <Link href="/admin/databases" className="hover:underline">
+            Database hosts
+          </Link>
+        </p>
+        <h1 className="text-xl font-semibold">{hostName}</h1>
+        <p className="text-sm text-muted-foreground">
+          Projects create their own instances here. Renaming one and changing its
+          limits is an admin job.
+        </p>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-muted">
@@ -113,22 +111,23 @@ export function DatabaseInstancesTable({
           <TableHeader className="bg-muted/40">
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Project</TableHead>
               <TableHead>Engine</TableHead>
               <TableHead>State</TableHead>
-              <TableHead>Databases</TableHead>
               <TableHead>Memory</TableHead>
+              <TableHead>Disk</TableHead>
               <TableHead className="text-right">Manage</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {instances.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-28">
+                <TableCell colSpan={7} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <Boxes className="size-5 text-muted-foreground" />
                     <p className="text-sm font-medium">No instances yet</p>
                     <p className="text-sm text-muted-foreground">
-                      Create one per engine you want to offer on this host.
+                      They appear here once a project creates one.
                     </p>
                   </div>
                 </TableCell>
@@ -140,28 +139,47 @@ export function DatabaseInstancesTable({
                     {instance.display}
                   </TableCell>
                   <TableCell>
+                    <Link
+                      href={`/${instance.project_slug}`}
+                      className="hover:underline"
+                    >
+                      {instance.project_slug}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
                     <Badge variant="secondary">
                       {DATABASE_TYPE_LABELS[instance.type]}
                     </Badge>
                   </TableCell>
                   <TableCell>{stateBadge(instance)}</TableCell>
-                  <TableCell>{instance.database_count}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {instance.remote?.memory
-                      ? `${instance.remote.memory} MiB`
-                      : "—"}
+                    {formatMib(instance.remote?.memory)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatMib(instance.remote?.disk)}
                   </TableCell>
                   <TableCell className="text-right">
                     {canManage ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleting(instance)}
-                        aria-label="Delete instance"
-                      >
-                        <Trash2Icon className="size-4" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEditing(instance)}
+                          aria-label="Edit instance"
+                        >
+                          <PencilIcon className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleting(instance)}
+                          aria-label="Delete instance"
+                        >
+                          <Trash2Icon className="size-4" />
+                        </Button>
+                      </div>
                     ) : null}
                   </TableCell>
                 </TableRow>
@@ -171,11 +189,14 @@ export function DatabaseInstancesTable({
         </Table>
       </div>
 
-      <CreateInstanceDialog
+      <EditInstanceDialog
         hostId={hostId}
-        open={creating}
-        onOpenChange={setCreating}
-        onCreated={onChanged}
+        instance={editing ?? undefined}
+        open={editing !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+        onSaved={onChanged}
       />
 
       <AlertDialog
@@ -188,8 +209,8 @@ export function DatabaseInstancesTable({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {deleting?.display}?</AlertDialogTitle>
             <AlertDialogDescription>
-              The container and all of its data are removed from the host. It
-              must have no project databases left on it.
+              This belongs to {deleting?.project_slug}. The container, every
+              database and user on it, and all of their data are removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

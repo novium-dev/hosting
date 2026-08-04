@@ -1,23 +1,92 @@
 import {
-  createProjectDatabase,
-  deleteProjectDatabase,
-  rotateProjectDatabasePassword,
+  createInstanceDatabase,
+  createProjectInstance,
+  createInstanceUser,
+  deleteInstanceDatabase,
+  deleteProjectInstance,
+  deleteInstanceUser,
+  powerProjectInstance,
+  rotateInstanceUserPassword,
 } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
 import {
   createDatabaseSchema,
-  databaseSchema,
+  createInstanceSchema,
+  createUserSchema,
+  deleteDatabaseSchema,
+  instanceSchema,
+  powerInstanceSchema,
+  userSchema,
 } from "@/types/database.schema";
+
+export const createInstanceAction = authActionClient
+  .inputSchema(createInstanceSchema)
+  .action(async ({ parsedInput }) => {
+    const { projectId, display, type } = parsedInput;
+
+    const response = await createProjectInstance({
+      path: { project_id: projectId },
+      body: { display, type },
+    });
+
+    if (response.error || !response.data) {
+      throw new ActionError(
+        response.error?.error?.msg || "Failed to create the instance",
+      );
+    }
+
+    return response.data;
+  });
+
+export const deleteInstanceAction = authActionClient
+  .inputSchema(instanceSchema)
+  .action(async ({ parsedInput }) => {
+    const response = await deleteProjectInstance({
+      path: {
+        project_id: parsedInput.projectId,
+        instance_id: parsedInput.instanceId,
+      },
+    });
+
+    if (response.error) {
+      throw new ActionError(
+        response.error.error?.msg || "Failed to delete the instance",
+      );
+    }
+
+    return { success: true };
+  });
+
+export const powerInstanceAction = authActionClient
+  .inputSchema(powerInstanceSchema)
+  .action(async ({ parsedInput }) => {
+    const response = await powerProjectInstance({
+      path: {
+        project_id: parsedInput.projectId,
+        instance_id: parsedInput.instanceId,
+      },
+      body: parsedInput.action,
+    });
+
+    if (response.error) {
+      throw new ActionError(
+        response.error.error?.msg || "Failed to change the power state",
+      );
+    }
+
+    return { success: true };
+  });
 
 export const createDatabaseAction = authActionClient
   .inputSchema(createDatabaseSchema)
   .action(async ({ parsedInput }) => {
-    const { projectId, name, type } = parsedInput;
-
-    const response = await createProjectDatabase({
-      path: { project_id: projectId },
-      body: { name, type },
+    const response = await createInstanceDatabase({
+      path: {
+        project_id: parsedInput.projectId,
+        instance_id: parsedInput.instanceId,
+      },
+      body: { name: parsedInput.name },
     });
 
     if (response.error || !response.data) {
@@ -30,12 +99,14 @@ export const createDatabaseAction = authActionClient
   });
 
 export const deleteDatabaseAction = authActionClient
-  .inputSchema(databaseSchema)
+  .inputSchema(deleteDatabaseSchema)
   .action(async ({ parsedInput }) => {
-    const { projectId, databaseId } = parsedInput;
-
-    const response = await deleteProjectDatabase({
-      path: { project_id: projectId, database_id: databaseId },
+    const response = await deleteInstanceDatabase({
+      path: {
+        project_id: parsedInput.projectId,
+        instance_id: parsedInput.instanceId,
+        database_id: parsedInput.databaseId,
+      },
     });
 
     if (response.error) {
@@ -47,13 +118,58 @@ export const deleteDatabaseAction = authActionClient
     return { success: true };
   });
 
-export const rotateDatabasePasswordAction = authActionClient
-  .inputSchema(databaseSchema)
+export const createUserAction = authActionClient
+  .inputSchema(createUserSchema)
   .action(async ({ parsedInput }) => {
-    const { projectId, databaseId } = parsedInput;
+    const response = await createInstanceUser({
+      path: {
+        project_id: parsedInput.projectId,
+        instance_id: parsedInput.instanceId,
+      },
+      body: {
+        username: parsedInput.username,
+        database: parsedInput.database || null,
+      },
+    });
 
-    const response = await rotateProjectDatabasePassword({
-      path: { project_id: projectId, database_id: databaseId },
+    if (response.error || !response.data) {
+      throw new ActionError(
+        response.error?.error?.msg || "Failed to create the user",
+      );
+    }
+
+    return response.data;
+  });
+
+export const deleteUserAction = authActionClient
+  .inputSchema(userSchema)
+  .action(async ({ parsedInput }) => {
+    const response = await deleteInstanceUser({
+      path: {
+        project_id: parsedInput.projectId,
+        instance_id: parsedInput.instanceId,
+        user_id: parsedInput.userId,
+      },
+    });
+
+    if (response.error) {
+      throw new ActionError(
+        response.error.error?.msg || "Failed to delete the user",
+      );
+    }
+
+    return { success: true };
+  });
+
+export const rotateUserPasswordAction = authActionClient
+  .inputSchema(userSchema)
+  .action(async ({ parsedInput }) => {
+    const response = await rotateInstanceUserPassword({
+      path: {
+        project_id: parsedInput.projectId,
+        instance_id: parsedInput.instanceId,
+        user_id: parsedInput.userId,
+      },
     });
 
     if (response.error || !response.data) {

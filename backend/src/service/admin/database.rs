@@ -1,17 +1,18 @@
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
+use crate::db::project::ProjectId;
 use crate::db::region::RegionId;
 use crate::service::admin::database::database_admin_service_error::{
-    CreateDatabaseHostError, CreateDatabaseInstanceError, DeleteDatabaseHostError,
-    DeleteDatabaseInstanceError, ListDatabaseHostsError, ListDatabaseInstancesError,
-    UpdateDatabaseHostError,
+    CreateDatabaseHostError, DeleteDatabaseHostError, DeleteDatabaseInstanceError,
+    ListDatabaseHostsError, ListDatabaseInstancesError, UpdateDatabaseHostError,
+    UpdateDatabaseInstanceError,
 };
 use crate::service::error_database_agent_error::FromDatabaseAgentError;
 use crate::service::*;
 use core::str::FromStr as _;
 use database_agent_common::service::instance::InstanceService as _;
-use database_agent_common::types::{ApiInstance, DatabaseType, StoredInstanceCreate};
+use database_agent_common::types::{ApiInstance, DatabaseType, StoredInstanceUpdate};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
 use std::collections::HashMap;
@@ -67,7 +68,9 @@ pub(crate) struct DatabaseInstanceInfo {
     #[serde(rename = "type")]
     pub(crate) kind: DatabaseType,
     pub(crate) display: String,
-    pub(crate) database_count: i64,
+    pub(crate) project: ProjectId,
+    pub(crate) project_slug: String,
+    pub(crate) created: chrono::DateTime<chrono::Utc>,
     pub(crate) remote: Option<ApiInstance>,
 }
 
@@ -77,10 +80,19 @@ pub(crate) struct CreatedId {
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub(crate) struct CreateDatabaseInstance {
-    pub(crate) display: String,
-    #[serde(flatten)]
-    pub(crate) create: StoredInstanceCreate,
+pub(crate) struct UpdateDatabaseInstance {
+    #[serde(default)]
+    pub(crate) display: Option<String>,
+    #[serde(default)]
+    pub(crate) memory: Option<i64>,
+    #[serde(default)]
+    pub(crate) swap: Option<i64>,
+    #[serde(default)]
+    pub(crate) disk: Option<i64>,
+    #[serde(default)]
+    pub(crate) cpu: Option<i64>,
+    #[serde(default)]
+    pub(crate) suspended: Option<bool>,
 }
 
 fn agent_failure<E: FromDatabaseAgentError>(error: &impl core::fmt::Debug) -> E {
@@ -347,9 +359,10 @@ pub(crate) impl DatabaseAdminService for Backend {
         Ok(query!(
             r#"SELECT database_instances.id, database_instances.host,
                    database_instances.type AS kind, database_instances.display,
-                   (SELECT COUNT(*) FROM project_databases
-                    WHERE project_databases.instance = database_instances.id) AS "database_count!"
+                   database_instances.project AS "project: ProjectId",
+                   projects.slug AS project_slug, database_instances.created
                FROM database_instances
+               JOIN projects ON projects.id = database_instances.project
                WHERE database_instances.host = $1
                ORDER BY database_instances.display"#,
             host_id
@@ -367,26 +380,32 @@ pub(crate) impl DatabaseAdminService for Backend {
                 id: row.id,
                 host: row.host,
                 display: row.display,
-                database_count: row.database_count,
+                project: row.project,
+                project_slug: row.project_slug,
+                created: row.created,
             })
         })
         .collect())
     }
 
-    /// Creates a database instance on a host and registers it.
+    /// Renames a database instance and changes its resource limits.
+    ///
+    /// Projects own their instances but cannot resize or rename them; this is
+    /// where that happens.
     ///
     /// # Permissions
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
-    #[route("/host/{host_id}/instance", method = PUT)]
-    #[error(auth::{permission_denied, unreachable}, database::{host_not_found, agent_error},
-        db::failure <- [sql:*])]
-    async fn create_database_instance(
+    #[route("/host/{host_id}/instance/{instance_id}", method = PATCH)]
+    #[error(auth::{permission_denied, unreachable},
+        database::{host_not_found, instance_not_found, agent_error}, db::failure <- [sql:*])]
+    async fn update_database_instance(
         &self,
         #[special] auth: Authentication,
         host_id: Uuid,
-        payload: CreateDatabaseInstance,
-    ) -> Result<CreatedId, _> {
-        auth.require::<_, _, CreateDatabaseInstanceError>(
+        instance_id: Uuid,
+        payload: UpdateDatabaseInstance,
+    ) -> Result<(), _> {
+        auth.require::<_, _, UpdateDatabaseInstanceError>(
             (),
             ManagementPermissions::DATABASE_HOSTS_MANAGE,
         )?;
@@ -394,37 +413,46 @@ pub(crate) impl DatabaseAdminService for Backend {
         let host = self
             .database_host(host_id)
             .await
-            .ok_or(CreateDatabaseInstanceError::DatabaseHostNotFound)?;
+            .ok_or(UpdateDatabaseInstanceError::DatabaseHostNotFound)?;
 
-        let kind = payload.create.database_type;
-        let instance = host
-            .sdk
-            .create_instance(payload.create)
+        if let Some(display) = payload.display {
+            let updated = query!(
+                "UPDATE database_instances SET display = $1 WHERE id = $2 AND host = $3",
+                display,
+                instance_id,
+                host_id
+            )
+            .execute(&*self.database)
+            .await?;
+            if updated.rows_affected() == 0 {
+                return Err(UpdateDatabaseInstanceError::DatabaseInstanceNotFound);
+            }
+        }
+
+        let update = StoredInstanceUpdate {
+            memory: payload.memory,
+            swap: payload.swap,
+            disk: payload.disk,
+            cpu: payload.cpu,
+            suspended: payload.suspended,
+            ..Default::default()
+        };
+
+        host.sdk
+            .update_instance(instance_id, update)
             .await
-            .map_err(|err| agent_failure::<CreateDatabaseInstanceError>(&err))?;
+            .map_err(|err| agent_failure::<UpdateDatabaseInstanceError>(&err))?;
 
-        query!(
-            "INSERT INTO database_instances (id, host, type, display) VALUES ($1, $2, $3, $4)",
-            instance.data.uuid,
-            host_id,
-            kind.as_str(),
-            payload.display
-        )
-        .execute(&*self.database)
-        .await?;
-
-        Ok(CreatedId {
-            id: instance.data.uuid,
-        })
+        Ok(())
     }
 
-    /// Deletes a database instance that carries no project databases.
+    /// Deletes a database instance and everything stored in it.
     ///
     /// # Permissions
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host/{host_id}/instance/{instance_id}", method = DELETE)]
     #[error(auth::{permission_denied, unreachable},
-        database::{host_not_found, instance_not_found, instance_not_empty, agent_error},
+        database::{host_not_found, instance_not_found, agent_error},
         db::failure <- [sql:*])]
     async fn delete_database_instance(
         &self,
@@ -441,16 +469,6 @@ pub(crate) impl DatabaseAdminService for Backend {
             .database_host(host_id)
             .await
             .ok_or(DeleteDatabaseInstanceError::DatabaseHostNotFound)?;
-
-        let databases = query_scalar!(
-            r#"SELECT COUNT(*) AS "count!" FROM project_databases WHERE instance = $1"#,
-            instance_id
-        )
-        .fetch_one(&*self.database)
-        .await?;
-        if databases > 0 {
-            return Err(DeleteDatabaseInstanceError::DatabaseInstanceNotEmpty);
-        }
 
         host.sdk
             .delete_instance(instance_id)

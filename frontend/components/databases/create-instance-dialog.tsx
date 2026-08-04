@@ -1,6 +1,6 @@
 "use client";
 
-import { createDatabaseAction } from "@/actions/databases";
+import { createInstanceAction } from "@/actions/databases";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,34 +29,34 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useHookFormAction } from "@/lib/action-hooks";
-import { createDatabaseSchema } from "@/types/database.schema";
+import { createInstanceSchema } from "@/types/database.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { DATABASE_TYPE_LABELS } from "./database-type";
 
-interface CreateDatabaseDialogProps {
+interface CreateInstanceDialogProps {
   projectId: string;
-  /** Whether the project is already at its database limit. */
+  /** Whether the project is already at its instance limit. */
   atLimit: boolean;
   onCreated: () => void;
 }
 
-export function CreateDatabaseDialog({
+export function CreateInstanceDialog({
   projectId,
   atLimit,
   onCreated,
-}: CreateDatabaseDialogProps) {
+}: CreateInstanceDialogProps) {
   const [open, setOpen] = useState(false);
 
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
-    useHookFormAction(createDatabaseAction, zodResolver(createDatabaseSchema), {
+    useHookFormAction(createInstanceAction, zodResolver(createInstanceSchema), {
       formProps: {
         mode: "onChange",
         defaultValues: {
           projectId,
-          name: "",
+          display: "",
           type: "postgres" as const,
         },
       },
@@ -65,7 +65,7 @@ export function CreateDatabaseDialog({
           resetFormAndAction();
           setOpen(false);
           onCreated();
-          toast.success("Database created");
+          toast.success("Instance created, starting it now");
         },
         onError: (error) => {
           toast.error(error.error.serverError ?? "Something went wrong");
@@ -78,15 +78,16 @@ export function CreateDatabaseDialog({
       <DialogTrigger asChild>
         <Button disabled={atLimit}>
           <Plus className="size-4" />
-          New database
+          New instance
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create database</DialogTitle>
+          <DialogTitle>Create database instance</DialogTitle>
           <DialogDescription>
-            The database is created on a host in your project&apos;s region, with
-            its own user. Credentials are shown once it exists.
+            Your own engine, on a host in your project&apos;s region. Its size is
+            set by the platform; you can put as many databases and users on it as
+            you like.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -119,16 +120,16 @@ export function CreateDatabaseDialog({
             />
             <FormField
               control={form.control}
-              name="name"
+              name="display"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Name</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="analytics" />
+                    <Input {...field} placeholder="Production" />
                   </FormControl>
                   <FormDescription>
-                    Lowercase letters and digits only. The database and its user
-                    get a unique suffix on the host.
+                    Only for you to tell instances apart. Renaming it later is up
+                    to an administrator.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -140,7 +141,7 @@ export function CreateDatabaseDialog({
                 className="w-full"
                 loading={action.isExecuting}
               >
-                Create database
+                Create instance
               </Button>
             </DialogFooter>
           </form>

@@ -107,7 +107,6 @@ export function DatabaseHostDialog({
               public_host: publicHost,
               maintenance,
               ports: collectPorts(),
-              // Leaving the token blank keeps the stored one.
               ...(token ? { token } : {}),
             },
           })

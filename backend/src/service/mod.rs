@@ -126,16 +126,12 @@ define_error!(db {
 });
 
 define_error!(database {
-    not_found("The specified database was not found" NOT_FOUND),
-    name_invalid("The database name must be 1-20 characters of lowercase letters or digits" BAD_REQUEST),
-    name_taken("A database with this name already exists in the project" BAD_REQUEST),
-    limit_exceeded("The project database limit has been reached" BAD_REQUEST),
-    type_unavailable("No database host offers this database type" SERVICE_UNAVAILABLE),
+    name_invalid("The name must be 1-63 ascii alphanumeric characters" BAD_REQUEST),
+    limit_exceeded("The project database instance limit has been reached" BAD_REQUEST),
+    type_unavailable("No database host can currently offer this database type" SERVICE_UNAVAILABLE),
     host_not_found("The specified database host was not found" NOT_FOUND),
     host_not_empty("The database host still has instances" BAD_REQUEST),
     instance_not_found("The specified database instance was not found" NOT_FOUND),
-    instance_not_empty("The database instance still has project databases" BAD_REQUEST),
-    agent_unreachable("The database agent is currently unreachable" SERVICE_UNAVAILABLE),
     agent_error("The database agent rejected the request" BAD_GATEWAY),
 });
 

@@ -7,22 +7,61 @@ export const databaseTypes = [
   "redis",
 ] as const;
 
-export const createDatabaseSchema = z.object({
+export const powerActions = ["start", "stop", "restart"] as const;
+
+export const createInstanceSchema = z.object({
   projectId: z.string(),
-  /** Mirrors the backend's validation: 2-20 lowercase letters or digits. */
-  name: z
+  display: z
     .string()
-    .min(2, "Name must be at least 2 characters")
-    .max(20, "Name is too long")
-    .regex(/^[a-z0-9]+$/, "Only lowercase letters and digits are allowed"),
+    .min(1, "Name is required")
+    .max(64, "Name is too long"),
   type: z.enum(databaseTypes),
+});
+
+export type CreateInstance = z.infer<typeof createInstanceSchema>;
+
+export const instanceSchema = z.object({
+  projectId: z.string(),
+  instanceId: z.string(),
+});
+
+export type InstanceReference = z.infer<typeof instanceSchema>;
+
+export const powerInstanceSchema = instanceSchema.extend({
+  action: z.enum(powerActions),
+});
+
+export type PowerInstance = z.infer<typeof powerInstanceSchema>;
+
+/** Matches the agent's rule: 1-63 ascii alphanumeric characters. */
+const objectName = z
+  .string()
+  .min(1, "Name is required")
+  .max(63, "Name is too long")
+  .regex(/^[A-Za-z0-9]+$/, "Only letters and digits are allowed");
+
+export const createDatabaseSchema = instanceSchema.extend({
+  name: objectName,
 });
 
 export type CreateDatabase = z.infer<typeof createDatabaseSchema>;
 
-export const databaseSchema = z.object({
-  projectId: z.string(),
+export const deleteDatabaseSchema = instanceSchema.extend({
   databaseId: z.string(),
 });
 
-export type DatabaseReference = z.infer<typeof databaseSchema>;
+export const createUserSchema = instanceSchema.extend({
+  /** The agent's identifier label: 2-23 ascii alphanumeric characters. */
+  username: z
+    .string()
+    .min(2, "Username must be at least 2 characters")
+    .max(23, "Username is too long")
+    .regex(/^[A-Za-z0-9]+$/, "Only letters and digits are allowed"),
+  database: z.string().optional(),
+});
+
+export type CreateUser = z.infer<typeof createUserSchema>;
+
+export const userSchema = instanceSchema.extend({
+  userId: z.string(),
+});
