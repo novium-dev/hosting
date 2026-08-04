@@ -1,0 +1,22 @@
+services:
+  db-agent:
+    image: novium/database-agent:latest
+    restart: unless-stopped
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "/var/lib/docker/containers/:/var/lib/docker/containers/"
+      - "./db/config.toml:/etc/calagopus-db-agent/config.toml"
+      - "/var/lib/novium-database-agent/:/var/lib/novium-database-agent/"
+      - "/var/log/novium-database-agent/:/var/log/novium-database-agent/"
+      - "/run/novium-database-agent/:/run/novium-database-agent/"
+    ports:
+      # PostgreSQL proxy (config: postgresql.bind)
+      - 5432:5432
+      # MariaDB/MySQL proxy (config: mariadb.bind)
+      - 3306:3306
+      # MongoDB proxy (config: mongodb.bind)
+      - 27017:27017
+      # Redis proxy (config: redis.bind)
+      - 6379:6379
+      # Management API (config: api.bind)
+      - 8090:8090

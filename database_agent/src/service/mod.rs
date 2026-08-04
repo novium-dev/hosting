@@ -111,6 +111,7 @@ impl Agent {
                 async move { agent.authenticate(request, next).await }
             }));
 
+        #[allow(unused_mut)] // needed for debug_assertions cfg
         let (mut router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
             .merge(authenticated)
             .merge(public.into_openapi())
