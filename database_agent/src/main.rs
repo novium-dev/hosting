@@ -96,6 +96,7 @@ async fn run() -> anyhow::Result<()> {
 }
 
 async fn await_shutdown() {
+    // TODO: cancellation tokens
     let mut interrupt = match signal(SignalKind::interrupt()) {
         Ok(signal) => signal,
         Err(err) => {

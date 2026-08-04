@@ -15,7 +15,7 @@ pub enum Connection {
     Mariadb(mariadb::MariadbConnection),
     Mongodb(mongodb::MongodbConnection),
     Postgres(postgres::PostgresConnection),
-    Redis(redis::RedisConnection),
+    Redis(Box<redis::RedisConnection>),
 }
 
 impl Connection {
@@ -127,7 +127,9 @@ impl Instance {
             DatabaseType::Postgres => {
                 Connection::Postgres(postgres::PostgresConnection::new(socket))
             }
-            DatabaseType::Redis => Connection::Redis(redis::RedisConnection::new(&socket)?),
+            DatabaseType::Redis => {
+                Connection::Redis(Box::new(redis::RedisConnection::new(&socket)?))
+            }
         })
     }
 }

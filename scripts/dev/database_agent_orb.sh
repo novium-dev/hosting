@@ -43,13 +43,15 @@ guest() {
 
 # The workspace lockfile pins the SSH-only novium-dev/daemon repo, which a fresh
 # machine cannot fetch. Seed cargo's git cache from the host instead.
+#
+# This syncs every time rather than only when the cache is missing: when the
+# lockfile moves to a revision the guest's copy predates, cargo tries to fetch
+# it over SSH and the build dies on a key the machine does not have.
 seed_cargo_cache() {
     guest "
         set -eu
-        if ! ls -d \$HOME/.cargo/git/db/daemon-* >/dev/null 2>&1; then
-            mkdir -p \$HOME/.cargo/git/db
-            cp -r --no-preserve=mode,ownership /mnt/mac${HOME}/.cargo/git/db/. \$HOME/.cargo/git/db/
-        fi
+        mkdir -p \$HOME/.cargo/git/db
+        cp -r --no-preserve=mode,ownership /mnt/mac${HOME}/.cargo/git/db/. \$HOME/.cargo/git/db/
     "
 }
 
