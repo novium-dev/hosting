@@ -2,201 +2,80 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions};
-use crate::db::database::{BackendDatabaseHost, DatabaseId, MAX_PROJECT_DATABASES};
+use crate::db::database::{MAX_PROJECT_INSTANCES, ProjectInstance};
 use crate::db::project::ProjectId;
-use crate::db::region::RegionId;
 use crate::service::database::database_service_error::{
-    CreateProjectDatabaseError, DeleteProjectDatabaseError, GetProjectDatabaseError,
-    ListProjectDatabasesError, RotateProjectDatabasePasswordError,
+    CreateInstanceDatabaseError, CreateInstanceUserError, CreateProjectInstanceError,
+    DeleteInstanceDatabaseError, DeleteInstanceUserError, DeleteProjectInstanceError,
+    ListInstanceDatabasesError, ListInstanceUsersError, ListProjectInstancesError,
+    PowerProjectInstanceError, RotateInstanceUserPasswordError,
 };
 use crate::service::error_database_agent_error::FromDatabaseAgentError;
-use core::str::FromStr as _;
+use crate::service::error_database_instance_not_found::FromDatabaseInstanceNotFound;
+use database_agent_common::identifier::{LABEL_MAX_LENGTH, LABEL_MIN_LENGTH};
 use database_agent_common::service::database::DatabaseService as _;
+use database_agent_common::service::instance::InstanceService as _;
 use database_agent_common::service::user::UserService as _;
-use database_agent_common::types::DatabaseType;
-use rand::RngExt as _;
+use database_agent_common::types::{
+    ContainerState, DatabaseType, PowerAction, ResourceUsage, StoredDatabase, StoredUser,
+    validate_database_name,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{query, query_scalar};
-use std::sync::Arc;
+use tracing::debug;
 use uuid::Uuid;
 use zelus::service;
 
-const NAME_MIN_LENGTH: usize = 2;
-const NAME_MAX_LENGTH: usize = 20;
-
-fn validate_name(name: &str) -> bool {
-    (NAME_MIN_LENGTH..=NAME_MAX_LENGTH).contains(&name.len())
-        && name
-            .chars()
-            .all(|char| char.is_ascii_lowercase() || char.is_ascii_digit())
-}
-
 #[derive(Debug, Serialize, utoipa::ToSchema)]
-pub(crate) struct ProjectDatabaseInfo {
-    pub(crate) id: DatabaseId,
-    pub(crate) name: String,
+pub(crate) struct ProjectInstanceInfo {
+    pub(crate) id: Uuid,
     #[serde(rename = "type")]
     pub(crate) kind: DatabaseType,
+    pub(crate) display: String,
     pub(crate) host: String,
     pub(crate) port: u16,
-    pub(crate) database: String,
-    pub(crate) username: String,
-    pub(crate) password: String,
-    pub(crate) uri: String,
+    pub(crate) state: ContainerState,
+    pub(crate) utilization: Option<ResourceUsage>,
+    pub(crate) memory_limit: Option<i64>,
+    pub(crate) disk_limit: Option<i64>,
+    pub(crate) suspended: bool,
     pub(crate) created: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
-pub(crate) struct CreateProjectDatabase {
-    pub(crate) name: String,
+pub(crate) struct CreateProjectInstance {
+    pub(crate) display: String,
     #[serde(rename = "type")]
     pub(crate) kind: DatabaseType,
 }
 
-struct StoredProjectDatabase {
-    id: DatabaseId,
-    name: String,
-    remote_name: String,
-    kind: DatabaseType,
-    instance: Uuid,
-    host: Arc<BackendDatabaseHost>,
-    remote_database: Uuid,
-    remote_user: Uuid,
-    username: String,
-    password: String,
-    created: chrono::DateTime<chrono::Utc>,
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct InstanceDatabaseInfo {
+    #[serde(flatten)]
+    pub(crate) database: StoredDatabase,
 }
 
-impl StoredProjectDatabase {
-    fn info(self) -> ProjectDatabaseInfo {
-        let host = self.host.public_host.clone();
-        let port = self.host.port(self.kind);
-        let path = if self.kind.has_named_databases() {
-            self.remote_name.as_str()
-        } else {
-            ""
-        };
-
-        ProjectDatabaseInfo {
-            uri: format!(
-                "{}://{}:{}@{host}:{port}/{path}",
-                self.kind.uri_scheme(),
-                self.username,
-                self.password
-            ),
-            id: self.id,
-            name: self.name,
-            kind: self.kind,
-            host,
-            port,
-            database: self.remote_name,
-            username: self.username,
-            password: self.password,
-            created: self.created,
-        }
-    }
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct InstanceUserInfo {
+    #[serde(flatten)]
+    pub(crate) user: StoredUser,
+    /// The name the client connects with, which carries the user's short uuid.
+    pub(crate) identifier: String,
+    pub(crate) host: String,
+    pub(crate) port: u16,
+    pub(crate) uri: String,
 }
 
-impl Backend {
-    async fn stored_databases<E: From<sqlx::Error>>(
-        &self,
-        project: ProjectId,
-        database: Option<DatabaseId>,
-    ) -> Result<Vec<StoredProjectDatabase>, E> {
-        let filter = database.map(|id| id.to_string());
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub(crate) struct CreateInstanceDatabase {
+    pub(crate) name: String,
+}
 
-        let rows = query!(
-            r#"SELECT project_databases.id AS "id: DatabaseId", project_databases.name,
-                   project_databases.remote_name, project_databases.instance,
-                   project_databases.remote_database, project_databases.remote_user,
-                   project_databases.username, project_databases.password,
-                   project_databases.created, database_instances.type AS kind,
-                   database_instances.host
-               FROM project_databases
-               JOIN database_instances ON database_instances.id = project_databases.instance
-               WHERE project_databases.project = $1
-                 AND ($2::text IS NULL OR project_databases.id = $2)
-               ORDER BY project_databases.created"#,
-            &project,
-            filter.as_deref()
-        )
-        .fetch_all(&*self.database)
-        .await?;
-
-        let hosts = self.database_hosts.read().await;
-
-        Ok(rows
-            .into_iter()
-            .filter_map(|row| {
-                Some(StoredProjectDatabase {
-                    id: row.id,
-                    name: row.name,
-                    remote_name: row.remote_name,
-                    kind: DatabaseType::from_str(&row.kind).ok()?,
-                    instance: row.instance,
-                    host: Arc::clone(hosts.get(&row.host)?),
-                    remote_database: row.remote_database,
-                    remote_user: row.remote_user,
-                    username: row.username,
-                    password: row.password,
-                    created: row.created,
-                })
-            })
-            .collect())
-    }
-
-    async fn pick_database_instance<E: From<sqlx::Error>>(
-        &self,
-        project: ProjectId,
-        kind: DatabaseType,
-    ) -> Result<Option<(Uuid, Arc<BackendDatabaseHost>)>, E> {
-        let region = query_scalar!(
-            r#"SELECT nodes.region AS "region: RegionId"
-               FROM servers
-               JOIN nodes ON nodes.id = servers.node
-               WHERE servers.project = $1
-               LIMIT 1"#,
-            &project
-        )
-        .fetch_optional(&*self.database)
-        .await?;
-
-        let candidates = query!(
-            r#"SELECT database_instances.id, database_instances.host,
-                   (SELECT COUNT(*) FROM project_databases
-                    WHERE project_databases.instance = database_instances.id) AS "load!"
-               FROM database_instances
-               WHERE database_instances.type = $1
-               ORDER BY 3 ASC"#,
-            kind.as_str()
-        )
-        .fetch_all(&*self.database)
-        .await?;
-
-        let hosts = self.database_hosts.read().await;
-
-        let mut preferred = None;
-        let mut fallback = None;
-        for candidate in candidates {
-            let Some(host) = hosts.get(&candidate.host) else {
-                continue;
-            };
-            if host.maintenance {
-                continue;
-            }
-
-            if region.is_some_and(|region| region == host.region) {
-                preferred = Some((candidate.id, Arc::clone(host)));
-                break;
-            }
-            if fallback.is_none() {
-                fallback = Some((candidate.id, Arc::clone(host)));
-            }
-        }
-        drop(hosts);
-
-        Ok(preferred.or(fallback))
-    }
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub(crate) struct CreateInstanceUser {
+    pub(crate) username: String,
+    #[serde(default)]
+    pub(crate) database: Option<Uuid>,
 }
 
 fn agent_failure<E: FromDatabaseAgentError>(error: &impl core::fmt::Debug) -> E {
@@ -204,258 +83,553 @@ fn agent_failure<E: FromDatabaseAgentError>(error: &impl core::fmt::Debug) -> E 
     <E as FromDatabaseAgentError>::from()
 }
 
-#[service(path = "/project/{project_id}/database", tag = "database", no_sdk)]
+fn validate_username(username: &str) -> bool {
+    (LABEL_MIN_LENGTH..=LABEL_MAX_LENGTH).contains(&username.len())
+        && username.bytes().all(|byte| byte.is_ascii_alphanumeric())
+}
+
+fn user_info(
+    instance: &ProjectInstance,
+    user: StoredUser,
+    database: Option<&str>,
+) -> InstanceUserInfo {
+    let identifier = user.identifier();
+    let host = instance.host.public_host.clone();
+    let port = instance.host.port(instance.kind);
+    let path = if instance.kind.has_named_databases() {
+        database.unwrap_or_default()
+    } else {
+        ""
+    };
+
+    InstanceUserInfo {
+        uri: format!(
+            "{}://{identifier}:{}@{host}:{port}/{path}",
+            instance.kind.uri_scheme(),
+            user.password
+        ),
+        identifier,
+        host,
+        port,
+        user,
+    }
+}
+
+impl Backend {
+    async fn require_instance<E>(
+        &self,
+        project: ProjectId,
+        instance: Uuid,
+    ) -> Result<ProjectInstance, E>
+    where
+        E: From<sqlx::Error> + FromDatabaseInstanceNotFound,
+    {
+        self.project_instances::<E>(project, Some(instance))
+            .await?
+            .pop()
+            .ok_or_else(<E as FromDatabaseInstanceNotFound>::from)
+    }
+}
+
+#[service(path = "/project/{project_id}/instance", tag = "database", no_sdk)]
 pub(crate) impl DatabaseService for Backend {
-    /// Lists the databases of a project, including their connection details.
+    /// Lists the project's database instances with their live state.
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::DATABASE_VIEW`].
     #[route("", method = GET)]
     #[error(auth::{permission_denied, unreachable}, project::not_found, db::failure <- [sql:*])]
-    async fn list_project_databases(
+    async fn list_project_instances(
         &self,
         #[special] auth: Authentication,
         project_id: ProjectId,
-    ) -> Result<Vec<ProjectDatabaseInfo>, _> {
-        auth.require::<_, _, ListProjectDatabasesError>(
+    ) -> Result<Vec<ProjectInstanceInfo>, _> {
+        auth.require::<_, _, ListProjectInstancesError>(
             project_id,
             ProjectPermissions::DATABASE_VIEW,
         )?;
 
-        Ok(self
-            .stored_databases::<ListProjectDatabasesError>(project_id, None)
-            .await?
-            .into_iter()
-            .map(StoredProjectDatabase::info)
-            .collect())
+        let instances = self
+            .project_instances::<ListProjectInstancesError>(project_id, None)
+            .await?;
+
+        let mut infos = Vec::with_capacity(instances.len());
+        for instance in instances {
+            let remote = instance.host.sdk.get_instance(instance.id).await.ok();
+
+            infos.push(ProjectInstanceInfo {
+                id: instance.id,
+                kind: instance.kind,
+                display: instance.display,
+                host: instance.host.public_host.clone(),
+                port: instance.host.port(instance.kind),
+                state: remote
+                    .as_ref()
+                    .map_or(ContainerState::Offline, |remote| remote.utilization.state),
+                memory_limit: remote.as_ref().map(|remote| remote.data.memory),
+                disk_limit: remote.as_ref().map(|remote| remote.data.disk),
+                suspended: remote.as_ref().is_some_and(|remote| remote.data.suspended),
+                utilization: remote.map(|remote| remote.utilization),
+                created: instance.created,
+            });
+        }
+
+        Ok(infos)
     }
 
-    /// Returns a single project database with its connection details.
+    /// Creates a database instance for the project.
     ///
-    /// # Permissions
-    /// Requires [`ProjectPermissions::DATABASE_VIEW`].
-    #[route("/{database_id}", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, project::not_found, database::not_found, db::failure <- [sql:*])]
-    async fn get_project_database(
-        &self,
-        #[special] auth: Authentication,
-        project_id: ProjectId,
-        database_id: DatabaseId,
-    ) -> Result<ProjectDatabaseInfo, _> {
-        auth.require::<_, _, GetProjectDatabaseError>(
-            project_id,
-            ProjectPermissions::DATABASE_VIEW,
-        )?;
-
-        self.stored_databases::<GetProjectDatabaseError>(project_id, Some(database_id))
-            .await?
-            .pop()
-            .map(StoredProjectDatabase::info)
-            .ok_or(GetProjectDatabaseError::DatabaseNotFound)
-    }
-
-    /// Creates a database for the project on a matching database host.
-    ///
-    /// A project may hold up to four databases; going beyond that requires
-    /// [`ManagementPermissions::LIMITS_BYPASS`].
+    /// The project picks only the engine; its image and limits come from the
+    /// instance defaults in the backend config. A project may own up to four
+    /// instances, or more with [`ManagementPermissions::LIMITS_BYPASS`].
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::DATABASE_MANAGE`].
     #[route("", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, project::not_found,
-        database::{name_invalid, name_taken, limit_exceeded, type_unavailable, agent_error},
-        db::failure <- [sql:*])]
-    async fn create_project_database(
+        database::{limit_exceeded, type_unavailable, agent_error}, db::failure <- [sql:*])]
+    async fn create_project_instance(
         &self,
         #[special] auth: Authentication,
         project_id: ProjectId,
-        payload: CreateProjectDatabase,
-    ) -> Result<ProjectDatabaseInfo, _> {
-        auth.require::<_, _, CreateProjectDatabaseError>(
+        payload: CreateProjectInstance,
+    ) -> Result<ProjectInstanceInfo, _> {
+        auth.require::<_, _, CreateProjectInstanceError>(
             project_id,
             ProjectPermissions::DATABASE_MANAGE,
         )?;
 
-        if !validate_name(&payload.name) {
-            return Err(CreateProjectDatabaseError::DatabaseNameInvalid);
-        }
-
         let count = query_scalar!(
-            r#"SELECT COUNT(*) AS "count!" FROM project_databases WHERE project = $1"#,
+            r#"SELECT COUNT(*) AS "count!" FROM database_instances WHERE project = $1"#,
             &project_id
         )
         .fetch_one(&*self.database)
         .await?;
 
         let may_bypass = auth
-            .require::<_, _, CreateProjectDatabaseError>((), ManagementPermissions::LIMITS_BYPASS)
+            .require::<_, _, CreateProjectInstanceError>((), ManagementPermissions::LIMITS_BYPASS)
             .is_ok();
-        if count >= MAX_PROJECT_DATABASES && !may_bypass {
-            return Err(CreateProjectDatabaseError::DatabaseLimitExceeded);
+        if count >= MAX_PROJECT_INSTANCES && !may_bypass {
+            return Err(CreateProjectInstanceError::DatabaseLimitExceeded);
         }
 
-        let taken = query_scalar!(
-            r#"SELECT (COUNT(*) > 0) AS "taken!" FROM project_databases
-               WHERE project = $1 AND name = $2"#,
-            &project_id,
-            payload.name
-        )
-        .fetch_one(&*self.database)
-        .await?;
-        if taken {
-            return Err(CreateProjectDatabaseError::DatabaseNameTaken);
-        }
+        let defaults = self
+            .config
+            .databases
+            .defaults_for(payload.kind)
+            .ok_or(CreateProjectInstanceError::DatabaseTypeUnavailable)?;
 
-        let (instance, host) = self
-            .pick_database_instance::<CreateProjectDatabaseError>(project_id, payload.kind)
+        debug!(
+            "Creating a new {} instance for project {project_id} with defaults: {defaults:?}",
+            payload.kind
+        );
+
+        let host = self
+            .pick_database_host::<CreateProjectInstanceError>(project_id)
             .await?
-            .ok_or(CreateProjectDatabaseError::DatabaseTypeUnavailable)?;
+            .ok_or(CreateProjectInstanceError::DatabaseTypeUnavailable)?;
 
-        let suffix: u32 = rand::rng().random();
-        let remote_name = format!("{}{suffix:08x}", payload.name);
-
-        let remote_database = host
+        let remote = host
             .sdk
-            .create_database(instance, remote_name.clone())
+            .create_instance(defaults.to_create(payload.kind))
             .await
-            .map_err(|err| agent_failure::<CreateProjectDatabaseError>(&err))?;
+            .map_err(|err| agent_failure::<CreateProjectInstanceError>(&err))?;
 
-        let remote_user = match host
-            .sdk
-            .create_user(instance, payload.name.clone(), Some(remote_database.uuid))
-            .await
-        {
-            Ok(user) => user,
-            Err(err) => {
-                if let Err(cleanup) = host
-                    .sdk
-                    .delete_database(instance, remote_database.uuid)
-                    .await
-                {
-                    tracing::error!(
-                        "Failed to roll back the remote database {}: {cleanup:?}",
-                        remote_database.uuid
-                    );
-                }
-                return Err(agent_failure(&err));
-            }
-        };
-
-        let id = DatabaseId::generate();
-        let username = remote_user.identifier();
-
-        query!(
-            "INSERT INTO project_databases (id, project, instance, name, remote_name,
-                 remote_database, remote_user, username, password)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-            &id,
+        let created = chrono::Utc::now();
+        let insert = query!(
+            "INSERT INTO database_instances (id, host, project, type, display, created)
+             VALUES ($1, $2, $3, $4, $5, $6)",
+            remote.data.uuid,
+            host.id,
             &project_id,
-            instance,
-            payload.name,
-            remote_name,
-            remote_database.uuid,
-            remote_user.uuid,
-            username,
-            remote_user.password
+            payload.kind.as_str(),
+            payload.display,
+            created
         )
         .execute(&*self.database)
-        .await?;
+        .await;
 
-        Ok(StoredProjectDatabase {
-            id,
-            name: payload.name,
-            remote_name,
-            kind: payload.kind,
-            instance,
-            host,
-            remote_database: remote_database.uuid,
-            remote_user: remote_user.uuid,
-            username,
-            password: remote_user.password,
-            created: remote_user.created,
+        if let Err(err) = insert {
+            if let Err(cleanup) = host.sdk.delete_instance(remote.data.uuid).await {
+                tracing::error!(
+                    "Failed to roll back the remote instance {}: {cleanup:?}",
+                    remote.data.uuid
+                );
+            }
+            return Err(err.into());
         }
-        .info())
+
+        if let Err(err) = host
+            .sdk
+            .power_instance(remote.data.uuid, PowerAction::Start)
+            .await
+        {
+            tracing::warn!(
+                "Failed to start the new instance {}: {err:?}",
+                remote.data.uuid
+            );
+        }
+
+        Ok(ProjectInstanceInfo {
+            id: remote.data.uuid,
+            kind: payload.kind,
+            display: payload.display,
+            host: host.public_host.clone(),
+            port: host.port(payload.kind),
+            state: ContainerState::Starting,
+            utilization: None,
+            memory_limit: Some(remote.data.memory),
+            disk_limit: Some(remote.data.disk),
+            suspended: remote.data.suspended,
+            created,
+        })
     }
 
-    /// Deletes a project database together with its user on the database host.
+    /// Deletes an instance together with everything stored in it.
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::DATABASE_MANAGE`].
-    #[route("/{database_id}", method = DELETE)]
+    #[route("/{instance_id}", method = DELETE)]
     #[error(auth::{permission_denied, unreachable}, project::not_found,
-        database::{not_found, agent_error}, db::failure <- [sql:*])]
-    async fn delete_project_database(
+        database::{instance_not_found, agent_error}, db::failure <- [sql:*])]
+    async fn delete_project_instance(
         &self,
         #[special] auth: Authentication,
         project_id: ProjectId,
-        database_id: DatabaseId,
+        instance_id: Uuid,
     ) -> Result<(), _> {
-        auth.require::<_, _, DeleteProjectDatabaseError>(
+        auth.require::<_, _, DeleteProjectInstanceError>(
             project_id,
             ProjectPermissions::DATABASE_MANAGE,
         )?;
 
-        let stored = self
-            .stored_databases::<DeleteProjectDatabaseError>(project_id, Some(database_id))
-            .await?
-            .pop()
-            .ok_or(DeleteProjectDatabaseError::DatabaseNotFound)?;
+        let instance = self
+            .require_instance::<DeleteProjectInstanceError>(project_id, instance_id)
+            .await?;
 
-        stored
+        instance
             .host
             .sdk
-            .delete_database(stored.instance, stored.remote_database)
+            .delete_instance(instance.id)
             .await
-            .map_err(|err| agent_failure::<DeleteProjectDatabaseError>(&err))?;
+            .map_err(|err| agent_failure::<DeleteProjectInstanceError>(&err))?;
 
-        query!("DELETE FROM project_databases WHERE id = $1", &database_id)
+        query!("DELETE FROM database_instances WHERE id = $1", instance.id)
             .execute(&*self.database)
             .await?;
 
         Ok(())
     }
 
-    /// Replaces the database user's password with a freshly generated one.
+    /// Starts, stops, restarts or kills an instance.
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::DATABASE_MANAGE`].
-    #[route("/{database_id}/rotate", method = POST)]
+    #[route("/{instance_id}/power", method = POST)]
     #[error(auth::{permission_denied, unreachable}, project::not_found,
-        database::{not_found, agent_error}, db::failure <- [sql:*])]
-    async fn rotate_project_database_password(
+        database::{instance_not_found, agent_error}, db::failure <- [sql:*])]
+    async fn power_project_instance(
         &self,
         #[special] auth: Authentication,
         project_id: ProjectId,
-        database_id: DatabaseId,
-    ) -> Result<ProjectDatabaseInfo, _> {
-        auth.require::<_, _, RotateProjectDatabasePasswordError>(
+        instance_id: Uuid,
+        action: PowerAction,
+    ) -> Result<(), _> {
+        auth.require::<_, _, PowerProjectInstanceError>(
             project_id,
             ProjectPermissions::DATABASE_MANAGE,
         )?;
 
-        let mut stored = self
-            .stored_databases::<RotateProjectDatabasePasswordError>(project_id, Some(database_id))
-            .await?
-            .pop()
-            .ok_or(RotateProjectDatabasePasswordError::DatabaseNotFound)?;
+        let instance = self
+            .require_instance::<PowerProjectInstanceError>(project_id, instance_id)
+            .await?;
 
-        let password = stored
+        instance
             .host
             .sdk
-            .rotate_user_password(stored.instance, stored.remote_user)
+            .power_instance(instance.id, action)
             .await
-            .map_err(|err| agent_failure::<RotateProjectDatabasePasswordError>(&err))?;
+            .map_err(|err| agent_failure::<PowerProjectInstanceError>(&err))
+    }
 
-        query!(
-            "UPDATE project_databases SET password = $1 WHERE id = $2",
-            password,
-            &database_id
-        )
-        .execute(&*self.database)
-        .await?;
+    /// Lists the databases on one of the project's instances.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::DATABASE_VIEW`].
+    #[route("/{instance_id}/database", method = GET)]
+    #[error(auth::{permission_denied, unreachable}, project::not_found,
+        database::{instance_not_found, agent_error}, db::failure <- [sql:*])]
+    async fn list_instance_databases(
+        &self,
+        #[special] auth: Authentication,
+        project_id: ProjectId,
+        instance_id: Uuid,
+    ) -> Result<Vec<InstanceDatabaseInfo>, _> {
+        auth.require::<_, _, ListInstanceDatabasesError>(
+            project_id,
+            ProjectPermissions::DATABASE_VIEW,
+        )?;
 
-        stored.password = password;
+        let instance = self
+            .require_instance::<ListInstanceDatabasesError>(project_id, instance_id)
+            .await?;
 
-        Ok(stored.info())
+        Ok(instance
+            .host
+            .sdk
+            .list_databases(instance.id)
+            .await
+            .map_err(|err| agent_failure::<ListInstanceDatabasesError>(&err))?
+            .into_iter()
+            .map(|database| InstanceDatabaseInfo { database })
+            .collect())
+    }
+
+    /// Creates a database on one of the project's instances. There is no limit
+    /// on how many an instance may hold.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::DATABASE_MANAGE`].
+    #[route("/{instance_id}/database", method = PUT)]
+    #[error(auth::{permission_denied, unreachable}, project::not_found,
+        database::{instance_not_found, name_invalid, agent_error}, db::failure <- [sql:*])]
+    async fn create_instance_database(
+        &self,
+        #[special] auth: Authentication,
+        project_id: ProjectId,
+        instance_id: Uuid,
+        payload: CreateInstanceDatabase,
+    ) -> Result<InstanceDatabaseInfo, _> {
+        auth.require::<_, _, CreateInstanceDatabaseError>(
+            project_id,
+            ProjectPermissions::DATABASE_MANAGE,
+        )?;
+
+        if !validate_database_name(&payload.name) {
+            return Err(CreateInstanceDatabaseError::DatabaseNameInvalid);
+        }
+
+        let instance = self
+            .require_instance::<CreateInstanceDatabaseError>(project_id, instance_id)
+            .await?;
+
+        let database = instance
+            .host
+            .sdk
+            .create_database(instance.id, payload.name)
+            .await
+            .map_err(|err| agent_failure::<CreateInstanceDatabaseError>(&err))?;
+
+        Ok(InstanceDatabaseInfo { database })
+    }
+
+    /// Deletes a database and every user granted on it.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::DATABASE_MANAGE`].
+    #[route("/{instance_id}/database/{database_id}", method = DELETE)]
+    #[error(auth::{permission_denied, unreachable}, project::not_found,
+        database::{instance_not_found, agent_error}, db::failure <- [sql:*])]
+    async fn delete_instance_database(
+        &self,
+        #[special] auth: Authentication,
+        project_id: ProjectId,
+        instance_id: Uuid,
+        database_id: Uuid,
+    ) -> Result<(), _> {
+        auth.require::<_, _, DeleteInstanceDatabaseError>(
+            project_id,
+            ProjectPermissions::DATABASE_MANAGE,
+        )?;
+
+        let instance = self
+            .require_instance::<DeleteInstanceDatabaseError>(project_id, instance_id)
+            .await?;
+
+        instance
+            .host
+            .sdk
+            .delete_database(instance.id, database_id)
+            .await
+            .map_err(|err| agent_failure::<DeleteInstanceDatabaseError>(&err))
+    }
+
+    /// Lists the users on one of the project's instances, with the connection
+    /// string each of them uses.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::DATABASE_VIEW`].
+    #[route("/{instance_id}/user", method = GET)]
+    #[error(auth::{permission_denied, unreachable}, project::not_found,
+        database::{instance_not_found, agent_error}, db::failure <- [sql:*])]
+    async fn list_instance_users(
+        &self,
+        #[special] auth: Authentication,
+        project_id: ProjectId,
+        instance_id: Uuid,
+    ) -> Result<Vec<InstanceUserInfo>, _> {
+        auth.require::<_, _, ListInstanceUsersError>(
+            project_id,
+            ProjectPermissions::DATABASE_VIEW,
+        )?;
+
+        let instance = self
+            .require_instance::<ListInstanceUsersError>(project_id, instance_id)
+            .await?;
+
+        let databases = instance
+            .host
+            .sdk
+            .list_databases(instance.id)
+            .await
+            .map_err(|err| agent_failure::<ListInstanceUsersError>(&err))?;
+
+        Ok(instance
+            .host
+            .sdk
+            .list_users(instance.id)
+            .await
+            .map_err(|err| agent_failure::<ListInstanceUsersError>(&err))?
+            .into_iter()
+            .map(|user| {
+                let database = user.database_uuid.and_then(|uuid| {
+                    databases
+                        .iter()
+                        .find(|database| database.uuid == uuid)
+                        .map(|database| database.name.clone())
+                });
+                user_info(&instance, user, database.as_deref())
+            })
+            .collect())
+    }
+
+    /// Creates a user, optionally granted on one of the instance's databases.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::DATABASE_MANAGE`].
+    #[route("/{instance_id}/user", method = PUT)]
+    #[error(auth::{permission_denied, unreachable}, project::not_found,
+        database::{instance_not_found, name_invalid, agent_error}, db::failure <- [sql:*])]
+    async fn create_instance_user(
+        &self,
+        #[special] auth: Authentication,
+        project_id: ProjectId,
+        instance_id: Uuid,
+        payload: CreateInstanceUser,
+    ) -> Result<InstanceUserInfo, _> {
+        auth.require::<_, _, CreateInstanceUserError>(
+            project_id,
+            ProjectPermissions::DATABASE_MANAGE,
+        )?;
+
+        if !validate_username(&payload.username) {
+            return Err(CreateInstanceUserError::DatabaseNameInvalid);
+        }
+
+        let instance = self
+            .require_instance::<CreateInstanceUserError>(project_id, instance_id)
+            .await?;
+
+        let user = instance
+            .host
+            .sdk
+            .create_user(instance.id, payload.username, payload.database)
+            .await
+            .map_err(|err| agent_failure::<CreateInstanceUserError>(&err))?;
+
+        let database = match payload.database {
+            Some(uuid) => instance
+                .host
+                .sdk
+                .get_database(instance.id, uuid)
+                .await
+                .ok()
+                .map(|database| database.name),
+            None => None,
+        };
+
+        Ok(user_info(&instance, user, database.as_deref()))
+    }
+
+    /// Deletes a user.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::DATABASE_MANAGE`].
+    #[route("/{instance_id}/user/{user_id}", method = DELETE)]
+    #[error(auth::{permission_denied, unreachable}, project::not_found,
+        database::{instance_not_found, agent_error}, db::failure <- [sql:*])]
+    async fn delete_instance_user(
+        &self,
+        #[special] auth: Authentication,
+        project_id: ProjectId,
+        instance_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<(), _> {
+        auth.require::<_, _, DeleteInstanceUserError>(
+            project_id,
+            ProjectPermissions::DATABASE_MANAGE,
+        )?;
+
+        let instance = self
+            .require_instance::<DeleteInstanceUserError>(project_id, instance_id)
+            .await?;
+
+        instance
+            .host
+            .sdk
+            .delete_user(instance.id, user_id)
+            .await
+            .map_err(|err| agent_failure::<DeleteInstanceUserError>(&err))
+    }
+
+    /// Replaces a user's password with a freshly generated one.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::DATABASE_MANAGE`].
+    #[route("/{instance_id}/user/{user_id}/rotate", method = POST)]
+    #[error(auth::{permission_denied, unreachable}, project::not_found,
+        database::{instance_not_found, agent_error}, db::failure <- [sql:*])]
+    async fn rotate_instance_user_password(
+        &self,
+        #[special] auth: Authentication,
+        project_id: ProjectId,
+        instance_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<InstanceUserInfo, _> {
+        auth.require::<_, _, RotateInstanceUserPasswordError>(
+            project_id,
+            ProjectPermissions::DATABASE_MANAGE,
+        )?;
+
+        let instance = self
+            .require_instance::<RotateInstanceUserPasswordError>(project_id, instance_id)
+            .await?;
+
+        instance
+            .host
+            .sdk
+            .rotate_user_password(instance.id, user_id)
+            .await
+            .map_err(|err| agent_failure::<RotateInstanceUserPasswordError>(&err))?;
+
+        let user = instance
+            .host
+            .sdk
+            .get_user(instance.id, user_id)
+            .await
+            .map_err(|err| agent_failure::<RotateInstanceUserPasswordError>(&err))?;
+
+        let database = match user.database_uuid {
+            Some(uuid) => instance
+                .host
+                .sdk
+                .get_database(instance.id, uuid)
+                .await
+                .ok()
+                .map(|database| database.name),
+            None => None,
+        };
+
+        Ok(user_info(&instance, user, database.as_deref()))
     }
 }

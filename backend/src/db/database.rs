@@ -1,11 +1,11 @@
 use crate::Backend;
+use crate::db::project::ProjectId;
 use crate::db::region::RegionId;
 use crate::define_id;
 use core::str::FromStr as _;
 use database_agent_common::sdk::DatabaseAgentSDK;
 use database_agent_common::types::DatabaseType;
-use serde::Serialize;
-use sqlx::{Postgres, Transaction, query};
+use sqlx::{Postgres, Transaction, query, query_scalar};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::error;
@@ -14,7 +14,10 @@ use uuid::Uuid;
 
 define_id!(DatabaseId);
 
-pub const MAX_PROJECT_DATABASES: i64 = 4;
+/// How many database instances a project may own before it needs
+/// [`ManagementPermissions::LIMITS_BYPASS`]. Databases and users inside an
+/// instance are not capped.
+pub const MAX_PROJECT_INSTANCES: i64 = 4;
 
 #[derive(Clone)]
 pub struct BackendDatabaseHost {
@@ -36,12 +39,14 @@ impl BackendDatabaseHost {
     }
 }
 
-#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
-pub struct DatabaseInstanceRef {
+/// A project's instance together with the host it runs on, which is what every
+/// call to the agent needs.
+pub struct ProjectInstance {
     pub id: Uuid,
-    pub host: Uuid,
     pub kind: DatabaseType,
     pub display: String,
+    pub created: chrono::DateTime<chrono::Utc>,
+    pub host: Arc<BackendDatabaseHost>,
 }
 
 impl Backend {
@@ -101,5 +106,90 @@ impl Backend {
 
     pub async fn database_host(&self, id: Uuid) -> Option<Arc<BackendDatabaseHost>> {
         self.database_hosts.read().await.get(&id).cloned()
+    }
+
+    /// Loads a project's instances, dropping any whose host is no longer
+    /// registered. Pass `instance` to narrow it to one.
+    pub async fn project_instances<E: From<sqlx::Error>>(
+        &self,
+        project: ProjectId,
+        instance: Option<Uuid>,
+    ) -> Result<Vec<ProjectInstance>, E> {
+        let rows = query!(
+            r#"SELECT id, host, type AS kind, display, created
+               FROM database_instances
+               WHERE project = $1 AND ($2::uuid IS NULL OR id = $2)
+               ORDER BY created"#,
+            &project,
+            instance
+        )
+        .fetch_all(&*self.database)
+        .await?;
+
+        let hosts = self.database_hosts.read().await;
+
+        Ok(rows
+            .into_iter()
+            .filter_map(|row| {
+                Some(ProjectInstance {
+                    id: row.id,
+                    kind: DatabaseType::from_str(&row.kind).ok()?,
+                    display: row.display,
+                    created: row.created,
+                    host: Arc::clone(hosts.get(&row.host)?),
+                })
+            })
+            .collect())
+    }
+
+    /// Picks where a new instance goes: a host that is not in maintenance,
+    /// preferring the project's own region, then the one carrying the fewest
+    /// instances.
+    pub async fn pick_database_host<E: From<sqlx::Error>>(
+        &self,
+        project: ProjectId,
+    ) -> Result<Option<Arc<BackendDatabaseHost>>, E> {
+        let region = query_scalar!(
+            r#"SELECT nodes.region AS "region: RegionId"
+               FROM servers
+               JOIN nodes ON nodes.id = servers.node
+               WHERE servers.project = $1
+               LIMIT 1"#,
+            &project
+        )
+        .fetch_optional(&*self.database)
+        .await?;
+
+        let loads = query!(
+            r#"SELECT database_hosts.id,
+                   (SELECT COUNT(*) FROM database_instances
+                    WHERE database_instances.host = database_hosts.id) AS "load!"
+               FROM database_hosts
+               WHERE database_hosts.maintenance = false
+               ORDER BY 2 ASC"#
+        )
+        .fetch_all(&*self.database)
+        .await?;
+
+        let hosts = self.database_hosts.read().await;
+
+        let mut preferred = None;
+        let mut fallback = None;
+        for row in loads {
+            let Some(host) = hosts.get(&row.id) else {
+                continue;
+            };
+
+            if region.is_some_and(|region| region == host.region) {
+                preferred = Some(Arc::clone(host));
+                break;
+            }
+            if fallback.is_none() {
+                fallback = Some(Arc::clone(host));
+            }
+        }
+        drop(hosts);
+
+        Ok(preferred.or(fallback))
     }
 }

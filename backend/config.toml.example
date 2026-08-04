@@ -44,3 +44,60 @@ redirect_url = "http://localhost:8080/api/auth/callback"
 userinfo_url = "https://sso.novium.world/oidc/me"
 client_id = "<client_id>"
 client_secret = "<client_secret>"
+
+# Shape of the database instances projects create for themselves. They pick only
+# the engine, so everything the agent needs to run the container comes from
+# here. An engine without a defaults block cannot be created.
+#
+# `socket_path` is where the engine puts its unix socket inside the container;
+# the agent bind-mounts that directory and reaches the engine through it. The
+# memory, swap and disk limits are MiB, cpu is a percentage of one core.
+[databases.defaults.postgres]
+image = "postgres:18-alpine"
+image_uid = 70
+image_gid = 70
+socket_path = "/var/run/postgresql/.s.PGSQL.5432"
+memory = 1024
+swap = 0
+disk = 10240
+cpu = 100
+volumes = { data = "/var/lib/postgresql" }
+env = { POSTGRES_HOST_AUTH_METHOD = "trust", PGDATA = "/var/lib/postgresql/data" }
+
+[databases.defaults.mariadb]
+image = "mariadb:11"
+image_uid = 999
+image_gid = 999
+socket_path = "/run/mysqld/mysqld.sock"
+memory = 1024
+swap = 0
+disk = 10240
+cpu = 100
+volumes = { data = "/var/lib/mysql" }
+env = { MARIADB_ALLOW_EMPTY_ROOT_PASSWORD = "1" }
+
+# mongod only enforces authorization with --auth, and the agent refuses to relay
+# to an instance that does not.
+[databases.defaults.mongodb]
+image = "mongo:8"
+image_uid = 999
+image_gid = 999
+socket_path = "/run/mongodb/mongodb-27017.sock"
+memory = 1024
+swap = 0
+disk = 10240
+cpu = 100
+volumes = { data = "/data/db" }
+cmd = ["mongod", "--auth", "--unixSocketPrefix=/run/mongodb"]
+
+[databases.defaults.redis]
+image = "redis:8-alpine"
+image_uid = 999
+image_gid = 999
+socket_path = "/run/redis/redis.sock"
+memory = 512
+swap = 0
+disk = 2048
+cpu = 100
+volumes = { data = "/data" }
+cmd = ["redis-server", "--unixsocket", "/run/redis/redis.sock", "--port", "0"]

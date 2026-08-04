@@ -1,7 +1,8 @@
 use core::net::SocketAddr;
+use database_agent_common::types::{DatabaseType, StoredInstanceCreate, VolumeMapping};
 use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use url::Url;
 
@@ -21,6 +22,8 @@ pub struct BackendConfig {
     pub resources: ResourceConfig,
     #[serde(default)]
     pub routes: RouteConfig,
+    #[serde(default)]
+    pub databases: DatabaseConfig,
     #[cfg(feature = "embedded_node")]
     pub daemon: EmbeddedNodeConfig,
 }
@@ -56,6 +59,60 @@ impl ResourceConfig {
             .clone()
             .or_else(|| std::env::var("BACKEND_CURSEFORGE_API_KEY").ok())
             .filter(|key| !key.is_empty())
+    }
+}
+
+/// Shape of the instances projects create for themselves. They pick the engine
+/// and nothing else, so everything the agent needs comes from here.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct DatabaseConfig {
+    #[serde(default)]
+    pub defaults: HashMap<DatabaseType, InstanceDefaults>,
+}
+
+impl DatabaseConfig {
+    pub fn defaults_for(&self, kind: DatabaseType) -> Option<&InstanceDefaults> {
+        self.defaults.get(&kind)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InstanceDefaults {
+    pub image: String,
+    pub image_uid: u32,
+    pub image_gid: u32,
+    pub socket_path: String,
+    pub memory: i64,
+    pub swap: i64,
+    pub disk: i64,
+    pub cpu: i64,
+    #[serde(default)]
+    pub volumes: BTreeMap<String, String>,
+    #[serde(default)]
+    pub env: BTreeMap<String, String>,
+    #[serde(default)]
+    pub cmd: Option<Vec<String>>,
+}
+
+impl InstanceDefaults {
+    pub fn to_create(&self, kind: DatabaseType) -> StoredInstanceCreate {
+        StoredInstanceCreate {
+            database_type: kind,
+            suspended: false,
+            memory: self.memory,
+            swap: self.swap,
+            disk: self.disk,
+            io_weight: None,
+            cpu: self.cpu,
+            image: self.image.clone(),
+            image_uid: self.image_uid,
+            image_gid: self.image_gid,
+            volumes: VolumeMapping(self.volumes.clone()),
+            socket_path: self.socket_path.clone(),
+            timezone: None,
+            env: self.env.clone(),
+            cmd: self.cmd.clone(),
+        }
     }
 }
 

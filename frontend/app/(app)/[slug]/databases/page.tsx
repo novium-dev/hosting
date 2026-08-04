@@ -12,8 +12,6 @@ export default function DatabasesPage() {
   if (isLoading) return null;
   if (!organization) return <NotFoundView />;
 
-  // Members without DATABASE_VIEW cannot see the databases or their
-  // credentials; the backend refuses them too.
   if (
     !hasServerPermission(
       organization.permissions,
@@ -32,6 +30,7 @@ export default function DatabasesPage() {
     >
       <DatabasesView
         projectId={organization.id}
+        slug={slug ?? ""}
         permissions={organization.permissions}
       />
     </MainLayout>

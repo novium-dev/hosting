@@ -55,8 +55,6 @@ fn default_api_bind() -> SocketAddr {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfig {
-    pub id: Uuid,
-
     #[serde(default)]
     pub debug: bool,
     #[serde(default = "default_data_dir")]
