@@ -292,7 +292,7 @@ export function AdminDomainsView() {
             <TableHeader>
               <TableRow>
                 <TableHead>Domain</TableHead>
-                <TableHead>Provider</TableHead>
+                <TableHead>Carries</TableHead>
                 <TableHead>HTTPS</TableHead>
                 <TableHead>Private</TableHead>
                 <TableHead>Projects</TableHead>
@@ -306,16 +306,13 @@ export function AdminDomainsView() {
                   <TableCell className="font-medium">{entry.domain}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-1">
-                      <Badge
-                        variant={entry.http_available ? "default" : "secondary"}
-                      >
-                        HTTP
-                      </Badge>
-                      <Badge
-                        variant={entry.tcp_available ? "default" : "secondary"}
-                      >
-                        TCP
-                      </Badge>
+                      {entry.http_available ? <Badge>HTTP</Badge> : null}
+                      {entry.tcp_available ? <Badge>TCP</Badge> : null}
+                      {!entry.http_available && !entry.tcp_available ? (
+                        <span className="text-sm text-muted-foreground">
+                          nothing yet
+                        </span>
+                      ) : null}
                     </div>
                   </TableCell>
                   <TableCell>
