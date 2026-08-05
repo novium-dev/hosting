@@ -135,9 +135,7 @@ export const auth = {
     }: {
       body: { name: string; slug: string };
     }) => {
-      const response = await createProject({
-        body: { name: body.name, slug: body.slug, owner: null },
-      });
+      const response = await createProject({ body });
       if (response.error) throw new Error("Failed to create project");
       const projects = await listCurrentProjects();
       return projects.find((project) => project.slug === body.slug) ?? null;
