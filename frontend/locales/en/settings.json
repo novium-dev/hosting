@@ -4,7 +4,8 @@
     "description": "Choose how the dashboard looks, or follow your system setting.",
     "system": "System",
     "light": "Light",
-    "dark": "Dark"
+    "dark": "Dark",
+    "languageDescription": "Choose the language used across the dashboard, overriding what was detected automatically."
   },
   "daemonAuth": {
     "passwordLabel": "Daemon password",

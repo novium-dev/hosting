@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { NoviumLogo } from "@/components/brand/novium-logo";
-import { LanguageSwitcher } from "@/components/language-switcher";
 import Link from "@/components/link";
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
@@ -75,9 +74,6 @@ export default function SimpleAuth() {
         >
           {t("auth.signIn.submit")}
         </Button>
-        <div className="flex justify-center">
-          <LanguageSwitcher />
-        </div>
       </CardContent>
       <CardFooter className="bg-muted rounded-b-lg p-4">
         <div className="text-xs text-center text-muted-foreground">

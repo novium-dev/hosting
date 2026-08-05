@@ -3,6 +3,7 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { useTheme } from "@/components/theme-provider";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -37,6 +38,14 @@ export function AppearanceSection() {
           </TabsTrigger>
         </TabsList>
       </Tabs>
+
+      <div className="space-y-0.5 pt-2">
+        <h3 className="text-sm font-medium">{t("common:language.label")}</h3>
+        <p className="text-sm text-muted-foreground">
+          {t("settings:appearance.languageDescription")}
+        </p>
+      </div>
+      <LanguageSwitcher />
     </div>
   );
 }
