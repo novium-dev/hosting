@@ -1,7 +1,7 @@
 use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::{ProjectPermissions, ServerPermissions};
+use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
 use crate::auth::user::UserAuthentication;
 use crate::db::feature::ProjectFeature;
 use crate::db::project::ProjectId;
@@ -129,23 +129,32 @@ pub(crate) impl ProjectService for Backend {
 
     /// Creates a new project owned by the current user.
     #[route("", method = PUT)]
-    #[error(db::failure <- [sql:*], auth::unreachable, project::slug_invalid)]
+    #[error(db::failure <- [sql:*], auth::unreachable, project::slug_invalid, auth::permission_denied)]
     async fn create_project(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         slug: String,
         name: String,
+        owner: Option<i32>
     ) -> Result<String, _> {
         validate_slug::<CreateProjectError>(&slug)?;
 
         let id = ProjectId::generate();
+
+        let mut owner = owner;
+
+        if let Some(_) = owner { // only allow setting owner if the user has management permissions
+            auth.require::<_, _, CreateProjectError>((), ManagementPermissions::USER_MANAGE)?;
+        } else if let Authentication::User(UserAuthentication { id, .. }) = auth { // if no owner is specified, set the owner to the current user
+            owner = Some(id);
+        }
 
         query!(
             "INSERT INTO projects (id, slug, name, owner) VALUES ($1, $2, $3, $4)",
             &id,
             slug,
             name,
-            auth.id
+            owner
         )
         .execute(&*self.database)
         .await?;
