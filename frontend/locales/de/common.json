@@ -1,0 +1,17 @@
+{
+  "auth": {
+    "signIn": {
+      "goHome": "Zur Startseite",
+      "title": "Anmelden",
+      "description": "Fahre mit Novium Auth fort, um auf dein Konto zuzugreifen.",
+      "submit": "Anmelden",
+      "genericError": "Etwas ist schiefgelaufen",
+      "terms": "Mit der Anmeldung stimmst du unseren <termsLink>Nutzungsbedingungen</termsLink> und unserer <privacyLink>Datenschutzerklärung</privacyLink> zu."
+    }
+  },
+  "language": {
+    "label": "Sprache",
+    "en": "Englisch",
+    "de": "Deutsch"
+  }
+}

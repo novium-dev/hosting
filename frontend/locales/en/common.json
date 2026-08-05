@@ -1,0 +1,17 @@
+{
+  "auth": {
+    "signIn": {
+      "goHome": "Go to home",
+      "title": "Sign In",
+      "description": "Continue with Novium Auth to access your account.",
+      "submit": "Sign in",
+      "genericError": "Something went wrong",
+      "terms": "By signing in, you agree to our <termsLink>Terms of Use</termsLink> and <privacyLink>Privacy Policy</privacyLink>."
+    }
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "de": "German"
+  }
+}
