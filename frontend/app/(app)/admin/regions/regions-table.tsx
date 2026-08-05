@@ -297,11 +297,17 @@ function RegionFormDialog({
           });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to save region");
+        toast.error(
+          response.error.error?.msg ?? t("admin-core:regions.toast.saveFailed"),
+        );
         return;
       }
 
-      toast.success(region ? "Region updated" : "Region created");
+      toast.success(
+        region
+          ? t("admin-core:regions.toast.updated")
+          : t("admin-core:regions.toast.created"),
+      );
       onOpenChange(false);
       onSaved();
     } finally {
@@ -314,15 +320,19 @@ function RegionFormDialog({
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit} className="space-y-6">
           <DialogHeader>
-            <DialogTitle>{region ? "Edit region" : "Create region"}</DialogTitle>
+            <DialogTitle>
+              {region
+                ? t("admin-core:regions.formDialog.editTitle")
+                : t("admin-core:regions.formDialog.createTitle")}
+            </DialogTitle>
             <DialogDescription>
-              Regions group nodes so servers can later be placed by location.
+              {t("admin-core:regions.formDialog.description")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="region-display">Name</Label>
+              <Label htmlFor="region-display">{t("common:labels.name")}</Label>
               <Input
                 id="region-display"
                 value={display}
@@ -330,12 +340,14 @@ function RegionFormDialog({
                   setDisplay(event.target.value);
                   if (!slugTouched) setSlug(slugify(event.target.value));
                 }}
-                placeholder="Europe (Frankfurt)"
+                placeholder={t("admin-core:regions.formDialog.namePlaceholder")}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="region-slug">Slug</Label>
+              <Label htmlFor="region-slug">
+                {t("admin-core:shared.slugColumn")}
+              </Label>
               <Input
                 id="region-slug"
                 value={slug}
@@ -343,11 +355,11 @@ function RegionFormDialog({
                   setSlugTouched(true);
                   setSlug(event.target.value);
                 }}
-                placeholder="eu-frankfurt"
+                placeholder={t("admin-core:regions.formDialog.slugPlaceholder")}
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Lowercase letters, numbers and hyphens only.
+                {t("admin-core:regions.formDialog.slugHelp")}
               </p>
             </div>
           </div>
@@ -358,10 +370,10 @@ function RegionFormDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button type="submit" loading={isPending}>
-              {region ? "Save" : "Create"}
+              {region ? t("common:actions.save") : t("common:actions.create")}
             </Button>
           </DialogFooter>
         </form>

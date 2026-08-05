@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,7 @@ function toPortRows(
 }
 
 export function NetworkPorts({ serverId }: NetworkPortsProps) {
+  const { t } = useTranslation();
   const [ports, setPorts] = useState<PortRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -89,16 +91,16 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
       });
 
       if (response.error || !response.data) {
-        throw new Error("Failed to load network ports");
+        throw new Error(t("servers:networkPorts.toasts.loadFailed"));
       }
 
       setPorts(toPortRows(response.data));
     } catch {
-      toast.error("Failed to load network ports");
+      toast.error(t("servers:networkPorts.toasts.loadFailed"));
     } finally {
       setIsLoading(false);
     }
-  }, [serverId]);
+  }, [serverId, t]);
 
   useEffect(() => {
     void refresh();
@@ -111,10 +113,9 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
       <Card>
         <CardHeader className="space-y-4">
           <div>
-            <CardTitle>Network</CardTitle>
+            <CardTitle>{t("servers:networkPorts.title")}</CardTitle>
             <CardDescription>
-              Every port exposed for this server. Raw ports are reached by host
-              and port, HTTP ports through a route.
+              {t("servers:networkPorts.description")}
             </CardDescription>
           </div>
 
@@ -132,7 +133,7 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
               ) : (
                 <RefreshCcw className="size-4" />
               )}
-              Refresh
+              {t("common:actions.refresh")}
             </Button>
           </div>
         </CardHeader>
@@ -141,23 +142,23 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
           {isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
-              Loading network ports...
+              {t("servers:networkPorts.loading")}
             </div>
           ) : !hasPorts ? (
             <p className="text-sm text-muted-foreground">
-              No network ports are configured for this server.
+              {t("servers:networkPorts.empty")}
             </p>
           ) : (
             <div className="overflow-hidden rounded-lg border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Protocol</TableHead>
-                    <TableHead>Internal</TableHead>
-                    <TableHead>External</TableHead>
-                    <TableHead>Host / Bind</TableHead>
-                    <TableHead>Role</TableHead>
+                    <TableHead>{t("common:labels.name")}</TableHead>
+                    <TableHead>{t("servers:networkPorts.table.protocol")}</TableHead>
+                    <TableHead>{t("servers:networkPorts.table.internal")}</TableHead>
+                    <TableHead>{t("servers:networkPorts.table.external")}</TableHead>
+                    <TableHead>{t("servers:networkPorts.table.hostBind")}</TableHead>
+                    <TableHead>{t("common:labels.role")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -165,7 +166,9 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
                     <TableRow key={port.id}>
                       <TableCell className="font-medium">{port.name}</TableCell>
                       <TableCell>
-                        {port.http ? "HTTP" : port.protocol}
+                        {port.http
+                          ? t("servers:networkPorts.httpLabel")
+                          : port.protocol}
                       </TableCell>
                       <TableCell>{port.internalPort}</TableCell>
                       <TableCell>
@@ -179,9 +182,13 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
                       </TableCell>
                       <TableCell>
                         {port.isPrimary ? (
-                          <Badge variant="default">Primary</Badge>
+                          <Badge variant="default">
+                            {t("servers:networkPorts.primaryBadge")}
+                          </Badge>
                         ) : (
-                          <Badge variant="secondary">Additional</Badge>
+                          <Badge variant="secondary">
+                            {t("servers:networkPorts.additionalBadge")}
+                          </Badge>
                         )}
                       </TableCell>
                     </TableRow>

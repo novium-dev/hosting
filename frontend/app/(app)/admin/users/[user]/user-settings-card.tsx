@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { updateUser } from "@/lib/api";
 import type { GetUserResponse } from "@/lib/api";
@@ -34,6 +35,7 @@ export function UserSettingsCard({
   canManage: boolean;
   onUpdated: () => void;
 }) {
+  const { t } = useTranslation();
   const [username, setUsername] = useState(user.username);
   const [email, setEmail] = useState(user.email);
   const [role, setRole] = useState(String(user.role));
@@ -52,26 +54,28 @@ export function UserSettingsCard({
     }).finally(() => setSaving(false));
 
     if (response.error) {
-      toast.error("Failed to update user");
+      toast.error(t("admin-core:users.settingsCard.updateFailed"));
       return;
     }
 
-    toast.success("User updated");
+    toast.success(t("admin-core:users.settingsCard.updateSuccess"));
     onUpdated();
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>User settings</CardTitle>
+        <CardTitle>{t("admin-core:users.settingsCard.title")}</CardTitle>
         <CardDescription>
-          Update this user&apos;s account details and role.
+          {t("admin-core:users.settingsCard.description")}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="user-username">Username</Label>
+            <Label htmlFor="user-username">
+              {t("admin-core:users.fields.username")}
+            </Label>
             <Input
               id="user-username"
               value={username}
@@ -80,7 +84,7 @@ export function UserSettingsCard({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="user-email">Email</Label>
+            <Label htmlFor="user-email">{t("common:labels.email")}</Label>
             <Input
               id="user-email"
               type="email"
@@ -90,15 +94,17 @@ export function UserSettingsCard({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="user-role">Role</Label>
+            <Label htmlFor="user-role">{t("common:labels.role")}</Label>
             <Select value={role} onValueChange={setRole} disabled={!canManage}>
               <SelectTrigger id="user-role" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="0">User</SelectItem>
-                <SelectItem value="1">Moderator</SelectItem>
-                <SelectItem value="2">Admin</SelectItem>
+                <SelectItem value="0">{t("admin-core:users.roles.user")}</SelectItem>
+                <SelectItem value="1">
+                  {t("admin-core:users.roles.moderator")}
+                </SelectItem>
+                <SelectItem value="2">{t("admin-core:users.roles.admin")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -108,8 +114,8 @@ export function UserSettingsCard({
       <CardFooter className="flex flex-row items-center justify-between gap-4">
         <p className="text-sm text-muted-foreground">
           {canManage
-            ? "Changes apply immediately."
-            : "You need the Users: Manage permission to edit."}
+            ? t("admin-core:users.settingsCard.canManageHint")
+            : t("admin-core:users.settingsCard.cannotManageHint")}
         </p>
         <Button
           size="sm"
@@ -117,7 +123,7 @@ export function UserSettingsCard({
           loading={saving}
           disabled={!canManage}
         >
-          Save changes
+          {t("admin-core:users.settingsCard.saveButton")}
         </Button>
       </CardFooter>
     </Card>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -54,6 +55,7 @@ export function DatabaseHostDialog({
   regions: RegionRow[];
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [display, setDisplay] = useState("");
   const [region, setRegion] = useState("");
   const [url, setUrl] = useState("");
@@ -123,12 +125,17 @@ export function DatabaseHostDialog({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? "Failed to save the database host",
+          response.error.error?.msg ??
+            t("admin-infra:databases.hostDialog.saveError"),
         );
         return;
       }
 
-      toast.success(host ? "Database host updated" : "Database host registered");
+      toast.success(
+        host
+          ? t("admin-infra:databases.hostDialog.updateSuccess")
+          : t("admin-infra:databases.hostDialog.registerSuccess"),
+      );
       onOpenChange(false);
       onSaved();
     } finally {
@@ -148,17 +155,18 @@ export function DatabaseHostDialog({
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {host ? "Edit database host" : "Register database host"}
+            {host
+              ? t("admin-infra:databases.hostDialog.editTitle")
+              : t("admin-infra:databases.hostDialog.registerTitle")}
           </DialogTitle>
           <DialogDescription>
-            The URL is where the backend reaches the agent&apos;s API. The public
-            host is what users put in their connection strings.
+            {t("admin-infra:databases.hostDialog.description")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="display">Name</Label>
+            <Label htmlFor="display">{t("common:labels.name")}</Label>
             <Input
               id="display"
               value={display}
@@ -168,10 +176,12 @@ export function DatabaseHostDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="region">Region</Label>
+            <Label htmlFor="region">{t("common:labels.region")}</Label>
             <Select value={region} onValueChange={setRegion}>
               <SelectTrigger id="region" className="w-full">
-                <SelectValue placeholder="Select a region" />
+                <SelectValue
+                  placeholder={t("admin-infra:shared.selectRegionPlaceholder")}
+                />
               </SelectTrigger>
               <SelectContent>
                 {regions.map((option) => (
@@ -184,7 +194,9 @@ export function DatabaseHostDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="url">Agent API URL</Label>
+            <Label htmlFor="url">
+              {t("admin-infra:databases.hostDialog.urlLabel")}
+            </Label>
             <Input
               id="url"
               value={url}
@@ -195,19 +207,28 @@ export function DatabaseHostDialog({
 
           <div className="space-y-2">
             <Label htmlFor="token">
-              API token{host ? " (leave blank to keep)" : ""}
+              {t("admin-infra:databases.hostDialog.tokenLabel")}
+              {host
+                ? ` ${t("admin-infra:databases.hostDialog.tokenLabelKeepHint")}`
+                : ""}
             </Label>
             <Input
               id="token"
               type="password"
               value={token}
               onChange={(event) => setToken(event.target.value)}
-              placeholder={host ? "Unchanged" : "The agent's [api] token"}
+              placeholder={
+                host
+                  ? t("admin-infra:databases.hostDialog.tokenPlaceholderUnchanged")
+                  : t("admin-infra:databases.hostDialog.tokenPlaceholderHint")
+              }
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="public-host">Public host</Label>
+            <Label htmlFor="public-host">
+              {t("admin-infra:databases.hostDialog.publicHostLabel")}
+            </Label>
             <Input
               id="public-host"
               value={publicHost}
@@ -217,10 +238,9 @@ export function DatabaseHostDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Public ports</Label>
+            <Label>{t("admin-infra:databases.hostDialog.publicPortsLabel")}</Label>
             <p className="text-xs text-muted-foreground">
-              The port each engine&apos;s proxy listens on. Blank uses the
-              engine default.
+              {t("admin-infra:databases.hostDialog.publicPortsDescription")}
             </p>
             <div className="grid grid-cols-2 gap-2">
               {ENGINES.map((engine) => (
@@ -251,9 +271,11 @@ export function DatabaseHostDialog({
           {host ? (
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
-                <Label htmlFor="maintenance">Maintenance</Label>
+                <Label htmlFor="maintenance">
+                  {t("admin-infra:shared.maintenance")}
+                </Label>
                 <p className="text-xs text-muted-foreground">
-                  Excludes this host when placing new databases.
+                  {t("admin-infra:databases.hostDialog.maintenanceDescription")}
                 </p>
               </div>
               <Switch
@@ -272,7 +294,9 @@ export function DatabaseHostDialog({
             disabled={!canSubmit || isPending}
             loading={isPending}
           >
-            {host ? "Save changes" : "Register host"}
+            {host
+              ? t("admin-infra:shared.saveChanges")
+              : t("admin-infra:databases.hostDialog.registerButton")}
           </Button>
         </DialogFooter>
       </DialogContent>

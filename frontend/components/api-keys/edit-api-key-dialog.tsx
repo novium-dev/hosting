@@ -25,6 +25,7 @@ import { updateApiKeySchema } from "@/types/api-key.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 interface EditApiKeyDialogProps {
   apiKey: ApiKey | null;
@@ -39,6 +40,7 @@ export function EditApiKeyDialog({
   setOpen,
   onUpdated,
 }: EditApiKeyDialogProps) {
+  const { t } = useTranslation();
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
     useHookFormAction(updateApiKeyAction, zodResolver(updateApiKeySchema), {
       formProps: {
@@ -54,10 +56,10 @@ export function EditApiKeyDialog({
           resetFormAndAction();
           setOpen(false);
           onUpdated();
-          toast.success("API key updated");
+          toast.success(t("org:apiKeys.editDialog.updated"));
         },
         onError: (error) => {
-          toast.error(error.error.serverError ?? "Something went wrong");
+          toast.error(error.error.serverError ?? t("common:state.genericError"));
         },
       },
     });
@@ -76,10 +78,9 @@ export function EditApiKeyDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit API key</DialogTitle>
+          <DialogTitle>{t("org:apiKeys.editDialog.title")}</DialogTitle>
           <DialogDescription>
-            The scope is fixed when a key is created; its name and permissions
-            are not.
+            {t("org:apiKeys.editDialog.description")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -89,7 +90,7 @@ export function EditApiKeyDialog({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>{t("common:labels.name")}</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -102,7 +103,9 @@ export function EditApiKeyDialog({
               name="permissions"
               render={({ field }) => (
                 <FormItem>
-                  {apiKey?.project ? <FormLabel>Permissions</FormLabel> : null}
+                  {apiKey?.project ? (
+                    <FormLabel>{t("common:labels.permissions")}</FormLabel>
+                  ) : null}
                   <FormControl>
                     <ApiKeyPermissionsField
                       scoped={Boolean(apiKey?.project)}
@@ -119,7 +122,7 @@ export function EditApiKeyDialog({
               className="w-full"
               loading={action.isExecuting}
             >
-              Save changes
+              {t("org:apiKeys.editDialog.submit")}
             </Button>
           </form>
         </Form>

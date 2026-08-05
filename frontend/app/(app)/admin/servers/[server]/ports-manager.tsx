@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation, type TFunction } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -114,14 +115,17 @@ function formFromPort(port: AdminPortRow): PortFormState {
   };
 }
 
-function formatPortRange(range: SelectablePortRange) {
+function formatPortRange(range: SelectablePortRange, t: TFunction) {
   const base =
     range.start === range.end
       ? `${range.protocol.toUpperCase()} ${range.start}`
       : `${range.protocol.toUpperCase()} ${range.start}-${range.end}`;
 
   return range.exclude?.length
-    ? `${base} excluding ${range.exclude.join(", ")}`
+    ? t("admin-infra:servers.shared.rangeExcluding", {
+        base,
+        exclude: range.exclude.join(", "),
+      })
     : base;
 }
 
@@ -136,6 +140,7 @@ export function PortsManager({
   initialPorts,
   canManage,
 }: PortsManagerProps) {
+  const { t } = useTranslation();
   const [ports, setPorts] = useState<AdminPortRow[]>(initialPorts);
   const [isLoading, setIsLoading] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -222,11 +227,11 @@ export function PortsManager({
       setPorts(extractAdminPorts(response.data));
       await refreshAvailablePorts();
     } catch {
-      toast.error("Failed to refresh ports");
+      toast.error(t("admin-infra:servers.portsManager.refreshError"));
     } finally {
       setIsLoading(false);
     }
-  }, [refreshAvailablePorts, serverId]);
+  }, [refreshAvailablePorts, serverId, t]);
 
   useEffect(() => {
     void refreshAvailablePorts();
@@ -283,21 +288,29 @@ export function PortsManager({
     const externalEnd = parseInteger(form.externalEnd);
 
     if (!form.name.trim()) {
-      errors.name = "Name is required.";
+      errors.name = t("admin-infra:servers.portsManager.errors.nameRequired");
     }
 
     if (internalPort === null || internalPort <= 0) {
-      errors.internalPort = "Enter a valid internal port.";
+      errors.internalPort = t(
+        "admin-infra:servers.portsManager.errors.invalidInternalPort",
+      );
     }
 
     if (externalStart === null || externalStart <= 0) {
-      errors.externalStart = "Enter a valid external start port.";
+      errors.externalStart = t(
+        "admin-infra:servers.portsManager.errors.invalidExternalStart",
+      );
     }
 
     if (externalEnd === null || externalEnd <= 0) {
-      errors.externalEnd = "Enter a valid external end port.";
+      errors.externalEnd = t(
+        "admin-infra:servers.portsManager.errors.invalidExternalEnd",
+      );
     } else if (externalStart !== null && externalEnd < externalStart) {
-      errors.externalEnd = "End port must be greater than or equal to start.";
+      errors.externalEnd = t(
+        "admin-infra:servers.portsManager.errors.endBeforeStart",
+      );
     }
 
     if (
@@ -307,8 +320,12 @@ export function PortsManager({
       externalEnd >= externalStart &&
       !isExternalPortRangeAllowed(externalStart, externalEnd, form.protocol)
     ) {
-      errors.externalStart = `Selected ${form.protocol.toUpperCase()} range is not available.`;
-      errors.externalEnd = `Selected ${form.protocol.toUpperCase()} range is not available.`;
+      const rangeNotAvailable = t(
+        "admin-infra:servers.portsManager.errors.rangeNotAvailable",
+        { protocol: form.protocol.toUpperCase() },
+      );
+      errors.externalStart = rangeNotAvailable;
+      errors.externalEnd = rangeNotAvailable;
     }
 
     return errors;
@@ -371,11 +388,14 @@ export function PortsManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to create port");
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:servers.portsManager.createError"),
+        );
         return;
       }
 
-      toast.success("Port added");
+      toast.success(t("admin-infra:servers.portsManager.createSuccess"));
       setCreateOpen(false);
       resetForm();
       await refreshPorts();
@@ -410,11 +430,14 @@ export function PortsManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to update port");
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:servers.portsManager.updateError"),
+        );
         return;
       }
 
-      toast.success("Port updated");
+      toast.success(t("admin-infra:servers.portsManager.updateSuccess"));
       setEditOpen(false);
       resetForm();
       await refreshPorts();
@@ -436,11 +459,14 @@ export function PortsManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to remove port");
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:servers.portsManager.removeError"),
+        );
         return;
       }
 
-      toast.success("Port removed");
+      toast.success(t("admin-infra:servers.portsManager.removeSuccess"));
       setDeleteOpen(false);
       resetForm();
       await refreshPorts();
@@ -453,9 +479,9 @@ export function PortsManager({
     <Card>
       <CardHeader className="space-y-4">
         <div>
-          <CardTitle>Ports</CardTitle>
+          <CardTitle>{t("admin-infra:servers.shared.portsTabLabel")}</CardTitle>
           <CardDescription>
-            Add, update, and remove server ports exposed through the API.
+            {t("admin-infra:servers.portsManager.description")}
           </CardDescription>
         </div>
 
@@ -463,15 +489,17 @@ export function PortsManager({
           <Popover>
             <PopoverTrigger asChild>
               <Button type="button" variant="outline" disabled={isActionLoading}>
-                Available ranges
+                {t("admin-infra:servers.shared.availableRanges")}
               </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-80">
               <div className="space-y-2">
-                <p className="text-sm font-medium">Available port ranges</p>
+                <p className="text-sm font-medium">
+                  {t("admin-infra:servers.shared.availablePortRangesTitle")}
+                </p>
                 {availablePortRanges.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No available range data.
+                    {t("admin-infra:servers.portsManager.noRangeData")}
                   </p>
                 ) : (
                   <div className="space-y-1">
@@ -480,7 +508,7 @@ export function PortsManager({
                         key={`${range.protocol}-${range.start}-${range.end}-${index}`}
                         className="font-mono text-xs text-muted-foreground"
                       >
-                        {formatPortRange(range)}
+                        {formatPortRange(range, t)}
                       </p>
                     ))}
                   </div>
@@ -497,7 +525,7 @@ export function PortsManager({
             disabled={isActionLoading || !canManage}
           >
             <Plus className="size-4" />
-            Add Port
+            {t("admin-infra:servers.portsManager.addButton")}
           </Button>
           <Button
             type="button"
@@ -508,7 +536,7 @@ export function PortsManager({
             disabled={isActionLoading || isLoading}
           >
             {isLoading ? <Loader2 className="size-4 animate-spin" /> : null}
-            Refresh
+            {t("common:actions.refresh")}
           </Button>
         </div>
       </CardHeader>
@@ -516,19 +544,25 @@ export function PortsManager({
       <CardContent>
         {ports.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No ports available from the API response yet.
+            {t("admin-infra:servers.portsManager.noPorts")}
           </p>
         ) : (
           <div className="overflow-hidden rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Protocol</TableHead>
-                  <TableHead>Internal</TableHead>
-                  <TableHead>External</TableHead>
+                  <TableHead>{t("common:labels.name")}</TableHead>
+                  <TableHead>{t("admin-infra:shared.protocol")}</TableHead>
+                  <TableHead>
+                    {t("admin-infra:servers.portsManager.columns.internal")}
+                  </TableHead>
+                  <TableHead>
+                    {t("admin-infra:servers.portsManager.columns.external")}
+                  </TableHead>
                   <TableHead>Host / Bind</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right">
+                    {t("common:labels.actions")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -562,7 +596,7 @@ export function PortsManager({
                           disabled={isActionLoading || !canManage}
                         >
                           <Pencil className="size-4" />
-                          Edit
+                          {t("common:actions.edit")}
                         </Button>
                         <Button
                           type="button"
@@ -575,7 +609,7 @@ export function PortsManager({
                           disabled={isActionLoading || !canManage}
                         >
                           <Trash2 className="size-4" />
-                          Remove
+                          {t("common:actions.remove")}
                         </Button>
                       </div>
                     </TableCell>
@@ -598,9 +632,11 @@ export function PortsManager({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Port</DialogTitle>
+            <DialogTitle>
+              {t("admin-infra:servers.portsManager.addButton")}
+            </DialogTitle>
             <DialogDescription>
-              Configure a new network port allocation for this server.
+              {t("admin-infra:servers.portsManager.addDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <PortForm
@@ -616,7 +652,7 @@ export function PortsManager({
               onClick={() => setCreateOpen(false)}
               disabled={isActionLoading || !canManage}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -626,7 +662,7 @@ export function PortsManager({
               loading={isActionLoading}
               disabled={!canManage}
             >
-              Add
+              {t("common:actions.add")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -643,9 +679,11 @@ export function PortsManager({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Port</DialogTitle>
+            <DialogTitle>
+              {t("admin-infra:servers.portsManager.editDialogTitle")}
+            </DialogTitle>
             <DialogDescription>
-              Update the selected server port settings.
+              {t("admin-infra:servers.portsManager.editDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <PortForm
@@ -661,7 +699,7 @@ export function PortsManager({
               onClick={() => setEditOpen(false)}
               disabled={isActionLoading || !canManage}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -671,7 +709,7 @@ export function PortsManager({
               loading={isActionLoading}
               disabled={!canManage}
             >
-              Save
+              {t("common:actions.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -688,15 +726,20 @@ export function PortsManager({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove port?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("admin-infra:servers.portsManager.removeDialogTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This removes {selectedPort?.name ?? "the selected port"} from the
-              server.
+              {t("admin-infra:servers.portsManager.removeDialogDescription", {
+                name:
+                  selectedPort?.name ??
+                  t("admin-infra:servers.portsManager.removeDialogDefaultName"),
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isActionLoading}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
@@ -706,7 +749,7 @@ export function PortsManager({
               }}
               disabled={isActionLoading || !canManage}
             >
-              Remove
+              {t("common:actions.remove")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -731,6 +774,8 @@ function FieldError({ children }: { children?: string }) {
 }
 
 function PortForm({ errors, form, setForm, mode }: PortFormProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-2">
@@ -739,7 +784,7 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
           onChange={(event) =>
             setForm((prev) => ({ ...prev, name: event.target.value }))
           }
-          placeholder="Name"
+          placeholder={t("admin-infra:servers.portsManager.form.namePlaceholder")}
           aria-invalid={Boolean(errors.name)}
         />
         <FieldError>{errors.name}</FieldError>
@@ -757,7 +802,7 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
           }
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Protocol" />
+            <SelectValue placeholder={t("admin-infra:shared.protocol")} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="tcp">TCP</SelectItem>
@@ -766,8 +811,7 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          HTTP is a TCP port that serves HTTP — only those can get a subdomain
-          route.
+          {t("admin-infra:servers.portsManager.form.httpHint")}
         </p>
       </div>
 
@@ -777,7 +821,9 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
           onChange={(event) =>
             setForm((prev) => ({ ...prev, internalPort: event.target.value }))
           }
-          placeholder="Internal port"
+          placeholder={t(
+            "admin-infra:servers.portsManager.form.internalPortPlaceholder",
+          )}
           inputMode="numeric"
           aria-invalid={Boolean(errors.internalPort)}
         />
@@ -790,7 +836,9 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
           onChange={(event) =>
             setForm((prev) => ({ ...prev, externalStart: event.target.value }))
           }
-          placeholder="External start"
+          placeholder={t(
+            "admin-infra:servers.portsManager.form.externalStartPlaceholder",
+          )}
           inputMode="numeric"
           aria-invalid={Boolean(errors.externalStart)}
         />
@@ -803,7 +851,9 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
           onChange={(event) =>
             setForm((prev) => ({ ...prev, externalEnd: event.target.value }))
           }
-          placeholder="External end"
+          placeholder={t(
+            "admin-infra:servers.portsManager.form.externalEndPlaceholder",
+          )}
           inputMode="numeric"
           aria-invalid={Boolean(errors.externalEnd)}
         />
@@ -817,7 +867,9 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
             onChange={(event) =>
               setForm((prev) => ({ ...prev, host: event.target.value }))
             }
-            placeholder="Host (optional)"
+            placeholder={t(
+              "admin-infra:servers.portsManager.form.hostPlaceholder",
+            )}
           />
 
           <Input
@@ -825,7 +877,9 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
             onChange={(event) =>
               setForm((prev) => ({ ...prev, bind: event.target.value }))
             }
-            placeholder="Bind (optional)"
+            placeholder={t(
+              "admin-infra:servers.portsManager.form.bindPlaceholder",
+            )}
           />
         </>
       ) : null}

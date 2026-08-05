@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -82,6 +83,7 @@ export function ServerAdminSettings({
   canSuspend,
   initial,
 }: ServerAdminSettingsProps) {
+  const { t } = useTranslation();
   const [form, setForm] = useState<FormState>(buildInitialForm(initial));
   const [initialForm, setInitialForm] = useState<FormState>(
     buildInitialForm(initial),
@@ -114,9 +116,7 @@ export function ServerAdminSettings({
       (form.swap.trim() && swap === null) ||
       (form.disk.trim() && disk === null)
     ) {
-      toast.error(
-        "Please enter valid numeric values or leave fields empty for unlimited",
-      );
+      toast.error(t("admin-infra:servers.adminSettings.invalidNumbersError"));
       return;
     }
 
@@ -131,17 +131,17 @@ export function ServerAdminSettings({
       .some((field) => isFieldDirty(field));
 
     if (hasSuspendChange && !canSuspend) {
-      toast.error("You do not have permission to suspend this server");
+      toast.error(t("admin-infra:servers.adminSettings.noSuspendPermission"));
       return;
     }
 
     if (form.suspended && !form.suspensionReason.trim()) {
-      toast.error("Suspending a server requires a reason");
+      toast.error(t("admin-infra:servers.adminSettings.suspendReasonRequired"));
       return;
     }
 
     if (hasManagementChange && !canManage) {
-      toast.error("You do not have permission to manage this server");
+      toast.error(t("admin-infra:servers.adminSettings.noManagePermission"));
       return;
     }
 
@@ -176,12 +176,13 @@ export function ServerAdminSettings({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? "Failed to update server settings",
+          response.error.error?.msg ??
+            t("admin-infra:servers.adminSettings.updateError"),
         );
         return;
       }
 
-      toast.success("Server settings updated");
+      toast.success(t("admin-infra:servers.adminSettings.updateSuccess"));
       setInitialForm(form);
     } finally {
       setIsSaving(false);
@@ -191,9 +192,9 @@ export function ServerAdminSettings({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Server Admin Settings</CardTitle>
+        <CardTitle>{t("admin-infra:servers.adminSettings.title")}</CardTitle>
         <CardDescription>
-          Update admin-only server settings and runtime limits.
+          {t("admin-infra:servers.adminSettings.description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -201,15 +202,17 @@ export function ServerAdminSettings({
           <div className="flex items-center justify-between rounded-md border p-3">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <Label htmlFor="internet-access">Internet Access</Label>
+                <Label htmlFor="internet-access">
+                  {t("admin-infra:servers.shared.internetAccessLabel")}
+                </Label>
                 {isFieldDirty("internetAccess") ? (
                   <span className="text-xs font-medium text-amber-600">
-                    Edited
+                    {t("admin-infra:servers.adminSettings.editedBadge")}
                   </span>
                 ) : null}
               </div>
               <p className="text-xs text-muted-foreground">
-                Allow outbound internet from the server.
+                {t("admin-infra:servers.adminSettings.internetAccessHint")}
               </p>
             </div>
             <Switch
@@ -225,15 +228,15 @@ export function ServerAdminSettings({
           <div className="flex items-center justify-between rounded-md border p-3">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <Label htmlFor="suspended">Suspended</Label>
+                <Label htmlFor="suspended">{t("common:status.suspended")}</Label>
                 {isFieldDirty("suspended") ? (
                   <span className="text-xs font-medium text-amber-600">
-                    Edited
+                    {t("admin-infra:servers.adminSettings.editedBadge")}
                   </span>
                 ) : null}
               </div>
               <p className="text-xs text-muted-foreground">
-                Suspend or unsuspend this server.
+                {t("admin-infra:servers.adminSettings.suspendedHint")}
               </p>
             </div>
             <Switch
@@ -254,10 +257,12 @@ export function ServerAdminSettings({
         {form.suspended ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor="suspension-reason">Suspension Reason</Label>
+              <Label htmlFor="suspension-reason">
+                {t("admin-infra:servers.adminSettings.suspensionReasonLabel")}
+              </Label>
               {isFieldDirty("suspensionReason") ? (
                 <span className="text-xs font-medium text-amber-600">
-                  Edited
+                  {t("admin-infra:servers.adminSettings.editedBadge")}
                 </span>
               ) : null}
             </div>
@@ -270,13 +275,15 @@ export function ServerAdminSettings({
                   suspensionReason: event.target.value,
                 }))
               }
-              placeholder="Why is this server suspended?"
+              placeholder={t(
+                "admin-infra:servers.adminSettings.suspensionReasonPlaceholder",
+              )}
               rows={2}
               maxLength={512}
               disabled={!canSuspend}
             />
             <p className="text-xs text-muted-foreground">
-              Shown to everyone who can see this server.
+              {t("admin-infra:servers.adminSettings.suspensionReasonHint")}
             </p>
           </div>
         ) : null}
@@ -284,10 +291,12 @@ export function ServerAdminSettings({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor="limit-backup">Backup Limit</Label>
+              <Label htmlFor="limit-backup">
+                {t("admin-infra:servers.shared.backupLimitLabel")}
+              </Label>
               {isFieldDirty("backupLimit") ? (
                 <span className="text-xs font-medium text-amber-600">
-                  Edited
+                  {t("admin-infra:servers.adminSettings.editedBadge")}
                 </span>
               ) : null}
             </div>
@@ -300,17 +309,21 @@ export function ServerAdminSettings({
                   backupLimit: event.target.value,
                 }))
               }
-              placeholder="Empty = unlimited"
+              placeholder={t(
+                "admin-infra:servers.adminSettings.unlimitedPlaceholder",
+              )}
               inputMode="numeric"
             />
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor="limit-cpu">CPU Limit</Label>
+              <Label htmlFor="limit-cpu">
+                {t("admin-infra:servers.adminSettings.cpuLimitLabel")}
+              </Label>
               {isFieldDirty("cpu") ? (
                 <span className="text-xs font-medium text-amber-600">
-                  Edited
+                  {t("admin-infra:servers.adminSettings.editedBadge")}
                 </span>
               ) : null}
             </div>
@@ -320,17 +333,21 @@ export function ServerAdminSettings({
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, cpu: event.target.value }))
               }
-              placeholder="Empty = unlimited"
+              placeholder={t(
+                "admin-infra:servers.adminSettings.unlimitedPlaceholder",
+              )}
               inputMode="numeric"
             />
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor="limit-ram">RAM Limit (bytes)</Label>
+              <Label htmlFor="limit-ram">
+                {t("admin-infra:servers.adminSettings.ramLimitLabel")}
+              </Label>
               {isFieldDirty("ram") ? (
                 <span className="text-xs font-medium text-amber-600">
-                  Edited
+                  {t("admin-infra:servers.adminSettings.editedBadge")}
                 </span>
               ) : null}
             </div>
@@ -340,17 +357,21 @@ export function ServerAdminSettings({
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, ram: event.target.value }))
               }
-              placeholder="Empty = unlimited"
+              placeholder={t(
+                "admin-infra:servers.adminSettings.unlimitedPlaceholder",
+              )}
               inputMode="numeric"
             />
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor="limit-swap">Swap Limit (bytes)</Label>
+              <Label htmlFor="limit-swap">
+                {t("admin-infra:servers.adminSettings.swapLimitLabel")}
+              </Label>
               {isFieldDirty("swap") ? (
                 <span className="text-xs font-medium text-amber-600">
-                  Edited
+                  {t("admin-infra:servers.adminSettings.editedBadge")}
                 </span>
               ) : null}
             </div>
@@ -360,17 +381,21 @@ export function ServerAdminSettings({
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, swap: event.target.value }))
               }
-              placeholder="Empty = unlimited"
+              placeholder={t(
+                "admin-infra:servers.adminSettings.unlimitedPlaceholder",
+              )}
               inputMode="numeric"
             />
           </div>
 
           <div className="space-y-2 sm:col-span-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor="limit-disk">Disk Limit (bytes)</Label>
+              <Label htmlFor="limit-disk">
+                {t("admin-infra:servers.adminSettings.diskLimitLabel")}
+              </Label>
               {isFieldDirty("disk") ? (
                 <span className="text-xs font-medium text-amber-600">
-                  Edited
+                  {t("admin-infra:servers.adminSettings.editedBadge")}
                 </span>
               ) : null}
             </div>
@@ -380,7 +405,9 @@ export function ServerAdminSettings({
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, disk: event.target.value }))
               }
-              placeholder="Empty = unlimited"
+              placeholder={t(
+                "admin-infra:servers.adminSettings.unlimitedPlaceholder",
+              )}
               inputMode="numeric"
             />
           </div>
@@ -388,9 +415,13 @@ export function ServerAdminSettings({
 
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <Label htmlFor="dockerfile">Custom Dockerfile</Label>
+            <Label htmlFor="dockerfile">
+              {t("admin-infra:servers.adminSettings.customDockerfileLabel")}
+            </Label>
             {isFieldDirty("customDockerfile") ? (
-              <span className="text-xs font-medium text-amber-600">Edited</span>
+              <span className="text-xs font-medium text-amber-600">
+                {t("admin-infra:servers.adminSettings.editedBadge")}
+              </span>
             ) : null}
           </div>
           <Textarea
@@ -402,7 +433,9 @@ export function ServerAdminSettings({
                 customDockerfile: event.target.value,
               }))
             }
-            placeholder="Optional custom Dockerfile content"
+            placeholder={t(
+              "admin-infra:servers.adminSettings.customDockerfilePlaceholder",
+            )}
             rows={6}
           />
         </div>
@@ -416,7 +449,7 @@ export function ServerAdminSettings({
             loading={isSaving}
             disabled={!hasChanges || isSaving || (!canManage && !canSuspend)}
           >
-            Save Admin Settings
+            {t("admin-infra:servers.adminSettings.saveButton")}
           </Button>
           <Button
             type="button"
@@ -424,7 +457,7 @@ export function ServerAdminSettings({
             onClick={onReset}
             disabled={isSaving}
           >
-            Reset
+            {t("common:actions.reset")}
           </Button>
         </div>
       </CardContent>

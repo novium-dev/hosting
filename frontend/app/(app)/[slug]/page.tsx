@@ -2,6 +2,7 @@ import Link from "@/components/link";
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
 import {
   Server,
   ChevronRight,
@@ -103,6 +104,7 @@ function ServerRow({
   slug: string;
   server: ServerListItem;
 }) {
+  const { t } = useTranslation();
   const banner = templateBanner(server.template);
   const state = server.status ? statusFromLabel(server.status.state) : "unknown";
   const tone = statusTone(state);
@@ -113,19 +115,19 @@ function ServerRow({
   const resources = [
     {
       icon: Cpu,
-      label: "CPU",
+      label: t("org:shared.cpu"),
       value: stats ? formatCpuCompact(stats.cpu) : "--",
       percent: stats ? usagePercentValue(stats.cpu, stats.cpu_max) : null,
     },
     {
       icon: MemoryStick,
-      label: "RAM",
+      label: t("org:shared.ram"),
       value: stats ? formatUsageCompact(stats.ram, stats.ram_max) : "-- / --",
       percent: stats ? usagePercentValue(stats.ram, stats.ram_max) : null,
     },
     {
       icon: HardDrive,
-      label: "Disk",
+      label: t("org:shared.disk"),
       value: stats ? formatUsageCompact(stats.disk, stats.disk_max) : "-- / --",
       percent: stats ? usagePercentValue(stats.disk, stats.disk_max) : null,
     },
@@ -216,6 +218,7 @@ function ServerRow({
 }
 
 export default function OrganizationPage() {
+  const { t } = useTranslation();
   const { slug = "" } = useParams<{ slug: string }>();
 
   const { data: org, isLoading } = useOrganization(slug);
@@ -238,9 +241,9 @@ export default function OrganizationPage() {
       <MainLayout breadcrumbs={[{ label: slug ?? "" }]}>
         <Card>
           <CardHeader>
-            <CardTitle>No active organization selected</CardTitle>
+            <CardTitle>{t("org:dashboard.noOrgTitle")}</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Please select an organization before viewing servers.
+              {t("org:dashboard.noOrgDescription")}
             </p>
           </CardHeader>
         </Card>
@@ -251,13 +254,17 @@ export default function OrganizationPage() {
   const servers = serversData ?? [];
 
   return (
-    <MainLayout breadcrumbs={[{ label: slug }, { label: "Servers" }]}>
+    <MainLayout
+      breadcrumbs={[{ label: slug }, { label: t("org:dashboard.breadcrumb") }]}
+    >
       <div className="flex flex-col gap-8">
         {/* Header */}
         <div className="flex flex-col gap-2">
-          <p className="text-3xl font-semibold tracking-tight">Your Servers</p>
+          <p className="text-3xl font-semibold tracking-tight">
+            {t("org:dashboard.heading")}
+          </p>
           <p className="text-sm text-muted-foreground">
-            Manage your game servers, view logs, and access the console.
+            {t("org:dashboard.subheading")}
           </p>
         </div>
 
@@ -271,9 +278,11 @@ export default function OrganizationPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <p className="text-base font-medium">No servers found</p>
+                  <p className="text-base font-medium">
+                    {t("org:dashboard.emptyTitle")}
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    This organization doesn&apos;t have any game servers yet.
+                    {t("org:dashboard.emptyDescription")}
                   </p>
                 </div>
               </CardContent>

@@ -63,7 +63,7 @@ export function CreateApiKeyDialog({
           onCreated();
         },
         onError: (error) => {
-          toast.error(error.error.serverError ?? "Something went wrong");
+          toast.error(error.error.serverError ?? t("common:state.genericError"));
         },
       },
     });
@@ -72,9 +72,9 @@ export function CreateApiKeyDialog({
     if (!token) return;
     try {
       await navigator.clipboard.writeText(token);
-      toast.success("API key copied");
+      toast.success(t("org:apiKeys.createDialog.copied"));
     } catch {
-      toast.error("Failed to copy API key");
+      toast.error(t("org:apiKeys.createDialog.copyFailed"));
     }
   };
 
@@ -84,16 +84,16 @@ export function CreateApiKeyDialog({
         <DialogTrigger asChild>
           <Button>
             <Plus className="size-4" />
-            New key
+            {t("org:apiKeys.createDialog.trigger")}
           </Button>
         </DialogTrigger>
         <DialogContent className="max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create API key</DialogTitle>
+            <DialogTitle>{t("org:apiKeys.createDialog.title")}</DialogTitle>
             <DialogDescription>
               {projectId
-                ? "The key can only act inside this project, and never beyond your own permissions."
-                : "The key acts across the instance, and never beyond your own permissions."}
+                ? t("org:apiKeys.createDialog.descriptionProject")
+                : t("org:apiKeys.createDialog.descriptionInstance")}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -103,9 +103,12 @@ export function CreateApiKeyDialog({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>{t("common:labels.name")}</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Deployment pipeline" />
+                      <Input
+                        {...field}
+                        placeholder={t("org:apiKeys.createDialog.namePlaceholder")}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -116,7 +119,9 @@ export function CreateApiKeyDialog({
                 name="permissions"
                 render={({ field }) => (
                   <FormItem>
-                    {projectId ? <FormLabel>Permissions</FormLabel> : null}
+                    {projectId ? (
+                      <FormLabel>{t("common:labels.permissions")}</FormLabel>
+                    ) : null}
                     <FormControl>
                       <ApiKeyPermissionsField
                         scoped={projectId !== undefined}
@@ -133,7 +138,7 @@ export function CreateApiKeyDialog({
                 className="w-full"
                 loading={action.isExecuting}
               >
-                Create key
+                {t("org:apiKeys.createDialog.submit")}
               </Button>
             </form>
           </Form>
@@ -150,11 +155,10 @@ export function CreateApiKeyDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <KeyRound className="size-5 text-muted-foreground" />
-              Copy your API key
+              {t("org:apiKeys.createDialog.copyTitle")}
             </DialogTitle>
             <DialogDescription>
-              This is the only time the key is shown. Store it somewhere safe —
-              if you lose it, create a new one.
+              {t("org:apiKeys.createDialog.copyDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2">
@@ -164,18 +168,20 @@ export function CreateApiKeyDialog({
               variant="outline"
               size="icon"
               onClick={() => void copyToken()}
-              aria-label="Copy API key"
+              aria-label={t("org:apiKeys.createDialog.copyAriaLabel")}
             >
               <Copy className="size-4" />
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Send it as{" "}
-            <code className="font-mono">Authorization: Bearer &lt;key&gt;</code>.
+            <Trans
+              i18nKey="org:apiKeys.createDialog.sendAs"
+              components={{ code: <code className="font-mono" /> }}
+            />
           </p>
           <DialogFooter>
             <Button type="button" onClick={() => setToken(null)}>
-              Done
+              {t("org:apiKeys.createDialog.done")}
             </Button>
           </DialogFooter>
         </DialogContent>

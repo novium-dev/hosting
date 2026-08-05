@@ -1,1 +1,323 @@
-{}
+{
+  "shared": {
+    "backToServerList": "Back to server list",
+    "edited": "Edited"
+  },
+  "page": {
+    "sections": {
+      "console": {
+        "label": "Console",
+        "description": "TODO: Build live console stream and command input."
+      },
+      "files": {
+        "label": "Files",
+        "description": "TODO: Build file browser, editor, and upload actions."
+      },
+      "backups": {
+        "label": "Backups",
+        "description": "Manage backup creation, download, restore, and deletion."
+      },
+      "mods": {
+        "label": "Mods",
+        "description": "Browse and install Minecraft mods or plugins."
+      },
+      "players": {
+        "label": "Players",
+        "description": "View and manage online Minecraft players."
+      },
+      "network": {
+        "label": "Network",
+        "description": "Ports, routes and the records that point at them."
+      },
+      "settings": {
+        "label": "Settings",
+        "description": "Update name and personal server settings."
+      },
+      "startup": {
+        "label": "Startup",
+        "description": "TODO: Build startup command/editor. Variables are intentionally left out for now."
+      }
+    },
+    "noPermissions": {
+      "title": "No server permissions",
+      "description": "You do not have access to any management sections for this server."
+    },
+    "blocked": {
+      "suspendedTitle": "Server is suspended",
+      "maintenanceTitle": "Node is in maintenance",
+      "suspendedDefaultReason": "This server is suspended and actions are currently blocked.",
+      "maintenanceReason": "Node {{node}} is in maintenance mode, so server actions are currently blocked."
+    },
+    "noFilePermissions": {
+      "title": "No file permissions",
+      "description": "You do not have access to view files for this server."
+    }
+  },
+  "layout": {
+    "breadcrumbServers": "Servers",
+    "noOrganization": {
+      "title": "No active organization selected",
+      "description": "Please select an organization before viewing this server."
+    },
+    "notFound": {
+      "title": "Server not found",
+      "description": "This server does not exist or is not part of your organization."
+    },
+    "noPowerPermission": "You do not have permission to control power."
+  },
+  "managementBar": {
+    "addressUnavailable": "Address unavailable",
+    "copyAddressTitle": "Copy server address",
+    "uptimeTitle": "Uptime",
+    "playersOnline": "Players online",
+    "suspendedBadge": "Suspended",
+    "maintenanceBadge": "Node In Maintenance",
+    "adminUiButton": "Admin UI",
+    "actions": {
+      "start": "Start",
+      "restart": "Restart",
+      "stop": "Stop",
+      "kill": "Kill"
+    },
+    "commandSent": "Server {{action}} command sent",
+    "errors": {
+      "startFailed": "Failed to start server: {{msg}}",
+      "stopFailed": "Failed to stop server: {{msg}}",
+      "restartFailed": "Failed to restart server: {{msg}}",
+      "killFailed": "Failed to kill server: {{msg}}"
+    },
+    "highUsage": {
+      "cpuAndRamTitle": "CPU and memory usage are high",
+      "cpuTitle": "CPU usage is high",
+      "ramTitle": "Memory usage is high",
+      "cpuAtLimit": "CPU is at {{percent}}% of its limit. ",
+      "ramAtLimit": "Memory is at {{percent}}% of its limit. ",
+      "resourceWarning": "The server may become unresponsive or be killed if it runs out of resources."
+    },
+    "stats": {
+      "disk": "Disk",
+      "ram": "RAM",
+      "swap": "Swap",
+      "cpu": "CPU"
+    },
+    "toasts": {
+      "statsConnectFailed": "Failed to connect to server stats",
+      "invalidStatsUrl": "Invalid stats websocket URL",
+      "addressCopied": "Server address copied",
+      "addressCopyFailed": "Failed to copy server address"
+    }
+  },
+  "backups": {
+    "title": "Backups",
+    "description": "Manage server backups, restore points, and downloads.",
+    "createButton": "Create Backup",
+    "restoreButton": "Restore",
+    "loading": "Loading backups...",
+    "empty": "No backups found.",
+    "unnamedBackup": "Backup {{id}}",
+    "unnamedFallback": "the selected backup",
+    "table": {
+      "storage": "Storage"
+    },
+    "createDialog": {
+      "title": "Create Backup",
+      "description": "This will start creating a new backup using the default storage."
+    },
+    "restoreDialog": {
+      "title": "Restore backup?",
+      "description": "This will restore {{name}}. Existing data may be overwritten."
+    },
+    "deleteDialog": {
+      "title": "Delete backup?",
+      "description": "This action permanently removes {{name}}."
+    },
+    "toasts": {
+      "loadFailed": "Failed to load backups",
+      "createFailed": "Failed to create backup",
+      "createSuccess": "Backup creation started",
+      "invalidSelection": "Invalid backup selection",
+      "invalidId": "Invalid backup id",
+      "downloadUrlFailed": "Failed to get backup URL",
+      "restoreFailed": "Failed to restore backup",
+      "restoreSuccess": "Restore command sent",
+      "deleteFailed": "Failed to delete backup",
+      "deleteSuccess": "Backup deleted"
+    }
+  },
+  "fileEditor": {
+    "loadingEditor": "Loading editor...",
+    "defaultTitle": "File editor",
+    "defaultDescription": "Choose a file from the Files tab to open it here.",
+    "backToFiles": "Back to files",
+    "loadingFile": "Loading file...",
+    "readOnlyNotice": "You have read-only file access for this server.",
+    "noFileSelected": {
+      "title": "No file selected",
+      "description": "Open a file from the Files tab to view or edit it."
+    },
+    "directorySelected": {
+      "title": "Directory selected",
+      "description": "Directories cannot be opened in the editor."
+    },
+    "archiveDisabled": {
+      "title": "Archive editing is disabled",
+      "description": "This file is an archive. Download or extract it from the Files tab instead of editing it as text."
+    },
+    "toasts": {
+      "inspectFailed": "Failed to inspect file",
+      "downloadUrlFailed": "Failed to get download URL",
+      "loadFailed": "Failed to load file",
+      "uploadUrlFailed": "Failed to get upload URL",
+      "saveSuccess": "File saved",
+      "saveFailed": "Failed to save file"
+    }
+  },
+  "networkPorts": {
+    "title": "Network",
+    "description": "Every port exposed for this server. Raw ports are reached by host and port, HTTP ports through a route.",
+    "loading": "Loading network ports...",
+    "empty": "No network ports are configured for this server.",
+    "httpLabel": "HTTP",
+    "primaryBadge": "Primary",
+    "additionalBadge": "Additional",
+    "table": {
+      "protocol": "Protocol",
+      "internal": "Internal",
+      "external": "External",
+      "hostBind": "Host / Bind"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load network ports"
+    }
+  },
+  "routes": {
+    "title": "Routes",
+    "description": "Point a subdomain at one of this server's ports.",
+    "newRouteButton": "New route",
+    "httpBadge": "HTTP",
+    "srvBadge": "SRV",
+    "privateLabel": "private",
+    "subdomainInvalid": "Only lowercase letters, digits and dashes are allowed.",
+    "empty": {
+      "noDomains": "No domains are available for this project yet.",
+      "noRoutablePorts": "None of this server's ports can be routed yet.",
+      "noRoutes": "No routes yet."
+    },
+    "table": {
+      "kind": "Kind",
+      "https": "HTTPS",
+      "type": "Type"
+    },
+    "manualDns": {
+      "title": "Point your own domain here",
+      "description": "The records to drop into your own DNS to reach a port. Pick the port and copy them over.",
+      "noPorts": "This server has no ports yet.",
+      "createRouteFirst": "Create a route for this port first — your own domain then points at it.",
+      "replaceHelp": "Replace <code>your-domain</code> with the name you own.",
+      "httpHelp": "An HTTP port is served through the reverse proxy, so your domain points at the route's address.",
+      "nonHttpHelp": "Clients that look the service up find the port on their own, so nobody has to type it."
+    },
+    "dialog": {
+      "title": "New route",
+      "description": "Pick a subdomain, the domain it lives under and the port it points at.",
+      "domainPlaceholder": "Domain",
+      "httpRouteHelp": "An HTTP port becomes a reverse-proxied resource on the subdomain.",
+      "rawRouteHelp": "A raw port gets an SRV record on the subdomain.",
+      "noSelectablePorts": "This domain cannot carry any of this server's ports yet.",
+      "httpsLabel": "HTTPS",
+      "httpsHelpOn": "Serve this route over HTTPS.",
+      "httpsHelpOff": "This domain does not offer HTTPS.",
+      "createsRecordHelp": "Creates <code>{{record}}</code>, so clients that look the service up reach the port on their own. The service name comes from the port.",
+      "yourNamePlaceholder": "your-name",
+      "theDomainPlaceholder": "the-domain",
+      "submitButton": "Create route"
+    },
+    "deleteDialog": {
+      "title": "Delete route",
+      "description": "{{fqdn}} stops resolving and its records are removed from the provider."
+    },
+    "toasts": {
+      "loadFailed": "Failed to load routes",
+      "createFailed": "Failed to create route",
+      "createSuccess": "Route {{fqdn}} created",
+      "copyFailed": "Failed to copy",
+      "deleteFailed": "Failed to delete route",
+      "deleteSuccess": "Route deleted"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Update your server display name.",
+    "loading": "Loading settings...",
+    "serverNameLabel": "Server name",
+    "saveNameButton": "Save name",
+    "sftp": {
+      "title": "SFTP Access",
+      "description": "Use your daemon password for SFTP password auth, or configure SSH public key auth from your profile.",
+      "usernameLabel": "Username",
+      "openLabel": "Open with SFTP",
+      "openButton": "Open",
+      "helpText": "Your SFTP password is the daemon password shown in your settings. You can also add SSH public keys there.",
+      "daemonAuthButton": "Daemon Auth"
+    },
+    "wipe": {
+      "title": "Wipe Server Files",
+      "description": "Deletes every file on the server. The next start recreates the template's files from scratch. Stop the server first.",
+      "button": "Wipe Files",
+      "dialogTitle": "Wipe all files of {{name}}?",
+      "thisServer": "this server",
+      "dialogDescription": "This deletes every file of the server, including worlds and configs. This action cannot be undone.",
+      "backupCheckboxLabel": "Create a backup first",
+      "backupCheckboxHelp": "The wipe is cancelled if the backup fails, so the files are never deleted without it.",
+      "confirmButton": "Wipe Files",
+      "confirmWithBackupButton": "Back Up and Wipe"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load server settings",
+      "updateFailed": "Failed to update server name",
+      "updateSuccess": "Server name updated",
+      "wipeFailed": "Failed to wipe the server files",
+      "wipeSuccessWithBackup": "Backup started and server files wiped",
+      "wipeSuccess": "Server files wiped",
+      "usernameCopySuccess": "SFTP username copied",
+      "usernameCopyFailed": "Failed to copy SFTP username",
+      "urlCopySuccess": "SFTP URL copied",
+      "urlCopyFailed": "Failed to copy SFTP URL"
+    }
+  },
+  "startup": {
+    "title": "Startup",
+    "description": "Edit and save server startup variables.",
+    "loading": "Loading startup variables...",
+    "unableToLoad": "Unable to load startup variables.",
+    "saveButton": "Save Variables",
+    "toasts": {
+      "loadFailed": "Failed to load startup variables",
+      "invalidVariables": "Fix invalid startup variables before saving",
+      "saveSuccess": "Startup variables updated",
+      "saveFailed": "Failed to save startup variables"
+    }
+  },
+  "terminal": {
+    "title": "Console",
+    "connecting": "Connecting terminal...",
+    "commandPlaceholder": "Enter command (e.g. stop, say hello)",
+    "sendButton": "Send",
+    "errors": {
+      "connectFailed": "Failed to connect to terminal session.",
+      "createFailed": "Failed to create terminal session.",
+      "socketFailed": "Terminal websocket connection failed.",
+      "disconnected": "[terminal disconnected]",
+      "renderFailed": "Failed to render terminal output.",
+      "initFailed": "Failed to initialize terminal.",
+      "notConnected": "Terminal is not connected."
+    }
+  },
+  "variablesEditor": {
+    "groupFallback": "Group {{index}}",
+    "selectPlaceholder": "Select value",
+    "secretHidden": "Secret value hidden",
+    "valuePlaceholder": "Enter value",
+    "invalidFormat": "Value does not match the required format."
+  }
+}

@@ -43,6 +43,7 @@ import {
   statusVariant,
 } from "@/lib/server-status";
 import type { PowerAction } from "@/types/database.schema";
+import { useTranslation } from "react-i18next";
 
 export type ProjectInstance = ListProjectInstancesResponses[200][number];
 
@@ -51,6 +52,13 @@ const BYTES_PER_MIB = 1024 * 1024;
 function toMib(bytes: number | null | undefined) {
   return bytes == null ? null : bytes / BYTES_PER_MIB;
 }
+
+const COMMAND_SENT_KEYS: Record<PowerAction, string> = {
+  start: "org:databases.managementBar.startCommandSent",
+  restart: "org:databases.managementBar.restartCommandSent",
+  stop: "org:databases.managementBar.stopCommandSent",
+  kill: "org:databases.managementBar.killCommandSent",
+};
 
 export function InstanceManagementBar({
   projectId,
@@ -63,6 +71,7 @@ export function InstanceManagementBar({
   canManage: boolean;
   onChanged: () => void;
 }) {
+  const { t } = useTranslation();
   const [pendingAction, setPendingAction] = useState<PowerAction | null>(null);
   const [addressCopied, setAddressCopied] = useState(false);
 
@@ -74,13 +83,13 @@ export function InstanceManagementBar({
 
   const power = useAction(powerInstanceAction, {
     onSuccess: () => {
-      toast.success(`Instance ${pendingAction} command sent`);
+      if (pendingAction) toast.success(t(COMMAND_SENT_KEYS[pendingAction]));
       setPendingAction(null);
       onChanged();
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? "Failed to change the power state",
+        result.error.serverError ?? t("org:databases.managementBar.powerError"),
       );
       setPendingAction(null);
     },
@@ -106,9 +115,9 @@ export function InstanceManagementBar({
     try {
       await navigator.clipboard.writeText(address);
       setAddressCopied(true);
-      toast.success("Instance address copied");
+      toast.success(t("org:databases.managementBar.addressCopied"));
     } catch {
-      toast.error("Failed to copy the instance address");
+      toast.error(t("org:databases.managementBar.addressCopyFailed"));
     }
   };
 
@@ -128,11 +137,12 @@ export function InstanceManagementBar({
               {instance.suspended ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Badge variant="destructive">Suspended</Badge>
+                    <Badge variant="destructive">
+                      {t("common:status.suspended")}
+                    </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    An administrator suspended this instance. Connections are
-                    rejected and power actions are blocked.
+                    {t("org:databases.managementBar.suspendedTooltip")}
                   </TooltipContent>
                 </Tooltip>
               ) : null}
@@ -141,7 +151,7 @@ export function InstanceManagementBar({
               <button
                 type="button"
                 onClick={() => void handleCopyAddress()}
-                title="Copy instance address"
+                title={t("org:databases.managementBar.copyAddressTitle")}
                 className="group inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Waypoints className="size-4" />
@@ -161,14 +171,17 @@ export function InstanceManagementBar({
                 {new Date(instance.created).toLocaleDateString()}
               </span>
               {uptimeMs !== null && (
-                <span className="inline-flex items-center gap-1.5" title="Uptime">
+                <span
+                  className="inline-flex items-center gap-1.5"
+                  title={t("org:databases.managementBar.uptimeTitle")}
+                >
                   <Clock className="size-4" />
                   {formatUptime(uptimeMs)}
                 </span>
               )}
               {!canManage && (
                 <span className="inline-flex items-center gap-1.5 text-destructive">
-                  You do not have permission to control power.
+                  {t("org:databases.managementBar.noPowerPermission")}
                 </span>
               )}
             </CardDescription>
@@ -183,7 +196,7 @@ export function InstanceManagementBar({
               disabled={disableAllButtons || !controls.canStart}
             >
               <Play className="size-4" />
-              Start
+              {t("org:databases.managementBar.start")}
             </Button>
             <Button
               type="button"
@@ -194,7 +207,7 @@ export function InstanceManagementBar({
               disabled={disableAllButtons || !controls.canStop}
             >
               <RotateCcw className="size-4" />
-              Restart
+              {t("org:databases.managementBar.restart")}
             </Button>
             <Button
               type="button"
@@ -205,7 +218,7 @@ export function InstanceManagementBar({
               disabled={disableAllButtons || !controls.canStop}
             >
               <Pause className="size-4" />
-              Stop
+              {t("org:databases.managementBar.stop")}
             </Button>
             <Button
               type="button"
@@ -216,7 +229,7 @@ export function InstanceManagementBar({
               disabled={disableAllButtons || !controls.canKill}
             >
               <ShieldAlert className="size-4" />
-              Kill
+              {t("org:databases.managementBar.kill")}
             </Button>
           </div>
         </div>
@@ -224,7 +237,7 @@ export function InstanceManagementBar({
 
       <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">Disk</p>
+          <p className="text-xs text-muted-foreground">{t("org:shared.disk")}</p>
           <p className="mt-1 text-sm font-medium">
             {formatUsageCompact(
               toMib(utilization?.disk_bytes),
@@ -233,7 +246,7 @@ export function InstanceManagementBar({
           </p>
         </div>
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">Memory</p>
+          <p className="text-xs text-muted-foreground">{t("org:shared.memory")}</p>
           <p className="mt-1 text-sm font-medium">
             {formatUsageCompact(
               toMib(utilization?.memory_bytes),
@@ -242,7 +255,7 @@ export function InstanceManagementBar({
           </p>
         </div>
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">CPU</p>
+          <p className="text-xs text-muted-foreground">{t("org:shared.cpu")}</p>
           <p className="mt-1 text-sm font-medium">
             {formatCpuCompact(utilization?.cpu_absolute)}
           </p>

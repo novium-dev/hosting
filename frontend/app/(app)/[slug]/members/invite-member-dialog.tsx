@@ -27,8 +27,10 @@ import { useHookFormAction } from "@/lib/action-hooks";
 import { UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export function InviteMemberDialog({ projectId }: { projectId: string }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
     useHookFormAction(setProjectUserAction, zodResolver(setProjectUserSchema), {
@@ -44,10 +46,10 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
         onSuccess: () => {
           resetFormAndAction();
           setOpen(false);
-          toast.success("Member added successfully");
+          toast.success(t("org:members.inviteDialog.success"));
         },
         onError: (error) => {
-          toast.error(error.error.serverError ?? "Something went wrong");
+          toast.error(error.error.serverError ?? t("common:state.genericError"));
         },
       },
     });
@@ -57,14 +59,14 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
       <DialogTrigger asChild>
         <Button>
           <UserPlus className="h-4 w-4" />
-          Add member
+          {t("org:members.inviteDialog.trigger")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Member</DialogTitle>
+          <DialogTitle>{t("org:members.inviteDialog.title")}</DialogTitle>
           <DialogDescription>
-            Add a member by email and grant them specific permissions.
+            {t("org:members.inviteDialog.description")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -75,12 +77,12 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>{t("common:labels.email")}</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
                       type="email"
-                      placeholder="member@email.com"
+                      placeholder={t("org:members.inviteDialog.emailPlaceholder")}
                     />
                   </FormControl>
                   <FormMessage />
@@ -92,7 +94,7 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
               name="permissions"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Permissions</FormLabel>
+                  <FormLabel>{t("common:labels.permissions")}</FormLabel>
                   <FormControl>
                     <PermissionsField
                       value={field.value}
@@ -108,7 +110,7 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
               className="w-full"
               loading={action.isExecuting}
             >
-              Add Member
+              {t("org:members.inviteDialog.submit")}
             </Button>
           </form>
         </Form>

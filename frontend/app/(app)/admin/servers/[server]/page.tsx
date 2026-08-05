@@ -1,6 +1,7 @@
 import Link from "@/components/link";
 import { useParams } from "react-router-dom";
 import useSWR from "swr";
+import { useTranslation, type TFunction } from "react-i18next";
 import { Boxes, ExternalLink, Settings2, Wrench } from "lucide-react";
 
 import { NotFoundView } from "@/components/not-found-view";
@@ -37,22 +38,24 @@ function getPanelPath(
 
 function getServerAddress(
   serverData: Awaited<ReturnType<typeof serverInfo>>["data"],
+  t: TFunction,
 ) {
   if (!serverData?.primary_port) {
-    return "Address unavailable";
+    return t("admin-infra:servers.detailPage.addressUnavailable");
   }
 
   const host = serverData.primary_port.port.host;
   const port = serverData.primary_port.external_port;
 
   if (!host || !port) {
-    return "Address unavailable";
+    return t("admin-infra:servers.detailPage.addressUnavailable");
   }
 
   return `${host}:${port}`;
 }
 
 export default function AdminServerManagementPage() {
+  const { t } = useTranslation();
   const { server = "" } = useParams<{ server: string }>();
 
   const { data: session, isLoading } = authClient.useSession();
@@ -122,15 +125,22 @@ export default function AdminServerManagementPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <CardTitle>{data.name}</CardTitle>
                 <Badge variant={data.suspended ? "destructive" : "default"}>
-                  {data.suspended ? "Suspended" : "Active"}
+                  {data.suspended
+                    ? t("common:status.suspended")
+                    : t("common:status.active")}
                 </Badge>
               </div>
               <CardDescription>
-                ID: {data.id} | Project: {data.project}
+                {t("admin-infra:servers.detailPage.idProjectDescription", {
+                  id: data.id,
+                  project: data.project,
+                })}
               </CardDescription>
               {data.suspended && data.suspension_reason ? (
                 <CardDescription className="text-destructive">
-                  Suspended: {data.suspension_reason}
+                  {t("admin-infra:servers.detailPage.suspendedReason", {
+                    reason: data.suspension_reason,
+                  })}
                 </CardDescription>
               ) : null}
             </div>
@@ -142,24 +152,37 @@ export default function AdminServerManagementPage() {
                   className="inline-flex items-center gap-2"
                 >
                   <ExternalLink className="size-4" />
-                  View In Hephaestus
+                  {t("admin-infra:servers.detailPage.viewInHephaestus")}
                 </Link>
               </Button>
             ) : (
               <Button type="button" disabled>
                 <ExternalLink className="size-4" />
-                View In Hephaestus (Org not found)
+                {t("admin-infra:servers.detailPage.viewInHephaestusOrgMissing")}
               </Button>
             )}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <InfoItem label="Template" value={data.template} />
-            <InfoItem label="Node" value={data.node.display} />
-            <InfoItem label="Address" value={getServerAddress(data)} />
             <InfoItem
-              label="Limits"
-              value={`CPU ${data.cpu ?? "--"}, RAM ${data.ram ?? "--"}, Disk ${data.disk ?? "--"}`}
+              label={t("admin-infra:servers.shared.templateLabel")}
+              value={data.template}
+            />
+            <InfoItem
+              label={t("admin-infra:servers.shared.nodeLabel")}
+              value={data.node.display}
+            />
+            <InfoItem
+              label={t("common:labels.address")}
+              value={getServerAddress(data, t)}
+            />
+            <InfoItem
+              label={t("admin-infra:servers.detailPage.limitsLabel")}
+              value={t("admin-infra:servers.detailPage.limitsValue", {
+                cpu: data.cpu ?? "--",
+                ram: data.ram ?? "--",
+                disk: data.disk ?? "--",
+              })}
             />
           </div>
         </CardHeader>
@@ -169,28 +192,28 @@ export default function AdminServerManagementPage() {
         <TabsList>
           <TabsTrigger value="ports" className="inline-flex items-center gap-2">
             <Settings2 className="size-4" />
-            Ports
+            {t("admin-infra:servers.shared.portsTabLabel")}
           </TabsTrigger>
           <TabsTrigger
             value="settings"
             className="inline-flex items-center gap-2"
           >
             <Settings2 className="size-4" />
-            Settings
+            {t("admin-infra:servers.detailPage.tabs.settings")}
           </TabsTrigger>
           <TabsTrigger
             value="template"
             className="inline-flex items-center gap-2"
           >
             <Boxes className="size-4" />
-            Template
+            {t("admin-infra:servers.shared.templateLabel")}
           </TabsTrigger>
           <TabsTrigger
             value="actions"
             className="inline-flex items-center gap-2"
           >
             <Wrench className="size-4" />
-            Actions
+            {t("common:labels.actions")}
           </TabsTrigger>
         </TabsList>
 

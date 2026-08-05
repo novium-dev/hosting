@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Boxes, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
 
 import {
   AlertDialog,
@@ -48,6 +49,7 @@ export function ServerTemplateCard({
   canManage,
   onChanged,
 }: ServerTemplateCardProps) {
+  const { t } = useTranslation();
   const [template, setTemplate] = useState(currentTemplate);
   const [backup, setBackup] = useState(true);
   const [wipe, setWipe] = useState(false);
@@ -68,11 +70,16 @@ export function ServerTemplateCard({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to change template");
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:servers.templateCard.changeError"),
+        );
         return;
       }
 
-      toast.success(`Template changed to ${template}`);
+      toast.success(
+        t("admin-infra:servers.templateCard.changeSuccess", { template }),
+      );
       setConfirming(false);
       onChanged();
     } finally {
@@ -86,31 +93,37 @@ export function ServerTemplateCard({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Boxes className="size-5 text-muted-foreground" />
-            Template
+            {t("admin-infra:servers.shared.templateLabel")}
           </CardTitle>
           <CardDescription>
-            Switches the server to another template. The new template starts from
-            its own defaults — nothing of the current configuration carries over,
-            and the startup variables are reset.
+            {t("admin-infra:servers.templateCard.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Current template:</span>
+            <span className="text-muted-foreground">
+              {t("admin-infra:servers.templateCard.currentTemplateLabel")}
+            </span>
             <Badge variant="secondary" className="font-mono">
               {currentTemplate}
             </Badge>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="template">New template</Label>
+            <Label htmlFor="template">
+              {t("admin-infra:servers.templateCard.newTemplateLabel")}
+            </Label>
             <Select
               value={template}
               onValueChange={setTemplate}
               disabled={!canManage}
             >
               <SelectTrigger id="template" className="w-full sm:w-72">
-                <SelectValue placeholder="Select a template" />
+                <SelectValue
+                  placeholder={t(
+                    "admin-infra:servers.templateCard.selectTemplatePlaceholder",
+                  )}
+                />
               </SelectTrigger>
               <SelectContent>
                 {(templates ?? [currentTemplate]).map((entry) => (
@@ -130,10 +143,9 @@ export function ServerTemplateCard({
                 onCheckedChange={(next) => setBackup(next === true)}
               />
               <span>
-                Back up the server first
+                {t("admin-infra:servers.templateCard.backupFirstLabel")}
                 <span className="block text-xs text-muted-foreground">
-                  Needs backup permission and a free backup slot. The switch is
-                  abandoned if the backup fails.
+                  {t("admin-infra:servers.templateCard.backupFirstHint")}
                 </span>
               </span>
             </label>
@@ -144,10 +156,9 @@ export function ServerTemplateCard({
                 onCheckedChange={(next) => setWipe(next === true)}
               />
               <span>
-                Wipe all files
+                {t("admin-infra:servers.templateCard.wipeAllLabel")}
                 <span className="block text-xs text-muted-foreground">
-                  Deletes everything on the server, so the new template starts
-                  clean. Leftover world data usually breaks the new template.
+                  {t("admin-infra:servers.templateCard.wipeAllHint")}
                 </span>
               </span>
             </label>
@@ -156,14 +167,8 @@ export function ServerTemplateCard({
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-muted-foreground">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-500" />
             <div className="space-y-1">
-              <p>
-                Backing up and wiping need the server to be stopped — stop it
-                first, or the switch is refused.
-              </p>
-              <p>
-                Port allocations are kept as they are. The new template usually
-                expects different ports, so review them under Ports afterwards.
-              </p>
+              <p>{t("admin-infra:servers.templateCard.stoppedWarning")}</p>
+              <p>{t("admin-infra:servers.templateCard.portsWarning")}</p>
             </div>
           </div>
 
@@ -172,7 +177,7 @@ export function ServerTemplateCard({
             onClick={() => setConfirming(true)}
             disabled={!canManage || isSwitching || !template}
           >
-            Change template
+            {t("admin-infra:servers.templateCard.changeButton")}
           </Button>
         </CardContent>
       </Card>

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,7 @@ export function NodeSettingsCard({
   regions,
   canManage,
 }: NodeSettingsCardProps) {
+  const { t } = useTranslation();
   const [maintenance, setMaintenance] = useState(initialMaintenance);
   const [isMaintenanceSaving, setIsMaintenanceSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -64,8 +66,11 @@ export function NodeSettingsCard({
   const [isRegionSaving, setIsRegionSaving] = useState(false);
 
   const maintenanceLabel = useMemo(
-    () => (maintenance ? "Maintenance enabled" : "Maintenance disabled"),
-    [maintenance],
+    () =>
+      maintenance
+        ? t("admin-infra:nodes.settingsCard.maintenanceEnabled")
+        : t("admin-infra:nodes.settingsCard.maintenanceDisabled"),
+    [maintenance, t],
   );
 
   const handleToggleMaintenance = async (checked: boolean) => {
@@ -79,7 +84,8 @@ export function NodeSettingsCard({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? "Failed to update maintenance mode",
+          response.error.error?.msg ??
+            t("admin-infra:nodes.settingsCard.maintenanceToggleError"),
         );
         return;
       }
@@ -87,8 +93,8 @@ export function NodeSettingsCard({
       setMaintenance(checked);
       toast.success(
         checked
-          ? "Node maintenance has been enabled"
-          : "Node maintenance has been disabled",
+          ? t("admin-infra:nodes.settingsCard.maintenanceEnabledToast")
+          : t("admin-infra:nodes.settingsCard.maintenanceDisabledToast"),
       );
     } finally {
       setIsMaintenanceSaving(false);
@@ -105,12 +111,15 @@ export function NodeSettingsCard({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to update region");
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:nodes.settingsCard.regionError"),
+        );
         return;
       }
 
       setRegion(next);
-      toast.success("Node region updated");
+      toast.success(t("admin-infra:nodes.settingsCard.regionSuccess"));
     } finally {
       setIsRegionSaving(false);
     }
@@ -126,12 +135,13 @@ export function NodeSettingsCard({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? "Failed to sync node config",
+          response.error.error?.msg ??
+            t("admin-infra:nodes.settingsCard.syncError"),
         );
         return;
       }
 
-      toast.success("Node config synced from daemon");
+      toast.success(t("admin-infra:nodes.settingsCard.syncSuccess"));
     } finally {
       setIsSyncing(false);
     }
@@ -140,17 +150,30 @@ export function NodeSettingsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Node Update</CardTitle>
+        <CardTitle>{t("admin-infra:nodes.settingsCard.title")}</CardTitle>
         <CardDescription>
-          Manage maintenance mode and sync node config from the running daemon.
+          {t("admin-infra:nodes.settingsCard.description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <InfoItem label="Display" value={display} />
-          <InfoItem label="Default Host" value={defaultHost} />
-          <InfoItem label="Default Bind" value={defaultBind} />
-          <InfoItem label="Node ID" value={nodeId} mono />
+          <InfoItem
+            label={t("admin-infra:nodes.settingsCard.displayLabel")}
+            value={display}
+          />
+          <InfoItem
+            label={t("admin-infra:nodes.shared.defaultHost")}
+            value={defaultHost}
+          />
+          <InfoItem
+            label={t("admin-infra:nodes.shared.defaultBind")}
+            value={defaultBind}
+          />
+          <InfoItem
+            label={t("admin-infra:nodes.shared.nodeId")}
+            value={nodeId}
+            mono
+          />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -158,15 +181,17 @@ export function NodeSettingsCard({
             {maintenanceLabel}
           </Badge>
           <span className="text-sm text-muted-foreground">
-            Servers on this node are blocked while maintenance is enabled.
+            {t("admin-infra:nodes.settingsCard.maintenanceWarning")}
           </span>
         </div>
 
         <div className="flex flex-col gap-3 rounded-md border p-4">
           <div className="space-y-1">
-            <p className="text-sm font-medium">Maintenance Mode</p>
+            <p className="text-sm font-medium">
+              {t("admin-infra:nodes.settingsCard.maintenanceModeTitle")}
+            </p>
             <p className="text-sm text-muted-foreground">
-              Toggle maintenance mode for this node.
+              {t("admin-infra:nodes.settingsCard.maintenanceModeDescription")}
             </p>
           </div>
 
@@ -179,16 +204,16 @@ export function NodeSettingsCard({
               disabled={isMaintenanceSaving || !canManage}
             />
             <span className="text-sm text-muted-foreground">
-              {isMaintenanceSaving ? "Saving..." : maintenanceLabel}
+              {isMaintenanceSaving ? t("common:state.saving") : maintenanceLabel}
             </span>
           </div>
         </div>
 
         <div className="flex flex-col gap-3 rounded-md border p-4">
           <div className="space-y-1">
-            <p className="text-sm font-medium">Region</p>
+            <p className="text-sm font-medium">{t("common:labels.region")}</p>
             <p className="text-sm text-muted-foreground">
-              The region this node belongs to.
+              {t("admin-infra:nodes.settingsCard.regionDescription")}
             </p>
           </div>
 
@@ -201,7 +226,9 @@ export function NodeSettingsCard({
               disabled={isRegionSaving || !canManage}
             >
               <SelectTrigger className="w-full sm:w-72">
-                <SelectValue placeholder="Select a region" />
+                <SelectValue
+                  placeholder={t("admin-infra:shared.selectRegionPlaceholder")}
+                />
               </SelectTrigger>
               <SelectContent>
                 {regions.map((entry) => (
@@ -212,17 +239,20 @@ export function NodeSettingsCard({
               </SelectContent>
             </Select>
             {isRegionSaving ? (
-              <span className="text-sm text-muted-foreground">Saving...</span>
+              <span className="text-sm text-muted-foreground">
+                {t("common:state.saving")}
+              </span>
             ) : null}
           </div>
         </div>
 
         <div className="flex flex-col gap-3 rounded-md border p-4">
           <div className="space-y-1">
-            <p className="text-sm font-medium">Sync Config</p>
+            <p className="text-sm font-medium">
+              {t("admin-infra:nodes.settingsCard.syncConfigTitle")}
+            </p>
             <p className="text-sm text-muted-foreground">
-              Pull the current config from the running node (base URL, host/bind,
-              storage and backup mappings) and reconcile it into the backend.
+              {t("admin-infra:nodes.settingsCard.syncConfigDescription")}
             </p>
           </div>
 
@@ -237,18 +267,18 @@ export function NodeSettingsCard({
               disabled={!canManage}
             >
               <RefreshCw className="size-4" />
-              Sync from Node
+              {t("admin-infra:nodes.settingsCard.syncButton")}
             </Button>
           </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <InfoItem
-            label="Backup Storages"
+            label={t("admin-infra:nodes.settingsCard.backupStoragesLabel")}
             value={backupStorages.length > 0 ? backupStorages.join(", ") : "--"}
           />
           <InfoItem
-            label="Server Storages"
+            label={t("admin-infra:nodes.settingsCard.serverStoragesLabel")}
             value={serverStorages.length > 0 ? serverStorages.join(", ") : "--"}
           />
         </div>

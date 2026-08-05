@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import {
   banUser,
@@ -126,6 +127,7 @@ export function MinecraftPlayerManager({
   serverId,
   canManagePlayers,
 }: MinecraftPlayerManagerProps) {
+  const { t } = useTranslation();
   const [healthCheck, setHealthCheck] = useState<MinecraftHealthCheck | null>(
     null,
   );
@@ -257,7 +259,9 @@ export function MinecraftPlayerManager({
     player: MinecraftPlayer,
   ) => {
     if (!canManagePlayers) {
-      toast.error("You do not have permission to manage players");
+      toast.error(
+        t("servers-management:minecraftPlayerManager.toasts.noPermission"),
+      );
       return;
     }
 
@@ -279,11 +283,26 @@ export function MinecraftPlayerManager({
               : await deopUser(options);
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? `Failed to ${action} player`);
+        const actionFailedKeys: Record<PlayerAction, string> = {
+          ban: "servers-management:minecraftPlayerManager.toasts.banFailed",
+          pardon:
+            "servers-management:minecraftPlayerManager.toasts.pardonFailed",
+          op: "servers-management:minecraftPlayerManager.toasts.opFailed",
+          deop: "servers-management:minecraftPlayerManager.toasts.deopFailed",
+        };
+
+        toast.error(
+          response.error.error?.msg ?? t(actionFailedKeys[action]),
+        );
         return;
       }
 
-      toast.success(`${player.name}: ${action} command sent`);
+      toast.success(
+        t("servers-management:minecraftPlayerManager.toasts.commandSent", {
+          name: player.name,
+          action,
+        }),
+      );
 
       if (action === "op") {
         setOps((current) => [
@@ -343,19 +362,26 @@ export function MinecraftPlayerManager({
         <div>
           <CardTitle className="flex items-center gap-2">
             <Users className="size-5" />
-            Minecraft Players
+            {t("servers-management:minecraftPlayerManager.title")}
           </CardTitle>
           <CardDescription>
-            View online players from the Minecraft healthcheck and manage access.
+            {t("servers-management:minecraftPlayerManager.description")}
           </CardDescription>
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge variant={connection === "connected" ? "default" : "outline"}>
-            {connection}
+            {t(
+              `servers-management:minecraftPlayerManager.connectionStatus.${connection}`,
+            )}
           </Badge>
           <Badge variant="secondary">
-            {online}
-            {max === null ? "" : ` / ${max}`} online
+            {t(
+              "servers-management:minecraftPlayerManager.playersOnlineBadge",
+              {
+                online,
+                maxSuffix: max === null ? "" : ` / ${max}`,
+              },
+            )}
           </Badge>
           {versionName ? <Badge variant="outline">{versionName}</Badge> : null}
         </div>
@@ -363,15 +389,21 @@ export function MinecraftPlayerManager({
       <CardContent>
         {players.length === 0 ? (
           <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
-            No online players were reported by the latest healthcheck.
+            {t("servers-management:minecraftPlayerManager.emptyState")}
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Player</TableHead>
-                <TableHead>UUID</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>
+                  {t("servers-management:minecraftPlayerManager.table.player")}
+                </TableHead>
+                <TableHead>
+                  {t("servers-management:minecraftPlayerManager.table.uuid")}
+                </TableHead>
+                <TableHead className="text-right">
+                  {t("common:labels.actions")}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -390,7 +422,11 @@ export function MinecraftPlayerManager({
                             <TooltipTrigger asChild>
                               <Crown className="size-4 text-amber-500" />
                             </TooltipTrigger>
-                            <TooltipContent>Operator</TooltipContent>
+                            <TooltipContent>
+                              {t(
+                                "servers-management:minecraftPlayerManager.tooltips.operator",
+                              )}
+                            </TooltipContent>
                           </Tooltip>
                         ) : null}
                       </div>
@@ -416,7 +452,11 @@ export function MinecraftPlayerManager({
                               <ShieldPlus />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Make operator</TooltipContent>
+                          <TooltipContent>
+                            {t(
+                              "servers-management:minecraftPlayerManager.tooltips.makeOperator",
+                            )}
+                          </TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -434,7 +474,11 @@ export function MinecraftPlayerManager({
                               <ShieldMinus />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Remove operator</TooltipContent>
+                          <TooltipContent>
+                            {t(
+                              "servers-management:minecraftPlayerManager.tooltips.removeOperator",
+                            )}
+                          </TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -451,7 +495,11 @@ export function MinecraftPlayerManager({
                               <Ban />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Ban player</TooltipContent>
+                          <TooltipContent>
+                            {t(
+                              "servers-management:minecraftPlayerManager.tooltips.banPlayer",
+                            )}
+                          </TooltipContent>
                         </Tooltip>
                       </div>
                     </TableCell>
@@ -466,30 +514,46 @@ export function MinecraftPlayerManager({
           <div className="space-y-0.5">
             <h3 className="flex items-center gap-2 text-sm font-medium">
               <Ban className="size-4 text-muted-foreground" />
-              Banned players
+              {t(
+                "servers-management:minecraftPlayerManager.bannedSection.title",
+              )}
             </h3>
             <p className="text-sm text-muted-foreground">
-              Read from banned-players.json. Banned players cannot join, so they
-              never show up in the online list.
+              {t(
+                "servers-management:minecraftPlayerManager.bannedSection.description",
+              )}
             </p>
           </div>
 
           {bans.length === 0 ? (
             <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
-              No banned players.
+              {t(
+                "servers-management:minecraftPlayerManager.bannedSection.emptyState",
+              )}
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Player</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>
+                    {t(
+                      "servers-management:minecraftPlayerManager.table.player",
+                    )}
+                  </TableHead>
+                  <TableHead>
+                    {t(
+                      "servers-management:minecraftPlayerManager.table.reason",
+                    )}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("common:labels.actions")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {bans.map((entry) => {
-                  const name = entry.name ?? entry.uuid ?? "Unknown";
+                  const name =
+                    entry.name ?? entry.uuid ?? t("common:status.unknown");
 
                   return (
                     <TableRow key={`${entry.uuid ?? ""}:${name}`}>
@@ -497,7 +561,10 @@ export function MinecraftPlayerManager({
                       <TableCell className="text-sm text-muted-foreground">
                         {entry.reason ?? "-"}
                         {entry.expires && entry.expires !== "forever"
-                          ? ` (until ${entry.expires})`
+                          ? t(
+                              "servers-management:minecraftPlayerManager.banExpiresSuffix",
+                              { expires: entry.expires },
+                            )
                           : ""}
                       </TableCell>
                       <TableCell>
@@ -523,7 +590,11 @@ export function MinecraftPlayerManager({
                                 <RotateCcw />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Pardon player</TooltipContent>
+                            <TooltipContent>
+                              {t(
+                                "servers-management:minecraftPlayerManager.tooltips.pardonPlayer",
+                              )}
+                            </TooltipContent>
                           </Tooltip>
                         </div>
                       </TableCell>

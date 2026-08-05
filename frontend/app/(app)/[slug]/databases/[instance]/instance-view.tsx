@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Table2, UserRound } from "lucide-react";
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
 
 import { InstanceDatabases } from "@/components/databases/instance-databases";
 import { InstanceManagementBar } from "@/components/databases/instance-management-bar";
@@ -17,8 +18,8 @@ import { listProjectInstances } from "@/lib/api";
 import { ServerPermission, hasServerPermission } from "@/lib/permissions";
 
 const SECTIONS = [
-  { key: "databases", label: "Databases", icon: Table2 },
-  { key: "users", label: "Users", icon: UserRound },
+  { key: "databases", icon: Table2 },
+  { key: "users", icon: UserRound },
 ] as const;
 
 type SectionKey = (typeof SECTIONS)[number]["key"];
@@ -34,6 +35,7 @@ export function InstanceView({
   instanceId: string;
   permissions: number;
 }) {
+  const { t } = useTranslation();
   const [section, setSection] = useState<SectionKey>("databases");
 
   const {
@@ -79,10 +81,9 @@ export function InstanceView({
 
       {!running && !instance.suspended ? (
         <Alert>
-          <AlertTitle>The instance is not running</AlertTitle>
+          <AlertTitle>{t("org:databases.instanceView.notRunningTitle")}</AlertTitle>
           <AlertDescription>
-            Start it before creating databases or users — the engine has to be
-            up for those to take effect.
+            {t("org:databases.instanceView.notRunningDescription")}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -98,7 +99,7 @@ export function InstanceView({
             className="inline-flex items-center gap-2"
           >
             <entry.icon className="size-4" />
-            {entry.label}
+            {t(`org:databases.sections.${entry.key}`)}
           </Button>
         ))}
       </div>

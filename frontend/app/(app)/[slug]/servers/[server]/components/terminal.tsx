@@ -8,6 +8,7 @@ import {
 } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +26,7 @@ const COMMAND_HISTORY_STORAGE_KEY = "console-command-history-v1";
 const COMMAND_HISTORY_LIMIT = 20;
 
 export default function ServerConsole({ serverId }: ServerConsoleProps) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -143,8 +145,8 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
         const terminalUrl = await serverTerminal({ path: { server_id: serverId } });
 
         if (terminalUrl.error) {
-          setError("Failed to connect to terminal session.");
-          writeLine("Failed to connect to terminal session.");
+          setError(t("servers:terminal.errors.connectFailed"));
+          writeLine(t("servers:terminal.errors.connectFailed"));
           setIsLoading(false);
           return;
         }
@@ -152,8 +154,8 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
         const socketUrl = terminalUrl.data
 
         if (!socketUrl) {
-          setError("Failed to create terminal session.");
-          writeLine("Failed to connect to terminal session.");
+          setError(t("servers:terminal.errors.createFailed"));
+          writeLine(t("servers:terminal.errors.connectFailed"));
           setIsLoading(false);
           return;
         }
@@ -170,7 +172,7 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
         };
 
         socket.onerror = () => {
-          setError("Terminal websocket connection failed.");
+          setError(t("servers:terminal.errors.socketFailed"));
           setIsLoading(false);
         };
 
@@ -179,7 +181,7 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
             return;
           }
 
-          writeLine("[terminal disconnected]");
+          writeLine(t("servers:terminal.errors.disconnected"));
         };
 
         socket.addEventListener("message", async (event) => {
@@ -207,11 +209,11 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
               );
             }
           } catch {
-            setError("Failed to render terminal output.");
+            setError(t("servers:terminal.errors.renderFailed"));
           }
         });
       } catch {
-        setError("Failed to initialize terminal.");
+        setError(t("servers:terminal.errors.initFailed"));
         setIsLoading(false);
       }
     };
@@ -223,7 +225,7 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
 
       cleanup();
     };
-  }, [serverId, resolvedTheme, writeLine]);
+  }, [serverId, resolvedTheme, writeLine, t]);
 
   const canSendCommand =
     commandInput.trim().length > 0 &&
@@ -238,23 +240,22 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
 
       const socket = wsRef.current;
       if (!socket || socket.readyState !== WebSocket.OPEN) {
-        setError("Terminal is not connected.");
+        setError(t("servers:terminal.errors.notConnected"));
         return;
       }
 
-      //_, err := e.stream.Conn.Write([]byte(c + "\n"))
       socket.send(`${command}\n`);
       updateCommandHistory(command);
       setCommandInput("");
       setError(null);
     },
-    [updateCommandHistory],
+    [updateCommandHistory, t],
   );
 
   return (
     <Card className="border-border/60">
       <CardHeader>
-        <CardTitle className="text-lg">Console</CardTitle>
+        <CardTitle className="text-lg">{t("servers:terminal.title")}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="relative">
@@ -268,7 +269,7 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
             <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/70">
               <div className="inline-flex items-center gap-2 text-sm text-white">
                 <Loader2 className="size-4 animate-spin" />
-                Connecting terminal...
+                {t("servers:terminal.connecting")}
               </div>
             </div>
           )}
@@ -286,7 +287,7 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
           <Input
             value={commandInput}
             onChange={(event) => setCommandInput(event.target.value)}
-            placeholder="Enter command (e.g. stop, say hello)"
+            placeholder={t("servers:terminal.commandPlaceholder")}
             autoComplete="off"
             autoCapitalize="none"
             autoCorrect="off"
@@ -294,7 +295,7 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
             className="normal-case"
           />
           <Button type="submit" disabled={!canSendCommand}>
-            Send
+            {t("servers:terminal.sendButton")}
           </Button>
         </form>
       </CardContent>

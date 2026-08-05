@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Copy, ExternalLink, Globe, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { Trans, useTranslation } from "react-i18next";
 
 import {
   AlertDialog,
@@ -94,6 +95,7 @@ function errorMessage(
 }
 
 export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
+  const { t } = useTranslation();
   const [routes, setRoutes] = useState<Route[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [ports, setPorts] = useState<NetworkPort[]>([]);
@@ -119,7 +121,10 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
 
       if (routesResponse.error || !routesResponse.data) {
         throw new Error(
-          errorMessage(routesResponse.error, "Failed to load routes"),
+          errorMessage(
+            routesResponse.error,
+            t("servers:routes.toasts.loadFailed"),
+          ),
         );
       }
 
@@ -133,12 +138,14 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
       setDomains(domainsResponse.data ?? []);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to load routes",
+        error instanceof Error
+          ? error.message
+          : t("servers:routes.toasts.loadFailed"),
       );
     } finally {
       setIsLoading(false);
     }
-  }, [serverId]);
+  }, [serverId, t]);
 
   useEffect(() => {
     void refresh();
@@ -250,15 +257,21 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
       });
 
       if (response.error || !response.data) {
-        throw new Error(errorMessage(response.error, "Failed to create route"));
+        throw new Error(
+          errorMessage(response.error, t("servers:routes.toasts.createFailed")),
+        );
       }
 
-      toast.success(`Route ${response.data.fqdn} created`);
+      toast.success(
+        t("servers:routes.toasts.createSuccess", { fqdn: response.data.fqdn }),
+      );
       setCreateOpen(false);
       await refresh();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to create route",
+        error instanceof Error
+          ? error.message
+          : t("servers:routes.toasts.createFailed"),
       );
     } finally {
       setIsSubmitting(false);
@@ -268,9 +281,9 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
   const copy = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      toast.success("Copied");
+      toast.success(t("common:actions.copied"));
     } catch {
-      toast.error("Failed to copy");
+      toast.error(t("servers:routes.toasts.copyFailed"));
     }
   };
 
@@ -285,15 +298,19 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
       });
 
       if (response.error) {
-        throw new Error(errorMessage(response.error, "Failed to delete route"));
+        throw new Error(
+          errorMessage(response.error, t("servers:routes.toasts.deleteFailed")),
+        );
       }
 
-      toast.success("Route deleted");
+      toast.success(t("servers:routes.toasts.deleteSuccess"));
       setPendingDelete(null);
       await refresh();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to delete route",
+        error instanceof Error
+          ? error.message
+          : t("servers:routes.toasts.deleteFailed"),
       );
     } finally {
       setIsSubmitting(false);
@@ -306,10 +323,8 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
         <CardHeader className="space-y-4">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
-              <CardTitle>Routes</CardTitle>
-              <CardDescription>
-                Point a subdomain at one of this server&apos;s ports.
-              </CardDescription>
+              <CardTitle>{t("servers:routes.title")}</CardTitle>
+              <CardDescription>{t("servers:routes.description")}</CardDescription>
             </div>
             {canManage ? (
               <Button
@@ -322,7 +337,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                 }
               >
                 <Plus className="size-4" />
-                New route
+                {t("servers:routes.newRouteButton")}
               </Button>
             ) : null}
           </div>
@@ -336,21 +351,21 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
           ) : routes.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               {domains.length === 0
-                ? "No domains are available for this project yet."
+                ? t("servers:routes.empty.noDomains")
                 : routablePorts.length === 0
-                  ? "None of this server's ports can be routed yet."
-                  : "No routes yet."}
+                  ? t("servers:routes.empty.noRoutablePorts")
+                  : t("servers:routes.empty.noRoutes")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Kind</TableHead>
-                    <TableHead>Port</TableHead>
-                    <TableHead>HTTPS</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{t("common:labels.address")}</TableHead>
+                    <TableHead>{t("servers:routes.table.kind")}</TableHead>
+                    <TableHead>{t("common:labels.port")}</TableHead>
+                    <TableHead>{t("servers:routes.table.https")}</TableHead>
+                    <TableHead>{t("common:labels.status")}</TableHead>
                     <TableHead className="w-0" />
                   </TableRow>
                 </TableHeader>
@@ -379,8 +394,8 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                       <TableCell>
                         <Badge variant="outline">
                           {route.kind === "http"
-                            ? "HTTP"
-                            : `SRV${
+                            ? t("servers:routes.httpBadge")
+                            : `${t("servers:routes.srvBadge")}${
                                 route.service
                                   ? ` _${route.service}._${route.kind}`
                                   : ` ${route.kind.toUpperCase()}`
@@ -395,7 +410,9 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                           <Badge
                             variant={route.https ? "default" : "secondary"}
                           >
-                            {route.https ? "on" : "off"}
+                            {route.https
+                              ? t("common:status.enabled")
+                              : t("common:status.disabled")}
                           </Badge>
                         ) : (
                           <span className="text-muted-foreground">—</span>
@@ -435,21 +452,23 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
         <CardHeader>
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>
-              <CardTitle>Point your own domain here</CardTitle>
+              <CardTitle>{t("servers:routes.manualDns.title")}</CardTitle>
               <CardDescription>
-                The records to drop into your own DNS to reach a port. Pick the
-                port and copy them over.
+                {t("servers:routes.manualDns.description")}
               </CardDescription>
             </div>
             <Select value={manualPortId} onValueChange={setManualPortId}>
               <SelectTrigger className="w-full sm:w-[280px]">
-                <SelectValue placeholder="Port" />
+                <SelectValue placeholder={t("common:labels.port")} />
               </SelectTrigger>
               <SelectContent>
                 {ports.map((port) => (
                   <SelectItem key={port.id} value={String(port.id)}>
                     {port.name} — {port.host}:{port.external_port_start} (
-                    {port.http ? "HTTP" : String(port.protocol).toUpperCase()})
+                    {port.http
+                      ? t("servers:routes.httpBadge")
+                      : String(port.protocol).toUpperCase()}
+                    )
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -460,17 +479,17 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
           {manualRecords.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               {ports.length === 0
-                ? "This server has no ports yet."
-                : "Create a route for this port first — your own domain then points at it."}
+                ? t("servers:routes.manualDns.noPorts")
+                : t("servers:routes.manualDns.createRouteFirst")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Value</TableHead>
+                    <TableHead>{t("servers:routes.table.type")}</TableHead>
+                    <TableHead>{t("common:labels.name")}</TableHead>
+                    <TableHead>{t("common:labels.value")}</TableHead>
                     <TableHead className="w-0" />
                   </TableRow>
                 </TableHeader>
@@ -503,11 +522,13 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
             </div>
           )}
           <p className="mt-3 text-xs text-muted-foreground">
-            Replace <code className="font-mono">your-domain</code> with the name
-            you own.{" "}
+            <Trans
+              i18nKey="servers:routes.manualDns.replaceHelp"
+              components={{ code: <code className="font-mono" /> }}
+            />{" "}
             {manualPort?.http
-              ? "An HTTP port is served through the reverse proxy, so your domain points at the route's address."
-              : "Clients that look the service up find the port on their own, so nobody has to type it."}
+              ? t("servers:routes.manualDns.httpHelp")
+              : t("servers:routes.manualDns.nonHttpHelp")}
           </p>
         </CardContent>
       </Card>
@@ -515,16 +536,17 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New route</DialogTitle>
+            <DialogTitle>{t("servers:routes.dialog.title")}</DialogTitle>
             <DialogDescription>
-              Pick a subdomain, the domain it lives under and the port it points
-              at.
+              {t("servers:routes.dialog.description")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="route-subdomain">Address</Label>
+              <Label htmlFor="route-subdomain">
+                {t("common:labels.address")}
+              </Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="route-subdomain"
@@ -558,13 +580,17 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                   }}
                 >
                   <SelectTrigger className="w-[220px]">
-                    <SelectValue placeholder="Domain" />
+                    <SelectValue
+                      placeholder={t("servers:routes.dialog.domainPlaceholder")}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {domains.map((domain) => (
                       <SelectItem key={domain.id} value={String(domain.id)}>
                         .{domain.domain}
-                        {domain.private ? " (private)" : ""}
+                        {domain.private
+                          ? ` (${t("servers:routes.privateLabel")})`
+                          : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -572,22 +598,24 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
               </div>
               {subdomain.length > 0 && !subdomainValid ? (
                 <p className="text-xs text-destructive">
-                  Only lowercase letters, digits and dashes are allowed.
+                  {t("servers:routes.subdomainInvalid")}
                 </p>
               ) : null}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="route-port">Port</Label>
+              <Label htmlFor="route-port">{t("common:labels.port")}</Label>
               <Select value={portId} onValueChange={setPortId}>
                 <SelectTrigger id="route-port" className="w-full">
-                  <SelectValue placeholder="Port" />
+                  <SelectValue placeholder={t("common:labels.port")} />
                 </SelectTrigger>
                 <SelectContent>
                   {selectablePorts.map((port) => (
                     <SelectItem key={port.id} value={String(port.id)}>
                       {port.name} — {port.host}:{port.external_port_start} (
-                      {port.http ? "HTTP" : String(port.protocol).toUpperCase()}
+                      {port.http
+                        ? t("servers:routes.httpBadge")
+                        : String(port.protocol).toUpperCase()}
                       )
                     </SelectItem>
                   ))}
@@ -595,12 +623,12 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
               </Select>
               <p className="text-xs text-muted-foreground">
                 {isHttpRoute
-                  ? "An HTTP port becomes a reverse-proxied resource on the subdomain."
-                  : "A raw port gets an SRV record on the subdomain."}
+                  ? t("servers:routes.dialog.httpRouteHelp")
+                  : t("servers:routes.dialog.rawRouteHelp")}
               </p>
               {selectablePorts.length === 0 ? (
                 <p className="text-xs text-destructive">
-                  This domain cannot carry any of this server&apos;s ports yet.
+                  {t("servers:routes.dialog.noSelectablePorts")}
                 </p>
               ) : null}
             </div>
@@ -608,11 +636,13 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
             {isHttpRoute ? (
               <div className="flex items-center justify-between rounded-md border p-3">
                 <div>
-                  <Label htmlFor="route-https">HTTPS</Label>
+                  <Label htmlFor="route-https">
+                    {t("servers:routes.dialog.httpsLabel")}
+                  </Label>
                   <p className="text-xs text-muted-foreground">
                     {(selectedDomain?.https ?? true)
-                      ? "Serve this route over HTTPS."
-                      : "This domain does not offer HTTPS."}
+                      ? t("servers:routes.dialog.httpsHelpOn")
+                      : t("servers:routes.dialog.httpsHelpOff")}
                   </p>
                 </div>
                 <Switch
@@ -624,13 +654,18 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
               </div>
             ) : (
               <p className="rounded-md border p-3 text-xs text-muted-foreground">
-                Creates{" "}
-                <code className="font-mono">
-                  _{srvService}._{srvProtocol}.{subdomain || "your-name"}.
-                  {selectedDomain?.domain ?? "the-domain"}
-                </code>
-                , so clients that look the service up reach the port on their
-                own. The service name comes from the port.
+                <Trans
+                  i18nKey="servers:routes.dialog.createsRecordHelp"
+                  values={{
+                    record: `_${srvService}._${srvProtocol}.${
+                      subdomain || t("servers:routes.dialog.yourNamePlaceholder")
+                    }.${
+                      selectedDomain?.domain ??
+                      t("servers:routes.dialog.theDomainPlaceholder")
+                    }`,
+                  }}
+                  components={{ code: <code className="font-mono" /> }}
+                />
               </p>
             )}
           </div>
@@ -641,7 +676,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
               variant="outline"
               onClick={() => setCreateOpen(false)}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -651,7 +686,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
               {isSubmitting ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : null}
-              Create route
+              {t("servers:routes.dialog.submitButton")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -665,15 +700,18 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete route</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("servers:routes.deleteDialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingDelete?.fqdn} stops resolving and its records are removed
-              from the provider.
+              {t("servers:routes.deleteDialog.description", {
+                fqdn: pendingDelete?.fqdn,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={isSubmitting}
@@ -682,7 +720,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                 void remove();
               }}
             >
-              Delete
+              {t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Loader2, Plus, RefreshCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation, type TFunction } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -90,9 +91,9 @@ const EMPTY_FORM: PortRangeForm = {
   protocol: "tcp",
 };
 
-function formatAvailablePortValue(value: AvailablePortValue) {
+function formatAvailablePortValue(value: AvailablePortValue, t: TFunction) {
   if (value.length === 0) {
-    return "No available ports";
+    return t("admin-infra:nodes.portsManager.noAvailablePorts");
   }
 
   return value
@@ -100,7 +101,10 @@ function formatAvailablePortValue(value: AvailablePortValue) {
       const { start, end, exclude } = range;
       const rangeStr = start === end ? `${start}` : `${start}-${end}`;
       if (exclude && exclude.length > 0) {
-        return `${rangeStr} (exclude: ${exclude.join(", ")})`;
+        return t("admin-infra:nodes.portsManager.rangeExclude", {
+          range: rangeStr,
+          exclude: exclude.join(", "),
+        });
       }
       return rangeStr;
     })
@@ -113,6 +117,7 @@ export function NodePortsManager({
   initialAvailablePorts,
   canManage,
 }: NodePortsManagerProps) {
+  const { t } = useTranslation();
   const [ports, setPorts] = useState<NodePortRow[]>(
     [...initialPorts].sort((a, b) => a.start - b.start),
   );
@@ -156,11 +161,11 @@ export function NodePortsManager({
           : availableResponse.data,
       );
     } catch {
-      toast.error("Failed to refresh node ports");
+      toast.error(t("admin-infra:nodes.portsManager.refreshError"));
     } finally {
       setIsLoading(false);
     }
-  }, [nodeId]);
+  }, [nodeId, t]);
 
   const handleCreate = async () => {
     const start = Number(form.start);
@@ -172,7 +177,7 @@ export function NodePortsManager({
       start <= 0 ||
       end < start
     ) {
-      toast.error("Please provide a valid port range");
+      toast.error(t("admin-infra:nodes.portsManager.invalidRangeError"));
       return;
     }
 
@@ -189,11 +194,14 @@ export function NodePortsManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to add port range");
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:nodes.portsManager.addError"),
+        );
         return;
       }
 
-      toast.success("Port range added");
+      toast.success(t("admin-infra:nodes.portsManager.addSuccess"));
       setCreateOpen(false);
       setForm(EMPTY_FORM);
       await refresh();
@@ -218,11 +226,14 @@ export function NodePortsManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to remove port");
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:nodes.portsManager.removeError"),
+        );
         return;
       }
 
-      toast.success("Port removed");
+      toast.success(t("admin-infra:nodes.portsManager.removeSuccess"));
       setDeleteOpen(false);
       setSelectedPort(null);
       await refresh();
@@ -236,9 +247,11 @@ export function NodePortsManager({
       <Card>
         <CardHeader className="space-y-4">
           <div>
-            <CardTitle>Allocated Ports</CardTitle>
+            <CardTitle>
+              {t("admin-infra:nodes.portsManager.allocatedTitle")}
+            </CardTitle>
             <CardDescription>
-              Add and remove node port ranges from the admin API.
+              {t("admin-infra:nodes.portsManager.allocatedDescription")}
             </CardDescription>
           </div>
 
@@ -249,7 +262,7 @@ export function NodePortsManager({
               disabled={isActionLoading || !canManage}
             >
               <Plus className="size-4" />
-              Add Port Range
+              {t("admin-infra:nodes.portsManager.addButtonTitle")}
             </Button>
             <Button
               type="button"
@@ -264,22 +277,28 @@ export function NodePortsManager({
               ) : (
                 <RefreshCcw className="size-4" />
               )}
-              Refresh
+              {t("common:actions.refresh")}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           {ports.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No allocated ports.</p>
+            <p className="text-sm text-muted-foreground">
+              {t("admin-infra:nodes.portsManager.noAllocatedPorts")}
+            </p>
           ) : (
             <div className="overflow-hidden rounded-lg border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Protocol</TableHead>
-                    <TableHead>Range</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t("common:labels.id")}</TableHead>
+                    <TableHead>{t("admin-infra:shared.protocol")}</TableHead>
+                    <TableHead>
+                      {t("admin-infra:nodes.portsManager.columns.range")}
+                    </TableHead>
+                    <TableHead className="text-right">
+                      {t("common:labels.actions")}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -308,7 +327,7 @@ export function NodePortsManager({
                           disabled={isActionLoading || !canManage}
                         >
                           <Trash2 className="size-4" />
-                          Remove
+                          {t("common:actions.remove")}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -322,15 +341,15 @@ export function NodePortsManager({
 
       <Card>
         <CardHeader>
-          <CardTitle>Available Ports</CardTitle>
+          <CardTitle>{t("admin-infra:nodes.portsManager.availableTitle")}</CardTitle>
           <CardDescription>
-            Snapshot returned by the available ports endpoint.
+            {t("admin-infra:nodes.portsManager.availableDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {Object.keys(available).length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No available port data.
+              {t("admin-infra:nodes.portsManager.noAvailableData")}
             </p>
           ) : (
             <div className="space-y-2">
@@ -338,7 +357,7 @@ export function NodePortsManager({
                 <div key={key} className="rounded-md border px-3 py-2 text-sm">
                   <p className="font-medium">{key}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatAvailablePortValue(value)}
+                    {formatAvailablePortValue(value, t)}
                   </p>
                 </div>
               ))}
@@ -358,9 +377,11 @@ export function NodePortsManager({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Port Range</DialogTitle>
+            <DialogTitle>
+              {t("admin-infra:nodes.portsManager.addButtonTitle")}
+            </DialogTitle>
             <DialogDescription>
-              Allocate a port range to this node.
+              {t("admin-infra:nodes.portsManager.addDialogDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -370,7 +391,7 @@ export function NodePortsManager({
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, start: event.target.value }))
               }
-              placeholder="Start"
+              placeholder={t("admin-infra:nodes.portsManager.startPlaceholder")}
               inputMode="numeric"
             />
             <Input
@@ -378,7 +399,7 @@ export function NodePortsManager({
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, end: event.target.value }))
               }
-              placeholder="End"
+              placeholder={t("admin-infra:nodes.portsManager.endPlaceholder")}
               inputMode="numeric"
             />
             <Select
@@ -391,7 +412,7 @@ export function NodePortsManager({
               }
             >
               <SelectTrigger className="sm:col-span-2">
-                <SelectValue placeholder="Protocol" />
+                <SelectValue placeholder={t("admin-infra:shared.protocol")} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="tcp">TCP</SelectItem>
@@ -407,7 +428,7 @@ export function NodePortsManager({
               onClick={() => setCreateOpen(false)}
               disabled={isActionLoading || !canManage}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -417,7 +438,7 @@ export function NodePortsManager({
               loading={isActionLoading}
               disabled={!canManage}
             >
-              Add
+              {t("common:actions.add")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -434,15 +455,20 @@ export function NodePortsManager({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove port range?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("admin-infra:nodes.portsManager.removeDialogTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This removes range{" "}
-              {selectedPort ? `${selectedPort.start}-${selectedPort.end}` : ""}.
+              {t("admin-infra:nodes.portsManager.removeDialogDescription", {
+                range: selectedPort
+                  ? `${selectedPort.start}-${selectedPort.end}`
+                  : "",
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isActionLoading}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
@@ -452,7 +478,7 @@ export function NodePortsManager({
               }}
               disabled={isActionLoading || !canManage}
             >
-              Remove
+              {t("common:actions.remove")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -4,6 +4,7 @@ import { useRouter } from "@/lib/navigation";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import {
   AlertDialog,
@@ -36,6 +37,7 @@ export function ServerDeleteCard({
   serverId,
   serverName,
 }: ServerDeleteCardProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -49,11 +51,14 @@ export function ServerDeleteCard({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to delete server");
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:servers.deleteCard.deleteError"),
+        );
         return;
       }
 
-      toast.success("Server deleted");
+      toast.success(t("admin-infra:servers.deleteCard.deleteSuccess"));
       setOpen(false);
       router.push("/admin/servers");
       router.refresh();
@@ -65,9 +70,9 @@ export function ServerDeleteCard({
   return (
     <Card className="border-destructive/40">
       <CardHeader>
-        <CardTitle>Delete Server</CardTitle>
+        <CardTitle>{t("admin-infra:servers.deleteCard.title")}</CardTitle>
         <CardDescription>
-          Permanently delete this server and remove it from the node.
+          {t("admin-infra:servers.deleteCard.description")}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -78,21 +83,27 @@ export function ServerDeleteCard({
           disabled={!canDelete || isDeleting}
         >
           <Trash2 className="size-4" />
-          Delete Server
+          {t("admin-infra:servers.deleteCard.deleteButton")}
         </Button>
       </CardContent>
 
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {serverName}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("common:confirmDelete.title", { name: serverName })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes {serverName}. This action cannot be
-              undone.
+              {t("admin-infra:servers.deleteCard.confirmDescription", {
+                name: serverName,
+              })}{" "}
+              {t("common:confirmDelete.cannotBeUndone")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>
+              {t("common:actions.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
               onClick={(event) => {
@@ -101,7 +112,7 @@ export function ServerDeleteCard({
               }}
               disabled={!canDelete || isDeleting}
             >
-              Delete Server
+              {t("admin-infra:servers.deleteCard.deleteButton")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

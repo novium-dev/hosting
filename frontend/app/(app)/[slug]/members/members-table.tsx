@@ -39,6 +39,7 @@ import { MoreHorizontal, Users } from "lucide-react";
 import { useAction } from "@/lib/action-hooks";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import type { ProjectMember } from "./members-view";
 import { UpdateMemberRoleDialog } from "./update-member-role";
 
@@ -48,17 +49,18 @@ interface MembersTableProps {
 }
 
 export function MembersTable({ members, projectId }: MembersTableProps) {
+  const { t } = useTranslation();
   const [updateOpen, setUpdateOpen] = useState(false);
   const [removeMember, setRemoveMember] = useState<ProjectMember | null>(null);
   const [member, setMember] = useState<ProjectMember | null>(null);
 
   const remove = useAction(removeProjectUserAction, {
     onSuccess: () => {
-      toast.success("Member removed successfully");
+      toast.success(t("org:members.table.removeSuccess"));
       setRemoveMember(null);
     },
     onError: (error) => {
-      toast.error(error.error.serverError ?? "Something went wrong");
+      toast.error(error.error.serverError ?? t("common:state.genericError"));
     },
   });
 
@@ -67,9 +69,11 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[300px]">User</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Permissions</TableHead>
+            <TableHead className="w-[300px]">
+              {t("org:members.table.userColumn")}
+            </TableHead>
+            <TableHead>{t("common:labels.email")}</TableHead>
+            <TableHead>{t("common:labels.permissions")}</TableHead>
             <TableHead></TableHead>
           </TableRow>
         </TableHeader>
@@ -79,9 +83,11 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
               <TableCell colSpan={4} className="h-28">
                 <div className="flex flex-col items-center justify-center gap-2 text-center">
                   <Users className="size-5 text-muted-foreground" />
-                  <p className="text-sm font-medium">No members yet</p>
+                  <p className="text-sm font-medium">
+                    {t("org:members.table.emptyTitle")}
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    Invite someone to give them access to this project.
+                    {t("org:members.table.emptyDescription")}
                   </p>
                 </div>
               </TableCell>
@@ -111,14 +117,15 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Badge variant="secondary">
-                          {permissionLabels.length} permission
-                          {permissionLabels.length === 1 ? "" : "s"}
+                          {t("org:shared.permissionCount", {
+                            count: permissionLabels.length,
+                          })}
                         </Badge>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
                         {permissionLabels.length
                           ? permissionLabels.join(", ")
-                          : "No permissions"}
+                          : t("org:shared.noPermissions")}
                       </TooltipContent>
                     </Tooltip>
                   </TableCell>
@@ -137,13 +144,13 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
                             setUpdateOpen(true);
                           }}
                         >
-                          Update Member
+                          {t("org:members.table.updateAction")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="cursor-pointer text-destructive"
                           onSelect={() => setRemoveMember(member)}
                         >
-                          Remove Member
+                          {t("org:members.table.removeAction")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -170,15 +177,16 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Member?</AlertDialogTitle>
+            <AlertDialogTitle>{t("org:members.table.removeTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove {removeMember?.email} from the project. They will
-              lose access to all of its servers.
+              {t("org:members.table.removeDescription", {
+                email: removeMember?.email,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={remove.isExecuting}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
@@ -188,7 +196,7 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
               }}
               disabled={remove.isExecuting}
             >
-              Remove Member
+              {t("org:members.table.removeAction")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

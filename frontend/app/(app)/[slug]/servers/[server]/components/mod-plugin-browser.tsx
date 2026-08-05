@@ -18,6 +18,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import {
   getResourceContextAction,
@@ -129,6 +130,7 @@ export function ModPluginBrowser({
   serverId,
   canWriteFiles,
 }: ModPluginBrowserProps) {
+  const { t } = useTranslation();
   const [activeLoader, setActiveLoader] = useState<ResourceLoader | null>(null);
   const [activeProvider, setActiveProvider] = useState<ResourceProvider | null>(
     null,
@@ -340,7 +342,11 @@ export function ModPluginBrowser({
       return;
     }
 
-    toast.success(`Installed ${selectedProject.title}`);
+    toast.success(
+      t("servers-management:modPluginBrowser.toasts.installed", {
+        title: selectedProject.title,
+      }),
+    );
     await Promise.all([refreshInstalled(), refreshUpdates()]);
   };
 
@@ -362,7 +368,15 @@ export function ModPluginBrowser({
       return;
     }
 
-    toast.success(`${enabled ? "Enabled" : "Disabled"} ${label}`);
+    toast.success(
+      enabled
+        ? t("servers-management:modPluginBrowser.toasts.stateEnabled", {
+            label,
+          })
+        : t("servers-management:modPluginBrowser.toasts.stateDisabled", {
+            label,
+          }),
+    );
     await refreshInstalled();
   };
 
@@ -387,7 +401,12 @@ export function ModPluginBrowser({
       return;
     }
 
-    toast.success(`Installing ${selectedProject.title} in the background`);
+    toast.success(
+      t(
+        "servers-management:modPluginBrowser.toasts.installingInBackground",
+        { title: selectedProject.title },
+      ),
+    );
     await refreshModpackJob();
   };
 
@@ -404,7 +423,11 @@ export function ModPluginBrowser({
       return;
     }
 
-    toast.success(`Updated ${entry.title}`);
+    toast.success(
+      t("servers-management:modPluginBrowser.toasts.updated", {
+        title: entry.title,
+      }),
+    );
     await Promise.all([refreshInstalled(), refreshUpdates()]);
   };
 
@@ -412,7 +435,10 @@ export function ModPluginBrowser({
     const result = await updateAllResourcesAction({ serverId, allowPrerelease });
 
     if (result.serverError || !result.data) {
-      toast.error(result.serverError ?? "Failed to update resources");
+      toast.error(
+        result.serverError ??
+          t("servers-management:modPluginBrowser.toasts.updateAllFailed"),
+      );
       return;
     }
 
@@ -421,7 +447,9 @@ export function ModPluginBrowser({
 
     if (updated.length > 0) {
       toast.success(
-        `Updated ${updated.length} resource${updated.length === 1 ? "" : "s"}`,
+        t("servers-management:modPluginBrowser.toasts.updatedCount", {
+          count: updated.length,
+        }),
       );
     }
     // Reported per resource: one blocked download must not read as a total
@@ -445,7 +473,11 @@ export function ModPluginBrowser({
       return;
     }
 
-    toast.success(`Removed ${entry.title}`);
+    toast.success(
+      t("servers-management:modPluginBrowser.toasts.removed", {
+        title: entry.title,
+      }),
+    );
     await Promise.all([refreshInstalled(), refreshUpdates()]);
   };
 
@@ -453,10 +485,11 @@ export function ModPluginBrowser({
     return (
       <Card className="border-dashed">
         <CardHeader>
-          <CardTitle>Mod browser unavailable</CardTitle>
+          <CardTitle>
+            {t("servers-management:modPluginBrowser.unavailable.title")}
+          </CardTitle>
           <CardDescription>
-            This server template does not expose a supported Minecraft mod or
-            plugin feature.
+            {t("servers-management:modPluginBrowser.unavailable.description")}
           </CardDescription>
         </CardHeader>
       </Card>
@@ -471,12 +504,14 @@ export function ModPluginBrowser({
             <div>
               <CardTitle className="flex items-center gap-2">
                 <PackageSearch className="size-5" />
-                Mods and Plugins
+                {t("servers-management:modPluginBrowser.title")}
               </CardTitle>
               <CardDescription>
                 {kind === "modpack"
-                  ? "Browse Modrinth and CurseForge modpacks compatible with this server."
-                  : "Browse Modrinth, CurseForge, Hangar and SpigotMC resources compatible with this server."}
+                  ? t("servers-management:modPluginBrowser.description.modpacks")
+                  : t(
+                      "servers-management:modPluginBrowser.description.resources",
+                    )}
               </CardDescription>
             </div>
 
@@ -492,11 +527,11 @@ export function ModPluginBrowser({
                 <TabsList className="flex h-auto flex-wrap justify-start">
                   <TabsTrigger value="resource">
                     <PackageSearch className="mr-1 size-4" />
-                    Mods
+                    {t("servers-management:modPluginBrowser.tabs.mods")}
                   </TabsTrigger>
                   <TabsTrigger value="modpack">
                     <Boxes className="mr-1 size-4" />
-                    Modpacks
+                    {t("servers-management:modPluginBrowser.tabs.modpacks")}
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -556,14 +591,19 @@ export function ModPluginBrowser({
                   className="pl-9"
                   placeholder={
                     activeLoaderInfo
-                      ? `Search ${LOADER_LABELS[activeLoaderInfo.loader]}`
-                      : "Search"
+                      ? t(
+                          "servers-management:modPluginBrowser.searchPlaceholderWithLoader",
+                          { loader: LOADER_LABELS[activeLoaderInfo.loader] },
+                        )
+                      : t(
+                          "servers-management:modPluginBrowser.searchPlaceholder",
+                        )
                   }
                 />
               </div>
               <Button type="submit" disabled={isPending || !provider}>
                 <Search data-icon="inline-start" />
-                Search
+                {t("common:actions.search")}
               </Button>
             </form>
 
@@ -578,7 +618,10 @@ export function ModPluginBrowser({
                   htmlFor="compatible-only"
                   className="text-sm font-normal text-muted-foreground"
                 >
-                  Only show resources for Minecraft {gameVersion}
+                  {t(
+                    "servers-management:modPluginBrowser.compatibleOnlyLabel",
+                    { gameVersion },
+                  )}
                 </Label>
               </div>
             ) : null}
@@ -594,7 +637,7 @@ export function ModPluginBrowser({
 
               {!isPending && projects.length === 0 ? (
                 <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
-                  No compatible resources found.
+                  {t("servers-management:modPluginBrowser.noResultsFound")}
                 </div>
               ) : null}
 
@@ -635,11 +678,17 @@ export function ModPluginBrowser({
                         {entry ? (
                           <Badge className="gap-1 border-emerald-200 bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
                             <CheckCircle2 className="size-3" />
-                            Installed
+                            {t(
+                              "servers-management:modPluginBrowser.badges.installed",
+                            )}
                           </Badge>
                         ) : null}
                         {!project.downloadable ? (
-                          <Badge variant="outline">Manual download</Badge>
+                          <Badge variant="outline">
+                            {t(
+                              "servers-management:modPluginBrowser.badges.manualDownload",
+                            )}
+                          </Badge>
                         ) : null}
                       </span>
                       <span className="line-clamp-2 text-sm text-muted-foreground">
@@ -647,7 +696,10 @@ export function ModPluginBrowser({
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {project.author ? `${project.author} · ` : ""}
-                        {formatCount(project.downloads)} downloads
+                        {t(
+                          "servers-management:modPluginBrowser.downloadsLabel",
+                          { count: formatCount(project.downloads) },
+                        )}
                       </span>
                     </span>
                   </button>
@@ -659,11 +711,18 @@ export function ModPluginBrowser({
 
         <Card className="h-fit">
           <CardHeader>
-            <CardTitle>{selectedProject?.title ?? "Select a resource"}</CardTitle>
+            <CardTitle>
+              {selectedProject?.title ??
+                t(
+                  "servers-management:modPluginBrowser.selectResourceFallback",
+                )}
+            </CardTitle>
             <CardDescription>
               {selectedProject
                 ? selectedProject.description
-                : "Choose a project to view its versions."}
+                : t(
+                    "servers-management:modPluginBrowser.chooseProjectHint",
+                  )}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
@@ -674,10 +733,15 @@ export function ModPluginBrowser({
                     {PROVIDER_LABELS[selectedProject.provider]}
                   </Badge>
                   <Badge variant="outline">
-                    {formatCount(selectedProject.downloads)} downloads
+                    {t(
+                      "servers-management:modPluginBrowser.downloadsLabel",
+                      { count: formatCount(selectedProject.downloads) },
+                    )}
                   </Badge>
                   <Badge variant="outline">
-                    {formatCount(selectedProject.follows)} follows
+                    {t("servers-management:modPluginBrowser.followsLabel", {
+                      count: formatCount(selectedProject.follows),
+                    })}
                   </Badge>
                   {selectedProject.page_url ? (
                     <a
@@ -686,7 +750,13 @@ export function ModPluginBrowser({
                       rel="noreferrer noopener"
                       className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:underline"
                     >
-                      View on {PROVIDER_LABELS[selectedProject.provider]}
+                      {t(
+                        "servers-management:modPluginBrowser.viewOnProviderLink",
+                        {
+                          provider:
+                            PROVIDER_LABELS[selectedProject.provider],
+                        },
+                      )}
                       <ExternalLink className="size-3" />
                     </a>
                   ) : null}
@@ -695,14 +765,20 @@ export function ModPluginBrowser({
                 <Separator />
 
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="resource-version">Version</Label>
+                  <Label htmlFor="resource-version">
+                    {t("servers-management:modPluginBrowser.versionLabel")}
+                  </Label>
                   <Select
                     value={selectedVersionId}
                     onValueChange={setSelectedVersionId}
                     disabled={versions.length === 0}
                   >
                     <SelectTrigger id="resource-version" className="w-full">
-                      <SelectValue placeholder="No compatible versions" />
+                      <SelectValue
+                        placeholder={t(
+                          "servers-management:modPluginBrowser.noCompatibleVersions",
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {versions.map((version) => (
@@ -734,13 +810,21 @@ export function ModPluginBrowser({
                     </div>
                     <div className="mt-3 flex flex-col gap-1 text-muted-foreground">
                       <span>
-                        Minecraft:{" "}
+                        {t(
+                          "servers-management:modPluginBrowser.minecraftVersionsPrefix",
+                        )}
                         {selectedVersion.game_versions.slice(0, 5).join(", ") ||
-                          "Unknown"}
+                          t("common:status.unknown")}
                         {selectedVersion.game_versions.length > 5 ? ", ..." : ""}
                       </span>
                       <span>
-                        File: {selectedVersion.file_name ?? "Unavailable"}
+                        {t(
+                          "servers-management:modPluginBrowser.fileLabelPrefix",
+                        )}
+                        {selectedVersion.file_name ??
+                          t(
+                            "servers-management:modPluginBrowser.fileUnavailable",
+                          )}
                       </span>
                     </div>
                   </div>
@@ -748,7 +832,10 @@ export function ModPluginBrowser({
 
                 {selectedInstall ? (
                   <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-                    Installed: {selectedInstall.file_name}
+                    {t(
+                      "servers-management:modPluginBrowser.installedFilePrefix",
+                    )}
+                    {selectedInstall.file_name}
                   </div>
                 ) : null}
 
@@ -770,25 +857,35 @@ export function ModPluginBrowser({
                   ) : (
                     <Download data-icon="inline-start" />
                   )}
-                  {selectedInstall ? "Switch Version" : "Install"}
+                  {selectedInstall
+                    ? t(
+                        "servers-management:modPluginBrowser.switchVersionButton",
+                      )
+                    : t("servers-management:modPluginBrowser.installButton")}
                 </Button>
 
                 {selectedVersion?.downloadable === false ? (
                   <p className="text-sm text-muted-foreground">
                     {selectedProject.provider === "spigot"
-                      ? "SpigotMC does not allow automated downloads. Download the jar from its page and upload it under Files."
-                      : "This version is hosted outside the provider and has to be downloaded and uploaded manually."}
+                      ? t(
+                          "servers-management:modPluginBrowser.manualDownloadHints.spigot",
+                        )
+                      : t(
+                          "servers-management:modPluginBrowser.manualDownloadHints.generic",
+                        )}
                   </p>
                 ) : null}
                 {!canWriteFiles ? (
                   <p className="text-sm text-muted-foreground">
-                    You need file write permission to install resources.
+                    {t(
+                      "servers-management:modPluginBrowser.noWritePermissionHint",
+                    )}
                   </p>
                 ) : null}
               </>
             ) : (
               <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
-                Search or select a resource from the list.
+                {t("servers-management:modPluginBrowser.searchOrSelectHint")}
               </div>
             )}
           </CardContent>
@@ -806,19 +903,22 @@ export function ModPluginBrowser({
               </Badge>
             </CardTitle>
             <CardDescription>
-              Installed modpack —{" "}
+              {t("servers-management:modPluginBrowser.installedModpack.prefix")}
               {installedModpack.mods.length > 0
-                ? `${installedModpack.mods.length} mod${
-                    installedModpack.mods.length === 1 ? "" : "s"
-                  }`
-                : "no mods found on disk"}
+                ? t(
+                    "servers-management:modPluginBrowser.installedModpack.modsCount",
+                    { count: installedModpack.mods.length },
+                  )
+                : t(
+                    "servers-management:modPluginBrowser.installedModpack.noModsFound",
+                  )}
               {installedModpack.other_files > 0
-                ? ` and ${installedModpack.other_files} configuration file${
-                    installedModpack.other_files === 1 ? "" : "s"
-                  }`
+                ? t(
+                    "servers-management:modPluginBrowser.installedModpack.andConfigFiles",
+                    { count: installedModpack.other_files },
+                  )
                 : ""}
-              . These came from the pack, so they are not listed as
-              hand-uploaded files.
+              {t("servers-management:modPluginBrowser.installedModpack.suffix")}
             </CardDescription>
           </CardHeader>
           {installedModpack.mods.length > 0 ? (
@@ -838,7 +938,9 @@ export function ModPluginBrowser({
                   </span>
                   <span className="flex items-center gap-2">
                     {!entry.enabled ? (
-                      <Badge variant="outline">Disabled</Badge>
+                      <Badge variant="outline">
+                        {t("common:status.disabled")}
+                      </Badge>
                     ) : null}
                     <Button
                       variant="outline"
@@ -858,7 +960,9 @@ export function ModPluginBrowser({
                       ) : (
                         <Power data-icon="inline-start" />
                       )}
-                      {entry.enabled ? "Disable" : "Enable"}
+                      {entry.enabled
+                        ? t("servers-management:modPluginBrowser.actions.disable")
+                        : t("servers-management:modPluginBrowser.actions.enable")}
                     </Button>
                   </span>
                 </div>
@@ -877,20 +981,31 @@ export function ModPluginBrowser({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Boxes className="size-5" />
-              {modpackJob.pack ?? "Modpack"}
+              {modpackJob.pack ??
+                t(
+                  "servers-management:modPluginBrowser.modpackJob.fallbackTitle",
+                )}
               <Badge variant="outline">{modpackJob.step}</Badge>
             </CardTitle>
             <CardDescription>
               {modpackJob.state === "running"
-                ? `Installing in the background${
+                ? `${t("servers-management:modPluginBrowser.modpackJob.runningBase")}${
                     modpackJob.total > 0
-                      ? ` — ${modpackJob.done} of ${modpackJob.total} files`
+                      ? t(
+                          "servers-management:modPluginBrowser.modpackJob.runningProgress",
+                          { done: modpackJob.done, total: modpackJob.total },
+                        )
                       : ""
-                  }. You can leave this page.`
+                  }${t("servers-management:modPluginBrowser.modpackJob.runningSuffix")}`
                 : modpackJob.state === "failed"
                   ? (modpackJob.error ??
-                    "The installation failed. Nothing was changed if it failed before the install step.")
-                  : `Installed ${modpackJob.done} file${modpackJob.done === 1 ? "" : "s"}.`}
+                    t(
+                      "servers-management:modPluginBrowser.modpackJob.failedDefault",
+                    ))
+                  : t(
+                      "servers-management:modPluginBrowser.modpackJob.installedCount",
+                      { count: modpackJob.done },
+                    )}
             </CardDescription>
           </CardHeader>
           {modpackJob.total > 0 ? (
@@ -900,11 +1015,15 @@ export function ModPluginBrowser({
               />
               {modpackJob.failures.length > 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  {modpackJob.failures.length} file
-                  {modpackJob.failures.length === 1 ? "" : "s"} could not be
-                  fetched (most often a CurseForge author blocking third-party
-                  downloads): {modpackJob.failures.slice(0, 5).join(", ")}
-                  {modpackJob.failures.length > 5 ? ", ..." : ""}
+                  {t(
+                    "servers-management:modPluginBrowser.modpackJob.failuresMessage",
+                    {
+                      count: modpackJob.failures.length,
+                      list:
+                        modpackJob.failures.slice(0, 5).join(", ") +
+                        (modpackJob.failures.length > 5 ? ", ..." : ""),
+                    },
+                  )}
                 </p>
               ) : null}
             </CardContent>
@@ -919,12 +1038,18 @@ export function ModPluginBrowser({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Install {selectedProject?.title ?? "modpack"}?
+              {t("servers-management:modPluginBrowser.modpackConfirm.title", {
+                title:
+                  selectedProject?.title ??
+                  t(
+                    "servers-management:modPluginBrowser.modpackConfirm.fallbackTitle",
+                  ),
+              })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This writes the pack&apos;s mods and configuration onto the server.
-              The pack is downloaded and unpacked first, so nothing on the server
-              changes until it is known to be usable.
+              {t(
+                "servers-management:modPluginBrowser.modpackConfirm.description",
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -937,11 +1062,19 @@ export function ModPluginBrowser({
                 onCheckedChange={setModpackBackup}
               />
               <div className="flex flex-col gap-1">
-                <Label htmlFor="modpack-backup">Back up first</Label>
+                <Label htmlFor="modpack-backup">
+                  {t(
+                    "servers-management:modPluginBrowser.modpackConfirm.backupLabel",
+                  )}
+                </Label>
                 <p className="text-sm text-muted-foreground">
                   {backupAvailable
-                    ? "A backup is taken before anything is written. If it fails, the install does not start."
-                    : "Unavailable: this node has no backup storage configured for the server."}
+                    ? t(
+                        "servers-management:modPluginBrowser.modpackConfirm.backupAvailableHint",
+                      )
+                    : t(
+                        "servers-management:modPluginBrowser.modpackConfirm.backupUnavailableHint",
+                      )}
                 </p>
               </div>
             </div>
@@ -953,27 +1086,32 @@ export function ModPluginBrowser({
                 onCheckedChange={setModpackWipe}
               />
               <div className="flex flex-col gap-1">
-                <Label htmlFor="modpack-wipe">Replace existing mods</Label>
+                <Label htmlFor="modpack-wipe">
+                  {t(
+                    "servers-management:modPluginBrowser.modpackConfirm.wipeLabel",
+                  )}
+                </Label>
                 <p className="text-sm text-muted-foreground">
-                  Clears the current mod jars so the result matches the pack.
-                  Turn this off to merge the pack into what is already installed.
+                  {t(
+                    "servers-management:modPluginBrowser.modpackConfirm.wipeHint",
+                  )}
                 </p>
               </div>
             </div>
 
             {modpackWipe && !modpackBackup ? (
               <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
-                Existing mods will be deleted and there is no backup to restore
-                from. Mod configuration shipped with the pack will also overwrite
-                what is on the server.
+                {t(
+                  "servers-management:modPluginBrowser.modpackConfirm.wipeWarning",
+                )}
               </p>
             ) : null}
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleInstallModpack}>
-              Install
+              {t("servers-management:modPluginBrowser.installButton")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -983,18 +1121,26 @@ export function ModPluginBrowser({
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1.5">
             <CardTitle className="flex items-center gap-2">
-              Installed
+              {t("servers-management:modPluginBrowser.installedSection.title")}
               {updates.length > 0 ? (
                 <Badge className="gap-1 border-sky-200 bg-sky-100 text-sky-800 hover:bg-sky-100 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300">
                   <ArrowUpCircle className="size-3" />
-                  {updates.length} update{updates.length === 1 ? "" : "s"}
+                  {t(
+                    "servers-management:modPluginBrowser.installedSection.updatesBadge",
+                    { count: updates.length },
+                  )}
                 </Badge>
               ) : null}
             </CardTitle>
             <CardDescription>
             {installed.length === 0
-              ? "Nothing installed through the browser yet."
-              : `${installed.length} resource${installed.length === 1 ? "" : "s"} installed on this server.`}
+              ? t(
+                  "servers-management:modPluginBrowser.installedSection.emptyState",
+                )
+              : t(
+                  "servers-management:modPluginBrowser.installedSection.countDescription",
+                  { count: installed.length },
+                )}
             </CardDescription>
           </div>
           <span className="flex flex-wrap items-center gap-3">
@@ -1009,7 +1155,9 @@ export function ModPluginBrowser({
                   htmlFor="allow-prerelease"
                   className="text-sm font-normal text-muted-foreground"
                 >
-                  Include beta versions
+                  {t(
+                    "servers-management:modPluginBrowser.installedSection.includeBetaLabel",
+                  )}
                 </Label>
               </span>
             ) : null}
@@ -1020,7 +1168,9 @@ export function ModPluginBrowser({
                 onClick={handleUpdateAll}
               >
                 <ArrowUpCircle data-icon="inline-start" />
-                Update all
+                {t(
+                  "servers-management:modPluginBrowser.installedSection.updateAllButton",
+                )}
               </Button>
             ) : null}
           </span>
@@ -1041,7 +1191,9 @@ export function ModPluginBrowser({
                       {PROVIDER_LABELS[entry.provider]}
                     </Badge>
                     {!entry.enabled ? (
-                      <Badge variant="outline">Disabled</Badge>
+                      <Badge variant="outline">
+                        {t("common:status.disabled")}
+                      </Badge>
                     ) : null}
                     {updateByProject.has(
                       installKey(entry.provider, entry.project),
@@ -1076,7 +1228,7 @@ export function ModPluginBrowser({
                       onClick={() => handleUpdate(entry)}
                     >
                       <ArrowUpCircle data-icon="inline-start" />
-                      Update
+                      {t("common:actions.update")}
                     </Button>
                   ) : null}
                   <Button
@@ -1097,7 +1249,9 @@ export function ModPluginBrowser({
                     ) : (
                       <Power data-icon="inline-start" />
                     )}
-                    {entry.enabled ? "Disable" : "Enable"}
+                    {entry.enabled
+                      ? t("servers-management:modPluginBrowser.actions.disable")
+                      : t("servers-management:modPluginBrowser.actions.enable")}
                   </Button>
                   <Button
                     variant="outline"
@@ -1106,7 +1260,7 @@ export function ModPluginBrowser({
                     onClick={() => handleUninstall(entry)}
                   >
                     <Trash2 data-icon="inline-start" />
-                    Remove
+                    {t("common:actions.remove")}
                   </Button>
                 </span>
               </div>
@@ -1120,14 +1274,13 @@ export function ModPluginBrowser({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileQuestion className="size-5" />
-              Not installed through the browser
+              {t("servers-management:modPluginBrowser.unmanagedSection.title")}
             </CardTitle>
             <CardDescription>
-              {unmanaged.length} file
-              {unmanaged.length === 1 ? "" : "s"} on this server that no record
-              points at — uploaded over SFTP or in the file manager, or replaced
-              by hand. You can still enable or disable them here; deleting them
-              is done under Files.
+              {t(
+                "servers-management:modPluginBrowser.unmanagedSection.description",
+                { count: unmanaged.length },
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
@@ -1146,7 +1299,9 @@ export function ModPluginBrowser({
                 </span>
                 <span className="flex items-center gap-2">
                   {!entry.enabled ? (
-                    <Badge variant="outline">Disabled</Badge>
+                    <Badge variant="outline">
+                      {t("common:status.disabled")}
+                    </Badge>
                   ) : null}
                   <Badge variant="outline">
                     {RESOURCE_TYPE_LABELS[entry.resource_type] ??
@@ -1174,7 +1329,13 @@ export function ModPluginBrowser({
                       ) : (
                         <Power data-icon="inline-start" />
                       )}
-                      {entry.enabled ? "Disable" : "Enable"}
+                      {entry.enabled
+                        ? t(
+                            "servers-management:modPluginBrowser.actions.disable",
+                          )
+                        : t(
+                            "servers-management:modPluginBrowser.actions.enable",
+                          )}
                     </Button>
                   )}
                 </span>
@@ -1189,15 +1350,19 @@ export function ModPluginBrowser({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TriangleAlert className="size-5" />
-              Could not read every directory
+              {t(
+                "servers-management:modPluginBrowser.unreadableSection.title",
+              )}
             </CardTitle>
             <CardDescription>
-              The{" "}
-              {unreadable
-                .map((type) => RESOURCE_TYPE_LABELS[type] ?? type)
-                .join(" and ")}{" "}
-              directory could not be listed, so the lists above may be
-              incomplete. Nothing was removed from the records.
+              {t(
+                "servers-management:modPluginBrowser.unreadableSection.description",
+                {
+                  types: unreadable
+                    .map((type) => RESOURCE_TYPE_LABELS[type] ?? type)
+                    .join(" and "),
+                },
+              )}
             </CardDescription>
           </CardHeader>
         </Card>

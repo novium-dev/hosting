@@ -10,6 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -37,12 +38,14 @@ type EditorMode = "loading" | "empty" | "archive" | "directory" | "image" | "tex
 const LazyMonaco = lazy(() => import("@monaco-editor/react"));
 
 function MonacoEditor(props: EditorProps) {
+  const { t } = useTranslation();
+
   return (
     <Suspense
       fallback={
         <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
-          Loading editor...
+          {t("servers:fileEditor.loadingEditor")}
         </div>
       }
     >
@@ -139,9 +142,9 @@ function isImageFile(fileName: string) {
   return /\.(apng|avif|bmp|gif|ico|jpe?g|png|svg|webp)$/i.test(fileName);
 }
 
-function formatBytes(bytes: number | null) {
+function formatBytes(bytes: number | null, unknownLabel: string) {
   if (bytes === null || !Number.isFinite(bytes) || bytes < 0) {
-    return "Unknown";
+    return unknownLabel;
   }
 
   if (bytes < 1024) {
@@ -166,10 +169,14 @@ export function FileEditor({
   path,
   canWriteFiles,
 }: FileEditorProps) {
+  const { t } = useTranslation();
   const normalizedPath = useMemo(() => (path ? normalizePath(path) : ""), [path]);
   const fileName = useMemo(
-    () => (normalizedPath ? getFileName(normalizedPath) : "File editor"),
-    [normalizedPath],
+    () =>
+      normalizedPath
+        ? getFileName(normalizedPath)
+        : t("servers:fileEditor.defaultTitle"),
+    [normalizedPath, t],
   );
   const language = useMemo(() => getLanguageFromFileName(fileName), [fileName]);
   const filesHref = `/${slug}/servers/${serverId}/files`;
@@ -205,7 +212,10 @@ export function FileEditor({
         });
 
         if (statResponse.error || !statResponse.data) {
-          toast.error(statResponse.error?.error?.msg ?? "Failed to inspect file");
+          toast.error(
+            statResponse.error?.error?.msg ??
+              t("servers:fileEditor.toasts.inspectFailed"),
+          );
           setMode("empty");
           return;
         }
@@ -242,7 +252,8 @@ export function FileEditor({
 
         if (downloadResponse.error || !downloadResponse.data?.url) {
           toast.error(
-            downloadResponse.error?.error?.msg ?? "Failed to get download URL",
+            downloadResponse.error?.error?.msg ??
+              t("servers:fileEditor.toasts.downloadUrlFailed"),
           );
           setMode("empty");
           return;
@@ -276,7 +287,7 @@ export function FileEditor({
         setMode("text");
       } catch {
         if (!cancelled) {
-          toast.error("Failed to load file");
+          toast.error(t("servers:fileEditor.toasts.loadFailed"));
           setMode("empty");
         }
       }
@@ -287,7 +298,7 @@ export function FileEditor({
     return () => {
       cancelled = true;
     };
-  }, [fileName, normalizedPath, serverId]);
+  }, [fileName, normalizedPath, serverId, t]);
 
   const saveFile = async () => {
     if (!canWriteFiles || !normalizedPath || mode !== "text") {
@@ -304,7 +315,8 @@ export function FileEditor({
 
       if (uploadUrlResponse.error || !uploadUrlResponse.data?.url) {
         toast.error(
-          uploadUrlResponse.error?.error?.msg ?? "Failed to get upload URL",
+          uploadUrlResponse.error?.error?.msg ??
+            t("servers:fileEditor.toasts.uploadUrlFailed"),
         );
         return;
       }
@@ -331,9 +343,9 @@ export function FileEditor({
       }
 
       setSavedContent(content);
-      toast.success("File saved");
+      toast.success(t("servers:fileEditor.toasts.saveSuccess"));
     } catch {
-      toast.error("Failed to save file");
+      toast.error(t("servers:fileEditor.toasts.saveFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -355,21 +367,23 @@ export function FileEditor({
               <span className="truncate">{fileName}</span>
             </CardTitle>
             <CardDescription className="truncate">
-              {normalizedPath || "Choose a file from the Files tab to open it here."}
+              {normalizedPath || t("servers:fileEditor.defaultDescription")}
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {normalizedPath ? (
-              <Badge variant="secondary">{formatBytes(size)}</Badge>
+              <Badge variant="secondary">
+                {formatBytes(size, t("common:status.unknown"))}
+              </Badge>
             ) : null}
             <Button asChild type="button" variant="outline">
-              <Link href={filesHref}>Back to files</Link>
+              <Link href={filesHref}>{t("servers:fileEditor.backToFiles")}</Link>
             </Button>
             {downloadUrl ? (
               <Button asChild type="button" variant="outline">
                 <a href={downloadUrl} target="_blank" rel="noreferrer">
                   <Download className="size-4" />
-                  Download
+                  {t("common:actions.download")}
                 </a>
               </Button>
             ) : null}
@@ -386,7 +400,7 @@ export function FileEditor({
               }
               loading={isSaving}
             >
-              Save
+              {t("common:actions.save")}
             </Button>
           </div>
         </div>
@@ -396,15 +410,15 @@ export function FileEditor({
         {mode === "loading" ? (
           <div className="flex h-[68vh] items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            Loading file...
+            {t("servers:fileEditor.loadingFile")}
           </div>
         ) : mode === "empty" ? (
           <div className="p-6">
             <Alert>
               <AlertTriangle className="size-4" />
-              <AlertTitle>No file selected</AlertTitle>
+              <AlertTitle>{t("servers:fileEditor.noFileSelected.title")}</AlertTitle>
               <AlertDescription>
-                Open a file from the Files tab to view or edit it.
+                {t("servers:fileEditor.noFileSelected.description")}
               </AlertDescription>
             </Alert>
           </div>
@@ -412,9 +426,11 @@ export function FileEditor({
           <div className="p-6">
             <Alert>
               <AlertTriangle className="size-4" />
-              <AlertTitle>Directory selected</AlertTitle>
+              <AlertTitle>
+                {t("servers:fileEditor.directorySelected.title")}
+              </AlertTitle>
               <AlertDescription>
-                Directories cannot be opened in the editor.
+                {t("servers:fileEditor.directorySelected.description")}
               </AlertDescription>
             </Alert>
           </div>
@@ -422,10 +438,11 @@ export function FileEditor({
           <div className="p-6">
             <Alert>
               <FileArchive className="size-4" />
-              <AlertTitle>Archive editing is disabled</AlertTitle>
+              <AlertTitle>
+                {t("servers:fileEditor.archiveDisabled.title")}
+              </AlertTitle>
               <AlertDescription>
-                This file is an archive. Download or extract it from the Files
-                tab instead of editing it as text.
+                {t("servers:fileEditor.archiveDisabled.description")}
               </AlertDescription>
             </Alert>
           </div>
@@ -462,7 +479,7 @@ export function FileEditor({
 
       {!canWriteFiles && mode === "text" ? (
         <CardFooter className="border-t py-3 text-sm text-muted-foreground">
-          You have read-only file access for this server.
+          {t("servers:fileEditor.readOnlyNotice")}
         </CardFooter>
       ) : null}
     </Card>

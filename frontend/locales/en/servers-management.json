@@ -175,8 +175,7 @@
     "noResultsFound": "No compatible resources found.",
     "badges": {
       "installed": "Installed",
-      "manualDownload": "Manual download",
-      "disabled": "Disabled"
+      "manualDownload": "Manual download"
     },
     "downloadsLabel": "{{count}} downloads",
     "followsLabel": "{{count}} follows",
@@ -211,6 +210,7 @@
       "enable": "Enable"
     },
     "modpackJob": {
+      "fallbackTitle": "Modpack",
       "runningBase": "Installing in the background",
       "runningProgress": " — {{done}} of {{total}} files",
       "runningSuffix": ". You can leave this page.",

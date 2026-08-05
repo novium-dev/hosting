@@ -66,21 +66,23 @@ import {
 import { Copy, Eye, EyeOff, MoreHorizontal, Plus, UserRound } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export type ProjectUser = ListInstanceUsersResponses[200][number];
 
 const NO_DATABASE = "none";
 
-async function copy(value: string, label: string) {
+async function copyValue(value: string, successMessage: string, errorMessage: string) {
   try {
     await navigator.clipboard.writeText(value);
-    toast.success(`${label} copied`);
+    toast.success(successMessage);
   } catch {
-    toast.error(`Failed to copy the ${label.toLowerCase()}`);
+    toast.error(errorMessage);
   }
 }
 
 function ConnectionCell({ user }: { user: ProjectUser }) {
+  const { t } = useTranslation();
   const [revealed, setRevealed] = useState(false);
 
   return (
@@ -94,15 +96,25 @@ function ConnectionCell({ user }: { user: ProjectUser }) {
         variant="ghost"
         size="icon"
         onClick={() => setRevealed((current) => !current)}
-        aria-label={revealed ? "Hide password" : "Reveal password"}
+        aria-label={
+          revealed
+            ? t("org:databases.usersCard.hidePassword")
+            : t("org:databases.usersCard.revealPassword")
+        }
       >
         {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
       </Button>
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => void copy(user.uri, "Connection URI")}
-        aria-label="Copy connection URI"
+        onClick={() =>
+          void copyValue(
+            user.uri,
+            t("org:databases.usersCard.connectionUriCopied"),
+            t("org:databases.usersCard.connectionUriCopyFailed"),
+          )
+        }
+        aria-label={t("org:databases.usersCard.copyUriAriaLabel")}
       >
         <Copy className="size-4" />
       </Button>
@@ -119,6 +131,7 @@ export function InstanceUsers({
   instanceId: string;
   canManage: boolean;
 }) {
+  const { t } = useTranslation();
   const [creating, setCreating] = useState(false);
   const [username, setUsername] = useState("");
   const [database, setDatabase] = useState(NO_DATABASE);
@@ -149,35 +162,41 @@ export function InstanceUsers({
 
   const create = useAction(createUserAction, {
     onSuccess: () => {
-      toast.success("User created");
+      toast.success(t("org:databases.usersCard.created"));
       setCreating(false);
       setUsername("");
       setDatabase(NO_DATABASE);
       void mutate();
     },
     onError: (result) => {
-      toast.error(result.error.serverError ?? "Failed to create the user");
+      toast.error(
+        result.error.serverError ?? t("org:databases.usersCard.createError"),
+      );
     },
   });
 
   const remove = useAction(deleteUserAction, {
     onSuccess: () => {
-      toast.success("User deleted");
+      toast.success(t("org:databases.usersCard.deleted"));
       setPendingDelete(null);
       void mutate();
     },
     onError: (result) => {
-      toast.error(result.error.serverError ?? "Failed to delete the user");
+      toast.error(
+        result.error.serverError ?? t("org:databases.usersCard.deleteError"),
+      );
     },
   });
 
   const rotate = useAction(rotateUserPasswordAction, {
     onSuccess: () => {
-      toast.success("Password rotated");
+      toast.success(t("org:databases.usersCard.passwordRotated"));
       void mutate();
     },
     onError: (result) => {
-      toast.error(result.error.serverError ?? "Failed to rotate the password");
+      toast.error(
+        result.error.serverError ?? t("org:databases.usersCard.rotateError"),
+      );
     },
   });
 
@@ -186,9 +205,9 @@ export function InstanceUsers({
       <Card>
         <CardHeader className="space-y-4">
           <div>
-            <CardTitle>Users</CardTitle>
+            <CardTitle>{t("org:databases.usersCard.title")}</CardTitle>
             <CardDescription>
-              Each one connects with the name shown, which carries its own id.
+              {t("org:databases.usersCard.description")}
             </CardDescription>
           </div>
 
@@ -196,7 +215,7 @@ export function InstanceUsers({
             <div>
               <Button type="button" onClick={() => setCreating(true)}>
                 <Plus className="size-4" />
-                New user
+                {t("org:databases.usersCard.createTrigger")}
               </Button>
             </div>
           ) : null}
@@ -206,13 +225,17 @@ export function InstanceUsers({
           {isLoading ? (
             <Skeleton className="h-24 w-full" />
           ) : error ? (
-            <p className="text-sm text-destructive">Failed to load the users.</p>
+            <p className="text-sm text-destructive">
+              {t("org:databases.usersCard.loadError")}
+            </p>
           ) : !data?.length ? (
             <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-center">
               <UserRound className="size-5 text-muted-foreground" />
-              <p className="text-sm font-medium">No users yet</p>
+              <p className="text-sm font-medium">
+                {t("org:databases.usersCard.emptyTitle")}
+              </p>
               <p className="text-sm text-muted-foreground">
-                Create one to get a connection string.
+                {t("org:databases.usersCard.emptyDescription")}
               </p>
             </div>
           ) : (
@@ -220,8 +243,8 @@ export function InstanceUsers({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Username</TableHead>
-                    <TableHead>Connection</TableHead>
+                    <TableHead>{t("org:databases.usersCard.usernameColumn")}</TableHead>
+                    <TableHead>{t("org:databases.usersCard.connectionColumn")}</TableHead>
                     <TableHead className="w-0" />
                   </TableRow>
                 </TableHeader>
@@ -252,13 +275,13 @@ export function InstanceUsers({
                                   })
                                 }
                               >
-                                Rotate password
+                                {t("org:databases.usersCard.rotatePassword")}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 variant="destructive"
                                 onSelect={() => setPendingDelete(user)}
                               >
-                                Delete
+                                {t("common:actions.delete")}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -276,29 +299,35 @@ export function InstanceUsers({
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create user</DialogTitle>
+            <DialogTitle>{t("org:databases.usersCard.createDialogTitle")}</DialogTitle>
             <DialogDescription>
-              A password is generated for you and shown once the user exists.
+              {t("org:databases.usersCard.createDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">
+                {t("org:databases.usersCard.usernameLabel")}
+              </Label>
               <Input
                 id="username"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                placeholder="app"
+                placeholder={t("org:databases.usersCard.usernamePlaceholder")}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="grant">Grant on</Label>
+              <Label htmlFor="grant">
+                {t("org:databases.usersCard.grantOnLabel")}
+              </Label>
               <Select value={database} onValueChange={setDatabase}>
                 <SelectTrigger id="grant" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_DATABASE}>No database</SelectItem>
+                  <SelectItem value={NO_DATABASE}>
+                    {t("org:databases.usersCard.noDatabaseOption")}
+                  </SelectItem>
                   {(databases ?? []).map((option) => (
                     <SelectItem key={option.uuid} value={option.uuid}>
                       {option.name}
@@ -322,7 +351,7 @@ export function InstanceUsers({
                 })
               }
             >
-              Create user
+              {t("org:databases.usersCard.createSubmit")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -337,14 +366,16 @@ export function InstanceUsers({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {pendingDelete?.identifier}?
+              {t("common:confirmDelete.title", {
+                name: pendingDelete?.identifier,
+              })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Anything still connecting with these credentials stops working.
+              {t("org:databases.usersCard.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
@@ -356,7 +387,7 @@ export function InstanceUsers({
                 });
               }}
             >
-              Delete
+              {t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

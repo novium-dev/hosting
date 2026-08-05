@@ -4,6 +4,7 @@ import Link from "@/components/link";
 import { useMemo, useState } from "react";
 import { Network, Search } from "lucide-react";
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ import { CreateNodeDialog } from "./create-nodes";
 type NodeRow = ListNodesResponses[200][number];
 
 export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
 
   const { data: regions } = useSWR("admin/regions", async () => {
@@ -56,9 +58,11 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Nodes</h1>
+          <h1 className="text-xl font-semibold">
+            {t("admin-infra:nodes.table.title")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Browse node information and manage node-level ports.
+            {t("admin-infra:nodes.table.description")}
           </p>
         </div>
         <CreateNodeDialog canCreate={true} />
@@ -70,7 +74,7 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search by display, id, host, or region..."
+          placeholder={t("admin-infra:nodes.table.searchPlaceholder")}
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
         />
       </div>
@@ -79,13 +83,15 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>Display</TableHead>
-              <TableHead>Region</TableHead>
-              <TableHead>Node ID</TableHead>
-              <TableHead>Default Host</TableHead>
-              <TableHead>Default Bind</TableHead>
-              <TableHead>Ports</TableHead>
-              <TableHead className="text-right">Manage</TableHead>
+              <TableHead>{t("admin-infra:nodes.table.columns.display")}</TableHead>
+              <TableHead>{t("common:labels.region")}</TableHead>
+              <TableHead>{t("admin-infra:nodes.shared.nodeId")}</TableHead>
+              <TableHead>{t("admin-infra:nodes.shared.defaultHost")}</TableHead>
+              <TableHead>{t("admin-infra:nodes.shared.defaultBind")}</TableHead>
+              <TableHead>{t("admin-infra:nodes.table.columns.ports")}</TableHead>
+              <TableHead className="text-right">
+                {t("admin-infra:shared.manage")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -94,9 +100,11 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
                 <TableCell colSpan={7} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <Network className="size-5 text-muted-foreground" />
-                    <p className="text-sm font-medium">No nodes found</p>
+                    <p className="text-sm font-medium">
+                      {t("admin-infra:nodes.table.emptyState.title")}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      Adjust your search query.
+                      {t("admin-infra:nodes.table.emptyState.description")}
                     </p>
                   </div>
                 </TableCell>
@@ -118,7 +126,9 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
                   <TableCell>{node.ports.length}</TableCell>
                   <TableCell className="text-right">
                     <Button asChild size="sm" variant="outline">
-                      <Link href={`/admin/nodes/${node.id}`}>Manage</Link>
+                      <Link href={`/admin/nodes/${node.id}`}>
+                        {t("admin-infra:shared.manage")}
+                      </Link>
                     </Button>
                   </TableCell>
                 </TableRow>
