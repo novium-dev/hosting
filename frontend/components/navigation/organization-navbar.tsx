@@ -34,7 +34,7 @@ export function OrganizationNavbar({
             <Button asChild size="sm" variant="outline">
               <Link href="/admin/users">
                 <Shield className="mr-2 h-4 w-4" />
-                {t("navigation:organizationNavbar.admin")}
+                {t("common:nav.admin")}
               </Link>
             </Button>
           )}

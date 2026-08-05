@@ -417,7 +417,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-base font-semibold">
-                      {t("admin-infra:nodes.createDialog.backupsTitle")}
+                      {t("common:nav.backups")}
                     </h2>
                     <p className="text-sm text-muted-foreground">
                       {t("admin-infra:nodes.createDialog.backupsHint")}
@@ -471,7 +471,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                           <SelectContent>
                             <SelectItem value="archive">
                               {t(
-                                "admin-infra:nodes.createDialog.backupTypeArchive",
+                                "common:resources.archive",
                               )}
                             </SelectItem>
                             <SelectItem value="btrfs">

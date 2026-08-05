@@ -59,7 +59,7 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">
-            {t("admin-infra:nodes.table.title")}
+            {t("common:nav.nodes")}
           </h1>
           <p className="text-sm text-muted-foreground">
             {t("admin-infra:nodes.table.description")}
@@ -88,9 +88,9 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
               <TableHead>{t("admin-infra:nodes.shared.nodeId")}</TableHead>
               <TableHead>{t("admin-infra:nodes.shared.defaultHost")}</TableHead>
               <TableHead>{t("admin-infra:nodes.shared.defaultBind")}</TableHead>
-              <TableHead>{t("admin-infra:nodes.table.columns.ports")}</TableHead>
+              <TableHead>{t("common:nav.ports")}</TableHead>
               <TableHead className="text-right">
-                {t("admin-infra:shared.manage")}
+                {t("common:resources.manage")}
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -127,7 +127,7 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
                   <TableCell className="text-right">
                     <Button asChild size="sm" variant="outline">
                       <Link href={`/admin/nodes/${node.id}`}>
-                        {t("admin-infra:shared.manage")}
+                        {t("common:resources.manage")}
                       </Link>
                     </Button>
                   </TableCell>

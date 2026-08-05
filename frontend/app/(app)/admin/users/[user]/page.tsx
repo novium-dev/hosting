@@ -41,10 +41,10 @@ import { UserSettingsCard } from "./user-settings-card";
 
 function roleLabel(role: number, t: TFunction) {
   return role === 2
-    ? t("admin-core:users.roles.admin")
+    ? t("common:roles.admin")
     : role === 1
       ? t("admin-core:users.roles.moderator")
-      : t("admin-core:users.roles.user");
+      : t("common:roles.user");
 }
 
 function InfoItem({ label, value }: { label: string; value: string }) {
@@ -152,14 +152,14 @@ export default function AdminUserPage() {
           </TabsTrigger>
           <TabsTrigger value="settings" className="inline-flex items-center gap-2">
             <Settings2 className="size-4" />
-            {t("admin-core:users.detail.tabs.settings")}
+            {t("common:nav.settings")}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <InfoItem
-              label={t("admin-core:users.fields.username")}
+              label={t("common:resources.username")}
               value={user.username}
             />
             <InfoItem label={t("common:labels.email")} value={user.email} />
@@ -193,7 +193,7 @@ export default function AdminUserPage() {
                     {t("admin-core:users.detail.organizations.table.membership")}
                   </TableHead>
                   <TableHead className="text-right">
-                    {t("admin-core:users.detail.organizations.table.servers")}
+                    {t("common:nav.servers")}
                   </TableHead>
                   <TableHead className="text-right">
                     {t("admin-core:shared.open")}

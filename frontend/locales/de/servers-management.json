@@ -17,7 +17,6 @@
     "contextMenu": {
       "view": "Anzeigen",
       "permissions": "Berechtigungen",
-      "archive": "Archivieren",
       "unarchive": "Entpacken"
     },
     "fallbacks": {
@@ -51,8 +50,7 @@
         "lz4": "LZ4",
         "gzip": "Gzip",
         "bzip2": "Bzip2"
-      },
-      "submitButton": "Archivieren"
+      }
     },
     "unarchiveDialog": {
       "title": "Entpacken",

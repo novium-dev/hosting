@@ -295,7 +295,7 @@ export function DatabaseHostDialog({
             loading={isPending}
           >
             {host
-              ? t("admin-infra:shared.saveChanges")
+              ? t("common:resources.saveChanges")
               : t("admin-infra:databases.hostDialog.registerButton")}
           </Button>
         </DialogFooter>

@@ -358,9 +358,9 @@ export function AdminDomainsView() {
               <TableRow>
                 <TableHead>{t("admin-core:domains.table.domain")}</TableHead>
                 <TableHead>{t("admin-core:domains.table.carries")}</TableHead>
-                <TableHead>{t("admin-core:domains.table.https")}</TableHead>
+                <TableHead>{t("common:resources.https")}</TableHead>
                 <TableHead>{t("admin-core:domains.table.private")}</TableHead>
-                <TableHead>{t("admin-core:domains.table.projects")}</TableHead>
+                <TableHead>{t("common:nav.projects")}</TableHead>
                 <TableHead>{t("admin-core:domains.table.routes")}</TableHead>
                 <TableHead className="w-0" />
               </TableRow>
@@ -372,7 +372,7 @@ export function AdminDomainsView() {
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-1">
                       {entry.http_available ? (
-                        <Badge>{t("admin-core:domains.table.httpBadge")}</Badge>
+                        <Badge>{t("common:resources.http")}</Badge>
                       ) : null}
                       {entry.tcp_available ? (
                         <Badge title={entry.cloudflare_zone_id ?? undefined}>
@@ -526,7 +526,7 @@ export function AdminDomainsView() {
             <div className="flex items-center justify-between rounded-md border p-3">
               <div>
                 <Label htmlFor="domain-https">
-                  {t("admin-core:domains.table.https")}
+                  {t("common:resources.https")}
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   {t("admin-core:domains.createDialog.httpsHelp")}

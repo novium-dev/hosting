@@ -54,7 +54,7 @@ function toMib(bytes: number | null | undefined) {
 }
 
 const COMMAND_SENT_KEYS: Record<PowerAction, string> = {
-  start: "org:databases.managementBar.startCommandSent",
+  start: "common:resources.startCommandSent",
   restart: "org:databases.managementBar.restartCommandSent",
   stop: "org:databases.managementBar.stopCommandSent",
   kill: "org:databases.managementBar.killCommandSent",
@@ -196,7 +196,7 @@ export function InstanceManagementBar({
               disabled={disableAllButtons || !controls.canStart}
             >
               <Play className="size-4" />
-              {t("org:databases.managementBar.start")}
+              {t("common:resources.start")}
             </Button>
             <Button
               type="button"
@@ -237,7 +237,7 @@ export function InstanceManagementBar({
 
       <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">{t("org:shared.disk")}</p>
+          <p className="text-xs text-muted-foreground">{t("common:resources.disk")}</p>
           <p className="mt-1 text-sm font-medium">
             {formatUsageCompact(
               toMib(utilization?.disk_bytes),
@@ -246,7 +246,7 @@ export function InstanceManagementBar({
           </p>
         </div>
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">{t("org:shared.memory")}</p>
+          <p className="text-xs text-muted-foreground">{t("common:resources.memory")}</p>
           <p className="mt-1 text-sm font-medium">
             {formatUsageCompact(
               toMib(utilization?.memory_bytes),
@@ -255,7 +255,7 @@ export function InstanceManagementBar({
           </p>
         </div>
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">{t("org:shared.cpu")}</p>
+          <p className="text-xs text-muted-foreground">{t("common:resources.cpu")}</p>
           <p className="mt-1 text-sm font-medium">
             {formatCpuCompact(utilization?.cpu_absolute)}
           </p>

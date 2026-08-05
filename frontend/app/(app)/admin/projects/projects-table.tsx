@@ -76,7 +76,7 @@ export function ProjectsTable({
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">
-          {t("admin-core:projects.title")}
+          {t("common:nav.projects")}
         </h1>
         <p className="text-sm text-muted-foreground">
           {t("admin-core:projects.description")}
@@ -103,10 +103,10 @@ export function ProjectsTable({
               <TableHead>{t("common:labels.owner")}</TableHead>
               <TableHead>{t("admin-core:projects.table.features")}</TableHead>
               <TableHead className="text-right">
-                {t("admin-core:projects.table.servers")}
+                {t("common:nav.servers")}
               </TableHead>
               <TableHead className="text-right">
-                {t("admin-core:shared.manageColumn")}
+                {t("common:resources.manage")}
               </TableHead>
             </TableRow>
           </TableHeader>

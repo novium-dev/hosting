@@ -308,7 +308,7 @@ export function FilesManager({
     View: "servers-management:filesManager.contextMenu.view",
     Rename: "common:actions.rename",
     Permissions: "servers-management:filesManager.contextMenu.permissions",
-    Archive: "servers-management:filesManager.contextMenu.archive",
+    Archive: "common:resources.archive",
     Unarchive: "servers-management:filesManager.contextMenu.unarchive",
     Delete: "common:actions.delete",
     Download: "common:actions.download",
@@ -1913,7 +1913,7 @@ export function FilesManager({
               }}
               loading={isActionLoading}
             >
-              {t("servers-management:filesManager.archiveDialog.submitButton")}
+              {t("common:resources.archive")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -40,7 +40,7 @@ export function AdminApiKeysView() {
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-xl font-semibold">
-            {t("admin-core:apiKeys.title")}
+            {t("common:nav.apiKeys")}
           </h1>
           <p className="text-sm text-muted-foreground">
             {t("admin-core:apiKeys.description")}

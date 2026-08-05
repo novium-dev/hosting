@@ -364,7 +364,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                     <TableHead>{t("common:labels.address")}</TableHead>
                     <TableHead>{t("servers:routes.table.kind")}</TableHead>
                     <TableHead>{t("common:labels.port")}</TableHead>
-                    <TableHead>{t("servers:routes.table.https")}</TableHead>
+                    <TableHead>{t("common:resources.https")}</TableHead>
                     <TableHead>{t("common:labels.status")}</TableHead>
                     <TableHead className="w-0" />
                   </TableRow>
@@ -394,7 +394,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                       <TableCell>
                         <Badge variant="outline">
                           {route.kind === "http"
-                            ? t("servers:routes.httpBadge")
+                            ? t("common:resources.http")
                             : `${t("servers:routes.srvBadge")}${
                                 route.service
                                   ? ` _${route.service}._${route.kind}`
@@ -466,7 +466,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                   <SelectItem key={port.id} value={String(port.id)}>
                     {port.name} — {port.host}:{port.external_port_start} (
                     {port.http
-                      ? t("servers:routes.httpBadge")
+                      ? t("common:resources.http")
                       : String(port.protocol).toUpperCase()}
                     )
                   </SelectItem>
@@ -614,7 +614,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                     <SelectItem key={port.id} value={String(port.id)}>
                       {port.name} — {port.host}:{port.external_port_start} (
                       {port.http
-                        ? t("servers:routes.httpBadge")
+                        ? t("common:resources.http")
                         : String(port.protocol).toUpperCase()}
                       )
                     </SelectItem>
@@ -637,7 +637,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
               <div className="flex items-center justify-between rounded-md border p-3">
                 <div>
                   <Label htmlFor="route-https">
-                    {t("servers:routes.dialog.httpsLabel")}
+                    {t("common:resources.https")}
                   </Label>
                   <p className="text-xs text-muted-foreground">
                     {(selectedDomain?.https ?? true)

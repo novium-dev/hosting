@@ -61,7 +61,7 @@ export function DatabasesView({
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h1 className="text-xl font-semibold">{t("org:databases.title")}</h1>
+          <h1 className="text-xl font-semibold">{t("common:nav.databases")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("org:databases.description")}{" "}
             {bypassesLimit

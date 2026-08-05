@@ -49,21 +49,19 @@
     "keyDeleted": "SSH key deleted"
   },
   "profile": {
-    "username": "Username",
     "usernameHint": "Your username cannot be changed.",
     "emailHint": "Account details come from your identity provider and are read-only here.",
     "roles": {
-      "admin": "Admin",
-      "moderator": "Moderator",
-      "user": "User"
+      "moderator": "Moderator"
     }
   },
   "dialog": {
-    "title": "Settings",
     "sections": {
-      "profile": { "label": "Profile", "description": "Your account details." },
+      "profile": {
+        "label": "Profile",
+        "description": "Your account details."
+      },
       "daemon": {
-        "label": "Daemon Auth",
         "description": "Manage the daemon password and SSH public keys used for SFTP access."
       },
       "appearance": {

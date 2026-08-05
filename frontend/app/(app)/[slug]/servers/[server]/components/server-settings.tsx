@@ -208,7 +208,7 @@ export function ServerSettings({
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>{t("servers:settings.title")}</CardTitle>
+          <CardTitle>{t("common:nav.settings")}</CardTitle>
           <CardDescription>{t("servers:settings.description")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -277,7 +277,7 @@ export function ServerSettings({
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <p className="text-sm font-medium">
-                {t("servers:settings.sftp.usernameLabel")}
+                {t("common:resources.username")}
               </p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input readOnly value={username} className="font-mono" />
@@ -329,7 +329,7 @@ export function ServerSettings({
                 onClick={() => openSettings("daemon")}
               >
                 <ExternalLink className="size-4" />
-                {t("servers:settings.sftp.daemonAuthButton")}
+                {t("common:resources.daemonAuth")}
               </Button>
             </div>
           </CardContent>

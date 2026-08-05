@@ -1,6 +1,5 @@
 {
   "apiKeys": {
-    "title": "API-Schlüssel",
     "description": "Jeder Schlüssel auf dieser Instanz. Ein Schlüssel kann nur das, was sein Besitzer auch kann, und instanzweite Schlüssel tragen Verwaltungsberechtigungen.",
     "loadFailed": "API-Schlüssel konnten nicht geladen werden"
   },
@@ -15,12 +14,9 @@
     "table": {
       "domain": "Domain",
       "carries": "Trägt",
-      "https": "HTTPS",
       "private": "Privat",
-      "projects": "Projekte",
       "routes": "Routen",
       "nothingYet": "noch nichts",
-      "httpBadge": "HTTP",
       "tcpBadge": "TCP"
     },
     "createDialog": {
@@ -60,25 +56,14 @@
     "defaultTitle": "Verwaltung",
     "notFound": {
       "description": "Diese Seite existiert nicht oder du hast keinen Zugriff darauf."
-    },
-    "sections": {
-      "users": "Benutzer",
-      "apiKeys": "API-Schlüssel",
-      "projects": "Projekte",
-      "servers": "Server",
-      "templates": "Vorlagen",
-      "regions": "Regionen",
-      "nodes": "Knoten"
     }
   },
   "projects": {
-    "title": "Projekte",
     "description": "Projekte durchsuchen, auf die die aktuelle Admin-Sitzung zugreifen kann.",
     "searchPlaceholder": "Suche nach Projekt, Slug oder Besitzer...",
     "featuresButton": "Features",
     "table": {
-      "features": "Features",
-      "servers": "Server"
+      "features": "Features"
     },
     "emptyState": {
       "title": "Keine Projekte gefunden",
@@ -95,13 +80,11 @@
     }
   },
   "regions": {
-    "title": "Regionen",
     "description": "Gruppiere Knoten nach Standort. Jeder Knoten gehört zu genau einer Region.",
     "createButton": "Region erstellen",
     "searchPlaceholder": "Suche nach Name, Slug oder ID...",
     "table": {
-      "regionId": "Regions-ID",
-      "nodes": "Knoten"
+      "regionId": "Regions-ID"
     },
     "emptyState": {
       "title": "Keine Regionen gefunden",
@@ -129,7 +112,6 @@
     }
   },
   "users": {
-    "title": "Benutzer",
     "description": "Benutzerkonten, Rollen und Organisationen verwalten.",
     "searchPlaceholder": "Suche nach Benutzername oder E-Mail...",
     "loadError": "Benutzer konnten nicht geladen werden.",
@@ -138,15 +120,9 @@
       "all": "Alle Rollen"
     },
     "roles": {
-      "admin": "Admin",
-      "moderator": "Moderator",
-      "user": "Benutzer"
-    },
-    "table": {
-      "userColumn": "Benutzer"
+      "moderator": "Moderator"
     },
     "fields": {
-      "username": "Benutzername",
       "firstName": "Vorname",
       "lastName": "Nachname",
       "authId": "Auth-ID"
@@ -157,13 +133,11 @@
       "backToUsers": "Zurück zu Benutzern",
       "tabs": {
         "overview": "Übersicht",
-        "organizations": "Organisationen",
-        "settings": "Einstellungen"
+        "organizations": "Organisationen"
       },
       "organizations": {
         "table": {
-          "membership": "Mitgliedschaft",
-          "servers": "Server"
+          "membership": "Mitgliedschaft"
         },
         "emptyState": "Kein Teil einer Organisation",
         "ownerBadge": "Besitzer",
@@ -175,14 +149,12 @@
       "description": "Kontodetails und Rolle dieses Benutzers aktualisieren.",
       "canManageHint": "Änderungen werden sofort wirksam.",
       "cannotManageHint": "Du benötigst die Berechtigung \"Benutzer: Verwalten\", um zu bearbeiten.",
-      "saveButton": "Änderungen speichern",
       "updateSuccess": "Benutzer aktualisiert",
       "updateFailed": "Benutzer konnte nicht aktualisiert werden"
     }
   },
   "shared": {
     "slugColumn": "Slug",
-    "manageColumn": "Verwalten",
     "open": "Öffnen"
   }
 }

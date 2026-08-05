@@ -17,7 +17,7 @@ export default function ApiKeysPage() {
     <MainLayout
       breadcrumbs={[
         { label: slug ?? "", href: `/${slug}` },
-        { label: t("org:apiKeys.title") },
+        { label: t("common:nav.apiKeys") },
       ]}
     >
       <ApiKeysView

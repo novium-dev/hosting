@@ -115,7 +115,7 @@ function ServerRow({
   const resources = [
     {
       icon: Cpu,
-      label: t("org:shared.cpu"),
+      label: t("common:resources.cpu"),
       value: stats ? formatCpuCompact(stats.cpu) : "--",
       percent: stats ? usagePercentValue(stats.cpu, stats.cpu_max) : null,
     },
@@ -127,7 +127,7 @@ function ServerRow({
     },
     {
       icon: HardDrive,
-      label: t("org:shared.disk"),
+      label: t("common:resources.disk"),
       value: stats ? formatUsageCompact(stats.disk, stats.disk_max) : "-- / --",
       percent: stats ? usagePercentValue(stats.disk, stats.disk_max) : null,
     },
@@ -255,7 +255,7 @@ export default function OrganizationPage() {
 
   return (
     <MainLayout
-      breadcrumbs={[{ label: slug }, { label: t("org:dashboard.breadcrumb") }]}
+      breadcrumbs={[{ label: slug }, { label: t("common:nav.servers") }]}
     >
       <div className="flex flex-col gap-8">
         {/* Header */}

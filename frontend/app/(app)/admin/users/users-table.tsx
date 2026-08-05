@@ -130,13 +130,13 @@ export function UsersTable() {
             {t("admin-core:users.roleFilter.all")}
           </SelectItem>
           <SelectItem value="admin">
-            {t("admin-core:users.roles.admin")}
+            {t("common:roles.admin")}
           </SelectItem>
           <SelectItem value="moderator">
             {t("admin-core:users.roles.moderator")}
           </SelectItem>
           <SelectItem value="user">
-            {t("admin-core:users.roles.user")}
+            {t("common:roles.user")}
           </SelectItem>
         </SelectContent>
       </Select>
@@ -156,7 +156,7 @@ export function UsersTable() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold">
-            {t("admin-core:users.title")}
+            {t("common:nav.users")}
           </h1>
           <p className="text-sm text-muted-foreground">
             {t("admin-core:users.description")}
@@ -169,11 +169,11 @@ export function UsersTable() {
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>{t("admin-core:users.table.userColumn")}</TableHead>
+              <TableHead>{t("common:roles.user")}</TableHead>
               <TableHead>{t("common:labels.email")}</TableHead>
               <TableHead>{t("common:labels.role")}</TableHead>
               <TableHead className="text-right">
-                {t("admin-core:shared.manageColumn")}
+                {t("common:resources.manage")}
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -233,7 +233,7 @@ export function UsersTable() {
                   <TableCell className="text-right">
                     <Button asChild size="sm" variant="outline">
                       <Link href={`/admin/users/${user.id}`}>
-                        {t("admin-core:shared.manageColumn")}
+                        {t("common:resources.manage")}
                       </Link>
                     </Button>
                   </TableCell>

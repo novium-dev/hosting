@@ -92,13 +92,13 @@ export function SidebarCommand({
         },
         {
           icon: SettingsIcon,
-          label: t("navigation:command.items.settings"),
+          label: t("common:nav.settings"),
           href: `/${slug}/settings`,
           keywords: ["preferences", "config", "options"],
         },
         {
           icon: Users2Icon,
-          label: t("navigation:command.items.members"),
+          label: t("common:nav.members"),
           href: `/${slug}/members`,
           keywords: ["users", "collaborators", "invite"],
         },
@@ -109,7 +109,7 @@ export function SidebarCommand({
           ? [
               {
                 icon: DatabaseIcon,
-                label: t("navigation:command.items.databases"),
+                label: t("common:nav.databases"),
                 href: `/${slug}/databases`,
                 keywords: [
                   "postgres",
@@ -124,7 +124,7 @@ export function SidebarCommand({
           : []),
         {
           icon: KeyRoundIcon,
-          label: t("navigation:command.items.apiKeys"),
+          label: t("common:nav.apiKeys"),
           href: `/${slug}/api-keys`,
           keywords: ["token", "api", "automation", "integration"],
         },
@@ -141,7 +141,7 @@ export function SidebarCommand({
         },
         {
           icon: KeyRoundIcon,
-          label: t("navigation:command.items.daemonAuth"),
+          label: t("common:resources.daemonAuth"),
           action: () => openSettings("daemon"),
           keywords: ["ssh", "sftp", "password", "keys"],
         },

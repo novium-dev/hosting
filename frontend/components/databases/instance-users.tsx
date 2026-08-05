@@ -205,7 +205,7 @@ export function InstanceUsers({
       <Card>
         <CardHeader className="space-y-4">
           <div>
-            <CardTitle>{t("org:databases.usersCard.title")}</CardTitle>
+            <CardTitle>{t("common:nav.users")}</CardTitle>
             <CardDescription>
               {t("org:databases.usersCard.description")}
             </CardDescription>
@@ -243,7 +243,7 @@ export function InstanceUsers({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t("org:databases.usersCard.usernameColumn")}</TableHead>
+                    <TableHead>{t("common:resources.username")}</TableHead>
                     <TableHead>{t("org:databases.usersCard.connectionColumn")}</TableHead>
                     <TableHead className="w-0" />
                   </TableRow>
@@ -307,7 +307,7 @@ export function InstanceUsers({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username">
-                {t("org:databases.usersCard.usernameLabel")}
+                {t("common:resources.username")}
               </Label>
               <Input
                 id="username"

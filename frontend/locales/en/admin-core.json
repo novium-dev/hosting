@@ -1,6 +1,5 @@
 {
   "apiKeys": {
-    "title": "API keys",
     "description": "Every key on this instance. A key can only ever do what its owner can, and instance-wide keys carry management permissions.",
     "loadFailed": "Failed to load API keys"
   },
@@ -15,12 +14,9 @@
     "table": {
       "domain": "Domain",
       "carries": "Carries",
-      "https": "HTTPS",
       "private": "Private",
-      "projects": "Projects",
       "routes": "Routes",
       "nothingYet": "nothing yet",
-      "httpBadge": "HTTP",
       "tcpBadge": "TCP"
     },
     "createDialog": {
@@ -60,25 +56,14 @@
     "defaultTitle": "Administration",
     "notFound": {
       "description": "This page doesn't exist or you don't have access to it."
-    },
-    "sections": {
-      "users": "Users",
-      "apiKeys": "API keys",
-      "projects": "Projects",
-      "servers": "Servers",
-      "templates": "Templates",
-      "regions": "Regions",
-      "nodes": "Nodes"
     }
   },
   "projects": {
-    "title": "Projects",
     "description": "Browse projects available to the current admin session.",
     "searchPlaceholder": "Search by project, slug, or owner...",
     "featuresButton": "Features",
     "table": {
-      "features": "Features",
-      "servers": "Servers"
+      "features": "Features"
     },
     "emptyState": {
       "title": "No projects found",
@@ -95,13 +80,11 @@
     }
   },
   "regions": {
-    "title": "Regions",
     "description": "Group nodes by location. Every node belongs to exactly one region.",
     "createButton": "Create Region",
     "searchPlaceholder": "Search by name, slug, or id...",
     "table": {
-      "regionId": "Region ID",
-      "nodes": "Nodes"
+      "regionId": "Region ID"
     },
     "emptyState": {
       "title": "No regions found",
@@ -129,7 +112,6 @@
     }
   },
   "users": {
-    "title": "Users",
     "description": "Manage user accounts, roles, and organizations.",
     "searchPlaceholder": "Search by username or email...",
     "loadError": "Failed to load users.",
@@ -138,15 +120,9 @@
       "all": "All roles"
     },
     "roles": {
-      "admin": "Admin",
-      "moderator": "Moderator",
-      "user": "User"
-    },
-    "table": {
-      "userColumn": "User"
+      "moderator": "Moderator"
     },
     "fields": {
-      "username": "Username",
       "firstName": "First name",
       "lastName": "Last name",
       "authId": "Auth ID"
@@ -157,13 +133,11 @@
       "backToUsers": "Back to users",
       "tabs": {
         "overview": "Overview",
-        "organizations": "Organizations",
-        "settings": "Settings"
+        "organizations": "Organizations"
       },
       "organizations": {
         "table": {
-          "membership": "Membership",
-          "servers": "Servers"
+          "membership": "Membership"
         },
         "emptyState": "Not part of any organization",
         "ownerBadge": "Owner",
@@ -175,14 +149,12 @@
       "description": "Update this user's account details and role.",
       "canManageHint": "Changes apply immediately.",
       "cannotManageHint": "You need the Users: Manage permission to edit.",
-      "saveButton": "Save changes",
       "updateSuccess": "User updated",
       "updateFailed": "Failed to update user"
     }
   },
   "shared": {
     "slugColumn": "Slug",
-    "manageColumn": "Manage",
     "open": "Open"
   }
 }

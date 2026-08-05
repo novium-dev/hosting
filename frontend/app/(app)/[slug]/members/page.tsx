@@ -26,7 +26,7 @@ export default function MembersPage() {
   if (!organization) return <NotFoundView />;
 
   return (
-    <MainLayout breadcrumbs={[{ label: t("org:members.title") }]}>
+    <MainLayout breadcrumbs={[{ label: t("common:nav.members") }]}>
       <MembersView projectId={organization.id} members={members ?? []} />
     </MainLayout>
   );

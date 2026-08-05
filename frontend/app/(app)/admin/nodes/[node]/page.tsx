@@ -1,7 +1,8 @@
 import Link from "@/components/link";
 import { useParams } from "react-router-dom";
 import useSWR from "swr";
-import { useTranslation, type TFunction } from "react-i18next";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   AlertTriangle,
   Cpu,
@@ -154,7 +155,7 @@ export default function AdminNodeManagementPage() {
             />
             <InfoCard
               icon={Network}
-              title={t("admin-infra:nodes.detailPage.networkLabel")}
+              title={t("common:nav.network")}
               value={`${currentNode.default_host} (${currentNode.default_bind})`}
             />
             {currentNode.ssh_host != null && currentNode.ssh_port != null && (
@@ -166,7 +167,7 @@ export default function AdminNodeManagementPage() {
             )}
             <InfoCard
               icon={Cpu}
-              title={t("admin-infra:nodes.detailPage.cpuLabel")}
+              title={t("common:resources.cpu")}
               value={
                 metrics
                   ? t("admin-infra:nodes.detailPage.cpuValue", {
@@ -178,7 +179,7 @@ export default function AdminNodeManagementPage() {
             />
             <InfoCard
               icon={MemoryStick}
-              title={t("admin-infra:nodes.detailPage.memoryLabel")}
+              title={t("common:resources.memory")}
               value={
                 metrics
                   ? `${formatBytes(metrics.mem_used, t)} / ${formatBytes(metrics.mem_total, t)}`

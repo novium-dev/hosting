@@ -69,7 +69,7 @@ export default function ServerLayout() {
       <MainLayout
         breadcrumbs={[
           { label: slug },
-          { label: t("servers:layout.breadcrumbServers") },
+          { label: t("common:nav.servers") },
         ]}
       >
         <Card>
@@ -94,7 +94,7 @@ export default function ServerLayout() {
       <MainLayout
         breadcrumbs={[
           { label: slug, href: `/${slug}` },
-          { label: t("servers:layout.breadcrumbServers") },
+          { label: t("common:nav.servers") },
         ]}
       >
         <Card className="border-dashed">
@@ -159,7 +159,7 @@ export default function ServerLayout() {
     <MainLayout
       breadcrumbs={[
         { label: slug, href: `/${slug}` },
-        { label: t("servers:layout.breadcrumbServers"), href: `/${slug}` },
+        { label: t("common:nav.servers"), href: `/${slug}` },
         { label: serverData.name },
       ]}
     >

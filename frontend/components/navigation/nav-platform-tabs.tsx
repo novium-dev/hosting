@@ -22,23 +22,23 @@ export function NavPlatformTabs() {
     },
     {
       id: "members",
-      title: t("navigation:platformTabs.members"),
+      title: t("common:nav.members"),
       path: "/members",
     },
     {
       id: "databases",
-      title: t("navigation:platformTabs.databases"),
+      title: t("common:nav.databases"),
       path: "/databases",
       permission: ServerPermission.DATABASE_VIEW,
     },
     {
       id: "api-keys",
-      title: t("navigation:platformTabs.apiKeys"),
+      title: t("common:nav.apiKeys"),
       path: "/api-keys",
     },
     {
       id: "settings",
-      title: t("navigation:platformTabs.settings"),
+      title: t("common:nav.settings"),
       path: "/settings",
     },
   ] as const;

@@ -653,7 +653,7 @@ export function ServerManagementBar({
               disabled={disableAllButtons || !controls.canStart}
             >
               <Play className="size-4" />
-              {t("servers:managementBar.actions.start")}
+              {t("common:resources.start")}
             </Button>
             <Button
               type="button"
@@ -701,7 +701,7 @@ export function ServerManagementBar({
       >
         <div className="rounded-md border bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground">
-            {t("servers:managementBar.stats.disk")}
+            {t("common:resources.disk")}
           </p>
           <p
             className={cn(
@@ -735,7 +735,7 @@ export function ServerManagementBar({
         )}
         <div className="rounded-md border bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground">
-            {t("servers:managementBar.stats.cpu")}
+            {t("common:resources.cpu")}
           </p>
           <p
             className={cn(

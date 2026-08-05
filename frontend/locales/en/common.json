@@ -143,5 +143,41 @@
   "a11y": {
     "loading": "Loading",
     "workspaceAvatar": "Workspace Avatar"
+  },
+  "roles": {
+    "admin": "Admin",
+    "moderator": "Moderator",
+    "user": "User"
+  },
+  "nav": {
+    "servers": "Servers",
+    "settings": "Settings",
+    "databases": "Databases",
+    "users": "Users",
+    "members": "Members",
+    "nodes": "Nodes",
+    "templates": "Templates",
+    "regions": "Regions",
+    "projects": "Projects",
+    "apiKeys": "API keys",
+    "admin": "Admin",
+    "network": "Network",
+    "backups": "Backups",
+    "ports": "Ports"
+  },
+  "resources": {
+    "cpu": "CPU",
+    "disk": "Disk",
+    "memory": "Memory",
+    "manage": "Manage",
+    "http": "HTTP",
+    "https": "HTTPS",
+    "tcp": "TCP",
+    "udp": "UDP",
+    "start": "Start",
+    "archive": "Archive",
+    "username": "Username",
+    "saveChanges": "Save changes",
+    "daemonAuth": "Daemon Auth"
   }
 }

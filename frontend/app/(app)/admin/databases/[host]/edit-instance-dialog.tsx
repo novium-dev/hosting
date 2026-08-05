@@ -186,7 +186,7 @@ export function EditInstanceDialog({
             disabled={display.trim() === "" || !numbersValid || isPending}
             loading={isPending}
           >
-            {t("admin-infra:shared.saveChanges")}
+            {t("common:resources.saveChanges")}
           </Button>
         </DialogFooter>
       </DialogContent>

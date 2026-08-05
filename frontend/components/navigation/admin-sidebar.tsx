@@ -43,13 +43,13 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
       label: t("navigation:adminSidebar.groups.access"),
       items: [
         {
-          title: t("navigation:adminSidebar.items.users"),
+          title: t("common:nav.users"),
           href: "/admin/users",
           icon: Users,
           permission: ManagementPermission.USER_VIEW,
         },
         {
-          title: t("navigation:adminSidebar.items.apiKeys"),
+          title: t("common:nav.apiKeys"),
           href: "/admin/api-keys",
           icon: KeyRound,
           permission: ManagementPermission.API_KEYS_VIEW,
@@ -60,19 +60,19 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
       label: t("navigation:adminSidebar.groups.workloads"),
       items: [
         {
-          title: t("navigation:adminSidebar.items.projects"),
+          title: t("common:nav.projects"),
           href: "/admin/projects",
           icon: FolderKanban,
           permission: ManagementPermission.SERVER_MANAGE,
         },
         {
-          title: t("navigation:adminSidebar.items.servers"),
+          title: t("common:nav.servers"),
           href: "/admin/servers",
           icon: Server,
           permission: ManagementPermission.SERVER_MANAGE,
         },
         {
-          title: t("navigation:adminSidebar.items.templates"),
+          title: t("common:nav.templates"),
           href: "/admin/templates",
           icon: Boxes,
           permission: ManagementPermission.SERVER_MANAGE,
@@ -83,13 +83,13 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
       label: t("navigation:adminSidebar.groups.infrastructure"),
       items: [
         {
-          title: t("navigation:adminSidebar.items.regions"),
+          title: t("common:nav.regions"),
           href: "/admin/regions",
           icon: Globe2,
           permission: ManagementPermission.NODES_VIEW,
         },
         {
-          title: t("navigation:adminSidebar.items.nodes"),
+          title: t("common:nav.nodes"),
           href: "/admin/nodes",
           icon: Network,
           permission: ManagementPermission.NODES_VIEW,
@@ -101,7 +101,7 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
           permission: ManagementPermission.DOMAINS_VIEW,
         },
         {
-          title: t("navigation:adminSidebar.items.databases"),
+          title: t("common:nav.databases"),
           href: "/admin/databases",
           icon: Database,
           permission: ManagementPermission.DATABASE_HOSTS_VIEW,

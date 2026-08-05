@@ -120,7 +120,7 @@ export function InstanceDatabases({
       <Card>
         <CardHeader className="space-y-4">
           <div>
-            <CardTitle>{t("org:databases.databasesCard.title")}</CardTitle>
+            <CardTitle>{t("common:nav.databases")}</CardTitle>
             <CardDescription>
               {t("org:databases.databasesCard.description")}
             </CardDescription>

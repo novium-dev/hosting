@@ -191,31 +191,40 @@ export function ServerTemplateCard({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Switch to {template}
-              {template === currentTemplate ? " (same template)" : ""}?
+              {t("admin-infra:servers.templateCard.switchTitle", {
+                template,
+                suffix:
+                  template === currentTemplate
+                    ? t("admin-infra:servers.templateCard.sameTemplateSuffix")
+                    : "",
+              })}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p>
-                  The server&apos;s startup configuration is replaced by{" "}
-                  {template}&apos;s defaults and pushed to its node. It takes
-                  effect the next time the server starts.
+                  {t("admin-infra:servers.templateCard.switchDescription", {
+                    template,
+                  })}
                 </p>
                 <ul className="list-inside list-disc">
                   <li>
-                    {backup ? "A backup is taken first" : "No backup is taken"}
+                    {backup
+                      ? t("admin-infra:servers.templateCard.backupTakenYes")
+                      : t("admin-infra:servers.templateCard.backupTakenNo")}
                   </li>
                   <li>
                     {wipe
-                      ? "Every file on the server is deleted"
-                      : "Files are kept as they are"}
+                      ? t("admin-infra:servers.templateCard.wipeYes")
+                      : t("admin-infra:servers.templateCard.wipeNo")}
                   </li>
                 </ul>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSwitching}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSwitching}>
+              {t("common:actions.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
@@ -223,7 +232,9 @@ export function ServerTemplateCard({
               }}
               disabled={isSwitching}
             >
-              {isSwitching ? "Switching..." : "Change template"}
+              {isSwitching
+                ? t("admin-infra:servers.templateCard.switchingLabel")
+                : t("admin-infra:servers.templateCard.changeButton")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

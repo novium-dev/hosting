@@ -19,7 +19,7 @@ export function MembersView({ projectId, members }: MembersViewProps) {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold">{t("org:members.title")}</h1>
+          <h1 className="text-xl font-semibold">{t("common:nav.members")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("org:members.description")}
           </p>

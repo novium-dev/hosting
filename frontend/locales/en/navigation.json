@@ -7,24 +7,12 @@
       "infrastructure": "Infrastructure"
     },
     "items": {
-      "users": "Users",
-      "apiKeys": "API keys",
-      "projects": "Projects",
-      "servers": "Servers",
-      "templates": "Templates",
-      "regions": "Regions",
-      "nodes": "Nodes",
-      "domains": "Domains",
-      "databases": "Databases"
+      "domains": "Domains"
     },
     "backToApp": "Back to app"
   },
   "platformTabs": {
-    "dashboard": "Dashboard",
-    "members": "Members",
-    "databases": "Databases",
-    "apiKeys": "API keys",
-    "settings": "Settings"
+    "dashboard": "Dashboard"
   },
   "userMenu": {
     "profileSettings": "Profile Settings",
@@ -32,9 +20,6 @@
     "lightMode": "Light Mode",
     "darkMode": "Dark Mode",
     "logOut": "Log out"
-  },
-  "organizationNavbar": {
-    "admin": "Admin"
   },
   "organizationSwitcher": {
     "createOrganization": "Create Organization",
@@ -52,12 +37,7 @@
     },
     "items": {
       "home": "Home",
-      "settings": "Settings",
-      "members": "Members",
-      "databases": "Databases",
-      "apiKeys": "API keys",
       "profile": "Profile",
-      "daemonAuth": "Daemon Auth",
       "notifications": "Notifications",
       "lightMode": "Light Mode",
       "darkMode": "Dark Mode",

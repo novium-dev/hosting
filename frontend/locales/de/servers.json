@@ -14,7 +14,6 @@
         "description": "TODO: Dateibrowser, Editor und Upload-Funktionen implementieren."
       },
       "backups": {
-        "label": "Backups",
         "description": "Erstellung, Download, Wiederherstellung und Löschung von Backups verwalten."
       },
       "mods": {
@@ -26,11 +25,9 @@
         "description": "Online-Minecraft-Spieler anzeigen und verwalten."
       },
       "network": {
-        "label": "Netzwerk",
         "description": "Ports, Routen und die Einträge, die auf sie verweisen."
       },
       "settings": {
-        "label": "Einstellungen",
         "description": "Name und persönliche Servereinstellungen aktualisieren."
       },
       "startup": {
@@ -54,7 +51,6 @@
     }
   },
   "layout": {
-    "breadcrumbServers": "Server",
     "noOrganization": {
       "title": "Keine aktive Organisation ausgewählt",
       "description": "Bitte wähle eine Organisation aus, bevor du diesen Server ansiehst."
@@ -74,7 +70,6 @@
     "maintenanceBadge": "Node in Wartung",
     "adminUiButton": "Admin-Oberfläche",
     "actions": {
-      "start": "Starten",
       "restart": "Neustarten",
       "stop": "Stoppen",
       "kill": "Beenden"
@@ -95,10 +90,8 @@
       "resourceWarning": "Der Server kann nicht mehr reagieren oder beendet werden, wenn ihm die Ressourcen ausgehen."
     },
     "stats": {
-      "disk": "Festplatte",
       "ram": "RAM",
-      "swap": "Swap",
-      "cpu": "CPU"
+      "swap": "Swap"
     },
     "toasts": {
       "statsConnectFailed": "Verbindung zu den Serverstatistiken fehlgeschlagen",
@@ -108,7 +101,6 @@
     }
   },
   "backups": {
-    "title": "Backups",
     "description": "Server-Backups, Wiederherstellungspunkte und Downloads verwalten.",
     "createButton": "Backup erstellen",
     "restoreButton": "Wiederherstellen",
@@ -173,11 +165,9 @@
     }
   },
   "networkPorts": {
-    "title": "Netzwerk",
     "description": "Alle für diesen Server freigegebenen Ports. Raw-Ports werden über Host und Port erreicht, HTTP-Ports über eine Route.",
     "loading": "Netzwerk-Ports werden geladen...",
     "empty": "Für diesen Server sind keine Netzwerk-Ports konfiguriert.",
-    "httpLabel": "HTTP",
     "primaryBadge": "Primär",
     "additionalBadge": "Zusätzlich",
     "table": {
@@ -194,7 +184,6 @@
     "title": "Routen",
     "description": "Verweise eine Subdomain auf einen der Ports dieses Servers.",
     "newRouteButton": "Neue Route",
-    "httpBadge": "HTTP",
     "srvBadge": "SRV",
     "privateLabel": "privat",
     "subdomainInvalid": "Nur Kleinbuchstaben, Ziffern und Bindestriche sind erlaubt.",
@@ -205,7 +194,6 @@
     },
     "table": {
       "kind": "Art",
-      "https": "HTTPS",
       "type": "Typ"
     },
     "manualDns": {
@@ -224,7 +212,6 @@
       "httpRouteHelp": "Ein HTTP-Port wird zu einer über den Reverse-Proxy ausgelieferten Ressource auf der Subdomain.",
       "rawRouteHelp": "Ein Raw-Port erhält einen SRV-Eintrag auf der Subdomain.",
       "noSelectablePorts": "Diese Domain kann noch keinen der Ports dieses Servers tragen.",
-      "httpsLabel": "HTTPS",
       "httpsHelpOn": "Diese Route über HTTPS ausliefern.",
       "httpsHelpOff": "Diese Domain bietet kein HTTPS an.",
       "createsRecordHelp": "Erstellt <code>{{record}}</code>, sodass Clients, die den Dienst nachschlagen, den Port selbständig erreichen. Der Dienstname stammt vom Port.",
@@ -246,7 +233,6 @@
     }
   },
   "settings": {
-    "title": "Einstellungen",
     "description": "Aktualisiere den Anzeigenamen deines Servers.",
     "loading": "Einstellungen werden geladen...",
     "serverNameLabel": "Servername",
@@ -254,11 +240,9 @@
     "sftp": {
       "title": "SFTP-Zugriff",
       "description": "Verwende dein Daemon-Passwort für die SFTP-Passwortauthentifizierung oder richte SSH-Public-Key-Auth in deinem Profil ein.",
-      "usernameLabel": "Benutzername",
       "openLabel": "Mit SFTP öffnen",
       "openButton": "Öffnen",
-      "helpText": "Dein SFTP-Passwort ist das Daemon-Passwort, das in deinen Einstellungen angezeigt wird. Du kannst dort auch SSH-Public-Keys hinzufügen.",
-      "daemonAuthButton": "Daemon-Auth"
+      "helpText": "Dein SFTP-Passwort ist das Daemon-Passwort, das in deinen Einstellungen angezeigt wird. Du kannst dort auch SSH-Public-Keys hinzufügen."
     },
     "wipe": {
       "title": "Serverdateien löschen",

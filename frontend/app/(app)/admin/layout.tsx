@@ -12,13 +12,13 @@ import { usePathname } from "@/lib/navigation";
 import { hasAnyManagementPermission } from "@/lib/permissions";
 
 const sectionTitleKeys: Record<string, string> = {
-  users: "admin-core:layout.sections.users",
-  "api-keys": "admin-core:layout.sections.apiKeys",
-  projects: "admin-core:layout.sections.projects",
-  servers: "admin-core:layout.sections.servers",
-  templates: "admin-core:layout.sections.templates",
-  regions: "admin-core:layout.sections.regions",
-  nodes: "admin-core:layout.sections.nodes",
+  users: "common:nav.users",
+  "api-keys": "common:nav.apiKeys",
+  projects: "common:nav.projects",
+  servers: "common:nav.servers",
+  templates: "common:nav.templates",
+  regions: "common:nav.regions",
+  nodes: "common:nav.nodes",
 };
 
 export default function AdminLayout() {

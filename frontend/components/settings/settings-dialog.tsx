@@ -38,7 +38,7 @@ export function SettingsDialog() {
     },
     daemon: {
       icon: KeyRound,
-      label: t("settings:dialog.sections.daemon.label"),
+      label: t("common:resources.daemonAuth"),
       description: t("settings:dialog.sections.daemon.description"),
     },
     appearance: {
@@ -64,7 +64,7 @@ export function SettingsDialog() {
         <div className="flex h-full min-h-0 flex-col sm:flex-row">
           <div className="flex shrink-0 flex-col gap-2 border-b bg-muted/40 p-2 sm:w-52 sm:gap-3 sm:border-b-0 sm:border-r sm:p-3">
             <p className="hidden px-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:block">
-              {t("settings:dialog.title")}
+              {t("common:nav.settings")}
             </p>
             <nav className="flex gap-1 overflow-x-auto sm:flex-col sm:overflow-x-visible">
               {settingsSections.map((entry) => {

@@ -278,7 +278,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
     <Card>
       <CardHeader className="space-y-4">
         <div>
-          <CardTitle>{t("servers:backups.title")}</CardTitle>
+          <CardTitle>{t("common:nav.backups")}</CardTitle>
           <CardDescription>{t("servers:backups.description")}</CardDescription>
         </div>
 

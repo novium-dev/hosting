@@ -70,7 +70,7 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead className="w-[300px]">
-              {t("org:members.table.userColumn")}
+              {t("common:roles.user")}
             </TableHead>
             <TableHead>{t("common:labels.email")}</TableHead>
             <TableHead>{t("common:labels.permissions")}</TableHead>

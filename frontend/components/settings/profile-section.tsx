@@ -12,16 +12,16 @@ export function ProfileSection() {
   const { t } = useTranslation();
 
   const roleLabels: Record<string, string> = {
-    admin: t("settings:profile.roles.admin"),
+    admin: t("common:roles.admin"),
     moderator: t("settings:profile.roles.moderator"),
-    user: t("settings:profile.roles.user"),
+    user: t("common:roles.user"),
   };
 
   return (
     <div className="space-y-6">
       <div className="space-y-2">
         <Label htmlFor="settings-username">
-          {t("settings:profile.username")}
+          {t("common:resources.username")}
         </Label>
         <Input
           id="settings-username"
@@ -30,7 +30,7 @@ export function ProfileSection() {
           disabled
         />
         <p className="text-sm text-muted-foreground">
-          {t("settings:profile.usernameHint")}
+          {t("common:resources.usernameHint")}
         </p>
       </div>
 
@@ -53,7 +53,7 @@ export function ProfileSection() {
         <div>
           <Badge variant="secondary">
             {roleLabels[user?.role ?? "user"] ??
-              t("settings:profile.roles.user")}
+              t("common:roles.user")}
           </Badge>
         </div>
       </div>

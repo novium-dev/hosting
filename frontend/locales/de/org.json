@@ -1,15 +1,11 @@
 {
   "shared": {
-    "cpu": "CPU",
     "ram": "RAM",
-    "disk": "Speicherplatz",
-    "memory": "Arbeitsspeicher",
     "permissionCount_one": "{{count}} Berechtigung",
     "permissionCount_other": "{{count}} Berechtigungen",
     "noPermissions": "Keine Berechtigungen"
   },
   "apiKeys": {
-    "title": "API-Schlüssel",
     "description": "Schlüssel handeln als ihr Besitzer innerhalb dieses Projekts, begrenzt auf die Berechtigungen, die ihnen erteilt wurden.",
     "table": {
       "columns": {
@@ -45,7 +41,6 @@
     "editDialog": {
       "title": "API-Schlüssel bearbeiten",
       "description": "Der Geltungsbereich steht bei der Erstellung fest; Name und Berechtigungen nicht.",
-      "submit": "Änderungen speichern",
       "updated": "API-Schlüssel aktualisiert"
     },
     "permissionsField": {
@@ -55,16 +50,11 @@
     }
   },
   "databases": {
-    "title": "Datenbanken",
     "description": "Deine eigenen Datenbank-Engines. Jede kann so viele Datenbanken und Benutzer enthalten, wie du brauchst.",
     "descriptionBypass": "Deine Rolle erlaubt es dir, das übliche Instanzlimit zu überschreiten.",
     "descriptionLimit": "Ein Projekt kann bis zu {{limit}} betreiben.",
     "instanceBreadcrumb": "Instanz",
     "engineLabel": "Engine",
-    "sections": {
-      "databases": "Datenbanken",
-      "users": "Benutzer"
-    },
     "instanceView": {
       "notRunningTitle": "Die Instanz läuft nicht",
       "notRunningDescription": "Starte sie, bevor du Datenbanken oder Benutzer erstellst — die Engine muss laufen, damit diese wirksam werden."
@@ -79,7 +69,6 @@
       "created": "Instanz erstellt, wird jetzt gestartet"
     },
     "databasesCard": {
-      "title": "Datenbanken",
       "description": "So viele wie du auf dieser Instanz benötigst. Jede ist über die gemeinsame Instanzadresse erreichbar.",
       "createTrigger": "Neue Datenbank",
       "loadError": "Die Datenbanken konnten nicht geladen werden.",
@@ -96,13 +85,11 @@
       "deleteError": "Datenbank konnte nicht gelöscht werden"
     },
     "usersCard": {
-      "title": "Benutzer",
       "description": "Jeder verbindet sich mit dem angezeigten Namen, der seine eigene ID trägt.",
       "createTrigger": "Neuer Benutzer",
       "loadError": "Die Benutzer konnten nicht geladen werden.",
       "emptyTitle": "Noch keine Benutzer",
       "emptyDescription": "Erstelle einen, um einen Verbindungsstring zu erhalten.",
-      "usernameColumn": "Benutzername",
       "connectionColumn": "Verbindung",
       "revealPassword": "Passwort anzeigen",
       "hidePassword": "Passwort verbergen",
@@ -112,7 +99,6 @@
       "rotatePassword": "Passwort erneuern",
       "createDialogTitle": "Benutzer erstellen",
       "createDialogDescription": "Ein Passwort wird für dich generiert und angezeigt, sobald der Benutzer existiert.",
-      "usernameLabel": "Benutzername",
       "usernamePlaceholder": "app",
       "grantOnLabel": "Berechtigung für",
       "noDatabaseOption": "Keine Datenbank",
@@ -132,7 +118,6 @@
       "addressCopyFailed": "Instanzadresse konnte nicht kopiert werden",
       "uptimeTitle": "Laufzeit",
       "noPowerPermission": "Du hast keine Berechtigung, die Power-Steuerung zu nutzen.",
-      "start": "Starten",
       "restart": "Neu starten",
       "stop": "Stoppen",
       "kill": "Beenden",
@@ -154,10 +139,8 @@
     }
   },
   "members": {
-    "title": "Mitglieder",
     "description": "Füge Personen hinzu und erteile ihnen bestimmte Berechtigungen",
     "table": {
-      "userColumn": "Benutzer",
       "emptyTitle": "Noch keine Mitglieder",
       "emptyDescription": "Lade jemanden ein, um ihm Zugriff auf dieses Projekt zu geben.",
       "updateAction": "Mitglied aktualisieren",
@@ -182,7 +165,6 @@
     }
   },
   "settings": {
-    "title": "Einstellungen",
     "heading": "Organisationseinstellungen",
     "subheading": "Verwalte hier die Einstellungen deiner Organisation.",
     "dangerZone": {
@@ -209,7 +191,6 @@
     }
   },
   "dashboard": {
-    "breadcrumb": "Server",
     "heading": "Deine Server",
     "subheading": "Verwalte deine Spieleserver, sieh dir Logs an und greife auf die Konsole zu.",
     "noOrgTitle": "Keine aktive Organisation ausgewählt",

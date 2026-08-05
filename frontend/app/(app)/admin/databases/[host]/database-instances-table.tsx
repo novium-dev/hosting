@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Boxes, PencilIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
-import { useTranslation, type TFunction } from "react-i18next";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import Link from "@/components/link";
 import { DATABASE_TYPE_LABELS } from "@/components/databases/database-type";
@@ -127,13 +128,13 @@ export function DatabaseInstancesTable({
               </TableHead>
               <TableHead>{t("common:labels.status")}</TableHead>
               <TableHead>
-                {t("admin-infra:databases.instancesTable.columns.memory")}
+                {t("common:resources.memory")}
               </TableHead>
               <TableHead>
-                {t("admin-infra:databases.instancesTable.columns.disk")}
+                {t("common:resources.disk")}
               </TableHead>
               <TableHead className="text-right">
-                {t("admin-infra:shared.manage")}
+                {t("common:resources.manage")}
               </TableHead>
             </TableRow>
           </TableHeader>

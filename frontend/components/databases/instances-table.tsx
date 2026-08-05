@@ -157,7 +157,7 @@ export function InstancesTable({
               <TableHead>{t("org:databases.engineLabel")}</TableHead>
               <TableHead>{t("org:databases.instancesTable.stateColumn")}</TableHead>
               <TableHead>{t("common:labels.address")}</TableHead>
-              <TableHead>{t("org:shared.memory")}</TableHead>
+              <TableHead>{t("common:resources.memory")}</TableHead>
               <TableHead className="w-0" />
             </TableRow>
           </TableHeader>
@@ -205,7 +205,7 @@ export function InstancesTable({
                           }
                         >
                           <Play className="size-4" />
-                          {t("org:databases.managementBar.start")}
+                          {t("common:resources.start")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={() =>

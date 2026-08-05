@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { useTranslation, type TFunction } from "react-i18next";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -479,7 +480,7 @@ export function PortsManager({
     <Card>
       <CardHeader className="space-y-4">
         <div>
-          <CardTitle>{t("admin-infra:servers.shared.portsTabLabel")}</CardTitle>
+          <CardTitle>{t("common:nav.ports")}</CardTitle>
           <CardDescription>
             {t("admin-infra:servers.portsManager.description")}
           </CardDescription>
@@ -805,9 +806,9 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
             <SelectValue placeholder={t("admin-infra:shared.protocol")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="tcp">TCP</SelectItem>
-            <SelectItem value="udp">UDP</SelectItem>
-            <SelectItem value="http">HTTP</SelectItem>
+            <SelectItem value="tcp">{t("common:resources.tcp")}</SelectItem>
+            <SelectItem value="udp">{t("common:resources.udp")}</SelectItem>
+            <SelectItem value="http">{t("common:resources.http")}</SelectItem>
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">

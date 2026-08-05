@@ -3,6 +3,7 @@
 import Link from "@/components/link";
 import { useMemo, useState } from "react";
 import { Plus, Search, Server } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -17,6 +18,7 @@ import type { ListServersResponses } from "@/lib/api";
 type ServerRow = ListServersResponses[200][number];
 
 export function ServersTable({ servers }: { servers: ServerRow[] }) {
+  const { t } = useTranslation(["admin-infra", "common"]);
   const [query, setQuery] = useState("");
 
   const filteredServers = useMemo(() => {
@@ -40,9 +42,11 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Servers</h1>
+          <h1 className="text-xl font-semibold">
+            {t("common:nav.servers")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Browse and manage all available servers.
+            {t("admin-infra:servers.table.description")}
           </p>
         </div>
         <Button asChild>
@@ -51,7 +55,7 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
             className="inline-flex items-center"
           >
             <Plus className="size-4" />
-            Create Server
+            {t("admin-infra:servers.shared.createServerLabel")}
           </Link>
         </Button>
       </div>
@@ -62,7 +66,7 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search by server, id, node, or project..."
+          placeholder={t("admin-infra:servers.table.searchPlaceholder")}
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
         />
       </div>
@@ -71,11 +75,15 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>ID</TableHead>
-              <TableHead>Node</TableHead>
-              <TableHead>Project ID</TableHead>
-              <TableHead className="text-right">Manage</TableHead>
+              <TableHead>{t("common:labels.name")}</TableHead>
+              <TableHead>{t("common:labels.id")}</TableHead>
+              <TableHead>{t("admin-infra:servers.table.columns.node")}</TableHead>
+              <TableHead>
+                {t("admin-infra:servers.table.columns.projectId")}
+              </TableHead>
+              <TableHead className="text-right">
+                {t("common:resources.manage")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -84,9 +92,11 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
                 <TableCell colSpan={5} className="h-32">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <Server className="size-5 text-muted-foreground" />
-                    <p className="text-sm font-medium">No servers found</p>
+                    <p className="text-sm font-medium">
+                      {t("admin-infra:servers.table.emptyState.title")}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      Adjust your search or create a new server.
+                      {t("admin-infra:servers.table.emptyState.description")}
                     </p>
                   </div>
                 </TableCell>
@@ -106,7 +116,9 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
                   </TableCell>
                   <TableCell className="text-right">
                     <Button asChild size="sm" variant="outline">
-                      <Link href={`/admin/servers/${server.id}`}>Manage</Link>
+                      <Link href={`/admin/servers/${server.id}`}>
+                        {t("common:resources.manage")}
+                      </Link>
                     </Button>
                   </TableCell>
                 </TableRow>

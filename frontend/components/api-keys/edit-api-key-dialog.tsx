@@ -122,7 +122,7 @@ export function EditApiKeyDialog({
               className="w-full"
               loading={action.isExecuting}
             >
-              {t("org:apiKeys.editDialog.submit")}
+              {t("common:resources.saveChanges")}
             </Button>
           </form>
         </Form>

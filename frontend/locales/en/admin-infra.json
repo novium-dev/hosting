@@ -1,7 +1,5 @@
 {
   "shared": {
-    "manage": "Manage",
-    "saveChanges": "Save changes",
     "maintenance": "Maintenance",
     "selectRegionPlaceholder": "Select a region",
     "protocol": "Protocol",
@@ -9,14 +7,14 @@
   },
   "databases": {
     "instancesTable": {
-      "status": { "unreachable": "Unreachable" },
+      "status": {
+        "unreachable": "Unreachable"
+      },
       "breadcrumb": "Database hosts",
       "description": "Projects create their own instances here. Renaming one and changing its limits is an admin job.",
       "columns": {
         "project": "Project",
-        "engine": "Engine",
-        "memory": "Memory",
-        "disk": "Disk"
+        "engine": "Engine"
       },
       "emptyState": {
         "title": "No instances yet",
@@ -62,7 +60,6 @@
       "description": "Each host runs a database agent. Projects get their databases on one of its instances, preferring a host in the project's region.",
       "columns": {
         "publicHost": "Public host",
-        "ports": "Ports",
         "instances": "Instances"
       },
       "emptyState": {
@@ -96,7 +93,9 @@
       "allocatedDescription": "Add and remove node port ranges from the admin API.",
       "addButtonTitle": "Add Port Range",
       "noAllocatedPorts": "No allocated ports.",
-      "columns": { "range": "Range" },
+      "columns": {
+        "range": "Range"
+      },
       "availableTitle": "Available Ports",
       "availableDescription": "Snapshot returned by the available ports endpoint.",
       "noAvailableData": "No available port data.",
@@ -133,10 +132,7 @@
       "backToList": "Back to node list",
       "metricsUnavailableTitle": "Node metrics unavailable",
       "metricsUnavailableDescription": "The metrics endpoint did not respond successfully. This node is likely offline or unreachable.",
-      "networkLabel": "Network",
       "sshLabel": "SSH / SFTP",
-      "cpuLabel": "CPU",
-      "memoryLabel": "Memory",
       "swapLabel": "Swap",
       "unavailable": "Unavailable",
       "cpuValue": "{{used}} / {{count}} cores",
@@ -164,17 +160,16 @@
       "storageTypeDirectory": "Directory",
       "storageTypeBtrfs": "Btrfs",
       "btrfsPathLabel": "Btrfs path",
-      "backupsTitle": "Backups",
       "backupsHint": "Optional backup storages.",
       "addBackupButton": "Add backup",
-      "noBackupsHint": "No backup storages configured.",
-      "backupTypeArchive": "Archive"
+      "noBackupsHint": "No backup storages configured."
     },
     "table": {
-      "title": "Nodes",
       "description": "Browse node information and manage node-level ports.",
       "searchPlaceholder": "Search by display, id, host, or region...",
-      "columns": { "display": "Display", "ports": "Ports" },
+      "columns": {
+        "display": "Display"
+      },
       "emptyState": {
         "title": "No nodes found",
         "description": "Adjust your search query."
@@ -188,7 +183,6 @@
       "availablePortRangesTitle": "Available port ranges",
       "templateLabel": "Template",
       "nodeLabel": "Node",
-      "portsTabLabel": "Ports",
       "internetAccessLabel": "Internet Access",
       "backupLimitLabel": "Backup Limit",
       "rangeExcluding": "{{base}} excluding {{exclude}}"
@@ -200,8 +194,7 @@
       "viewInHephaestus": "View In Hephaestus",
       "viewInHephaestusOrgMissing": "View In Hephaestus (Org not found)",
       "limitsLabel": "Limits",
-      "limitsValue": "CPU {{cpu}}, RAM {{ram}}, Disk {{disk}}",
-      "tabs": { "settings": "Settings" }
+      "limitsValue": "CPU {{cpu}}, RAM {{ram}}, Disk {{disk}}"
     },
     "portsManager": {
       "refreshError": "Failed to refresh ports",
@@ -300,10 +293,12 @@
       "switchingLabel": "Switching..."
     },
     "table": {
-      "title": "Servers",
       "description": "Browse and manage all available servers.",
       "searchPlaceholder": "Search by server, id, node, or project...",
-      "columns": { "projectId": "Project ID" },
+      "columns": {
+        "node": "Node",
+        "projectId": "Project ID"
+      },
       "emptyState": {
         "title": "No servers found",
         "description": "Adjust your search or create a new server."
@@ -328,7 +323,6 @@
       "ramPlaceholder": "e.g. 2048",
       "diskLabel": "Disk (MB)",
       "diskPlaceholder": "e.g. 10240",
-      "cpuLabel": "CPU",
       "cpuPlaceholder": "e.g. 2",
       "swapLabel": "Swap (MB)",
       "swapPlaceholder": "e.g. 1024",
@@ -356,10 +350,8 @@
   },
   "templates": {
     "view": {
-      "title": "Templates",
       "description": "A server keeps the build it was created with. After fixing a template, resync its servers to push the new build to their nodes.",
       "resyncAllButton": "Resync all servers",
-      "columns": { "servers": "Servers" },
       "emptyState": "No templates",
       "serverCount_one": "{{count}} server",
       "serverCount_other": "{{count}} servers",

@@ -110,14 +110,14 @@ export function DatabaseHostsTable({
                 {t("admin-infra:databases.hostsTable.columns.publicHost")}
               </TableHead>
               <TableHead>
-                {t("admin-infra:databases.hostsTable.columns.ports")}
+                {t("common:nav.ports")}
               </TableHead>
               <TableHead>
                 {t("admin-infra:databases.hostsTable.columns.instances")}
               </TableHead>
               <TableHead>{t("common:labels.status")}</TableHead>
               <TableHead className="text-right">
-                {t("admin-infra:shared.manage")}
+                {t("common:resources.manage")}
               </TableHead>
             </TableRow>
           </TableHeader>

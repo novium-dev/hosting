@@ -1,7 +1,8 @@
 import Link from "@/components/link";
 import { useParams } from "react-router-dom";
 import useSWR from "swr";
-import { useTranslation, type TFunction } from "react-i18next";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Boxes, ExternalLink, Settings2, Wrench } from "lucide-react";
 
 import { NotFoundView } from "@/components/not-found-view";
@@ -192,14 +193,14 @@ export default function AdminServerManagementPage() {
         <TabsList>
           <TabsTrigger value="ports" className="inline-flex items-center gap-2">
             <Settings2 className="size-4" />
-            {t("admin-infra:servers.shared.portsTabLabel")}
+            {t("common:nav.ports")}
           </TabsTrigger>
           <TabsTrigger
             value="settings"
             className="inline-flex items-center gap-2"
           >
             <Settings2 className="size-4" />
-            {t("admin-infra:servers.detailPage.tabs.settings")}
+            {t("common:nav.settings")}
           </TabsTrigger>
           <TabsTrigger
             value="template"

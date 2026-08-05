@@ -14,7 +14,6 @@
         "description": "TODO: Build file browser, editor, and upload actions."
       },
       "backups": {
-        "label": "Backups",
         "description": "Manage backup creation, download, restore, and deletion."
       },
       "mods": {
@@ -26,11 +25,9 @@
         "description": "View and manage online Minecraft players."
       },
       "network": {
-        "label": "Network",
         "description": "Ports, routes and the records that point at them."
       },
       "settings": {
-        "label": "Settings",
         "description": "Update name and personal server settings."
       },
       "startup": {
@@ -54,7 +51,6 @@
     }
   },
   "layout": {
-    "breadcrumbServers": "Servers",
     "noOrganization": {
       "title": "No active organization selected",
       "description": "Please select an organization before viewing this server."
@@ -74,7 +70,6 @@
     "maintenanceBadge": "Node In Maintenance",
     "adminUiButton": "Admin UI",
     "actions": {
-      "start": "Start",
       "restart": "Restart",
       "stop": "Stop",
       "kill": "Kill"
@@ -95,10 +90,8 @@
       "resourceWarning": "The server may become unresponsive or be killed if it runs out of resources."
     },
     "stats": {
-      "disk": "Disk",
       "ram": "RAM",
-      "swap": "Swap",
-      "cpu": "CPU"
+      "swap": "Swap"
     },
     "toasts": {
       "statsConnectFailed": "Failed to connect to server stats",
@@ -108,7 +101,6 @@
     }
   },
   "backups": {
-    "title": "Backups",
     "description": "Manage server backups, restore points, and downloads.",
     "createButton": "Create Backup",
     "restoreButton": "Restore",
@@ -173,11 +165,9 @@
     }
   },
   "networkPorts": {
-    "title": "Network",
     "description": "Every port exposed for this server. Raw ports are reached by host and port, HTTP ports through a route.",
     "loading": "Loading network ports...",
     "empty": "No network ports are configured for this server.",
-    "httpLabel": "HTTP",
     "primaryBadge": "Primary",
     "additionalBadge": "Additional",
     "table": {
@@ -194,7 +184,6 @@
     "title": "Routes",
     "description": "Point a subdomain at one of this server's ports.",
     "newRouteButton": "New route",
-    "httpBadge": "HTTP",
     "srvBadge": "SRV",
     "privateLabel": "private",
     "subdomainInvalid": "Only lowercase letters, digits and dashes are allowed.",
@@ -205,7 +194,6 @@
     },
     "table": {
       "kind": "Kind",
-      "https": "HTTPS",
       "type": "Type"
     },
     "manualDns": {
@@ -224,7 +212,6 @@
       "httpRouteHelp": "An HTTP port becomes a reverse-proxied resource on the subdomain.",
       "rawRouteHelp": "A raw port gets an SRV record on the subdomain.",
       "noSelectablePorts": "This domain cannot carry any of this server's ports yet.",
-      "httpsLabel": "HTTPS",
       "httpsHelpOn": "Serve this route over HTTPS.",
       "httpsHelpOff": "This domain does not offer HTTPS.",
       "createsRecordHelp": "Creates <code>{{record}}</code>, so clients that look the service up reach the port on their own. The service name comes from the port.",
@@ -246,7 +233,6 @@
     }
   },
   "settings": {
-    "title": "Settings",
     "description": "Update your server display name.",
     "loading": "Loading settings...",
     "serverNameLabel": "Server name",
@@ -254,11 +240,9 @@
     "sftp": {
       "title": "SFTP Access",
       "description": "Use your daemon password for SFTP password auth, or configure SSH public key auth from your profile.",
-      "usernameLabel": "Username",
       "openLabel": "Open with SFTP",
       "openButton": "Open",
-      "helpText": "Your SFTP password is the daemon password shown in your settings. You can also add SSH public keys there.",
-      "daemonAuthButton": "Daemon Auth"
+      "helpText": "Your SFTP password is the daemon password shown in your settings. You can also add SSH public keys there."
     },
     "wipe": {
       "title": "Wipe Server Files",

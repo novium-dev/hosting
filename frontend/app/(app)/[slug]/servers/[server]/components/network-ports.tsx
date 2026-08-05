@@ -113,7 +113,7 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
       <Card>
         <CardHeader className="space-y-4">
           <div>
-            <CardTitle>{t("servers:networkPorts.title")}</CardTitle>
+            <CardTitle>{t("common:nav.network")}</CardTitle>
             <CardDescription>
               {t("servers:networkPorts.description")}
             </CardDescription>
@@ -167,7 +167,7 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
                       <TableCell className="font-medium">{port.name}</TableCell>
                       <TableCell>
                         {port.http
-                          ? t("servers:networkPorts.httpLabel")
+                          ? t("common:resources.http")
                           : port.protocol}
                       </TableCell>
                       <TableCell>{port.internalPort}</TableCell>

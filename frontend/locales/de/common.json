@@ -143,5 +143,41 @@
   "a11y": {
     "loading": "Wird geladen",
     "workspaceAvatar": "Workspace-Avatar"
+  },
+  "roles": {
+    "admin": "Admin",
+    "moderator": "Moderator",
+    "user": "Benutzer"
+  },
+  "nav": {
+    "servers": "Server",
+    "settings": "Einstellungen",
+    "databases": "Datenbanken",
+    "users": "Benutzer",
+    "members": "Mitglieder",
+    "nodes": "Nodes",
+    "templates": "Templates",
+    "regions": "Regionen",
+    "projects": "Projekte",
+    "apiKeys": "API-Schlüssel",
+    "admin": "Admin",
+    "network": "Netzwerk",
+    "backups": "Backups",
+    "ports": "Ports"
+  },
+  "resources": {
+    "cpu": "CPU",
+    "disk": "Speicherplatz",
+    "memory": "Arbeitsspeicher",
+    "manage": "Verwalten",
+    "http": "HTTP",
+    "https": "HTTPS",
+    "tcp": "TCP",
+    "udp": "UDP",
+    "start": "Starten",
+    "archive": "Archivieren",
+    "username": "Benutzername",
+    "saveChanges": "Änderungen speichern",
+    "daemonAuth": "Daemon-Auth"
   }
 }

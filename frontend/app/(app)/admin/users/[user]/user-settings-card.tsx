@@ -74,7 +74,7 @@ export function UserSettingsCard({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="user-username">
-              {t("admin-core:users.fields.username")}
+              {t("common:resources.username")}
             </Label>
             <Input
               id="user-username"
@@ -100,11 +100,11 @@ export function UserSettingsCard({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="0">{t("admin-core:users.roles.user")}</SelectItem>
+                <SelectItem value="0">{t("common:roles.user")}</SelectItem>
                 <SelectItem value="1">
                   {t("admin-core:users.roles.moderator")}
                 </SelectItem>
-                <SelectItem value="2">{t("admin-core:users.roles.admin")}</SelectItem>
+                <SelectItem value="2">{t("common:roles.admin")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -123,7 +123,7 @@ export function UserSettingsCard({
           loading={saving}
           disabled={!canManage}
         >
-          {t("admin-core:users.settingsCard.saveButton")}
+          {t("common:resources.saveChanges")}
         </Button>
       </CardFooter>
     </Card>

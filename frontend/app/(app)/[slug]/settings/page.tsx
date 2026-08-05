@@ -17,7 +17,7 @@ export default function SettingsPage() {
     <MainLayout
       breadcrumbs={[
         { label: slug ?? "", href: `/${slug}` },
-        { label: t("org:settings.title") },
+        { label: t("common:nav.settings") },
       ]}
     >
       <OrganizationSettings organization={organization} />

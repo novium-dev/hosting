@@ -27,7 +27,7 @@ export default function DatabasesPage() {
     <MainLayout
       breadcrumbs={[
         { label: slug ?? "", href: `/${slug}` },
-        { label: t("org:databases.title") },
+        { label: t("common:nav.databases") },
       ]}
     >
       <DatabasesView

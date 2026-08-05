@@ -1,7 +1,5 @@
 {
   "shared": {
-    "manage": "Verwalten",
-    "saveChanges": "Änderungen speichern",
     "maintenance": "Wartung",
     "selectRegionPlaceholder": "Region auswählen",
     "protocol": "Protokoll",
@@ -9,14 +7,14 @@
   },
   "databases": {
     "instancesTable": {
-      "status": { "unreachable": "Nicht erreichbar" },
+      "status": {
+        "unreachable": "Nicht erreichbar"
+      },
       "breadcrumb": "Datenbank-Hosts",
       "description": "Projekte erstellen ihre eigenen Instanzen hier. Eine Instanz umzubenennen und ihre Limits zu ändern ist Aufgabe der Administration.",
       "columns": {
         "project": "Projekt",
-        "engine": "Engine",
-        "memory": "Arbeitsspeicher",
-        "disk": "Speicherplatz"
+        "engine": "Engine"
       },
       "emptyState": {
         "title": "Noch keine Instanzen",
@@ -62,7 +60,6 @@
       "description": "Jeder Host betreibt einen Datenbank-Agenten. Projekte erhalten ihre Datenbanken auf einer seiner Instanzen, bevorzugt auf einem Host in der Region des Projekts.",
       "columns": {
         "publicHost": "Öffentlicher Host",
-        "ports": "Ports",
         "instances": "Instanzen"
       },
       "emptyState": {
@@ -96,7 +93,9 @@
       "allocatedDescription": "Node-Portbereiche über die Admin-API hinzufügen und entfernen.",
       "addButtonTitle": "Portbereich hinzufügen",
       "noAllocatedPorts": "Keine zugewiesenen Ports.",
-      "columns": { "range": "Bereich" },
+      "columns": {
+        "range": "Bereich"
+      },
       "availableTitle": "Verfügbare Ports",
       "availableDescription": "Momentaufnahme des Endpunkts für verfügbare Ports.",
       "noAvailableData": "Keine Daten zu verfügbaren Ports.",
@@ -133,10 +132,7 @@
       "backToList": "Zurück zur Node-Liste",
       "metricsUnavailableTitle": "Node-Metriken nicht verfügbar",
       "metricsUnavailableDescription": "Der Metriken-Endpunkt hat nicht erfolgreich geantwortet. Dieser Node ist wahrscheinlich offline oder nicht erreichbar.",
-      "networkLabel": "Netzwerk",
       "sshLabel": "SSH / SFTP",
-      "cpuLabel": "CPU",
-      "memoryLabel": "Arbeitsspeicher",
       "swapLabel": "Swap",
       "unavailable": "Nicht verfügbar",
       "cpuValue": "{{used}} / {{count}} Kerne",
@@ -164,17 +160,16 @@
       "storageTypeDirectory": "Verzeichnis",
       "storageTypeBtrfs": "Btrfs",
       "btrfsPathLabel": "Btrfs-Pfad",
-      "backupsTitle": "Backups",
       "backupsHint": "Optionale Backup-Speicher.",
       "addBackupButton": "Backup hinzufügen",
-      "noBackupsHint": "Keine Backup-Speicher konfiguriert.",
-      "backupTypeArchive": "Archiv"
+      "noBackupsHint": "Keine Backup-Speicher konfiguriert."
     },
     "table": {
-      "title": "Nodes",
       "description": "Node-Informationen durchsuchen und Ports auf Node-Ebene verwalten.",
       "searchPlaceholder": "Suche nach Anzeigename, ID, Host oder Region...",
-      "columns": { "display": "Anzeigename", "ports": "Ports" },
+      "columns": {
+        "display": "Anzeigename"
+      },
       "emptyState": {
         "title": "Keine Nodes gefunden",
         "description": "Suchanfrage anpassen."
@@ -188,7 +183,6 @@
       "availablePortRangesTitle": "Verfügbare Portbereiche",
       "templateLabel": "Template",
       "nodeLabel": "Node",
-      "portsTabLabel": "Ports",
       "internetAccessLabel": "Internetzugang",
       "backupLimitLabel": "Backup-Limit",
       "rangeExcluding": "{{base}} ausgenommen {{exclude}}"
@@ -200,8 +194,7 @@
       "viewInHephaestus": "In Hephaestus anzeigen",
       "viewInHephaestusOrgMissing": "In Hephaestus anzeigen (Organisation nicht gefunden)",
       "limitsLabel": "Limits",
-      "limitsValue": "CPU {{cpu}}, RAM {{ram}}, Speicher {{disk}}",
-      "tabs": { "settings": "Einstellungen" }
+      "limitsValue": "CPU {{cpu}}, RAM {{ram}}, Speicher {{disk}}"
     },
     "portsManager": {
       "refreshError": "Ports konnten nicht aktualisiert werden",
@@ -300,10 +293,12 @@
       "switchingLabel": "Wird gewechselt..."
     },
     "table": {
-      "title": "Server",
       "description": "Alle verfügbaren Server durchsuchen und verwalten.",
       "searchPlaceholder": "Suche nach Server, ID, Node oder Projekt...",
-      "columns": { "projectId": "Projekt-ID" },
+      "columns": {
+        "node": "Node",
+        "projectId": "Projekt-ID"
+      },
       "emptyState": {
         "title": "Keine Server gefunden",
         "description": "Suche anpassen oder einen neuen Server erstellen."
@@ -328,7 +323,6 @@
       "ramPlaceholder": "z. B. 2048",
       "diskLabel": "Speicherplatz (MB)",
       "diskPlaceholder": "z. B. 10240",
-      "cpuLabel": "CPU",
       "cpuPlaceholder": "z. B. 2",
       "swapLabel": "Swap (MB)",
       "swapPlaceholder": "z. B. 1024",
@@ -356,10 +350,8 @@
   },
   "templates": {
     "view": {
-      "title": "Templates",
       "description": "Ein Server behält den Build, mit dem er erstellt wurde. Nach einer Korrektur an einem Template dessen Server synchronisieren, um den neuen Build auf ihre Nodes zu übertragen.",
       "resyncAllButton": "Alle Server synchronisieren",
-      "columns": { "servers": "Server" },
       "emptyState": "Keine Templates",
       "serverCount_one": "{{count}} Server",
       "serverCount_other": "{{count}} Server",

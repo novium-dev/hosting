@@ -111,7 +111,7 @@ export function RegionsTable({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">
-            {t("admin-core:regions.title")}
+            {t("common:nav.regions")}
           </h1>
           <p className="text-sm text-muted-foreground">
             {t("admin-core:regions.description")}
@@ -143,9 +143,9 @@ export function RegionsTable({
               <TableHead>{t("common:labels.name")}</TableHead>
               <TableHead>{t("admin-core:shared.slugColumn")}</TableHead>
               <TableHead>{t("admin-core:regions.table.regionId")}</TableHead>
-              <TableHead>{t("admin-core:regions.table.nodes")}</TableHead>
+              <TableHead>{t("common:nav.nodes")}</TableHead>
               <TableHead className="text-right">
-                {t("admin-core:shared.manageColumn")}
+                {t("common:resources.manage")}
               </TableHead>
             </TableRow>
           </TableHeader>
