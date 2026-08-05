@@ -5,7 +5,7 @@
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
-use hmac::{Hmac, Mac as _};
+use hmac::{Hmac, KeyInit as _, Mac as _};
 use rand::Rng as _;
 use sha2::{Digest as _, Sha256};
 

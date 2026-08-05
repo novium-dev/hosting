@@ -7,29 +7,29 @@ reqwest.git = "https://github.com/0xIO32/reqwest.git"
 
 [workspace.dependencies]
 anyhow = "1.0"
-arrayvec = "0.7.6"
-async-trait = "0.1.89"
-base64 = "0.22.1"
-bitflags = "2.11.1"
-bytes = "1.11.1"
-chrono = "0.4.44"
-futures = "0.3.32"
-futures-util = "0.3.32"
+arrayvec = "0.7.8"
+async-trait = "0.1.91"
+base64 = "0.23.1"
+bitflags = "2.13.1"
+bytes = "1.12.1"
+chrono = "0.4.45"
+futures = "0.3.33"
+futures-util = "0.3.33"
 hex = "0.4.3"
-http = "1.4.0"
-lazy-regex = "3.6.0"
+http = "1.5.0"
+lazy-regex = "3.6.1"
 parking_lot = "0.12.5"
-rand = "0.10.1"
-rustls = "0.23.35"
+rand = "0.10.2"
+rustls = "0.23.43"
 serde = "1.0"
 serde_json = "1.0"
-sha2 = "0.10.9"
-tokio = { version = "1.52.3", features = ["full"] }
+sha2 = "0.11.0"
+tokio = { version = "1.53.1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["io"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 url = "2.5.8"
-uuid = "1.13.1"
+uuid = "1.24.0"
 
 axum = "0.8.9"
 axum-extra = { version = "0.12.6", features = ["typed-header", "cookie"] }
@@ -61,7 +61,7 @@ features = [
 ]
 
 [workspace.dependencies.redis]
-version = "1.2.1"
+version = "1.5.0"
 default-features = false
 features = [
     "uuid",
@@ -73,11 +73,11 @@ features = [
 ]
 
 [workspace.dependencies.toml]
-version = "1.1.2+spec-1.1.0"
+version = "1.1.4"
 features = ["serde", "preserve_order"]
 
 [workspace.dependencies.utoipa]
-version = "5.4.0"
+version = "5.5.0"
 features = ["macros", "preserve_path_order", "uuid", "indexmap", "chrono"]
 
 [workspace.dependencies.utoipa-axum]
@@ -88,7 +88,7 @@ version = "9.0.2"
 features = ["axum"]
 
 [workspace.dependencies.tower-http]
-version = "0.6.8"
+version = "0.7.0"
 features = ["cors", "auth", "trace", "fs"]
 
 [workspace.dependencies.zelus]
