@@ -42,7 +42,15 @@ function RoleBadge({ role }: { role: UserRole }) {
   const { t } = useTranslation();
 
   return (
-    <Badge variant={role === "admin" ? "default" : "secondary"} className="gap-1">
+    <Badge
+      variant={
+        role === "admin"
+          ? "destructive"
+          : role === "moderator"
+            ? "secondary"
+            : "outline"
+      }
+    >
       {role === "user" ? (
         <User className="size-3" />
       ) : (
@@ -118,12 +126,18 @@ export function UsersTable() {
           </span>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">{t("admin-core:users.roleFilter.all")}</SelectItem>
-          <SelectItem value="admin">{t("admin-core:users.roles.admin")}</SelectItem>
+          <SelectItem value="all">
+            {t("admin-core:users.roleFilter.all")}
+          </SelectItem>
+          <SelectItem value="admin">
+            {t("admin-core:users.roles.admin")}
+          </SelectItem>
           <SelectItem value="moderator">
             {t("admin-core:users.roles.moderator")}
           </SelectItem>
-          <SelectItem value="user">{t("admin-core:users.roles.user")}</SelectItem>
+          <SelectItem value="user">
+            {t("admin-core:users.roles.user")}
+          </SelectItem>
         </SelectContent>
       </Select>
     </div>
