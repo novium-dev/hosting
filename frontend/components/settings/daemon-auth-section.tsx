@@ -21,6 +21,7 @@ import {
 import { Copy, Eye, EyeOff, RefreshCw, Trash2 } from "lucide-react";
 import type { FormEvent } from "react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import useSWR from "swr";
 
@@ -46,25 +47,30 @@ function maskSshKey(publicKey: string) {
   return `${type || "ssh-key"} ${maskedValue}`;
 }
 
-async function fetchSshKeys() {
+async function fetchSshKeys(fallback: string) {
   const response = await listSshKeys();
   if (response.error) {
-    throw new Error(errorMessage(response.error, "Failed to load SSH keys"));
+    throw new Error(errorMessage(response.error, fallback));
   }
 
   return response.data ?? [];
 }
 
 export function DaemonAuthSection() {
+  const { t } = useTranslation();
   const {
     data: sshKeys = [],
     error: sshKeysError,
     isLoading: sshKeysLoading,
     mutate,
-  } = useSWR<ListSshKeysResponse>("profile/ssh-keys", fetchSshKeys, {
-    keepPreviousData: true,
-    revalidateOnFocus: false,
-  });
+  } = useSWR<ListSshKeysResponse>(
+    "profile/ssh-keys",
+    () => fetchSshKeys(t("settings:daemonAuth.sshKeysLoadErrorToast")),
+    {
+      keepPreviousData: true,
+      revalidateOnFocus: false,
+    },
+  );
   const [showSshKeys, setShowSshKeys] = useState(false);
   const [showDaemonPassword, setShowDaemonPassword] = useState(false);
   const [daemonPasswordValue, setDaemonPasswordValue] = useState<string | null>(
@@ -85,7 +91,7 @@ export function DaemonAuthSection() {
 
     if (response.error || !response.data) {
       toast.error(
-        errorMessage(response.error, "Failed to load daemon password"),
+        errorMessage(response.error, t("settings:daemonAuth.loadError")),
       );
       return false;
     }
@@ -111,15 +117,15 @@ export function DaemonAuthSection() {
   const handleCopy = async (value: string, label: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      toast.success(`${label} copied`);
+      toast.success(t("settings:daemonAuth.copiedToast", { label }));
     } catch {
-      toast.error(`Failed to copy ${label.toLowerCase()}`);
+      toast.error(t("settings:daemonAuth.copyFailedToast", { label }));
     }
   };
 
   const handleRerollDaemonPassword = async () => {
     const confirmed = window.confirm(
-      "Regenerate the daemon password? Existing password auth connections will need the new password.",
+      t("settings:daemonAuth.regenerateConfirm"),
     );
     if (!confirmed) return;
 
@@ -130,14 +136,14 @@ export function DaemonAuthSection() {
 
     if (response.error || !response.data) {
       toast.error(
-        errorMessage(response.error, "Failed to regenerate daemon password"),
+        errorMessage(response.error, t("settings:daemonAuth.regenerateError")),
       );
       return;
     }
 
     setDaemonPasswordValue(response.data);
     setShowDaemonPassword(true);
-    toast.success("Daemon password regenerated");
+    toast.success(t("settings:daemonAuth.regenerateSuccess"));
   };
 
   const handleAddSshKey = async (event: FormEvent<HTMLFormElement>) => {
@@ -146,7 +152,7 @@ export function DaemonAuthSection() {
     const name = keyName.trim();
     const key = publicKey.trim();
     if (!name || !key) {
-      toast.error("Name and public key are required");
+      toast.error(t("settings:daemonAuth.nameAndKeyRequired"));
       return;
     }
 
@@ -161,14 +167,16 @@ export function DaemonAuthSection() {
     });
 
     if (response.error) {
-      toast.error(errorMessage(response.error, "Failed to add SSH key"));
+      toast.error(
+        errorMessage(response.error, t("settings:daemonAuth.addKeyError")),
+      );
       return;
     }
 
     setKeyName("");
     setPublicKey("");
     await mutate();
-    toast.success("SSH key added");
+    toast.success(t("settings:daemonAuth.keyAdded"));
   };
 
   const handleDeleteSshKey = async (keyId: number) => {
@@ -182,27 +190,31 @@ export function DaemonAuthSection() {
     });
 
     if (response.error) {
-      toast.error(errorMessage(response.error, "Failed to delete SSH key"));
+      toast.error(
+        errorMessage(response.error, t("settings:daemonAuth.deleteKeyError")),
+      );
       return;
     }
 
     await mutate();
-    toast.success("SSH key deleted");
+    toast.success(t("settings:daemonAuth.keyDeleted"));
   };
 
   return (
     <div className="min-w-0 space-y-6 overflow-hidden">
       <section className="space-y-3">
         <div className="space-y-0.5">
-          <h3 className="text-sm font-medium">Daemon password</h3>
+          <h3 className="text-sm font-medium">
+            {t("settings:daemonAuth.passwordLabel")}
+          </h3>
           <p className="text-sm text-muted-foreground">
-            Use this password for SFTP password auth.
+            {t("settings:daemonAuth.passwordDescription")}
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="min-w-0 flex-1 space-y-2">
             <Label htmlFor="daemon-password" className="sr-only">
-              Daemon password
+              {t("settings:daemonAuth.passwordLabel")}
             </Label>
             <Input
               id="daemon-password"
@@ -227,8 +239,8 @@ export function DaemonAuthSection() {
                   loading={daemonLoading}
                   aria-label={
                     showDaemonPassword
-                      ? "Hide daemon password"
-                      : "Reveal daemon password"
+                      ? t("settings:daemonAuth.hidePassword")
+                      : t("settings:daemonAuth.revealPassword")
                   }
                 >
                   {showDaemonPassword ? (
@@ -239,7 +251,9 @@ export function DaemonAuthSection() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                {showDaemonPassword ? "Hide password" : "Reveal password"}
+                {showDaemonPassword
+                  ? t("settings:daemonAuth.hidePasswordTooltip")
+                  : t("settings:daemonAuth.revealPasswordTooltip")}
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -251,15 +265,20 @@ export function DaemonAuthSection() {
                   disabled={!showDaemonPassword || !daemonPasswordValue}
                   onClick={() => {
                     if (daemonPasswordValue) {
-                      void handleCopy(daemonPasswordValue, "Daemon password");
+                      void handleCopy(
+                        daemonPasswordValue,
+                        t("settings:daemonAuth.passwordLabel"),
+                      );
                     }
                   }}
-                  aria-label="Copy daemon password"
+                  aria-label={t("settings:daemonAuth.copyPasswordAriaLabel")}
                 >
                   <Copy className="size-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Copy password</TooltipContent>
+              <TooltipContent>
+                {t("settings:daemonAuth.copyPasswordTooltip")}
+              </TooltipContent>
             </Tooltip>
             <Button
               type="button"
@@ -268,7 +287,7 @@ export function DaemonAuthSection() {
               loading={rerollLoading}
             >
               <RefreshCw className="size-4" />
-              Regenerate
+              {t("settings:daemonAuth.regenerate")}
             </Button>
           </div>
         </div>
@@ -279,9 +298,11 @@ export function DaemonAuthSection() {
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-0.5">
-            <h3 className="text-sm font-medium">SSH public keys</h3>
+            <h3 className="text-sm font-medium">
+              {t("settings:daemonAuth.sshKeysTitle")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Public keys are hidden until revealed.
+              {t("settings:daemonAuth.sshKeysDescription")}
             </p>
           </div>
           <Tooltip>
@@ -292,7 +313,9 @@ export function DaemonAuthSection() {
                 size="icon"
                 onClick={() => setShowSshKeys((value) => !value)}
                 aria-label={
-                  showSshKeys ? "Hide SSH public keys" : "Reveal SSH public keys"
+                  showSshKeys
+                    ? t("settings:daemonAuth.hideSshKeys")
+                    : t("settings:daemonAuth.revealSshKeys")
                 }
               >
                 {showSshKeys ? (
@@ -303,7 +326,9 @@ export function DaemonAuthSection() {
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              {showSshKeys ? "Hide keys" : "Reveal keys"}
+              {showSshKeys
+                ? t("settings:daemonAuth.hideKeysTooltip")
+                : t("settings:daemonAuth.revealKeysTooltip")}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -311,15 +336,15 @@ export function DaemonAuthSection() {
         <div className="space-y-3">
           {sshKeysLoading ? (
             <div className="rounded-lg border bg-background/50 px-4 py-3 text-sm text-muted-foreground">
-              Loading SSH keys...
+              {t("settings:daemonAuth.loadingSshKeys")}
             </div>
           ) : sshKeysError ? (
             <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-              Failed to load SSH keys.
+              {t("settings:daemonAuth.sshKeysLoadError")}
             </div>
           ) : sshKeys.length === 0 ? (
             <div className="rounded-lg border bg-background/50 px-4 py-3 text-sm text-muted-foreground">
-              No SSH keys added.
+              {t("settings:daemonAuth.noSshKeys")}
             </div>
           ) : (
             sshKeys.map((sshKey) => (
@@ -344,14 +369,21 @@ export function DaemonAuthSection() {
                         size="icon"
                         disabled={!showSshKeys}
                         onClick={() =>
-                          void handleCopy(sshKey.public_key, "SSH public key")
+                          void handleCopy(
+                            sshKey.public_key,
+                            t("settings:daemonAuth.sshKeyLabel"),
+                          )
                         }
-                        aria-label={`Copy ${sshKey.name}`}
+                        aria-label={t("settings:daemonAuth.copyKeyAriaLabel", {
+                          name: sshKey.name,
+                        })}
                       >
                         <Copy className="size-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Copy key</TooltipContent>
+                    <TooltipContent>
+                      {t("settings:daemonAuth.copyKeyTooltip")}
+                    </TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -361,12 +393,17 @@ export function DaemonAuthSection() {
                         size="icon"
                         loading={deletingKeyId === sshKey.id}
                         onClick={() => void handleDeleteSshKey(sshKey.id)}
-                        aria-label={`Delete ${sshKey.name}`}
+                        aria-label={t(
+                          "settings:daemonAuth.deleteKeyAriaLabel",
+                          { name: sshKey.name },
+                        )}
                       >
                         <Trash2 className="size-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Delete key</TooltipContent>
+                    <TooltipContent>
+                      {t("settings:daemonAuth.deleteKeyTooltip")}
+                    </TooltipContent>
                   </Tooltip>
                 </div>
               </div>
@@ -380,12 +417,14 @@ export function DaemonAuthSection() {
         >
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
             <div className="min-w-0 space-y-2">
-              <Label htmlFor="ssh-key-name">Key name</Label>
+              <Label htmlFor="ssh-key-name">
+                {t("settings:daemonAuth.keyNameLabel")}
+              </Label>
               <Input
                 id="ssh-key-name"
                 value={keyName}
                 onChange={(event) => setKeyName(event.target.value)}
-                placeholder="Workstation"
+                placeholder={t("settings:daemonAuth.keyNamePlaceholder")}
                 autoComplete="off"
                 className="min-w-0"
               />
@@ -396,16 +435,18 @@ export function DaemonAuthSection() {
               loading={addingKey}
               disabled={!keyName.trim() || !publicKey.trim()}
             >
-              Add Key
+              {t("settings:daemonAuth.addKey")}
             </Button>
           </div>
           <div className="min-w-0 space-y-2">
-            <Label htmlFor="ssh-public-key">Public key</Label>
+            <Label htmlFor="ssh-public-key">
+              {t("settings:daemonAuth.publicKeyLabel")}
+            </Label>
             <Textarea
               id="ssh-public-key"
               value={publicKey}
               onChange={(event) => setPublicKey(event.target.value)}
-              placeholder="ssh-ed25519 AAAA..."
+              placeholder={t("settings:daemonAuth.publicKeyPlaceholder")}
               wrap="soft"
               className="min-h-24 min-w-0 max-w-full resize-y overflow-x-hidden break-all font-mono"
             />

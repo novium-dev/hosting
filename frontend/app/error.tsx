@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, RotateCw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 
@@ -10,6 +11,8 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const { t } = useTranslation(["app", "common"]);
+
   return (
     <main className="min-h-svh bg-background">
       <div className="mx-auto flex min-h-svh w-full max-w-3xl flex-col justify-center px-6 py-16">
@@ -20,20 +23,19 @@ export default function GlobalError({
 
           <div className="space-y-3">
             <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-              Backend unavailable
+              {t("app:globalError.badge")}
             </p>
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-              The API returned an internal error.
+              {t("app:globalError.title")}
             </h1>
             <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-              Hephaestus could not complete the request because the backend
-              returned a server error.
+              {t("app:globalError.description")}
             </p>
           </div>
 
           <Button type="button" onClick={reset}>
             <RotateCw className="size-4" />
-            Retry
+            {t("common:actions.retry")}
           </Button>
         </div>
       </div>

@@ -30,6 +30,7 @@ import {
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -143,16 +144,13 @@ type UndoableAction =
 
 type ArchiveCompression = "zstd" | "xz" | "zlib" | "lz4" | "gzip" | "bzip2";
 
-const ARCHIVE_COMPRESSION_OPTIONS: Array<{
-  value: ArchiveCompression;
-  label: string;
-}> = [
-  { value: "zstd", label: "Zstandard (zstd)" },
-  { value: "xz", label: "XZ" },
-  { value: "zlib", label: "Zlib" },
-  { value: "lz4", label: "LZ4" },
-  { value: "gzip", label: "Gzip" },
-  { value: "bzip2", label: "Bzip2" },
+const ARCHIVE_COMPRESSION_VALUES: ArchiveCompression[] = [
+  "zstd",
+  "xz",
+  "zlib",
+  "lz4",
+  "gzip",
+  "bzip2",
 ];
 
 function normalizePath(input: string) {
@@ -173,9 +171,9 @@ function joinPath(basePath: string, childName: string) {
   return `${basePath}/${childName}`;
 }
 
-function formatBytes(bytes: number) {
+function formatBytes(bytes: number, unknownLabel: string) {
   if (!Number.isFinite(bytes) || bytes < 0) {
-    return "Unknown";
+    return unknownLabel;
   }
 
   if (bytes < 1024) {
@@ -263,6 +261,7 @@ export function FilesManager({
   slug,
   canWriteFiles,
 }: FilesManagerProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [currentPath, setCurrentPath] = useState("/");
   const [pathInput, setPathInput] = useState("/");
@@ -292,6 +291,29 @@ export function FilesManager({
   const redoStackRef = useRef<UndoableAction[]>([]);
   const isHistoryPlaybackRef = useRef(false);
   const suppressEntryClickRef = useRef(false);
+
+  const archiveCompressionOptions = useMemo<
+    Array<{ value: ArchiveCompression; label: string }>
+  >(
+    () =>
+      ARCHIVE_COMPRESSION_VALUES.map((value) => ({
+        value,
+        label: t(`servers-management:filesManager.archiveDialog.compressionOptions.${value}`),
+      })),
+    [t],
+  );
+
+  const actionLabelKeys: Record<string, string> = {
+    Edit: "common:actions.edit",
+    View: "servers-management:filesManager.contextMenu.view",
+    Rename: "common:actions.rename",
+    Permissions: "servers-management:filesManager.contextMenu.permissions",
+    Archive: "servers-management:filesManager.contextMenu.archive",
+    Unarchive: "servers-management:filesManager.contextMenu.unarchive",
+    Delete: "common:actions.delete",
+    Download: "common:actions.download",
+    Copy: "common:actions.copy",
+  };
 
   const segments = useMemo(() => buildPathSegments(currentPath), [currentPath]);
   const parentPath = useMemo(() => {
@@ -342,7 +364,7 @@ export function FilesManager({
       setCurrentPath(normalized);
       setPathInput(normalized);
     } catch {
-      toast.error("Failed to load files for this path");
+      toast.error(t("servers-management:filesManager.toasts.loadFailed"));
     } finally {
       setIsLoading(false);
 
@@ -392,7 +414,11 @@ export function FilesManager({
   };
 
   const showPlaceholderAction = (name: string) => {
-    toast.info(`${name} is a placeholder action for now.`);
+    toast.info(
+      t("servers-management:filesManager.toasts.placeholderAction", {
+        name,
+      }),
+    );
   };
 
   const openEditor = (entry: FileRow) => {
@@ -427,7 +453,10 @@ export function FilesManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? `Failed to ${direction} rename`,
+          response.error.error?.msg ??
+            (direction === "undo"
+              ? t("servers-management:filesManager.toasts.undoFailedRename")
+              : t("servers-management:filesManager.toasts.redoFailedRename")),
         );
         return false;
       }
@@ -446,7 +475,10 @@ export function FilesManager({
         });
 
         if (response.error) {
-          toast.error(response.error.error?.msg ?? "Failed to undo copy");
+          toast.error(
+            response.error.error?.msg ??
+              t("servers-management:filesManager.toasts.undoFailedCopy"),
+          );
           return false;
         }
 
@@ -462,7 +494,10 @@ export function FilesManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to redo copy");
+        toast.error(
+          response.error.error?.msg ??
+            t("servers-management:filesManager.toasts.redoFailedCopy"),
+        );
         return false;
       }
 
@@ -479,7 +514,10 @@ export function FilesManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to undo create");
+        toast.error(
+          response.error.error?.msg ??
+            t("servers-management:filesManager.toasts.undoFailedCreate"),
+        );
         return false;
       }
 
@@ -495,7 +533,10 @@ export function FilesManager({
     });
 
     if (response.error) {
-      toast.error(response.error.error?.msg ?? "Failed to redo create");
+      toast.error(
+        response.error.error?.msg ??
+          t("servers-management:filesManager.toasts.redoFailedCreate"),
+      );
       return false;
     }
 
@@ -505,7 +546,7 @@ export function FilesManager({
   const handleUndo = async () => {
     const action = undoStackRef.current.pop();
     if (!action) {
-      toast.info("Nothing to undo");
+      toast.info(t("servers-management:filesManager.toasts.nothingToUndo"));
       return;
     }
 
@@ -520,7 +561,11 @@ export function FilesManager({
       }
 
       redoStackRef.current.push(action);
-      toast.success(`Undid: ${action.label}`);
+      toast.success(
+        t("servers-management:filesManager.toasts.undid", {
+          label: action.label,
+        }),
+      );
       await refresh(currentPath, { preserveScroll: true });
     } finally {
       isHistoryPlaybackRef.current = false;
@@ -531,7 +576,7 @@ export function FilesManager({
   const handleRedo = async () => {
     const action = redoStackRef.current.pop();
     if (!action) {
-      toast.info("Nothing to redo");
+      toast.info(t("servers-management:filesManager.toasts.nothingToRedo"));
       return;
     }
 
@@ -546,7 +591,11 @@ export function FilesManager({
       }
 
       undoStackRef.current.push(action);
-      toast.success(`Redid: ${action.label}`);
+      toast.success(
+        t("servers-management:filesManager.toasts.redid", {
+          label: action.label,
+        }),
+      );
       await refresh(currentPath, { preserveScroll: true });
     } finally {
       isHistoryPlaybackRef.current = false;
@@ -602,7 +651,9 @@ export function FilesManager({
     targetDirectoryPath = currentPath,
   ) => {
     if (!canWriteFiles) {
-      toast.error("You do not have permission to upload files");
+      toast.error(
+        t("servers-management:filesManager.toasts.noPermissionUpload"),
+      );
       return;
     }
 
@@ -630,7 +681,9 @@ export function FilesManager({
         if (uploadUrlResponse.error || !uploadUrlResponse.data?.url) {
           toast.error(
             uploadUrlResponse.error?.error?.msg ??
-              `Failed to get upload URL for ${file.name}`,
+              t("servers-management:filesManager.toasts.uploadUrlFailed", {
+                fileName: file.name,
+              }),
           );
           continue;
         }
@@ -651,7 +704,11 @@ export function FilesManager({
           });
 
           if (!postUpload.ok) {
-            toast.error(`Failed to upload ${file.name}`);
+            toast.error(
+              t("servers-management:filesManager.toasts.uploadFailedFile", {
+                fileName: file.name,
+              }),
+            );
             continue;
           }
         }
@@ -661,14 +718,14 @@ export function FilesManager({
 
       if (successCount > 0) {
         toast.success(
-          successCount === 1
-            ? "Uploaded 1 file"
-            : `Uploaded ${successCount} files`,
+          t("servers-management:filesManager.toasts.uploaded", {
+            count: successCount,
+          }),
         );
         await refresh(currentPath, { preserveScroll: true });
       }
     } catch {
-      toast.error("Upload failed");
+      toast.error(t("servers-management:filesManager.toasts.uploadFailed"));
     } finally {
       setIsActionLoading(false);
       setIsFileDropActive(false);
@@ -690,7 +747,9 @@ export function FilesManager({
     targetDirectoryPath: string,
   ) => {
     if (!canWriteFiles) {
-      toast.error("You do not have permission to move files");
+      toast.error(
+        t("servers-management:filesManager.toasts.noPermissionMove"),
+      );
       return;
     }
 
@@ -706,7 +765,9 @@ export function FilesManager({
       isDirectory(entry) &&
       (normalizedTarget === from || normalizedTarget.startsWith(`${from}/`))
     ) {
-      toast.error("A directory cannot be moved into itself");
+      toast.error(
+        t("servers-management:filesManager.toasts.cannotMoveIntoItself"),
+      );
       return;
     }
 
@@ -722,7 +783,10 @@ export function FilesManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to move item");
+        toast.error(
+          response.error.error?.msg ??
+            t("servers-management:filesManager.toasts.moveFailed"),
+        );
         return;
       }
 
@@ -730,9 +794,15 @@ export function FilesManager({
         type: "rename",
         from,
         to,
-        label: `Move ${entry.name}`,
+        label: t("servers-management:filesManager.undo.actionLabels.move", {
+          name: entry.name,
+        }),
       });
-      toast.success(`Moved ${entry.name}`);
+      toast.success(
+        t("servers-management:filesManager.toasts.moved", {
+          name: entry.name,
+        }),
+      );
       await refresh(currentPath, { preserveScroll: true });
     } finally {
       setIsActionLoading(false);
@@ -842,7 +912,9 @@ export function FilesManager({
     }
 
     if (!canWriteFiles) {
-      toast.error("You do not have permission to rename files");
+      toast.error(
+        t("servers-management:filesManager.toasts.noPermissionRename"),
+      );
       return;
     }
 
@@ -867,7 +939,10 @@ export function FilesManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to rename");
+        toast.error(
+          response.error.error?.msg ??
+            t("servers-management:filesManager.toasts.renameFailed"),
+        );
         return;
       }
 
@@ -875,9 +950,11 @@ export function FilesManager({
         type: "rename",
         from,
         to,
-        label: `Rename ${selectedEntry.name}`,
+        label: t("servers-management:filesManager.undo.actionLabels.rename", {
+          name: selectedEntry.name,
+        }),
       });
-      toast.success("Renamed successfully");
+      toast.success(t("servers-management:filesManager.toasts.renamed"));
       setRenameOpen(false);
       await refresh(currentPath, { preserveScroll: true });
     } finally {
@@ -891,7 +968,9 @@ export function FilesManager({
     }
 
     if (!canWriteFiles) {
-      toast.error("You do not have permission to copy files");
+      toast.error(
+        t("servers-management:filesManager.toasts.noPermissionCopy"),
+      );
       return;
     }
 
@@ -915,7 +994,10 @@ export function FilesManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to copy");
+        toast.error(
+          response.error.error?.msg ??
+            t("servers-management:filesManager.toasts.copyFailed"),
+        );
         return;
       }
 
@@ -923,9 +1005,11 @@ export function FilesManager({
         type: "copy",
         from,
         to,
-        label: `Copy ${selectedEntry.name}`,
+        label: t("servers-management:filesManager.undo.actionLabels.copy", {
+          name: selectedEntry.name,
+        }),
       });
-      toast.success("Copied successfully");
+      toast.success(t("servers-management:filesManager.toasts.copied"));
       setCopyOpen(false);
       await refresh(currentPath, { preserveScroll: true });
     } finally {
@@ -939,7 +1023,9 @@ export function FilesManager({
     }
 
     if (!canWriteFiles) {
-      toast.error("You do not have permission to delete files");
+      toast.error(
+        t("servers-management:filesManager.toasts.noPermissionDelete"),
+      );
       return;
     }
 
@@ -958,11 +1044,14 @@ export function FilesManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to delete");
+        toast.error(
+          response.error.error?.msg ??
+            t("servers-management:filesManager.toasts.deleteFailed"),
+        );
         return;
       }
 
-      toast.success("Deleted successfully");
+      toast.success(t("servers-management:filesManager.toasts.deleted"));
       setDeleteOpen(false);
       await refresh(currentPath, { preserveScroll: true });
     } finally {
@@ -976,12 +1065,16 @@ export function FilesManager({
     }
 
     if (!canWriteFiles) {
-      toast.error("You do not have permission to archive files");
+      toast.error(
+        t("servers-management:filesManager.toasts.noPermissionArchive"),
+      );
       return;
     }
 
     if (!isDirectory(selectedEntry)) {
-      toast.error("Archive is only supported for directories");
+      toast.error(
+        t("servers-management:filesManager.toasts.archiveDirectoriesOnly"),
+      );
       return;
     }
 
@@ -1006,11 +1099,16 @@ export function FilesManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to archive");
+        toast.error(
+          response.error.error?.msg ??
+            t("servers-management:filesManager.toasts.archiveFailed"),
+        );
         return;
       }
 
-      toast.success("Archive created successfully");
+      toast.success(
+        t("servers-management:filesManager.toasts.archiveCreated"),
+      );
       setArchiveOpen(false);
       await refresh(currentPath, { preserveScroll: true });
     } finally {
@@ -1024,7 +1122,9 @@ export function FilesManager({
     }
 
     if (!canWriteFiles) {
-      toast.error("You do not have permission to extract files");
+      toast.error(
+        t("servers-management:filesManager.toasts.noPermissionExtract"),
+      );
       return;
     }
 
@@ -1048,11 +1148,16 @@ export function FilesManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to unarchive");
+        toast.error(
+          response.error.error?.msg ??
+            t("servers-management:filesManager.toasts.unarchiveFailed"),
+        );
         return;
       }
 
-      toast.success("Archive extracted successfully");
+      toast.success(
+        t("servers-management:filesManager.toasts.archiveExtracted"),
+      );
       setUnarchiveOpen(false);
       await refresh(currentPath, { preserveScroll: true });
     } finally {
@@ -1074,7 +1179,10 @@ export function FilesManager({
       });
 
       if (response.error || !response.data?.url) {
-        toast.error(response.error?.error?.msg ?? "Failed to get download URL");
+        toast.error(
+          response.error?.error?.msg ??
+            t("servers-management:filesManager.toasts.downloadUrlFailed"),
+        );
         return;
       }
 
@@ -1086,7 +1194,9 @@ export function FilesManager({
 
   const handleUpload = () => {
     if (!canWriteFiles) {
-      toast.error("You do not have permission to upload files");
+      toast.error(
+        t("servers-management:filesManager.toasts.noPermissionUpload"),
+      );
       return;
     }
 
@@ -1095,7 +1205,11 @@ export function FilesManager({
 
   const handleCreateDirectory = async () => {
     if (!canWriteFiles) {
-      toast.error("You do not have permission to create directories");
+      toast.error(
+        t(
+          "servers-management:filesManager.toasts.noPermissionCreateDirectory",
+        ),
+      );
       return;
     }
 
@@ -1118,16 +1232,25 @@ export function FilesManager({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to create directory");
+        toast.error(
+          response.error.error?.msg ??
+            t(
+              "servers-management:filesManager.toasts.createDirectoryFailed",
+            ),
+        );
         return;
       }
 
       pushUndoAction({
         type: "create-directory",
         path,
-        label: `Create ${folderName}`,
+        label: t("servers-management:filesManager.undo.actionLabels.create", {
+          name: folderName,
+        }),
       });
-      toast.success("Directory created");
+      toast.success(
+        t("servers-management:filesManager.toasts.directoryCreated"),
+      );
       setCreateDirectoryOpen(false);
       await refresh(currentPath, { preserveScroll: true });
     } finally {
@@ -1175,7 +1298,9 @@ export function FilesManager({
         await handleDownload(entry);
         return;
       default:
-        showPlaceholderAction(`${action} (${entry.name})`);
+        showPlaceholderAction(
+          `${t(actionLabelKeys[action] ?? action)} (${entry.name})`,
+        );
     }
   };
 
@@ -1217,7 +1342,7 @@ export function FilesManager({
           <ActionIcon
             className={`size-4 ${destructive ? "text-destructive" : "text-muted-foreground"}`}
           />
-          {action}
+          {t(actionLabelKeys[action] ?? action)}
         </Item>
       );
     });
@@ -1226,9 +1351,9 @@ export function FilesManager({
     <Card>
       <CardHeader className="space-y-4">
         <div>
-          <CardTitle>Files</CardTitle>
+          <CardTitle>{t("servers-management:filesManager.title")}</CardTitle>
           <CardDescription>
-            Browse server files and manage actions.
+            {t("servers-management:filesManager.description")}
           </CardDescription>
         </div>
 
@@ -1238,10 +1363,14 @@ export function FilesManager({
             className="border-destructive/40 bg-destructive/10"
           >
             <AlertTriangle className="size-4" />
-            <AlertTitle>Disk usage is getting tight</AlertTitle>
+            <AlertTitle>
+              {t("servers-management:filesManager.diskUsageAlert.title")}
+            </AlertTitle>
             <AlertDescription>
-              Disk is currently at {diskUsagePercent.toFixed(1)}% usage.
-              Consider cleaning up files to avoid allocation issues.
+              {t(
+                "servers-management:filesManager.diskUsageAlert.description",
+                { percent: diskUsagePercent.toFixed(1) },
+              )}
             </AlertDescription>
           </Alert>
         ) : null}
@@ -1313,10 +1442,12 @@ export function FilesManager({
             value={pathInput}
             onChange={(event) => setPathInput(event.target.value)}
             className="max-w-xl"
-            placeholder="Enter path"
+            placeholder={t(
+              "servers-management:filesManager.pathInputPlaceholder",
+            )}
           />
           <Button type="button" onClick={() => void refresh(pathInput)}>
-            Open Path
+            {t("servers-management:filesManager.openPathButton")}
           </Button>
           <Button
             type="button"
@@ -1324,7 +1455,7 @@ export function FilesManager({
             onClick={() => void refresh()}
           >
             <RefreshCcw className="size-4" />
-            Refresh
+            {t("common:actions.refresh")}
           </Button>
           <Button
             type="button"
@@ -1335,7 +1466,7 @@ export function FilesManager({
             disabled={isActionLoading || !canWriteFiles}
           >
             <Upload className="size-4" />
-            Upload
+            {t("common:actions.upload")}
           </Button>
           <Button
             type="button"
@@ -1344,7 +1475,7 @@ export function FilesManager({
             disabled={isActionLoading || !canWriteFiles}
           >
             <FolderPlus className="size-4" />
-            New Folder
+            {t("servers-management:filesManager.newFolderButton")}
           </Button>
         </div>
       </CardHeader>
@@ -1362,7 +1493,7 @@ export function FilesManager({
         {isLoading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            Loading files...
+            {t("servers-management:filesManager.loadingFiles")}
           </div>
         ) : files.length === 0 ? (
           <div
@@ -1376,10 +1507,10 @@ export function FilesManager({
             }`}
           >
             <p className="text-sm text-muted-foreground">
-              This directory is empty.
+              {t("servers-management:filesManager.emptyState.title")}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              Drop files here to upload.
+              {t("servers-management:filesManager.emptyState.hint")}
             </p>
           </div>
         ) : (
@@ -1396,9 +1527,11 @@ export function FilesManager({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("common:labels.name")}</TableHead>
+                  <TableHead>{t("common:labels.size")}</TableHead>
+                  <TableHead className="text-right">
+                    {t("common:labels.actions")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1489,7 +1622,12 @@ export function FilesManager({
                             )}
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">
-                            {directory ? "-" : formatBytes(entry.size)}
+                            {directory
+                              ? "-"
+                              : formatBytes(
+                                  entry.size,
+                                  t("common:status.unknown"),
+                                )}
                           </TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
@@ -1529,15 +1667,21 @@ export function FilesManager({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename</DialogTitle>
+            <DialogTitle>{t("common:actions.rename")}</DialogTitle>
             <DialogDescription>
-              Rename {selectedEntry?.name ?? "this item"}.
+              {t("servers-management:filesManager.renameDialog.description", {
+                name:
+                  selectedEntry?.name ??
+                  t("servers-management:filesManager.fallbacks.thisItem"),
+              })}
             </DialogDescription>
           </DialogHeader>
           <Input
             value={renameInput}
             onChange={(event) => setRenameInput(event.target.value)}
-            placeholder="New name"
+            placeholder={t(
+              "servers-management:filesManager.renameDialog.placeholder",
+            )}
           />
           <DialogFooter>
             <Button
@@ -1546,7 +1690,7 @@ export function FilesManager({
               onClick={() => setRenameOpen(false)}
               disabled={isActionLoading}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -1555,7 +1699,7 @@ export function FilesManager({
               }}
               loading={isActionLoading}
             >
-              Rename
+              {t("common:actions.rename")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1573,15 +1717,21 @@ export function FilesManager({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Copy</DialogTitle>
+            <DialogTitle>{t("common:actions.copy")}</DialogTitle>
             <DialogDescription>
-              Create a copy of {selectedEntry?.name ?? "this item"}.
+              {t("servers-management:filesManager.copyDialog.description", {
+                name:
+                  selectedEntry?.name ??
+                  t("servers-management:filesManager.fallbacks.thisItem"),
+              })}
             </DialogDescription>
           </DialogHeader>
           <Input
             value={copyInput}
             onChange={(event) => setCopyInput(event.target.value)}
-            placeholder="Copy name"
+            placeholder={t(
+              "servers-management:filesManager.copyDialog.placeholder",
+            )}
           />
           <DialogFooter>
             <Button
@@ -1590,7 +1740,7 @@ export function FilesManager({
               onClick={() => setCopyOpen(false)}
               disabled={isActionLoading}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -1599,7 +1749,7 @@ export function FilesManager({
               }}
               loading={isActionLoading}
             >
-              Copy
+              {t("common:actions.copy")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1616,18 +1766,27 @@ export function FilesManager({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete item?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("servers-management:filesManager.deleteDialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will delete {selectedEntry?.name ?? "this item"}
-              {selectedEntry && isDirectory(selectedEntry)
-                ? " recursively"
-                : ""}
-              . This action cannot be undone.
+              {t("servers-management:filesManager.deleteDialog.description", {
+                name:
+                  selectedEntry?.name ??
+                  t("servers-management:filesManager.fallbacks.thisItem"),
+                recursiveSuffix:
+                  selectedEntry && isDirectory(selectedEntry)
+                    ? t(
+                        "servers-management:filesManager.deleteDialog.recursiveSuffix",
+                      )
+                    : "",
+              })}{" "}
+              {t("common:confirmDelete.cannotBeUndone")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isActionLoading}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
@@ -1637,7 +1796,7 @@ export function FilesManager({
               }}
               disabled={isActionLoading}
             >
-              Delete
+              {t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1656,18 +1815,35 @@ export function FilesManager({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Archive directory</DialogTitle>
+            <DialogTitle>
+              {t("servers-management:filesManager.archiveDialog.title")}
+            </DialogTitle>
             <DialogDescription>
-              Create an archive from {selectedEntry?.name ?? "this directory"}.
+              {t(
+                "servers-management:filesManager.archiveDialog.description",
+                {
+                  name:
+                    selectedEntry?.name ??
+                    t(
+                      "servers-management:filesManager.fallbacks.thisDirectory",
+                    ),
+                },
+              )}
             </DialogDescription>
           </DialogHeader>
           <Input
             value={archiveNameInput}
             onChange={(event) => setArchiveNameInput(event.target.value)}
-            placeholder="archive-name.tar.gz"
+            placeholder={t(
+              "servers-management:filesManager.archiveDialog.namePlaceholder",
+            )}
           />
           <div className="space-y-2">
-            <p className="text-sm font-medium">Compression type</p>
+            <p className="text-sm font-medium">
+              {t(
+                "servers-management:filesManager.archiveDialog.compressionLabel",
+              )}
+            </p>
             <Select
               value={archiveCompression}
               onValueChange={(value) => {
@@ -1706,10 +1882,14 @@ export function FilesManager({
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select compression" />
+                <SelectValue
+                  placeholder={t(
+                    "servers-management:filesManager.archiveDialog.compressionPlaceholder",
+                  )}
+                />
               </SelectTrigger>
               <SelectContent>
-                {ARCHIVE_COMPRESSION_OPTIONS.map((option) => (
+                {archiveCompressionOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -1724,7 +1904,7 @@ export function FilesManager({
               onClick={() => setArchiveOpen(false)}
               disabled={isActionLoading}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -1733,7 +1913,7 @@ export function FilesManager({
               }}
               loading={isActionLoading}
             >
-              Archive
+              {t("servers-management:filesManager.archiveDialog.submitButton")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1751,15 +1931,28 @@ export function FilesManager({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Unarchive</DialogTitle>
+            <DialogTitle>
+              {t("servers-management:filesManager.unarchiveDialog.title")}
+            </DialogTitle>
             <DialogDescription>
-              Extract {selectedEntry?.name ?? "this archive"} to a directory.
+              {t(
+                "servers-management:filesManager.unarchiveDialog.description",
+                {
+                  name:
+                    selectedEntry?.name ??
+                    t(
+                      "servers-management:filesManager.fallbacks.thisArchive",
+                    ),
+                },
+              )}
             </DialogDescription>
           </DialogHeader>
           <Input
             value={unarchiveNameInput}
             onChange={(event) => setUnarchiveNameInput(event.target.value)}
-            placeholder="target-directory"
+            placeholder={t(
+              "servers-management:filesManager.unarchiveDialog.placeholder",
+            )}
           />
           <DialogFooter>
             <Button
@@ -1768,7 +1961,7 @@ export function FilesManager({
               onClick={() => setUnarchiveOpen(false)}
               disabled={isActionLoading}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -1777,7 +1970,9 @@ export function FilesManager({
               }}
               loading={isActionLoading}
             >
-              Extract
+              {t(
+                "servers-management:filesManager.unarchiveDialog.submitButton",
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1794,15 +1989,24 @@ export function FilesManager({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create directory</DialogTitle>
+            <DialogTitle>
+              {t(
+                "servers-management:filesManager.createDirectoryDialog.title",
+              )}
+            </DialogTitle>
             <DialogDescription>
-              Create a new folder inside {currentPath}.
+              {t(
+                "servers-management:filesManager.createDirectoryDialog.description",
+                { path: currentPath },
+              )}
             </DialogDescription>
           </DialogHeader>
           <Input
             value={newDirectoryNameInput}
             onChange={(event) => setNewDirectoryNameInput(event.target.value)}
-            placeholder="folder-name"
+            placeholder={t(
+              "servers-management:filesManager.createDirectoryDialog.placeholder",
+            )}
           />
           <DialogFooter>
             <Button
@@ -1811,7 +2015,7 @@ export function FilesManager({
               onClick={() => setCreateDirectoryOpen(false)}
               disabled={isActionLoading}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -1820,7 +2024,7 @@ export function FilesManager({
               }}
               loading={isActionLoading}
             >
-              Create
+              {t("common:actions.create")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -11,8 +11,10 @@ import {
 } from "@/components/ui/card";
 import Link from "@/components/link";
 import { useRouter } from "@/lib/navigation";
+import { useTranslation } from "react-i18next";
 
 export default function CreateOrganizationPage() {
+  const { t } = useTranslation(["app", "common"]);
   const router = useRouter();
 
   return (
@@ -20,15 +22,15 @@ export default function CreateOrganizationPage() {
       <Card className="w-full max-w-xs sm:max-w-sm">
         <CardHeader className="flex flex-col items-center gap-2">
           <NoviumLogo className="size-8" />
-          <CardTitle>Create Organization</CardTitle>
+          <CardTitle>{t("app:createOrganizationPage.title")}</CardTitle>
           <CardDescription>
-            Create a new organization to get started
+            {t("app:createOrganizationPage.description")}
           </CardDescription>
           <Link
             href="/"
             className="text-sm text-muted-foreground underline underline-offset-3 hover:text-primary"
           >
-            Back to dashboard
+            {t("common:actions.backToDashboard")}
           </Link>
         </CardHeader>
         <CardContent>

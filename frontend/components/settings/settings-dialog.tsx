@@ -2,6 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import { KeyRound, Palette, User, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { AppearanceSection } from "@/components/settings/appearance-section";
 import { DaemonAuthSection } from "@/components/settings/daemon-auth-section";
@@ -21,31 +22,32 @@ import {
   type SettingsSection,
 } from "@/lib/settings";
 
-const sectionMeta: Record<
-  SettingsSection,
-  { icon: LucideIcon; label: string; description: string }
-> = {
-  profile: {
-    icon: User,
-    label: "Profile",
-    description: "Your account details.",
-  },
-  daemon: {
-    icon: KeyRound,
-    label: "Daemon Auth",
-    description:
-      "Manage the daemon password and SSH public keys used for SFTP access.",
-  },
-  appearance: {
-    icon: Palette,
-    label: "Appearance",
-    description: "Customize how the dashboard looks.",
-  },
-};
-
 export function SettingsDialog() {
   const { section, select, close } = useSettingsDialog();
   const active = section ?? defaultSettingsSection;
+  const { t } = useTranslation();
+
+  const sectionMeta: Record<
+    SettingsSection,
+    { icon: LucideIcon; label: string; description: string }
+  > = {
+    profile: {
+      icon: User,
+      label: t("settings:dialog.sections.profile.label"),
+      description: t("settings:dialog.sections.profile.description"),
+    },
+    daemon: {
+      icon: KeyRound,
+      label: t("settings:dialog.sections.daemon.label"),
+      description: t("settings:dialog.sections.daemon.description"),
+    },
+    appearance: {
+      icon: Palette,
+      label: t("settings:dialog.sections.appearance.label"),
+      description: t("settings:dialog.sections.appearance.description"),
+    },
+  };
+
   const meta = sectionMeta[active];
 
   return (
@@ -62,7 +64,7 @@ export function SettingsDialog() {
         <div className="flex h-full min-h-0 flex-col sm:flex-row">
           <div className="flex shrink-0 flex-col gap-2 border-b bg-muted/40 p-2 sm:w-52 sm:gap-3 sm:border-b-0 sm:border-r sm:p-3">
             <p className="hidden px-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:block">
-              Settings
+              {t("settings:dialog.title")}
             </p>
             <nav className="flex gap-1 overflow-x-auto sm:flex-col sm:overflow-x-visible">
               {settingsSections.map((entry) => {
@@ -101,7 +103,7 @@ export function SettingsDialog() {
                 onClick={close}
               >
                 <X className="size-4" />
-                <span className="sr-only">Close</span>
+                <span className="sr-only">{t("common:actions.close")}</span>
               </Button>
             </div>
 

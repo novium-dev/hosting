@@ -4,6 +4,7 @@ import {
   useRouteError,
 } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, FileQuestion, Home, RotateCw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import Link from "@/components/link";
 import { Button } from "@/components/ui/button";
@@ -11,24 +12,25 @@ import { ErrorView } from "@/components/error-view";
 
 export function NotFound() {
   const navigate = useNavigate();
+  const { t } = useTranslation(["app", "common"]);
 
   return (
     <ErrorView
       icon={FileQuestion}
-      eyebrow="Error 404"
-      title="Page not found"
-      description="The page you're looking for doesn't exist or may have been moved."
+      eyebrow={t("app:notFound.eyebrow")}
+      title={t("app:notFound.title")}
+      description={t("app:notFound.description")}
       actions={
         <>
           <Button asChild>
             <Link href="/">
               <Home className="size-4" />
-              Back to dashboard
+              {t("common:actions.backToDashboard")}
             </Link>
           </Button>
           <Button variant="outline" onClick={() => navigate(-1)}>
             <ArrowLeft className="size-4" />
-            Go back
+            {t("common:actions.goBack")}
           </Button>
         </>
       }
@@ -40,6 +42,7 @@ export function NotFound() {
 // styled fallback for any unexpected runtime/route error.
 export function RouteErrorBoundary() {
   const error = useRouteError();
+  const { t } = useTranslation(["app", "common"]);
 
   if (isRouteErrorResponse(error) && error.status === 404) {
     return <NotFound />;
@@ -54,20 +57,20 @@ export function RouteErrorBoundary() {
   return (
     <ErrorView
       icon={AlertTriangle}
-      eyebrow="Something went wrong"
-      title="An unexpected error occurred"
-      description="Hephaestus ran into a problem rendering this page. Try reloading, or head back to your dashboard."
+      eyebrow={t("app:routeError.eyebrow")}
+      title={t("app:routeError.title")}
+      description={t("app:routeError.description")}
       detail={detail}
       actions={
         <>
           <Button onClick={() => window.location.reload()}>
             <RotateCw className="size-4" />
-            Reload
+            {t("common:actions.reload")}
           </Button>
           <Button asChild variant="outline">
             <Link href="/">
               <Home className="size-4" />
-              Back to dashboard
+              {t("common:actions.backToDashboard")}
             </Link>
           </Button>
         </>

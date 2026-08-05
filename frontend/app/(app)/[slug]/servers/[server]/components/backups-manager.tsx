@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -62,9 +63,9 @@ type BackupRow = ListBackupsResponses[200][number];
 
 type BackupAction = "download" | "restore" | "delete";
 
-function formatBytes(bytes: number | null | undefined) {
+function formatBytes(bytes: number | null | undefined, unknownLabel: string) {
   if (typeof bytes !== "number" || !Number.isFinite(bytes) || bytes < 0) {
-    return "Unknown";
+    return unknownLabel;
   }
 
   if (bytes < 1024) {
@@ -83,13 +84,13 @@ function formatBytes(bytes: number | null | undefined) {
   return `${value.toFixed(2)} ${unit}`;
 }
 
-function formatTime(timestamp: number) {
+function formatTime(timestamp: number, unknownLabel: string) {
   const normalized =
     timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp;
   const date = new Date(normalized);
 
   if (Number.isNaN(date.getTime())) {
-    return "Unknown";
+    return unknownLabel;
   }
 
   return date.toLocaleString();
@@ -100,6 +101,7 @@ function backupIdFromRow(backup: BackupRow) {
 }
 
 export function BackupsManager({ serverId }: BackupsManagerProps) {
+  const { t } = useTranslation();
   const [backups, setBackups] = useState<BackupRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -122,17 +124,17 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
       });
 
       if (response.error || !response.data) {
-        throw new Error("Failed to load backups");
+        throw new Error(t("servers:backups.toasts.loadFailed"));
       }
 
       const sorted = [...response.data].sort((a, b) => b.time - a.time);
       setBackups(sorted);
     } catch {
-      toast.error("Failed to load backups");
+      toast.error(t("servers:backups.toasts.loadFailed"));
     } finally {
       setIsLoading(false);
     }
-  }, [serverId]);
+  }, [serverId, t]);
 
   useEffect(() => {
     void refresh();
@@ -149,11 +151,13 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to create backup");
+        toast.error(
+          response.error.error?.msg ?? t("servers:backups.toasts.createFailed"),
+        );
         return;
       }
 
-      toast.success("Backup creation started");
+      toast.success(t("servers:backups.toasts.createSuccess"));
       setCreateOpen(false);
       await refresh();
     } finally {
@@ -170,7 +174,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
       selectedBackupId === null ||
       Number.isNaN(selectedBackupId)
     ) {
-      toast.error("Invalid backup selection");
+      toast.error(t("servers:backups.toasts.invalidSelection"));
       return;
     }
 
@@ -197,7 +201,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
     const backupId = backupIdFromRow(backup);
 
     if (Number.isNaN(backupId)) {
-      toast.error("Invalid backup id");
+      toast.error(t("servers:backups.toasts.invalidId"));
       return;
     }
 
@@ -213,7 +217,10 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
       });
 
       if (response.error || !response.data) {
-        toast.error(response.error?.error?.msg ?? "Failed to get backup URL");
+        toast.error(
+          response.error?.error?.msg ??
+            t("servers:backups.toasts.downloadUrlFailed"),
+        );
         return;
       }
 
@@ -234,11 +241,14 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to restore backup");
+        toast.error(
+          response.error.error?.msg ??
+            t("servers:backups.toasts.restoreFailed"),
+        );
         return;
       }
 
-      toast.success("Restore command sent");
+      toast.success(t("servers:backups.toasts.restoreSuccess"));
     });
   };
 
@@ -253,11 +263,13 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to delete backup");
+        toast.error(
+          response.error.error?.msg ?? t("servers:backups.toasts.deleteFailed"),
+        );
         return;
       }
 
-      toast.success("Backup deleted");
+      toast.success(t("servers:backups.toasts.deleteSuccess"));
       setSelectedBackup(null);
     });
   };
@@ -266,10 +278,8 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
     <Card>
       <CardHeader className="space-y-4">
         <div>
-          <CardTitle>Backups</CardTitle>
-          <CardDescription>
-            Manage server backups, restore points, and downloads.
-          </CardDescription>
+          <CardTitle>{t("servers:backups.title")}</CardTitle>
+          <CardDescription>{t("servers:backups.description")}</CardDescription>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -279,7 +289,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
             disabled={isActionLoading}
           >
             <HardDrive className="size-4" />
-            Create Backup
+            {t("servers:backups.createButton")}
           </Button>
           <Button
             type="button"
@@ -290,7 +300,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
             disabled={isActionLoading}
           >
             <RefreshCcw className="size-4" />
-            Refresh
+            {t("common:actions.refresh")}
           </Button>
         </div>
       </CardHeader>
@@ -299,20 +309,24 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
         {isLoading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            Loading backups...
+            {t("servers:backups.loading")}
           </div>
         ) : backups.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No backups found.</p>
+          <p className="text-sm text-muted-foreground">
+            {t("servers:backups.empty")}
+          </p>
         ) : (
           <div className="overflow-hidden rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Storage</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("common:labels.name")}</TableHead>
+                  <TableHead>{t("servers:backups.table.storage")}</TableHead>
+                  <TableHead>{t("common:labels.size")}</TableHead>
+                  <TableHead>{t("common:labels.created")}</TableHead>
+                  <TableHead className="text-right">
+                    {t("common:labels.actions")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -322,16 +336,19 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
                   return (
                     <TableRow key={`${backup.storage}-${backup.time}`}>
                       <TableCell className="font-medium">
-                        {backup.name?.trim() || `Backup ${backupId}`}
+                        {backup.name?.trim() ||
+                          t("servers:backups.unnamedBackup", {
+                            id: backupId,
+                          })}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {backup.storage}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {formatBytes(backup.size)}
+                        {formatBytes(backup.size, t("common:status.unknown"))}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {formatTime(backup.time)}
+                        {formatTime(backup.time, t("common:status.unknown"))}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="inline-flex items-center gap-2">
@@ -345,7 +362,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
                             disabled={isActionLoading}
                           >
                             <Download className="size-4" />
-                            Download
+                            {t("common:actions.download")}
                           </Button>
                           <Button
                             type="button"
@@ -358,7 +375,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
                             disabled={isActionLoading}
                           >
                             <RotateCcw className="size-4" />
-                            Restore
+                            {t("servers:backups.restoreButton")}
                           </Button>
                           <Button
                             type="button"
@@ -371,7 +388,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
                             disabled={isActionLoading}
                           >
                             <Trash2 className="size-4" />
-                            Delete
+                            {t("common:actions.delete")}
                           </Button>
                         </div>
                       </TableCell>
@@ -392,9 +409,9 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Backup</DialogTitle>
+            <DialogTitle>{t("servers:backups.createDialog.title")}</DialogTitle>
             <DialogDescription>
-              This will start creating a new backup using the default storage.
+              {t("servers:backups.createDialog.description")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -404,7 +421,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
               onClick={() => setCreateOpen(false)}
               disabled={isActionLoading}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -413,7 +430,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
               }}
               loading={isActionLoading}
             >
-              Create
+              {t("common:actions.create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -430,16 +447,20 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Restore backup?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("servers:backups.restoreDialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will restore{" "}
-              {selectedBackup?.name?.trim() || "the selected backup"}. Existing
-              data may be overwritten.
+              {t("servers:backups.restoreDialog.description", {
+                name:
+                  selectedBackup?.name?.trim() ||
+                  t("servers:backups.unnamedFallback"),
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isActionLoading}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
@@ -448,7 +469,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
               }}
               disabled={isActionLoading}
             >
-              Restore
+              {t("servers:backups.restoreButton")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -465,15 +486,20 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete backup?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("servers:backups.deleteDialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This action permanently removes{" "}
-              {selectedBackup?.name?.trim() || "the selected backup"}.
+              {t("servers:backups.deleteDialog.description", {
+                name:
+                  selectedBackup?.name?.trim() ||
+                  t("servers:backups.unnamedFallback"),
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isActionLoading}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
@@ -483,7 +509,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
               }}
               disabled={isActionLoading}
             >
-              Delete
+              {t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

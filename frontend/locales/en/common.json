@@ -5,13 +5,143 @@
       "title": "Sign In",
       "description": "Continue with Novium Auth to access your account.",
       "submit": "Sign in",
-      "genericError": "Something went wrong",
       "terms": "By signing in, you agree to our <termsLink>Terms of Use</termsLink> and <privacyLink>Privacy Policy</privacyLink>."
+    },
+    "providers": {
+      "user": "User",
+      "team": "Team"
     }
   },
   "language": {
     "label": "Language",
     "en": "English",
     "de": "German"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "close": "Close",
+    "confirm": "Confirm",
+    "submit": "Submit",
+    "update": "Update",
+    "remove": "Remove",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "continue": "Continue",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "copy": "Copy",
+    "copied": "Copied",
+    "search": "Search",
+    "viewAll": "View all",
+    "loadMore": "Load more",
+    "signOut": "Sign out",
+    "add": "Add",
+    "clear": "Clear",
+    "apply": "Apply",
+    "reset": "Reset",
+    "download": "Download",
+    "upload": "Upload",
+    "rename": "Rename",
+    "duplicate": "Duplicate",
+    "select": "Select",
+    "selectAll": "Select all",
+    "invite": "Invite",
+    "regenerate": "Regenerate",
+    "reload": "Reload",
+    "goBack": "Go back",
+    "backToDashboard": "Back to dashboard"
+  },
+  "labels": {
+    "name": "Name",
+    "description": "Description",
+    "status": "Status",
+    "actions": "Actions",
+    "created": "Created",
+    "updated": "Updated",
+    "type": "Type",
+    "region": "Region",
+    "owner": "Owner",
+    "id": "ID",
+    "date": "Date",
+    "size": "Size",
+    "value": "Value",
+    "key": "Key",
+    "role": "Role",
+    "email": "Email",
+    "permissions": "Permissions",
+    "address": "Address",
+    "port": "Port",
+    "host": "Host",
+    "path": "Path",
+    "url": "URL",
+    "expires": "Expires",
+    "optional": "Optional",
+    "required": "Required"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "running": "Running",
+    "stopped": "Stopped",
+    "starting": "Starting",
+    "stopping": "Stopping",
+    "unknown": "Unknown",
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "suspended": "Suspended",
+    "healthy": "Healthy",
+    "unhealthy": "Unhealthy",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "installing": "Installing",
+    "error": "Error"
+  },
+  "state": {
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "deleting": "Deleting...",
+    "noResultsFound": "No results found.",
+    "genericError": "Something went wrong",
+    "yes": "Yes",
+    "no": "No",
+    "notFound": "Not found"
+  },
+  "confirmDelete": {
+    "title": "Delete {{name}}?",
+    "cannotBeUndone": "This action cannot be undone."
+  },
+  "pagination": {
+    "label": "pagination",
+    "previous": "Previous",
+    "next": "Next",
+    "goToPreviousPage": "Go to previous page",
+    "goToNextPage": "Go to next page",
+    "morePages": "More pages"
+  },
+  "table": {
+    "noResultsFound": "No results found."
+  },
+  "carousel": {
+    "previousSlide": "Previous slide",
+    "nextSlide": "Next slide"
+  },
+  "sidebar": {
+    "title": "Sidebar",
+    "mobileDescription": "Displays the mobile sidebar.",
+    "toggle": "Toggle Sidebar"
+  },
+  "breadcrumb": {
+    "label": "breadcrumb",
+    "more": "More"
+  },
+  "a11y": {
+    "loading": "Loading",
+    "workspaceAvatar": "Workspace Avatar"
   }
 }

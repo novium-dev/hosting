@@ -11,6 +11,7 @@ import {
   Server,
   Users,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { NoviumLogo } from "@/components/brand/novium-logo";
 import { NavUserMenu } from "./nav-user-menu";
 import {
@@ -33,80 +34,81 @@ import {
 } from "@/lib/permissions";
 import { usePathname } from "@/lib/navigation";
 
-const adminGroups = [
-  {
-    label: "Access",
-    items: [
-      {
-        title: "Users",
-        href: "/admin/users",
-        icon: Users,
-        permission: ManagementPermission.USER_VIEW,
-      },
-      {
-        title: "API keys",
-        href: "/admin/api-keys",
-        icon: KeyRound,
-        permission: ManagementPermission.API_KEYS_VIEW,
-      },
-    ],
-  },
-  {
-    label: "Workloads",
-    items: [
-      {
-        title: "Projects",
-        href: "/admin/projects",
-        icon: FolderKanban,
-        permission: ManagementPermission.SERVER_MANAGE,
-      },
-      {
-        title: "Servers",
-        href: "/admin/servers",
-        icon: Server,
-        permission: ManagementPermission.SERVER_MANAGE,
-      },
-      {
-        title: "Templates",
-        href: "/admin/templates",
-        icon: Boxes,
-        permission: ManagementPermission.SERVER_MANAGE,
-      },
-    ],
-  },
-  {
-    label: "Infrastructure",
-    items: [
-      {
-        title: "Regions",
-        href: "/admin/regions",
-        icon: Globe2,
-        permission: ManagementPermission.NODES_VIEW,
-      },
-      {
-        title: "Nodes",
-        href: "/admin/nodes",
-        icon: Network,
-        permission: ManagementPermission.NODES_VIEW,
-      },
-      {
-        title: "Domains",
-        href: "/admin/domains",
-        icon: Globe,
-        permission: ManagementPermission.DOMAINS_VIEW,
-      },
-      {
-        title: "Databases",
-        href: "/admin/databases",
-        icon: Database,
-        permission: ManagementPermission.DATABASE_HOSTS_VIEW,
-      },
-    ],
-  },
-] as const;
-
 export function AdminSidebar({ permissions }: { permissions: number }) {
   const pathname = usePathname();
+  const { t } = useTranslation();
+
+  const adminGroups = [
+    {
+      label: t("navigation:adminSidebar.groups.access"),
+      items: [
+        {
+          title: t("navigation:adminSidebar.items.users"),
+          href: "/admin/users",
+          icon: Users,
+          permission: ManagementPermission.USER_VIEW,
+        },
+        {
+          title: t("navigation:adminSidebar.items.apiKeys"),
+          href: "/admin/api-keys",
+          icon: KeyRound,
+          permission: ManagementPermission.API_KEYS_VIEW,
+        },
+      ],
+    },
+    {
+      label: t("navigation:adminSidebar.groups.workloads"),
+      items: [
+        {
+          title: t("navigation:adminSidebar.items.projects"),
+          href: "/admin/projects",
+          icon: FolderKanban,
+          permission: ManagementPermission.SERVER_MANAGE,
+        },
+        {
+          title: t("navigation:adminSidebar.items.servers"),
+          href: "/admin/servers",
+          icon: Server,
+          permission: ManagementPermission.SERVER_MANAGE,
+        },
+        {
+          title: t("navigation:adminSidebar.items.templates"),
+          href: "/admin/templates",
+          icon: Boxes,
+          permission: ManagementPermission.SERVER_MANAGE,
+        },
+      ],
+    },
+    {
+      label: t("navigation:adminSidebar.groups.infrastructure"),
+      items: [
+        {
+          title: t("navigation:adminSidebar.items.regions"),
+          href: "/admin/regions",
+          icon: Globe2,
+          permission: ManagementPermission.NODES_VIEW,
+        },
+        {
+          title: t("navigation:adminSidebar.items.nodes"),
+          href: "/admin/nodes",
+          icon: Network,
+          permission: ManagementPermission.NODES_VIEW,
+        },
+        {
+          title: t("navigation:adminSidebar.items.domains"),
+          href: "/admin/domains",
+          icon: Globe,
+          permission: ManagementPermission.DOMAINS_VIEW,
+        },
+        {
+          title: t("navigation:adminSidebar.items.databases"),
+          href: "/admin/databases",
+          icon: Database,
+          permission: ManagementPermission.DATABASE_HOSTS_VIEW,
+        },
+      ],
+    },
+  ];
 
   const visibleGroups = adminGroups
     .map((group) => ({
@@ -128,7 +130,7 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">Hephaestus</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    Administration
+                    {t("navigation:adminSidebar.subtitle")}
                   </span>
                 </div>
               </Link>
@@ -169,10 +171,13 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Back to app">
+            <SidebarMenuButton
+              asChild
+              tooltip={t("navigation:adminSidebar.backToApp")}
+            >
               <Link href="/">
                 <Home />
-                <span>Back to app</span>
+                <span>{t("navigation:adminSidebar.backToApp")}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

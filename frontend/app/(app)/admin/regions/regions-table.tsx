@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Globe2, PencilIcon, PlusIcon, Search, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +60,7 @@ export function RegionsTable({
   canManage: boolean;
   onChanged: () => void;
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<RegionRow | null>(null);
   const [creating, setCreating] = useState(false);
@@ -90,11 +92,13 @@ export function RegionsTable({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to delete region");
+        toast.error(
+          response.error.error?.msg ?? t("admin-core:regions.toast.deleteFailed"),
+        );
         return;
       }
 
-      toast.success("Region deleted");
+      toast.success(t("admin-core:regions.toast.deleted"));
       setDeleting(null);
       onChanged();
     } finally {
@@ -106,15 +110,17 @@ export function RegionsTable({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Regions</h1>
+          <h1 className="text-xl font-semibold">
+            {t("admin-core:regions.title")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Group nodes by location. Every node belongs to exactly one region.
+            {t("admin-core:regions.description")}
           </p>
         </div>
         {canManage ? (
           <Button type="button" onClick={() => setCreating(true)}>
             <PlusIcon data-icon="inline-start" />
-            Create Region
+            {t("admin-core:regions.createButton")}
           </Button>
         ) : null}
       </div>
@@ -125,7 +131,7 @@ export function RegionsTable({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search by name, slug, or id..."
+          placeholder={t("admin-core:regions.searchPlaceholder")}
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
         />
       </div>
@@ -134,11 +140,13 @@ export function RegionsTable({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead>Region ID</TableHead>
-              <TableHead>Nodes</TableHead>
-              <TableHead className="text-right">Manage</TableHead>
+              <TableHead>{t("common:labels.name")}</TableHead>
+              <TableHead>{t("admin-core:shared.slugColumn")}</TableHead>
+              <TableHead>{t("admin-core:regions.table.regionId")}</TableHead>
+              <TableHead>{t("admin-core:regions.table.nodes")}</TableHead>
+              <TableHead className="text-right">
+                {t("admin-core:shared.manageColumn")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -147,9 +155,11 @@ export function RegionsTable({
                 <TableCell colSpan={5} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <Globe2 className="size-5 text-muted-foreground" />
-                    <p className="text-sm font-medium">No regions found</p>
+                    <p className="text-sm font-medium">
+                      {t("admin-core:regions.emptyState.title")}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      Create a region before registering a node.
+                      {t("admin-core:regions.emptyState.description")}
                     </p>
                   </div>
                 </TableCell>
@@ -217,16 +227,20 @@ export function RegionsTable({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete region</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("admin-core:regions.deleteDialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {deleting
-                ? `"${deleting.display}" will be removed permanently. Nodes must be moved to another region first.`
+                ? t("admin-core:regions.deleteDialog.description", {
+                    display: deleting.display,
+                  })
                 : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeletePending}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
@@ -234,7 +248,7 @@ export function RegionsTable({
                 void handleDelete();
               }}
             >
-              Delete
+              {t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -254,6 +268,7 @@ function RegionFormDialog({
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [display, setDisplay] = useState(region?.display ?? "");
   const [slug, setSlug] = useState(region?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(region !== null);
@@ -266,7 +281,7 @@ function RegionFormDialog({
     const normalizedSlug = slugify(slug.trim());
 
     if (normalizedSlug === "") {
-      toast.error("Slug must contain lowercase letters, numbers or hyphens");
+      toast.error(t("admin-core:regions.toast.slugRequired"));
       return;
     }
 

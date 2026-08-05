@@ -13,6 +13,7 @@ import { OrganizationAvatar } from "@/components/ui/organization-avatar";
 import { TextEllipsis } from "@/components/ui/text-ellipsis";
 import type { AppOrganization } from "@/lib/auth";
 import { ChevronDown } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useParams } from "@/lib/navigation";
 import { CreateOrganizationModal } from "./create-organization";
 import { SwitcherItem } from "./switcher-item";
@@ -24,6 +25,7 @@ export function OrganizationDropdown({
 }) {
   const params = useParams();
   const slug = params.slug as string;
+  const { t } = useTranslation();
 
   const activeOrganization = organizations.find(
     (organization) => organization.slug === slug,
@@ -62,7 +64,7 @@ export function OrganizationDropdown({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-xs text-muted-foreground">
-          Switch Organization
+          {t("navigation:organizationSwitcher.switchOrganization")}
         </DropdownMenuLabel>
         {organizations?.map((organization) => (
           <SwitcherItem

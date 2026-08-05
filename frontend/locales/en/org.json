@@ -1,0 +1,220 @@
+{
+  "shared": {
+    "cpu": "CPU",
+    "ram": "RAM",
+    "disk": "Disk",
+    "memory": "Memory",
+    "permissionCount_one": "{{count}} permission",
+    "permissionCount_other": "{{count}} permissions",
+    "noPermissions": "No permissions"
+  },
+  "apiKeys": {
+    "title": "API keys",
+    "description": "Keys act as their owner inside this project, limited to the permissions they were given.",
+    "table": {
+      "columns": {
+        "scope": "Scope",
+        "lastUsed": "Last used"
+      },
+      "instanceScope": "Instance",
+      "never": "Never",
+      "loadError": "Failed to load API keys.",
+      "emptyTitle": "No API keys yet",
+      "emptyDescription": "Create one to talk to the API without a browser session.",
+      "editAction": "Edit key",
+      "revokeAction": "Revoke key",
+      "revokeTitle": "Revoke API key?",
+      "revokeDescription": "{{name}} stops working immediately. Anything using it will start getting 401s.",
+      "revoked": "API key revoked"
+    },
+    "createDialog": {
+      "trigger": "New key",
+      "title": "Create API key",
+      "descriptionProject": "The key can only act inside this project, and never beyond your own permissions.",
+      "descriptionInstance": "The key acts across the instance, and never beyond your own permissions.",
+      "namePlaceholder": "Deployment pipeline",
+      "submit": "Create key",
+      "copyTitle": "Copy your API key",
+      "copyDescription": "This is the only time the key is shown. Store it somewhere safe — if you lose it, create a new one.",
+      "copyAriaLabel": "Copy API key",
+      "sendAs": "Send it as <code>Authorization: Bearer YOUR_KEY</code>.",
+      "done": "Done",
+      "copied": "API key copied",
+      "copyFailed": "Failed to copy API key"
+    },
+    "editDialog": {
+      "title": "Edit API key",
+      "description": "The scope is fixed when a key is created; its name and permissions are not.",
+      "submit": "Save changes",
+      "updated": "API key updated"
+    },
+    "permissionsField": {
+      "instanceLabel": "Instance permissions",
+      "serverLabel": "Server permissions",
+      "serverDescription": "Applied to every server the key's owner can access."
+    }
+  },
+  "databases": {
+    "title": "Databases",
+    "description": "Your own database engines. Each one holds as many databases and users as you need.",
+    "descriptionBypass": "Your role lets you go past the usual instance limit.",
+    "descriptionLimit": "A project can run up to {{limit}}.",
+    "instanceBreadcrumb": "Instance",
+    "engineLabel": "Engine",
+    "sections": {
+      "databases": "Databases",
+      "users": "Users"
+    },
+    "instanceView": {
+      "notRunningTitle": "The instance is not running",
+      "notRunningDescription": "Start it before creating databases or users — the engine has to be up for those to take effect."
+    },
+    "createDialog": {
+      "trigger": "New instance",
+      "title": "Create database instance",
+      "description": "Your own engine, on a host in your project's region. Its size is set by the platform; you can put as many databases and users on it as you like.",
+      "namePlaceholder": "Production",
+      "nameDescription": "Only for you to tell instances apart. Renaming it later is up to an administrator.",
+      "submit": "Create instance",
+      "created": "Instance created, starting it now"
+    },
+    "databasesCard": {
+      "title": "Databases",
+      "description": "As many as you need on this instance. Each one is reachable through the shared instance address.",
+      "createTrigger": "New database",
+      "loadError": "Failed to load the databases.",
+      "emptyTitle": "No databases yet",
+      "deleteAriaLabel": "Delete database",
+      "createDialogTitle": "Create database",
+      "createDialogDescription": "Letters and digits only, up to 63 characters.",
+      "namePlaceholder": "analytics",
+      "createSubmit": "Create database",
+      "deleteDescription": "The database and every user granted only on it are deleted, along with all of their data.",
+      "created": "Database created",
+      "createError": "Failed to create the database",
+      "deleted": "Database deleted",
+      "deleteError": "Failed to delete the database"
+    },
+    "usersCard": {
+      "title": "Users",
+      "description": "Each one connects with the name shown, which carries its own id.",
+      "createTrigger": "New user",
+      "loadError": "Failed to load the users.",
+      "emptyTitle": "No users yet",
+      "emptyDescription": "Create one to get a connection string.",
+      "usernameColumn": "Username",
+      "connectionColumn": "Connection",
+      "revealPassword": "Reveal password",
+      "hidePassword": "Hide password",
+      "copyUriAriaLabel": "Copy connection URI",
+      "connectionUriCopied": "Connection URI copied",
+      "connectionUriCopyFailed": "Failed to copy the connection URI",
+      "rotatePassword": "Rotate password",
+      "createDialogTitle": "Create user",
+      "createDialogDescription": "A password is generated for you and shown once the user exists.",
+      "usernameLabel": "Username",
+      "usernamePlaceholder": "app",
+      "grantOnLabel": "Grant on",
+      "noDatabaseOption": "No database",
+      "createSubmit": "Create user",
+      "deleteDescription": "Anything still connecting with these credentials stops working.",
+      "created": "User created",
+      "createError": "Failed to create the user",
+      "deleted": "User deleted",
+      "deleteError": "Failed to delete the user",
+      "passwordRotated": "Password rotated",
+      "rotateError": "Failed to rotate the password"
+    },
+    "managementBar": {
+      "suspendedTooltip": "An administrator suspended this instance. Connections are rejected and power actions are blocked.",
+      "copyAddressTitle": "Copy instance address",
+      "addressCopied": "Instance address copied",
+      "addressCopyFailed": "Failed to copy the instance address",
+      "uptimeTitle": "Uptime",
+      "noPowerPermission": "You do not have permission to control power.",
+      "start": "Start",
+      "restart": "Restart",
+      "stop": "Stop",
+      "kill": "Kill",
+      "startCommandSent": "Start command sent",
+      "restartCommandSent": "Restart command sent",
+      "stopCommandSent": "Stop command sent",
+      "killCommandSent": "Kill command sent",
+      "powerError": "Failed to change the power state"
+    },
+    "instancesTable": {
+      "stateColumn": "State",
+      "loadError": "Failed to load the instances.",
+      "emptyTitle": "No database instances yet",
+      "emptyDescription": "Create one, then add as many databases and users to it as you need.",
+      "powerChanged": "Power state changed",
+      "deleted": "Instance deleted",
+      "deleteError": "Failed to delete the instance",
+      "deleteDescription": "Every database and user on this instance is deleted with it, along with all of their data. This cannot be undone."
+    }
+  },
+  "members": {
+    "title": "Members",
+    "description": "Add people and grant them specific permissions",
+    "table": {
+      "userColumn": "User",
+      "emptyTitle": "No members yet",
+      "emptyDescription": "Invite someone to give them access to this project.",
+      "updateAction": "Update Member",
+      "removeAction": "Remove Member",
+      "removeTitle": "Remove Member?",
+      "removeDescription": "This will remove {{email}} from the project. They will lose access to all of its servers.",
+      "removeSuccess": "Member removed successfully"
+    },
+    "inviteDialog": {
+      "trigger": "Add member",
+      "title": "Add Member",
+      "description": "Add a member by email and grant them specific permissions.",
+      "emailPlaceholder": "member@email.com",
+      "submit": "Add Member",
+      "success": "Member added successfully"
+    },
+    "updateDialog": {
+      "title": "Member Permissions",
+      "description": "Choose exactly what this member can do in the project's servers.",
+      "submit": "Update Permissions",
+      "success": "Member permissions updated successfully"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "heading": "Organization Settings",
+    "subheading": "Manage your organization settings here.",
+    "dangerZone": {
+      "title": "Danger Zone",
+      "description": "Irreversible and destructive actions",
+      "deleteWarning": "Deleting your organization will permanently remove all associated data, including workspaces, forms, and responses. This action cannot be undone.",
+      "deleteButton": "Delete Organization"
+    },
+    "nameCard": {
+      "title": "Organization Name",
+      "label": "Please enter your organization name",
+      "placeholder": "My Organization",
+      "description": "This action will update the name of the organization.",
+      "success": "Organization name updated successfully"
+    },
+    "slugCard": {
+      "title": "Organization Slug",
+      "label": "Please enter a unique slug",
+      "placeholder": "acme-inc",
+      "slugTaken": "Slug is already taken",
+      "checkError": "Error checking slug",
+      "hint": "Use only lowercase letters, numbers, and hyphens.",
+      "success": "Organization slug updated successfully"
+    }
+  },
+  "dashboard": {
+    "breadcrumb": "Servers",
+    "heading": "Your Servers",
+    "subheading": "Manage your game servers, view logs, and access the console.",
+    "noOrgTitle": "No active organization selected",
+    "noOrgDescription": "Please select an organization before viewing servers.",
+    "emptyTitle": "No servers found",
+    "emptyDescription": "This organization doesn't have any game servers yet."
+  }
+}

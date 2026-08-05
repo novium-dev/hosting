@@ -1,0 +1,67 @@
+{
+  "adminSidebar": {
+    "subtitle": "Administration",
+    "groups": {
+      "access": "Zugriff",
+      "workloads": "Workloads",
+      "infrastructure": "Infrastruktur"
+    },
+    "items": {
+      "users": "Benutzer",
+      "apiKeys": "API-Schlüssel",
+      "projects": "Projekte",
+      "servers": "Server",
+      "templates": "Vorlagen",
+      "regions": "Regionen",
+      "nodes": "Knoten",
+      "domains": "Domains",
+      "databases": "Datenbanken"
+    },
+    "backToApp": "Zurück zur App"
+  },
+  "platformTabs": {
+    "dashboard": "Dashboard",
+    "members": "Mitglieder",
+    "databases": "Datenbanken",
+    "apiKeys": "API-Schlüssel",
+    "settings": "Einstellungen"
+  },
+  "userMenu": {
+    "profileSettings": "Profileinstellungen",
+    "notifications": "Benachrichtigungen",
+    "lightMode": "Heller Modus",
+    "darkMode": "Dunkler Modus",
+    "logOut": "Abmelden"
+  },
+  "organizationNavbar": {
+    "admin": "Admin"
+  },
+  "organizationSwitcher": {
+    "createOrganization": "Organisation erstellen",
+    "createOrganizationDescription": "Verwalte deine Organisation und ihre Inhalte",
+    "switchOrganization": "Organisation wechseln"
+  },
+  "command": {
+    "searchTrigger": "Suchen...",
+    "inputPlaceholder": "Befehl eingeben oder suchen...",
+    "sections": {
+      "navigation": "Navigation",
+      "account": "Konto",
+      "theme": "Design",
+      "session": "Sitzung"
+    },
+    "items": {
+      "home": "Startseite",
+      "settings": "Einstellungen",
+      "members": "Mitglieder",
+      "databases": "Datenbanken",
+      "apiKeys": "API-Schlüssel",
+      "profile": "Profil",
+      "daemonAuth": "Daemon-Auth",
+      "notifications": "Benachrichtigungen",
+      "lightMode": "Heller Modus",
+      "darkMode": "Dunkler Modus",
+      "signOut": "Abmelden"
+    }
+  }
+}

@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/card";
 import { Navigate } from "react-router-dom";
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
 import { appConfig } from "@/constants/config";
 import { NoviumLogo } from "@/components/brand/novium-logo";
 import { auth } from "@/lib/auth";
@@ -15,6 +16,7 @@ import { useOrganizationStore } from "@/stores/organizations";
 import OnboardingForm from "./onboarding-form";
 
 export default function OnboardingPage() {
+  const { t } = useTranslation("app");
   const { data, isLoading } = authClient.useSession();
   const { data: organizations, isLoading: orgsLoading } = useSWR(
     data ? "onboarding/own-organizations" : null,
@@ -41,10 +43,10 @@ export default function OnboardingPage() {
             <NoviumLogo className="size-10" />
             <div className="flex flex-col">
               <CardTitle className="text-xl font-semibold">
-                Create your organization
+                {t("onboarding.title")}
               </CardTitle>
               <CardDescription className="text-sm text-muted-foreground">
-                Create your organization to get started
+                {t("onboarding.description")}
               </CardDescription>
             </div>
           </div>

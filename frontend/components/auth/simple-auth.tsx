@@ -37,7 +37,7 @@ export default function SimpleAuth() {
         },
       );
     } catch {
-      toast.error(t("auth.signIn.genericError"));
+      toast.error(t("state.genericError"));
     } finally {
       setIsLoading(false);
     }

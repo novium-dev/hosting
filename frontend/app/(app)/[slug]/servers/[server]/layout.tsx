@@ -1,6 +1,7 @@
 import Link from "@/components/link";
 import { Navigate, Outlet, useParams } from "react-router-dom";
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
 
 import { MainLayout } from "@/components/sidebar/main-layout";
 import { Button } from "@/components/ui/button";
@@ -28,25 +29,26 @@ function getServerAddress(
   serverData: Awaited<ReturnType<typeof serverInfo>>["data"],
 ) {
   if (!serverData) {
-    return "Address unavailable";
+    return null;
   }
 
   const primary = serverData.primary_port;
   if (!primary) {
-    return "Address unavailable";
+    return null;
   }
 
   const host = primary.port.host;
   const port = primary.external_port;
 
   if (!host || !port) {
-    return "Address unavailable";
+    return null;
   }
 
   return `${host}:${port}`;
 }
 
 export default function ServerLayout() {
+  const { t } = useTranslation();
   const { slug = "", server = "" } = useParams<{
     slug: string;
     server: string;
@@ -64,12 +66,17 @@ export default function ServerLayout() {
 
   if (!org) {
     return (
-      <MainLayout breadcrumbs={[{ label: slug }, { label: "Servers" }]}>
+      <MainLayout
+        breadcrumbs={[
+          { label: slug },
+          { label: t("servers:layout.breadcrumbServers") },
+        ]}
+      >
         <Card>
           <CardHeader>
-            <CardTitle>No active organization selected</CardTitle>
+            <CardTitle>{t("servers:layout.noOrganization.title")}</CardTitle>
             <CardDescription>
-              Please select an organization before viewing this server.
+              {t("servers:layout.noOrganization.description")}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -85,18 +92,21 @@ export default function ServerLayout() {
   if (!serverData || serverData.project !== org.id) {
     return (
       <MainLayout
-        breadcrumbs={[{ label: slug, href: `/${slug}` }, { label: "Servers" }]}
+        breadcrumbs={[
+          { label: slug, href: `/${slug}` },
+          { label: t("servers:layout.breadcrumbServers") },
+        ]}
       >
         <Card className="border-dashed">
           <CardHeader>
-            <CardTitle>Server not found</CardTitle>
+            <CardTitle>{t("servers:layout.notFound.title")}</CardTitle>
             <CardDescription>
-              This server does not exist or is not part of your organization.
+              {t("servers:layout.notFound.description")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild variant="outline">
-              <Link href={`/${slug}`}>Back to server list</Link>
+              <Link href={`/${slug}`}>{t("servers:shared.backToServerList")}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -149,7 +159,7 @@ export default function ServerLayout() {
     <MainLayout
       breadcrumbs={[
         { label: slug, href: `/${slug}` },
-        { label: "Servers", href: `/${slug}` },
+        { label: t("servers:layout.breadcrumbServers"), href: `/${slug}` },
         { label: serverData.name },
       ]}
     >
@@ -171,9 +181,7 @@ export default function ServerLayout() {
             !hasServerPermission(effectivePermissions, ServerPermission.POWER)
           }
           disabledReason={
-            blockReason
-              ? undefined
-              : "You do not have permission to control power."
+            blockReason ? undefined : t("servers:layout.noPowerPermission")
           }
           cpuLimit={serverData.cpu ?? null}
           diskLimit={serverData.disk ?? null}

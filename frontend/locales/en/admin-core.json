@@ -1,0 +1,188 @@
+{
+  "apiKeys": {
+    "title": "API keys",
+    "description": "Every key on this instance. A key can only ever do what its owner can, and instance-wide keys carry management permissions.",
+    "loadFailed": "Failed to load API keys"
+  },
+  "domains": {
+    "title": "Domains",
+    "description": "Domains users can put their routes under. HTTP ports become Pangolin resources, TCP ports get a Cloudflare SRV record — the Cloudflare zone is looked up by domain name when you add it. A private domain is only offered to the projects you grant it to.",
+    "newDomain": "New domain",
+    "backendNotConfigured": "Neither route backend is configured. Add <code1>[routes.cloudflare]</code1> for TCP routes (SRV records) or <code2>[routes.pangolin]</code2> for HTTP routes to the backend config.",
+    "emptyState": "No domains yet.",
+    "findZone": "Find zone",
+    "allProjects": "All projects",
+    "table": {
+      "domain": "Domain",
+      "carries": "Carries",
+      "https": "HTTPS",
+      "private": "Private",
+      "projects": "Projects",
+      "routes": "Routes",
+      "nothingYet": "nothing yet",
+      "httpBadge": "HTTP",
+      "tcpBadge": "TCP"
+    },
+    "createDialog": {
+      "title": "New domain",
+      "description": "Routes are created as subdomains of this domain.",
+      "domainPlaceholder": "novium.link",
+      "pangolinIdLabel": "Pangolin domain ID",
+      "pangolinIdHelp": "The domain's ID in Pangolin. Required for HTTP routes; TCP routes go through Cloudflare, whose zone is resolved from the domain name.",
+      "httpsHelp": "Users may enable HTTPS for HTTP routes on this domain.",
+      "privateHelp": "Only granted projects see this domain.",
+      "submit": "Add domain"
+    },
+    "grantDialog": {
+      "title": "Grant project access",
+      "description": "Pick the project that may use {{domain}}.",
+      "projectPlaceholder": "Project",
+      "submit": "Grant"
+    },
+    "deleteDialog": {
+      "title": "Delete domain",
+      "description": "{{domain}} can no longer be used for new routes. A domain that still has routes cannot be deleted."
+    },
+    "toast": {
+      "loadFailed": "Failed to load domains",
+      "added": "{{domain}} added",
+      "addFailed": "Failed to add domain",
+      "updateFailed": "Failed to update domain",
+      "deleted": "Domain deleted",
+      "deleteFailed": "Failed to delete domain",
+      "grantFailed": "Failed to grant access",
+      "zoneResolved": "Zone of {{domain}} resolved",
+      "resolveFailed": "Failed to resolve zone",
+      "revokeFailed": "Failed to revoke access"
+    }
+  },
+  "layout": {
+    "defaultTitle": "Administration",
+    "notFound": {
+      "description": "This page doesn't exist or you don't have access to it."
+    },
+    "sections": {
+      "users": "Users",
+      "apiKeys": "API keys",
+      "projects": "Projects",
+      "servers": "Servers",
+      "templates": "Templates",
+      "regions": "Regions",
+      "nodes": "Nodes"
+    }
+  },
+  "projects": {
+    "title": "Projects",
+    "description": "Browse projects available to the current admin session.",
+    "searchPlaceholder": "Search by project, slug, or owner...",
+    "featuresButton": "Features",
+    "table": {
+      "features": "Features",
+      "servers": "Servers"
+    },
+    "emptyState": {
+      "title": "No projects found",
+      "description": "Adjust your search query."
+    },
+    "featuresDialog": {
+      "title": "Feature flags",
+      "description": "Enable early-stage features for \"{{name}}\".",
+      "noFeatures": "This instance has no feature flags."
+    },
+    "toast": {
+      "featuresSaved": "Feature flags updated",
+      "featuresSaveFailed": "Failed to save features"
+    }
+  },
+  "regions": {
+    "title": "Regions",
+    "description": "Group nodes by location. Every node belongs to exactly one region.",
+    "createButton": "Create Region",
+    "searchPlaceholder": "Search by name, slug, or id...",
+    "table": {
+      "regionId": "Region ID",
+      "nodes": "Nodes"
+    },
+    "emptyState": {
+      "title": "No regions found",
+      "description": "Create a region before registering a node."
+    },
+    "deleteDialog": {
+      "title": "Delete region",
+      "description": "\"{{display}}\" will be removed permanently. Nodes must be moved to another region first."
+    },
+    "formDialog": {
+      "editTitle": "Edit region",
+      "createTitle": "Create region",
+      "description": "Regions group nodes so servers can later be placed by location.",
+      "namePlaceholder": "Europe (Frankfurt)",
+      "slugPlaceholder": "eu-frankfurt",
+      "slugHelp": "Lowercase letters, numbers and hyphens only."
+    },
+    "toast": {
+      "slugRequired": "Slug must contain lowercase letters, numbers or hyphens",
+      "saveFailed": "Failed to save region",
+      "updated": "Region updated",
+      "created": "Region created",
+      "deleteFailed": "Failed to delete region",
+      "deleted": "Region deleted"
+    }
+  },
+  "users": {
+    "title": "Users",
+    "description": "Manage user accounts, roles, and organizations.",
+    "searchPlaceholder": "Search by username or email...",
+    "loadError": "Failed to load users.",
+    "emptyState": "No users found",
+    "roleFilter": {
+      "all": "All roles"
+    },
+    "roles": {
+      "admin": "Admin",
+      "moderator": "Moderator",
+      "user": "User"
+    },
+    "table": {
+      "userColumn": "User"
+    },
+    "fields": {
+      "username": "Username",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "authId": "Auth ID"
+    },
+    "detail": {
+      "notFoundTitle": "User not found",
+      "notFoundDescription": "This user doesn't exist.",
+      "backToUsers": "Back to users",
+      "tabs": {
+        "overview": "Overview",
+        "organizations": "Organizations",
+        "settings": "Settings"
+      },
+      "organizations": {
+        "table": {
+          "membership": "Membership",
+          "servers": "Servers"
+        },
+        "emptyState": "Not part of any organization",
+        "ownerBadge": "Owner",
+        "memberBadge": "Member"
+      }
+    },
+    "settingsCard": {
+      "title": "User settings",
+      "description": "Update this user's account details and role.",
+      "canManageHint": "Changes apply immediately.",
+      "cannotManageHint": "You need the Users: Manage permission to edit.",
+      "saveButton": "Save changes",
+      "updateSuccess": "User updated",
+      "updateFailed": "Failed to update user"
+    }
+  },
+  "shared": {
+    "slugColumn": "Slug",
+    "manageColumn": "Manage",
+    "open": "Open"
+  }
+}

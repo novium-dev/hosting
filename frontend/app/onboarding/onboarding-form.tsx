@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { appConfig } from "@/constants/config";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "@/lib/navigation";
+import { useTranslation } from "react-i18next";
 
 export default function OnboardingForm() {
+  const { t } = useTranslation();
   const router = useRouter();
 
   return (
@@ -24,7 +26,7 @@ export default function OnboardingForm() {
           });
         }}
       >
-        Sign out
+        {t("actions.signOut")}
       </Button>
     </div>
   );

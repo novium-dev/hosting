@@ -1,0 +1,75 @@
+{
+  "appearance": {
+    "title": "Design",
+    "description": "Wähle, wie das Dashboard aussieht, oder folge deiner Systemeinstellung.",
+    "system": "System",
+    "light": "Hell",
+    "dark": "Dunkel"
+  },
+  "daemonAuth": {
+    "passwordLabel": "Daemon-Passwort",
+    "passwordDescription": "Verwende dieses Passwort für die SFTP-Passwortauthentifizierung.",
+    "hidePassword": "Daemon-Passwort verbergen",
+    "revealPassword": "Daemon-Passwort anzeigen",
+    "hidePasswordTooltip": "Passwort verbergen",
+    "revealPasswordTooltip": "Passwort anzeigen",
+    "copyPasswordAriaLabel": "Daemon-Passwort kopieren",
+    "copyPasswordTooltip": "Passwort kopieren",
+    "regenerate": "Neu generieren",
+    "regenerateConfirm": "Daemon-Passwort neu generieren? Bestehende Passwort-Auth-Verbindungen benötigen das neue Passwort.",
+    "regenerateSuccess": "Daemon-Passwort neu generiert",
+    "regenerateError": "Daemon-Passwort konnte nicht neu generiert werden",
+    "loadError": "Daemon-Passwort konnte nicht geladen werden",
+    "sshKeysTitle": "Öffentliche SSH-Schlüssel",
+    "sshKeysDescription": "Öffentliche Schlüssel sind verborgen, bis sie angezeigt werden.",
+    "hideSshKeys": "Öffentliche SSH-Schlüssel verbergen",
+    "revealSshKeys": "Öffentliche SSH-Schlüssel anzeigen",
+    "hideKeysTooltip": "Schlüssel verbergen",
+    "revealKeysTooltip": "Schlüssel anzeigen",
+    "loadingSshKeys": "SSH-Schlüssel werden geladen...",
+    "sshKeysLoadError": "SSH-Schlüssel konnten nicht geladen werden.",
+    "sshKeysLoadErrorToast": "SSH-Schlüssel konnten nicht geladen werden",
+    "noSshKeys": "Keine SSH-Schlüssel hinzugefügt.",
+    "copyKeyAriaLabel": "{{name}} kopieren",
+    "copyKeyTooltip": "Schlüssel kopieren",
+    "deleteKeyAriaLabel": "{{name}} löschen",
+    "deleteKeyTooltip": "Schlüssel löschen",
+    "keyNameLabel": "Schlüsselname",
+    "keyNamePlaceholder": "Arbeitsplatz",
+    "addKey": "Schlüssel hinzufügen",
+    "publicKeyLabel": "Öffentlicher Schlüssel",
+    "publicKeyPlaceholder": "ssh-ed25519 AAAA...",
+    "sshKeyLabel": "Öffentlicher SSH-Schlüssel",
+    "copiedToast": "{{label}} kopiert",
+    "copyFailedToast": "{{label}} konnte nicht kopiert werden",
+    "nameAndKeyRequired": "Name und öffentlicher Schlüssel sind erforderlich",
+    "addKeyError": "SSH-Schlüssel konnte nicht hinzugefügt werden",
+    "keyAdded": "SSH-Schlüssel hinzugefügt",
+    "deleteKeyError": "SSH-Schlüssel konnte nicht gelöscht werden",
+    "keyDeleted": "SSH-Schlüssel gelöscht"
+  },
+  "profile": {
+    "username": "Benutzername",
+    "usernameHint": "Dein Benutzername kann nicht geändert werden.",
+    "emailHint": "Kontodetails stammen von deinem Identitätsanbieter und sind hier nur lesbar.",
+    "roles": {
+      "admin": "Admin",
+      "moderator": "Moderator",
+      "user": "Benutzer"
+    }
+  },
+  "dialog": {
+    "title": "Einstellungen",
+    "sections": {
+      "profile": { "label": "Profil", "description": "Deine Kontodetails." },
+      "daemon": {
+        "label": "Daemon-Auth",
+        "description": "Verwalte das Daemon-Passwort und die öffentlichen SSH-Schlüssel für den SFTP-Zugriff."
+      },
+      "appearance": {
+        "label": "Erscheinungsbild",
+        "description": "Passe an, wie das Dashboard aussieht."
+      }
+    }
+  }
+}

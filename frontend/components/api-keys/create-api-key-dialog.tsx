@@ -27,6 +27,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Copy, KeyRound, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Trans, useTranslation } from "react-i18next";
 
 interface CreateApiKeyDialogProps {
   /** Project the key is scoped to; omit for an instance-wide key. */
@@ -39,6 +40,7 @@ export function CreateApiKeyDialog({
   projectId,
   onCreated,
 }: CreateApiKeyDialogProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [token, setToken] = useState<string | null>(null);
 

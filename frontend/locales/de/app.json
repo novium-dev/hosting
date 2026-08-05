@@ -1,0 +1,45 @@
+{
+  "globalError": {
+    "badge": "Backend nicht erreichbar",
+    "title": "Die API hat einen internen Fehler zurückgegeben.",
+    "description": "Hephaestus konnte die Anfrage nicht abschließen, da das Backend einen Serverfehler zurückgegeben hat."
+  },
+  "routeError": {
+    "eyebrow": "Etwas ist schiefgelaufen",
+    "title": "Ein unerwarteter Fehler ist aufgetreten",
+    "description": "Hephaestus hatte ein Problem beim Rendern dieser Seite. Lade die Seite neu oder kehre zu deinem Dashboard zurück."
+  },
+  "notFound": {
+    "eyebrow": "Fehler 404",
+    "title": "Seite nicht gefunden",
+    "description": "Die gesuchte Seite existiert nicht oder wurde verschoben."
+  },
+  "notFoundView": {
+    "description": "Diese Seite existiert nicht oder du hast keinen Zugriff darauf."
+  },
+  "onboarding": {
+    "title": "Erstelle deine Organisation",
+    "description": "Erstelle deine Organisation, um loszulegen"
+  },
+  "createOrganizationForm": {
+    "namePlaceholder": "Acme Inc.",
+    "nameDescription": "Dies ist der Name deiner Organisation.",
+    "slugLabel": "Slug",
+    "slugPlaceholder": "acme-inc",
+    "slugDescription": "Nur Kleinbuchstaben, Zahlen und Bindestriche – keine Leerzeichen oder Sonderzeichen.",
+    "slugReserved": "Dieser Slug ist reserviert und kann nicht verwendet werden",
+    "slugTaken": "Slug ist bereits vergeben",
+    "slugCheckError": "Fehler beim Prüfen des Slugs",
+    "submit": "Organisation erstellen",
+    "createdSuccess": "Organisation erfolgreich erstellt"
+  },
+  "createOrganizationPage": {
+    "title": "Organisation erstellen",
+    "description": "Erstelle eine neue Organisation, um loszulegen"
+  },
+  "searchableSelect": {
+    "placeholder": "Wert auswählen",
+    "searchPlaceholder": "Suchen...",
+    "noResults": "Keine Ergebnisse."
+  }
+}

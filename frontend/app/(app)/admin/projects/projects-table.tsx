@@ -4,6 +4,7 @@ import Link from "@/components/link";
 import { useMemo, useState } from "react";
 import { FlaskConical, FolderKanban, Search } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ export function ProjectsTable({
   canManageFeatures: boolean;
   onChanged: () => void;
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<ProjectRow | null>(null);
 
@@ -73,9 +75,11 @@ export function ProjectsTable({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">Projects</h1>
+        <h1 className="text-xl font-semibold">
+          {t("admin-core:projects.title")}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Browse projects available to the current admin session.
+          {t("admin-core:projects.description")}
         </p>
       </div>
 
@@ -85,7 +89,7 @@ export function ProjectsTable({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search by project, slug, or owner..."
+          placeholder={t("admin-core:projects.searchPlaceholder")}
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
         />
       </div>
@@ -94,12 +98,16 @@ export function ProjectsTable({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead>Owner</TableHead>
-              <TableHead>Features</TableHead>
-              <TableHead className="text-right">Servers</TableHead>
-              <TableHead className="text-right">Manage</TableHead>
+              <TableHead>{t("common:labels.name")}</TableHead>
+              <TableHead>{t("admin-core:shared.slugColumn")}</TableHead>
+              <TableHead>{t("common:labels.owner")}</TableHead>
+              <TableHead>{t("admin-core:projects.table.features")}</TableHead>
+              <TableHead className="text-right">
+                {t("admin-core:projects.table.servers")}
+              </TableHead>
+              <TableHead className="text-right">
+                {t("admin-core:shared.manageColumn")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -108,9 +116,11 @@ export function ProjectsTable({
                 <TableCell colSpan={6} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <FolderKanban className="size-5 text-muted-foreground" />
-                    <p className="text-sm font-medium">No projects found</p>
+                    <p className="text-sm font-medium">
+                      {t("admin-core:projects.emptyState.title")}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      Adjust your search query.
+                      {t("admin-core:projects.emptyState.description")}
                     </p>
                   </div>
                 </TableCell>
@@ -147,11 +157,13 @@ export function ProjectsTable({
                           onClick={() => setEditing(project)}
                         >
                           <FlaskConical data-icon="inline-start" />
-                          Features
+                          {t("admin-core:projects.featuresButton")}
                         </Button>
                       ) : null}
                       <Button asChild size="sm" variant="outline">
-                        <Link href={`/${project.slug}`}>Open</Link>
+                        <Link href={`/${project.slug}`}>
+                          {t("admin-core:shared.open")}
+                        </Link>
                       </Button>
                     </div>
                   </TableCell>
@@ -186,6 +198,7 @@ function ProjectFeaturesDialog({
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [enabled, setEnabled] = useState<ProjectFeature[]>(
     project?.features ?? [],
   );
@@ -210,11 +223,14 @@ function ProjectFeaturesDialog({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to save features");
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-core:projects.toast.featuresSaveFailed"),
+        );
         return;
       }
 
-      toast.success("Feature flags updated");
+      toast.success(t("admin-core:projects.toast.featuresSaved"));
       onOpenChange(false);
       onSaved();
     } finally {
@@ -226,10 +242,12 @@ function ProjectFeaturesDialog({
     <Dialog open={project !== null} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Feature flags</DialogTitle>
+          <DialogTitle>{t("admin-core:projects.featuresDialog.title")}</DialogTitle>
           <DialogDescription>
             {project
-              ? `Enable early-stage features for "${project.name}".`
+              ? t("admin-core:projects.featuresDialog.description", {
+                  name: project.name,
+                })
               : null}
           </DialogDescription>
         </DialogHeader>
@@ -237,7 +255,7 @@ function ProjectFeaturesDialog({
         <div className="space-y-3">
           {features.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              This instance has no feature flags.
+              {t("admin-core:projects.featuresDialog.noFeatures")}
             </p>
           ) : (
             features.map((feature) => (
@@ -268,7 +286,7 @@ function ProjectFeaturesDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button
             type="button"
@@ -277,7 +295,7 @@ function ProjectFeaturesDialog({
               void handleSave();
             }}
           >
-            Save
+            {t("common:actions.save")}
           </Button>
         </DialogFooter>
       </DialogContent>

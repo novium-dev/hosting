@@ -9,6 +9,7 @@ import {
   Sun,
 } from "lucide-react";
 
+import { useTranslation } from "react-i18next";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -34,6 +35,7 @@ export function NavUserMenu({
 }) {
   const router = useRouter();
   const { open: openSettings } = useSettingsDialog();
+  const { t } = useTranslation();
 
   const { data: session } = authClient.useSession();
   const { theme, setTheme } = useTheme();
@@ -118,11 +120,13 @@ export function NavUserMenu({
             className="w-full cursor-pointer"
           >
             <Settings className="size-4" />
-            <span className="text-sm">Profile Settings</span>
+            <span className="text-sm">
+              {t("navigation:userMenu.profileSettings")}
+            </span>
           </DropdownMenuItem>
           <DropdownMenuItem disabled>
             <Bell className="size-4" />
-            Notifications
+            {t("navigation:userMenu.notifications")}
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
@@ -133,12 +137,12 @@ export function NavUserMenu({
           {theme === "dark" ? (
             <>
               <Sun className="h-4 w-4 mr-2" />
-              Light Mode
+              {t("navigation:userMenu.lightMode")}
             </>
           ) : (
             <>
               <Moon className="h-4 w-4 mr-2" />
-              Dark Mode
+              {t("navigation:userMenu.darkMode")}
             </>
           )}
         </DropdownMenuItem>
@@ -154,7 +158,7 @@ export function NavUserMenu({
           className="cursor-pointer"
         >
           <LogOut className="h-4 w-4 mr-2" />
-          Log out
+          {t("navigation:userMenu.logOut")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

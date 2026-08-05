@@ -1,0 +1,67 @@
+{
+  "adminSidebar": {
+    "subtitle": "Administration",
+    "groups": {
+      "access": "Access",
+      "workloads": "Workloads",
+      "infrastructure": "Infrastructure"
+    },
+    "items": {
+      "users": "Users",
+      "apiKeys": "API keys",
+      "projects": "Projects",
+      "servers": "Servers",
+      "templates": "Templates",
+      "regions": "Regions",
+      "nodes": "Nodes",
+      "domains": "Domains",
+      "databases": "Databases"
+    },
+    "backToApp": "Back to app"
+  },
+  "platformTabs": {
+    "dashboard": "Dashboard",
+    "members": "Members",
+    "databases": "Databases",
+    "apiKeys": "API keys",
+    "settings": "Settings"
+  },
+  "userMenu": {
+    "profileSettings": "Profile Settings",
+    "notifications": "Notifications",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "logOut": "Log out"
+  },
+  "organizationNavbar": {
+    "admin": "Admin"
+  },
+  "organizationSwitcher": {
+    "createOrganization": "Create Organization",
+    "createOrganizationDescription": "Manage your organization and its content",
+    "switchOrganization": "Switch Organization"
+  },
+  "command": {
+    "searchTrigger": "Search...",
+    "inputPlaceholder": "Type a command or search...",
+    "sections": {
+      "navigation": "Navigation",
+      "account": "Account",
+      "theme": "Theme",
+      "session": "Session"
+    },
+    "items": {
+      "home": "Home",
+      "settings": "Settings",
+      "members": "Members",
+      "databases": "Databases",
+      "apiKeys": "API keys",
+      "profile": "Profile",
+      "daemonAuth": "Daemon Auth",
+      "notifications": "Notifications",
+      "lightMode": "Light Mode",
+      "darkMode": "Dark Mode",
+      "signOut": "Sign Out"
+    }
+  }
+}
