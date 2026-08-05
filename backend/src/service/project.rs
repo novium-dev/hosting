@@ -1,7 +1,7 @@
 use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
-use crate::auth::permissions::{ProjectPermissions, ServerPermissions};
+use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
 use crate::auth::user::UserAuthentication;
 use crate::db::feature::ProjectFeature;
 use crate::db::project::ProjectId;
@@ -127,16 +127,31 @@ pub(crate) impl ProjectService for Backend {
         .collect_paged(page))
     }
 
-    /// Creates a new project owned by the current user.
+    /// Creates a new project owned by the current user, or, with
+    /// [`ManagementPermissions::USER_MANAGE`], another user.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::USER_MANAGE`] if `owner` is set.
     #[route("", method = PUT)]
-    #[error(db::failure <- [sql:*], auth::unreachable, project::slug_invalid)]
+    #[error(db::failure <- [sql:*], auth::{unreachable, permission_denied}, project::slug_invalid, user::not_found <- [sql:not_found])]
     async fn create_project(
         &self,
         #[special] auth: UserAuthentication,
         slug: String,
         name: String,
+        owner: Option<i32>,
     ) -> Result<String, _> {
         validate_slug::<CreateProjectError>(&slug)?;
+
+        let owner = if let Some(owner) = owner {
+            auth.require::<_, _, CreateProjectError>((), ManagementPermissions::USER_MANAGE)?;
+
+            query_scalar!("SELECT id FROM users WHERE id = $1", owner)
+                .fetch_one(&*self.database)
+                .await?
+        } else {
+            auth.id
+        };
 
         let id = ProjectId::generate();
 
@@ -145,7 +160,7 @@ pub(crate) impl ProjectService for Backend {
             &id,
             slug,
             name,
-            auth.id
+            owner
         )
         .execute(&*self.database)
         .await?;
