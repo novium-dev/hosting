@@ -1,5 +1,6 @@
 import Link from "@/components/link";
 import { Shield } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { OrganizationSwitcher } from "@/components/sidebar/organization-switcher";
 import { NavPlatformTabs } from "./nav-platform-tabs";
@@ -15,6 +16,7 @@ export function OrganizationNavbar({
   };
 }) {
   const canAccessAdmin = hasAnyManagementPermission(user.permissions ?? 0);
+  const { t } = useTranslation();
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/70">
@@ -32,7 +34,7 @@ export function OrganizationNavbar({
             <Button asChild size="sm" variant="outline">
               <Link href="/admin/users">
                 <Shield className="mr-2 h-4 w-4" />
-                Admin
+                {t("common:nav.admin")}
               </Link>
             </Button>
           )}

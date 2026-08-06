@@ -1,6 +1,8 @@
 import Link from "@/components/link";
 import { useParams } from "react-router-dom";
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   AlertTriangle,
   Cpu,
@@ -32,9 +34,9 @@ import { hasManagementPermission, ManagementPermission } from "@/lib/permissions
 import { NodePortsManager } from "./node-ports-manager";
 import { NodeSettingsCard } from "./node-settings-card";
 
-function formatBytes(value: number) {
+function formatBytes(value: number, t: TFunction) {
   if (!Number.isFinite(value) || value < 0) {
-    return "Unknown";
+    return t("common:status.unknown");
   }
 
   if (value < 1024) {
@@ -54,6 +56,7 @@ function formatBytes(value: number) {
 }
 
 export default function AdminNodeManagementPage() {
+  const { t } = useTranslation();
   const { node = "" } = useParams<{ node: string }>();
 
   const { data: session, isLoading } = authClient.useSession();
@@ -116,21 +119,30 @@ export default function AdminNodeManagementPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-2">
               <CardTitle>{currentNode.display}</CardTitle>
-              <CardDescription>Node ID: {currentNode.id}</CardDescription>
+              <CardDescription>
+                {t("admin-infra:nodes.detailPage.nodeIdDescription", {
+                  id: currentNode.id,
+                })}
+              </CardDescription>
             </div>
 
             <Button asChild variant="outline">
-              <Link href="/admin/nodes">Back to node list</Link>
+              <Link href="/admin/nodes">
+                {t("admin-infra:nodes.detailPage.backToList")}
+              </Link>
             </Button>
           </div>
 
           {hasMetricsError && (
             <Alert variant="destructive">
               <AlertTriangle className="size-4" />
-              <AlertTitle>Node metrics unavailable</AlertTitle>
+              <AlertTitle>
+                {t("admin-infra:nodes.detailPage.metricsUnavailableTitle")}
+              </AlertTitle>
               <AlertDescription>
-                The metrics endpoint did not respond successfully. This node is
-                likely offline or unreachable.
+                {t(
+                  "admin-infra:nodes.detailPage.metricsUnavailableDescription",
+                )}
               </AlertDescription>
             </Alert>
           )}
@@ -138,46 +150,49 @@ export default function AdminNodeManagementPage() {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <InfoCard
               icon={Globe2}
-              title="Region"
+              title={t("common:labels.region")}
               value={currentRegion?.display ?? currentNode.region}
             />
             <InfoCard
               icon={Network}
-              title="Network"
+              title={t("common:nav.network")}
               value={`${currentNode.default_host} (${currentNode.default_bind})`}
             />
             {currentNode.ssh_host != null && currentNode.ssh_port != null && (
               <InfoCard
                 icon={TerminalSquare}
-                title="SSH / SFTP"
+                title={t("admin-infra:nodes.detailPage.sshLabel")}
                 value={`${currentNode.ssh_host}:${currentNode.ssh_port}`}
               />
             )}
             <InfoCard
               icon={Cpu}
-              title="CPU"
+              title={t("common:resources.cpu")}
               value={
                 metrics
-                  ? `${metrics.cpu_used.toFixed(2)} / ${metrics.cpu_count.toFixed(0)} cores`
-                  : "Unavailable"
+                  ? t("admin-infra:nodes.detailPage.cpuValue", {
+                      used: metrics.cpu_used.toFixed(2),
+                      count: metrics.cpu_count.toFixed(0),
+                    })
+                  : t("admin-infra:nodes.detailPage.unavailable")
               }
             />
             <InfoCard
               icon={MemoryStick}
-              title="Memory"
+              title={t("common:resources.memory")}
               value={
                 metrics
-                  ? `${formatBytes(metrics.mem_used)} / ${formatBytes(metrics.mem_total)}`
-                  : "Unavailable"
+                  ? `${formatBytes(metrics.mem_used, t)} / ${formatBytes(metrics.mem_total, t)}`
+                  : t("admin-infra:nodes.detailPage.unavailable")
               }
             />
             <InfoCard
               icon={HardDrive}
-              title="Swap"
+              title={t("admin-infra:nodes.detailPage.swapLabel")}
               value={
                 metrics
-                  ? `${formatBytes(metrics.swap_used)} / ${formatBytes(metrics.swap_total)}`
-                  : "Unavailable"
+                  ? `${formatBytes(metrics.swap_used, t)} / ${formatBytes(metrics.swap_total, t)}`
+                  : t("admin-infra:nodes.detailPage.unavailable")
               }
             />
           </div>

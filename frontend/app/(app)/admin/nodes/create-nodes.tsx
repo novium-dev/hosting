@@ -4,6 +4,7 @@ import { CheckIcon, CopyIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
 
 import { useAction } from "@/lib/action-hooks";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ function newBackupEntry(): BackupEntry {
 }
 
 export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [setupCode, setSetupCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -70,11 +72,13 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
       if (result.data?.data) {
         setSetupCode(result.data.data);
       } else {
-        toast.error("Failed to create node");
+        toast.error(t("admin-infra:nodes.createDialog.createError"));
       }
     },
     onError: ({ error }) => {
-      toast.error(error.serverError || "Failed to create node");
+      toast.error(
+        error.serverError || t("admin-infra:nodes.createDialog.createError"),
+      );
     },
   });
 
@@ -107,7 +111,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
     event.preventDefault();
 
     if (region === "") {
-      toast.error("Select a region for the node");
+      toast.error(t("admin-infra:nodes.createDialog.selectRegionError"));
       return;
     }
 
@@ -117,7 +121,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
     if (trimmedSshHost !== "") {
       const parsedSsh = Number(ssh.trim());
       if (!Number.isInteger(parsedSsh) || parsedSsh < 1 || parsedSsh > 65535) {
-        toast.error("SSH port must be a valid port number");
+        toast.error(t("admin-infra:nodes.createDialog.invalidSshPortError"));
         return;
       }
       sshConfig = { host: trimmedSshHost, port: parsedSsh };
@@ -147,7 +151,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
 
     await navigator.clipboard.writeText(setupCode);
     setCopied(true);
-    toast.success("Setup code copied");
+    toast.success(t("admin-infra:nodes.createDialog.setupCodeCopied"));
   };
 
   const updateStorage = (index: number, patch: Partial<StorageEntry>) => {
@@ -170,7 +174,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
     <>
       <Button type="button" onClick={() => setOpen(true)}>
         <PlusIcon data-icon="inline-start" />
-        Create Node
+        {t("admin-infra:nodes.createDialog.title")}
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -178,9 +182,11 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
           {setupCode ? (
             <>
               <DialogHeader>
-                <DialogTitle>Node setup code</DialogTitle>
+                <DialogTitle>
+                  {t("admin-infra:nodes.createDialog.setupCodeTitle")}
+                </DialogTitle>
                 <DialogDescription>
-                  Use this code when registering the new node. Keep it private.
+                  {t("admin-infra:nodes.createDialog.setupCodeDescription")}
                 </DialogDescription>
               </DialogHeader>
 
@@ -197,25 +203,27 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                   ) : (
                     <CopyIcon data-icon="inline-start" />
                   )}
-                  Copy code
+                  {t("admin-infra:nodes.createDialog.copyCodeButton")}
                 </Button>
                 <Button type="button" onClick={() => handleOpenChange(false)}>
-                  Done
+                  {t("admin-infra:shared.done")}
                 </Button>
               </DialogFooter>
             </>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               <DialogHeader>
-                <DialogTitle>Create Node</DialogTitle>
+                <DialogTitle>
+                  {t("admin-infra:nodes.createDialog.title")}
+                </DialogTitle>
                 <DialogDescription>
-                  Configure the new node and generate its setup code.
+                  {t("admin-infra:nodes.createDialog.description")}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="node-name">Name</Label>
+                  <Label htmlFor="node-name">{t("common:labels.name")}</Label>
                   <Input
                     id="node-name"
                     value={name}
@@ -225,10 +233,14 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="node-region">Region</Label>
+                  <Label htmlFor="node-region">{t("common:labels.region")}</Label>
                   <Select value={region} onValueChange={setRegion}>
                     <SelectTrigger id="node-region" className="w-full">
-                      <SelectValue placeholder="Select a region" />
+                      <SelectValue
+                        placeholder={t(
+                          "admin-infra:shared.selectRegionPlaceholder",
+                        )}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {(regions ?? []).map((entry) => (
@@ -240,12 +252,14 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                   </Select>
                   {regions?.length === 0 ? (
                     <p className="text-xs text-muted-foreground">
-                      No regions yet — create one under Regions first.
+                      {t("admin-infra:nodes.createDialog.noRegionsHint")}
                     </p>
                   ) : null}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="node-base-url">Base URL</Label>
+                  <Label htmlFor="node-base-url">
+                    {t("admin-infra:nodes.createDialog.baseUrlLabel")}
+                  </Label>
                   <Input
                     id="node-base-url"
                     value={baseUrl}
@@ -255,7 +269,9 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="node-default-host">Default Host</Label>
+                  <Label htmlFor="node-default-host">
+                    {t("admin-infra:nodes.shared.defaultHost")}
+                  </Label>
                   <Input
                     id="node-default-host"
                     value={defaultHost}
@@ -264,11 +280,13 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                     required
                   />
                   <p className="text-xs text-muted-foreground">
-                    Public host clients use to reach game servers on this node.
+                    {t("admin-infra:nodes.createDialog.defaultHostHint")}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="node-ssh-host">SSH Host</Label>
+                  <Label htmlFor="node-ssh-host">
+                    {t("admin-infra:nodes.createDialog.sshHostLabel")}
+                  </Label>
                   <Input
                     id="node-ssh-host"
                     value={sshHost}
@@ -276,11 +294,13 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                     placeholder="node.example.com"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Leave empty to disable SSH/SFTP access.
+                    {t("admin-infra:nodes.createDialog.sshHostHint")}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="node-ssh">SSH Port</Label>
+                  <Label htmlFor="node-ssh">
+                    {t("admin-infra:nodes.createDialog.sshPortLabel")}
+                  </Label>
                   <Input
                     id="node-ssh"
                     type="number"
@@ -298,9 +318,11 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-base font-semibold">Storages</h2>
+                    <h2 className="text-base font-semibold">
+                      {t("admin-infra:nodes.createDialog.storagesTitle")}
+                    </h2>
                     <p className="text-sm text-muted-foreground">
-                      At least one server storage is required.
+                      {t("admin-infra:nodes.createDialog.storagesHint")}
                     </p>
                   </div>
                   <Button
@@ -312,7 +334,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                     }
                   >
                     <PlusIcon data-icon="inline-start" />
-                    Add storage
+                    {t("admin-infra:nodes.createDialog.addStorageButton")}
                   </Button>
                 </div>
 
@@ -322,7 +344,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                     className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_10rem_auto]"
                   >
                     <div className="space-y-2">
-                      <Label>Name</Label>
+                      <Label>{t("common:labels.name")}</Label>
                       <Input
                         value={entry.name}
                         onChange={(event) =>
@@ -333,7 +355,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Type</Label>
+                      <Label>{t("common:labels.type")}</Label>
                       <Select
                         value={entry.type}
                         onValueChange={(value) =>
@@ -344,8 +366,14 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="directory">Directory</SelectItem>
-                          <SelectItem value="btrfs">Btrfs</SelectItem>
+                          <SelectItem value="directory">
+                            {t(
+                              "admin-infra:nodes.createDialog.storageTypeDirectory",
+                            )}
+                          </SelectItem>
+                          <SelectItem value="btrfs">
+                            {t("admin-infra:nodes.createDialog.storageTypeBtrfs")}
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -366,7 +394,9 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                     </div>
                     {entry.type === "btrfs" && (
                       <div className="space-y-2 sm:col-span-3">
-                        <Label>Btrfs path</Label>
+                        <Label>
+                          {t("admin-infra:nodes.createDialog.btrfsPathLabel")}
+                        </Label>
                         <Input
                           value={entry.path}
                           onChange={(event) =>
@@ -386,9 +416,11 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-base font-semibold">Backups</h2>
+                    <h2 className="text-base font-semibold">
+                      {t("common:nav.backups")}
+                    </h2>
                     <p className="text-sm text-muted-foreground">
-                      Optional backup storages.
+                      {t("admin-infra:nodes.createDialog.backupsHint")}
                     </p>
                   </div>
                   <Button
@@ -400,13 +432,13 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                     }
                   >
                     <PlusIcon data-icon="inline-start" />
-                    Add backup
+                    {t("admin-infra:nodes.createDialog.addBackupButton")}
                   </Button>
                 </div>
 
                 {backups.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No backup storages configured.
+                    {t("admin-infra:nodes.createDialog.noBackupsHint")}
                   </p>
                 ) : (
                   backups.map((entry, index) => (
@@ -415,7 +447,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                       className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_10rem_auto]"
                     >
                       <div className="space-y-2">
-                        <Label>Name</Label>
+                        <Label>{t("common:labels.name")}</Label>
                         <Input
                           value={entry.name}
                           onChange={(event) =>
@@ -426,7 +458,7 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Type</Label>
+                        <Label>{t("common:labels.type")}</Label>
                         <Select
                           value={entry.type}
                           onValueChange={(value) =>
@@ -437,8 +469,16 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="archive">Archive</SelectItem>
-                            <SelectItem value="btrfs">Btrfs</SelectItem>
+                            <SelectItem value="archive">
+                              {t(
+                                "common:resources.archive",
+                              )}
+                            </SelectItem>
+                            <SelectItem value="btrfs">
+                              {t(
+                                "admin-infra:nodes.createDialog.storageTypeBtrfs",
+                              )}
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -458,7 +498,9 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                       </div>
                       {entry.type === "btrfs" && (
                         <div className="space-y-2 sm:col-span-3">
-                          <Label>Btrfs path</Label>
+                          <Label>
+                            {t("admin-infra:nodes.createDialog.btrfsPathLabel")}
+                          </Label>
                           <Input
                             value={entry.path}
                             onChange={(event) =>
@@ -480,10 +522,10 @@ export function CreateNodeDialog({ canCreate }: { canCreate: boolean }) {
                   variant="outline"
                   onClick={() => handleOpenChange(false)}
                 >
-                  Cancel
+                  {t("common:actions.cancel")}
                 </Button>
                 <Button type="submit" loading={createNodeRegistration.isPending}>
-                  Create Node
+                  {t("admin-infra:nodes.createDialog.title")}
                 </Button>
               </DialogFooter>
             </form>

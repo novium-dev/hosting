@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   ManagementPermissionsField,
   PermissionsField,
@@ -27,6 +28,8 @@ export function ApiKeyPermissionsField({
   value: number;
   onChange: (value: number) => void;
 }) {
+  const { t } = useTranslation();
+
   if (scoped) {
     return <PermissionsField value={value} onChange={onChange} />;
   }
@@ -34,7 +37,7 @@ export function ApiKeyPermissionsField({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <FormLabel>Instance permissions</FormLabel>
+        <FormLabel>{t("org:apiKeys.permissionsField.instanceLabel")}</FormLabel>
         <ManagementPermissionsField
           className="h-48"
           value={maskPermissions(value, allManagementPermissions)}
@@ -46,9 +49,9 @@ export function ApiKeyPermissionsField({
         />
       </div>
       <div className="space-y-2">
-        <FormLabel>Server permissions</FormLabel>
+        <FormLabel>{t("org:apiKeys.permissionsField.serverLabel")}</FormLabel>
         <FormDescription>
-          Applied to every server the key&apos;s owner can access.
+          {t("org:apiKeys.permissionsField.serverDescription")}
         </FormDescription>
         <PermissionsField
           className="h-48"

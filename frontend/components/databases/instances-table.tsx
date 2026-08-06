@@ -38,6 +38,7 @@ import type { ListProjectInstancesResponses } from "@/lib/api";
 import { Database, MoreHorizontal, Play, RotateCw, Square } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { DATABASE_TYPE_LABELS } from "./database-type";
 
 export type ProjectInstance = ListProjectInstancesResponses[200][number];
@@ -53,17 +54,21 @@ interface InstancesTableProps {
 }
 
 function StateBadge({ instance }: { instance: ProjectInstance }) {
-  if (instance.suspended) return <Badge variant="destructive">Suspended</Badge>;
+  const { t } = useTranslation();
+
+  if (instance.suspended) {
+    return <Badge variant="destructive">{t("common:status.suspended")}</Badge>;
+  }
 
   switch (instance.state) {
     case "running":
-      return <Badge>Running</Badge>;
+      return <Badge>{t("common:status.running")}</Badge>;
     case "starting":
-      return <Badge variant="secondary">Starting</Badge>;
+      return <Badge variant="secondary">{t("common:status.starting")}</Badge>;
     case "stopping":
-      return <Badge variant="secondary">Stopping</Badge>;
+      return <Badge variant="secondary">{t("common:status.stopping")}</Badge>;
     default:
-      return <Badge variant="outline">Offline</Badge>;
+      return <Badge variant="outline">{t("common:status.offline")}</Badge>;
   }
 }
 
@@ -81,28 +86,33 @@ export function InstancesTable({
   canManage,
   onChanged,
 }: InstancesTableProps) {
+  const { t } = useTranslation();
   const [pendingDelete, setPendingDelete] = useState<ProjectInstance | null>(
     null,
   );
 
   const power = useAction(powerInstanceAction, {
     onSuccess: () => {
-      toast.success("Power state changed");
+      toast.success(t("org:databases.instancesTable.powerChanged"));
       onChanged();
     },
     onError: (result) => {
-      toast.error(result.error.serverError ?? "Failed to change the power state");
+      toast.error(
+        result.error.serverError ?? t("org:databases.managementBar.powerError"),
+      );
     },
   });
 
   const remove = useAction(deleteInstanceAction, {
     onSuccess: () => {
-      toast.success("Instance deleted");
+      toast.success(t("org:databases.instancesTable.deleted"));
       setPendingDelete(null);
       onChanged();
     },
     onError: (result) => {
-      toast.error(result.error.serverError ?? "Failed to delete the instance");
+      toast.error(
+        result.error.serverError ?? t("org:databases.instancesTable.deleteError"),
+      );
     },
   });
 
@@ -117,7 +127,9 @@ export function InstancesTable({
 
   if (error) {
     return (
-      <p className="text-sm text-destructive">Failed to load the instances.</p>
+      <p className="text-sm text-destructive">
+        {t("org:databases.instancesTable.loadError")}
+      </p>
     );
   }
 
@@ -125,9 +137,11 @@ export function InstancesTable({
     return (
       <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-10 text-center">
         <Database className="size-6 text-muted-foreground" />
-        <p className="text-sm font-medium">No database instances yet</p>
+        <p className="text-sm font-medium">
+          {t("org:databases.instancesTable.emptyTitle")}
+        </p>
         <p className="text-sm text-muted-foreground">
-          Create one, then add as many databases and users to it as you need.
+          {t("org:databases.instancesTable.emptyDescription")}
         </p>
       </div>
     );
@@ -139,11 +153,11 @@ export function InstancesTable({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Engine</TableHead>
-              <TableHead>State</TableHead>
-              <TableHead>Address</TableHead>
-              <TableHead>Memory</TableHead>
+              <TableHead>{t("common:labels.name")}</TableHead>
+              <TableHead>{t("org:databases.engineLabel")}</TableHead>
+              <TableHead>{t("org:databases.instancesTable.stateColumn")}</TableHead>
+              <TableHead>{t("common:labels.address")}</TableHead>
+              <TableHead>{t("common:resources.memory")}</TableHead>
               <TableHead className="w-0" />
             </TableRow>
           </TableHeader>
@@ -191,7 +205,7 @@ export function InstancesTable({
                           }
                         >
                           <Play className="size-4" />
-                          Start
+                          {t("common:resources.start")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={() =>
@@ -203,7 +217,7 @@ export function InstancesTable({
                           }
                         >
                           <RotateCw className="size-4" />
-                          Restart
+                          {t("org:databases.managementBar.restart")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={() =>
@@ -215,14 +229,14 @@ export function InstancesTable({
                           }
                         >
                           <Square className="size-4" />
-                          Stop
+                          {t("org:databases.managementBar.stop")}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           variant="destructive"
                           onSelect={() => setPendingDelete(instance)}
                         >
-                          Delete
+                          {t("common:actions.delete")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -241,15 +255,16 @@ export function InstancesTable({
         }}
       >
         <AlertDialogContent>
-          <AlertDialogTitle>Delete {pendingDelete?.display}?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {t("common:confirmDelete.title", { name: pendingDelete?.display })}
+          </AlertDialogTitle>
           <AlertDialogHeader>
             <AlertDialogDescription>
-              Every database and user on this instance is deleted with it, along
-              with all of their data. This cannot be undone.
+              {t("org:databases.instancesTable.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
@@ -260,7 +275,7 @@ export function InstancesTable({
                 });
               }}
             >
-              Delete
+              {t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +32,7 @@ export function EditInstanceDialog({
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [display, setDisplay] = useState("");
   const [memory, setMemory] = useState("");
   const [swap, setSwap] = useState("");
@@ -68,11 +70,14 @@ export function EditInstanceDialog({
       });
 
       if (response.error) {
-        toast.error(response.error.error?.msg ?? "Failed to save the instance");
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:databases.editInstanceDialog.saveError"),
+        );
         return;
       }
 
-      toast.success("Instance updated");
+      toast.success(t("admin-infra:databases.editInstanceDialog.saveSuccess"));
       onOpenChange(false);
       onSaved();
     } finally {
@@ -88,17 +93,21 @@ export function EditInstanceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit {instance?.display}</DialogTitle>
+          <DialogTitle>
+            {t("admin-infra:databases.editInstanceDialog.title", {
+              name: instance?.display,
+            })}
+          </DialogTitle>
           <DialogDescription>
-            Owned by {instance?.project_slug}. New limits apply to the running
-            container; memory and cpu take effect immediately, disk on the next
-            check.
+            {t("admin-infra:databases.editInstanceDialog.description", {
+              project: instance?.project_slug,
+            })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="instance-display">Name</Label>
+            <Label htmlFor="instance-display">{t("common:labels.name")}</Label>
             <Input
               id="instance-display"
               value={display}
@@ -108,7 +117,9 @@ export function EditInstanceDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="memory">Memory (MiB)</Label>
+              <Label htmlFor="memory">
+                {t("admin-infra:databases.editInstanceDialog.memoryLabel")}
+              </Label>
               <Input
                 id="memory"
                 inputMode="numeric"
@@ -117,7 +128,9 @@ export function EditInstanceDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="swap">Swap (MiB)</Label>
+              <Label htmlFor="swap">
+                {t("admin-infra:databases.editInstanceDialog.swapLabel")}
+              </Label>
               <Input
                 id="swap"
                 inputMode="numeric"
@@ -126,7 +139,9 @@ export function EditInstanceDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="disk">Disk (MiB)</Label>
+              <Label htmlFor="disk">
+                {t("admin-infra:databases.editInstanceDialog.diskLabel")}
+              </Label>
               <Input
                 id="disk"
                 inputMode="numeric"
@@ -135,7 +150,9 @@ export function EditInstanceDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cpu">CPU (%)</Label>
+              <Label htmlFor="cpu">
+                {t("admin-infra:databases.editInstanceDialog.cpuLabel")}
+              </Label>
               <Input
                 id="cpu"
                 inputMode="numeric"
@@ -147,9 +164,11 @@ export function EditInstanceDialog({
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
-              <Label htmlFor="suspended">Suspended</Label>
+              <Label htmlFor="suspended">{t("common:status.suspended")}</Label>
               <p className="text-xs text-muted-foreground">
-                Rejects every client connection at the proxy.
+                {t(
+                  "admin-infra:databases.editInstanceDialog.suspendedDescription",
+                )}
               </p>
             </div>
             <Switch
@@ -167,7 +186,7 @@ export function EditInstanceDialog({
             disabled={display.trim() === "" || !numbersValid || isPending}
             loading={isPending}
           >
-            Save changes
+            {t("common:resources.saveChanges")}
           </Button>
         </DialogFooter>
       </DialogContent>

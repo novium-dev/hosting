@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import type { AppOrganization } from "@/lib/auth";
 import { AlertCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { UpdateOrganizationName } from "./update-organization-name";
 import { UpdateOrganizationSlug } from "./update-organization-slug";
 import { Separator } from "@/components/ui/separator";
@@ -22,12 +23,14 @@ interface OrganizationSettingsProps {
 export function OrganizationSettings({
   organization,
 }: OrganizationSettingsProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col">
-        <h2 className="text-2xl font-bold">Organization Settings</h2>
+        <h2 className="text-2xl font-bold">{t("org:settings.heading")}</h2>
         <p className="text-sm text-muted-foreground">
-          Manage your organization settings here.
+          {t("org:settings.subheading")}
         </p>
       </div>
       <UpdateOrganizationName organization={organization} />
@@ -36,9 +39,9 @@ export function OrganizationSettings({
 
       <Card>
         <CardHeader>
-          <CardTitle>Danger Zone</CardTitle>
+          <CardTitle>{t("org:settings.dangerZone.title")}</CardTitle>
           <CardDescription>
-            Irreversible and destructive actions
+            {t("org:settings.dangerZone.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -50,12 +53,10 @@ export function OrganizationSettings({
             </p>
           </AlertDestructive> */}
           <p className="text-sm text-destructive">
-            Deleting your organization will permanently remove all associated
-            data, including workspaces, forms, and responses. This action cannot
-            be undone.
+            {t("org:settings.dangerZone.deleteWarning")}
           </p>
           <Button variant="destructive" size="sm">
-            Delete Organization
+            {t("org:settings.dangerZone.deleteButton")}
           </Button>
         </CardContent>
       </Card>

@@ -1,0 +1,45 @@
+{
+  "globalError": {
+    "badge": "Backend unavailable",
+    "title": "The API returned an internal error.",
+    "description": "Hephaestus could not complete the request because the backend returned a server error."
+  },
+  "routeError": {
+    "eyebrow": "Something went wrong",
+    "title": "An unexpected error occurred",
+    "description": "Hephaestus ran into a problem rendering this page. Try reloading, or head back to your dashboard."
+  },
+  "notFound": {
+    "eyebrow": "Error 404",
+    "title": "Page not found",
+    "description": "The page you're looking for doesn't exist or may have been moved."
+  },
+  "notFoundView": {
+    "description": "This page doesn't exist or you don't have access to it."
+  },
+  "onboarding": {
+    "title": "Create your organization",
+    "description": "Create your organization to get started"
+  },
+  "createOrganizationForm": {
+    "namePlaceholder": "Acme Inc.",
+    "nameDescription": "This is the name of your organization.",
+    "slugLabel": "Slug",
+    "slugPlaceholder": "acme-inc",
+    "slugDescription": "Only lowercase letters, numbers, and hyphens — no spaces or special characters.",
+    "slugReserved": "This slug is reserved and cannot be used",
+    "slugTaken": "Slug is already taken",
+    "slugCheckError": "Error checking slug",
+    "submit": "Create Organization",
+    "createdSuccess": "Organization created successfully"
+  },
+  "createOrganizationPage": {
+    "title": "Create Organization",
+    "description": "Create a new organization to get started"
+  },
+  "searchableSelect": {
+    "placeholder": "Select value",
+    "searchPlaceholder": "Search...",
+    "noResults": "No results."
+  }
+}

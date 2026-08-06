@@ -2,6 +2,7 @@
 
 import { Search, Shield, User, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import Link from "@/components/link";
 import { getAllUsersAction } from "@/actions/users";
@@ -38,19 +39,30 @@ function roleFromValue(role: number): UserRole {
 }
 
 function RoleBadge({ role }: { role: UserRole }) {
+  const { t } = useTranslation();
+
   return (
-    <Badge variant={role === "admin" ? "default" : "secondary"} className="gap-1">
+    <Badge
+      variant={
+        role === "admin"
+          ? "destructive"
+          : role === "moderator"
+            ? "secondary"
+            : "outline"
+      }
+    >
       {role === "user" ? (
         <User className="size-3" />
       ) : (
         <Shield className="size-3" />
       )}
-      {role.charAt(0).toUpperCase() + role.slice(1)}
+      {t(`admin-core:users.roles.${role}`)}
     </Badge>
   );
 }
 
 export function UsersTable() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
@@ -97,7 +109,7 @@ export function UsersTable() {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search by username or email..."
+          placeholder={t("admin-core:users.searchPlaceholder")}
           className="h-9 w-[240px] rounded-md border border-input bg-background pl-8 pr-3 text-sm"
         />
       </div>
@@ -109,31 +121,45 @@ export function UsersTable() {
           <span className="flex items-center gap-2">
             <Users className="size-4" />
             {role === "all"
-              ? "All roles"
-              : role.charAt(0).toUpperCase() + role.slice(1)}
+              ? t("admin-core:users.roleFilter.all")
+              : t(`admin-core:users.roles.${role}`)}
           </span>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All roles</SelectItem>
-          <SelectItem value="admin">Admin</SelectItem>
-          <SelectItem value="moderator">Moderator</SelectItem>
-          <SelectItem value="user">User</SelectItem>
+          <SelectItem value="all">
+            {t("admin-core:users.roleFilter.all")}
+          </SelectItem>
+          <SelectItem value="admin">
+            {t("common:roles.admin")}
+          </SelectItem>
+          <SelectItem value="moderator">
+            {t("admin-core:users.roles.moderator")}
+          </SelectItem>
+          <SelectItem value="user">
+            {t("common:roles.user")}
+          </SelectItem>
         </SelectContent>
       </Select>
     </div>
   );
 
   if (error) {
-    return <div className="text-sm text-destructive">Failed to load users.</div>;
+    return (
+      <div className="text-sm text-destructive">
+        {t("admin-core:users.loadError")}
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Users</h1>
+          <h1 className="text-xl font-semibold">
+            {t("common:nav.users")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Manage user accounts, roles, and organizations.
+            {t("admin-core:users.description")}
           </p>
         </div>
         {controls}
@@ -143,10 +169,12 @@ export function UsersTable() {
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead className="text-right">Manage</TableHead>
+              <TableHead>{t("common:roles.user")}</TableHead>
+              <TableHead>{t("common:labels.email")}</TableHead>
+              <TableHead>{t("common:labels.role")}</TableHead>
+              <TableHead className="text-right">
+                {t("common:resources.manage")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -175,7 +203,9 @@ export function UsersTable() {
                 <TableCell colSpan={4} className="h-24">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <Users className="size-5 text-muted-foreground" />
-                    <p className="text-sm font-medium">No users found</p>
+                    <p className="text-sm font-medium">
+                      {t("admin-core:users.emptyState")}
+                    </p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -202,7 +232,9 @@ export function UsersTable() {
                   </TableCell>
                   <TableCell className="text-right">
                     <Button asChild size="sm" variant="outline">
-                      <Link href={`/admin/users/${user.id}`}>Manage</Link>
+                      <Link href={`/admin/users/${user.id}`}>
+                        {t("common:resources.manage")}
+                      </Link>
                     </Button>
                   </TableCell>
                 </TableRow>

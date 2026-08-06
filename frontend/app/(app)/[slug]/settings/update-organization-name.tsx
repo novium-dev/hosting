@@ -23,12 +23,14 @@ import { useHookFormAction } from "@/lib/action-hooks";
 import type { AppOrganization } from "@/lib/auth";
 import { useOrganizationStore } from "@/stores/organizations";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export function UpdateOrganizationName({
   organization,
 }: {
   organization: AppOrganization;
 }) {
+  const { t } = useTranslation();
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
     useHookFormAction(
       updateOrganizationNameAction,
@@ -43,7 +45,7 @@ export function UpdateOrganizationName({
             resetFormAndAction();
             // Drop the cached org so the new name is refetched on next view.
             useOrganizationStore.getState().invalidate(organization.slug);
-            toast.success("Organization name updated successfully");
+            toast.success(t("org:settings.nameCard.success"));
           },
           onError: (error) => {
             toast.error(error.error.serverError);
@@ -58,7 +60,7 @@ export function UpdateOrganizationName({
         <input type="hidden" {...form.register("id")} />
         <Card>
           <CardHeader>
-            <CardTitle>Organization Name</CardTitle>
+            <CardTitle>{t("org:settings.nameCard.title")}</CardTitle>
           </CardHeader>
           <CardContent>
             <FormField
@@ -66,9 +68,12 @@ export function UpdateOrganizationName({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Please enter your organization name</FormLabel>
+                  <FormLabel>{t("org:settings.nameCard.label")}</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="My Organization" />
+                    <Input
+                      {...field}
+                      placeholder={t("org:settings.nameCard.placeholder")}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -78,10 +83,10 @@ export function UpdateOrganizationName({
           <Separator />
           <CardFooter className="flex flex-row justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              This action will update the name of the organization.
+              {t("org:settings.nameCard.description")}
             </p>
             <Button type="submit" size="sm" loading={action.isExecuting}>
-              Save
+              {t("common:actions.save")}
             </Button>
           </CardFooter>
         </Card>

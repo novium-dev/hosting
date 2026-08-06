@@ -34,6 +34,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 type CreateOrganizationFormProps = {
@@ -43,6 +44,7 @@ type CreateOrganizationFormProps = {
 export function CreateOrganizationForm({
   onSuccess,
 }: CreateOrganizationFormProps) {
+  const { t } = useTranslation(["app", "common"]);
   const [isValidatingSlug, setIsValidatingSlug] = useState(false);
   const [isSlugError, setIsSlugError] = useState(false);
   const [slugToCheck, setSlugToCheck] = useState("");
@@ -62,7 +64,7 @@ export function CreateOrganizationForm({
             if (args.data?.data) {
               onSuccess?.(args.data.data);
             }
-            toast.success("Organization created successfully");
+            toast.success(t("app:createOrganizationForm.createdSuccess"));
           },
           onError: (error) => {
             toast.error(error.error.serverError);
@@ -81,7 +83,7 @@ export function CreateOrganizationForm({
       if (isReservedSlug(slug)) {
         setIsSlugError(true);
         form.setError("slug", {
-          message: "This slug is reserved and cannot be used",
+          message: t("app:createOrganizationForm.slugReserved"),
         });
         return;
       }
@@ -91,18 +93,22 @@ export function CreateOrganizationForm({
         const { error } = await authClient.organization.checkSlug({ slug });
         if (error) {
           setIsSlugError(true);
-          form.setError("slug", { message: "Slug is already taken" });
+          form.setError("slug", {
+            message: t("app:createOrganizationForm.slugTaken"),
+          });
         } else {
           setIsSlugError(false);
         }
       } catch (error) {
         setIsSlugError(true);
-        form.setError("slug", { message: "Error checking slug" });
+        form.setError("slug", {
+          message: t("app:createOrganizationForm.slugCheckError"),
+        });
       } finally {
         setIsValidatingSlug(false);
       }
     },
-    [form],
+    [form, t],
   );
 
   useEffect(() => {
@@ -151,13 +157,17 @@ export function CreateOrganizationForm({
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Name</FormLabel>
+                <FormLabel>{t("common:labels.name")}</FormLabel>
                 <FormControl>
-                  <Input {...field} type="text" placeholder="Acme Inc." />
+                  <Input
+                    {...field}
+                    type="text"
+                    placeholder={t("app:createOrganizationForm.namePlaceholder")}
+                  />
                 </FormControl>
                 <FormMessage />
                 <FormDescription>
-                  This is the name of your organization.
+                  {t("app:createOrganizationForm.nameDescription")}
                 </FormDescription>
               </FormItem>
             )}
@@ -167,12 +177,12 @@ export function CreateOrganizationForm({
             name="slug"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Slug</FormLabel>
+                <FormLabel>{t("app:createOrganizationForm.slugLabel")}</FormLabel>
                 <FormControl>
                   <InputGroup>
                     <InputGroupInput
                       {...field}
-                      placeholder="acme-inc"
+                      placeholder={t("app:createOrganizationForm.slugPlaceholder")}
                       onChange={(e) => {
                         field.onChange(e);
                         setSlugToCheck(e.target.value);
@@ -198,8 +208,7 @@ export function CreateOrganizationForm({
                 </FormControl>
                 <FormMessage />
                 <FormDescription>
-                  Only lowercase letters, numbers, and hyphens — no spaces or
-                  special characters.
+                  {t("app:createOrganizationForm.slugDescription")}
                 </FormDescription>
               </FormItem>
             )}
@@ -215,7 +224,7 @@ export function CreateOrganizationForm({
             }
             loading={action.isExecuting}
           >
-            Create Organization
+            {t("app:createOrganizationForm.submit")}
           </Button>
         </div>
       </form>

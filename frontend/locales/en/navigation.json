@@ -1,0 +1,47 @@
+{
+  "adminSidebar": {
+    "subtitle": "Administration",
+    "groups": {
+      "access": "Access",
+      "workloads": "Workloads",
+      "infrastructure": "Infrastructure"
+    },
+    "items": {
+      "domains": "Domains"
+    },
+    "backToApp": "Back to app"
+  },
+  "platformTabs": {
+    "dashboard": "Dashboard"
+  },
+  "userMenu": {
+    "profileSettings": "Profile Settings",
+    "notifications": "Notifications",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "logOut": "Log out"
+  },
+  "organizationSwitcher": {
+    "createOrganization": "Create Organization",
+    "createOrganizationDescription": "Manage your organization and its content",
+    "switchOrganization": "Switch Organization"
+  },
+  "command": {
+    "searchTrigger": "Search...",
+    "inputPlaceholder": "Type a command or search...",
+    "sections": {
+      "navigation": "Navigation",
+      "account": "Account",
+      "theme": "Theme",
+      "session": "Session"
+    },
+    "items": {
+      "home": "Home",
+      "profile": "Profile",
+      "notifications": "Notifications",
+      "lightMode": "Light Mode",
+      "darkMode": "Dark Mode",
+      "signOut": "Sign Out"
+    }
+  }
+}

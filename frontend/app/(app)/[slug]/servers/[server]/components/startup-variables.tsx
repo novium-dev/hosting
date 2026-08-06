@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,7 @@ export function StartupVariables({
   canViewSecrets,
   serverId,
 }: StartupVariablesProps) {
+  const { t } = useTranslation();
   const [payload, setPayload] = useState<VariablePayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -58,7 +60,7 @@ export function StartupVariables({
         });
 
         if (response.error || !response.data) {
-          throw new Error("Failed to load startup variables");
+          throw new Error(t("servers:startup.toasts.loadFailed"));
         }
 
         if (!mounted) {
@@ -69,7 +71,7 @@ export function StartupVariables({
         reset(response.data);
       } catch {
         if (mounted) {
-          toast.error("Failed to load startup variables");
+          toast.error(t("servers:startup.toasts.loadFailed"));
         }
       } finally {
         if (mounted) {
@@ -83,14 +85,14 @@ export function StartupVariables({
     return () => {
       mounted = false;
     };
-  }, [serverId, reset]);
+  }, [serverId, reset, t]);
 
   const saveVariables = async () => {
     setIsSaving(true);
 
     try {
       if (Object.keys(variableErrors).length > 0) {
-        toast.error("Fix invalid startup variables before saving");
+        toast.error(t("servers:startup.toasts.invalidVariables"));
         return;
       }
 
@@ -102,13 +104,13 @@ export function StartupVariables({
       });
 
       if (response.error) {
-        throw new Error("Failed to save startup variables");
+        throw new Error(t("servers:startup.toasts.saveFailed"));
       }
 
       markSaved();
-      toast.success("Startup variables updated");
+      toast.success(t("servers:startup.toasts.saveSuccess"));
     } catch {
-      toast.error("Failed to save startup variables");
+      toast.error(t("servers:startup.toasts.saveFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -119,7 +121,7 @@ export function StartupVariables({
       <Card>
         <CardContent className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
-          Loading startup variables...
+          {t("servers:startup.loading")}
         </CardContent>
       </Card>
     );
@@ -129,8 +131,8 @@ export function StartupVariables({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Startup</CardTitle>
-          <CardDescription>Unable to load startup variables.</CardDescription>
+          <CardTitle>{t("servers:startup.title")}</CardTitle>
+          <CardDescription>{t("servers:startup.unableToLoad")}</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -140,10 +142,8 @@ export function StartupVariables({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <div>
-          <CardTitle>Startup</CardTitle>
-          <CardDescription>
-            Edit and save server startup variables.
-          </CardDescription>
+          <CardTitle>{t("servers:startup.title")}</CardTitle>
+          <CardDescription>{t("servers:startup.description")}</CardDescription>
         </div>
         <Button
           onClick={saveVariables}
@@ -151,7 +151,7 @@ export function StartupVariables({
           disabled={!hasChanges}
         >
           <Save className="size-4" />
-          Save Variables
+          {t("servers:startup.saveButton")}
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">

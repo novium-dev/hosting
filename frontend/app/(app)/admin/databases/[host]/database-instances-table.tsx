@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Boxes, PencilIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import Link from "@/components/link";
 import { DATABASE_TYPE_LABELS } from "@/components/databases/database-type";
@@ -34,15 +36,21 @@ import { EditInstanceDialog } from "./edit-instance-dialog";
 
 export type DatabaseInstanceRow = ListDatabaseInstancesResponses[200][number];
 
-function stateBadge(instance: DatabaseInstanceRow) {
-  if (!instance.remote) return <Badge variant="destructive">Unreachable</Badge>;
+function stateBadge(instance: DatabaseInstanceRow, t: TFunction) {
+  if (!instance.remote)
+    return (
+      <Badge variant="destructive">
+        {t("admin-infra:databases.instancesTable.status.unreachable")}
+      </Badge>
+    );
   if (instance.remote.suspended)
-    return <Badge variant="destructive">Suspended</Badge>;
+    return <Badge variant="destructive">{t("common:status.suspended")}</Badge>;
 
   const state = instance.remote.utilization?.state;
-  if (state === "running") return <Badge>Running</Badge>;
+  if (state === "running")
+    return <Badge>{t("common:status.running")}</Badge>;
 
-  return <Badge variant="secondary">{state ?? "Offline"}</Badge>;
+  return <Badge variant="secondary">{state ?? t("common:status.offline")}</Badge>;
 }
 
 function formatMib(value: number | null | undefined) {
@@ -63,6 +71,7 @@ export function DatabaseInstancesTable({
   canManage: boolean;
   onChanged: () => void;
 }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState<DatabaseInstanceRow | null>(null);
   const [deleting, setDeleting] = useState<DatabaseInstanceRow | null>(null);
   const [isDeletePending, setIsDeletePending] = useState(false);
@@ -78,12 +87,13 @@ export function DatabaseInstancesTable({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? "Failed to delete the instance",
+          response.error.error?.msg ??
+            t("admin-infra:databases.instancesTable.deleteError"),
         );
         return;
       }
 
-      toast.success("Instance deleted");
+      toast.success(t("admin-infra:databases.instancesTable.deleteSuccess"));
       setDeleting(null);
       onChanged();
     } finally {
@@ -96,13 +106,12 @@ export function DatabaseInstancesTable({
       <div>
         <p className="text-sm text-muted-foreground">
           <Link href="/admin/databases" className="hover:underline">
-            Database hosts
+            {t("admin-infra:databases.instancesTable.breadcrumb")}
           </Link>
         </p>
         <h1 className="text-xl font-semibold">{hostName}</h1>
         <p className="text-sm text-muted-foreground">
-          Projects create their own instances here. Renaming one and changing its
-          limits is an admin job.
+          {t("admin-infra:databases.instancesTable.description")}
         </p>
       </div>
 
@@ -110,13 +119,23 @@ export function DatabaseInstancesTable({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Engine</TableHead>
-              <TableHead>State</TableHead>
-              <TableHead>Memory</TableHead>
-              <TableHead>Disk</TableHead>
-              <TableHead className="text-right">Manage</TableHead>
+              <TableHead>{t("common:labels.name")}</TableHead>
+              <TableHead>
+                {t("admin-infra:databases.instancesTable.columns.project")}
+              </TableHead>
+              <TableHead>
+                {t("admin-infra:databases.instancesTable.columns.engine")}
+              </TableHead>
+              <TableHead>{t("common:labels.status")}</TableHead>
+              <TableHead>
+                {t("common:resources.memory")}
+              </TableHead>
+              <TableHead>
+                {t("common:resources.disk")}
+              </TableHead>
+              <TableHead className="text-right">
+                {t("common:resources.manage")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -125,9 +144,13 @@ export function DatabaseInstancesTable({
                 <TableCell colSpan={7} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <Boxes className="size-5 text-muted-foreground" />
-                    <p className="text-sm font-medium">No instances yet</p>
+                    <p className="text-sm font-medium">
+                      {t("admin-infra:databases.instancesTable.emptyState.title")}
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      They appear here once a project creates one.
+                      {t(
+                        "admin-infra:databases.instancesTable.emptyState.description",
+                      )}
                     </p>
                   </div>
                 </TableCell>
@@ -151,7 +174,7 @@ export function DatabaseInstancesTable({
                       {DATABASE_TYPE_LABELS[instance.type]}
                     </Badge>
                   </TableCell>
-                  <TableCell>{stateBadge(instance)}</TableCell>
+                  <TableCell>{stateBadge(instance, t)}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatMib(instance.remote?.memory)}
                   </TableCell>
@@ -166,7 +189,9 @@ export function DatabaseInstancesTable({
                           variant="ghost"
                           size="icon"
                           onClick={() => setEditing(instance)}
-                          aria-label="Edit instance"
+                          aria-label={t(
+                            "admin-infra:databases.instancesTable.editAria",
+                          )}
                         >
                           <PencilIcon className="size-4" />
                         </Button>
@@ -175,7 +200,9 @@ export function DatabaseInstancesTable({
                           variant="ghost"
                           size="icon"
                           onClick={() => setDeleting(instance)}
-                          aria-label="Delete instance"
+                          aria-label={t(
+                            "admin-infra:databases.instancesTable.deleteAria",
+                          )}
                         >
                           <Trash2Icon className="size-4" />
                         </Button>
@@ -207,14 +234,17 @@ export function DatabaseInstancesTable({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {deleting?.display}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("common:confirmDelete.title", { name: deleting?.display })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This belongs to {deleting?.project_slug}. The container, every
-              database and user on it, and all of their data are removed.
+              {t("admin-infra:databases.instancesTable.deleteDescription", {
+                project: deleting?.project_slug,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
@@ -222,7 +252,7 @@ export function DatabaseInstancesTable({
               }}
               disabled={isDeletePending}
             >
-              Delete
+              {t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

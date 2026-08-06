@@ -1,0 +1,74 @@
+{
+  "appearance": {
+    "title": "Theme",
+    "description": "Choose how the dashboard looks, or follow your system setting.",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "languageDescription": "Choose the language used across the dashboard, overriding what was detected automatically."
+  },
+  "daemonAuth": {
+    "passwordLabel": "Daemon password",
+    "passwordDescription": "Use this password for SFTP password auth.",
+    "hidePassword": "Hide daemon password",
+    "revealPassword": "Reveal daemon password",
+    "hidePasswordTooltip": "Hide password",
+    "revealPasswordTooltip": "Reveal password",
+    "copyPasswordAriaLabel": "Copy daemon password",
+    "copyPasswordTooltip": "Copy password",
+    "regenerate": "Regenerate",
+    "regenerateConfirm": "Regenerate the daemon password? Existing password auth connections will need the new password.",
+    "regenerateSuccess": "Daemon password regenerated",
+    "regenerateError": "Failed to regenerate daemon password",
+    "loadError": "Failed to load daemon password",
+    "sshKeysTitle": "SSH public keys",
+    "sshKeysDescription": "Public keys are hidden until revealed.",
+    "hideSshKeys": "Hide SSH public keys",
+    "revealSshKeys": "Reveal SSH public keys",
+    "hideKeysTooltip": "Hide keys",
+    "revealKeysTooltip": "Reveal keys",
+    "loadingSshKeys": "Loading SSH keys...",
+    "sshKeysLoadError": "Failed to load SSH keys.",
+    "sshKeysLoadErrorToast": "Failed to load SSH keys",
+    "noSshKeys": "No SSH keys added.",
+    "copyKeyAriaLabel": "Copy {{name}}",
+    "copyKeyTooltip": "Copy key",
+    "deleteKeyAriaLabel": "Delete {{name}}",
+    "deleteKeyTooltip": "Delete key",
+    "keyNameLabel": "Key name",
+    "keyNamePlaceholder": "Workstation",
+    "addKey": "Add Key",
+    "publicKeyLabel": "Public key",
+    "publicKeyPlaceholder": "ssh-ed25519 AAAA...",
+    "sshKeyLabel": "SSH public key",
+    "copiedToast": "{{label}} copied",
+    "copyFailedToast": "Failed to copy {{label}}",
+    "nameAndKeyRequired": "Name and public key are required",
+    "addKeyError": "Failed to add SSH key",
+    "keyAdded": "SSH key added",
+    "deleteKeyError": "Failed to delete SSH key",
+    "keyDeleted": "SSH key deleted"
+  },
+  "profile": {
+    "usernameHint": "Your username cannot be changed.",
+    "emailHint": "Account details come from your identity provider and are read-only here.",
+    "roles": {
+      "moderator": "Moderator"
+    }
+  },
+  "dialog": {
+    "sections": {
+      "profile": {
+        "label": "Profile",
+        "description": "Your account details."
+      },
+      "daemon": {
+        "description": "Manage the daemon password and SSH public keys used for SFTP access."
+      },
+      "appearance": {
+        "label": "Appearance",
+        "description": "Customize how the dashboard looks."
+      }
+    }
+  }
+}

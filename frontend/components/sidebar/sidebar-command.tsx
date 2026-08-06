@@ -18,6 +18,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useSettingsDialog } from "@/hooks/use-settings-dialog";
 import { useParams, useRouter } from "@/lib/navigation";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   CommandDialog,
@@ -63,6 +64,7 @@ export function SidebarCommand({
   const { open: openSettings } = useSettingsDialog();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const { t } = useTranslation();
 
   // Handle keyboard shortcut
   useEffect(() => {
@@ -79,24 +81,24 @@ export function SidebarCommand({
 
   const sections: CommandMenuSection[] = [
     {
-      heading: "Navigation",
+      heading: t("navigation:command.sections.navigation"),
       items: [
         {
           icon: HomeIcon,
-          label: "Home",
+          label: t("navigation:command.items.home"),
           shortcut: "H",
           href: "/",
           keywords: ["dashboard", "main"],
         },
         {
           icon: SettingsIcon,
-          label: "Settings",
+          label: t("common:nav.settings"),
           href: `/${slug}/settings`,
           keywords: ["preferences", "config", "options"],
         },
         {
           icon: Users2Icon,
-          label: "Members",
+          label: t("common:nav.members"),
           href: `/${slug}/members`,
           keywords: ["users", "collaborators", "invite"],
         },
@@ -107,7 +109,7 @@ export function SidebarCommand({
           ? [
               {
                 icon: DatabaseIcon,
-                label: "Databases",
+                label: t("common:nav.databases"),
                 href: `/${slug}/databases`,
                 keywords: [
                   "postgres",
@@ -122,30 +124,30 @@ export function SidebarCommand({
           : []),
         {
           icon: KeyRoundIcon,
-          label: "API keys",
+          label: t("common:nav.apiKeys"),
           href: `/${slug}/api-keys`,
           keywords: ["token", "api", "automation", "integration"],
         },
       ],
     },
     {
-      heading: "Account",
+      heading: t("navigation:command.sections.account"),
       items: [
         {
           icon: UserIcon,
-          label: "Profile",
+          label: t("navigation:command.items.profile"),
           action: () => openSettings("profile"),
           keywords: ["personal", "details", "account", "settings"],
         },
         {
           icon: KeyRoundIcon,
-          label: "Daemon Auth",
+          label: t("common:resources.daemonAuth"),
           action: () => openSettings("daemon"),
           keywords: ["ssh", "sftp", "password", "keys"],
         },
         {
           icon: BellIcon,
-          label: "Notifications",
+          label: t("navigation:command.items.notifications"),
           href: "/settings/notifications",
           disabled: true,
           keywords: ["alerts", "messages"],
@@ -153,11 +155,14 @@ export function SidebarCommand({
       ],
     },
     {
-      heading: "Theme",
+      heading: t("navigation:command.sections.theme"),
       items: [
         {
           icon: theme === "dark" ? SunIcon : MoonIcon,
-          label: theme === "dark" ? "Light Mode" : "Dark Mode",
+          label:
+            theme === "dark"
+              ? t("navigation:command.items.lightMode")
+              : t("navigation:command.items.darkMode"),
           shortcut: "T",
           action: () => setTheme(theme === "dark" ? "light" : "dark"),
           keywords: ["dark", "light", "appearance", "mode"],
@@ -165,11 +170,11 @@ export function SidebarCommand({
       ],
     },
     {
-      heading: "Session",
+      heading: t("navigation:command.sections.session"),
       items: [
         {
           icon: LogOutIcon,
-          label: "Sign Out",
+          label: t("navigation:command.items.signOut"),
           shortcut: "⇧L",
           action: () =>
             authClient.signOut({
@@ -183,12 +188,14 @@ export function SidebarCommand({
     },
   ];
 
-  // Filter out commands that require user session if not logged in
+  const accountHeading = t("navigation:command.sections.account");
+  const sessionHeading = t("navigation:command.sections.session");
   const filteredSections = session
     ? sections
     : sections.filter(
         (section) =>
-          section.heading !== "Account" && section.heading !== "Session",
+          section.heading !== accountHeading &&
+          section.heading !== sessionHeading,
       );
 
   function runCommand(command: CommandMenuItem) {
@@ -214,7 +221,9 @@ export function SidebarCommand({
           onClick={() => setOpen(true)}
           className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-2 py-2 text-sm flex items-center cursor-pointer"
         >
-          <span className="text-muted-foreground">Search...</span>
+          <span className="text-muted-foreground">
+            {t("navigation:command.searchTrigger")}
+          </span>
           <div className="ml-auto flex items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium">
             <span className="text-xs">⌘</span>K
           </div>
@@ -223,12 +232,12 @@ export function SidebarCommand({
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Type a command or search..."
+          placeholder={t("navigation:command.inputPlaceholder")}
           value={query}
           onValueChange={setQuery}
         />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandEmpty>{t("common:state.noResultsFound")}</CommandEmpty>
 
           {filteredSections.map((section) => (
             <CommandGroup key={section.heading} heading={section.heading}>

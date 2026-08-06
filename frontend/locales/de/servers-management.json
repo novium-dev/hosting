@@ -1,0 +1,263 @@
+{
+  "filesManager": {
+    "title": "Dateien",
+    "description": "Serverdateien durchsuchen und Aktionen verwalten.",
+    "diskUsageAlert": {
+      "title": "Der Speicherplatz wird knapp",
+      "description": "Der Speicher ist derzeit zu {{percent}}% ausgelastet. Räume Dateien auf, um Zuweisungsprobleme zu vermeiden."
+    },
+    "pathInputPlaceholder": "Pfad eingeben",
+    "openPathButton": "Pfad öffnen",
+    "newFolderButton": "Neuer Ordner",
+    "loadingFiles": "Dateien werden geladen...",
+    "emptyState": {
+      "title": "Dieses Verzeichnis ist leer.",
+      "hint": "Dateien hier ablegen, um sie hochzuladen."
+    },
+    "contextMenu": {
+      "view": "Anzeigen",
+      "permissions": "Berechtigungen",
+      "unarchive": "Entpacken"
+    },
+    "fallbacks": {
+      "thisItem": "dieses Element",
+      "thisDirectory": "dieses Verzeichnis",
+      "thisArchive": "dieses Archiv"
+    },
+    "renameDialog": {
+      "description": "{{name}} umbenennen.",
+      "placeholder": "Neuer Name"
+    },
+    "copyDialog": {
+      "description": "Eine Kopie von {{name}} erstellen.",
+      "placeholder": "Name der Kopie"
+    },
+    "deleteDialog": {
+      "title": "Element löschen?",
+      "description": "Dies löscht {{name}}{{recursiveSuffix}}.",
+      "recursiveSuffix": " rekursiv"
+    },
+    "archiveDialog": {
+      "title": "Verzeichnis archivieren",
+      "description": "Ein Archiv aus {{name}} erstellen.",
+      "namePlaceholder": "archiv-name.tar.gz",
+      "compressionLabel": "Komprimierungsart",
+      "compressionPlaceholder": "Komprimierung auswählen",
+      "compressionOptions": {
+        "zstd": "Zstandard (zstd)",
+        "xz": "XZ",
+        "zlib": "Zlib",
+        "lz4": "LZ4",
+        "gzip": "Gzip",
+        "bzip2": "Bzip2"
+      }
+    },
+    "unarchiveDialog": {
+      "title": "Entpacken",
+      "description": "{{name}} in ein Verzeichnis entpacken.",
+      "placeholder": "ziel-verzeichnis",
+      "submitButton": "Entpacken"
+    },
+    "createDirectoryDialog": {
+      "title": "Verzeichnis erstellen",
+      "description": "Einen neuen Ordner in {{path}} erstellen.",
+      "placeholder": "ordner-name"
+    },
+    "undo": {
+      "actionLabels": {
+        "move": "{{name}} verschieben",
+        "rename": "{{name}} umbenennen",
+        "copy": "{{name}} kopieren",
+        "create": "{{name}} erstellen"
+      }
+    },
+    "toasts": {
+      "loadFailed": "Dateien für diesen Pfad konnten nicht geladen werden",
+      "placeholderAction": "{{name}} ist derzeit eine Platzhalteraktion.",
+      "undoFailedRename": "Umbenennung konnte nicht rückgängig gemacht werden",
+      "redoFailedRename": "Umbenennung konnte nicht wiederholt werden",
+      "undoFailedCopy": "Kopieren konnte nicht rückgängig gemacht werden",
+      "redoFailedCopy": "Kopieren konnte nicht wiederholt werden",
+      "undoFailedCreate": "Erstellen konnte nicht rückgängig gemacht werden",
+      "redoFailedCreate": "Erstellen konnte nicht wiederholt werden",
+      "nothingToUndo": "Nichts rückgängig zu machen",
+      "nothingToRedo": "Nichts zu wiederholen",
+      "undid": "Rückgängig gemacht: {{label}}",
+      "redid": "Wiederholt: {{label}}",
+      "noPermissionUpload": "Du hast keine Berechtigung, Dateien hochzuladen",
+      "uploadUrlFailed": "Upload-URL für {{fileName}} konnte nicht abgerufen werden",
+      "uploadFailedFile": "{{fileName}} konnte nicht hochgeladen werden",
+      "uploaded_one": "{{count}} Datei hochgeladen",
+      "uploaded_other": "{{count}} Dateien hochgeladen",
+      "uploadFailed": "Hochladen fehlgeschlagen",
+      "noPermissionMove": "Du hast keine Berechtigung, Dateien zu verschieben",
+      "cannotMoveIntoItself": "Ein Verzeichnis kann nicht in sich selbst verschoben werden",
+      "moveFailed": "Element konnte nicht verschoben werden",
+      "moved": "{{name}} verschoben",
+      "noPermissionRename": "Du hast keine Berechtigung, Dateien umzubenennen",
+      "renameFailed": "Umbenennen fehlgeschlagen",
+      "renamed": "Erfolgreich umbenannt",
+      "noPermissionCopy": "Du hast keine Berechtigung, Dateien zu kopieren",
+      "copyFailed": "Kopieren fehlgeschlagen",
+      "copied": "Erfolgreich kopiert",
+      "noPermissionDelete": "Du hast keine Berechtigung, Dateien zu löschen",
+      "deleteFailed": "Löschen fehlgeschlagen",
+      "deleted": "Erfolgreich gelöscht",
+      "noPermissionArchive": "Du hast keine Berechtigung, Dateien zu archivieren",
+      "archiveDirectoriesOnly": "Archivieren wird nur für Verzeichnisse unterstützt",
+      "archiveFailed": "Archivieren fehlgeschlagen",
+      "archiveCreated": "Archiv erfolgreich erstellt",
+      "noPermissionExtract": "Du hast keine Berechtigung, Dateien zu entpacken",
+      "unarchiveFailed": "Entpacken fehlgeschlagen",
+      "archiveExtracted": "Archiv erfolgreich entpackt",
+      "downloadUrlFailed": "Download-URL konnte nicht abgerufen werden",
+      "noPermissionCreateDirectory": "Du hast keine Berechtigung, Verzeichnisse zu erstellen",
+      "createDirectoryFailed": "Verzeichnis konnte nicht erstellt werden",
+      "directoryCreated": "Verzeichnis erstellt"
+    }
+  },
+  "minecraftPlayerManager": {
+    "title": "Minecraft-Spieler",
+    "description": "Zeige Online-Spieler aus dem Minecraft-Healthcheck an und verwalte den Zugriff.",
+    "connectionStatus": {
+      "connecting": "verbindet",
+      "connected": "verbunden",
+      "disconnected": "getrennt"
+    },
+    "playersOnlineBadge": "{{online}}{{maxSuffix}} online",
+    "emptyState": "Der letzte Healthcheck hat keine Online-Spieler gemeldet.",
+    "table": {
+      "player": "Spieler",
+      "uuid": "UUID",
+      "reason": "Grund"
+    },
+    "tooltips": {
+      "operator": "Operator",
+      "makeOperator": "Zum Operator machen",
+      "removeOperator": "Operator entfernen",
+      "banPlayer": "Spieler bannen",
+      "pardonPlayer": "Spieler entbannen"
+    },
+    "bannedSection": {
+      "title": "Gebannte Spieler",
+      "description": "Aus banned-players.json gelesen. Gebannte Spieler können nicht beitreten und erscheinen daher nie in der Online-Liste.",
+      "emptyState": "Keine gebannten Spieler."
+    },
+    "banExpiresSuffix": " (bis {{expires}})",
+    "toasts": {
+      "noPermission": "Du hast keine Berechtigung, Spieler zu verwalten",
+      "banFailed": "Spieler konnte nicht gebannt werden",
+      "pardonFailed": "Spieler konnte nicht entbannt werden",
+      "opFailed": "Spieler konnte nicht zum Operator gemacht werden",
+      "deopFailed": "Operator-Status konnte nicht entfernt werden",
+      "commandSent": "{{name}}: Befehl {{action}} gesendet"
+    }
+  },
+  "modPluginBrowser": {
+    "unavailable": {
+      "title": "Mod-Browser nicht verfügbar",
+      "description": "Diese Servervorlage bietet keine unterstützte Minecraft-Mod- oder Plugin-Funktion."
+    },
+    "title": "Mods und Plugins",
+    "description": {
+      "modpacks": "Durchsuche Modrinth- und CurseForge-Modpacks, die mit diesem Server kompatibel sind.",
+      "resources": "Durchsuche Modrinth-, CurseForge-, Hangar- und SpigotMC-Ressourcen, die mit diesem Server kompatibel sind."
+    },
+    "tabs": {
+      "mods": "Mods",
+      "modpacks": "Modpacks"
+    },
+    "searchPlaceholderWithLoader": "{{loader}} durchsuchen",
+    "searchPlaceholder": "Suchen",
+    "compatibleOnlyLabel": "Nur Ressourcen für Minecraft {{gameVersion}} anzeigen",
+    "noResultsFound": "Keine kompatiblen Ressourcen gefunden.",
+    "badges": {
+      "installed": "Installiert",
+      "manualDownload": "Manueller Download"
+    },
+    "downloadsLabel": "{{count}} Downloads",
+    "followsLabel": "{{count}} Follower",
+    "selectResourceFallback": "Ressource auswählen",
+    "chooseProjectHint": "Wähle ein Projekt aus, um dessen Versionen anzuzeigen.",
+    "viewOnProviderLink": "Auf {{provider}} ansehen",
+    "versionLabel": "Version",
+    "noCompatibleVersions": "Keine kompatiblen Versionen",
+    "minecraftVersionsPrefix": "Minecraft: ",
+    "fileLabelPrefix": "Datei: ",
+    "fileUnavailable": "Nicht verfügbar",
+    "installedFilePrefix": "Installiert: ",
+    "switchVersionButton": "Version wechseln",
+    "installButton": "Installieren",
+    "manualDownloadHints": {
+      "spigot": "SpigotMC erlaubt keine automatisierten Downloads. Lade die JAR-Datei von der Seite herunter und lade sie unter Dateien hoch.",
+      "generic": "Diese Version wird außerhalb des Anbieters gehostet und muss manuell heruntergeladen und hochgeladen werden."
+    },
+    "noWritePermissionHint": "Du benötigst Schreibrechte für Dateien, um Ressourcen zu installieren.",
+    "searchOrSelectHint": "Suche oder wähle eine Ressource aus der Liste.",
+    "installedModpack": {
+      "prefix": "Installiertes Modpack — ",
+      "modsCount_one": "{{count}} Mod",
+      "modsCount_other": "{{count}} Mods",
+      "noModsFound": "keine Mods auf der Festplatte gefunden",
+      "andConfigFiles_one": " und {{count}} Konfigurationsdatei",
+      "andConfigFiles_other": " und {{count}} Konfigurationsdateien",
+      "suffix": ". Diese stammen aus dem Pack und werden daher nicht als manuell hochgeladene Dateien aufgeführt."
+    },
+    "actions": {
+      "disable": "Deaktivieren",
+      "enable": "Aktivieren"
+    },
+    "modpackJob": {
+      "fallbackTitle": "Modpack",
+      "runningBase": "Installation läuft im Hintergrund",
+      "runningProgress": " — {{done}} von {{total}} Dateien",
+      "runningSuffix": ". Du kannst diese Seite verlassen.",
+      "failedDefault": "Die Installation ist fehlgeschlagen. Es wurde nichts geändert, falls der Fehler vor dem Installationsschritt auftrat.",
+      "installedCount_one": "{{count}} Datei installiert.",
+      "installedCount_other": "{{count}} Dateien installiert.",
+      "failuresMessage_one": "{{count}} Datei konnte nicht abgerufen werden (meist weil ein CurseForge-Autor Downloads von Drittanbietern blockiert): {{list}}",
+      "failuresMessage_other": "{{count}} Dateien konnten nicht abgerufen werden (meist weil ein CurseForge-Autor Downloads von Drittanbietern blockiert): {{list}}"
+    },
+    "modpackConfirm": {
+      "title": "{{title}} installieren?",
+      "fallbackTitle": "Modpack",
+      "description": "Dies schreibt die Mods und die Konfiguration des Packs auf den Server. Das Pack wird zuerst heruntergeladen und entpackt, sodass sich auf dem Server nichts ändert, bevor bekannt ist, dass es nutzbar ist.",
+      "backupLabel": "Zuerst sichern",
+      "backupAvailableHint": "Es wird ein Backup erstellt, bevor etwas geschrieben wird. Schlägt dies fehl, startet die Installation nicht.",
+      "backupUnavailableHint": "Nicht verfügbar: Für diesen Node ist kein Backup-Speicher für den Server konfiguriert.",
+      "wipeLabel": "Vorhandene Mods ersetzen",
+      "wipeHint": "Löscht die aktuellen Mod-JARs, damit das Ergebnis dem Pack entspricht. Deaktiviere dies, um das Pack mit dem bereits Installierten zusammenzuführen.",
+      "wipeWarning": "Vorhandene Mods werden gelöscht und es gibt kein Backup zum Wiederherstellen. Die im Pack enthaltene Mod-Konfiguration überschreibt außerdem, was auf dem Server vorhanden ist."
+    },
+    "installedSection": {
+      "title": "Installiert",
+      "updatesBadge_one": "{{count}} Update",
+      "updatesBadge_other": "{{count}} Updates",
+      "emptyState": "Bisher wurde nichts über den Browser installiert.",
+      "countDescription_one": "{{count}} Ressource auf diesem Server installiert.",
+      "countDescription_other": "{{count}} Ressourcen auf diesem Server installiert.",
+      "includeBetaLabel": "Beta-Versionen einbeziehen",
+      "updateAllButton": "Alle aktualisieren"
+    },
+    "unmanagedSection": {
+      "title": "Nicht über den Browser installiert",
+      "description_one": "{{count}} Datei auf diesem Server, auf die kein Eintrag verweist — per SFTP oder im Dateimanager hochgeladen oder manuell ersetzt. Du kannst sie hier weiterhin aktivieren oder deaktivieren; das Löschen erfolgt unter Dateien.",
+      "description_other": "{{count}} Dateien auf diesem Server, auf die kein Eintrag verweist — per SFTP oder im Dateimanager hochgeladen oder manuell ersetzt. Du kannst sie hier weiterhin aktivieren oder deaktivieren; das Löschen erfolgt unter Dateien."
+    },
+    "unreadableSection": {
+      "title": "Nicht jedes Verzeichnis konnte gelesen werden",
+      "description": "Das Verzeichnis {{types}} konnte nicht aufgelistet werden, daher sind die obigen Listen möglicherweise unvollständig. Es wurde nichts aus den Datensätzen entfernt."
+    },
+    "toasts": {
+      "installed": "{{title}} installiert",
+      "stateEnabled": "{{label}} aktiviert",
+      "stateDisabled": "{{label}} deaktiviert",
+      "installingInBackground": "{{title}} wird im Hintergrund installiert",
+      "updated": "{{title}} aktualisiert",
+      "updateAllFailed": "Aktualisierung der Ressourcen fehlgeschlagen",
+      "updatedCount_one": "{{count}} Ressource aktualisiert",
+      "updatedCount_other": "{{count}} Ressourcen aktualisiert",
+      "removed": "{{title}} entfernt"
+    }
+  }
+}

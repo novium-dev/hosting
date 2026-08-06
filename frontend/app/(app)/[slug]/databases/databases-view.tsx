@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
 
 import { CreateInstanceDialog } from "@/components/databases/create-instance-dialog";
 import { InstancesTable } from "@/components/databases/instances-table";
@@ -28,6 +29,7 @@ export function DatabasesView({
   slug,
   permissions,
 }: DatabasesViewProps) {
+  const { t } = useTranslation();
   const { data: session } = authClient.useSession();
   const {
     data: instances,
@@ -59,13 +61,12 @@ export function DatabasesView({
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h1 className="text-xl font-semibold">Databases</h1>
+          <h1 className="text-xl font-semibold">{t("common:nav.databases")}</h1>
           <p className="text-sm text-muted-foreground">
-            Your own database engines. Each one holds as many databases and users
-            as you need.
+            {t("org:databases.description")}{" "}
             {bypassesLimit
-              ? " Your role lets you go past the usual instance limit."
-              : ` A project can run up to ${INSTANCE_LIMIT}.`}
+              ? t("org:databases.descriptionBypass")
+              : t("org:databases.descriptionLimit", { limit: INSTANCE_LIMIT })}
           </p>
         </div>
         {canManage ? (

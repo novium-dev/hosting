@@ -31,12 +31,14 @@ import { IconCheck, IconX } from "@tabler/icons-react";
 import type { AppOrganization } from "@/lib/auth";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export function UpdateOrganizationSlug({
   organization,
 }: {
   organization: AppOrganization;
 }) {
+  const { t } = useTranslation();
   const [slug, setSlug] = useState({
     initialValue: organization.slug,
     value: "",
@@ -55,7 +57,7 @@ export function UpdateOrganizationSlug({
         actionProps: {
           onSuccess: () => {
             resetFormAndAction();
-            toast.success("Organization slug updated successfully");
+            toast.success(t("org:settings.slugCard.success"));
           },
           onError: (error) => {
             toast.error(error.error.serverError);
@@ -74,18 +76,22 @@ export function UpdateOrganizationSlug({
         });
         if (error) {
           setSlug((prev) => ({ ...prev, isError: true }));
-          form.setError("slug", { message: "Slug is already taken" });
+          form.setError("slug", {
+            message: t("org:settings.slugCard.slugTaken"),
+          });
         } else {
           setSlug((prev) => ({ ...prev, isError: false }));
         }
       } catch (error) {
         setSlug((prev) => ({ ...prev, isError: true }));
-        form.setError("slug", { message: "Error checking slug" });
+        form.setError("slug", {
+          message: t("org:settings.slugCard.checkError"),
+        });
       } finally {
         setSlug((prev) => ({ ...prev, isValidating: false }));
       }
     },
-    [form, slug.initialValue],
+    [form, slug.initialValue, t],
   );
 
   useEffect(() => {
@@ -110,7 +116,7 @@ export function UpdateOrganizationSlug({
         <input type="hidden" {...form.register("id")} />
         <Card>
           <CardHeader>
-            <CardTitle>Organization Slug</CardTitle>
+            <CardTitle>{t("org:settings.slugCard.title")}</CardTitle>
           </CardHeader>
           <CardContent>
             <FormField
@@ -118,7 +124,7 @@ export function UpdateOrganizationSlug({
               name="slug"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Please enter a unique slug</FormLabel>
+                  <FormLabel>{t("org:settings.slugCard.label")}</FormLabel>
                   <FormControl>
                     <InputGroup>
                       <InputGroupInput
@@ -130,7 +136,7 @@ export function UpdateOrganizationSlug({
                             value: e.target.value,
                           }));
                         }}
-                        placeholder="acme-inc"
+                        placeholder={t("org:settings.slugCard.placeholder")}
                         className="pl-1!"
                       />
                       <InputGroupAddon>
@@ -159,7 +165,7 @@ export function UpdateOrganizationSlug({
           <Separator />
           <CardFooter className="flex flex-row justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              Use only lowercase letters, numbers, and hyphens.
+              {t("org:settings.slugCard.hint")}
             </p>
             <Button
               type="submit"
@@ -167,7 +173,7 @@ export function UpdateOrganizationSlug({
               disabled={disabledForm}
               loading={action.isExecuting}
             >
-              Save
+              {t("common:actions.save")}
             </Button>
           </CardFooter>
         </Card>

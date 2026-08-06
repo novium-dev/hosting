@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import type { ListProjectUsersResponses } from "@/lib/api";
 import { InviteMemberDialog } from "./invite-member-dialog";
 import { MembersTable } from "./members-table";
@@ -12,13 +13,15 @@ interface MembersViewProps {
 }
 
 export function MembersView({ projectId, members }: MembersViewProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold">Members</h1>
+          <h1 className="text-xl font-semibold">{t("common:nav.members")}</h1>
           <p className="text-sm text-muted-foreground">
-            Add people and grant them specific permissions
+            {t("org:members.description")}
           </p>
         </div>
         <InviteMemberDialog projectId={projectId} />

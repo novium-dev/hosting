@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "@/components/link";
+import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
   Check,
@@ -70,7 +71,7 @@ import {
 type ServerManagementBarProps = {
   serverId: string;
   serverName: string;
-  address: string;
+  address: string | null;
   nodeDisplay: string;
   template: string;
   suspended: boolean;
@@ -149,6 +150,7 @@ export function ServerManagementBar({
   initialStartedAt,
   initialStats,
 }: ServerManagementBarProps) {
+  const { t } = useTranslation();
   const baseUsage = useMemo(
     () => buildBaseUsage({ cpuLimit, diskLimit, ramLimit, swapLimit }),
     [cpuLimit, diskLimit, ramLimit, swapLimit],
@@ -242,7 +244,7 @@ export function ServerManagementBar({
         if (statsUrl.error) {
           if (mounted) {
             setConnection("disconnected");
-            toast.error("Failed to connect to server stats");
+            toast.error(t("servers:managementBar.toasts.statsConnectFailed"));
           }
           return;
         }
@@ -251,7 +253,7 @@ export function ServerManagementBar({
         if (!socketUrl) {
           if (mounted) {
             setConnection("disconnected");
-            toast.error("Invalid stats websocket URL");
+            toast.error(t("servers:managementBar.toasts.invalidStatsUrl"));
           }
           return;
         }
@@ -412,7 +414,11 @@ export function ServerManagementBar({
           console.log("Start server response", res);
 
           if (res.error) {
-            throw new Error("Failed to start server: " + res.error.error?.msg);
+            throw new Error(
+              t("servers:managementBar.errors.startFailed", {
+                msg: res.error.error?.msg,
+              }),
+            );
           }
           break;
         }
@@ -420,7 +426,11 @@ export function ServerManagementBar({
           const res = await stopServer({ path: { server_id: serverId } });
 
           if (res.error) {
-            throw new Error("Failed to stop server: " + res.error.error?.msg);
+            throw new Error(
+              t("servers:managementBar.errors.stopFailed", {
+                msg: res.error.error?.msg,
+              }),
+            );
           }
           break;
         }
@@ -429,7 +439,9 @@ export function ServerManagementBar({
 
           if (res.error) {
             throw new Error(
-              "Failed to restart server: " + res.error.error?.msg,
+              t("servers:managementBar.errors.restartFailed", {
+                msg: res.error.error?.msg,
+              }),
             );
           }
           break;
@@ -438,24 +450,33 @@ export function ServerManagementBar({
           const res = await killServer({ path: { server_id: serverId } });
 
           if (res.error) {
-            throw new Error("Failed to kill server: " + res.error.error?.msg);
+            throw new Error(
+              t("servers:managementBar.errors.killFailed", {
+                msg: res.error.error?.msg,
+              }),
+            );
             return;
           }
           break;
         }
       }
 
-      toast.success(`Server ${action} command sent`);
+      toast.success(
+        t("servers:managementBar.commandSent", {
+          action: t(`servers:managementBar.actions.${action}`),
+        }),
+      );
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "An unknown error occurred";
+        error instanceof Error ? error.message : t("common:state.genericError");
       toast.error(message);
     } finally {
       setPendingAction(null);
     }
   };
 
-  const canCopyAddress = address !== "Address unavailable";
+  const canCopyAddress = address !== null;
+  const displayAddress = address ?? t("servers:managementBar.addressUnavailable");
   const uptimeMs =
     status === "running" && startedAt !== null ? now - startedAt : null;
   const playerCount = players
@@ -466,16 +487,16 @@ export function ServerManagementBar({
   const playerNames = players?.list?.map((player) => player.name) ?? [];
 
   const handleCopyAddress = async () => {
-    if (!canCopyAddress) {
+    if (!canCopyAddress || !address) {
       return;
     }
 
     try {
       await navigator.clipboard.writeText(address);
       setAddressCopied(true);
-      toast.success("Server address copied");
+      toast.success(t("servers:managementBar.toasts.addressCopied"));
     } catch {
-      toast.error("Failed to copy server address");
+      toast.error(t("servers:managementBar.toasts.addressCopyFailed"));
     }
   };
 
@@ -496,20 +517,23 @@ export function ServerManagementBar({
           <AlertTriangle className="size-4" />
           <AlertTitle>
             {cpuHigh && ramHigh
-              ? "CPU and memory usage are high"
+              ? t("servers:managementBar.highUsage.cpuAndRamTitle")
               : cpuHigh
-                ? "CPU usage is high"
-                : "Memory usage is high"}
+                ? t("servers:managementBar.highUsage.cpuTitle")
+                : t("servers:managementBar.highUsage.ramTitle")}
           </AlertTitle>
           <AlertDescription>
             {cpuHigh && usagePercents.cpu !== null
-              ? `CPU is at ${usagePercents.cpu.toFixed(1)}% of its limit. `
+              ? t("servers:managementBar.highUsage.cpuAtLimit", {
+                  percent: usagePercents.cpu.toFixed(1),
+                })
               : null}
             {ramHigh && usagePercents.ram !== null
-              ? `Memory is at ${usagePercents.ram.toFixed(1)}% of its limit. `
+              ? t("servers:managementBar.highUsage.ramAtLimit", {
+                  percent: usagePercents.ram.toFixed(1),
+                })
               : null}
-            The server may become unresponsive or be killed if it runs out of
-            resources.
+            {t("servers:managementBar.highUsage.resourceWarning")}
           </AlertDescription>
         </Alert>
       )}
@@ -529,11 +553,11 @@ export function ServerManagementBar({
                 <button
                   type="button"
                   onClick={handleCopyAddress}
-                  title="Copy server address"
+                  title={t("servers:managementBar.copyAddressTitle")}
                   className="group inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Waypoints className="size-4" />
-                  {address}
+                  {displayAddress}
                   {addressCopied ? (
                     <Check className="size-3.5 text-green-500" />
                   ) : (
@@ -543,7 +567,7 @@ export function ServerManagementBar({
               ) : (
                 <span className="inline-flex items-center gap-1.5">
                   <Waypoints className="size-4" />
-                  {address}
+                  {displayAddress}
                 </span>
               )}
               <span className="inline-flex items-center gap-1.5">
@@ -557,7 +581,7 @@ export function ServerManagementBar({
               {uptimeMs !== null && (
                 <span
                   className="inline-flex items-center gap-1.5"
-                  title="Uptime"
+                  title={t("servers:managementBar.uptimeTitle")}
                 >
                   <Clock className="size-4" />
                   {formatUptime(uptimeMs)}
@@ -579,7 +603,7 @@ export function ServerManagementBar({
                         ))}
                       </div>
                     ) : (
-                      "Players online"
+                      t("servers:managementBar.playersOnline")
                     )}
                   </TooltipContent>
                 </Tooltip>
@@ -588,15 +612,21 @@ export function ServerManagementBar({
                 (suspensionReason ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="destructive">Suspended</Badge>
+                      <Badge variant="destructive">
+                        {t("servers:managementBar.suspendedBadge")}
+                      </Badge>
                     </TooltipTrigger>
                     <TooltipContent>{suspensionReason}</TooltipContent>
                   </Tooltip>
                 ) : (
-                  <Badge variant="destructive">Suspended</Badge>
+                  <Badge variant="destructive">
+                    {t("servers:managementBar.suspendedBadge")}
+                  </Badge>
                 ))}
               {nodeMaintenance && (
-                <Badge variant="destructive">Node In Maintenance</Badge>
+                <Badge variant="destructive">
+                  {t("servers:managementBar.maintenanceBadge")}
+                </Badge>
               )}
               {actionsDisabled && disabledReason && (
                 <span className="inline-flex items-center gap-1.5 text-destructive">
@@ -611,7 +641,7 @@ export function ServerManagementBar({
               <Button asChild size="sm" variant="outline">
                 <Link href={adminHref}>
                   <Shield className="mr-2 size-4" />
-                  Admin UI
+                  {t("servers:managementBar.adminUiButton")}
                 </Link>
               </Button>
             )}
@@ -623,7 +653,7 @@ export function ServerManagementBar({
               disabled={disableAllButtons || !controls.canStart}
             >
               <Play className="size-4" />
-              Start
+              {t("common:resources.start")}
             </Button>
             <Button
               type="button"
@@ -634,7 +664,7 @@ export function ServerManagementBar({
               disabled={disableAllButtons || !canRestart}
             >
               <RotateCcw className="size-4" />
-              Restart
+              {t("servers:managementBar.actions.restart")}
             </Button>
             <Button
               type="button"
@@ -645,7 +675,7 @@ export function ServerManagementBar({
               disabled={disableAllButtons || !controls.canStop}
             >
               <Pause className="size-4" />
-              Stop
+              {t("servers:managementBar.actions.stop")}
             </Button>
             <Button
               type="button"
@@ -656,7 +686,7 @@ export function ServerManagementBar({
               disabled={disableAllButtons || !controls.canKill}
             >
               <ShieldAlert className="size-4" />
-              Kill
+              {t("servers:managementBar.actions.kill")}
             </Button>
           </div>
         </div>
@@ -670,7 +700,9 @@ export function ServerManagementBar({
         }
       >
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">Disk</p>
+          <p className="text-xs text-muted-foreground">
+            {t("common:resources.disk")}
+          </p>
           <p
             className={cn(
               "mt-1 text-sm font-medium",
@@ -681,7 +713,9 @@ export function ServerManagementBar({
           </p>
         </div>
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">RAM</p>
+          <p className="text-xs text-muted-foreground">
+            {t("servers:managementBar.stats.ram")}
+          </p>
           <p
             className={cn(
               "mt-1 text-sm font-medium",
@@ -693,12 +727,16 @@ export function ServerManagementBar({
         </div>
         {usage.swap !== "Disabled" && (
           <div className="rounded-md border bg-muted/30 p-3">
-            <p className="text-xs text-muted-foreground">Swap</p>
+            <p className="text-xs text-muted-foreground">
+              {t("servers:managementBar.stats.swap")}
+            </p>
             <p className="mt-1 text-sm font-medium">{usage.swap}</p>
           </div>
         )}
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">CPU</p>
+          <p className="text-xs text-muted-foreground">
+            {t("common:resources.cpu")}
+          </p>
           <p
             className={cn(
               "mt-1 text-sm font-medium",

@@ -24,6 +24,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import type { ProjectMember } from "./members-view";
 
 type UpdateMemberRoleDialogProps = {
@@ -39,6 +40,7 @@ export function UpdateMemberRoleDialog({
   open,
   setOpen,
 }: UpdateMemberRoleDialogProps) {
+  const { t } = useTranslation();
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
     useHookFormAction(setProjectUserAction, zodResolver(setProjectUserSchema), {
       formProps: {
@@ -53,10 +55,10 @@ export function UpdateMemberRoleDialog({
         onSuccess: () => {
           resetFormAndAction();
           setOpen(false);
-          toast.success("Member permissions updated successfully");
+          toast.success(t("org:members.updateDialog.success"));
         },
         onError: (error) => {
-          toast.error(error.error.serverError ?? "Something went wrong");
+          toast.error(error.error.serverError ?? t("common:state.genericError"));
         },
       },
     });
@@ -75,9 +77,9 @@ export function UpdateMemberRoleDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Member Permissions</DialogTitle>
+          <DialogTitle>{t("org:members.updateDialog.title")}</DialogTitle>
           <DialogDescription>
-            Choose exactly what this member can do in the project&apos;s servers.
+            {t("org:members.updateDialog.description")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -89,7 +91,7 @@ export function UpdateMemberRoleDialog({
               name="permissions"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Permissions</FormLabel>
+                  <FormLabel>{t("common:labels.permissions")}</FormLabel>
                   <FormControl>
                     <PermissionsField
                       value={field.value}
@@ -105,7 +107,7 @@ export function UpdateMemberRoleDialog({
               className="w-full"
               loading={action.isExecuting}
             >
-              Update Permissions
+              {t("org:members.updateDialog.submit")}
             </Button>
           </form>
         </Form>

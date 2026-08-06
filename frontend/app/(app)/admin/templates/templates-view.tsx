@@ -39,23 +39,24 @@ import { Boxes, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
 
 type TemplateUsage = ListTemplateUsageResponses[200][number];
 type ResyncStatus = ResyncTemplateResponse["servers"][number]["status"];
 
-/** What each per-server outcome means, in the operator's terms. */
-const STATUS_LABELS: Record<ResyncStatus, string> = {
-  updated: "Updated",
-  migrated: "Updated (config migrated)",
-  node_missing: "Node not registered",
-  node_failure: "Node unreachable",
-  template_missing: "Template no longer exists",
-  template_unavailable: "Template cache not ready",
-  template_corrupted: "Configuration unreadable",
-  failure: "Internal failure",
+const STATUS_LABEL_KEYS: Record<ResyncStatus, string> = {
+  updated: "updated",
+  migrated: "migrated",
+  node_missing: "nodeMissing",
+  node_failure: "nodeFailure",
+  template_missing: "templateMissing",
+  template_unavailable: "templateUnavailable",
+  template_corrupted: "templateCorrupted",
+  failure: "failure",
 };
 
 export function TemplatesView() {
+  const { t } = useTranslation(["admin-infra", "common"]);
   // `null` targets every template; a string targets that one. `undefined` means
   // no confirmation is open.
   const [target, setTarget] = useState<string | null | undefined>(undefined);
@@ -70,7 +71,9 @@ export function TemplatesView() {
   } = useSWR("admin-templates", async () => {
     const response = await listTemplateUsage();
     if (response.error) {
-      throw new Error(response.error.error?.msg ?? "Failed to load templates");
+      throw new Error(
+        response.error.error?.msg ?? t("admin-infra:templates.view.loadError"),
+      );
     }
     return response.data ?? [];
   });
@@ -82,12 +85,15 @@ export function TemplatesView() {
       void mutate();
       if (data) {
         toast.success(
-          `${data.updated} of ${data.total} server${data.total === 1 ? "" : "s"} updated`,
+          t("admin-infra:templates.view.resyncToast", {
+            count: data.total,
+            updated: data.updated,
+          }),
         );
       }
     },
     onError: (actionError) => {
-      toast.error(actionError.error.serverError ?? "Something went wrong");
+      toast.error(actionError.error.serverError ?? t("common:state.genericError"));
     },
   });
 
@@ -101,7 +107,9 @@ export function TemplatesView() {
 
   if (error) {
     return (
-      <div className="text-sm text-destructive">Failed to load templates.</div>
+      <div className="text-sm text-destructive">
+        {t("admin-infra:templates.view.loadErrorDisplay")}
+      </div>
     );
   }
 
@@ -109,10 +117,11 @@ export function TemplatesView() {
     <div className="space-y-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-xl font-semibold">Templates</h1>
+          <h1 className="text-xl font-semibold">
+            {t("common:nav.templates")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            A server keeps the build it was created with. After fixing a
-            template, resync its servers to push the new build to their nodes.
+            {t("admin-infra:templates.view.description")}
           </p>
         </div>
         <Button
@@ -124,7 +133,7 @@ export function TemplatesView() {
           disabled={totalServers === 0}
         >
           <RefreshCw className="size-4" />
-          Resync all servers
+          {t("admin-infra:templates.view.resyncAllButton")}
         </Button>
       </div>
 
@@ -132,9 +141,11 @@ export function TemplatesView() {
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>Template</TableHead>
-              <TableHead>Servers</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t("admin-infra:servers.shared.templateLabel")}</TableHead>
+              <TableHead>{t("common:nav.servers")}</TableHead>
+              <TableHead className="text-right">
+                {t("common:labels.actions")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -151,7 +162,9 @@ export function TemplatesView() {
                 <TableCell colSpan={3} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <Boxes className="size-5 text-muted-foreground" />
-                    <p className="text-sm font-medium">No templates</p>
+                    <p className="text-sm font-medium">
+                      {t("admin-infra:templates.view.emptyState")}
+                    </p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -163,8 +176,9 @@ export function TemplatesView() {
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">
-                      {template.servers} server
-                      {template.servers === 1 ? "" : "s"}
+                      {t("admin-infra:templates.view.serverCount", {
+                        count: template.servers,
+                      })}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -178,7 +192,7 @@ export function TemplatesView() {
                       }}
                     >
                       <RefreshCw className="size-4" />
-                      Resync
+                      {t("admin-infra:templates.view.resyncButton")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -198,13 +212,13 @@ export function TemplatesView() {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {target === null
-                ? "Resync every server?"
-                : `Resync servers using ${target}?`}
+                ? t("admin-infra:templates.view.resyncAllTitle")
+                : t("admin-infra:templates.view.resyncTemplateTitle", {
+                    template: target,
+                  })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Every affected server gets a freshly generated build pushed to its
-              node. Without a restart it takes effect the next time the server
-              starts.
+              {t("admin-infra:templates.view.resyncDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <label className="flex items-start gap-2 text-sm font-normal">
@@ -214,15 +228,15 @@ export function TemplatesView() {
               onCheckedChange={(next) => setRestart(next === true)}
             />
             <span>
-              Restart running servers
+              {t("admin-infra:templates.view.restartLabel")}
               <span className="block text-xs text-muted-foreground">
-                Applies the new build immediately and disconnects players.
+                {t("admin-infra:templates.view.restartHint")}
               </span>
             </span>
           </label>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={resync.isExecuting}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
@@ -231,7 +245,9 @@ export function TemplatesView() {
               }}
               disabled={resync.isExecuting}
             >
-              {resync.isExecuting ? "Resyncing..." : "Resync"}
+              {resync.isExecuting
+                ? t("admin-infra:templates.view.resyncingLabel")
+                : t("admin-infra:templates.view.resyncButton")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -245,24 +261,36 @@ export function TemplatesView() {
       >
         <DialogContent className="max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Resync finished</DialogTitle>
+            <DialogTitle>{t("admin-infra:templates.view.resyncFinishedTitle")}</DialogTitle>
             <DialogDescription>
-              {report?.updated ?? 0} of {report?.total ?? 0} server
-              {report?.total === 1 ? "" : "s"} updated
-              {report?.migrated ? `, ${report.migrated} migrated` : ""}
-              {report?.restarted ? `, ${report.restarted} restarted` : ""}.
+              {t("admin-infra:templates.view.resyncToast", {
+                count: report?.total ?? 0,
+                updated: report?.updated ?? 0,
+              })}
+              {report?.migrated
+                ? t("admin-infra:templates.view.migratedSuffix", {
+                    count: report.migrated,
+                  })
+                : ""}
+              {report?.restarted
+                ? t("admin-infra:templates.view.restartedSuffix", {
+                    count: report.restarted,
+                  })
+                : ""}
+              .
             </DialogDescription>
           </DialogHeader>
 
           {failures.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Every server accepted the new build.
+              {t("admin-infra:templates.view.allAccepted")}
             </p>
           ) : (
             <div className="space-y-2">
               <p className="text-sm font-medium">
-                {failures.length} server{failures.length === 1 ? "" : "s"} could
-                not be resynced
+                {t("admin-infra:templates.view.failuresCount", {
+                  count: failures.length,
+                })}
               </p>
               <ScrollArea className="h-56 rounded-md border">
                 <div className="divide-y">
@@ -280,7 +308,9 @@ export function TemplatesView() {
                         </div>
                       </div>
                       <Badge variant="destructive">
-                        {STATUS_LABELS[server.status]}
+                        {t(
+                          `admin-infra:templates.view.statusLabels.${STATUS_LABEL_KEYS[server.status]}`,
+                        )}
                       </Badge>
                     </div>
                   ))}
@@ -291,7 +321,7 @@ export function TemplatesView() {
 
           <DialogFooter>
             <Button type="button" onClick={() => setReport(null)}>
-              Done
+              {t("common:actions.close")}
             </Button>
           </DialogFooter>
         </DialogContent>

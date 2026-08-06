@@ -1,10 +1,12 @@
 import { useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/sidebar/main-layout";
 import { NotFoundView } from "@/components/not-found-view";
 import { useOrganization } from "@/hooks/use-organization";
 import { ApiKeysView } from "./api-keys-view";
 
 export default function ApiKeysPage() {
+  const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
   const { data: organization, isLoading } = useOrganization(slug);
 
@@ -15,7 +17,7 @@ export default function ApiKeysPage() {
     <MainLayout
       breadcrumbs={[
         { label: slug ?? "", href: `/${slug}` },
-        { label: "API keys" },
+        { label: t("common:nav.apiKeys") },
       ]}
     >
       <ApiKeysView

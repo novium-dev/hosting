@@ -48,6 +48,7 @@ import {
 import { Plus, Table2, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export type ProjectDatabase = ListInstanceDatabasesResponses[200][number];
 
@@ -62,6 +63,7 @@ export function InstanceDatabases({
   canManage: boolean;
   onChanged?: () => void;
 }) {
+  const { t } = useTranslation();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [pendingDelete, setPendingDelete] = useState<ProjectDatabase | null>(
@@ -88,24 +90,28 @@ export function InstanceDatabases({
 
   const create = useAction(createDatabaseAction, {
     onSuccess: () => {
-      toast.success("Database created");
+      toast.success(t("org:databases.databasesCard.created"));
       setCreating(false);
       setName("");
       refresh();
     },
     onError: (result) => {
-      toast.error(result.error.serverError ?? "Failed to create the database");
+      toast.error(
+        result.error.serverError ?? t("org:databases.databasesCard.createError"),
+      );
     },
   });
 
   const remove = useAction(deleteDatabaseAction, {
     onSuccess: () => {
-      toast.success("Database deleted");
+      toast.success(t("org:databases.databasesCard.deleted"));
       setPendingDelete(null);
       refresh();
     },
     onError: (result) => {
-      toast.error(result.error.serverError ?? "Failed to delete the database");
+      toast.error(
+        result.error.serverError ?? t("org:databases.databasesCard.deleteError"),
+      );
     },
   });
 
@@ -114,10 +120,9 @@ export function InstanceDatabases({
       <Card>
         <CardHeader className="space-y-4">
           <div>
-            <CardTitle>Databases</CardTitle>
+            <CardTitle>{t("common:nav.databases")}</CardTitle>
             <CardDescription>
-              As many as you need on this instance. Each one is reachable through
-              the shared instance address.
+              {t("org:databases.databasesCard.description")}
             </CardDescription>
           </div>
 
@@ -125,7 +130,7 @@ export function InstanceDatabases({
             <div>
               <Button type="button" onClick={() => setCreating(true)}>
                 <Plus className="size-4" />
-                New database
+                {t("org:databases.databasesCard.createTrigger")}
               </Button>
             </div>
           ) : null}
@@ -136,19 +141,21 @@ export function InstanceDatabases({
             <Skeleton className="h-24 w-full" />
           ) : error ? (
             <p className="text-sm text-destructive">
-              Failed to load the databases.
+              {t("org:databases.databasesCard.loadError")}
             </p>
           ) : !data?.length ? (
             <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-center">
               <Table2 className="size-5 text-muted-foreground" />
-              <p className="text-sm font-medium">No databases yet</p>
+              <p className="text-sm font-medium">
+                {t("org:databases.databasesCard.emptyTitle")}
+              </p>
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
+                    <TableHead>{t("common:labels.name")}</TableHead>
                     <TableHead className="w-0" />
                   </TableRow>
                 </TableHeader>
@@ -164,7 +171,9 @@ export function InstanceDatabases({
                             variant="ghost"
                             size="icon"
                             onClick={() => setPendingDelete(database)}
-                            aria-label="Delete database"
+                            aria-label={t(
+                              "org:databases.databasesCard.deleteAriaLabel",
+                            )}
                           >
                             <Trash2Icon className="size-4" />
                           </Button>
@@ -182,18 +191,20 @@ export function InstanceDatabases({
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create database</DialogTitle>
+            <DialogTitle>
+              {t("org:databases.databasesCard.createDialogTitle")}
+            </DialogTitle>
             <DialogDescription>
-              Letters and digits only, up to 63 characters.
+              {t("org:databases.databasesCard.createDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="database-name">Name</Label>
+            <Label htmlFor="database-name">{t("common:labels.name")}</Label>
             <Input
               id="database-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="analytics"
+              placeholder={t("org:databases.databasesCard.namePlaceholder")}
             />
           </div>
           <DialogFooter>
@@ -205,7 +216,7 @@ export function InstanceDatabases({
                 void create.executeAsync({ projectId, instanceId, name })
               }
             >
-              Create database
+              {t("org:databases.databasesCard.createSubmit")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -219,14 +230,15 @@ export function InstanceDatabases({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {pendingDelete?.name}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("common:confirmDelete.title", { name: pendingDelete?.name })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              The database and every user granted only on it are deleted, along
-              with all of their data.
+              {t("org:databases.databasesCard.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
@@ -238,7 +250,7 @@ export function InstanceDatabases({
                 });
               }}
             >
-              Delete
+              {t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

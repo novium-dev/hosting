@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "@/lib/navigation";
 import { useAction } from "@/lib/action-hooks";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   ArrowLeft,
   Check,
@@ -220,14 +222,17 @@ function buildDefaultPorts(
   return defaultPorts;
 }
 
-function formatPortRange(range: SelectablePortRange) {
+function formatPortRange(range: SelectablePortRange, t: TFunction) {
   const base =
     range.start === range.end
       ? `${range.protocol.toUpperCase()} ${range.start}`
       : `${range.protocol.toUpperCase()} ${range.start}-${range.end}`;
 
   return range.exclude?.length
-    ? `${base} excluding ${range.exclude.join(", ")}`
+    ? t("admin-infra:servers.shared.rangeExcluding", {
+        base,
+        exclude: range.exclude.join(", "),
+      })
     : base;
 }
 
@@ -321,6 +326,7 @@ export function ServerCreateForm({
   templates: string[];
   nodes: NodeOption[];
 }) {
+  const { t } = useTranslation(["admin-infra", "common"]);
   const router = useRouter();
   const canViewSecrets = true;
 
@@ -442,12 +448,14 @@ export function ServerCreateForm({
   const createServer = useAction(createServerAction, {
     onSuccess: (result) => {
       if (result.data?.success) {
-        toast.success("Server created successfully");
+        toast.success(t("admin-infra:servers.createForm.createSuccess"));
         router.push("/admin/servers");
       }
     },
     onError: ({ error }) => {
-      toast.error(error.serverError || "Failed to create server");
+      toast.error(
+        error.serverError || t("admin-infra:servers.createForm.createError"),
+      );
     },
   });
 
@@ -476,9 +484,9 @@ export function ServerCreateForm({
         setTemplateDetails(info);
       })
       .catch(() => {
-        toast.error("Failed to load template info");
+        toast.error(t("admin-infra:servers.createForm.loadTemplateInfoError"));
       });
-  }, [template, executeTemplateInfo, resetVariables]);
+  }, [template, executeTemplateInfo, resetVariables, t]);
 
   useEffect(() => {
     if (!templateDetails) {
@@ -540,8 +548,10 @@ export function ServerCreateForm({
         (protocol) => !isPortAllowed(value, protocol),
       );
       if (blocked) {
-        errors[group.key] =
-          `Port ${value} is outside the allowed ${blocked.toUpperCase()} ranges for node ${node}.`;
+        errors[group.key] = t(
+          "admin-infra:servers.createForm.errors.portOutsideRange",
+          { port: value, protocol: blocked.toUpperCase(), node },
+        );
         continue;
       }
 
@@ -549,8 +559,10 @@ export function ServerCreateForm({
         usedPorts.has(getPortUsageKey(protocol, value)),
       );
       if (taken) {
-        errors[group.key] =
-          `Port ${value} is already selected for another ${taken.toUpperCase()} port.`;
+        errors[group.key] = t(
+          "admin-infra:servers.createForm.errors.portAlreadySelected",
+          { port: value, protocol: taken.toUpperCase() },
+        );
         continue;
       }
 
@@ -568,7 +580,7 @@ export function ServerCreateForm({
     event.preventDefault();
 
     if (!canSubmit) {
-      toast.error("Please fill all required fields");
+      toast.error(t("admin-infra:servers.createForm.fillRequiredError"));
       return;
     }
 
@@ -578,7 +590,7 @@ export function ServerCreateForm({
     }
 
     if (Object.keys(variableErrors).length > 0) {
-      toast.error("Fix invalid template variables before creating the server");
+      toast.error(t("admin-infra:servers.createForm.invalidVariablesError"));
       return;
     }
 
@@ -605,15 +617,17 @@ export function ServerCreateForm({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Create Server</h1>
+          <h1 className="text-xl font-semibold">
+            {t("admin-infra:servers.shared.createServerLabel")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Setup a new server from template defaults.
+            {t("admin-infra:servers.createForm.subtitle")}
           </p>
         </div>
         <Button asChild variant="outline">
           <Link href="/admin/servers">
             <ArrowLeft className="size-4" />
-            Back to Servers
+            {t("admin-infra:servers.createForm.backToServers")}
           </Link>
         </Button>
       </div>
@@ -624,18 +638,22 @@ export function ServerCreateForm({
       >
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="name">Server Name</Label>
+            <Label htmlFor="name">
+              {t("admin-infra:servers.createForm.serverNameLabel")}
+            </Label>
             <Input
               id="name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="My game server"
+              placeholder={t(
+                "admin-infra:servers.createForm.serverNamePlaceholder",
+              )}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Owner (Organization)</Label>
+            <Label>{t("admin-infra:servers.createForm.ownerLabel")}</Label>
             <Popover
               open={ownerComboboxOpen}
               onOpenChange={setOwnerComboboxOpen}
@@ -649,7 +667,9 @@ export function ServerCreateForm({
                 >
                   {selectedOrganization
                     ? formatOrganizationLabel(selectedOrganization)
-                    : "Select organization"}
+                    : t(
+                        "admin-infra:servers.createForm.selectOrganizationPlaceholder",
+                      )}
                   <ChevronsUpDown className="size-4 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -658,9 +678,15 @@ export function ServerCreateForm({
                 align="start"
               >
                 <Command>
-                  <CommandInput placeholder="Search organization..." />
+                  <CommandInput
+                    placeholder={t(
+                      "admin-infra:servers.createForm.searchOrganizationPlaceholder",
+                    )}
+                  />
                   <CommandList>
-                    <CommandEmpty>No organization found.</CommandEmpty>
+                    <CommandEmpty>
+                      {t("admin-infra:servers.createForm.noOrganizationFound")}
+                    </CommandEmpty>
                     <CommandGroup>
                       {organizations.map((org) => (
                         <CommandItem
@@ -688,10 +714,14 @@ export function ServerCreateForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Template</Label>
+            <Label>{t("admin-infra:servers.shared.templateLabel")}</Label>
             <Select value={template} onValueChange={setTemplate}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select template" />
+                <SelectValue
+                  placeholder={t(
+                    "admin-infra:servers.createForm.selectTemplatePlaceholder",
+                  )}
+                />
               </SelectTrigger>
               <SelectContent>
                 {templates.map((templateName) => (
@@ -704,10 +734,14 @@ export function ServerCreateForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Node</Label>
+            <Label>{t("admin-infra:servers.shared.nodeLabel")}</Label>
             <Select value={node} onValueChange={setNode}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select node" />
+                <SelectValue
+                  placeholder={t(
+                    "admin-infra:servers.createForm.selectNodePlaceholder",
+                  )}
+                />
               </SelectTrigger>
               <SelectContent>
                 {nodes.map((nodeOption) => (
@@ -720,10 +754,16 @@ export function ServerCreateForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="storage">Storage</Label>
+            <Label htmlFor="storage">
+              {t("admin-infra:servers.createForm.storageLabel")}
+            </Label>
             <Select value={storage} onValueChange={setStorage}>
               <SelectTrigger id="storage" className="w-full">
-                <SelectValue placeholder="Select storage" />
+                <SelectValue
+                  placeholder={t(
+                    "admin-infra:servers.createForm.selectStoragePlaceholder",
+                  )}
+                />
               </SelectTrigger>
               <SelectContent>
                 {(selectedNode?.serverStorages ?? []).map((storageOption) => (
@@ -736,7 +776,9 @@ export function ServerCreateForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="internet-access">Internet Access</Label>
+            <Label htmlFor="internet-access">
+              {t("admin-infra:servers.shared.internetAccessLabel")}
+            </Label>
             <Select
               value={internetAccess ? "enabled" : "disabled"}
               onValueChange={(value) => setInternetAccess(value === "enabled")}
@@ -745,8 +787,12 @@ export function ServerCreateForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="enabled">Enabled</SelectItem>
-                <SelectItem value="disabled">Disabled</SelectItem>
+                <SelectItem value="enabled">
+                  {t("common:status.enabled")}
+                </SelectItem>
+                <SelectItem value="disabled">
+                  {t("common:status.disabled")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -755,35 +801,45 @@ export function ServerCreateForm({
         <Separator />
 
         <div className="space-y-3">
-          <h2 className="text-base font-semibold">Resources</h2>
+          <h2 className="text-base font-semibold">
+            {t("admin-infra:servers.createForm.resourcesTitle")}
+          </h2>
           <p className="text-sm text-muted-foreground">
-            Leave empty for template defaults/unlimited.
+            {t("admin-infra:servers.createForm.resourcesHint")}
           </p>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="space-y-2">
-              <Label htmlFor="ram">RAM (MB)</Label>
+              <Label htmlFor="ram">
+                {t("admin-infra:servers.createForm.ramLabel")}
+              </Label>
               <Input
                 id="ram"
                 type="number"
                 min={0}
                 value={ram}
                 onChange={(event) => setRam(event.target.value)}
-                placeholder="e.g. 2048"
+                placeholder={t("admin-infra:servers.createForm.ramPlaceholder")}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="disk">Disk (MB)</Label>
+              <Label htmlFor="disk">
+                {t("admin-infra:servers.createForm.diskLabel")}
+              </Label>
               <Input
                 id="disk"
                 type="number"
                 min={0}
                 value={disk}
                 onChange={(event) => setDisk(event.target.value)}
-                placeholder="e.g. 10240"
+                placeholder={t(
+                  "admin-infra:servers.createForm.diskPlaceholder",
+                )}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cpu">CPU</Label>
+              <Label htmlFor="cpu">
+                {t("common:resources.cpu")}
+              </Label>
               <Input
                 id="cpu"
                 type="number"
@@ -791,32 +847,40 @@ export function ServerCreateForm({
                 step={0.1}
                 value={cpu}
                 onChange={(event) => setCpu(event.target.value)}
-                placeholder="e.g. 2"
+                placeholder={t("admin-infra:servers.createForm.cpuPlaceholder")}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="swap">Swap (MB)</Label>
+              <Label htmlFor="swap">
+                {t("admin-infra:servers.createForm.swapLabel")}
+              </Label>
               <Input
                 id="swap"
                 type="number"
                 min={0}
                 value={swap}
                 onChange={(event) => setSwap(event.target.value)}
-                placeholder="e.g. 1024"
+                placeholder={t(
+                  "admin-infra:servers.createForm.swapPlaceholder",
+                )}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="backup-limit">Backup Limit</Label>
+              <Label htmlFor="backup-limit">
+                {t("admin-infra:servers.shared.backupLimitLabel")}
+              </Label>
               <Input
                 id="backup-limit"
                 type="number"
                 min={0}
                 value={backupLimit}
                 onChange={(event) => setBackupLimit(event.target.value)}
-                placeholder="e.g. 3"
+                placeholder={t(
+                  "admin-infra:servers.createForm.backupLimitPlaceholder",
+                )}
               />
               <p className="text-xs text-muted-foreground">
-                0 disables backups, empty means unlimited.
+                {t("admin-infra:servers.createForm.backupLimitHint")}
               </p>
             </div>
           </div>
@@ -825,19 +889,21 @@ export function ServerCreateForm({
         <Separator />
 
         <div className="space-y-3">
-          <h2 className="text-base font-semibold">Template Variables</h2>
+          <h2 className="text-base font-semibold">
+            {t("admin-infra:servers.createForm.templateVariablesTitle")}
+          </h2>
           {!template ? (
             <p className="text-sm text-muted-foreground">
-              Select a template first.
+              {t("admin-infra:servers.createForm.selectTemplateFirst")}
             </p>
           ) : templateInfoAction.isExecuting ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
-              Loading template details...
+              {t("admin-infra:servers.createForm.loadingTemplateDetails")}
             </div>
           ) : !templateDetails ? (
             <p className="text-sm text-muted-foreground">
-              No template details available.
+              {t("admin-infra:servers.createForm.noTemplateDetails")}
             </p>
           ) : (
             <VariableFields
@@ -855,24 +921,28 @@ export function ServerCreateForm({
         <Separator />
 
         <div className="space-y-3">
-          <h2 className="text-base font-semibold">Ports</h2>
+          <h2 className="text-base font-semibold">
+            {t("common:nav.ports")}
+          </h2>
           {allowedPortRanges.length > 0 && (
             <Popover>
               <PopoverTrigger asChild>
                 <Button type="button" variant="outline" size="sm">
-                  Available ranges
+                  {t("admin-infra:servers.shared.availableRanges")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-80">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Available port ranges</p>
+                  <p className="text-sm font-medium">
+                    {t("admin-infra:servers.shared.availablePortRangesTitle")}
+                  </p>
                   <div className="space-y-1">
                     {allowedPortRanges.map((range, index) => (
                       <p
                         key={`${range.protocol}-${range.start}-${range.end}-${index}`}
                         className="font-mono text-xs text-muted-foreground"
                       >
-                        {formatPortRange(range)}
+                        {formatPortRange(range, t)}
                       </p>
                     ))}
                   </div>
@@ -882,11 +952,11 @@ export function ServerCreateForm({
           )}
           {!templateDetails ? (
             <p className="text-sm text-muted-foreground">
-              Select a template to configure ports.
+              {t("admin-infra:servers.createForm.selectTemplateForPorts")}
             </p>
           ) : Object.keys(templateDetails.ports).length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No configurable ports for this template.
+              {t("admin-infra:servers.createForm.noConfigurablePorts")}
             </p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
@@ -917,7 +987,9 @@ export function ServerCreateForm({
                         .map((protocol) => protocol.toUpperCase())
                         .join(" + ")}
                       {group.remappable
-                        ? ` / internal ${group.internalPort}`
+                        ? t("admin-infra:servers.createForm.internalPortSuffix", {
+                            port: group.internalPort,
+                          })
                         : ""}
                       )
                     </Label>
@@ -947,12 +1019,16 @@ export function ServerCreateForm({
                         id={group.key}
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        placeholder="Select or enter port"
+                        placeholder={t(
+                          "admin-infra:servers.createForm.selectOrEnterPortPlaceholder",
+                        )}
                         aria-invalid={Boolean(portErrors[group.key])}
                         className="w-full"
                       />
                       <ComboboxContent>
-                        <ComboboxEmpty>No available port found.</ComboboxEmpty>
+                        <ComboboxEmpty>
+                          {t("admin-infra:servers.createForm.noAvailablePortFound")}
+                        </ComboboxEmpty>
                         <ComboboxList>
                           <ComboboxGroup>
                             {portOptions.map((option) => (
@@ -985,7 +1061,7 @@ export function ServerCreateForm({
             disabled={!canSubmit}
             loading={createServer.isExecuting}
           >
-            Create Server
+            {t("admin-infra:servers.shared.createServerLabel")}
           </Button>
         </div>
       </form>

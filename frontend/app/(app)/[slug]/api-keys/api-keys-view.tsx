@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
 
 import { ApiKeysTable } from "@/components/api-keys/api-keys-table";
 import { CreateApiKeyDialog } from "@/components/api-keys/create-api-key-dialog";
@@ -15,6 +16,7 @@ interface ApiKeysViewProps {
 }
 
 export function ApiKeysView({ projectId, permissions }: ApiKeysViewProps) {
+  const { t } = useTranslation();
   const { data: session } = authClient.useSession();
   const {
     data: keys,
@@ -43,10 +45,9 @@ export function ApiKeysView({ projectId, permissions }: ApiKeysViewProps) {
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h1 className="text-xl font-semibold">API keys</h1>
+          <h1 className="text-xl font-semibold">{t("common:nav.apiKeys")}</h1>
           <p className="text-sm text-muted-foreground">
-            Keys act as their owner inside this project, limited to the
-            permissions they were given.
+            {t("org:apiKeys.description")}
           </p>
         </div>
         <CreateApiKeyDialog

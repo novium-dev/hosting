@@ -1,0 +1,201 @@
+{
+  "shared": {
+    "ram": "RAM",
+    "permissionCount_one": "{{count}} Berechtigung",
+    "permissionCount_other": "{{count}} Berechtigungen",
+    "noPermissions": "Keine Berechtigungen"
+  },
+  "apiKeys": {
+    "description": "Schlüssel handeln als ihr Besitzer innerhalb dieses Projekts, begrenzt auf die Berechtigungen, die ihnen erteilt wurden.",
+    "table": {
+      "columns": {
+        "scope": "Geltungsbereich",
+        "lastUsed": "Zuletzt verwendet"
+      },
+      "instanceScope": "Instanz",
+      "never": "Nie",
+      "loadError": "API-Schlüssel konnten nicht geladen werden.",
+      "emptyTitle": "Noch keine API-Schlüssel",
+      "emptyDescription": "Erstelle einen, um ohne Browser-Sitzung mit der API zu sprechen.",
+      "editAction": "Schlüssel bearbeiten",
+      "revokeAction": "Schlüssel widerrufen",
+      "revokeTitle": "API-Schlüssel widerrufen?",
+      "revokeDescription": "{{name}} funktioniert sofort nicht mehr. Alles, was ihn verwendet, erhält ab sofort 401-Fehler.",
+      "revoked": "API-Schlüssel widerrufen"
+    },
+    "createDialog": {
+      "trigger": "Neuer Schlüssel",
+      "title": "API-Schlüssel erstellen",
+      "descriptionProject": "Der Schlüssel kann nur innerhalb dieses Projekts handeln und niemals über deine eigenen Berechtigungen hinausgehen.",
+      "descriptionInstance": "Der Schlüssel handelt instanzweit und niemals über deine eigenen Berechtigungen hinaus.",
+      "namePlaceholder": "Deployment-Pipeline",
+      "submit": "Schlüssel erstellen",
+      "copyTitle": "Kopiere deinen API-Schlüssel",
+      "copyDescription": "Dies ist das einzige Mal, dass der Schlüssel angezeigt wird. Bewahre ihn sicher auf — falls du ihn verlierst, erstelle einen neuen.",
+      "copyAriaLabel": "API-Schlüssel kopieren",
+      "sendAs": "Sende ihn als <code>Authorization: Bearer YOUR_KEY</code>.",
+      "done": "Fertig",
+      "copied": "API-Schlüssel kopiert",
+      "copyFailed": "API-Schlüssel konnte nicht kopiert werden"
+    },
+    "editDialog": {
+      "title": "API-Schlüssel bearbeiten",
+      "description": "Der Geltungsbereich steht bei der Erstellung fest; Name und Berechtigungen nicht.",
+      "updated": "API-Schlüssel aktualisiert"
+    },
+    "permissionsField": {
+      "instanceLabel": "Instanzberechtigungen",
+      "serverLabel": "Serverberechtigungen",
+      "serverDescription": "Gilt für jeden Server, auf den der Besitzer des Schlüssels zugreifen kann."
+    }
+  },
+  "databases": {
+    "description": "Deine eigenen Datenbank-Engines. Jede kann so viele Datenbanken und Benutzer enthalten, wie du brauchst.",
+    "descriptionBypass": "Deine Rolle erlaubt es dir, das übliche Instanzlimit zu überschreiten.",
+    "descriptionLimit": "Ein Projekt kann bis zu {{limit}} betreiben.",
+    "instanceBreadcrumb": "Instanz",
+    "engineLabel": "Engine",
+    "instanceView": {
+      "notRunningTitle": "Die Instanz läuft nicht",
+      "notRunningDescription": "Starte sie, bevor du Datenbanken oder Benutzer erstellst — die Engine muss laufen, damit diese wirksam werden."
+    },
+    "createDialog": {
+      "trigger": "Neue Instanz",
+      "title": "Datenbankinstanz erstellen",
+      "description": "Deine eigene Engine auf einem Host in der Region deines Projekts. Ihre Größe wird von der Plattform festgelegt; du kannst so viele Datenbanken und Benutzer darauf anlegen, wie du möchtest.",
+      "namePlaceholder": "Produktion",
+      "nameDescription": "Nur damit du Instanzen auseinanderhalten kannst. Eine spätere Umbenennung obliegt einem Administrator.",
+      "submit": "Instanz erstellen",
+      "created": "Instanz erstellt, wird jetzt gestartet"
+    },
+    "databasesCard": {
+      "description": "So viele wie du auf dieser Instanz benötigst. Jede ist über die gemeinsame Instanzadresse erreichbar.",
+      "createTrigger": "Neue Datenbank",
+      "loadError": "Die Datenbanken konnten nicht geladen werden.",
+      "emptyTitle": "Noch keine Datenbanken",
+      "deleteAriaLabel": "Datenbank löschen",
+      "createDialogTitle": "Datenbank erstellen",
+      "createDialogDescription": "Nur Buchstaben und Ziffern, bis zu 63 Zeichen.",
+      "namePlaceholder": "analytics",
+      "createSubmit": "Datenbank erstellen",
+      "deleteDescription": "Die Datenbank und jeder Benutzer, der ausschließlich auf ihr Rechte hat, werden gelöscht, zusammen mit all ihren Daten.",
+      "created": "Datenbank erstellt",
+      "createError": "Datenbank konnte nicht erstellt werden",
+      "deleted": "Datenbank gelöscht",
+      "deleteError": "Datenbank konnte nicht gelöscht werden"
+    },
+    "usersCard": {
+      "description": "Jeder verbindet sich mit dem angezeigten Namen, der seine eigene ID trägt.",
+      "createTrigger": "Neuer Benutzer",
+      "loadError": "Die Benutzer konnten nicht geladen werden.",
+      "emptyTitle": "Noch keine Benutzer",
+      "emptyDescription": "Erstelle einen, um einen Verbindungsstring zu erhalten.",
+      "connectionColumn": "Verbindung",
+      "revealPassword": "Passwort anzeigen",
+      "hidePassword": "Passwort verbergen",
+      "copyUriAriaLabel": "Verbindungs-URI kopieren",
+      "connectionUriCopied": "Verbindungs-URI kopiert",
+      "connectionUriCopyFailed": "Verbindungs-URI konnte nicht kopiert werden",
+      "rotatePassword": "Passwort erneuern",
+      "createDialogTitle": "Benutzer erstellen",
+      "createDialogDescription": "Ein Passwort wird für dich generiert und angezeigt, sobald der Benutzer existiert.",
+      "usernamePlaceholder": "app",
+      "grantOnLabel": "Berechtigung für",
+      "noDatabaseOption": "Keine Datenbank",
+      "createSubmit": "Benutzer erstellen",
+      "deleteDescription": "Alles, was sich noch mit diesen Zugangsdaten verbindet, funktioniert nicht mehr.",
+      "created": "Benutzer erstellt",
+      "createError": "Benutzer konnte nicht erstellt werden",
+      "deleted": "Benutzer gelöscht",
+      "deleteError": "Benutzer konnte nicht gelöscht werden",
+      "passwordRotated": "Passwort erneuert",
+      "rotateError": "Passwort konnte nicht erneuert werden"
+    },
+    "managementBar": {
+      "suspendedTooltip": "Ein Administrator hat diese Instanz gesperrt. Verbindungen werden abgelehnt und Power-Aktionen sind blockiert.",
+      "copyAddressTitle": "Instanzadresse kopieren",
+      "addressCopied": "Instanzadresse kopiert",
+      "addressCopyFailed": "Instanzadresse konnte nicht kopiert werden",
+      "uptimeTitle": "Laufzeit",
+      "noPowerPermission": "Du hast keine Berechtigung, die Power-Steuerung zu nutzen.",
+      "restart": "Neu starten",
+      "stop": "Stoppen",
+      "kill": "Beenden",
+      "startCommandSent": "Startbefehl gesendet",
+      "restartCommandSent": "Neustartbefehl gesendet",
+      "stopCommandSent": "Stoppbefehl gesendet",
+      "killCommandSent": "Beenden-Befehl gesendet",
+      "powerError": "Der Betriebszustand konnte nicht geändert werden"
+    },
+    "instancesTable": {
+      "stateColumn": "Zustand",
+      "loadError": "Die Instanzen konnten nicht geladen werden.",
+      "emptyTitle": "Noch keine Datenbankinstanzen",
+      "emptyDescription": "Erstelle eine und füge ihr so viele Datenbanken und Benutzer hinzu, wie du brauchst.",
+      "powerChanged": "Betriebszustand geändert",
+      "deleted": "Instanz gelöscht",
+      "deleteError": "Instanz konnte nicht gelöscht werden",
+      "deleteDescription": "Jede Datenbank und jeder Benutzer auf dieser Instanz wird mit ihr gelöscht, zusammen mit all ihren Daten. Dies kann nicht rückgängig gemacht werden."
+    }
+  },
+  "members": {
+    "description": "Füge Personen hinzu und erteile ihnen bestimmte Berechtigungen",
+    "table": {
+      "emptyTitle": "Noch keine Mitglieder",
+      "emptyDescription": "Lade jemanden ein, um ihm Zugriff auf dieses Projekt zu geben.",
+      "updateAction": "Mitglied aktualisieren",
+      "removeAction": "Mitglied entfernen",
+      "removeTitle": "Mitglied entfernen?",
+      "removeDescription": "Dies entfernt {{email}} aus dem Projekt. Die Person verliert den Zugriff auf alle zugehörigen Server.",
+      "removeSuccess": "Mitglied erfolgreich entfernt"
+    },
+    "inviteDialog": {
+      "trigger": "Mitglied hinzufügen",
+      "title": "Mitglied hinzufügen",
+      "description": "Füge ein Mitglied per E-Mail hinzu und erteile ihm bestimmte Berechtigungen.",
+      "emailPlaceholder": "mitglied@email.com",
+      "submit": "Mitglied hinzufügen",
+      "success": "Mitglied erfolgreich hinzugefügt"
+    },
+    "updateDialog": {
+      "title": "Mitgliedsberechtigungen",
+      "description": "Lege genau fest, was dieses Mitglied auf den Servern des Projekts tun kann.",
+      "submit": "Berechtigungen aktualisieren",
+      "success": "Mitgliedsberechtigungen erfolgreich aktualisiert"
+    }
+  },
+  "settings": {
+    "heading": "Organisationseinstellungen",
+    "subheading": "Verwalte hier die Einstellungen deiner Organisation.",
+    "dangerZone": {
+      "title": "Gefahrenzone",
+      "description": "Unumkehrbare und destruktive Aktionen",
+      "deleteWarning": "Das Löschen deiner Organisation entfernt dauerhaft alle zugehörigen Daten, einschließlich Arbeitsbereiche, Formulare und Antworten. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "deleteButton": "Organisation löschen"
+    },
+    "nameCard": {
+      "title": "Organisationsname",
+      "label": "Bitte gib den Namen deiner Organisation ein",
+      "placeholder": "Meine Organisation",
+      "description": "Diese Aktion aktualisiert den Namen der Organisation.",
+      "success": "Organisationsname erfolgreich aktualisiert"
+    },
+    "slugCard": {
+      "title": "Organisations-Slug",
+      "label": "Bitte gib einen eindeutigen Slug ein",
+      "placeholder": "acme-inc",
+      "slugTaken": "Slug ist bereits vergeben",
+      "checkError": "Fehler beim Prüfen des Slugs",
+      "hint": "Nur Kleinbuchstaben, Ziffern und Bindestriche verwenden.",
+      "success": "Organisations-Slug erfolgreich aktualisiert"
+    }
+  },
+  "dashboard": {
+    "heading": "Deine Server",
+    "subheading": "Verwalte deine Spieleserver, sieh dir Logs an und greife auf die Konsole zu.",
+    "noOrgTitle": "Keine aktive Organisation ausgewählt",
+    "noOrgDescription": "Bitte wähle eine Organisation aus, bevor du Server ansiehst.",
+    "emptyTitle": "Keine Server gefunden",
+    "emptyDescription": "Diese Organisation hat noch keine Spieleserver."
+  }
+}

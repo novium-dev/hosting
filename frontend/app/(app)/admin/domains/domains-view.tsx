@@ -4,6 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { Loader2, Plus, RefreshCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { Trans, useTranslation } from "react-i18next";
 
 import {
   AlertDialog,
@@ -71,6 +72,7 @@ function errorMessage(
 }
 
 export function AdminDomainsView() {
+  const { t } = useTranslation();
   const { data: session } = authClient.useSession();
   const canManage = hasManagementPermission(
     session?.user.permissions ?? 0,
@@ -84,7 +86,9 @@ export function AdminDomainsView() {
   } = useSWR("admin-route-domains", async () => {
     const response = await listRouteDomainsAdmin();
     if (response.error) {
-      throw new Error(errorMessage(response.error, "Failed to load domains"));
+      throw new Error(
+        errorMessage(response.error, t("admin-core:domains.toast.loadFailed")),
+      );
     }
     return response.data ?? [];
   });
@@ -137,15 +141,19 @@ export function AdminDomainsView() {
       });
 
       if (response.error) {
-        throw new Error(errorMessage(response.error, "Failed to add domain"));
+        throw new Error(
+          errorMessage(response.error, t("admin-core:domains.toast.addFailed")),
+        );
       }
 
-      toast.success(`${domain} added`);
+      toast.success(t("admin-core:domains.toast.added", { domain }));
       setCreateOpen(false);
       await mutate();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to add domain",
+        error instanceof Error
+          ? error.message
+          : t("admin-core:domains.toast.addFailed"),
       );
     } finally {
       setIsSubmitting(false);
@@ -164,14 +172,19 @@ export function AdminDomainsView() {
 
       if (response.error) {
         throw new Error(
-          errorMessage(response.error, "Failed to update domain"),
+          errorMessage(
+            response.error,
+            t("admin-core:domains.toast.updateFailed"),
+          ),
         );
       }
 
       await mutate();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to update domain",
+        error instanceof Error
+          ? error.message
+          : t("admin-core:domains.toast.updateFailed"),
       );
     }
   };
@@ -188,16 +201,21 @@ export function AdminDomainsView() {
 
       if (response.error) {
         throw new Error(
-          errorMessage(response.error, "Failed to delete domain"),
+          errorMessage(
+            response.error,
+            t("admin-core:domains.toast.deleteFailed"),
+          ),
         );
       }
 
-      toast.success("Domain deleted");
+      toast.success(t("admin-core:domains.toast.deleted"));
       setPendingDelete(null);
       await mutate();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to delete domain",
+        error instanceof Error
+          ? error.message
+          : t("admin-core:domains.toast.deleteFailed"),
       );
     } finally {
       setIsSubmitting(false);
@@ -215,7 +233,12 @@ export function AdminDomainsView() {
       });
 
       if (response.error) {
-        throw new Error(errorMessage(response.error, "Failed to grant access"));
+        throw new Error(
+          errorMessage(
+            response.error,
+            t("admin-core:domains.toast.grantFailed"),
+          ),
+        );
       }
 
       setGrantTarget(null);
@@ -223,7 +246,9 @@ export function AdminDomainsView() {
       await mutate();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to grant access",
+        error instanceof Error
+          ? error.message
+          : t("admin-core:domains.toast.grantFailed"),
       );
     } finally {
       setIsSubmitting(false);
@@ -239,14 +264,23 @@ export function AdminDomainsView() {
       });
 
       if (response.error) {
-        throw new Error(errorMessage(response.error, "Failed to resolve zone"));
+        throw new Error(
+          errorMessage(
+            response.error,
+            t("admin-core:domains.toast.resolveFailed"),
+          ),
+        );
       }
 
-      toast.success(`Zone of ${entry.domain} resolved`);
+      toast.success(
+        t("admin-core:domains.toast.zoneResolved", { domain: entry.domain }),
+      );
       await mutate();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to resolve zone",
+        error instanceof Error
+          ? error.message
+          : t("admin-core:domains.toast.resolveFailed"),
       );
     } finally {
       setIsSubmitting(false);
@@ -261,14 +295,19 @@ export function AdminDomainsView() {
 
       if (response.error) {
         throw new Error(
-          errorMessage(response.error, "Failed to revoke access"),
+          errorMessage(
+            response.error,
+            t("admin-core:domains.toast.revokeFailed"),
+          ),
         );
       }
 
       await mutate();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to revoke access",
+        error instanceof Error
+          ? error.message
+          : t("admin-core:domains.toast.revokeFailed"),
       );
     }
   };
@@ -277,29 +316,30 @@ export function AdminDomainsView() {
     <div className="space-y-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-xl font-semibold">Domains</h1>
+          <h1 className="text-xl font-semibold">
+            {t("admin-core:domains.title")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Domains users can put their routes under. HTTP ports become Pangolin
-            resources, TCP ports get a Cloudflare SRV record — the Cloudflare
-            zone is looked up by domain name when you add it. A private domain is
-            only offered to the projects you grant it to.
+            {t("admin-core:domains.description")}
           </p>
         </div>
         {canManage ? (
           <Button type="button" onClick={openCreate}>
             <Plus className="size-4" />
-            New domain
+            {t("admin-core:domains.newDomain")}
           </Button>
         ) : null}
       </div>
 
       {backends && !backends.cloudflare && !backends.pangolin ? (
         <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          Neither route backend is configured. Add
-          <code className="mx-1 font-mono">[routes.cloudflare]</code>
-          for TCP routes (SRV records) or
-          <code className="mx-1 font-mono">[routes.pangolin]</code>
-          for HTTP routes to the backend config.
+          <Trans
+            i18nKey="admin-core:domains.backendNotConfigured"
+            components={{
+              code1: <code className="mx-1 font-mono" />,
+              code2: <code className="mx-1 font-mono" />,
+            }}
+          />
         </p>
       ) : null}
 
@@ -309,19 +349,19 @@ export function AdminDomainsView() {
         </div>
       ) : (domains?.length ?? 0) === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
-          No domains yet.
+          {t("admin-core:domains.emptyState")}
         </p>
       ) : (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Domain</TableHead>
-                <TableHead>Carries</TableHead>
-                <TableHead>HTTPS</TableHead>
-                <TableHead>Private</TableHead>
-                <TableHead>Projects</TableHead>
-                <TableHead>Routes</TableHead>
+                <TableHead>{t("admin-core:domains.table.domain")}</TableHead>
+                <TableHead>{t("admin-core:domains.table.carries")}</TableHead>
+                <TableHead>{t("common:resources.https")}</TableHead>
+                <TableHead>{t("admin-core:domains.table.private")}</TableHead>
+                <TableHead>{t("common:nav.projects")}</TableHead>
+                <TableHead>{t("admin-core:domains.table.routes")}</TableHead>
                 <TableHead className="w-0" />
               </TableRow>
             </TableHeader>
@@ -331,15 +371,17 @@ export function AdminDomainsView() {
                   <TableCell className="font-medium">{entry.domain}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-1">
-                      {entry.http_available ? <Badge>HTTP</Badge> : null}
+                      {entry.http_available ? (
+                        <Badge>{t("common:resources.http")}</Badge>
+                      ) : null}
                       {entry.tcp_available ? (
                         <Badge title={entry.cloudflare_zone_id ?? undefined}>
-                          TCP
+                          {t("admin-core:domains.table.tcpBadge")}
                         </Badge>
                       ) : null}
                       {!entry.http_available && !entry.tcp_available ? (
                         <span className="text-sm text-muted-foreground">
-                          nothing yet
+                          {t("admin-core:domains.table.nothingYet")}
                         </span>
                       ) : null}
                       {canManage &&
@@ -353,7 +395,7 @@ export function AdminDomainsView() {
                           onClick={() => void resolveZone(entry)}
                         >
                           <RefreshCcw className="size-3" />
-                          Find zone
+                          {t("admin-core:domains.findZone")}
                         </Button>
                       ) : null}
                     </div>
@@ -414,7 +456,7 @@ export function AdminDomainsView() {
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground">
-                          All projects
+                          {t("admin-core:domains.allProjects")}
                         </p>
                       )
                     }
@@ -444,19 +486,21 @@ export function AdminDomainsView() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New domain</DialogTitle>
+            <DialogTitle>{t("admin-core:domains.createDialog.title")}</DialogTitle>
             <DialogDescription>
-              Routes are created as subdomains of this domain.
+              {t("admin-core:domains.createDialog.description")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="domain-name">Domain</Label>
+              <Label htmlFor="domain-name">
+                {t("admin-core:domains.table.domain")}
+              </Label>
               <Input
                 id="domain-name"
                 value={domain}
-                placeholder="novium.link"
+                placeholder={t("admin-core:domains.createDialog.domainPlaceholder")}
                 autoComplete="off"
                 onChange={(event) =>
                   setDomain(event.target.value.trim().toLowerCase())
@@ -465,7 +509,9 @@ export function AdminDomainsView() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="domain-pangolin-id">Pangolin domain ID</Label>
+              <Label htmlFor="domain-pangolin-id">
+                {t("admin-core:domains.createDialog.pangolinIdLabel")}
+              </Label>
               <Input
                 id="domain-pangolin-id"
                 value={pangolinDomainId}
@@ -473,17 +519,17 @@ export function AdminDomainsView() {
                 onChange={(event) => setPangolinDomainId(event.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                The domain&apos;s ID in Pangolin. Required for HTTP routes; TCP
-                routes go through Cloudflare, whose zone is resolved from the
-                domain name.
+                {t("admin-core:domains.createDialog.pangolinIdHelp")}
               </p>
             </div>
 
             <div className="flex items-center justify-between rounded-md border p-3">
               <div>
-                <Label htmlFor="domain-https">HTTPS</Label>
+                <Label htmlFor="domain-https">
+                  {t("common:resources.https")}
+                </Label>
                 <p className="text-xs text-muted-foreground">
-                  Users may enable HTTPS for HTTP routes on this domain.
+                  {t("admin-core:domains.createDialog.httpsHelp")}
                 </p>
               </div>
               <Switch
@@ -495,9 +541,11 @@ export function AdminDomainsView() {
 
             <div className="flex items-center justify-between rounded-md border p-3">
               <div>
-                <Label htmlFor="domain-private">Private</Label>
+                <Label htmlFor="domain-private">
+                  {t("admin-core:domains.table.private")}
+                </Label>
                 <p className="text-xs text-muted-foreground">
-                  Only granted projects see this domain.
+                  {t("admin-core:domains.createDialog.privateHelp")}
                 </p>
               </div>
               <Switch
@@ -514,7 +562,7 @@ export function AdminDomainsView() {
               variant="outline"
               onClick={() => setCreateOpen(false)}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -524,7 +572,7 @@ export function AdminDomainsView() {
               {isSubmitting ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : null}
-              Add domain
+              {t("admin-core:domains.createDialog.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -538,15 +586,19 @@ export function AdminDomainsView() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Grant project access</DialogTitle>
+            <DialogTitle>{t("admin-core:domains.grantDialog.title")}</DialogTitle>
             <DialogDescription>
-              Pick the project that may use {grantTarget?.domain}.
+              {t("admin-core:domains.grantDialog.description", {
+                domain: grantTarget?.domain,
+              })}
             </DialogDescription>
           </DialogHeader>
 
           <Select value={grantProject} onValueChange={setGrantProject}>
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Project" />
+              <SelectValue
+                placeholder={t("admin-core:domains.grantDialog.projectPlaceholder")}
+              />
             </SelectTrigger>
             <SelectContent>
               {projects
@@ -567,14 +619,14 @@ export function AdminDomainsView() {
               variant="outline"
               onClick={() => setGrantTarget(null)}
             >
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
             <Button
               type="button"
               onClick={() => void grant()}
               disabled={isSubmitting || !grantProject}
             >
-              Grant
+              {t("admin-core:domains.grantDialog.submit")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -588,15 +640,18 @@ export function AdminDomainsView() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete domain</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("admin-core:domains.deleteDialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingDelete?.domain} can no longer be used for new routes. A
-              domain that still has routes cannot be deleted.
+              {t("admin-core:domains.deleteDialog.description", {
+                domain: pendingDelete?.domain,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={isSubmitting}
@@ -605,7 +660,7 @@ export function AdminDomainsView() {
                 void remove();
               }}
             >
-              Delete
+              {t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

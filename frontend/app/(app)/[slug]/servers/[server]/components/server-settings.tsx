@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import {
   AlertDialog,
@@ -53,6 +54,7 @@ export function ServerSettings({
   canWriteFiles,
   canCreateBackup,
 }: ServerSettingsProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const { open: openSettings } = useSettingsDialog();
   const [name, setName] = useState("");
@@ -74,29 +76,29 @@ export function ServerSettings({
       });
 
       if (response.error || !response.data) {
-        throw new Error("Failed to load server settings");
+        throw new Error(t("servers:settings.toasts.loadFailed"));
       }
 
       const nextName = response.data.name;
       setName(nextName);
       setInitialName(nextName);
     } catch {
-      toast.error("Failed to load server settings");
+      toast.error(t("servers:settings.toasts.loadFailed"));
     } finally {
       setIsLoading(false);
     }
-  }, [serverId]);
+  }, [serverId, t]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   useEffect(() => {
-    const host = nodeHostname || "Unknown";
+    const host = nodeHostname || t("common:status.unknown");
     const portPart = sshPort ? `:${sshPort}` : "";
 
     setSftpUrl(`sftp://${encodeURIComponent(username)}@${host}${portPart}`);
-  }, [serverId, username, nodeHostname, sshPort]);
+  }, [serverId, username, nodeHostname, sshPort, t]);
 
   const refreshBackupSlot = useCallback(async () => {
     if (!canCreateBackup) {
@@ -141,12 +143,12 @@ export function ServerSettings({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? "Failed to update server name",
+          response.error.error?.msg ?? t("servers:settings.toasts.updateFailed"),
         );
         return;
       }
 
-      toast.success("Server name updated");
+      toast.success(t("servers:settings.toasts.updateSuccess"));
       setInitialName(nextName);
       setName(nextName);
       router.refresh();
@@ -167,15 +169,15 @@ export function ServerSettings({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? "Failed to wipe the server files",
+          response.error.error?.msg ?? t("servers:settings.toasts.wipeFailed"),
         );
         return;
       }
 
       toast.success(
         withBackup
-          ? "Backup started and server files wiped"
-          : "Server files wiped",
+          ? t("servers:settings.toasts.wipeSuccessWithBackup")
+          : t("servers:settings.toasts.wipeSuccess"),
       );
       setWipeOpen(false);
       setWipeWithBackup(false);
@@ -187,18 +189,18 @@ export function ServerSettings({
   const copyUsername = async () => {
     try {
       await navigator.clipboard.writeText(username);
-      toast.success("SFTP username copied");
+      toast.success(t("servers:settings.toasts.usernameCopySuccess"));
     } catch {
-      toast.error("Failed to copy SFTP username");
+      toast.error(t("servers:settings.toasts.usernameCopyFailed"));
     }
   };
 
   const copySftpUrl = async () => {
     try {
       await navigator.clipboard.writeText(sftpUrl);
-      toast.success("SFTP URL copied");
+      toast.success(t("servers:settings.toasts.urlCopySuccess"));
     } catch {
-      toast.error("Failed to copy SFTP URL");
+      toast.error(t("servers:settings.toasts.urlCopyFailed"));
     }
   };
 
@@ -206,30 +208,32 @@ export function ServerSettings({
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Settings</CardTitle>
-          <CardDescription>Update your server display name.</CardDescription>
+          <CardTitle>{t("common:nav.settings")}</CardTitle>
+          <CardDescription>{t("servers:settings.description")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
-              Loading settings...
+              {t("servers:settings.loading")}
             </div>
           ) : (
             <>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium">Server name</p>
+                  <p className="text-sm font-medium">
+                    {t("servers:settings.serverNameLabel")}
+                  </p>
                   {isNameDirty ? (
                     <span className="text-xs font-medium text-amber-600">
-                      Edited
+                      {t("servers:shared.edited")}
                     </span>
                   ) : null}
                 </div>
                 <Input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="Server name"
+                  placeholder={t("servers:settings.serverNameLabel")}
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -241,7 +245,7 @@ export function ServerSettings({
                   loading={isSaving}
                   disabled={!canSave}
                 >
-                  Save name
+                  {t("servers:settings.saveNameButton")}
                 </Button>
                 <Button
                   type="button"
@@ -251,7 +255,7 @@ export function ServerSettings({
                   }}
                   disabled={isSaving}
                 >
-                  Reset
+                  {t("common:actions.reset")}
                 </Button>
               </div>
             </>
@@ -264,16 +268,17 @@ export function ServerSettings({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Network className="size-5 text-muted-foreground" />
-              SFTP Access
+              {t("servers:settings.sftp.title")}
             </CardTitle>
             <CardDescription>
-              Use your daemon password for SFTP password auth, or configure SSH
-              public key auth from your profile.
+              {t("servers:settings.sftp.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <p className="text-sm font-medium">Username</p>
+              <p className="text-sm font-medium">
+                {t("common:resources.username")}
+              </p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input readOnly value={username} className="font-mono" />
                 <Button
@@ -284,12 +289,14 @@ export function ServerSettings({
                   }}
                 >
                   <Copy className="size-4" />
-                  Copy
+                  {t("common:actions.copy")}
                 </Button>
               </div>
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium">Open with SFTP</p>
+              <p className="text-sm font-medium">
+                {t("servers:settings.sftp.openLabel")}
+              </p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input readOnly value={sftpUrl} className="font-mono" />
                 <Button
@@ -301,20 +308,19 @@ export function ServerSettings({
                   disabled={!sftpUrl}
                 >
                   <Copy className="size-4" />
-                  Copy
+                  {t("common:actions.copy")}
                 </Button>
                 <Button asChild variant="outline" className="shrink-0">
                   <a href={sftpUrl}>
                     <FolderOpen className="size-4" />
-                    Open
+                    {t("servers:settings.sftp.openButton")}
                   </a>
                 </Button>
               </div>
             </div>
             <div className="flex flex-col gap-2 rounded-lg border bg-background/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
-                Your SFTP password is the daemon password shown in your
-                settings. You can also add SSH public keys there.
+                {t("servers:settings.sftp.helpText")}
               </p>
               <Button
                 type="button"
@@ -323,7 +329,7 @@ export function ServerSettings({
                 onClick={() => openSettings("daemon")}
               >
                 <ExternalLink className="size-4" />
-                Daemon Auth
+                {t("common:resources.daemonAuth")}
               </Button>
             </div>
           </CardContent>
@@ -333,10 +339,9 @@ export function ServerSettings({
       {canWriteFiles && (
         <Card className="border-destructive/40">
           <CardHeader>
-            <CardTitle>Wipe Server Files</CardTitle>
+            <CardTitle>{t("servers:settings.wipe.title")}</CardTitle>
             <CardDescription>
-              Deletes every file on the server. The next start recreates the
-              template&apos;s files from scratch. Stop the server first.
+              {t("servers:settings.wipe.description")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -351,7 +356,7 @@ export function ServerSettings({
               disabled={isWiping}
             >
               <Trash2 className="size-4" />
-              Wipe Files
+              {t("servers:settings.wipe.button")}
             </Button>
           </CardContent>
         </Card>
@@ -361,11 +366,12 @@ export function ServerSettings({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Wipe all files of {initialName || "this server"}?
+              {t("servers:settings.wipe.dialogTitle", {
+                name: initialName || t("servers:settings.wipe.thisServer"),
+              })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This deletes every file of the server, including worlds and
-              configs. This action cannot be undone.
+              {t("servers:settings.wipe.dialogDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -380,17 +386,20 @@ export function ServerSettings({
                 disabled={isWiping}
               />
               <div className="space-y-1">
-                <Label htmlFor="wipe-backup">Create a backup first</Label>
+                <Label htmlFor="wipe-backup">
+                  {t("servers:settings.wipe.backupCheckboxLabel")}
+                </Label>
                 <p className="text-xs text-muted-foreground">
-                  The wipe is cancelled if the backup fails, so the files are
-                  never deleted without it.
+                  {t("servers:settings.wipe.backupCheckboxHelp")}
                 </p>
               </div>
             </div>
           )}
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isWiping}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isWiping}>
+              {t("common:actions.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
               onClick={(event) => {
@@ -399,7 +408,9 @@ export function ServerSettings({
               }}
               disabled={isWiping}
             >
-              {wipeWithBackup ? "Back Up and Wipe" : "Wipe Files"}
+              {wipeWithBackup
+                ? t("servers:settings.wipe.confirmWithBackupButton")
+                : t("servers:settings.wipe.confirmButton")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

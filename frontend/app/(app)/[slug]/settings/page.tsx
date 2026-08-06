@@ -1,10 +1,12 @@
 import { useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/sidebar/main-layout";
 import { NotFoundView } from "@/components/not-found-view";
 import { useOrganization } from "@/hooks/use-organization";
 import { OrganizationSettings } from "./organization-settings";
 
 export default function SettingsPage() {
+  const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
   const { data: organization, isLoading } = useOrganization(slug);
 
@@ -13,7 +15,10 @@ export default function SettingsPage() {
 
   return (
     <MainLayout
-      breadcrumbs={[{ label: slug ?? "", href: `/${slug}` }, { label: "Settings" }]}
+      breadcrumbs={[
+        { label: slug ?? "", href: `/${slug}` },
+        { label: t("common:nav.settings") },
+      ]}
     >
       <OrganizationSettings organization={organization} />
     </MainLayout>

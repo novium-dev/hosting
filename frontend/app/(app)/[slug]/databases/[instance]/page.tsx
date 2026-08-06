@@ -1,4 +1,5 @@
 import { useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/sidebar/main-layout";
 import { NotFoundView } from "@/components/not-found-view";
 import { useOrganization } from "@/hooks/use-organization";
@@ -6,6 +7,7 @@ import { ServerPermission, hasServerPermission } from "@/lib/permissions";
 import { InstanceView } from "./instance-view";
 
 export default function DatabaseInstancePage() {
+  const { t } = useTranslation();
   const { slug, instance } = useParams<{ slug: string; instance: string }>();
   const { data: organization, isLoading } = useOrganization(slug);
 
@@ -25,8 +27,8 @@ export default function DatabaseInstancePage() {
     <MainLayout
       breadcrumbs={[
         { label: slug ?? "", href: `/${slug}` },
-        { label: "Databases", href: `/${slug}/databases` },
-        { label: "Instance" },
+        { label: t("common:nav.databases"), href: `/${slug}/databases` },
+        { label: t("org:databases.instanceBreadcrumb") },
       ]}
     >
       <InstanceView

@@ -1,24 +1,28 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 
-const roleLabels: Record<string, string> = {
-  admin: "Admin",
-  moderator: "Moderator",
-  user: "User",
-};
-
 export function ProfileSection() {
   const { data: session } = authClient.useSession();
   const user = session?.user;
+  const { t } = useTranslation();
+
+  const roleLabels: Record<string, string> = {
+    admin: t("common:roles.admin"),
+    moderator: t("settings:profile.roles.moderator"),
+    user: t("common:roles.user"),
+  };
 
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="settings-username">Username</Label>
+        <Label htmlFor="settings-username">
+          {t("common:resources.username")}
+        </Label>
         <Input
           id="settings-username"
           value={user?.name ?? ""}
@@ -26,12 +30,12 @@ export function ProfileSection() {
           disabled
         />
         <p className="text-sm text-muted-foreground">
-          Your username cannot be changed.
+          {t("common:resources.usernameHint")}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="settings-email">Email</Label>
+        <Label htmlFor="settings-email">{t("common:labels.email")}</Label>
         <Input
           id="settings-email"
           type="email"
@@ -40,16 +44,16 @@ export function ProfileSection() {
           disabled
         />
         <p className="text-sm text-muted-foreground">
-          Account details come from your identity provider and are read-only
-          here.
+          {t("settings:profile.emailHint")}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label>Role</Label>
+        <Label>{t("common:labels.role")}</Label>
         <div>
           <Badge variant="secondary">
-            {roleLabels[user?.role ?? "user"] ?? "User"}
+            {roleLabels[user?.role ?? "user"] ??
+              t("common:roles.user")}
           </Badge>
         </div>
       </div>

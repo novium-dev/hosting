@@ -3,6 +3,7 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 interface WorkspaceAvatarProps {
   workspaceId: string;
@@ -54,6 +55,7 @@ export function WorkspaceAvatar({
   shape = "square",
   border = false,
 }: WorkspaceAvatarProps) {
+  const { t } = useTranslation();
   const color = useMemo(() => generateColor(workspaceId), [workspaceId]);
 
   const sizeClasses = {
@@ -86,7 +88,7 @@ export function WorkspaceAvatar({
           },
         }}
       >
-        <span className="sr-only">Workspace Avatar</span>
+        <span className="sr-only">{t("a11y.workspaceAvatar")}</span>
       </AvatarFallback>
     </Avatar>
   );

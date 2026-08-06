@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Database, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import Link from "@/components/link";
 import {
@@ -46,6 +47,7 @@ export function DatabaseHostsTable({
   canManage: boolean;
   onChanged: () => void;
 }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState<DatabaseHostRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<DatabaseHostRow | null>(null);
@@ -65,12 +67,13 @@ export function DatabaseHostsTable({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? "Failed to delete the database host",
+          response.error.error?.msg ??
+            t("admin-infra:databases.hostsTable.deleteError"),
         );
         return;
       }
 
-      toast.success("Database host deleted");
+      toast.success(t("admin-infra:databases.hostsTable.deleteSuccess"));
       setDeleting(null);
       onChanged();
     } finally {
@@ -82,16 +85,17 @@ export function DatabaseHostsTable({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Database hosts</h1>
+          <h1 className="text-xl font-semibold">
+            {t("admin-infra:databases.hostsTable.title")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Each host runs a database agent. Projects get their databases on one
-            of its instances, preferring a host in the project&apos;s region.
+            {t("admin-infra:databases.hostsTable.description")}
           </p>
         </div>
         {canManage ? (
           <Button type="button" onClick={() => setCreating(true)}>
             <PlusIcon data-icon="inline-start" />
-            Register host
+            {t("admin-infra:databases.hostDialog.registerButton")}
           </Button>
         ) : null}
       </div>
@@ -100,13 +104,21 @@ export function DatabaseHostsTable({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Region</TableHead>
-              <TableHead>Public host</TableHead>
-              <TableHead>Ports</TableHead>
-              <TableHead>Instances</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Manage</TableHead>
+              <TableHead>{t("common:labels.name")}</TableHead>
+              <TableHead>{t("common:labels.region")}</TableHead>
+              <TableHead>
+                {t("admin-infra:databases.hostsTable.columns.publicHost")}
+              </TableHead>
+              <TableHead>
+                {t("common:nav.ports")}
+              </TableHead>
+              <TableHead>
+                {t("admin-infra:databases.hostsTable.columns.instances")}
+              </TableHead>
+              <TableHead>{t("common:labels.status")}</TableHead>
+              <TableHead className="text-right">
+                {t("common:resources.manage")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -116,10 +128,12 @@ export function DatabaseHostsTable({
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <Database className="size-5 text-muted-foreground" />
                     <p className="text-sm font-medium">
-                      No database hosts registered
+                      {t("admin-infra:databases.hostsTable.emptyState.title")}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Register one to let projects create databases.
+                      {t(
+                        "admin-infra:databases.hostsTable.emptyState.description",
+                      )}
                     </p>
                   </div>
                 </TableCell>
@@ -142,14 +156,17 @@ export function DatabaseHostsTable({
                   <TableCell className="font-mono text-xs">
                     {Object.entries(host.ports)
                       .map(([type, port]) => `${type}:${port}`)
-                      .join(" ") || "defaults"}
+                      .join(" ") ||
+                      t("admin-infra:databases.hostsTable.portsDefaultLabel")}
                   </TableCell>
                   <TableCell>{host.instance_count}</TableCell>
                   <TableCell>
                     {host.maintenance ? (
-                      <Badge variant="secondary">Maintenance</Badge>
+                      <Badge variant="secondary">
+                        {t("admin-infra:shared.maintenance")}
+                      </Badge>
                     ) : (
-                      <Badge>Active</Badge>
+                      <Badge>{t("common:status.active")}</Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
@@ -160,7 +177,9 @@ export function DatabaseHostsTable({
                           variant="ghost"
                           size="icon"
                           onClick={() => setEditing(host)}
-                          aria-label="Edit host"
+                          aria-label={t(
+                            "admin-infra:databases.hostsTable.editAria",
+                          )}
                         >
                           <PencilIcon className="size-4" />
                         </Button>
@@ -169,7 +188,9 @@ export function DatabaseHostsTable({
                           variant="ghost"
                           size="icon"
                           onClick={() => setDeleting(host)}
-                          aria-label="Delete host"
+                          aria-label={t(
+                            "admin-infra:databases.hostsTable.deleteAria",
+                          )}
                         >
                           <Trash2Icon className="size-4" />
                         </Button>
@@ -207,14 +228,15 @@ export function DatabaseHostsTable({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {deleting?.display}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("common:confirmDelete.title", { name: deleting?.display })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              The host is only unregistered here; nothing is removed from the
-              machine itself. It must have no instances left.
+              {t("admin-infra:databases.hostsTable.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
@@ -222,7 +244,7 @@ export function DatabaseHostsTable({
               }}
               disabled={isDeletePending}
             >
-              Delete
+              {t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

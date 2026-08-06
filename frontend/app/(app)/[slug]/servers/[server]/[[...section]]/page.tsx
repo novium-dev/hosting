@@ -1,6 +1,7 @@
 import Link from "@/components/link";
 import { useParams } from "react-router-dom";
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
 import {
   Network,
   Archive,
@@ -46,9 +47,7 @@ import { MinecraftPlayerManager } from "../components/minecraft-player-manager";
 
 type ServerSection = {
   key: string;
-  label: string;
   icon: React.ComponentType<{ className?: string }>;
-  description: string;
   permission: number;
   requiresMinecraftResources?: boolean;
   requiresMinecraftServer?: boolean;
@@ -58,75 +57,45 @@ type ServerSection = {
 const SERVER_SECTIONS: ServerSection[] = [
   {
     key: "console",
-    label: "Console",
     icon: TerminalSquare,
-    description: "TODO: Build live console stream and command input.",
     permission: ServerPermission.TERMINAL_READ,
   },
   {
     key: "files",
-    label: "Files",
     icon: FolderTree,
-    description: "TODO: Build file browser, editor, and upload actions.",
     permission: ServerPermission.FILES_READ,
   },
   {
     key: "backups",
-    label: "Backups",
     icon: Archive,
-    description: "Manage backup creation, download, restore, and deletion.",
     permission: ServerPermission.BACKUP_VIEW,
   },
   {
     key: "mods",
-    label: "Mods",
     icon: PackageSearch,
-    description: "Browse and install Minecraft mods or plugins.",
     permission: ServerPermission.FILES_READ,
     requiresMinecraftResources: true,
     requiresProjectFeature: ProjectFeature.MOD_INSTALLER,
   },
   {
     key: "players",
-    label: "Players",
     icon: Users,
-    description: "View and manage online Minecraft players.",
     permission: ServerPermission.USER_VIEW,
     requiresMinecraftServer: true,
   },
   {
     key: "network",
-    label: "Network",
     icon: Network,
-    description: "Ports, routes and the records that point at them.",
     permission: ServerPermission.NETWORK_VIEW,
   },
-  /*
-  {
-    key: "schedules",
-    label: "Schedules",
-    icon: ScrollText,
-    description: "TODO: Build task scheduler and cron-like automation.",
-  },
-  {
-    key: "activity",
-    label: "Activity",
-    icon: Activity,
-    description: "TODO: Build audit and activity timeline.",
-  },*/
   {
     key: "settings",
-    label: "Settings",
     icon: Settings,
-    description: "Update name and personal server settings.",
     permission: ServerPermission.BUILD_VIEW,
   },
   {
     key: "startup",
-    label: "Startup",
     icon: Wrench,
-    description:
-      "TODO: Build startup command/editor. Variables are intentionally left out for now.",
     permission: ServerPermission.BUILD_VIEW,
   },
 ];
@@ -172,6 +141,7 @@ function getActiveSection(sections: ServerSection[], section?: string[]) {
 }
 
 export default function ClientServerSectionPage() {
+  const { t } = useTranslation();
   const params = useParams();
   const slug = params.slug ?? "";
   const server = params.server ?? "";
@@ -270,7 +240,7 @@ export default function ClientServerSectionPage() {
             >
               <Link href={href} className="inline-flex items-center gap-2">
                 <entry.icon className="size-4" />
-                {entry.label}
+                {t(`servers:page.sections.${entry.key}.label`)}
               </Link>
             </Button>
           );
@@ -282,9 +252,9 @@ export default function ClientServerSectionPage() {
       {visibleSections.length === 0 ? (
         <Card className="border-dashed">
           <CardHeader>
-            <CardTitle>No server permissions</CardTitle>
+            <CardTitle>{t("servers:page.noPermissions.title")}</CardTitle>
             <CardDescription>
-              You do not have access to any management sections for this server.
+              {t("servers:page.noPermissions.description")}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -293,19 +263,22 @@ export default function ClientServerSectionPage() {
           <CardHeader>
             <CardTitle>
               {blockReason === "suspended"
-                ? "Server is suspended"
-                : "Node is in maintenance"}
+                ? t("servers:page.blocked.suspendedTitle")
+                : t("servers:page.blocked.maintenanceTitle")}
             </CardTitle>
             <CardDescription className="text-destructive">
               {blockReason === "suspended"
                 ? (serverData?.suspension_reason ??
-                  "This server is suspended and actions are currently blocked.")
-                : `Node ${serverData?.node.display ?? "Unknown"} is in maintenance mode, so server actions are currently blocked.`}
+                  t("servers:page.blocked.suspendedDefaultReason"))
+                : t("servers:page.blocked.maintenanceReason", {
+                    node:
+                      serverData?.node.display ?? t("common:status.unknown"),
+                  })}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild variant="outline">
-              <Link href={`/${slug}`}>Back to server list</Link>
+              <Link href={`/${slug}`}>{t("servers:shared.backToServerList")}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -320,9 +293,9 @@ export default function ClientServerSectionPage() {
         ) : (
           <Card className="border-dashed">
             <CardHeader>
-              <CardTitle>No file permissions</CardTitle>
+              <CardTitle>{t("servers:page.noFilePermissions.title")}</CardTitle>
               <CardDescription>
-                You do not have access to view files for this server.
+                {t("servers:page.noFilePermissions.description")}
               </CardDescription>
             </CardHeader>
           </Card>
@@ -363,7 +336,7 @@ export default function ClientServerSectionPage() {
       ) : activeSection.key === "settings" ? (
         <ServerSettings
           serverId={server}
-          nodeHostname={serverData?.node.ssh_host ?? "Unknown"}
+          nodeHostname={serverData?.node.ssh_host ?? t("common:status.unknown")}
           username={session?.user.name ?? "-"}
           sshPort={serverData?.node.ssh_port ?? null}
           canWriteFiles={canWriteFiles}
@@ -379,9 +352,11 @@ export default function ClientServerSectionPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <activeSection.icon className="size-5" />
-              {activeSection.label}
+              {t(`servers:page.sections.${activeSection.key}.label`)}
             </CardTitle>
-            <CardDescription>{activeSection.description}</CardDescription>
+            <CardDescription>
+              {t(`servers:page.sections.${activeSection.key}.description`)}
+            </CardDescription>
           </CardHeader>
         </Card>
       )}

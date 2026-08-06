@@ -1,0 +1,387 @@
+{
+  "shared": {
+    "maintenance": "Maintenance",
+    "selectRegionPlaceholder": "Select a region",
+    "protocol": "Protocol",
+    "done": "Done"
+  },
+  "databases": {
+    "instancesTable": {
+      "status": {
+        "unreachable": "Unreachable"
+      },
+      "breadcrumb": "Database hosts",
+      "description": "Projects create their own instances here. Renaming one and changing its limits is an admin job.",
+      "columns": {
+        "project": "Project",
+        "engine": "Engine"
+      },
+      "emptyState": {
+        "title": "No instances yet",
+        "description": "They appear here once a project creates one."
+      },
+      "editAria": "Edit instance",
+      "deleteAria": "Delete instance",
+      "deleteError": "Failed to delete the instance",
+      "deleteSuccess": "Instance deleted",
+      "deleteDescription": "This belongs to {{project}}. The container, every database and user on it, and all of their data are removed."
+    },
+    "editInstanceDialog": {
+      "saveError": "Failed to save the instance",
+      "saveSuccess": "Instance updated",
+      "title": "Edit {{name}}",
+      "description": "Owned by {{project}}. New limits apply to the running container; memory and cpu take effect immediately, disk on the next check.",
+      "memoryLabel": "Memory (MiB)",
+      "swapLabel": "Swap (MiB)",
+      "diskLabel": "Disk (MiB)",
+      "cpuLabel": "CPU (%)",
+      "suspendedDescription": "Rejects every client connection at the proxy."
+    },
+    "hostDialog": {
+      "saveError": "Failed to save the database host",
+      "updateSuccess": "Database host updated",
+      "registerSuccess": "Database host registered",
+      "editTitle": "Edit database host",
+      "registerTitle": "Register database host",
+      "description": "The URL is where the backend reaches the agent's API. The public host is what users put in their connection strings.",
+      "urlLabel": "Agent API URL",
+      "tokenLabel": "API token",
+      "tokenLabelKeepHint": "(leave blank to keep)",
+      "tokenPlaceholderUnchanged": "Unchanged",
+      "tokenPlaceholderHint": "The agent's [api] token",
+      "publicHostLabel": "Public host",
+      "publicPortsLabel": "Public ports",
+      "publicPortsDescription": "The port each engine's proxy listens on. Blank uses the engine default.",
+      "maintenanceDescription": "Excludes this host when placing new databases.",
+      "registerButton": "Register host"
+    },
+    "hostsTable": {
+      "title": "Database hosts",
+      "description": "Each host runs a database agent. Projects get their databases on one of its instances, preferring a host in the project's region.",
+      "columns": {
+        "publicHost": "Public host",
+        "instances": "Instances"
+      },
+      "emptyState": {
+        "title": "No database hosts registered",
+        "description": "Register one to let projects create databases."
+      },
+      "editAria": "Edit host",
+      "deleteAria": "Delete host",
+      "deleteError": "Failed to delete the database host",
+      "deleteSuccess": "Database host deleted",
+      "deleteDescription": "The host is only unregistered here; nothing is removed from the machine itself. It must have no instances left.",
+      "portsDefaultLabel": "defaults"
+    }
+  },
+  "nodes": {
+    "shared": {
+      "defaultHost": "Default Host",
+      "defaultBind": "Default Bind",
+      "nodeId": "Node ID"
+    },
+    "portsManager": {
+      "noAvailablePorts": "No available ports",
+      "rangeExclude": "{{range}} (exclude: {{exclude}})",
+      "refreshError": "Failed to refresh node ports",
+      "invalidRangeError": "Please provide a valid port range",
+      "addError": "Failed to add port range",
+      "addSuccess": "Port range added",
+      "removeError": "Failed to remove port",
+      "removeSuccess": "Port removed",
+      "allocatedTitle": "Allocated Ports",
+      "allocatedDescription": "Add and remove node port ranges from the admin API.",
+      "addButtonTitle": "Add Port Range",
+      "noAllocatedPorts": "No allocated ports.",
+      "columns": {
+        "range": "Range"
+      },
+      "availableTitle": "Available Ports",
+      "availableDescription": "Snapshot returned by the available ports endpoint.",
+      "noAvailableData": "No available port data.",
+      "addDialogDescription": "Allocate a port range to this node.",
+      "startPlaceholder": "Start",
+      "endPlaceholder": "End",
+      "removeDialogTitle": "Remove port range?",
+      "removeDialogDescription": "This removes range {{range}}."
+    },
+    "settingsCard": {
+      "maintenanceEnabled": "Maintenance enabled",
+      "maintenanceDisabled": "Maintenance disabled",
+      "maintenanceToggleError": "Failed to update maintenance mode",
+      "maintenanceEnabledToast": "Node maintenance has been enabled",
+      "maintenanceDisabledToast": "Node maintenance has been disabled",
+      "regionError": "Failed to update region",
+      "regionSuccess": "Node region updated",
+      "syncError": "Failed to sync node config",
+      "syncSuccess": "Node config synced from daemon",
+      "title": "Node Update",
+      "description": "Manage maintenance mode and sync node config from the running daemon.",
+      "displayLabel": "Display",
+      "maintenanceWarning": "Servers on this node are blocked while maintenance is enabled.",
+      "maintenanceModeTitle": "Maintenance Mode",
+      "maintenanceModeDescription": "Toggle maintenance mode for this node.",
+      "regionDescription": "The region this node belongs to.",
+      "syncConfigTitle": "Sync Config",
+      "syncConfigDescription": "Pull the current config from the running node (base URL, host/bind, storage and backup mappings) and reconcile it into the backend.",
+      "syncButton": "Sync from Node",
+      "backupStoragesLabel": "Backup Storages",
+      "serverStoragesLabel": "Server Storages"
+    },
+    "detailPage": {
+      "backToList": "Back to node list",
+      "metricsUnavailableTitle": "Node metrics unavailable",
+      "metricsUnavailableDescription": "The metrics endpoint did not respond successfully. This node is likely offline or unreachable.",
+      "sshLabel": "SSH / SFTP",
+      "swapLabel": "Swap",
+      "unavailable": "Unavailable",
+      "cpuValue": "{{used}} / {{count}} cores",
+      "nodeIdDescription": "Node ID: {{id}}"
+    },
+    "createDialog": {
+      "createError": "Failed to create node",
+      "selectRegionError": "Select a region for the node",
+      "invalidSshPortError": "SSH port must be a valid port number",
+      "setupCodeCopied": "Setup code copied",
+      "title": "Create Node",
+      "setupCodeTitle": "Node setup code",
+      "setupCodeDescription": "Use this code when registering the new node. Keep it private.",
+      "copyCodeButton": "Copy code",
+      "description": "Configure the new node and generate its setup code.",
+      "noRegionsHint": "No regions yet — create one under Regions first.",
+      "baseUrlLabel": "Base URL",
+      "defaultHostHint": "Public host clients use to reach game servers on this node.",
+      "sshHostLabel": "SSH Host",
+      "sshHostHint": "Leave empty to disable SSH/SFTP access.",
+      "sshPortLabel": "SSH Port",
+      "storagesTitle": "Storages",
+      "storagesHint": "At least one server storage is required.",
+      "addStorageButton": "Add storage",
+      "storageTypeDirectory": "Directory",
+      "storageTypeBtrfs": "Btrfs",
+      "btrfsPathLabel": "Btrfs path",
+      "backupsHint": "Optional backup storages.",
+      "addBackupButton": "Add backup",
+      "noBackupsHint": "No backup storages configured."
+    },
+    "table": {
+      "description": "Browse node information and manage node-level ports.",
+      "searchPlaceholder": "Search by display, id, host, or region...",
+      "columns": {
+        "display": "Display"
+      },
+      "emptyState": {
+        "title": "No nodes found",
+        "description": "Adjust your search query."
+      }
+    }
+  },
+  "servers": {
+    "shared": {
+      "createServerLabel": "Create Server",
+      "availableRanges": "Available ranges",
+      "availablePortRangesTitle": "Available port ranges",
+      "templateLabel": "Template",
+      "nodeLabel": "Node",
+      "internetAccessLabel": "Internet Access",
+      "backupLimitLabel": "Backup Limit",
+      "rangeExcluding": "{{base}} excluding {{exclude}}"
+    },
+    "detailPage": {
+      "addressUnavailable": "Address unavailable",
+      "idProjectDescription": "ID: {{id}} | Project: {{project}}",
+      "suspendedReason": "Suspended: {{reason}}",
+      "viewInHephaestus": "View In Hephaestus",
+      "viewInHephaestusOrgMissing": "View In Hephaestus (Org not found)",
+      "limitsLabel": "Limits",
+      "limitsValue": "CPU {{cpu}}, RAM {{ram}}, Disk {{disk}}"
+    },
+    "portsManager": {
+      "refreshError": "Failed to refresh ports",
+      "errors": {
+        "nameRequired": "Name is required.",
+        "invalidInternalPort": "Enter a valid internal port.",
+        "invalidExternalStart": "Enter a valid external start port.",
+        "invalidExternalEnd": "Enter a valid external end port.",
+        "endBeforeStart": "End port must be greater than or equal to start.",
+        "rangeNotAvailable": "Selected {{protocol}} range is not available."
+      },
+      "createError": "Failed to create port",
+      "createSuccess": "Port added",
+      "updateError": "Failed to update port",
+      "updateSuccess": "Port updated",
+      "removeError": "Failed to remove port",
+      "removeSuccess": "Port removed",
+      "description": "Add, update, and remove server ports exposed through the API.",
+      "noRangeData": "No available range data.",
+      "addButton": "Add Port",
+      "noPorts": "No ports available from the API response yet.",
+      "columns": {
+        "internal": "Internal",
+        "external": "External",
+        "hostBind": "Host / Bind"
+      },
+      "addDialogDescription": "Configure a new network port allocation for this server.",
+      "editDialogTitle": "Edit Port",
+      "editDialogDescription": "Update the selected server port settings.",
+      "removeDialogTitle": "Remove port?",
+      "removeDialogDescription": "This removes {{name}} from the server.",
+      "removeDialogDefaultName": "the selected port",
+      "form": {
+        "namePlaceholder": "Name",
+        "httpHint": "HTTP is a TCP port that serves HTTP — only those can get a subdomain route.",
+        "internalPortPlaceholder": "Internal port",
+        "externalStartPlaceholder": "External start",
+        "externalEndPlaceholder": "External end",
+        "hostPlaceholder": "Host (optional)",
+        "bindPlaceholder": "Bind (optional)"
+      }
+    },
+    "adminSettings": {
+      "invalidNumbersError": "Please enter valid numeric values or leave fields empty for unlimited",
+      "noSuspendPermission": "You do not have permission to suspend this server",
+      "suspendReasonRequired": "Suspending a server requires a reason",
+      "noManagePermission": "You do not have permission to manage this server",
+      "updateError": "Failed to update server settings",
+      "updateSuccess": "Server settings updated",
+      "title": "Server Admin Settings",
+      "description": "Update admin-only server settings and runtime limits.",
+      "editedBadge": "Edited",
+      "internetAccessHint": "Allow outbound internet from the server.",
+      "suspendedHint": "Suspend or unsuspend this server.",
+      "suspensionReasonLabel": "Suspension Reason",
+      "suspensionReasonPlaceholder": "Why is this server suspended?",
+      "suspensionReasonHint": "Shown to everyone who can see this server.",
+      "unlimitedPlaceholder": "Empty = unlimited",
+      "cpuLimitLabel": "CPU Limit",
+      "ramLimitLabel": "RAM Limit (bytes)",
+      "swapLimitLabel": "Swap Limit (bytes)",
+      "diskLimitLabel": "Disk Limit (bytes)",
+      "customDockerfileLabel": "Custom Dockerfile",
+      "customDockerfilePlaceholder": "Optional custom Dockerfile content",
+      "saveButton": "Save Admin Settings"
+    },
+    "deleteCard": {
+      "title": "Delete Server",
+      "description": "Permanently delete this server and remove it from the node.",
+      "deleteButton": "Delete Server",
+      "deleteError": "Failed to delete server",
+      "deleteSuccess": "Server deleted",
+      "confirmDescription": "This permanently deletes {{name}}."
+    },
+    "templateCard": {
+      "changeError": "Failed to change template",
+      "changeSuccess": "Template changed to {{template}}",
+      "description": "Switches the server to another template. The new template starts from its own defaults — nothing of the current configuration carries over, and the startup variables are reset.",
+      "currentTemplateLabel": "Current template:",
+      "newTemplateLabel": "New template",
+      "selectTemplatePlaceholder": "Select a template",
+      "backupFirstLabel": "Back up the server first",
+      "backupFirstHint": "Needs backup permission and a free backup slot. The switch is abandoned if the backup fails.",
+      "wipeAllLabel": "Wipe all files",
+      "wipeAllHint": "Deletes everything on the server, so the new template starts clean. Leftover world data usually breaks the new template.",
+      "stoppedWarning": "Backing up and wiping need the server to be stopped — stop it first, or the switch is refused.",
+      "portsWarning": "Port allocations are kept as they are. The new template usually expects different ports, so review them under Ports afterwards.",
+      "changeButton": "Change template",
+      "switchTitle": "Switch to {{template}}{{suffix}}?",
+      "sameTemplateSuffix": " (same template)",
+      "switchDescription": "The server's startup configuration is replaced by {{template}}'s defaults and pushed to its node. It takes effect the next time the server starts.",
+      "backupTakenYes": "A backup is taken first",
+      "backupTakenNo": "No backup is taken",
+      "wipeYes": "Every file on the server is deleted",
+      "wipeNo": "Files are kept as they are",
+      "switchingLabel": "Switching..."
+    },
+    "table": {
+      "description": "Browse and manage all available servers.",
+      "searchPlaceholder": "Search by server, id, node, or project...",
+      "columns": {
+        "node": "Node",
+        "projectId": "Project ID"
+      },
+      "emptyState": {
+        "title": "No servers found",
+        "description": "Adjust your search or create a new server."
+      }
+    },
+    "createForm": {
+      "subtitle": "Setup a new server from template defaults.",
+      "backToServers": "Back to Servers",
+      "serverNameLabel": "Server Name",
+      "serverNamePlaceholder": "My game server",
+      "ownerLabel": "Owner (Organization)",
+      "selectOrganizationPlaceholder": "Select organization",
+      "searchOrganizationPlaceholder": "Search organization...",
+      "noOrganizationFound": "No organization found.",
+      "selectTemplatePlaceholder": "Select template",
+      "selectNodePlaceholder": "Select node",
+      "storageLabel": "Storage",
+      "selectStoragePlaceholder": "Select storage",
+      "resourcesTitle": "Resources",
+      "resourcesHint": "Leave empty for template defaults/unlimited.",
+      "ramLabel": "RAM (MB)",
+      "ramPlaceholder": "e.g. 2048",
+      "diskLabel": "Disk (MB)",
+      "diskPlaceholder": "e.g. 10240",
+      "cpuPlaceholder": "e.g. 2",
+      "swapLabel": "Swap (MB)",
+      "swapPlaceholder": "e.g. 1024",
+      "backupLimitPlaceholder": "e.g. 3",
+      "backupLimitHint": "0 disables backups, empty means unlimited.",
+      "templateVariablesTitle": "Template Variables",
+      "selectTemplateFirst": "Select a template first.",
+      "loadingTemplateDetails": "Loading template details...",
+      "noTemplateDetails": "No template details available.",
+      "selectTemplateForPorts": "Select a template to configure ports.",
+      "noConfigurablePorts": "No configurable ports for this template.",
+      "internalPortSuffix": " / internal {{port}}",
+      "selectOrEnterPortPlaceholder": "Select or enter port",
+      "noAvailablePortFound": "No available port found.",
+      "errors": {
+        "portOutsideRange": "Port {{port}} is outside the allowed {{protocol}} ranges for node {{node}}.",
+        "portAlreadySelected": "Port {{port}} is already selected for another {{protocol}} port."
+      },
+      "fillRequiredError": "Please fill all required fields",
+      "invalidVariablesError": "Fix invalid template variables before creating the server",
+      "loadTemplateInfoError": "Failed to load template info",
+      "createSuccess": "Server created successfully",
+      "createError": "Failed to create server"
+    }
+  },
+  "templates": {
+    "view": {
+      "description": "A server keeps the build it was created with. After fixing a template, resync its servers to push the new build to their nodes.",
+      "resyncAllButton": "Resync all servers",
+      "emptyState": "No templates",
+      "serverCount_one": "{{count}} server",
+      "serverCount_other": "{{count}} servers",
+      "resyncButton": "Resync",
+      "resyncAllTitle": "Resync every server?",
+      "resyncTemplateTitle": "Resync servers using {{template}}?",
+      "resyncDescription": "Every affected server gets a freshly generated build pushed to its node. Without a restart it takes effect the next time the server starts.",
+      "restartLabel": "Restart running servers",
+      "restartHint": "Applies the new build immediately and disconnects players.",
+      "resyncingLabel": "Resyncing...",
+      "resyncFinishedTitle": "Resync finished",
+      "resyncToast_one": "{{updated}} of {{count}} server updated",
+      "resyncToast_other": "{{updated}} of {{count}} servers updated",
+      "migratedSuffix": ", {{count}} migrated",
+      "restartedSuffix": ", {{count}} restarted",
+      "allAccepted": "Every server accepted the new build.",
+      "failuresCount_one": "{{count}} server could not be resynced",
+      "failuresCount_other": "{{count}} servers could not be resynced",
+      "statusLabels": {
+        "updated": "Updated",
+        "migrated": "Updated (config migrated)",
+        "nodeMissing": "Node not registered",
+        "nodeFailure": "Node unreachable",
+        "templateMissing": "Template no longer exists",
+        "templateUnavailable": "Template cache not ready",
+        "templateCorrupted": "Configuration unreadable",
+        "failure": "Internal failure"
+      },
+      "loadError": "Failed to load templates",
+      "loadErrorDisplay": "Failed to load templates."
+    }
+  }
+}

@@ -40,6 +40,7 @@ import { useAction } from "@/lib/action-hooks";
 import { KeyRound, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export type ApiKey = ListApiKeysResponses[200][number];
 
@@ -60,8 +61,8 @@ interface ApiKeysTableProps {
   onChanged: () => void;
 }
 
-function formatDate(seconds: number | null | undefined) {
-  if (!seconds) return "Never";
+function formatDate(seconds: number | null | undefined, neverLabel: string) {
+  if (!seconds) return neverLabel;
   return new Date(seconds * 1000).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
@@ -80,6 +81,7 @@ export function ApiKeysTable({
   canDelete = () => true,
   onChanged,
 }: ApiKeysTableProps) {
+  const { t } = useTranslation();
   const [deleteKey, setDeleteKey] = useState<ApiKey | null>(null);
   const [editKey, setEditKey] = useState<ApiKey | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -88,10 +90,10 @@ export function ApiKeysTable({
     onSuccess: () => {
       setDeleteKey(null);
       onChanged();
-      toast.success("API key revoked");
+      toast.success(t("org:apiKeys.table.revoked"));
     },
     onError: (actionError) => {
-      toast.error(actionError.error.serverError ?? "Something went wrong");
+      toast.error(actionError.error.serverError ?? t("common:state.genericError"));
     },
   });
 
@@ -99,7 +101,9 @@ export function ApiKeysTable({
 
   if (error) {
     return (
-      <div className="text-sm text-destructive">Failed to load API keys.</div>
+      <div className="text-sm text-destructive">
+        {t("org:apiKeys.table.loadError")}
+      </div>
     );
   }
 
@@ -109,12 +113,16 @@ export function ApiKeysTable({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>Name</TableHead>
-              {showScope ? <TableHead>Scope</TableHead> : null}
-              {showOwner ? <TableHead>Owner</TableHead> : null}
-              <TableHead>Permissions</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Last used</TableHead>
+              <TableHead>{t("common:labels.name")}</TableHead>
+              {showScope ? (
+                <TableHead>{t("org:apiKeys.table.columns.scope")}</TableHead>
+              ) : null}
+              {showOwner ? (
+                <TableHead>{t("common:labels.owner")}</TableHead>
+              ) : null}
+              <TableHead>{t("common:labels.permissions")}</TableHead>
+              <TableHead>{t("common:labels.created")}</TableHead>
+              <TableHead>{t("org:apiKeys.table.columns.lastUsed")}</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
@@ -132,9 +140,11 @@ export function ApiKeysTable({
                 <TableCell colSpan={columns} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <KeyRound className="size-5 text-muted-foreground" />
-                    <p className="text-sm font-medium">No API keys yet</p>
+                    <p className="text-sm font-medium">
+                      {t("org:apiKeys.table.emptyTitle")}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      Create one to talk to the API without a browser session.
+                      {t("org:apiKeys.table.emptyDescription")}
                     </p>
                   </div>
                 </TableCell>
@@ -158,7 +168,7 @@ export function ApiKeysTable({
                             {apiKey.project_slug ?? apiKey.project}
                           </Badge>
                         ) : (
-                          <Badge>Instance</Badge>
+                          <Badge>{t("org:apiKeys.table.instanceScope")}</Badge>
                         )}
                       </TableCell>
                     ) : null}
@@ -171,20 +181,23 @@ export function ApiKeysTable({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Badge variant="secondary">
-                            {labels.length} permission
-                            {labels.length === 1 ? "" : "s"}
+                            {t("org:shared.permissionCount", {
+                              count: labels.length,
+                            })}
                           </Badge>
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
-                          {labels.length ? labels.join(", ") : "No permissions"}
+                          {labels.length
+                            ? labels.join(", ")
+                            : t("org:shared.noPermissions")}
                         </TooltipContent>
                       </Tooltip>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(apiKey.created_at)}
+                      {formatDate(apiKey.created_at, t("org:apiKeys.table.never"))}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(apiKey.last_used)}
+                      {formatDate(apiKey.last_used, t("org:apiKeys.table.never"))}
                     </TableCell>
                     <TableCell className="text-right">
                       {canEdit(apiKey) || canDelete(apiKey) ? (
@@ -203,7 +216,7 @@ export function ApiKeysTable({
                                   setEditOpen(true);
                                 }}
                               >
-                                Edit key
+                                {t("org:apiKeys.table.editAction")}
                               </DropdownMenuItem>
                             ) : null}
                             {canDelete(apiKey) ? (
@@ -211,7 +224,7 @@ export function ApiKeysTable({
                                 className="cursor-pointer text-destructive"
                                 onSelect={() => setDeleteKey(apiKey)}
                               >
-                                Revoke key
+                                {t("org:apiKeys.table.revokeAction")}
                               </DropdownMenuItem>
                             ) : null}
                           </DropdownMenuContent>
@@ -241,15 +254,16 @@ export function ApiKeysTable({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke API key?</AlertDialogTitle>
+            <AlertDialogTitle>{t("org:apiKeys.table.revokeTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteKey?.name} stops working immediately. Anything using it
-              will start getting 401s.
+              {t("org:apiKeys.table.revokeDescription", {
+                name: deleteKey?.name,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={remove.isExecuting}>
-              Cancel
+              {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
@@ -259,7 +273,7 @@ export function ApiKeysTable({
               }}
               disabled={remove.isExecuting}
             >
-              Revoke key
+              {t("org:apiKeys.table.revokeAction")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

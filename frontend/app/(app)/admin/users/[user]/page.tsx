@@ -1,6 +1,8 @@
 import Link from "@/components/link";
 import { useParams } from "react-router-dom";
 import useSWR from "swr";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   ArrowLeft,
   Crown,
@@ -37,8 +39,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserSettingsCard } from "./user-settings-card";
 
-function roleLabel(role: number) {
-  return role === 2 ? "Admin" : role === 1 ? "Moderator" : "User";
+function roleLabel(role: number, t: TFunction) {
+  return role === 2
+    ? t("common:roles.admin")
+    : role === 1
+      ? t("admin-core:users.roles.moderator")
+      : t("common:roles.user");
 }
 
 function InfoItem({ label, value }: { label: string; value: string }) {
@@ -51,6 +57,7 @@ function InfoItem({ label, value }: { label: string; value: string }) {
 }
 
 export default function AdminUserPage() {
+  const { t } = useTranslation();
   const { user: userParam } = useParams<{ user: string }>();
   const userId = Number(userParam);
 
@@ -90,8 +97,8 @@ export default function AdminUserPage() {
   if (!user) {
     return (
       <NotFoundView
-        title="User not found"
-        description="This user doesn't exist."
+        title={t("admin-core:users.detail.notFoundTitle")}
+        description={t("admin-core:users.detail.notFoundDescription")}
       />
     );
   }
@@ -113,7 +120,7 @@ export default function AdminUserPage() {
                   ) : (
                     <User className="size-3" />
                   )}
-                  {roleLabel(user.role)}
+                  {roleLabel(user.role, t)}
                 </Badge>
               </div>
               <CardDescription>
@@ -123,7 +130,7 @@ export default function AdminUserPage() {
             <Button asChild variant="outline">
               <Link href="/admin/users">
                 <ArrowLeft className="size-4" />
-                Back to users
+                {t("admin-core:users.detail.backToUsers")}
               </Link>
             </Button>
           </div>
@@ -134,29 +141,44 @@ export default function AdminUserPage() {
         <TabsList>
           <TabsTrigger value="overview" className="inline-flex items-center gap-2">
             <User className="size-4" />
-            Overview
+            {t("admin-core:users.detail.tabs.overview")}
           </TabsTrigger>
           <TabsTrigger
             value="organizations"
             className="inline-flex items-center gap-2"
           >
             <FolderKanban className="size-4" />
-            Organizations
+            {t("admin-core:users.detail.tabs.organizations")}
           </TabsTrigger>
           <TabsTrigger value="settings" className="inline-flex items-center gap-2">
             <Settings2 className="size-4" />
-            Settings
+            {t("common:nav.settings")}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <InfoItem label="Username" value={user.username} />
-            <InfoItem label="Email" value={user.email} />
-            <InfoItem label="Role" value={roleLabel(user.role)} />
-            <InfoItem label="First name" value={user.first_name ?? "-"} />
-            <InfoItem label="Last name" value={user.last_name ?? "-"} />
-            <InfoItem label="Auth ID" value={user.auth_id} />
+            <InfoItem
+              label={t("common:resources.username")}
+              value={user.username}
+            />
+            <InfoItem label={t("common:labels.email")} value={user.email} />
+            <InfoItem
+              label={t("common:labels.role")}
+              value={roleLabel(user.role, t)}
+            />
+            <InfoItem
+              label={t("admin-core:users.fields.firstName")}
+              value={user.first_name ?? "-"}
+            />
+            <InfoItem
+              label={t("admin-core:users.fields.lastName")}
+              value={user.last_name ?? "-"}
+            />
+            <InfoItem
+              label={t("admin-core:users.fields.authId")}
+              value={user.auth_id}
+            />
           </div>
         </TabsContent>
 
@@ -165,11 +187,17 @@ export default function AdminUserPage() {
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Slug</TableHead>
-                  <TableHead>Membership</TableHead>
-                  <TableHead className="text-right">Servers</TableHead>
-                  <TableHead className="text-right">Open</TableHead>
+                  <TableHead>{t("common:labels.name")}</TableHead>
+                  <TableHead>{t("admin-core:shared.slugColumn")}</TableHead>
+                  <TableHead>
+                    {t("admin-core:users.detail.organizations.table.membership")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("common:nav.servers")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("admin-core:shared.open")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -179,7 +207,7 @@ export default function AdminUserPage() {
                       <div className="flex flex-col items-center justify-center gap-2 text-center">
                         <Users className="size-5 text-muted-foreground" />
                         <p className="text-sm font-medium">
-                          Not part of any organization
+                          {t("admin-core:users.detail.organizations.emptyState")}
                         </p>
                       </div>
                     </TableCell>
@@ -201,7 +229,9 @@ export default function AdminUserPage() {
                           ) : (
                             <User className="size-3" />
                           )}
-                          {project.owner ? "Owner" : "Member"}
+                          {project.owner
+                            ? t("admin-core:users.detail.organizations.ownerBadge")
+                            : t("admin-core:users.detail.organizations.memberBadge")}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
@@ -209,7 +239,9 @@ export default function AdminUserPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <Button asChild size="sm" variant="outline">
-                          <Link href={`/${project.slug}`}>Open</Link>
+                          <Link href={`/${project.slug}`}>
+                            {t("admin-core:shared.open")}
+                          </Link>
                         </Button>
                       </TableCell>
                     </TableRow>

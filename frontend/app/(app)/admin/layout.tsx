@@ -1,4 +1,5 @@
 import { Outlet } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AdminSidebar } from "@/components/navigation/admin-sidebar";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -10,17 +11,18 @@ import { authClient } from "@/lib/auth-client";
 import { usePathname } from "@/lib/navigation";
 import { hasAnyManagementPermission } from "@/lib/permissions";
 
-const sectionTitles: Record<string, string> = {
-  users: "Users",
-  "api-keys": "API keys",
-  projects: "Projects",
-  servers: "Servers",
-  templates: "Templates",
-  regions: "Regions",
-  nodes: "Nodes",
+const sectionTitleKeys: Record<string, string> = {
+  users: "common:nav.users",
+  "api-keys": "common:nav.apiKeys",
+  projects: "common:nav.projects",
+  servers: "common:nav.servers",
+  templates: "common:nav.templates",
+  regions: "common:nav.regions",
+  nodes: "common:nav.nodes",
 };
 
 export default function AdminLayout() {
+  const { t } = useTranslation();
   const { data: session, isLoading } = authClient.useSession();
   const pathname = usePathname();
 
@@ -29,15 +31,16 @@ export default function AdminLayout() {
   if (!session || !hasAnyManagementPermission(session.user.permissions)) {
     return (
       <div className="flex min-h-svh flex-col items-center justify-center gap-2 text-center">
-        <h1 className="text-2xl font-semibold">Not found</h1>
+        <h1 className="text-2xl font-semibold">{t("common:state.notFound")}</h1>
         <p className="text-sm text-muted-foreground">
-          This page doesn&apos;t exist or you don&apos;t have access to it.
+          {t("admin-core:layout.notFound.description")}
         </p>
       </div>
     );
   }
 
   const section = pathname.split("/").filter(Boolean)[1] ?? "";
+  const sectionTitleKey = sectionTitleKeys[section];
 
   return (
     <SidebarProvider>
@@ -47,7 +50,9 @@ export default function AdminLayout() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 h-4" />
           <span className="text-sm font-medium">
-            {sectionTitles[section] ?? "Administration"}
+            {sectionTitleKey
+              ? t(sectionTitleKey)
+              : t("admin-core:layout.defaultTitle")}
           </span>
         </header>
         <main className="w-full max-w-400">

@@ -34,6 +34,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { DATABASE_TYPE_LABELS } from "./database-type";
 
 interface CreateInstanceDialogProps {
@@ -48,6 +49,7 @@ export function CreateInstanceDialog({
   atLimit,
   onCreated,
 }: CreateInstanceDialogProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
@@ -65,10 +67,10 @@ export function CreateInstanceDialog({
           resetFormAndAction();
           setOpen(false);
           onCreated();
-          toast.success("Instance created, starting it now");
+          toast.success(t("org:databases.createDialog.created"));
         },
         onError: (error) => {
-          toast.error(error.error.serverError ?? "Something went wrong");
+          toast.error(error.error.serverError ?? t("common:state.genericError"));
         },
       },
     });
@@ -78,16 +80,14 @@ export function CreateInstanceDialog({
       <DialogTrigger asChild>
         <Button disabled={atLimit}>
           <Plus className="size-4" />
-          New instance
+          {t("org:databases.createDialog.trigger")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create database instance</DialogTitle>
+          <DialogTitle>{t("org:databases.createDialog.title")}</DialogTitle>
           <DialogDescription>
-            Your own engine, on a host in your project&apos;s region. Its size is
-            set by the platform; you can put as many databases and users on it as
-            you like.
+            {t("org:databases.createDialog.description")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -97,7 +97,7 @@ export function CreateInstanceDialog({
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Engine</FormLabel>
+                  <FormLabel>{t("org:databases.engineLabel")}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="w-full">
@@ -123,13 +123,15 @@ export function CreateInstanceDialog({
               name="display"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>{t("common:labels.name")}</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Production" />
+                    <Input
+                      {...field}
+                      placeholder={t("org:databases.createDialog.namePlaceholder")}
+                    />
                   </FormControl>
                   <FormDescription>
-                    Only for you to tell instances apart. Renaming it later is up
-                    to an administrator.
+                    {t("org:databases.createDialog.nameDescription")}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -141,7 +143,7 @@ export function CreateInstanceDialog({
                 className="w-full"
                 loading={action.isExecuting}
               >
-                Create instance
+                {t("org:databases.createDialog.submit")}
               </Button>
             </DialogFooter>
           </form>

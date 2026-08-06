@@ -1,0 +1,263 @@
+{
+  "filesManager": {
+    "title": "Files",
+    "description": "Browse server files and manage actions.",
+    "diskUsageAlert": {
+      "title": "Disk usage is getting tight",
+      "description": "Disk is currently at {{percent}}% usage. Consider cleaning up files to avoid allocation issues."
+    },
+    "pathInputPlaceholder": "Enter path",
+    "openPathButton": "Open Path",
+    "newFolderButton": "New Folder",
+    "loadingFiles": "Loading files...",
+    "emptyState": {
+      "title": "This directory is empty.",
+      "hint": "Drop files here to upload."
+    },
+    "contextMenu": {
+      "view": "View",
+      "permissions": "Permissions",
+      "unarchive": "Unarchive"
+    },
+    "fallbacks": {
+      "thisItem": "this item",
+      "thisDirectory": "this directory",
+      "thisArchive": "this archive"
+    },
+    "renameDialog": {
+      "description": "Rename {{name}}.",
+      "placeholder": "New name"
+    },
+    "copyDialog": {
+      "description": "Create a copy of {{name}}.",
+      "placeholder": "Copy name"
+    },
+    "deleteDialog": {
+      "title": "Delete item?",
+      "description": "This will delete {{name}}{{recursiveSuffix}}.",
+      "recursiveSuffix": " recursively"
+    },
+    "archiveDialog": {
+      "title": "Archive directory",
+      "description": "Create an archive from {{name}}.",
+      "namePlaceholder": "archive-name.tar.gz",
+      "compressionLabel": "Compression type",
+      "compressionPlaceholder": "Select compression",
+      "compressionOptions": {
+        "zstd": "Zstandard (zstd)",
+        "xz": "XZ",
+        "zlib": "Zlib",
+        "lz4": "LZ4",
+        "gzip": "Gzip",
+        "bzip2": "Bzip2"
+      }
+    },
+    "unarchiveDialog": {
+      "title": "Unarchive",
+      "description": "Extract {{name}} to a directory.",
+      "placeholder": "target-directory",
+      "submitButton": "Extract"
+    },
+    "createDirectoryDialog": {
+      "title": "Create directory",
+      "description": "Create a new folder inside {{path}}.",
+      "placeholder": "folder-name"
+    },
+    "undo": {
+      "actionLabels": {
+        "move": "Move {{name}}",
+        "rename": "Rename {{name}}",
+        "copy": "Copy {{name}}",
+        "create": "Create {{name}}"
+      }
+    },
+    "toasts": {
+      "loadFailed": "Failed to load files for this path",
+      "placeholderAction": "{{name}} is a placeholder action for now.",
+      "undoFailedRename": "Failed to undo rename",
+      "redoFailedRename": "Failed to redo rename",
+      "undoFailedCopy": "Failed to undo copy",
+      "redoFailedCopy": "Failed to redo copy",
+      "undoFailedCreate": "Failed to undo create",
+      "redoFailedCreate": "Failed to redo create",
+      "nothingToUndo": "Nothing to undo",
+      "nothingToRedo": "Nothing to redo",
+      "undid": "Undid: {{label}}",
+      "redid": "Redid: {{label}}",
+      "noPermissionUpload": "You do not have permission to upload files",
+      "uploadUrlFailed": "Failed to get upload URL for {{fileName}}",
+      "uploadFailedFile": "Failed to upload {{fileName}}",
+      "uploaded_one": "Uploaded {{count}} file",
+      "uploaded_other": "Uploaded {{count}} files",
+      "uploadFailed": "Upload failed",
+      "noPermissionMove": "You do not have permission to move files",
+      "cannotMoveIntoItself": "A directory cannot be moved into itself",
+      "moveFailed": "Failed to move item",
+      "moved": "Moved {{name}}",
+      "noPermissionRename": "You do not have permission to rename files",
+      "renameFailed": "Failed to rename",
+      "renamed": "Renamed successfully",
+      "noPermissionCopy": "You do not have permission to copy files",
+      "copyFailed": "Failed to copy",
+      "copied": "Copied successfully",
+      "noPermissionDelete": "You do not have permission to delete files",
+      "deleteFailed": "Failed to delete",
+      "deleted": "Deleted successfully",
+      "noPermissionArchive": "You do not have permission to archive files",
+      "archiveDirectoriesOnly": "Archive is only supported for directories",
+      "archiveFailed": "Failed to archive",
+      "archiveCreated": "Archive created successfully",
+      "noPermissionExtract": "You do not have permission to extract files",
+      "unarchiveFailed": "Failed to unarchive",
+      "archiveExtracted": "Archive extracted successfully",
+      "downloadUrlFailed": "Failed to get download URL",
+      "noPermissionCreateDirectory": "You do not have permission to create directories",
+      "createDirectoryFailed": "Failed to create directory",
+      "directoryCreated": "Directory created"
+    }
+  },
+  "minecraftPlayerManager": {
+    "title": "Minecraft Players",
+    "description": "View online players from the Minecraft healthcheck and manage access.",
+    "connectionStatus": {
+      "connecting": "connecting",
+      "connected": "connected",
+      "disconnected": "disconnected"
+    },
+    "playersOnlineBadge": "{{online}}{{maxSuffix}} online",
+    "emptyState": "No online players were reported by the latest healthcheck.",
+    "table": {
+      "player": "Player",
+      "uuid": "UUID",
+      "reason": "Reason"
+    },
+    "tooltips": {
+      "operator": "Operator",
+      "makeOperator": "Make operator",
+      "removeOperator": "Remove operator",
+      "banPlayer": "Ban player",
+      "pardonPlayer": "Pardon player"
+    },
+    "bannedSection": {
+      "title": "Banned players",
+      "description": "Read from banned-players.json. Banned players cannot join, so they never show up in the online list.",
+      "emptyState": "No banned players."
+    },
+    "banExpiresSuffix": " (until {{expires}})",
+    "toasts": {
+      "noPermission": "You do not have permission to manage players",
+      "banFailed": "Failed to ban player",
+      "pardonFailed": "Failed to pardon player",
+      "opFailed": "Failed to op player",
+      "deopFailed": "Failed to deop player",
+      "commandSent": "{{name}}: {{action}} command sent"
+    }
+  },
+  "modPluginBrowser": {
+    "unavailable": {
+      "title": "Mod browser unavailable",
+      "description": "This server template does not expose a supported Minecraft mod or plugin feature."
+    },
+    "title": "Mods and Plugins",
+    "description": {
+      "modpacks": "Browse Modrinth and CurseForge modpacks compatible with this server.",
+      "resources": "Browse Modrinth, CurseForge, Hangar and SpigotMC resources compatible with this server."
+    },
+    "tabs": {
+      "mods": "Mods",
+      "modpacks": "Modpacks"
+    },
+    "searchPlaceholderWithLoader": "Search {{loader}}",
+    "searchPlaceholder": "Search",
+    "compatibleOnlyLabel": "Only show resources for Minecraft {{gameVersion}}",
+    "noResultsFound": "No compatible resources found.",
+    "badges": {
+      "installed": "Installed",
+      "manualDownload": "Manual download"
+    },
+    "downloadsLabel": "{{count}} downloads",
+    "followsLabel": "{{count}} follows",
+    "selectResourceFallback": "Select a resource",
+    "chooseProjectHint": "Choose a project to view its versions.",
+    "viewOnProviderLink": "View on {{provider}}",
+    "versionLabel": "Version",
+    "noCompatibleVersions": "No compatible versions",
+    "minecraftVersionsPrefix": "Minecraft: ",
+    "fileLabelPrefix": "File: ",
+    "fileUnavailable": "Unavailable",
+    "installedFilePrefix": "Installed: ",
+    "switchVersionButton": "Switch Version",
+    "installButton": "Install",
+    "manualDownloadHints": {
+      "spigot": "SpigotMC does not allow automated downloads. Download the jar from its page and upload it under Files.",
+      "generic": "This version is hosted outside the provider and has to be downloaded and uploaded manually."
+    },
+    "noWritePermissionHint": "You need file write permission to install resources.",
+    "searchOrSelectHint": "Search or select a resource from the list.",
+    "installedModpack": {
+      "prefix": "Installed modpack — ",
+      "modsCount_one": "{{count}} mod",
+      "modsCount_other": "{{count}} mods",
+      "noModsFound": "no mods found on disk",
+      "andConfigFiles_one": " and {{count}} configuration file",
+      "andConfigFiles_other": " and {{count}} configuration files",
+      "suffix": ". These came from the pack, so they are not listed as hand-uploaded files."
+    },
+    "actions": {
+      "disable": "Disable",
+      "enable": "Enable"
+    },
+    "modpackJob": {
+      "fallbackTitle": "Modpack",
+      "runningBase": "Installing in the background",
+      "runningProgress": " — {{done}} of {{total}} files",
+      "runningSuffix": ". You can leave this page.",
+      "failedDefault": "The installation failed. Nothing was changed if it failed before the install step.",
+      "installedCount_one": "Installed {{count}} file.",
+      "installedCount_other": "Installed {{count}} files.",
+      "failuresMessage_one": "{{count}} file could not be fetched (most often a CurseForge author blocking third-party downloads): {{list}}",
+      "failuresMessage_other": "{{count}} files could not be fetched (most often a CurseForge author blocking third-party downloads): {{list}}"
+    },
+    "modpackConfirm": {
+      "title": "Install {{title}}?",
+      "fallbackTitle": "modpack",
+      "description": "This writes the pack's mods and configuration onto the server. The pack is downloaded and unpacked first, so nothing on the server changes until it is known to be usable.",
+      "backupLabel": "Back up first",
+      "backupAvailableHint": "A backup is taken before anything is written. If it fails, the install does not start.",
+      "backupUnavailableHint": "Unavailable: this node has no backup storage configured for the server.",
+      "wipeLabel": "Replace existing mods",
+      "wipeHint": "Clears the current mod jars so the result matches the pack. Turn this off to merge the pack into what is already installed.",
+      "wipeWarning": "Existing mods will be deleted and there is no backup to restore from. Mod configuration shipped with the pack will also overwrite what is on the server."
+    },
+    "installedSection": {
+      "title": "Installed",
+      "updatesBadge_one": "{{count}} update",
+      "updatesBadge_other": "{{count}} updates",
+      "emptyState": "Nothing installed through the browser yet.",
+      "countDescription_one": "{{count}} resource installed on this server.",
+      "countDescription_other": "{{count}} resources installed on this server.",
+      "includeBetaLabel": "Include beta versions",
+      "updateAllButton": "Update all"
+    },
+    "unmanagedSection": {
+      "title": "Not installed through the browser",
+      "description_one": "{{count}} file on this server that no record points at — uploaded over SFTP or in the file manager, or replaced by hand. You can still enable or disable them here; deleting them is done under Files.",
+      "description_other": "{{count}} files on this server that no record points at — uploaded over SFTP or in the file manager, or replaced by hand. You can still enable or disable them here; deleting them is done under Files."
+    },
+    "unreadableSection": {
+      "title": "Could not read every directory",
+      "description": "The {{types}} directory could not be listed, so the lists above may be incomplete. Nothing was removed from the records."
+    },
+    "toasts": {
+      "installed": "Installed {{title}}",
+      "stateEnabled": "Enabled {{label}}",
+      "stateDisabled": "Disabled {{label}}",
+      "installingInBackground": "Installing {{title}} in the background",
+      "updated": "Updated {{title}}",
+      "updateAllFailed": "Failed to update resources",
+      "updatedCount_one": "Updated {{count}} resource",
+      "updatedCount_other": "Updated {{count}} resources",
+      "removed": "Removed {{title}}"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import { Check, ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -24,9 +25,9 @@ export function SearchableSelect({
   value,
   onChange,
   options,
-  placeholder = "Select value",
-  searchPlaceholder = "Search...",
-  emptyText = "No results.",
+  placeholder,
+  searchPlaceholder,
+  emptyText,
   disabled,
   className,
 }: {
@@ -39,6 +40,7 @@ export function SearchableSelect({
   disabled?: boolean;
   className?: string;
 }) {
+  const { t } = useTranslation("app");
   const [open, setOpen] = useState(false);
 
   const selected = options.find((option) => option.value === value);
@@ -59,7 +61,9 @@ export function SearchableSelect({
           )}
         >
           <span className="truncate">
-            {selected ? (selected.label ?? selected.value) : placeholder}
+            {selected
+              ? (selected.label ?? selected.value)
+              : (placeholder ?? t("searchableSelect.placeholder"))}
           </span>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
@@ -69,9 +73,13 @@ export function SearchableSelect({
         align="start"
       >
         <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+          <CommandInput
+            placeholder={searchPlaceholder ?? t("searchableSelect.searchPlaceholder")}
+          />
           <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandEmpty>
+              {emptyText ?? t("searchableSelect.noResults")}
+            </CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem

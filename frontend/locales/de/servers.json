@@ -1,0 +1,307 @@
+{
+  "shared": {
+    "backToServerList": "Zurück zur Serverliste",
+    "edited": "Bearbeitet"
+  },
+  "page": {
+    "sections": {
+      "console": {
+        "label": "Konsole",
+        "description": "TODO: Live-Konsolen-Stream und Befehlseingabe implementieren."
+      },
+      "files": {
+        "label": "Dateien",
+        "description": "TODO: Dateibrowser, Editor und Upload-Funktionen implementieren."
+      },
+      "backups": {
+        "description": "Erstellung, Download, Wiederherstellung und Löschung von Backups verwalten."
+      },
+      "mods": {
+        "label": "Mods",
+        "description": "Minecraft-Mods oder -Plugins durchsuchen und installieren."
+      },
+      "players": {
+        "label": "Spieler",
+        "description": "Online-Minecraft-Spieler anzeigen und verwalten."
+      },
+      "network": {
+        "description": "Ports, Routen und die Einträge, die auf sie verweisen."
+      },
+      "settings": {
+        "description": "Name und persönliche Servereinstellungen aktualisieren."
+      },
+      "startup": {
+        "label": "Start",
+        "description": "TODO: Editor für Startbefehle implementieren. Variablen sind vorerst absichtlich ausgeklammert."
+      }
+    },
+    "noPermissions": {
+      "title": "Keine Serverberechtigungen",
+      "description": "Du hast keinen Zugriff auf Verwaltungsbereiche für diesen Server."
+    },
+    "blocked": {
+      "suspendedTitle": "Server ist gesperrt",
+      "maintenanceTitle": "Node befindet sich in Wartung",
+      "suspendedDefaultReason": "Dieser Server ist gesperrt, Aktionen sind derzeit blockiert.",
+      "maintenanceReason": "Node {{node}} befindet sich im Wartungsmodus, daher sind Serveraktionen derzeit blockiert."
+    },
+    "noFilePermissions": {
+      "title": "Keine Dateiberechtigungen",
+      "description": "Du hast keinen Zugriff auf die Dateien dieses Servers."
+    }
+  },
+  "layout": {
+    "noOrganization": {
+      "title": "Keine aktive Organisation ausgewählt",
+      "description": "Bitte wähle eine Organisation aus, bevor du diesen Server ansiehst."
+    },
+    "notFound": {
+      "title": "Server nicht gefunden",
+      "description": "Dieser Server existiert nicht oder gehört nicht zu deiner Organisation."
+    },
+    "noPowerPermission": "Du hast keine Berechtigung, die Energieverwaltung zu steuern."
+  },
+  "managementBar": {
+    "addressUnavailable": "Adresse nicht verfügbar",
+    "copyAddressTitle": "Serveradresse kopieren",
+    "uptimeTitle": "Laufzeit",
+    "playersOnline": "Spieler online",
+    "suspendedBadge": "Gesperrt",
+    "maintenanceBadge": "Node in Wartung",
+    "adminUiButton": "Admin-Oberfläche",
+    "actions": {
+      "restart": "Neustarten",
+      "stop": "Stoppen",
+      "kill": "Beenden"
+    },
+    "commandSent": "Befehl „{{action}}“ an den Server gesendet",
+    "errors": {
+      "startFailed": "Server konnte nicht gestartet werden: {{msg}}",
+      "stopFailed": "Server konnte nicht gestoppt werden: {{msg}}",
+      "restartFailed": "Server konnte nicht neu gestartet werden: {{msg}}",
+      "killFailed": "Server konnte nicht beendet werden: {{msg}}"
+    },
+    "highUsage": {
+      "cpuAndRamTitle": "CPU- und Arbeitsspeicherauslastung sind hoch",
+      "cpuTitle": "CPU-Auslastung ist hoch",
+      "ramTitle": "Arbeitsspeicherauslastung ist hoch",
+      "cpuAtLimit": "CPU liegt bei {{percent}}% des Limits. ",
+      "ramAtLimit": "Arbeitsspeicher liegt bei {{percent}}% des Limits. ",
+      "resourceWarning": "Der Server kann nicht mehr reagieren oder beendet werden, wenn ihm die Ressourcen ausgehen."
+    },
+    "stats": {
+      "ram": "RAM",
+      "swap": "Swap"
+    },
+    "toasts": {
+      "statsConnectFailed": "Verbindung zu den Serverstatistiken fehlgeschlagen",
+      "invalidStatsUrl": "Ungültige Statistik-WebSocket-URL",
+      "addressCopied": "Serveradresse kopiert",
+      "addressCopyFailed": "Serveradresse konnte nicht kopiert werden"
+    }
+  },
+  "backups": {
+    "description": "Server-Backups, Wiederherstellungspunkte und Downloads verwalten.",
+    "createButton": "Backup erstellen",
+    "restoreButton": "Wiederherstellen",
+    "loading": "Backups werden geladen...",
+    "empty": "Keine Backups gefunden.",
+    "unnamedBackup": "Backup {{id}}",
+    "unnamedFallback": "das ausgewählte Backup",
+    "table": {
+      "storage": "Speicher"
+    },
+    "createDialog": {
+      "title": "Backup erstellen",
+      "description": "Dadurch wird die Erstellung eines neuen Backups im Standardspeicher gestartet."
+    },
+    "restoreDialog": {
+      "title": "Backup wiederherstellen?",
+      "description": "Dadurch wird {{name}} wiederhergestellt. Vorhandene Daten können überschrieben werden."
+    },
+    "deleteDialog": {
+      "title": "Backup löschen?",
+      "description": "Diese Aktion entfernt {{name}} endgültig."
+    },
+    "toasts": {
+      "loadFailed": "Backups konnten nicht geladen werden",
+      "createFailed": "Backup konnte nicht erstellt werden",
+      "createSuccess": "Backup-Erstellung gestartet",
+      "invalidSelection": "Ungültige Backup-Auswahl",
+      "invalidId": "Ungültige Backup-ID",
+      "downloadUrlFailed": "Backup-URL konnte nicht abgerufen werden",
+      "restoreFailed": "Backup konnte nicht wiederhergestellt werden",
+      "restoreSuccess": "Wiederherstellungsbefehl gesendet",
+      "deleteFailed": "Backup konnte nicht gelöscht werden",
+      "deleteSuccess": "Backup gelöscht"
+    }
+  },
+  "fileEditor": {
+    "loadingEditor": "Editor wird geladen...",
+    "defaultTitle": "Datei-Editor",
+    "defaultDescription": "Wähle eine Datei im Tab „Dateien“ aus, um sie hier zu öffnen.",
+    "backToFiles": "Zurück zu den Dateien",
+    "loadingFile": "Datei wird geladen...",
+    "readOnlyNotice": "Du hast für diesen Server nur Lesezugriff auf Dateien.",
+    "noFileSelected": {
+      "title": "Keine Datei ausgewählt",
+      "description": "Öffne eine Datei im Tab „Dateien“, um sie anzusehen oder zu bearbeiten."
+    },
+    "directorySelected": {
+      "title": "Verzeichnis ausgewählt",
+      "description": "Verzeichnisse können im Editor nicht geöffnet werden."
+    },
+    "archiveDisabled": {
+      "title": "Archivbearbeitung ist deaktiviert",
+      "description": "Diese Datei ist ein Archiv. Lade es herunter oder entpacke es im Tab „Dateien“, statt es als Text zu bearbeiten."
+    },
+    "toasts": {
+      "inspectFailed": "Datei konnte nicht überprüft werden",
+      "downloadUrlFailed": "Download-URL konnte nicht abgerufen werden",
+      "loadFailed": "Datei konnte nicht geladen werden",
+      "uploadUrlFailed": "Upload-URL konnte nicht abgerufen werden",
+      "saveSuccess": "Datei gespeichert",
+      "saveFailed": "Datei konnte nicht gespeichert werden"
+    }
+  },
+  "networkPorts": {
+    "description": "Alle für diesen Server freigegebenen Ports. Raw-Ports werden über Host und Port erreicht, HTTP-Ports über eine Route.",
+    "loading": "Netzwerk-Ports werden geladen...",
+    "empty": "Für diesen Server sind keine Netzwerk-Ports konfiguriert.",
+    "primaryBadge": "Primär",
+    "additionalBadge": "Zusätzlich",
+    "table": {
+      "protocol": "Protokoll",
+      "internal": "Intern",
+      "external": "Extern",
+      "hostBind": "Host / Bind"
+    },
+    "toasts": {
+      "loadFailed": "Netzwerk-Ports konnten nicht geladen werden"
+    }
+  },
+  "routes": {
+    "title": "Routen",
+    "description": "Verweise eine Subdomain auf einen der Ports dieses Servers.",
+    "newRouteButton": "Neue Route",
+    "srvBadge": "SRV",
+    "privateLabel": "privat",
+    "subdomainInvalid": "Nur Kleinbuchstaben, Ziffern und Bindestriche sind erlaubt.",
+    "empty": {
+      "noDomains": "Für dieses Projekt sind noch keine Domains verfügbar.",
+      "noRoutablePorts": "Keiner der Ports dieses Servers kann derzeit geroutet werden.",
+      "noRoutes": "Noch keine Routen."
+    },
+    "table": {
+      "kind": "Art",
+      "type": "Typ"
+    },
+    "manualDns": {
+      "title": "Verweise deine eigene Domain hierher",
+      "description": "Die Einträge, die du in dein eigenes DNS eintragen musst, um einen Port zu erreichen. Wähle den Port aus und kopiere sie.",
+      "noPorts": "Dieser Server hat noch keine Ports.",
+      "createRouteFirst": "Erstelle zuerst eine Route für diesen Port — deine eigene Domain verweist dann darauf.",
+      "replaceHelp": "Ersetze <code>your-domain</code> durch den Namen, der dir gehört.",
+      "httpHelp": "Ein HTTP-Port wird über den Reverse-Proxy ausgeliefert, daher verweist deine Domain auf die Adresse der Route.",
+      "nonHttpHelp": "Clients, die den Dienst nachschlagen, finden den Port selbständig, sodass ihn niemand eintippen muss."
+    },
+    "dialog": {
+      "title": "Neue Route",
+      "description": "Wähle eine Subdomain, die Domain, unter der sie liegt, und den Port, auf den sie verweist.",
+      "domainPlaceholder": "Domain",
+      "httpRouteHelp": "Ein HTTP-Port wird zu einer über den Reverse-Proxy ausgelieferten Ressource auf der Subdomain.",
+      "rawRouteHelp": "Ein Raw-Port erhält einen SRV-Eintrag auf der Subdomain.",
+      "noSelectablePorts": "Diese Domain kann noch keinen der Ports dieses Servers tragen.",
+      "httpsHelpOn": "Diese Route über HTTPS ausliefern.",
+      "httpsHelpOff": "Diese Domain bietet kein HTTPS an.",
+      "createsRecordHelp": "Erstellt <code>{{record}}</code>, sodass Clients, die den Dienst nachschlagen, den Port selbständig erreichen. Der Dienstname stammt vom Port.",
+      "yourNamePlaceholder": "dein-name",
+      "theDomainPlaceholder": "die-domain",
+      "submitButton": "Route erstellen"
+    },
+    "deleteDialog": {
+      "title": "Route löschen",
+      "description": "{{fqdn}} wird nicht mehr aufgelöst und die zugehörigen Einträge werden beim Anbieter entfernt."
+    },
+    "toasts": {
+      "loadFailed": "Routen konnten nicht geladen werden",
+      "createFailed": "Route konnte nicht erstellt werden",
+      "createSuccess": "Route {{fqdn}} erstellt",
+      "copyFailed": "Kopieren fehlgeschlagen",
+      "deleteFailed": "Route konnte nicht gelöscht werden",
+      "deleteSuccess": "Route gelöscht"
+    }
+  },
+  "settings": {
+    "description": "Aktualisiere den Anzeigenamen deines Servers.",
+    "loading": "Einstellungen werden geladen...",
+    "serverNameLabel": "Servername",
+    "saveNameButton": "Namen speichern",
+    "sftp": {
+      "title": "SFTP-Zugriff",
+      "description": "Verwende dein Daemon-Passwort für die SFTP-Passwortauthentifizierung oder richte SSH-Public-Key-Auth in deinem Profil ein.",
+      "openLabel": "Mit SFTP öffnen",
+      "openButton": "Öffnen",
+      "helpText": "Dein SFTP-Passwort ist das Daemon-Passwort, das in deinen Einstellungen angezeigt wird. Du kannst dort auch SSH-Public-Keys hinzufügen."
+    },
+    "wipe": {
+      "title": "Serverdateien löschen",
+      "description": "Löscht alle Dateien auf dem Server. Beim nächsten Start werden die Dateien des Templates von Grund auf neu erstellt. Stoppe zuerst den Server.",
+      "button": "Dateien löschen",
+      "dialogTitle": "Alle Dateien von {{name}} löschen?",
+      "thisServer": "diesem Server",
+      "dialogDescription": "Dadurch werden alle Dateien des Servers gelöscht, einschließlich Welten und Konfigurationen. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "backupCheckboxLabel": "Zuerst ein Backup erstellen",
+      "backupCheckboxHelp": "Das Löschen wird abgebrochen, wenn das Backup fehlschlägt, sodass die Dateien niemals ohne Backup gelöscht werden.",
+      "confirmButton": "Dateien löschen",
+      "confirmWithBackupButton": "Sichern und löschen"
+    },
+    "toasts": {
+      "loadFailed": "Servereinstellungen konnten nicht geladen werden",
+      "updateFailed": "Servername konnte nicht aktualisiert werden",
+      "updateSuccess": "Servername aktualisiert",
+      "wipeFailed": "Serverdateien konnten nicht gelöscht werden",
+      "wipeSuccessWithBackup": "Backup gestartet und Serverdateien gelöscht",
+      "wipeSuccess": "Serverdateien gelöscht",
+      "usernameCopySuccess": "SFTP-Benutzername kopiert",
+      "usernameCopyFailed": "SFTP-Benutzername konnte nicht kopiert werden",
+      "urlCopySuccess": "SFTP-URL kopiert",
+      "urlCopyFailed": "SFTP-URL konnte nicht kopiert werden"
+    }
+  },
+  "startup": {
+    "title": "Start",
+    "description": "Startvariablen des Servers bearbeiten und speichern.",
+    "loading": "Startvariablen werden geladen...",
+    "unableToLoad": "Startvariablen konnten nicht geladen werden.",
+    "saveButton": "Variablen speichern",
+    "toasts": {
+      "loadFailed": "Startvariablen konnten nicht geladen werden",
+      "invalidVariables": "Behebe ungültige Startvariablen, bevor du speicherst",
+      "saveSuccess": "Startvariablen aktualisiert",
+      "saveFailed": "Startvariablen konnten nicht gespeichert werden"
+    }
+  },
+  "terminal": {
+    "title": "Konsole",
+    "connecting": "Terminal wird verbunden...",
+    "commandPlaceholder": "Befehl eingeben (z. B. stop, say hello)",
+    "sendButton": "Senden",
+    "errors": {
+      "connectFailed": "Verbindung zur Terminal-Sitzung fehlgeschlagen.",
+      "createFailed": "Terminal-Sitzung konnte nicht erstellt werden.",
+      "socketFailed": "Terminal-WebSocket-Verbindung fehlgeschlagen.",
+      "disconnected": "[Terminal getrennt]",
+      "renderFailed": "Terminal-Ausgabe konnte nicht dargestellt werden.",
+      "initFailed": "Terminal konnte nicht initialisiert werden.",
+      "notConnected": "Terminal ist nicht verbunden."
+    }
+  },
+  "variablesEditor": {
+    "groupFallback": "Gruppe {{index}}",
+    "selectPlaceholder": "Wert auswählen",
+    "secretHidden": "Geheimer Wert ausgeblendet",
+    "valuePlaceholder": "Wert eingeben",
+    "invalidFormat": "Der Wert entspricht nicht dem erforderlichen Format."
+  }
+}

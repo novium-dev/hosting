@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -240,6 +241,7 @@ function validateRegex(pattern: string, value: string) {
 export function getVariableErrors(
   payload: VariablePayloadLike | null,
   variables: Record<string, VariableValue>,
+  invalidFormatMessage: string,
 ) {
   const errors: Record<string, string> = {};
 
@@ -249,7 +251,7 @@ export function getVariableErrors(
 
       if (isRegexTextConfig(variable.data) && variable.data.regex) {
         if (!validateRegex(variable.data.regex, value)) {
-          errors[variable.id] = "Value does not match the required format.";
+          errors[variable.id] = invalidFormatMessage;
         }
       }
     });
@@ -400,6 +402,7 @@ export function applyNestedVariableChange({
 }
 
 export function useVariableEditor(payload: VariablePayloadLike | null) {
+  const { t } = useTranslation();
   const [variables, setVariables] = useState<Record<string, VariableValue>>({});
   const [savedVariables, setSavedVariables] = useState<
     Record<string, VariableValue>
@@ -411,8 +414,13 @@ export function useVariableEditor(payload: VariablePayloadLike | null) {
     [payload],
   );
   const errors = useMemo(
-    () => getVariableErrors(payload, variables),
-    [payload, variables],
+    () =>
+      getVariableErrors(
+        payload,
+        variables,
+        t("servers:variablesEditor.invalidFormat"),
+      ),
+    [payload, variables, t],
   );
 
   const reset = useCallback((next: VariablePayloadLike | null) => {
@@ -507,6 +515,7 @@ export function VariableFields({
   >;
   variables: Record<string, VariableValue>;
 }) {
+  const { t } = useTranslation();
   const nestedIndex = buildNestedVariableIndex(payload);
 
   return (
@@ -517,7 +526,10 @@ export function VariableFields({
           className="space-y-3 rounded-md border p-3"
         >
           <h3 className="text-sm font-semibold">
-            {group.name || `Group ${groupIndex + 1}`}
+            {group.name ||
+              t("servers:variablesEditor.groupFallback", {
+                index: groupIndex + 1,
+              })}
           </h3>
 
           {group.variables.map((variable) => {
@@ -528,7 +540,7 @@ export function VariableFields({
                 <Label>{variable.name || variable.id}</Label>
                 {dirty && (
                   <span className="text-xs font-medium text-amber-600">
-                    Edited
+                    {t("servers:shared.edited")}
                   </span>
                 )}
               </div>
@@ -553,7 +565,9 @@ export function VariableFields({
                   ) : (
                     <Select value={currentValue} onValueChange={onSelect}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select value" />
+                        <SelectValue
+                          placeholder={t("servers:variablesEditor.selectPlaceholder")}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {variable.data.map((entry) => (
@@ -587,7 +601,7 @@ export function VariableFields({
                   {variable.data.label}
                   {dirty && (
                     <span className="text-xs font-medium text-amber-600">
-                      Edited
+                      {t("servers:shared.edited")}
                     </span>
                   )}
                 </label>
@@ -627,7 +641,9 @@ export function VariableFields({
                   ) : (
                     <Select value={currentValue} onValueChange={onSelect}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select value" />
+                        <SelectValue
+                          placeholder={t("servers:variablesEditor.selectPlaceholder")}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {entries.map((entry) => (
@@ -656,8 +672,9 @@ export function VariableFields({
                   disabled={!canEditSecret}
                   placeholder={
                     !canEditSecret
-                      ? "Secret value hidden"
-                      : (regexConfig?.placeholder ?? "Enter value")
+                      ? t("servers:variablesEditor.secretHidden")
+                      : (regexConfig?.placeholder ??
+                        t("servers:variablesEditor.valuePlaceholder"))
                   }
                   type={isSecret ? "password" : "text"}
                   value={

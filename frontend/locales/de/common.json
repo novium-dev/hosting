@@ -1,0 +1,183 @@
+{
+  "auth": {
+    "signIn": {
+      "goHome": "Zur Startseite",
+      "title": "Anmelden",
+      "description": "Fahre mit Novium Auth fort, um auf dein Konto zuzugreifen.",
+      "submit": "Anmelden",
+      "terms": "Mit der Anmeldung stimmst du unseren <termsLink>Nutzungsbedingungen</termsLink> und unserer <privacyLink>Datenschutzerklärung</privacyLink> zu."
+    },
+    "providers": {
+      "user": "Benutzer",
+      "team": "Team"
+    }
+  },
+  "language": {
+    "label": "Sprache",
+    "en": "Englisch",
+    "de": "Deutsch"
+  },
+  "actions": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "close": "Schließen",
+    "confirm": "Bestätigen",
+    "submit": "Absenden",
+    "update": "Aktualisieren",
+    "remove": "Entfernen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "previous": "Vorherige",
+    "continue": "Fortfahren",
+    "retry": "Erneut versuchen",
+    "refresh": "Aktualisieren",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "search": "Suchen",
+    "viewAll": "Alle anzeigen",
+    "loadMore": "Mehr laden",
+    "signOut": "Abmelden",
+    "add": "Hinzufügen",
+    "clear": "Leeren",
+    "apply": "Anwenden",
+    "reset": "Zurücksetzen",
+    "download": "Herunterladen",
+    "upload": "Hochladen",
+    "rename": "Umbenennen",
+    "duplicate": "Duplizieren",
+    "select": "Auswählen",
+    "selectAll": "Alle auswählen",
+    "invite": "Einladen",
+    "regenerate": "Neu generieren",
+    "reload": "Neu laden",
+    "goBack": "Zurückgehen",
+    "backToDashboard": "Zurück zum Dashboard"
+  },
+  "labels": {
+    "name": "Name",
+    "description": "Beschreibung",
+    "status": "Status",
+    "actions": "Aktionen",
+    "created": "Erstellt",
+    "updated": "Aktualisiert",
+    "type": "Typ",
+    "region": "Region",
+    "owner": "Besitzer",
+    "id": "ID",
+    "date": "Datum",
+    "size": "Größe",
+    "value": "Wert",
+    "key": "Schlüssel",
+    "role": "Rolle",
+    "email": "E-Mail",
+    "permissions": "Berechtigungen",
+    "address": "Adresse",
+    "port": "Port",
+    "host": "Host",
+    "path": "Pfad",
+    "url": "URL",
+    "expires": "Läuft ab",
+    "optional": "Optional",
+    "required": "Erforderlich"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "running": "Läuft",
+    "stopped": "Gestoppt",
+    "starting": "Wird gestartet",
+    "stopping": "Wird gestoppt",
+    "unknown": "Unbekannt",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "pending": "Ausstehend",
+    "suspended": "Gesperrt",
+    "healthy": "Gesund",
+    "unhealthy": "Ungesund",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "installing": "Wird installiert",
+    "error": "Fehler"
+  },
+  "state": {
+    "loading": "Wird geladen...",
+    "saving": "Wird gespeichert...",
+    "deleting": "Wird gelöscht...",
+    "noResultsFound": "Keine Ergebnisse gefunden.",
+    "genericError": "Etwas ist schiefgelaufen",
+    "yes": "Ja",
+    "no": "Nein",
+    "notFound": "Nicht gefunden"
+  },
+  "confirmDelete": {
+    "title": "{{name}} löschen?",
+    "cannotBeUndone": "Diese Aktion kann nicht rückgängig gemacht werden."
+  },
+  "pagination": {
+    "label": "Seitennummerierung",
+    "previous": "Vorherige",
+    "next": "Nächste",
+    "goToPreviousPage": "Zur vorherigen Seite",
+    "goToNextPage": "Zur nächsten Seite",
+    "morePages": "Weitere Seiten"
+  },
+  "table": {
+    "noResultsFound": "Keine Ergebnisse gefunden."
+  },
+  "carousel": {
+    "previousSlide": "Vorheriges Bild",
+    "nextSlide": "Nächstes Bild"
+  },
+  "sidebar": {
+    "title": "Seitenleiste",
+    "mobileDescription": "Zeigt die mobile Seitenleiste an.",
+    "toggle": "Seitenleiste umschalten"
+  },
+  "breadcrumb": {
+    "label": "Breadcrumb",
+    "more": "Mehr"
+  },
+  "a11y": {
+    "loading": "Wird geladen",
+    "workspaceAvatar": "Workspace-Avatar"
+  },
+  "roles": {
+    "admin": "Admin",
+    "moderator": "Moderator",
+    "user": "Benutzer"
+  },
+  "nav": {
+    "servers": "Server",
+    "settings": "Einstellungen",
+    "databases": "Datenbanken",
+    "users": "Benutzer",
+    "members": "Mitglieder",
+    "nodes": "Nodes",
+    "templates": "Templates",
+    "regions": "Regionen",
+    "projects": "Projekte",
+    "apiKeys": "API-Schlüssel",
+    "admin": "Admin",
+    "network": "Netzwerk",
+    "backups": "Backups",
+    "ports": "Ports"
+  },
+  "resources": {
+    "cpu": "CPU",
+    "disk": "Speicherplatz",
+    "memory": "Arbeitsspeicher",
+    "manage": "Verwalten",
+    "http": "HTTP",
+    "https": "HTTPS",
+    "tcp": "TCP",
+    "udp": "UDP",
+    "start": "Starten",
+    "archive": "Archivieren",
+    "username": "Benutzername",
+    "saveChanges": "Änderungen speichern",
+    "daemonAuth": "Daemon-Auth"
+  }
+}

@@ -1,0 +1,160 @@
+{
+  "apiKeys": {
+    "description": "Jeder Schlüssel auf dieser Instanz. Ein Schlüssel kann nur das, was sein Besitzer auch kann, und instanzweite Schlüssel tragen Verwaltungsberechtigungen.",
+    "loadFailed": "API-Schlüssel konnten nicht geladen werden"
+  },
+  "domains": {
+    "title": "Domains",
+    "description": "Domains, unter denen Nutzer ihre Routen anlegen können. HTTP-Ports werden zu Pangolin-Ressourcen, TCP-Ports erhalten einen Cloudflare-SRV-Eintrag – die Cloudflare-Zone wird beim Hinzufügen anhand des Domainnamens ermittelt. Eine private Domain wird nur den Projekten angeboten, denen du sie gewährst.",
+    "newDomain": "Neue Domain",
+    "backendNotConfigured": "Es ist kein Routen-Backend konfiguriert. Füge <code1>[routes.cloudflare]</code1> für TCP-Routen (SRV-Einträge) oder <code2>[routes.pangolin]</code2> für HTTP-Routen zur Backend-Konfiguration hinzu.",
+    "emptyState": "Noch keine Domains.",
+    "findZone": "Zone suchen",
+    "allProjects": "Alle Projekte",
+    "table": {
+      "domain": "Domain",
+      "carries": "Trägt",
+      "private": "Privat",
+      "routes": "Routen",
+      "nothingYet": "noch nichts",
+      "tcpBadge": "TCP"
+    },
+    "createDialog": {
+      "title": "Neue Domain",
+      "description": "Routen werden als Subdomains dieser Domain angelegt.",
+      "domainPlaceholder": "novium.link",
+      "pangolinIdLabel": "Pangolin-Domain-ID",
+      "pangolinIdHelp": "Die ID der Domain in Pangolin. Erforderlich für HTTP-Routen; TCP-Routen laufen über Cloudflare, dessen Zone anhand des Domainnamens ermittelt wird.",
+      "httpsHelp": "Nutzer können HTTPS für HTTP-Routen auf dieser Domain aktivieren.",
+      "privateHelp": "Nur berechtigte Projekte sehen diese Domain.",
+      "submit": "Domain hinzufügen"
+    },
+    "grantDialog": {
+      "title": "Projektzugriff gewähren",
+      "description": "Wähle das Projekt aus, das {{domain}} verwenden darf.",
+      "projectPlaceholder": "Projekt",
+      "submit": "Gewähren"
+    },
+    "deleteDialog": {
+      "title": "Domain löschen",
+      "description": "{{domain}} kann nicht mehr für neue Routen verwendet werden. Eine Domain mit bestehenden Routen kann nicht gelöscht werden."
+    },
+    "toast": {
+      "loadFailed": "Domains konnten nicht geladen werden",
+      "added": "{{domain}} hinzugefügt",
+      "addFailed": "Domain konnte nicht hinzugefügt werden",
+      "updateFailed": "Domain konnte nicht aktualisiert werden",
+      "deleted": "Domain gelöscht",
+      "deleteFailed": "Domain konnte nicht gelöscht werden",
+      "grantFailed": "Zugriff konnte nicht gewährt werden",
+      "zoneResolved": "Zone von {{domain}} ermittelt",
+      "resolveFailed": "Zone konnte nicht ermittelt werden",
+      "revokeFailed": "Zugriff konnte nicht entzogen werden"
+    }
+  },
+  "layout": {
+    "defaultTitle": "Verwaltung",
+    "notFound": {
+      "description": "Diese Seite existiert nicht oder du hast keinen Zugriff darauf."
+    }
+  },
+  "projects": {
+    "description": "Projekte durchsuchen, auf die die aktuelle Admin-Sitzung zugreifen kann.",
+    "searchPlaceholder": "Suche nach Projekt, Slug oder Besitzer...",
+    "featuresButton": "Features",
+    "table": {
+      "features": "Features"
+    },
+    "emptyState": {
+      "title": "Keine Projekte gefunden",
+      "description": "Passe deine Suche an."
+    },
+    "featuresDialog": {
+      "title": "Feature-Flags",
+      "description": "Frühe Features für \"{{name}}\" aktivieren.",
+      "noFeatures": "Diese Instanz hat keine Feature-Flags."
+    },
+    "toast": {
+      "featuresSaved": "Feature-Flags aktualisiert",
+      "featuresSaveFailed": "Features konnten nicht gespeichert werden"
+    }
+  },
+  "regions": {
+    "description": "Gruppiere Knoten nach Standort. Jeder Knoten gehört zu genau einer Region.",
+    "createButton": "Region erstellen",
+    "searchPlaceholder": "Suche nach Name, Slug oder ID...",
+    "table": {
+      "regionId": "Regions-ID"
+    },
+    "emptyState": {
+      "title": "Keine Regionen gefunden",
+      "description": "Erstelle eine Region, bevor du einen Knoten registrierst."
+    },
+    "deleteDialog": {
+      "title": "Region löschen",
+      "description": "\"{{display}}\" wird dauerhaft entfernt. Knoten müssen zuvor in eine andere Region verschoben werden."
+    },
+    "formDialog": {
+      "editTitle": "Region bearbeiten",
+      "createTitle": "Region erstellen",
+      "description": "Regionen gruppieren Knoten, damit Server später nach Standort platziert werden können.",
+      "namePlaceholder": "Europa (Frankfurt)",
+      "slugPlaceholder": "eu-frankfurt",
+      "slugHelp": "Nur Kleinbuchstaben, Zahlen und Bindestriche."
+    },
+    "toast": {
+      "slugRequired": "Der Slug darf nur Kleinbuchstaben, Zahlen oder Bindestriche enthalten",
+      "saveFailed": "Region konnte nicht gespeichert werden",
+      "updated": "Region aktualisiert",
+      "created": "Region erstellt",
+      "deleteFailed": "Region konnte nicht gelöscht werden",
+      "deleted": "Region gelöscht"
+    }
+  },
+  "users": {
+    "description": "Benutzerkonten, Rollen und Organisationen verwalten.",
+    "searchPlaceholder": "Suche nach Benutzername oder E-Mail...",
+    "loadError": "Benutzer konnten nicht geladen werden.",
+    "emptyState": "Keine Benutzer gefunden",
+    "roleFilter": {
+      "all": "Alle Rollen"
+    },
+    "roles": {
+      "moderator": "Moderator"
+    },
+    "fields": {
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "authId": "Auth-ID"
+    },
+    "detail": {
+      "notFoundTitle": "Benutzer nicht gefunden",
+      "notFoundDescription": "Dieser Benutzer existiert nicht.",
+      "backToUsers": "Zurück zu Benutzern",
+      "tabs": {
+        "overview": "Übersicht",
+        "organizations": "Organisationen"
+      },
+      "organizations": {
+        "table": {
+          "membership": "Mitgliedschaft"
+        },
+        "emptyState": "Kein Teil einer Organisation",
+        "ownerBadge": "Besitzer",
+        "memberBadge": "Mitglied"
+      }
+    },
+    "settingsCard": {
+      "title": "Benutzereinstellungen",
+      "description": "Kontodetails und Rolle dieses Benutzers aktualisieren.",
+      "canManageHint": "Änderungen werden sofort wirksam.",
+      "cannotManageHint": "Du benötigst die Berechtigung \"Benutzer: Verwalten\", um zu bearbeiten.",
+      "updateSuccess": "Benutzer aktualisiert",
+      "updateFailed": "Benutzer konnte nicht aktualisiert werden"
+    }
+  },
+  "shared": {
+    "slugColumn": "Slug",
+    "open": "Öffnen"
+  }
+}

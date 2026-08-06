@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { NoviumLogo } from "@/components/brand/novium-logo";
 import Link from "@/components/link";
+import { Trans, useTranslation } from "react-i18next";
 import { ProviderSignInButton } from "./provider-sign-in-button";
 import type { AuthProvider } from "./provider-sign-in-button";
 
@@ -24,11 +25,13 @@ export default function AuthWrapper({
   description,
   providers,
 }: Readonly<AuthWrapperProps>) {
+  const { t } = useTranslation();
+
   return (
     <Card className="w-full max-w-xs sm:max-w-sm pb-0 relative">
       <CardHeader className="shadow-xs border-none bg-transparent">
         <div className="flex flex-col items-center text-center gap-2">
-          <Link href="/" aria-label="Go to home">
+          <Link href="/" aria-label={t("auth.signIn.goHome")}>
             <NoviumLogo className="size-10 cursor-pointer" />
           </Link>
           <CardTitle className="text-xl font-semibold">{title}</CardTitle>
@@ -44,9 +47,13 @@ export default function AuthWrapper({
       </CardContent>
       <CardFooter className="bg-muted rounded-b-lg p-4">
         <div className="text-xs text-center text-muted-foreground">
-          By signing in, you agree to our{" "}
-          <Link href="/terms-of-use">Terms of Use</Link> and{" "}
-          <Link href="/privacy-policy">Privacy Policy</Link>.
+          <Trans
+            i18nKey="auth.signIn.terms"
+            components={{
+              termsLink: <Link href="/terms-of-use" />,
+              privacyLink: <Link href="/privacy-policy" />,
+            }}
+          />
         </div>
       </CardFooter>
     </Card>

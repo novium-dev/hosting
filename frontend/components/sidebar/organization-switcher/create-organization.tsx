@@ -13,10 +13,12 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Plus } from "lucide-react";
 import { useRouter } from "@/lib/navigation";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export function CreateOrganizationModal() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const { t } = useTranslation();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -28,14 +30,18 @@ export function CreateOrganizationModal() {
           <div className="flex size-6 items-center justify-center rounded-md border">
             <Plus className="size-4" />
           </div>
-          <span className="font-medium">Create Organization</span>
+          <span className="font-medium">
+            {t("navigation:organizationSwitcher.createOrganization")}
+          </span>
         </DropdownMenuItem>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Organization</DialogTitle>
+          <DialogTitle>
+            {t("navigation:organizationSwitcher.createOrganization")}
+          </DialogTitle>
           <DialogDescription>
-            Manage your organization and its content
+            {t("navigation:organizationSwitcher.createOrganizationDescription")}
           </DialogDescription>
         </DialogHeader>
         <div className="shadow-xs border-none">
