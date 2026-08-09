@@ -56,7 +56,11 @@ function RoleBadge({ role }: { role: UserRole }) {
       ) : (
         <Shield className="size-3" />
       )}
-      {t(`admin-core:users.roles.${role}`)}
+      {role === "admin"
+        ? t("common:roles.admin")
+        : role === "moderator"
+          ? t("admin-core:users.roles.moderator")
+          : t("common:roles.user")}
     </Badge>
   );
 }
