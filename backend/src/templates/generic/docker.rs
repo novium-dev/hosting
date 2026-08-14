@@ -3,12 +3,15 @@ use core::time::Duration;
 use either::Either;
 use indexmap::IndexSet;
 use serde::Deserialize;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 use url::Url;
 
 static LOCK: Mutex<Option<Instant>> = Mutex::new(None);
+static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+const MAX_PAGES: usize = 5;
 
 pub(crate) fn update() -> bool {
     let mut guard = LOCK.lock().expect("docker cache update lock poisoned");
@@ -33,19 +36,21 @@ struct DockerImageTag {
     name: String,
 }
 
+fn client() -> &'static reqwest::Client {
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .build()
+            .expect("failed to build docker client")
+    })
+}
+
 pub(crate) async fn list_docker_tags(image: impl Into<String>) -> Result<IndexSet<String>, ()> {
-    let client = reqwest::Client::builder()
-        .build()
-        .inspect_err(|err| {
-            error!(
-                "Unable to build cache update client (for docker): {:?}",
-                err
-            );
-        })
-        .map_err(|_err| ())?;
+    let client = client();
 
     let image = image.into();
-    let url = format!("https://hub.docker.com/v2/repositories/library/{image}/tags?page_size=100");
+    let url = format!(
+        "https://hub.docker.com/v2/repositories/library/{image}/tags?page_size=50&ordering=last_updated"
+    );
     let initial = Url::parse(&url)
         .inspect_err(|err| {
             error!(
@@ -59,9 +64,15 @@ pub(crate) async fn list_docker_tags(image: impl Into<String>) -> Result<IndexSe
         results: Vec::new(),
     };
     let mut result = IndexSet::new();
+    let mut pages = 0;
     while let Some(url) = initial.next {
+        if pages >= MAX_PAGES {
+            break;
+        }
+        pages += 1;
+
         debug!("Trying {}", url);
-        initial = client
+        let response = client
             .get(url)
             .send()
             .await
@@ -71,7 +82,23 @@ pub(crate) async fn list_docker_tags(image: impl Into<String>) -> Result<IndexSe
                     image, err
                 );
             })
-            .map_err(|_err| ())?
+            .map_err(|_err| ())?;
+
+        if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            let retry_after = response
+                .headers()
+                .get("retry-after")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(60);
+            warn!(
+                "Rate limited fetching docker tags for {}, retry after {}s",
+                image, retry_after
+            );
+            return Err(());
+        }
+
+        initial = response
             .error_for_status()
             .inspect_err(|err| {
                 error!(
