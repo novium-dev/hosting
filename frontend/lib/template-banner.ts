@@ -23,6 +23,10 @@ const BANNERS: { match: (id: string) => boolean; banner: TemplateBanner }[] = [
     banner: { gradient: "linear-gradient(135deg, #f97316 0%, #7c2d12 100%)" },
   },
   {
+    match: (id) => id.includes("javascript"),
+    banner: { gradient: "linear-gradient(135deg, #fde047 0%, #a16207 100%)" },
+  },
+  {
     match: (id) => id.includes("java"),
     banner: { gradient: "linear-gradient(135deg, #f59e0b 0%, #b91c1c 100%)" },
   },

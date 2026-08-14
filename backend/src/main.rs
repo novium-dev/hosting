@@ -27,6 +27,7 @@ use crate::templates::games::hytale::HytaleTemplate;
 use crate::templates::games::satisfactory::SatisfactoryTemplate;
 use crate::templates::generic::go::GoTemplate;
 use crate::templates::generic::java::JavaTemplate;
+use crate::templates::generic::javascript::JavascriptTemplate;
 use crate::templates::generic::python::PythonTemplate;
 use crate::templates::generic::rust::RustTemplate;
 use core::time::Duration;
@@ -169,6 +170,13 @@ async fn load_templates(backend: &Backend) {
         .await
         .expect("Unable to initialize java template");
     templates.insert(java.id().to_owned(), Arc::new(java));
+
+    let javascript = JavascriptTemplate;
+    javascript
+        .init(backend.cache.clone(), skip_cache_update)
+        .await
+        .expect("Unable to initialize javascript template");
+    templates.insert(javascript.id().to_owned(), Arc::new(javascript));
 
     let python = PythonTemplate;
     python
