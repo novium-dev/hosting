@@ -114,6 +114,13 @@
       "noPermissionCreateDirectory": "You do not have permission to create directories",
       "createDirectoryFailed": "Failed to create directory",
       "directoryCreated": "Directory created"
+    },
+    "uploadProgress": {
+      "uploading": "Uploading {{done}}/{{total}}",
+      "complete": "Upload complete",
+      "completeWithErrors": "Upload finished with errors",
+      "statusPending": "Waiting",
+      "statusFailed": "Failed"
     }
   },
   "minecraftPlayerManager": {

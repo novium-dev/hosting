@@ -165,7 +165,8 @@
       "uploadUrlFailed": "Failed to get upload URL",
       "saveSuccess": "File saved",
       "saveFailed": "Failed to save file"
-    }
+    },
+    "saving": "Saving file..."
   },
   "networkPorts": {
     "description": "Every port exposed for this server. Raw ports are reached by host and port, HTTP ports through a route.",

@@ -23,7 +23,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { downloadUser, statFile, uploadUser } from "@/lib/api";
+import { uploadToSignedUrl } from "@/lib/file-upload";
 import { FileMode, modeToType } from "@/lib/files";
 
 type FileEditorProps = {
@@ -187,6 +189,7 @@ export function FileEditor({
   const [savedContent, setSavedContent] = useState("");
   const [size, setSize] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveProgress, setSaveProgress] = useState(0);
 
   const hasUnsavedChanges = content !== savedContent;
 
@@ -306,6 +309,7 @@ export function FileEditor({
     }
 
     setIsSaving(true);
+    setSaveProgress(0);
 
     try {
       const uploadUrlResponse = await uploadUser({
@@ -322,26 +326,23 @@ export function FileEditor({
       }
 
       const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-      const putUpload = await fetch(uploadUrlResponse.data.url, {
-        method: "PUT",
-        body: blob,
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
+
+      const uploaded = await uploadToSignedUrl({
+        url: uploadUrlResponse.data.url,
+        file: blob,
+        fileName,
+        onProgress: (loaded, total) => {
+          setSaveProgress(
+            total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0,
+          );
+        },
       });
 
-      if (!putUpload.ok) {
-        const formData = new FormData();
-        formData.append("file", blob, fileName);
-
-        const postUpload = await fetch(uploadUrlResponse.data.url, {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!postUpload.ok) {
-          throw new Error("Upload URL request failed");
-        }
+      if (!uploaded) {
+        throw new Error("Upload URL request failed");
       }
 
+      setSaveProgress(100);
       setSavedContent(content);
       toast.success(t("servers:fileEditor.toasts.saveSuccess"));
     } catch {
@@ -377,7 +378,9 @@ export function FileEditor({
               </Badge>
             ) : null}
             <Button asChild type="button" variant="outline">
-              <Link href={filesHref}>{t("servers:fileEditor.backToFiles")}</Link>
+              <Link href={filesHref}>
+                {t("servers:fileEditor.backToFiles")}
+              </Link>
             </Button>
             {downloadUrl ? (
               <Button asChild type="button" variant="outline">
@@ -404,6 +407,16 @@ export function FileEditor({
             </Button>
           </div>
         </div>
+
+        {isSaving ? (
+          <div className="mt-3 space-y-1">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{t("servers:fileEditor.saving")}</span>
+              <span>{saveProgress}%</span>
+            </div>
+            <Progress value={saveProgress} className="h-1" />
+          </div>
+        ) : null}
       </CardHeader>
 
       <CardContent className="p-0">
@@ -416,7 +429,9 @@ export function FileEditor({
           <div className="p-6">
             <Alert>
               <AlertTriangle className="size-4" />
-              <AlertTitle>{t("servers:fileEditor.noFileSelected.title")}</AlertTitle>
+              <AlertTitle>
+                {t("servers:fileEditor.noFileSelected.title")}
+              </AlertTitle>
               <AlertDescription>
                 {t("servers:fileEditor.noFileSelected.description")}
               </AlertDescription>

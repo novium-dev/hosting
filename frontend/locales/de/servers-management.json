@@ -114,6 +114,13 @@
       "noPermissionCreateDirectory": "Du hast keine Berechtigung, Verzeichnisse zu erstellen",
       "createDirectoryFailed": "Verzeichnis konnte nicht erstellt werden",
       "directoryCreated": "Verzeichnis erstellt"
+    },
+    "uploadProgress": {
+      "uploading": "Lädt hoch {{done}}/{{total}}",
+      "complete": "Upload abgeschlossen",
+      "completeWithErrors": "Upload mit Fehlern beendet",
+      "statusPending": "Wartet",
+      "statusFailed": "Fehlgeschlagen"
     }
   },
   "minecraftPlayerManager": {

@@ -100,10 +100,12 @@ import {
   type ListFilesResponses,
 } from "@/lib/api";
 import { FileMode, modeToType } from "@/lib/files";
+import { uploadToSignedUrl } from "@/lib/file-upload";
 import {
   DISK_USAGE_EVENT,
   type DiskUsageEventDetail,
 } from "./server-management-bar";
+import UploadProgressPanel, { type UploadTask } from "./upload-progress";
 import type { LucideIcon } from "lucide-react";
 
 type FilesManagerProps = {
@@ -286,6 +288,8 @@ export function FilesManager({
   const [draggedEntry, setDraggedEntry] = useState<FileRow | null>(null);
   const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
   const [isFileDropActive, setIsFileDropActive] = useState(false);
+  const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([]);
+  const uploadDismissTimeoutRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const undoStackRef = useRef<UndoableAction[]>([]);
   const redoStackRef = useRef<UndoableAction[]>([]);
@@ -643,8 +647,22 @@ export function FilesManager({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPath]);
 
+  useEffect(() => {
+    return () => {
+      if (uploadDismissTimeoutRef.current !== null) {
+        window.clearTimeout(uploadDismissTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const hasDraggedFiles = (event: DragEvent<HTMLElement>) =>
     Array.from(event.dataTransfer.types).includes("Files");
+
+  const updateUploadTask = (id: string, patch: Partial<UploadTask>) => {
+    setUploadTasks((previous) =>
+      previous.map((task) => (task.id === id ? { ...task, ...patch } : task)),
+    );
+  };
 
   const uploadFiles = async (
     incomingFiles: File[],
@@ -661,15 +679,37 @@ export function FilesManager({
       return;
     }
 
+    if (uploadDismissTimeoutRef.current !== null) {
+      window.clearTimeout(uploadDismissTimeoutRef.current);
+      uploadDismissTimeoutRef.current = null;
+    }
+
+    const queue = incomingFiles.map((file) => ({
+      file,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    }));
+
+    setUploadTasks(
+      queue.map(({ file, id }) => ({
+        id,
+        name: file.name,
+        loaded: 0,
+        total: file.size,
+        status: "pending" as const,
+      })),
+    );
+
     setIsActionLoading(true);
 
     let successCount = 0;
 
     try {
-      for (const file of incomingFiles) {
+      for (const { file, id } of queue) {
         const destinationPath = normalizePath(
           joinPath(targetDirectoryPath, file.name),
         );
+
+        updateUploadTask(id, { status: "uploading" });
 
         const uploadUrlResponse = await uploadUser({
           path: { server_id: serverId },
@@ -679,6 +719,7 @@ export function FilesManager({
         });
 
         if (uploadUrlResponse.error || !uploadUrlResponse.data?.url) {
+          updateUploadTask(id, { status: "error" });
           toast.error(
             uploadUrlResponse.error?.error?.msg ??
               t("servers-management:filesManager.toasts.uploadUrlFailed", {
@@ -688,31 +729,32 @@ export function FilesManager({
           continue;
         }
 
-        const putUpload = await fetch(uploadUrlResponse.data.url, {
-          method: "PUT",
-          body: file,
-          headers: file.type ? { "Content-Type": file.type } : undefined,
-        });
+        let uploaded = false;
 
-        if (!putUpload.ok) {
-          const formData = new FormData();
-          formData.append("file", file, file.name);
-
-          const postUpload = await fetch(uploadUrlResponse.data.url, {
-            method: "POST",
-            body: formData,
+        try {
+          uploaded = await uploadToSignedUrl({
+            url: uploadUrlResponse.data.url,
+            file,
+            fileName: file.name,
+            onProgress: (loaded, total) => {
+              updateUploadTask(id, { loaded, total });
+            },
           });
-
-          if (!postUpload.ok) {
-            toast.error(
-              t("servers-management:filesManager.toasts.uploadFailedFile", {
-                fileName: file.name,
-              }),
-            );
-            continue;
-          }
+        } catch {
+          uploaded = false;
         }
 
+        if (!uploaded) {
+          updateUploadTask(id, { status: "error" });
+          toast.error(
+            t("servers-management:filesManager.toasts.uploadFailedFile", {
+              fileName: file.name,
+            }),
+          );
+          continue;
+        }
+
+        updateUploadTask(id, { status: "done", loaded: file.size });
         successCount += 1;
       }
 
@@ -723,6 +765,13 @@ export function FilesManager({
           }),
         );
         await refresh(currentPath, { preserveScroll: true });
+      }
+
+      if (successCount === queue.length) {
+        uploadDismissTimeoutRef.current = window.setTimeout(() => {
+          uploadDismissTimeoutRef.current = null;
+          setUploadTasks([]);
+        }, 2500);
       }
     } catch {
       toast.error(t("servers-management:filesManager.toasts.uploadFailed"));
@@ -747,9 +796,7 @@ export function FilesManager({
     targetDirectoryPath: string,
   ) => {
     if (!canWriteFiles) {
-      toast.error(
-        t("servers-management:filesManager.toasts.noPermissionMove"),
-      );
+      toast.error(t("servers-management:filesManager.toasts.noPermissionMove"));
       return;
     }
 
@@ -968,9 +1015,7 @@ export function FilesManager({
     }
 
     if (!canWriteFiles) {
-      toast.error(
-        t("servers-management:filesManager.toasts.noPermissionCopy"),
-      );
+      toast.error(t("servers-management:filesManager.toasts.noPermissionCopy"));
       return;
     }
 
@@ -1106,9 +1151,7 @@ export function FilesManager({
         return;
       }
 
-      toast.success(
-        t("servers-management:filesManager.toasts.archiveCreated"),
-      );
+      toast.success(t("servers-management:filesManager.toasts.archiveCreated"));
       setArchiveOpen(false);
       await refresh(currentPath, { preserveScroll: true });
     } finally {
@@ -1206,9 +1249,7 @@ export function FilesManager({
   const handleCreateDirectory = async () => {
     if (!canWriteFiles) {
       toast.error(
-        t(
-          "servers-management:filesManager.toasts.noPermissionCreateDirectory",
-        ),
+        t("servers-management:filesManager.toasts.noPermissionCreateDirectory"),
       );
       return;
     }
@@ -1234,9 +1275,7 @@ export function FilesManager({
       if (response.error) {
         toast.error(
           response.error.error?.msg ??
-            t(
-              "servers-management:filesManager.toasts.createDirectoryFailed",
-            ),
+            t("servers-management:filesManager.toasts.createDirectoryFailed"),
         );
         return;
       }
@@ -1367,10 +1406,9 @@ export function FilesManager({
               {t("servers-management:filesManager.diskUsageAlert.title")}
             </AlertTitle>
             <AlertDescription>
-              {t(
-                "servers-management:filesManager.diskUsageAlert.description",
-                { percent: diskUsagePercent.toFixed(1) },
-              )}
+              {t("servers-management:filesManager.diskUsageAlert.description", {
+                percent: diskUsagePercent.toFixed(1),
+              })}
             </AlertDescription>
           </Alert>
         ) : null}
@@ -1488,6 +1526,17 @@ export function FilesManager({
           className="hidden"
           onChange={(event) => {
             void handlePickerUpload(event);
+          }}
+        />
+        <UploadProgressPanel
+          tasks={uploadTasks}
+          onDismiss={() => {
+            if (uploadDismissTimeoutRef.current !== null) {
+              window.clearTimeout(uploadDismissTimeoutRef.current);
+              uploadDismissTimeoutRef.current = null;
+            }
+
+            setUploadTasks([]);
           }}
         />
         {isLoading ? (
@@ -1819,16 +1868,11 @@ export function FilesManager({
               {t("servers-management:filesManager.archiveDialog.title")}
             </DialogTitle>
             <DialogDescription>
-              {t(
-                "servers-management:filesManager.archiveDialog.description",
-                {
-                  name:
-                    selectedEntry?.name ??
-                    t(
-                      "servers-management:filesManager.fallbacks.thisDirectory",
-                    ),
-                },
-              )}
+              {t("servers-management:filesManager.archiveDialog.description", {
+                name:
+                  selectedEntry?.name ??
+                  t("servers-management:filesManager.fallbacks.thisDirectory"),
+              })}
             </DialogDescription>
           </DialogHeader>
           <Input
@@ -1940,9 +1984,7 @@ export function FilesManager({
                 {
                   name:
                     selectedEntry?.name ??
-                    t(
-                      "servers-management:filesManager.fallbacks.thisArchive",
-                    ),
+                    t("servers-management:filesManager.fallbacks.thisArchive"),
                 },
               )}
             </DialogDescription>
@@ -1990,9 +2032,7 @@ export function FilesManager({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t(
-                "servers-management:filesManager.createDirectoryDialog.title",
-              )}
+              {t("servers-management:filesManager.createDirectoryDialog.title")}
             </DialogTitle>
             <DialogDescription>
               {t(
