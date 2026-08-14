@@ -79,7 +79,7 @@ export function usagePercentValue(
     : null;
 }
 
-function formatBaseUsage(max: number | null, unit: string) {
+function formatBaseUsage(max: number | null) {
   if (max === null) {
     return `-- / Unlimited`;
   }
@@ -88,8 +88,7 @@ function formatBaseUsage(max: number | null, unit: string) {
     return "-- / --";
   }
 
-  const convertedMax = max.toFixed(2);
-  return `-- / ${convertedMax} ${unit}`;
+  return `-- / ${formatMib(max)}`;
 }
 
 function formatBaseCpuUsage(max: number | null) {
@@ -112,16 +111,14 @@ export function buildBaseUsage(limits: {
 }): UsageState {
   return {
     cpu: formatBaseCpuUsage(limits.cpuLimit),
-    disk: formatBaseUsage(limits.diskLimit, "MiB"),
-    ram: formatBaseUsage(limits.ramLimit, "MiB"),
+    disk: formatBaseUsage(limits.diskLimit),
+    ram: formatBaseUsage(limits.ramLimit),
     swap:
-      limits.swapLimit === 0
-        ? "Disabled"
-        : formatBaseUsage(limits.swapLimit, "MiB"),
+      limits.swapLimit === 0 ? "Disabled" : formatBaseUsage(limits.swapLimit),
   };
 }
 
-export function formatUsage(current: unknown, max: unknown, unit: string) {
+export function formatUsage(current: unknown, max: unknown) {
   const currentNumber = Number(current);
   const maxNumber = Number(max);
 
@@ -135,33 +132,19 @@ export function formatUsage(current: unknown, max: unknown, unit: string) {
       return "-- / --";
     }
 
-    const convertedMax = maxNumber.toFixed(2);
-    return `-- / ${convertedMax} ${unit}`;
-  }
-
-  // if current is provided and max is null, show current / Unlimited
-  if (current != null && max == null) {
-    if (!Number.isFinite(currentNumber) || currentNumber < 0) {
-      return "Unknown";
-    }
-
-    const convertedCurrent = currentNumber.toFixed(2);
-    return `${convertedCurrent} ${unit} / Unlimited`;
+    return `-- / ${formatMib(maxNumber)}`;
   }
 
   if (!Number.isFinite(currentNumber) || currentNumber < 0) {
     return "Unknown";
   }
 
-  const convertedCurrent = currentNumber.toFixed(2);
-
-  if (!Number.isFinite(maxNumber) || maxNumber < 0) {
-    return `${convertedCurrent} ${unit} / Unlimited`;
+  // if current is provided and max is null, show current / Unlimited
+  if (max == null || !Number.isFinite(maxNumber) || maxNumber < 0) {
+    return `${formatMib(currentNumber)} / Unlimited`;
   }
 
-  const convertedMax = maxNumber.toFixed(2);
-
-  return `${convertedCurrent} ${unit} / ${convertedMax} ${unit}`;
+  return `${formatMib(currentNumber)} / ${formatMib(maxNumber)}`;
 }
 
 export function formatCpuUsage(current: unknown, max: unknown) {
@@ -193,6 +176,11 @@ function formatScaled(value: number) {
   if (value >= 100) return value.toFixed(0);
   if (value >= 10) return value.toFixed(1);
   return value.toFixed(2);
+}
+
+function formatMib(value: number) {
+  const scale = mibScale(value);
+  return `${formatScaled(value / scale.factor)} ${scale.unit}`;
 }
 
 export function formatUsageCompact(current: unknown, max: unknown): string {
@@ -376,9 +364,9 @@ export function deriveInitialUsage(
   return {
     usage: {
       cpu: formatCpuUsage(stats.cpu, cpuMax),
-      ram: formatUsage(stats.ram, ramMax, "MiB"),
-      disk: formatUsage(stats.disk, diskMax, "MiB"),
-      swap: swapMax === 0 ? "Disabled" : formatUsage(stats.swap, swapMax, "MiB"),
+      ram: formatUsage(stats.ram, ramMax),
+      disk: formatUsage(stats.disk, diskMax),
+      swap: swapMax === 0 ? "Disabled" : formatUsage(stats.swap, swapMax),
     },
     percents: {
       cpu: usagePercentValue(stats.cpu, cpuMax),

@@ -338,7 +338,7 @@ export function ServerCreateForm({
 
   const [cpu, setCpu] = useState("100");
   const [ram, setRam] = useState("1024");
-  const [disk, setDisk] = useState("4048");
+  const [disk, setDisk] = useState("4096");
   const [swap, setSwap] = useState("0");
   const [backupLimit, setBackupLimit] = useState("0");
   const [internetAccess, setInternetAccess] = useState(true);

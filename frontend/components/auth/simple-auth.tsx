@@ -80,8 +80,22 @@ export default function SimpleAuth() {
           <Trans
             i18nKey="auth.signIn.terms"
             components={{
-              termsLink: <Link href="/terms-of-use" />,
-              privacyLink: <Link href="/privacy-policy" />,
+              termsLink: (
+                <a
+                  href={appConfig.legalLinks.terms}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-2"
+                />
+              ),
+              privacyLink: (
+                <a
+                  href={appConfig.legalLinks.privacy}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-2"
+                />
+              ),
             }}
           />
         </div>

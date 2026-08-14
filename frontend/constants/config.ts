@@ -8,6 +8,10 @@ type AppConfig = {
     acceptInvitation: string;
     userProfile: string;
   };
+  legalLinks: {
+    terms: string;
+    privacy: string;
+  };
 };
 
 export const appConfig: AppConfig = {
@@ -19,5 +23,9 @@ export const appConfig: AppConfig = {
   appRoutes: {
     acceptInvitation: "/accept-invitation",
     userProfile: "/profile",
+  },
+  legalLinks: {
+    terms: "https://novium.world/agb",
+    privacy: "https://novium.world/privacy",
   },
 };

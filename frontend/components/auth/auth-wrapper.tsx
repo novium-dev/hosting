@@ -11,6 +11,7 @@ import {
 import { NoviumLogo } from "@/components/brand/novium-logo";
 import Link from "@/components/link";
 import { Trans, useTranslation } from "react-i18next";
+import { appConfig } from "../../constants/config";
 import { ProviderSignInButton } from "./provider-sign-in-button";
 import type { AuthProvider } from "./provider-sign-in-button";
 
@@ -50,8 +51,22 @@ export default function AuthWrapper({
           <Trans
             i18nKey="auth.signIn.terms"
             components={{
-              termsLink: <Link href="/terms-of-use" />,
-              privacyLink: <Link href="/privacy-policy" />,
+              termsLink: (
+                <a
+                  href={appConfig.legalLinks.terms}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-2"
+                />
+              ),
+              privacyLink: (
+                <a
+                  href={appConfig.legalLinks.privacy}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-2"
+                />
+              ),
             }}
           />
         </div>

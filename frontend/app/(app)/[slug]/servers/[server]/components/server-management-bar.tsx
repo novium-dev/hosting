@@ -322,12 +322,10 @@ export function ServerManagementBar({
 
               setUsage({
                 cpu: formatCpuUsage(cpuCurrent, cpuMax),
-                ram: formatUsage(ramCurrent, ramMax, "MiB"),
-                disk: formatUsage(diskCurrent, diskMax, "MiB"),
+                ram: formatUsage(ramCurrent, ramMax),
+                disk: formatUsage(diskCurrent, diskMax),
                 swap:
-                  swapMax === 0
-                    ? "Disabled"
-                    : formatUsage(payload.swap, swapMax, "MiB"),
+                  swapMax === 0 ? "Disabled" : formatUsage(payload.swap, swapMax),
               });
 
               const diskPercent = usagePercentValue(diskCurrent, diskMax);
