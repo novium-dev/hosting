@@ -10,6 +10,8 @@ use url::Url;
 pub struct BackendConfig {
     pub listeners: HashSet<SocketAddr>,
     pub public_url: Url,
+    #[serde(default)]
+    pub trusted_urls: Vec<Url>,
     pub session_lifetime: u64,
     pub auth: AuthConfig,
     pub database_url: String,
@@ -31,6 +33,12 @@ pub struct BackendConfig {
 impl BackendConfig {
     pub fn cookie_secure(&self) -> bool {
         self.public_url.scheme() == "https"
+    }
+
+    pub fn allowed_origins(&self) -> Vec<url::Origin> {
+        core::iter::once(self.public_url.origin())
+            .chain(self.trusted_urls.iter().map(Url::origin))
+            .collect()
     }
 
     pub fn resolved_frontend_dir(&self) -> Option<PathBuf> {

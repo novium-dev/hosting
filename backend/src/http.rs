@@ -58,6 +58,7 @@ impl Backend {
         let (api_router, api) = ZelusRouter::with_openapi(ApiDoc::openapi())
             .merge(router)
             .layer(cors)
+            .layer(axum::middleware::from_fn(crate::auth::csrf::verify_origin))
             .layer(Extension(self.clone()))
             .into_openapi()
             .split_for_parts();
