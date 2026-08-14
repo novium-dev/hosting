@@ -125,7 +125,7 @@
       "disconnected": "getrennt"
     },
     "playersOnlineBadge": "{{online}}{{maxSuffix}} online",
-    "emptyState": "Der letzte Healthcheck hat keine Online-Spieler gemeldet.",
+    "emptyState": "Der Server meldet derzeit keine Online-Spieler.",
     "table": {
       "player": "Spieler",
       "uuid": "UUID",

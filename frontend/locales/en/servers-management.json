@@ -125,7 +125,7 @@
       "disconnected": "disconnected"
     },
     "playersOnlineBadge": "{{online}}{{maxSuffix}} online",
-    "emptyState": "No online players were reported by the latest healthcheck.",
+    "emptyState": "No online players were reported",
     "table": {
       "player": "Player",
       "uuid": "UUID",
