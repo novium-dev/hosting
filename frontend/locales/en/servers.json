@@ -14,6 +14,7 @@
         "description": "TODO: Build file browser, editor, and upload actions."
       },
       "backups": {
+        "label": "Backups",
         "description": "Manage backup creation, download, restore, and deletion."
       },
       "mods": {
@@ -25,9 +26,11 @@
         "description": "View and manage online Minecraft players."
       },
       "network": {
+        "label": "Network",
         "description": "Ports, routes and the records that point at them."
       },
       "settings": {
+        "label": "Settings",
         "description": "Update name and personal server settings."
       },
       "startup": {

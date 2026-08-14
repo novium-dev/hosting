@@ -177,6 +177,7 @@
     "start": "Starten",
     "archive": "Archivieren",
     "username": "Benutzername",
+    "usernameHint": "Dein Benutzername kann nicht geändert werden.",
     "saveChanges": "Änderungen speichern",
     "daemonAuth": "Daemon-Auth"
   }
