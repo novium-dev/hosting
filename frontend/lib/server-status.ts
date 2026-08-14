@@ -50,6 +50,11 @@ export type StatsSnapshot = {
  * considered low and highlighted in red / surfaced as an alert. */
 export const HIGH_USAGE_THRESHOLD = 80;
 
+/** How long CPU/RAM usage has to stay on one side of {@link HIGH_USAGE_THRESHOLD}
+ * before the alert is shown or hidden, so that short spikes (server startup) and
+ * values oscillating around the threshold don't flash the alert in and out. */
+export const HIGH_USAGE_SUSTAIN_MS = 2000;
+
 export const DEFAULT_USAGE_PERCENTS: UsagePercents = {
   cpu: null,
   ram: null,

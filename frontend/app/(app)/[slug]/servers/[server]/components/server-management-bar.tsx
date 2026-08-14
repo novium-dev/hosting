@@ -49,6 +49,7 @@ import {
 } from "@/lib/server-players";
 import { cn, titleCase } from "@/lib/utils";
 import {
+  HIGH_USAGE_SUSTAIN_MS,
   HIGH_USAGE_THRESHOLD,
   buildBaseUsage,
   controlsFromState,
@@ -188,6 +189,11 @@ export function ServerManagementBar({
   const [controls, setControls] = useState<ControlState>(() =>
     controlsFromState(seededStatus),
   );
+  const [highUsageVisible, setHighUsageVisible] = useState(false);
+  const [highUsageAlert, setHighUsageAlert] = useState<{
+    cpu: number | null;
+    ram: number | null;
+  }>({ cpu: null, ram: null });
 
   const disableAllButtons = pendingAction !== null || actionsDisabled;
   const canRestart = controls.canStop;
@@ -504,31 +510,55 @@ export function ServerManagementBar({
     usagePercents.ram !== null && usagePercents.ram >= HIGH_USAGE_THRESHOLD;
   const diskHigh =
     usagePercents.disk !== null && usagePercents.disk >= HIGH_USAGE_THRESHOLD;
+  const highUsage = cpuHigh || ramHigh;
+
+  useEffect(() => {
+    if (highUsage === highUsageVisible) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setHighUsageVisible(highUsage);
+    }, HIGH_USAGE_SUSTAIN_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [highUsage, highUsageVisible]);
+
+  useEffect(() => {
+    if (!highUsage) {
+      return;
+    }
+
+    setHighUsageAlert({
+      cpu: cpuHigh ? usagePercents.cpu : null,
+      ram: ramHigh ? usagePercents.ram : null,
+    });
+  }, [highUsage, cpuHigh, ramHigh, usagePercents]);
 
   return (
     <div className="space-y-4">
-      {(cpuHigh || ramHigh) && (
+      {highUsageVisible && (
         <Alert
           variant="destructive"
           className="border-destructive/40 bg-destructive/10"
         >
           <AlertTriangle className="size-4" />
           <AlertTitle>
-            {cpuHigh && ramHigh
+            {highUsageAlert.cpu !== null && highUsageAlert.ram !== null
               ? t("servers:managementBar.highUsage.cpuAndRamTitle")
-              : cpuHigh
+              : highUsageAlert.cpu !== null
                 ? t("servers:managementBar.highUsage.cpuTitle")
                 : t("servers:managementBar.highUsage.ramTitle")}
           </AlertTitle>
           <AlertDescription>
-            {cpuHigh && usagePercents.cpu !== null
+            {highUsageAlert.cpu !== null
               ? t("servers:managementBar.highUsage.cpuAtLimit", {
-                  percent: usagePercents.cpu.toFixed(1),
+                  percent: highUsageAlert.cpu.toFixed(1),
                 })
               : null}
-            {ramHigh && usagePercents.ram !== null
+            {highUsageAlert.ram !== null
               ? t("servers:managementBar.highUsage.ramAtLimit", {
-                  percent: usagePercents.ram.toFixed(1),
+                  percent: highUsageAlert.ram.toFixed(1),
                 })
               : null}
             {t("servers:managementBar.highUsage.resourceWarning")}
