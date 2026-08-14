@@ -156,6 +156,14 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
         }
         const options: ITerminalOptions & ITerminalInitOnlyOptions = {
           allowTransparency: true,
+          lineHeight: 1.2,
+          disableStdin: true,
+          convertEol: true,
+          smoothScrollDuration: 0,
+          allowProposedApi: true,
+          fontWeightBold: "500",
+          rescaleOverlappingGlyphs: true,
+
           fontFamily: "JetBrains Mono, monospace",
           fontSize: 14,
           theme: {
@@ -296,7 +304,8 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
             setError(t("servers:terminal.errors.renderFailed"));
           }
         });
-      } catch {
+      } catch (error) {
+        console.error("Failed to initialize terminal:", error);
         setError(t("servers:terminal.errors.initFailed"));
         setIsLoading(false);
       }
