@@ -3,6 +3,7 @@ pub mod generic;
 mod utils;
 pub mod variable;
 
+use crate::db::license::License;
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use crate::service::template::error_template_corrupted::FromTemplateCorrupted;
 use crate::service::template::error_template_unavailable::FromTemplateUnavailable;
@@ -71,6 +72,10 @@ pub trait Template {
     ) -> impl Future<Output = Result<HashSet<&'static str>, TemplateError>> + Send + Sync;
 
     fn default_internet_access(&self) -> bool;
+
+    fn licenses(&self) -> &'static [&'static License] {
+        &[]
+    }
 
     fn primary_port(
         &self,
@@ -186,6 +191,8 @@ pub trait TemplateInner {
     ) -> Result<(), RedisError>;
 
     fn default_internet_access(&self) -> bool;
+
+    fn licenses(&self) -> &'static [&'static License];
 }
 
 async fn load_cache<'a, T: Readable<'a, LittleEndian> + Send + Sync>(
@@ -480,5 +487,9 @@ impl<T: Template + Send + Sync> TemplateInner for T {
 
     fn default_internet_access(&self) -> bool {
         <Self as Template>::default_internet_access(self)
+    }
+
+    fn licenses(&self) -> &'static [&'static License] {
+        <Self as Template>::licenses(self)
     }
 }

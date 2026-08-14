@@ -90,6 +90,7 @@ export type CreateProjectInstance = {
 
 export type CreateProjectPayload = {
     name: string;
+    owner?: number | null;
     slug: string;
 };
 
@@ -1138,6 +1139,15 @@ export type StartServerData = {
 
 export type StartServerErrors = {
     /**
+     * A license required by this server has not been accepted yet
+     */
+    '400‎': {
+        error?: {
+            id?: 'license/not_accepted';
+            msg?: 'A license required by this server has not been accepted yet';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -1185,7 +1195,7 @@ export type StartServerErrors = {
     /**
      * Node operation failed
      */
-    '502‎': {
+    '502‏': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -1310,6 +1320,15 @@ export type RestartServerData = {
 
 export type RestartServerErrors = {
     /**
+     * A license required by this server has not been accepted yet
+     */
+    '400‎': {
+        error?: {
+            id?: 'license/not_accepted';
+            msg?: 'A license required by this server has not been accepted yet';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -1357,7 +1376,7 @@ export type RestartServerErrors = {
     /**
      * Node operation failed
      */
-    '502‎': {
+    '502‏': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -1830,6 +1849,217 @@ export type UpdateVariablesResponses = {
 };
 
 export type UpdateVariablesResponse = UpdateVariablesResponses[keyof UpdateVariablesResponses];
+
+export type ServerLicensesData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/server/{server_id}/licenses';
+};
+
+export type ServerLicensesErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ServerLicensesError = ServerLicensesErrors[keyof ServerLicensesErrors];
+
+export type ServerLicensesResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        accepted: boolean;
+        accepted_at?: number | null;
+        accepted_by?: string | null;
+        description: string;
+        display: string;
+        id: string;
+        url: string;
+    }>;
+};
+
+export type ServerLicensesResponse = ServerLicensesResponses[keyof ServerLicensesResponses];
+
+export type AcceptServerLicenseData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+        /**
+         * The license ID
+         */
+        license_id: string;
+    };
+    query?: never;
+    url: '/server/{server_id}/licenses/{license_id}';
+};
+
+export type AcceptServerLicenseErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‪': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified license is not required by this server
+     */
+    '404‫': {
+        error?: {
+            id?: 'license/not_found';
+            msg?: 'The specified license is not required by this server';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‌': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‬': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‍': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+};
+
+export type AcceptServerLicenseError = AcceptServerLicenseErrors[keyof AcceptServerLicenseErrors];
+
+export type AcceptServerLicenseResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type AcceptServerLicenseResponse = AcceptServerLicenseResponses[keyof AcceptServerLicenseResponses];
 
 export type ListFilesData = {
     body?: never;
@@ -7177,7 +7407,7 @@ export type CreateProjectErrors = {
     /**
      * The slug must be 1-64 characters of lowercase letters, numbers or hyphens, and must not be reserved
      */
-    '400‌': {
+    '400‍': {
         error?: {
             id?: 'project/slug_invalid';
             msg?: 'The slug must be 1-64 characters of lowercase letters, numbers or hyphens, and must not be reserved';
@@ -7190,6 +7420,24 @@ export type CreateProjectErrors = {
         error?: {
             id?: 'auth/invalid';
             msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403‌': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * User not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'user/not_found';
+            msg?: 'User not found';
         };
     };
     /**

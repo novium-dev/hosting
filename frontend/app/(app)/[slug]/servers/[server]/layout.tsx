@@ -24,6 +24,7 @@ import {
   ServerPermission,
 } from "@/lib/permissions";
 import { ServerManagementBar } from "./components/server-management-bar";
+import { ServerLicenseNotice } from "./components/server-licenses";
 
 function getServerAddress(
   serverData: Awaited<ReturnType<typeof serverInfo>>["data"],
@@ -191,6 +192,16 @@ export default function ServerLayout() {
           initialStartedAt={serverData.started_at ?? null}
           initialStats={serverData.stats ?? null}
         />
+
+        {blockReason ? null : (
+          <ServerLicenseNotice
+            serverId={serverData.id}
+            canAccept={hasServerPermission(
+              effectivePermissions,
+              ServerPermission.POWER,
+            )}
+          />
+        )}
 
         <Outlet />
         {/* section content rendered by the routed child page */}

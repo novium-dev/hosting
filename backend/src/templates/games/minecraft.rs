@@ -19,6 +19,7 @@ use speedy::{Readable, Writable};
 use std::collections::{HashMap, HashSet};
 use tracing::{debug, error};
 
+use crate::db::license::{License, MINECRAFT_EULA};
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use crate::templates::variable::{
     VariableBuilder, VariableContent, VariableDataBuilder, VariableGroupBuilder, VariablePayload,
@@ -748,6 +749,10 @@ impl Template for MinecraftTemplate {
 
     fn default_internet_access(&self) -> bool {
         true
+    }
+
+    fn licenses(&self) -> &'static [&'static License] {
+        &[&MINECRAFT_EULA]
     }
 
     async fn init(&self, _redis_client: ConnectionManager) -> Result<(), RedisError> {

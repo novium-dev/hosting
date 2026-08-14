@@ -315,5 +315,22 @@
     "secretHidden": "Secret value hidden",
     "valuePlaceholder": "Enter value",
     "invalidFormat": "Value does not match the required format."
+  },
+  "licenses": {
+    "title": "Licenses",
+    "description": "Agreements this server's game requires before it may be run.",
+    "noticeTitle": "{{license}} not accepted",
+    "noticeHint": "This server cannot be started until the agreement has been accepted. The acceptance is applied to the server files on every start.",
+    "confirmLabel": "I have read and agree to the {{license}}",
+    "accept": "Accept",
+    "readLicense": "Read license",
+    "noPermission": "Someone with power permissions for this server has to accept the agreement.",
+    "acceptedBy": "Accepted by {{user}} on {{date}}",
+    "acceptedState": "Accepted",
+    "pendingState": "Not accepted yet",
+    "toasts": {
+      "accepted": "{{license}} accepted",
+      "failed": "Failed to accept the license"
+    }
   }
 }

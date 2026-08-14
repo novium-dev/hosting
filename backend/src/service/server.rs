@@ -5,14 +5,15 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
+use crate::db::license::ServerLicenseInfo;
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
 use crate::db::server::resync::is_running_label;
 use crate::service::server::server_service_error::{
-    KillServerError, RestartServerError, ServerInfoError, ServerStatsError, ServerTerminalError,
-    ServerVariablesError, StartServerError, StopServerError, UpdateServerError,
-    UpdateVariablesError, WipeServerError,
+    AcceptServerLicenseError, KillServerError, RestartServerError, ServerInfoError,
+    ServerLicensesError, ServerStatsError, ServerTerminalError, ServerVariablesError,
+    StartServerError, StopServerError, UpdateServerError, UpdateVariablesError, WipeServerError,
 };
 use crate::service::template::*;
 use crate::templates::TemplateError;
@@ -628,7 +629,7 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::POWER`].
     #[route("/{server_id}/start", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, license::not_accepted, node::failure)]
     async fn start_server(
         &self,
         #[special] auth: Authentication,
@@ -641,6 +642,14 @@ pub(crate) impl ServerService for Backend {
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(StartServerError::ServerNotFound)?;
+
+        if !self
+            .license_pending(server_id, server.template.licenses())
+            .await?
+            .is_empty()
+        {
+            return Err(StartServerError::LicenseNotAccepted);
+        }
 
         server
             .node
@@ -696,7 +705,7 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::POWER`].
     #[route("/{server_id}/restart", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, license::not_accepted, node::failure)]
     async fn restart_server(
         &self,
         #[special] auth: Authentication,
@@ -709,6 +718,14 @@ pub(crate) impl ServerService for Backend {
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(RestartServerError::ServerNotFound)?;
+
+        if !self
+            .license_pending(server_id, server.template.licenses())
+            .await?
+            .is_empty()
+        {
+            return Err(RestartServerError::LicenseNotAccepted);
+        }
 
         server
             .node
@@ -950,6 +967,9 @@ pub(crate) impl ServerService for Backend {
             .environment
             .extend(self.port_environment(&*self.database, server_id).await?);
 
+        self.license_apply(server_id, server.template.licenses(), &mut new_build)
+            .await?;
+
         server
             .node
             .update_server(server.node_server_id, None, Some(new_build), None, None)
@@ -967,6 +987,99 @@ pub(crate) impl ServerService for Backend {
         .execute(&*self.database)
         .await
         .inspect_err(|err| error!("Failed to update server variables (template_extra): {err:?}"))?;
+
+        Ok(())
+    }
+
+    /// Lists the licenses the server's template requires, together with their acceptance state.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::VIEW`].
+    #[route("/{server_id}/licenses", method = GET)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
+    async fn server_licenses(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+    ) -> Result<Vec<ServerLicenseInfo>, _> {
+        auth.require::<_, _, ServerLicensesError>(server_id, ProjectPermissions::VIEW)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(ServerLicensesError::ServerNotFound)?;
+
+        Ok(self
+            .license_states(server_id, server.template.licenses())
+            .await?)
+    }
+
+    /// Accepts a license required by the server's template on behalf of the project.
+    ///
+    /// The acceptance is stored and pushed to the node, so that the files and environment the
+    /// license demands are applied on every start of the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::POWER`].
+    #[route("/{server_id}/licenses/{license_id}", method = POST)]
+    #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, license::not_found, node::failure)]
+    async fn accept_server_license(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        license_id: String,
+    ) -> Result<(), _> {
+        auth.require::<_, _, AcceptServerLicenseError>(server_id, ServerPermissions::POWER)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(AcceptServerLicenseError::ServerNotFound)?;
+
+        let license = server
+            .template
+            .licenses()
+            .iter()
+            .copied()
+            .find(|license| license.id == license_id)
+            .ok_or(AcceptServerLicenseError::LicenseNotFound)?;
+
+        let mut build = server
+            .template
+            .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
+            .await
+            .map_err(TemplateError::into::<AcceptServerLicenseError>)?;
+
+        if let Some(custom_dockerfile) = &server.custom_dockerfile {
+            build.image = ServerBuildImage {
+                default_tag: None,
+                tag: Some(format!("custom_{}", server.id)),
+                parents: vec![build.image],
+                args: HashMap::new(),
+                dockerfile: custom_dockerfile.clone(),
+                base: Some(0),
+            };
+        }
+
+        build
+            .environment
+            .extend(self.port_environment(&*self.database, server_id).await?);
+
+        self.license_apply(server_id, server.template.licenses(), &mut build)
+            .await?;
+        license.apply(&mut build);
+
+        server
+            .node
+            .update_server(server.node_server_id, None, Some(build), None, None)
+            .await
+            .map_err(|err| {
+                error!("Failed to push the accepted license of server {server_id}: {err:?}");
+                AcceptServerLicenseError::NodeFailure
+            })?;
+
+        self.license_accept(server_id, license, auth.user_id())
+            .await?;
 
         Ok(())
     }

@@ -315,5 +315,22 @@
     "secretHidden": "Geheimer Wert ausgeblendet",
     "valuePlaceholder": "Wert eingeben",
     "invalidFormat": "Der Wert entspricht nicht dem erforderlichen Format."
+  },
+  "licenses": {
+    "title": "Lizenzen",
+    "description": "Vereinbarungen, die das Spiel dieses Servers vor dem Betrieb verlangt.",
+    "noticeTitle": "{{license}} nicht akzeptiert",
+    "noticeHint": "Der Server kann erst gestartet werden, wenn die Vereinbarung akzeptiert wurde. Die Zustimmung wird bei jedem Start in die Serverdateien geschrieben.",
+    "confirmLabel": "Ich habe die {{license}} gelesen und stimme ihr zu",
+    "accept": "Akzeptieren",
+    "readLicense": "Lizenz lesen",
+    "noPermission": "Jemand mit Power-Berechtigung für diesen Server muss die Vereinbarung akzeptieren.",
+    "acceptedBy": "Akzeptiert von {{user}} am {{date}}",
+    "acceptedState": "Akzeptiert",
+    "pendingState": "Noch nicht akzeptiert",
+    "toasts": {
+      "accepted": "{{license}} akzeptiert",
+      "failed": "Lizenz konnte nicht akzeptiert werden"
+    }
   }
 }

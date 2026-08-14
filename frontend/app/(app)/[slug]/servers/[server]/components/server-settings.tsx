@@ -36,6 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { listBackups, serverInfo, updateServer, wipeServer } from "@/lib/api";
+import { ServerLicenseList } from "./server-licenses";
 
 type ServerSettingsProps = {
   serverId: string;
@@ -262,6 +263,8 @@ export function ServerSettings({
           )}
         </CardContent>
       </Card>
+
+      <ServerLicenseList serverId={serverId} />
 
       {sshPort != null && (
         <Card>
