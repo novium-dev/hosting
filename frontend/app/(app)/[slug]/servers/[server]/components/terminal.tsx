@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ITerminalInitOnlyOptions,
   ITerminalOptions,
   Terminal,
 } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { Loader2 } from "lucide-react";
+import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { WebLinksAddon } from "@xterm/addon-web-links";
+import { ChevronDown, ChevronUp, Loader2, Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +25,11 @@ type ServerConsoleProps = {
   serverId: string;
 };
 
+type SearchResults = {
+  resultIndex: number;
+  resultCount: number;
+};
+
 const COMMAND_HISTORY_STORAGE_KEY = "console-command-history-v1";
 const COMMAND_HISTORY_LIMIT = 20;
 
@@ -30,6 +38,8 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const searchAddonRef = useRef<SearchAddon | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const { resolvedTheme } = useTheme();
 
@@ -37,6 +47,35 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
   const [error, setError] = useState<string | null>(null);
   const [commandInput, setCommandInput] = useState("");
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResults>({
+    resultIndex: -1,
+    resultCount: 0,
+  });
+
+  const searchOptions = useMemo<ISearchOptions>(
+    () => ({
+      decorations:
+        resolvedTheme === "dark"
+          ? {
+              matchBackground: "#4a3f1a",
+              matchBorder: "#ffcb6b",
+              matchOverviewRuler: "#ffcb6b",
+              activeMatchBackground: "#8a6e1e",
+              activeMatchBorder: "#ffcb6b",
+              activeMatchColorOverviewRuler: "#ffcb6b",
+            }
+          : {
+              matchBackground: "#ffe9a8",
+              matchBorder: "#c79a2b",
+              matchOverviewRuler: "#c79a2b",
+              activeMatchBackground: "#ffc94d",
+              activeMatchBorder: "#c79a2b",
+              activeMatchColorOverviewRuler: "#c79a2b",
+            },
+    }),
+    [resolvedTheme],
+  );
 
   const writeLine = useCallback((text: string) => {
     terminalRef.current?.write(`${text}\r\n`);
@@ -90,16 +129,24 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
 
   useEffect(() => {
     let mounted = true;
+    let removeResizeListener: (() => void) | null = null;
+
+    setSearchQuery("");
+    setSearchResults({ resultIndex: -1, resultCount: 0 });
 
     const cleanup = () => {
       wsRef.current?.close();
       wsRef.current = null;
+
+      removeResizeListener?.();
+      removeResizeListener = null;
 
       const terminal = terminalRef.current as
         | (Terminal & { dispose?: () => void })
         | null;
       terminal?.dispose?.();
       terminalRef.current = null;
+      searchAddonRef.current = null;
     };
 
     const boot = async () => {
@@ -134,15 +181,52 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
         };
         const term = new Terminal(options);
         const fitAddon = new FitAddon();
+        const searchAddon = new SearchAddon();
+
         term.loadAddon(fitAddon);
+        term.loadAddon(searchAddon);
+        term.loadAddon(new Unicode11Addon());
+        term.loadAddon(new WebLinksAddon());
+        term.unicode.activeVersion = "11";
+
         term.open(containerRef.current);
         fitAddon.fit();
         terminalRef.current = term;
+        searchAddonRef.current = searchAddon;
+
+        searchAddon.onDidChangeResults((results) => {
+          if (!mounted) {
+            return;
+          }
+
+          setSearchResults(results);
+        });
+
+        term.attachCustomKeyEventHandler((event) => {
+          if (
+            event.type === "keydown" &&
+            (event.ctrlKey || event.metaKey) &&
+            !event.altKey &&
+            event.key.toLowerCase() === "f"
+          ) {
+            event.preventDefault();
+            searchInputRef.current?.focus();
+            searchInputRef.current?.select();
+            return false;
+          }
+
+          return true;
+        });
 
         const handleResize = () => fitAddon.fit();
         window.addEventListener("resize", handleResize);
+        removeResizeListener = () => {
+          window.removeEventListener("resize", handleResize);
+        };
 
-        const terminalUrl = await serverTerminal({ path: { server_id: serverId } });
+        const terminalUrl = await serverTerminal({
+          path: { server_id: serverId },
+        });
 
         if (terminalUrl.error) {
           setError(t("servers:terminal.errors.connectFailed"));
@@ -151,7 +235,7 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
           return;
         }
 
-        const socketUrl = terminalUrl.data
+        const socketUrl = terminalUrl.data;
 
         if (!socketUrl) {
           setError(t("servers:terminal.errors.createFailed"));
@@ -252,10 +336,128 @@ export default function ServerConsole({ serverId }: ServerConsoleProps) {
     [updateCommandHistory, t],
   );
 
+  const runSearch = useCallback(
+    (query: string, direction: "next" | "previous", incremental = false) => {
+      const addon = searchAddonRef.current;
+      if (!addon) {
+        return;
+      }
+
+      if (!query) {
+        addon.clearDecorations();
+        setSearchResults({ resultIndex: -1, resultCount: 0 });
+        return;
+      }
+
+      if (direction === "previous") {
+        addon.findPrevious(query, searchOptions);
+        return;
+      }
+
+      addon.findNext(query, { ...searchOptions, incremental });
+    },
+    [searchOptions],
+  );
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery("");
+    searchAddonRef.current?.clearDecorations();
+    setSearchResults({ resultIndex: -1, resultCount: 0 });
+  }, []);
+
+  const searchStatus = !searchQuery
+    ? null
+    : searchResults.resultCount === 0
+      ? t("servers:terminal.search.noResults")
+      : t("servers:terminal.search.results", {
+          index: searchResults.resultIndex + 1,
+          count: searchResults.resultCount,
+        });
+
   return (
     <Card className="border-border/60">
       <CardHeader>
-        <CardTitle className="text-lg">{t("servers:terminal.title")}</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <CardTitle className="text-lg">
+            {t("servers:terminal.title")}
+          </CardTitle>
+
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(event) => {
+                  const nextQuery = event.target.value;
+                  setSearchQuery(nextQuery);
+                  runSearch(nextQuery, "next", true);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    runSearch(
+                      searchQuery,
+                      event.shiftKey ? "previous" : "next",
+                    );
+                    return;
+                  }
+
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    clearSearch();
+                    terminalRef.current?.focus();
+                  }
+                }}
+                onBlur={() => searchAddonRef.current?.clearActiveDecoration()}
+                placeholder={t("servers:terminal.search.placeholder")}
+                className="h-8 w-40 pl-7 sm:w-56"
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </div>
+
+            <span className="w-16 text-right text-xs tabular-nums text-muted-foreground">
+              {searchStatus}
+            </span>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-8"
+              disabled={!searchQuery}
+              aria-label={t("servers:terminal.search.previous")}
+              onClick={() => runSearch(searchQuery, "previous")}
+            >
+              <ChevronUp className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-8"
+              disabled={!searchQuery}
+              aria-label={t("servers:terminal.search.next")}
+              onClick={() => runSearch(searchQuery, "next")}
+            >
+              <ChevronDown className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              disabled={!searchQuery}
+              aria-label={t("servers:terminal.search.clear")}
+              onClick={clearSearch}
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="relative">

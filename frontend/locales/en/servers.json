@@ -299,6 +299,14 @@
       "renderFailed": "Failed to render terminal output.",
       "initFailed": "Failed to initialize terminal.",
       "notConnected": "Terminal is not connected."
+    },
+    "search": {
+      "placeholder": "Search output",
+      "previous": "Previous match",
+      "next": "Next match",
+      "clear": "Clear search",
+      "results": "{{index}}/{{count}}",
+      "noResults": "0 results"
     }
   },
   "variablesEditor": {

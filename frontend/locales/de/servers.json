@@ -299,6 +299,14 @@
       "renderFailed": "Terminal-Ausgabe konnte nicht dargestellt werden.",
       "initFailed": "Terminal konnte nicht initialisiert werden.",
       "notConnected": "Terminal ist nicht verbunden."
+    },
+    "search": {
+      "placeholder": "Ausgabe durchsuchen",
+      "previous": "Vorheriger Treffer",
+      "next": "Nächster Treffer",
+      "clear": "Suche zurücksetzen",
+      "results": "{{index}}/{{count}}",
+      "noResults": "0 Treffer"
     }
   },
   "variablesEditor": {
