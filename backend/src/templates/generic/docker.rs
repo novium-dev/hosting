@@ -88,8 +88,8 @@ pub(crate) async fn list_docker_tags(image: impl Into<String>) -> Result<IndexSe
             let retry_after = response
                 .headers()
                 .get("retry-after")
-                .and_then(|v| v.to_str().ok())
-                .and_then(|v| v.parse::<u64>().ok())
+                .and_then(|version| version.to_str().ok())
+                .and_then(|version| version.parse::<u64>().ok())
                 .unwrap_or(60);
             warn!(
                 "Rate limited fetching docker tags for {}, retry after {}s",
