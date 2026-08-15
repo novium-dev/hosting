@@ -1,0 +1,152 @@
+when:
+  - event: [push, pull_request, manual, deployment]
+
+services:
+  - name: db
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: backend
+
+steps:
+  fmt:
+    image: rust:1.95.0-alpine
+    commands:
+      - apk add --no-cache git musl-dev
+      - rustup component add rustfmt
+      - cargo fmt --all --check
+    when:
+      - event: [push, pull_request]
+
+  frontend:
+    image: oven/bun:1
+    directory: frontend
+    commands:
+      - bun install --frozen-lockfile
+      - bun run build
+    when:
+      - event: [push, pull_request]
+
+  clippy:
+    image: rust:1.95.0-alpine
+    environment:
+      BACKEND_DATABASE_URL: postgres://postgres:postgres@db/backend
+      RUSTFLAGS: "-C opt-level=0"
+      DAEMON_SSH_KEY:
+        from_secret: daemon_ssh_key
+    commands:
+      - apk add --no-cache openssh-client-default libxml2-utils musl-dev ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm21-static llvm21-dev clang21 clang21-static lld21 git postgresql18-client sqlite curl btrfs-progs-dev --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+      - eval $(ssh-agent -s)
+      - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
+      - mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+      - until pg_isready --host db --username postgres --dbname postgres; do sleep 1; done
+      - cargo install --no-default-features --features postgres,rustls sqlx-cli
+      - sqlx database create --database-url "$BACKEND_DATABASE_URL"
+      - sqlx migrate run --database-url "$BACKEND_DATABASE_URL" --source backend/migrations
+      - ./scripts/dev/database_agent_db.sh
+      - rustup component add clippy
+      - cargo clippy --all-targets --workspace --locked
+    when:
+      - event: [push, pull_request]
+
+  test:
+    image: rust:1.95.0-alpine
+    environment:
+      BACKEND_DATABASE_URL: postgres://postgres:postgres@db/backend
+      RUSTFLAGS: "-C opt-level=0"
+      DAEMON_SSH_KEY:
+        from_secret: daemon_ssh_key
+    commands:
+      - apk add --no-cache openssh-client-default musl-dev git postgresql18-client sqlite curl btrfs-progs-dev clang21 lld21 --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+      - eval $(ssh-agent -s)
+      - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
+      - mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+      - until pg_isready --host db --username postgres --dbname postgres; do sleep 1; done
+      - cargo install --no-default-features --features postgres,rustls sqlx-cli
+      - sqlx database create --database-url "$BACKEND_DATABASE_URL"
+      - sqlx migrate run --database-url "$BACKEND_DATABASE_URL" --source backend/migrations
+      - ./scripts/dev/database_agent_db.sh
+      - cargo test --workspace --locked
+    when:
+      - event: manual
+
+  deny:
+    image: rust:1.95.0-alpine
+    environment:
+      DAEMON_SSH_KEY:
+        from_secret: daemon_ssh_key
+    commands:
+      - apk add --no-cache openssh-client-default git musl-dev --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+      - eval $(ssh-agent -s)
+      - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
+      - mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+      - cargo install cargo-deny
+      - cargo-deny check
+    when:
+      - event: manual
+
+  deploy:
+    image: docker:cli
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      DAEMON_SSH_KEY:
+        from_secret: daemon_ssh_key
+      REGISTRY_ADDRESS:
+        from_secret: registry_address
+      REGISTRY_USERNAME:
+        from_secret: registry_username
+      REGISTRY_PASSWORD:
+        from_secret: registry_password
+      IMAGE_BACKEND:
+        from_secret: image_backend
+    commands:
+      - apk add --no-cache openssh-client git
+      - eval $(ssh-agent -s)
+      - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
+      - mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+      - echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_ADDRESS" -u "$REGISTRY_USERNAME" --password-stdin
+      - docker pull "$IMAGE_BACKEND:latest" || true
+      - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from "$IMAGE_BACKEND:latest" --tag "$IMAGE_BACKEND:${CI_COMMIT_SHA:0:8}" --tag "$IMAGE_BACKEND:latest" --ssh default .
+      - docker push "$IMAGE_BACKEND:${CI_COMMIT_SHA:0:8}"
+      - docker push "$IMAGE_BACKEND:latest"
+    depends_on: [fmt, clippy, frontend]
+    when:
+      - event: push
+        branch: prod
+      - event: [manual, deployment]
+        branch: dev
+
+  deploy_database_agent:
+    image: docker:cli
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      DAEMON_SSH_KEY:
+        from_secret: daemon_ssh_key
+      REGISTRY_ADDRESS:
+        from_secret: registry_address
+      REGISTRY_USERNAME:
+        from_secret: registry_username
+      REGISTRY_PASSWORD:
+        from_secret: registry_password
+      IMAGE_DATABASE_AGENT:
+        from_secret: image_database_agent
+    commands:
+      - apk add --no-cache openssh-client git
+      - eval $(ssh-agent -s)
+      - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
+      - mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+      - echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_ADDRESS" -u "$REGISTRY_USERNAME" --password-stdin
+      - docker pull "$IMAGE_DATABASE_AGENT:latest" || true
+      - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from "$IMAGE_DATABASE_AGENT:latest" --tag "$IMAGE_DATABASE_AGENT:${CI_COMMIT_SHA:0:8}" --tag "$IMAGE_DATABASE_AGENT:latest" --ssh default --file database_agent.Dockerfile .
+      - docker push "$IMAGE_DATABASE_AGENT:${CI_COMMIT_SHA:0:8}"
+      - docker push "$IMAGE_DATABASE_AGENT:latest"
+    depends_on: [fmt, clippy, frontend]
+    when:
+      - event: push
+        branch: prod
+      - event: [manual, deployment]
+        branch: dev
