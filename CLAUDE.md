@@ -131,6 +131,12 @@ Every `#[route(...)]` handler must have a `///` doc comment directly above it de
 #[route("/{server_id}/restart", method = GET)]
 ```
 
+### Migrations
+
+Migrations live in `backend/migrations/` for the backend and `database_agent/migrations/` for the agent. They are run automatically at startup, but can be run manually with `sqlx migrate run`.
+
+Never edit a migration after it got committed (except if user asks for it)
+
 ## Frontend
 
 `frontend/` ("hephaestus") is a **client-only SPA** — Vite + React 19 + React Router v7 (library mode, `createBrowserRouter`), Tailwind v4 (via `@tailwindcss/vite`), shadcn/radix UI, SWR for data fetching, and react-hook-form + zod for forms. There is **no frontend server**: the built `dist/` is served by the backend at the same origin (see Part B / `backend/src/http.rs` `ServeDir` fallback and `BACKEND_FRONTEND_DIR`), so auth is the backend's httpOnly session cookie and API calls go same-origin (`credentials: "include"`). It is bundled into the one all-in-one Docker image and validated in CI by the `frontend` job.

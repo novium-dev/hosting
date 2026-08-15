@@ -176,14 +176,6 @@ impl Backend {
             }
         }
 
-        if let Err(err) = self
-            .license_apply(target.id, template.licenses(), &mut build)
-            .await
-        {
-            error!("Unable to load licenses of server {}: {err:?}", target.id);
-            return result(ServerResyncStatus::Failure, false);
-        }
-
         if let Err(err) = node
             .update_server(node_server_id, None, Some(build), None, None)
             .await

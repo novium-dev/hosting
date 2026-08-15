@@ -1,33 +1,14 @@
 use crate::Backend;
 use crate::db::server::ServerId;
-use daemon_common::service::server::{ServerBuildPayload, ServerFileWrite};
 use serde::Serialize;
 use sqlx::query;
 use std::collections::HashMap;
-use std::collections::hash_map::Entry;
-
-pub struct LicenseProperty {
-    pub path: &'static str,
-    pub key: &'static str,
-    pub value: &'static str,
-}
-
-pub struct LicenseEnvironment {
-    pub key: &'static str,
-    pub value: &'static str,
-}
-
-pub struct LicenseEffect {
-    pub properties: &'static [LicenseProperty],
-    pub environment: &'static [LicenseEnvironment],
-}
 
 pub struct License {
     pub id: &'static str,
     pub display: &'static str,
     pub description: &'static str,
     pub url: &'static str,
-    pub effect: LicenseEffect,
 }
 
 pub const MINECRAFT_EULA: License = License {
@@ -35,17 +16,7 @@ pub const MINECRAFT_EULA: License = License {
     display: "Minecraft EULA",
     description: "Mojang requires the operator of every Minecraft server to accept the Minecraft End User License Agreement before the server may be run.",
     url: "https://aka.ms/MinecraftEULA",
-    effect: LicenseEffect {
-        properties: &[LicenseProperty {
-            path: "eula.txt",
-            key: "eula",
-            value: "true",
-        }],
-        environment: &[],
-    },
 };
-
-pub static ALL: &[&License] = &[&MINECRAFT_EULA];
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ServerLicenseInfo {
@@ -61,39 +32,6 @@ pub struct ServerLicenseInfo {
 struct LicenseAcceptance {
     accepted_at: i64,
     accepted_by: Option<String>,
-}
-
-impl License {
-    #[must_use]
-    pub fn by_id(id: &str) -> Option<&'static Self> {
-        ALL.iter().copied().find(|license| license.id == id)
-    }
-
-    pub(crate) fn apply(&self, build: &mut ServerBuildPayload) {
-        for property in self.effect.properties {
-            match build.files_write.entry(property.path.to_owned()) {
-                Entry::Occupied(mut entry) => {
-                    if let ServerFileWrite::JavaProperties { content } = entry.get_mut() {
-                        content.insert(property.key.to_owned(), property.value.to_owned());
-                    }
-                }
-                Entry::Vacant(entry) => {
-                    entry.insert(ServerFileWrite::JavaProperties {
-                        content: HashMap::from([(
-                            property.key.to_owned(),
-                            property.value.to_owned(),
-                        )]),
-                    });
-                }
-            }
-        }
-
-        for environment in self.effect.environment {
-            build
-                .environment
-                .insert(environment.key.to_owned(), environment.value.to_owned());
-        }
-    }
 }
 
 impl Backend {
@@ -189,28 +127,6 @@ impl Backend {
         )
         .execute(&*self.database)
         .await?;
-
-        Ok(())
-    }
-
-    pub(crate) async fn license_apply(
-        &self,
-        server: ServerId,
-        licenses: &'static [&'static License],
-        build: &mut ServerBuildPayload,
-    ) -> Result<(), sqlx::Error> {
-        if licenses.is_empty() {
-            return Ok(());
-        }
-
-        let acceptances = self.license_acceptances(server).await?;
-
-        for license in licenses
-            .iter()
-            .filter(|license| acceptances.contains_key(license.id))
-        {
-            license.apply(build);
-        }
 
         Ok(())
     }

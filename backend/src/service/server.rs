@@ -967,9 +967,6 @@ pub(crate) impl ServerService for Backend {
             .environment
             .extend(self.port_environment(&*self.database, server_id).await?);
 
-        self.license_apply(server_id, server.template.licenses(), &mut new_build)
-            .await?;
-
         server
             .node
             .update_server(server.node_server_id, None, Some(new_build), None, None)
@@ -1016,13 +1013,12 @@ pub(crate) impl ServerService for Backend {
 
     /// Accepts a license required by the server's template on behalf of the project.
     ///
-    /// The acceptance is stored and pushed to the node, so that the files and environment the
-    /// license demands are applied on every start of the server.
+    /// Until every required license is accepted, the server cannot be started.
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::POWER`].
     #[route("/{server_id}/licenses/{license_id}", method = POST)]
-    #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, license::not_found, node::failure)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, license::not_found)]
     async fn accept_server_license(
         &self,
         #[special] auth: Authentication,
@@ -1043,40 +1039,6 @@ pub(crate) impl ServerService for Backend {
             .copied()
             .find(|license| license.id == license_id)
             .ok_or(AcceptServerLicenseError::LicenseNotFound)?;
-
-        let mut build = server
-            .template
-            .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
-            .await
-            .map_err(TemplateError::into::<AcceptServerLicenseError>)?;
-
-        if let Some(custom_dockerfile) = &server.custom_dockerfile {
-            build.image = ServerBuildImage {
-                default_tag: None,
-                tag: Some(format!("custom_{}", server.id)),
-                parents: vec![build.image],
-                args: HashMap::new(),
-                dockerfile: custom_dockerfile.clone(),
-                base: Some(0),
-            };
-        }
-
-        build
-            .environment
-            .extend(self.port_environment(&*self.database, server_id).await?);
-
-        self.license_apply(server_id, server.template.licenses(), &mut build)
-            .await?;
-        license.apply(&mut build);
-
-        server
-            .node
-            .update_server(server.node_server_id, None, Some(build), None, None)
-            .await
-            .map_err(|err| {
-                error!("Failed to push the accepted license of server {server_id}: {err:?}");
-                AcceptServerLicenseError::NodeFailure
-            })?;
 
         self.license_accept(server_id, license, auth.user_id())
             .await?;

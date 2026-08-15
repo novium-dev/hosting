@@ -234,17 +234,25 @@ impl MinecraftServerExtra {
     }
 
     pub(crate) fn files_write(&self) -> HashMap<String, ServerFileWrite> {
-        let mut result = HashMap::from([(
-            "server.properties".to_owned(),
-            ServerFileWrite::JavaProperties {
-                content: HashMap::from([
-                    ("enable-rcon".to_owned(), "true".to_owned()),
-                    ("rcon.port".to_owned(), "25575".to_owned()),
-                    ("rcon.password".to_owned(), "_".to_owned()),
-                    ("rcon.ip".to_owned(), "::1".to_owned()),
-                ]),
-            },
-        )]);
+        let mut result = HashMap::from([
+            (
+                "server.properties".to_owned(),
+                ServerFileWrite::JavaProperties {
+                    content: HashMap::from([
+                        ("enable-rcon".to_owned(), "true".to_owned()),
+                        ("rcon.port".to_owned(), "25575".to_owned()),
+                        ("rcon.password".to_owned(), "_".to_owned()),
+                        ("rcon.ip".to_owned(), "::1".to_owned()),
+                    ]),
+                },
+            ),
+            (
+                "eula.txt".to_owned(),
+                ServerFileWrite::JavaProperties {
+                    content: HashMap::from([("eula".to_owned(), "true".to_owned())]),
+                },
+            ),
+        ]);
         result.extend(match self {
             Self::Paper { .. } | Self::Purpur { .. } => HashMap::from([(
                 "spigot.yml".to_owned(),

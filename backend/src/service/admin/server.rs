@@ -377,9 +377,6 @@ pub(crate) impl ServerAdminService for Backend {
             .environment
             .extend(self.port_environment(&*self.database, server_id).await?);
 
-        self.license_apply(server_id, template.licenses(), &mut build)
-            .await?;
-
         if backup {
             create_backup_before_switch(&server, &auth).await?;
         }
@@ -469,14 +466,11 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(AddPortError::ServerNotFound)?;
 
-        let mut build = server
+        let build = server
             .template
             .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
             .await
             .map_err(TemplateError::into::<AddPortError>)?;
-
-        self.license_apply(server_id, server.template.licenses(), &mut build)
-            .await?;
 
         let mut conn = self.database.acquire().await?;
 
@@ -640,14 +634,11 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(UpdatePortError::ServerNotFound)?;
 
-        let mut build = server
+        let build = server
             .template
             .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
             .await
             .map_err(TemplateError::into::<UpdatePortError>)?;
-
-        self.license_apply(server_id, server.template.licenses(), &mut build)
-            .await?;
 
         let mut conn = self.database.acquire().await?;
 
@@ -875,14 +866,11 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(DeletePortError::ServerNotFound)?;
 
-        let mut build = server
+        let build = server
             .template
             .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
             .await
             .map_err(TemplateError::into::<DeletePortError>)?;
-
-        self.license_apply(server_id, server.template.licenses(), &mut build)
-            .await?;
 
         let routes = self.port_routes(port_id).await?;
 

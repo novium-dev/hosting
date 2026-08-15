@@ -1979,7 +1979,7 @@ export type AcceptServerLicenseErrors = {
     /**
      * Server not found
      */
-    '404‪': {
+    '404‍': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -1988,7 +1988,7 @@ export type AcceptServerLicenseErrors = {
     /**
      * The specified license is not required by this server
      */
-    '404‫': {
+    '404‎': {
         error?: {
             id?: 'license/not_found';
             msg?: 'The specified license is not required by this server';
@@ -2004,48 +2004,12 @@ export type AcceptServerLicenseErrors = {
         };
     };
     /**
-     * The template was unable to read the server data
+     * Database operation failed
      */
     '500‌': {
         error?: {
-            id?: 'template/corrupted';
-            msg?: 'The template was unable to read the server data';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‎': {
-        error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
-        };
-    };
-    /**
-     * Cache operation failed
-     */
-    '500‏': {
-        error?: {
-            id?: 'cache/failure';
-            msg?: 'Cache operation failed';
-        };
-    };
-    /**
-     * Node operation failed
-     */
-    '502‬': {
-        error?: {
-            id?: 'node/failure';
-            msg?: 'Node operation failed';
-        };
-    };
-    /**
-     * The template is unavailable at the moment
-     */
-    '503‍': {
-        error?: {
-            id?: 'template/unavailable';
-            msg?: 'The template is unavailable at the moment';
         };
     };
 };

@@ -320,7 +320,7 @@
     "title": "Licenses",
     "description": "Agreements this server's game requires before it may be run.",
     "noticeTitle": "{{license}} not accepted",
-    "noticeHint": "This server cannot be started until the agreement has been accepted. The acceptance is applied to the server files on every start.",
+    "noticeHint": "This server cannot be started until the agreement has been accepted.",
     "confirmLabel": "I have read and agree to the {{license}}",
     "accept": "Accept",
     "readLicense": "Read license",

@@ -186,8 +186,7 @@ export const serverLicenses = <ThrowOnError extends boolean = false>(options: Op
  *
  *  Accepts a license required by the server's template on behalf of the project.<br/>
  * <br/>
- * The acceptance is stored and pushed to the node, so that the files and environment the<br/>
- * license demands are applied on every start of the server.<br/>
+ * Until every required license is accepted, the server cannot be started.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::POWER`.
