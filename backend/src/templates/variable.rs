@@ -1,5 +1,3 @@
-#![expect(unused)]
-
 use core::fmt::Debug;
 use indexmap::{IndexMap, IndexSet};
 use regex::Regex;
@@ -299,7 +297,7 @@ impl VariableBuilder {
             for group in &self.0.groups {
                 for variable in &group.variables {
                     if let VariableType::Hierarchy {
-                        field_index,
+                        field_index: _,
                         data_index,
                     } = variable.data
                     {
