@@ -11,7 +11,6 @@ use sqlx::error::BoxDynError;
 use sqlx::{Database, Decode, Encode, Postgres};
 use std::borrow::Cow;
 use std::io;
-use std::io::ErrorKind;
 use utoipa::openapi::schema::SchemaType;
 use utoipa::openapi::{Object, RefOr, Schema, Type};
 use utoipa::{PartialSchema, ToSchema};
@@ -92,7 +91,7 @@ impl<'r, T> sqlx::Decode<'r, Postgres> for GenericNanoId<T> {
         let value = <&str as Decode<'r, Postgres>>::decode(value)?;
 
         Self::from_str(value)
-            .map_err(|()| io::Error::new(ErrorKind::InvalidData, "Invalid nano id").into())
+            .map_err(|()| io::Error::new(io::ErrorKind::InvalidData, "Invalid nano id").into())
     }
 }
 

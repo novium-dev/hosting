@@ -151,10 +151,14 @@ impl InstanceService for Agent {
             .logs(lines)
             .await;
 
-        Ok(FileResponse(
-            None,
-            DataStream::by_stream(logs.map(|chunk| chunk.map_err(std::io::Error::other))),
-        ))
+        Ok(FileResponse::Header {
+            stream: DataStream::by_stream(
+                None,
+                logs.map(|chunk| chunk.map_err(std::io::Error::other)),
+            ),
+            disposition: None,
+            r#type: None,
+        })
     }
 
     async fn export_instance(
@@ -170,7 +174,11 @@ impl InstanceService for Agent {
             .await
             .or_instance_failure::<ExportInstanceError>("failed to export an instance")?;
 
-        Ok(FileResponse(None, DataStream::by_read(reader)))
+        Ok(FileResponse::Header {
+            stream: DataStream::by_read(reader, None),
+            disposition: None,
+            r#type: None,
+        })
     }
 
     async fn import_instance(

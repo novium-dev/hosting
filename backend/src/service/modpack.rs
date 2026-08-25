@@ -17,6 +17,7 @@ use crate::resources::{
 use crate::service::modpack::modpack_service_error::{InstallModpackError, ModpackStatusError};
 use crate::templates::Template as _;
 use crate::templates::games::minecraft::MinecraftTemplate;
+use crate::utils::FileResponseExtension as _;
 use daemon_common::service::backup::backup_service_error::ServerCreateBackupOrderError;
 use daemon_common::service::files::files_service_error::{
     ServerCreateDirectoryError, ServerDownloadFileError, ServerListFilesError,
@@ -126,7 +127,8 @@ impl Backend {
             .node
             .server_download_file(server.node_server_id, path, Some(MAX_MANIFEST_BYTES))
             .await?
-            .1;
+            .into_data_stream()
+            .ok_or(ServerDownloadFileError::StorageFailure)?;
 
         let mut buffer = Vec::new();
         let mut reader = data.reader();

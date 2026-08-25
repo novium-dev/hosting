@@ -32,7 +32,7 @@ pub async fn read_startup_body<S: AsyncRead + Unpin>(stream: &mut S) -> io::Resu
     Ok(body)
 }
 
-pub fn startup_code(body: &[u8]) -> i32 {
+pub const fn startup_code(body: &[u8]) -> i32 {
     match *body {
         [first, second, third, fourth, ..] => i32::from_be_bytes([first, second, third, fourth]),
         _ => 0,

@@ -35,6 +35,7 @@
     "retry": "Retry",
     "refresh": "Refresh",
     "copy": "Copy",
+    "move": "Move",
     "copied": "Copied",
     "search": "Search",
     "viewAll": "View all",

@@ -3,6 +3,7 @@ use core::sync::atomic::Ordering;
 use core::time::Duration;
 use database_agent_common::types::ContainerState;
 use std::collections::HashSet;
+use std::io;
 use std::os::unix::fs::MetadataExt as _;
 use std::path::{Path, PathBuf};
 use std::sync::Weak;
@@ -77,7 +78,7 @@ fn scan_path(path: &Path) -> std::io::Result<u64> {
     while let Some(directory) = stack.pop() {
         let entries = match std::fs::read_dir(&directory) {
             Ok(entries) => entries,
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(err) if err.kind() == io::ErrorKind::NotFound => continue,
             Err(err) => return Err(err),
         };
 

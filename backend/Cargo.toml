@@ -55,7 +55,7 @@ url.workspace = true
 lazy-regex.workspace = true
 oauth2 = "5.0.0"
 ssh-key = "0.6.7"
-either = "1.17.0"
+either = "1.18.0"
 bytes.workspace = true
 
 redis.workspace = true

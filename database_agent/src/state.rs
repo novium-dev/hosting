@@ -6,6 +6,7 @@ use crate::subsystems::SubsystemRegistry;
 use bollard::Docker;
 use core::ops::Deref;
 use database_agent_common::types::StoredInstanceCreate;
+use std::io;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{RwLock, Semaphore};
@@ -101,7 +102,7 @@ impl Agent {
             self.config.data_dir(instance.uuid),
         ] {
             if let Err(err) = tokio::fs::remove_dir_all(&directory).await
-                && err.kind() != std::io::ErrorKind::NotFound
+                && err.kind() != io::ErrorKind::NotFound
             {
                 tracing::warn!(instance = %instance.uuid, "failed to remove {}: {err}", directory.display());
             }
