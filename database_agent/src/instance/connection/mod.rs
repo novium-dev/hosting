@@ -5,10 +5,16 @@ pub mod redis;
 
 use crate::instance::Instance;
 use database_agent_common::identifier::UserIdentifier;
-use database_agent_common::types::{DatabaseType, QueryResult};
+use database_agent_common::types::{DatabaseAccess, DatabaseType, QueryResult};
 
 fn unnamed_databases<T>() -> anyhow::Result<T> {
     anyhow::bail!("redis has no named databases")
+}
+
+#[derive(Debug, Clone)]
+pub struct DatabaseGrant {
+    pub user: UserIdentifier,
+    pub access: DatabaseAccess,
 }
 
 pub enum Connection {
@@ -41,20 +47,31 @@ impl Connection {
         }
     }
 
-    pub async fn delete_user(&self, user: &UserIdentifier) -> anyhow::Result<()> {
+    pub async fn delete_user(
+        &self,
+        user: &UserIdentifier,
+        databases: &[String],
+    ) -> anyhow::Result<()> {
         match *self {
             Self::Mariadb(ref conn) => conn.delete_user(user).await,
             Self::Mongodb(ref conn) => conn.delete_user(user).await,
-            Self::Postgres(ref conn) => conn.delete_user(user).await,
+            Self::Postgres(ref conn) => conn.delete_user(user, databases).await,
             Self::Redis(_) => Ok(()),
         }
     }
 
-    pub async fn grant_user(&self, user: &UserIdentifier, database: &str) -> anyhow::Result<()> {
+    /// Rewrites the engine privileges on `database` so that they match
+    /// `grants`, stripping every privilege from `revoked` on the way.
+    pub async fn sync_grants(
+        &self,
+        database: &str,
+        grants: &[DatabaseGrant],
+        revoked: &[UserIdentifier],
+    ) -> anyhow::Result<()> {
         match *self {
-            Self::Mariadb(ref conn) => conn.grant_user(user, database).await,
-            Self::Mongodb(ref conn) => conn.grant_user(user, database).await,
-            Self::Postgres(ref conn) => conn.grant_user(user, database).await,
+            Self::Mariadb(ref conn) => conn.sync_grants(database, grants, revoked).await,
+            Self::Mongodb(ref conn) => conn.sync_grants(database, grants, revoked).await,
+            Self::Postgres(ref conn) => conn.sync_grants(database, grants, revoked).await,
             Self::Redis(_) => Ok(()),
         }
     }
@@ -80,12 +97,12 @@ impl Connection {
     pub async fn recreate_database(
         &self,
         name: &str,
-        users: &[UserIdentifier],
+        grants: &[DatabaseGrant],
     ) -> anyhow::Result<()> {
         match *self {
-            Self::Mariadb(ref conn) => conn.recreate_database(name, users).await,
+            Self::Mariadb(ref conn) => conn.recreate_database(name, grants).await,
             Self::Mongodb(ref conn) => conn.recreate_database(name).await,
-            Self::Postgres(ref conn) => conn.recreate_database(name, users).await,
+            Self::Postgres(ref conn) => conn.recreate_database(name, grants).await,
             Self::Redis(_) => unnamed_databases(),
         }
     }
