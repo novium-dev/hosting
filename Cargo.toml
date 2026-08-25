@@ -134,6 +134,10 @@ exhaustive_enums = "allow"
 exhaustive_structs = "allow"
 missing_inline_in_public_items = "allow"
 missing_trait_methods = "allow"
+
+# The `Template` trait declares its methods `async fn`; impls mirror that signature.
+unused_async_trait_impl = "allow"
+
 partial_pub_fields = "allow"
 pub_use = "allow"
 single_char_lifetime_names = "allow"
