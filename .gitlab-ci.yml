@@ -36,7 +36,7 @@ stages:
     CARGO_TERM_COLOR: "always"
     CARGO_INCREMENTAL: "0"
     CARGO_PROFILE_TEST_DEBUG: "0"
-    RUSTFLAGS: "-C opt-level=0 -C linker=clang-21 -C link-arg=-fuse-ld=lld"
+    RUSTFLAGS: "-C opt-level=0 -C linker=clang-22 -C link-arg=-fuse-ld=lld"
 
     FF_USE_FASTZIP: "true"
     ARTIFACT_COMPRESSION_LEVEL: "fastest"
