@@ -1,5 +1,6 @@
+use super::DatabaseGrant;
 use database_agent_common::identifier::UserIdentifier;
-use database_agent_common::types::QueryResult;
+use database_agent_common::types::{DatabaseAccess, QueryResult};
 use mysql_async::prelude::{Query as _, Queryable as _, WithParams as _};
 use mysql_async::{Conn, Opts, OptsBuilder, Row, Value};
 use std::path::Path;
@@ -83,13 +84,45 @@ impl MariadbConnection {
         .await
     }
 
-    pub async fn grant_user(&self, user: &UserIdentifier, database: &str) -> anyhow::Result<()> {
-        self.execute(format!(
-            "GRANT ALL PRIVILEGES ON {}.* TO {}@'%'",
-            quote_ident(database),
-            quote_literal(&user.to_string())
-        ))
-        .await
+    /// Rewrites the privileges on `database` to match `grants`. A revoke for a
+    /// user that holds nothing on the database is an error in mariadb, so those
+    /// are logged instead of propagated.
+    pub async fn sync_grants(
+        &self,
+        database: &str,
+        grants: &[DatabaseGrant],
+        revoked: &[UserIdentifier],
+    ) -> anyhow::Result<()> {
+        let quoted_database = quote_ident(database);
+        let mut conn = self.conn().await?;
+
+        for user in revoked.iter().chain(grants.iter().map(|grant| &grant.user)) {
+            let statement = format!(
+                "REVOKE ALL PRIVILEGES, GRANT OPTION ON {quoted_database}.* FROM {}@'%'",
+                quote_literal(&user.to_string())
+            );
+
+            if let Err(err) = conn.query_drop(statement).await {
+                tracing::debug!("nothing to revoke for {user} on {database}: {err}");
+            }
+        }
+
+        for grant in grants {
+            let privileges = match grant.access {
+                DatabaseAccess::Read => "SELECT, SHOW VIEW",
+                DatabaseAccess::Write => "ALL PRIVILEGES",
+            };
+
+            conn.query_drop(format!(
+                "GRANT {privileges} ON {quoted_database}.* TO {}@'%'",
+                quote_literal(&grant.user.to_string())
+            ))
+            .await?;
+        }
+
+        conn.disconnect().await?;
+
+        Ok(())
     }
 
     pub async fn create_database(&self, name: &str) -> anyhow::Result<()> {
@@ -105,16 +138,12 @@ impl MariadbConnection {
     pub async fn recreate_database(
         &self,
         name: &str,
-        users: &[UserIdentifier],
+        grants: &[DatabaseGrant],
     ) -> anyhow::Result<()> {
         self.delete_database(name).await?;
         self.create_database(name).await?;
 
-        for user in users {
-            self.grant_user(user, name).await?;
-        }
-
-        Ok(())
+        self.sync_grants(name, grants, &[]).await
     }
 
     pub async fn database_size(&self, name: &str) -> anyhow::Result<i64> {

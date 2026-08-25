@@ -8,7 +8,7 @@ use crate::service::database::database_service_error::{
     CreateInstanceDatabaseError, CreateInstanceUserError, CreateProjectInstanceError,
     DeleteInstanceDatabaseError, DeleteInstanceUserError, DeleteProjectInstanceError,
     ListInstanceDatabasesError, ListInstanceUsersError, ListProjectInstancesError,
-    PowerProjectInstanceError, RotateInstanceUserPasswordError,
+    PowerProjectInstanceError, RotateInstanceUserPasswordError, SetInstanceUserGrantsError,
 };
 use crate::service::error_database_agent_error::FromDatabaseAgentError;
 use crate::service::error_database_instance_not_found::FromDatabaseInstanceNotFound;
@@ -18,7 +18,7 @@ use database_agent_common::service::instance::InstanceService as _;
 use database_agent_common::service::user::UserService as _;
 use database_agent_common::types::{
     ContainerState, DatabaseType, PowerAction, ResourceUsage, StoredDatabase, StoredUser,
-    validate_database_name,
+    UserGrant, validate_database_name,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{query, query_scalar};
@@ -74,8 +74,16 @@ pub(crate) struct CreateInstanceDatabase {
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub(crate) struct CreateInstanceUser {
     pub(crate) username: String,
+    /// The databases the user is granted on, each with its access level.
     #[serde(default)]
-    pub(crate) database: Option<Uuid>,
+    pub(crate) grants: Vec<UserGrant>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub(crate) struct SetInstanceUserGrants {
+    /// Replaces the user's grants; a database left out means no access.
+    #[serde(default)]
+    pub(crate) grants: Vec<UserGrant>,
 }
 
 fn agent_failure<E: FromDatabaseAgentError>(error: &impl core::fmt::Debug) -> E {
@@ -88,16 +96,30 @@ fn validate_username(username: &str) -> bool {
         && username.bytes().all(|byte| byte.is_ascii_alphanumeric())
 }
 
+/// The database the connection string points at: the one the user can write
+/// to, falling back to the first it may read.
+fn default_database<'a>(user: &StoredUser, databases: &'a [StoredDatabase]) -> Option<&'a str> {
+    let mut grants = user.grants.clone();
+    grants.sort_by_key(|grant| !grant.access.is_write());
+
+    grants.iter().find_map(|grant| {
+        databases
+            .iter()
+            .find(|database| database.uuid == grant.database_uuid)
+            .map(|database| database.name.as_str())
+    })
+}
+
 fn user_info(
     instance: &ProjectInstance,
     user: StoredUser,
-    database: Option<&str>,
+    databases: &[StoredDatabase],
 ) -> InstanceUserInfo {
     let identifier = user.identifier();
     let host = instance.host.public_host.clone();
     let port = instance.host.port(instance.kind);
     let path = if instance.kind.has_named_databases() {
-        database.unwrap_or_default()
+        default_database(&user, databases).unwrap_or_default()
     } else {
         ""
     };
@@ -423,7 +445,8 @@ pub(crate) impl DatabaseService for Backend {
         Ok(InstanceDatabaseInfo { database })
     }
 
-    /// Deletes a database and every user granted on it.
+    /// Deletes a database. Users granted on it keep existing and simply lose
+    /// that grant.
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::DATABASE_MANAGE`].
@@ -491,19 +514,12 @@ pub(crate) impl DatabaseService for Backend {
             .await
             .map_err(|err| agent_failure::<ListInstanceUsersError>(&err))?
             .into_iter()
-            .map(|user| {
-                let database = user.database_uuid.and_then(|uuid| {
-                    databases
-                        .iter()
-                        .find(|database| database.uuid == uuid)
-                        .map(|database| database.name.clone())
-                });
-                user_info(&instance, user, database.as_deref())
-            })
+            .map(|user| user_info(&instance, user, &databases))
             .collect())
     }
 
-    /// Creates a user, optionally granted on one of the instance's databases.
+    /// Creates a user, granted on as many of the instance's databases as the
+    /// payload lists, each read-only or read-write.
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::DATABASE_MANAGE`].
@@ -533,22 +549,60 @@ pub(crate) impl DatabaseService for Backend {
         let user = instance
             .host
             .sdk
-            .create_user(instance.id, payload.username, payload.database)
+            .create_user(instance.id, payload.username, payload.grants)
             .await
             .map_err(|err| agent_failure::<CreateInstanceUserError>(&err))?;
 
-        let database = match payload.database {
-            Some(uuid) => instance
-                .host
-                .sdk
-                .get_database(instance.id, uuid)
-                .await
-                .ok()
-                .map(|database| database.name),
-            None => None,
-        };
+        let databases = instance
+            .host
+            .sdk
+            .list_databases(instance.id)
+            .await
+            .map_err(|err| agent_failure::<CreateInstanceUserError>(&err))?;
 
-        Ok(user_info(&instance, user, database.as_deref()))
+        Ok(user_info(&instance, user, &databases))
+    }
+
+    /// Replaces a user's database grants. Databases left out of the payload
+    /// lose their access.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::DATABASE_MANAGE`].
+    #[route("/{instance_id}/user/{user_id}/grants", method = PUT)]
+    #[error(auth::{permission_denied, unreachable}, project::not_found,
+        database::{instance_not_found, user_not_found, agent_error}, db::failure <- [sql:*])]
+    async fn set_instance_user_grants(
+        &self,
+        #[special] auth: Authentication,
+        project_id: ProjectId,
+        instance_id: Uuid,
+        user_id: Uuid,
+        payload: SetInstanceUserGrants,
+    ) -> Result<InstanceUserInfo, _> {
+        auth.require::<_, _, SetInstanceUserGrantsError>(
+            project_id,
+            ProjectPermissions::DATABASE_MANAGE,
+        )?;
+
+        let instance = self
+            .require_instance::<SetInstanceUserGrantsError>(project_id, instance_id)
+            .await?;
+
+        let user = instance
+            .host
+            .sdk
+            .set_user_grants(instance.id, user_id, payload.grants)
+            .await
+            .map_err(|err| agent_failure::<SetInstanceUserGrantsError>(&err))?;
+
+        let databases = instance
+            .host
+            .sdk
+            .list_databases(instance.id)
+            .await
+            .map_err(|err| agent_failure::<SetInstanceUserGrantsError>(&err))?;
+
+        Ok(user_info(&instance, user, &databases))
     }
 
     /// Deletes a user.
@@ -619,17 +673,13 @@ pub(crate) impl DatabaseService for Backend {
             .await
             .map_err(|err| agent_failure::<RotateInstanceUserPasswordError>(&err))?;
 
-        let database = match user.database_uuid {
-            Some(uuid) => instance
-                .host
-                .sdk
-                .get_database(instance.id, uuid)
-                .await
-                .ok()
-                .map(|database| database.name),
-            None => None,
-        };
+        let databases = instance
+            .host
+            .sdk
+            .list_databases(instance.id)
+            .await
+            .map_err(|err| agent_failure::<RotateInstanceUserPasswordError>(&err))?;
 
-        Ok(user_info(&instance, user, database.as_deref()))
+        Ok(user_info(&instance, user, &databases))
     }
 }

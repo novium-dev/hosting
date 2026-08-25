@@ -7,12 +7,13 @@ use crate::state::Agent;
 use crate::store::data;
 use crate::utils::generate_password;
 use anyhow::Context as _;
+use connection::{Connection, DatabaseGrant};
 use core::ops::Deref;
 use core::sync::atomic::{AtomicU64, Ordering};
 use database_agent_common::identifier::UserIdentifier;
 use database_agent_common::types::{
     ApiInstance, ContainerState, DatabaseType, ResourceUsage, StoredDatabase, StoredInstance,
-    StoredUser, validate_database_name,
+    StoredUser, UserGrant, validate_database_name,
 };
 use docker::{DockerHandle, ExecOptions};
 use futures_util::StreamExt as _;
@@ -218,14 +219,18 @@ impl Instance {
     pub async fn delete_database(&self, database: &StoredDatabase) -> anyhow::Result<()> {
         self.require_online("delete a database").await?;
 
-        for user in data::database_users(self.agent.store.read(), self.uuid, database.uuid).await? {
-            self.delete_user(&user).await?;
-        }
-
-        self.connection()
+        let connection = self.connection().await?;
+        let revoked: Vec<UserIdentifier> = self
+            .database_grants(database)
             .await?
-            .delete_database(&database.name)
+            .into_iter()
+            .map(|grant| grant.user)
+            .collect();
+
+        connection
+            .sync_grants(&database.name, &[], &revoked)
             .await?;
+        connection.delete_database(&database.name).await?;
 
         data::delete_database(self.agent.store.write(), database.uuid).await
     }
@@ -233,16 +238,71 @@ impl Instance {
     pub async fn recreate_database(&self, database: &StoredDatabase) -> anyhow::Result<()> {
         self.require_online("recreate a database").await?;
 
-        let users = data::database_users(self.agent.store.read(), self.uuid, database.uuid)
-            .await?
-            .iter()
-            .map(identifier)
-            .collect::<anyhow::Result<Vec<_>>>()?;
+        let grants = self.database_grants(database).await?;
 
         self.connection()
             .await?
-            .recreate_database(&database.name, &users)
+            .recreate_database(&database.name, &grants)
             .await
+    }
+
+    async fn database_grants(
+        &self,
+        database: &StoredDatabase,
+    ) -> anyhow::Result<Vec<DatabaseGrant>> {
+        data::database_users(self.agent.store.read(), self.uuid, database.uuid)
+            .await?
+            .iter()
+            .filter_map(|user| {
+                user.access(database.uuid)
+                    .map(|access| (identifier(user), access))
+            })
+            .map(|(user, access)| {
+                Ok(DatabaseGrant {
+                    user: user?,
+                    access,
+                })
+            })
+            .collect()
+    }
+
+    /// Rewrites the engine privileges on every database the user gained or
+    /// lost, reading the desired state back from the store.
+    async fn sync_grants(
+        &self,
+        connection: &Connection,
+        user: &StoredUser,
+        previous: &[UserGrant],
+    ) -> anyhow::Result<()> {
+        let databases = data::databases(self.agent.store.read(), self.uuid).await?;
+        let identifier = identifier(user)?;
+
+        let mut affected: Vec<Uuid> = user
+            .grants
+            .iter()
+            .chain(previous)
+            .map(|grant| grant.database_uuid)
+            .collect();
+        affected.sort_unstable();
+        affected.dedup();
+
+        for uuid in affected {
+            let Some(database) = databases.iter().find(|database| database.uuid == uuid) else {
+                continue;
+            };
+
+            let grants = self.database_grants(database).await?;
+            let revoked = match user.access(uuid) {
+                Some(_) => Vec::new(),
+                None => vec![identifier],
+            };
+
+            connection
+                .sync_grants(&database.name, &grants, &revoked)
+                .await?;
+        }
+
+        Ok(())
     }
 
     pub async fn database_size(&self, database: &StoredDatabase) -> anyhow::Result<i64> {
@@ -254,7 +314,7 @@ impl Instance {
     pub async fn create_user(
         &self,
         username: &str,
-        database: Option<&StoredDatabase>,
+        grants: &[UserGrant],
     ) -> anyhow::Result<StoredUser> {
         self.require_online("create a user").await?;
 
@@ -264,9 +324,9 @@ impl Instance {
         let user = data::insert_user(
             self.agent.store.write(),
             self.uuid,
-            database.map(|database| database.uuid),
             username,
             &password,
+            grants,
         )
         .await?;
 
@@ -277,10 +337,8 @@ impl Instance {
             return Err(err);
         }
 
-        if let Some(database) = database
-            && let Err(err) = connection.grant_user(&identifier, &database.name).await
-        {
-            if let Err(cleanup) = connection.delete_user(&identifier).await {
+        if let Err(err) = self.sync_grants(&connection, &user, &[]).await {
+            if let Err(cleanup) = connection.delete_user(&identifier, &[]).await {
                 tracing::error!(instance = %self.uuid, "failed to roll back user {identifier}: {cleanup}");
             }
             data::delete_user(self.agent.store.write(), user.uuid).await?;
@@ -290,6 +348,29 @@ impl Instance {
         self.route_inserter.insert(identifier, password);
 
         Ok(user)
+    }
+
+    /// Replaces the user's grants with `grants` and applies them to the engine.
+    pub async fn set_grants(
+        &self,
+        user: &StoredUser,
+        grants: &[UserGrant],
+    ) -> anyhow::Result<StoredUser> {
+        self.require_online("change a user's grants").await?;
+
+        let connection = self.connection().await?;
+
+        data::replace_grants(self.agent.store.write(), user.uuid, grants).await?;
+
+        let updated = StoredUser {
+            grants: grants.to_vec(),
+            ..user.clone()
+        };
+
+        self.sync_grants(&connection, &updated, &user.grants)
+            .await?;
+
+        Ok(updated)
     }
 
     pub async fn rotate_password(&self, user: &StoredUser) -> anyhow::Result<String> {
@@ -315,7 +396,22 @@ impl Instance {
         self.require_online("delete a user").await?;
 
         let identifier = identifier(user)?;
-        self.connection().await?.delete_user(&identifier).await?;
+        let databases = data::databases(self.agent.store.read(), self.uuid).await?;
+        let granted: Vec<String> = user
+            .grants
+            .iter()
+            .filter_map(|grant| {
+                databases
+                    .iter()
+                    .find(|database| database.uuid == grant.database_uuid)
+                    .map(|database| database.name.clone())
+            })
+            .collect();
+
+        self.connection()
+            .await?
+            .delete_user(&identifier, &granted)
+            .await?;
 
         data::delete_user(self.agent.store.write(), user.uuid).await?;
         self.route_inserter.remove(&identifier);

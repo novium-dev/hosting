@@ -2,17 +2,58 @@ use super::{OrStoreFailure as _, OrUserFailure as _};
 use crate::state::Agent;
 use crate::store::data;
 use database_agent_common::identifier::{LABEL_MAX_LENGTH, LABEL_MIN_LENGTH};
+use database_agent_common::service::error_database_not_found::FromDatabaseNotFound;
+use database_agent_common::service::error_store_failure::FromStoreFailure;
 use database_agent_common::service::user::UserService;
 use database_agent_common::service::user::user_service_error::{
     CreateUserError, DeleteUserError, GetUserError, ListUsersError, RotateUserPasswordError,
+    SetUserGrantsError,
 };
-use database_agent_common::types::StoredUser;
+use database_agent_common::types::{StoredUser, UserGrant};
+use std::collections::BTreeMap;
 use uuid::Uuid;
 use zelus::async_trait;
 
 fn validate_username(username: &str) -> bool {
     (LABEL_MIN_LENGTH..=LABEL_MAX_LENGTH).contains(&username.len())
         && username.bytes().all(|byte| byte.is_ascii_alphanumeric())
+}
+
+impl Agent {
+    /// Collapses repeated grants on the same database, keeping the last one,
+    /// and rejects databases the instance does not hold.
+    async fn resolve_grants<E>(
+        &self,
+        instance_id: Uuid,
+        grants: Vec<UserGrant>,
+    ) -> Result<Vec<UserGrant>, E>
+    where
+        E: FromStoreFailure + FromDatabaseNotFound,
+    {
+        let databases = data::databases(self.store.read(), instance_id)
+            .await
+            .or_store_failure::<E>("failed to list the databases")?;
+
+        let mut resolved = BTreeMap::new();
+        for grant in grants {
+            if !databases
+                .iter()
+                .any(|database| database.uuid == grant.database_uuid)
+            {
+                return Err(<E as FromDatabaseNotFound>::from());
+            }
+
+            resolved.insert(grant.database_uuid, grant.access);
+        }
+
+        Ok(resolved
+            .into_iter()
+            .map(|(database_uuid, access)| UserGrant {
+                database_uuid,
+                access,
+            })
+            .collect())
+    }
 }
 
 #[async_trait]
@@ -31,7 +72,7 @@ impl UserService for Agent {
         &self,
         instance_id: Uuid,
         username: String,
-        database_id: Option<Uuid>,
+        grants: Vec<UserGrant>,
     ) -> Result<StoredUser, CreateUserError> {
         let instance = self
             .instance(instance_id)
@@ -42,18 +83,12 @@ impl UserService for Agent {
             return Err(CreateUserError::UserNameInvalid);
         }
 
-        let database = match database_id {
-            Some(database_id) => Some(
-                data::database(self.store.read(), instance_id, database_id)
-                    .await
-                    .or_store_failure::<CreateUserError>("failed to read a database")?
-                    .ok_or(CreateUserError::DatabaseNotFound)?,
-            ),
-            None => None,
-        };
+        let grants = self
+            .resolve_grants::<CreateUserError>(instance_id, grants)
+            .await?;
 
         instance
-            .create_user(&username, database.as_ref())
+            .create_user(&username, &grants)
             .await
             .or_user_failure("failed to create a user")
     }
@@ -67,6 +102,31 @@ impl UserService for Agent {
             .await
             .or_store_failure::<GetUserError>("failed to read a user")?
             .ok_or(GetUserError::UserNotFound)
+    }
+
+    async fn set_user_grants(
+        &self,
+        instance_id: Uuid,
+        user_id: Uuid,
+        grants: Vec<UserGrant>,
+    ) -> Result<StoredUser, SetUserGrantsError> {
+        let instance = self
+            .instance(instance_id)
+            .await
+            .ok_or(SetUserGrantsError::InstanceNotFound)?;
+        let user = data::user(self.store.read(), instance_id, user_id)
+            .await
+            .or_store_failure::<SetUserGrantsError>("failed to read a user")?
+            .ok_or(SetUserGrantsError::UserNotFound)?;
+
+        let grants = self
+            .resolve_grants::<SetUserGrantsError>(instance_id, grants)
+            .await?;
+
+        instance
+            .set_grants(&user, &grants)
+            .await
+            .or_user_failure("failed to change a user's grants")
     }
 
     async fn delete_user(&self, instance_id: Uuid, user_id: Uuid) -> Result<(), DeleteUserError> {
