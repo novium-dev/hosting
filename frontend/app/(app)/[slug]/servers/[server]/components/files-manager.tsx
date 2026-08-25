@@ -28,6 +28,7 @@ import {
   RefreshCcw,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -60,6 +61,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -89,6 +91,8 @@ import {
 } from "@/components/ui/select";
 import {
   archiveFile,
+  chmodFile,
+  chownFile,
   copyFile,
   createDirectory,
   deleteFile,
@@ -198,6 +202,30 @@ function isDirectory(row: FileRow) {
   return modeToType(row.mode) === FileMode.DIR;
 }
 
+const PERMISSION_BITS = 0o7777;
+
+function permissionBits(mode: number) {
+  return mode & PERMISSION_BITS;
+}
+
+function formatMode(mode: number) {
+  return permissionBits(mode).toString(8).padStart(4, "0");
+}
+
+function formatSymbolicMode(mode: number) {
+  const flags = ["r", "w", "x"];
+
+  return [6, 3, 0]
+    .map((shift) =>
+      flags
+        .map((flag, index) =>
+          (mode >> (shift + 2 - index)) & 1 ? flag : "-",
+        )
+        .join(""),
+    )
+    .join("");
+}
+
 type FileEntryKind = "directory" | "file" | "archive";
 
 function getEntryKind(entry: FileRow): FileEntryKind {
@@ -214,6 +242,19 @@ function getEntryKind(entry: FileRow): FileEntryKind {
 
 function getFullPath(currentPath: string, entry: FileRow) {
   return normalizePath(joinPath(currentPath, entry.name));
+}
+
+/*
+Sources keep their own name as the archive root, so an archive written inside one
+of them has to be excluded under that name or it would pack itself.
+*/
+function archiveSelfExclusions(sources: string[], target: string) {
+  return sources
+    .filter((source) => target.startsWith(`${source}/`))
+    .map(
+      (source) =>
+        `${source.split("/").pop() ?? ""}${target.slice(source.length)}`,
+    );
 }
 
 function buildPathSegments(path: string) {
@@ -270,6 +311,7 @@ export function FilesManager({
   const [files, setFiles] = useState<FileRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<FileRow | null>(null);
+  const [selectedNames, setSelectedNames] = useState<string[]>([]);
   const [renameOpen, setRenameOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -279,10 +321,18 @@ export function FilesManager({
   const [renameInput, setRenameInput] = useState("");
   const [copyInput, setCopyInput] = useState("");
   const [archiveNameInput, setArchiveNameInput] = useState("");
+  const [archiveSources, setArchiveSources] = useState<string[]>([]);
   const [archiveCompression, setArchiveCompression] =
     useState<ArchiveCompression>("zstd");
   const [unarchiveNameInput, setUnarchiveNameInput] = useState("");
   const [newDirectoryNameInput, setNewDirectoryNameInput] = useState("");
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [permissionsModeInput, setPermissionsModeInput] = useState("");
+  const [permissionsUidInput, setPermissionsUidInput] = useState("");
+  const [permissionsGidInput, setPermissionsGidInput] = useState("");
+  const [massDeleteOpen, setMassDeleteOpen] = useState(false);
+  const [massMoveOpen, setMassMoveOpen] = useState(false);
+  const [massMoveInput, setMassMoveInput] = useState("");
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [diskUsagePercent, setDiskUsagePercent] = useState<number | null>(null);
   const [draggedEntry, setDraggedEntry] = useState<FileRow | null>(null);
@@ -317,6 +367,30 @@ export function FilesManager({
     Delete: "common:actions.delete",
     Download: "common:actions.download",
     Copy: "common:actions.copy",
+  };
+
+  const selectedEntries = useMemo(
+    () => files.filter((entry) => selectedNames.includes(entry.name)),
+    [files, selectedNames],
+  );
+
+  const allSelected =
+    files.length > 0 && selectedNames.length === files.length;
+
+  const clearSelection = () => setSelectedNames([]);
+
+  const toggleEntrySelection = (entry: FileRow) => {
+    setSelectedNames((previous) =>
+      previous.includes(entry.name)
+        ? previous.filter((name) => name !== entry.name)
+        : [...previous, entry.name],
+    );
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedNames((previous) =>
+      previous.length === files.length ? [] : files.map((entry) => entry.name),
+    );
   };
 
   const segments = useMemo(() => buildPathSegments(currentPath), [currentPath]);
@@ -365,6 +439,7 @@ export function FilesManager({
       });
 
       setFiles(sorted);
+      setSelectedNames([]);
       setCurrentPath(normalized);
       setPathInput(normalized);
     } catch {
@@ -415,14 +490,6 @@ export function FilesManager({
 
     const nextPath = parts.length === 0 ? "/" : `/${parts.join("/")}`;
     void refresh(nextPath);
-  };
-
-  const showPlaceholderAction = (name: string) => {
-    toast.info(
-      t("servers-management:filesManager.toasts.placeholderAction", {
-        name,
-      }),
-    );
   };
 
   const openEditor = (entry: FileRow) => {
@@ -1105,7 +1172,7 @@ export function FilesManager({
   };
 
   const handleArchive = async () => {
-    if (!selectedEntry) {
+    if (archiveSources.length === 0) {
       return;
     }
 
@@ -1116,19 +1183,11 @@ export function FilesManager({
       return;
     }
 
-    if (!isDirectory(selectedEntry)) {
-      toast.error(
-        t("servers-management:filesManager.toasts.archiveDirectoriesOnly"),
-      );
-      return;
-    }
-
     const targetName = archiveNameInput.trim();
     if (!targetName) {
       return;
     }
 
-    const from = getFullPath(currentPath, selectedEntry);
     const to = normalizePath(joinPath(currentPath, targetName));
 
     setIsActionLoading(true);
@@ -1137,9 +1196,12 @@ export function FilesManager({
       const response = await archiveFile({
         path: { server_id: serverId },
         query: {
-          from,
           to,
           compression: archiveCompression,
+        },
+        body: {
+          sources: archiveSources,
+          exclude: archiveSelfExclusions(archiveSources, to),
         },
       });
 
@@ -1153,6 +1215,223 @@ export function FilesManager({
 
       toast.success(t("servers-management:filesManager.toasts.archiveCreated"));
       setArchiveOpen(false);
+      clearSelection();
+      await refresh(currentPath, { preserveScroll: true });
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const openArchiveDialog = (sources: string[], suggestedName: string) => {
+    setArchiveSources(sources);
+    setArchiveCompression("zstd");
+    setArchiveNameInput(`${suggestedName}.tar.zst`);
+    setArchiveOpen(true);
+  };
+
+  const openPermissionsDialog = (entry: FileRow) => {
+    setSelectedEntry(entry);
+    setPermissionsModeInput(formatMode(entry.mode));
+    setPermissionsUidInput(String(entry.uid));
+    setPermissionsGidInput(String(entry.gid));
+    setPermissionsOpen(true);
+  };
+
+  const handlePermissions = async () => {
+    if (!selectedEntry) {
+      return;
+    }
+
+    if (!canWriteFiles) {
+      toast.error(
+        t("servers-management:filesManager.toasts.noPermissionPermissions"),
+      );
+      return;
+    }
+
+    const mode = Number.parseInt(permissionsModeInput.trim(), 8);
+    if (
+      !/^[0-7]{3,4}$/.test(permissionsModeInput.trim()) ||
+      Number.isNaN(mode)
+    ) {
+      toast.error(t("servers-management:filesManager.toasts.modeInvalid"));
+      return;
+    }
+
+    const uid = Number.parseInt(permissionsUidInput.trim(), 10);
+    const gid = Number.parseInt(permissionsGidInput.trim(), 10);
+    if (
+      !Number.isInteger(uid) ||
+      uid < 0 ||
+      !Number.isInteger(gid) ||
+      gid < 0
+    ) {
+      toast.error(t("servers-management:filesManager.toasts.ownerInvalid"));
+      return;
+    }
+
+    const file = getFullPath(currentPath, selectedEntry);
+
+    setIsActionLoading(true);
+
+    try {
+      if (mode !== permissionBits(selectedEntry.mode)) {
+        const response = await chmodFile({
+          path: { server_id: serverId },
+          query: { file, mode },
+        });
+
+        if (response.error) {
+          toast.error(
+            response.error.error?.msg ??
+              t("servers-management:filesManager.toasts.chmodFailed"),
+          );
+          return;
+        }
+      }
+
+      if (uid !== selectedEntry.uid || gid !== selectedEntry.gid) {
+        const response = await chownFile({
+          path: { server_id: serverId },
+          query: { file, uid, gid },
+        });
+
+        if (response.error) {
+          toast.error(
+            response.error.error?.msg ??
+              t("servers-management:filesManager.toasts.chownFailed"),
+          );
+          return;
+        }
+      }
+
+      toast.success(
+        t("servers-management:filesManager.toasts.permissionsUpdated"),
+      );
+      setPermissionsOpen(false);
+      await refresh(currentPath, { preserveScroll: true });
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleMassDelete = async () => {
+    if (!canWriteFiles) {
+      toast.error(
+        t("servers-management:filesManager.toasts.noPermissionDelete"),
+      );
+      return;
+    }
+
+    const entries = selectedEntries;
+    if (entries.length === 0) {
+      return;
+    }
+
+    setIsActionLoading(true);
+
+    try {
+      let failed = 0;
+
+      for (const entry of entries) {
+        const response = await deleteFile({
+          path: { server_id: serverId },
+          query: {
+            file: getFullPath(currentPath, entry),
+            recursive: isDirectory(entry),
+          },
+        });
+
+        if (response.error) {
+          failed += 1;
+        }
+      }
+
+      if (failed > 0) {
+        toast.error(
+          t("servers-management:filesManager.toasts.massDeleteFailed", {
+            count: failed,
+          }),
+        );
+      } else {
+        toast.success(
+          t("servers-management:filesManager.toasts.massDeleted", {
+            count: entries.length,
+          }),
+        );
+      }
+
+      setMassDeleteOpen(false);
+      clearSelection();
+      await refresh(currentPath, { preserveScroll: true });
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleMassMove = async () => {
+    if (!canWriteFiles) {
+      toast.error(t("servers-management:filesManager.toasts.noPermissionMove"));
+      return;
+    }
+
+    const entries = selectedEntries;
+    const target = normalizePath(massMoveInput);
+    if (entries.length === 0 || !massMoveInput.trim()) {
+      return;
+    }
+
+    setIsActionLoading(true);
+
+    try {
+      let failed = 0;
+      let moved = 0;
+
+      for (const entry of entries) {
+        const from = getFullPath(currentPath, entry);
+        const to = normalizePath(joinPath(target, entry.name));
+
+        if (from === to) {
+          continue;
+        }
+
+        if (
+          isDirectory(entry) &&
+          (target === from || target.startsWith(`${from}/`))
+        ) {
+          failed += 1;
+          continue;
+        }
+
+        const response = await renameFile({
+          path: { server_id: serverId },
+          query: { from, to },
+        });
+
+        if (response.error) {
+          failed += 1;
+        } else {
+          moved += 1;
+        }
+      }
+
+      if (failed > 0) {
+        toast.error(
+          t("servers-management:filesManager.toasts.massMoveFailed", {
+            count: failed,
+          }),
+        );
+      } else {
+        toast.success(
+          t("servers-management:filesManager.toasts.massMoved", {
+            count: moved,
+            path: target,
+          }),
+        );
+      }
+
+      setMassMoveOpen(false);
+      clearSelection();
       await refresh(currentPath, { preserveScroll: true });
     } finally {
       setIsActionLoading(false);
@@ -1319,9 +1598,10 @@ export function FilesManager({
         return;
       case "Archive":
         setSelectedEntry(entry);
-        setArchiveNameInput(`${entry.name}.tar.zst`);
-        setArchiveCompression("zstd");
-        setArchiveOpen(true);
+        openArchiveDialog([getFullPath(currentPath, entry)], entry.name);
+        return;
+      case "Permissions":
+        openPermissionsDialog(entry);
         return;
       case "Unarchive":
         setSelectedEntry(entry);
@@ -1335,11 +1615,6 @@ export function FilesManager({
         return;
       case "Download":
         await handleDownload(entry);
-        return;
-      default:
-        showPlaceholderAction(
-          `${t(actionLabelKeys[action] ?? action)} (${entry.name})`,
-        );
     }
   };
 
@@ -1354,12 +1629,28 @@ export function FilesManager({
 
     if (kind === "archive") {
       return canWriteFiles
-        ? ["Rename", "Permissions", "Unarchive", "Download", "Copy", "Delete"]
+        ? [
+            "Rename",
+            "Permissions",
+            "Unarchive",
+            "Archive",
+            "Download",
+            "Copy",
+            "Delete",
+          ]
         : ["Permissions", "Download"];
     }
 
     return canWriteFiles
-      ? ["Edit", "Rename", "Permissions", "Download", "Copy", "Delete"]
+      ? [
+          "Edit",
+          "Rename",
+          "Permissions",
+          "Archive",
+          "Download",
+          "Copy",
+          "Delete",
+        ]
       : ["View", "Permissions", "Download"];
   };
 
@@ -1576,8 +1867,23 @@ export function FilesManager({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={
+                        allSelected ||
+                        (selectedNames.length > 0 && "indeterminate")
+                      }
+                      onCheckedChange={toggleSelectAll}
+                      aria-label={t(
+                        "servers-management:filesManager.selection.selectAll",
+                      )}
+                    />
+                  </TableHead>
                   <TableHead>{t("common:labels.name")}</TableHead>
                   <TableHead>{t("common:labels.size")}</TableHead>
+                  <TableHead>
+                    {t("servers-management:filesManager.modeColumn")}
+                  </TableHead>
                   <TableHead className="text-right">
                     {t("common:labels.actions")}
                   </TableHead>
@@ -1636,6 +1942,16 @@ export function FilesManager({
                           }
                         >
                           <TableCell>
+                            <Checkbox
+                              checked={selectedNames.includes(entry.name)}
+                              onCheckedChange={() => toggleEntrySelection(entry)}
+                              aria-label={t(
+                                "servers-management:filesManager.selection.selectEntry",
+                                { name: entry.name },
+                              )}
+                            />
+                          </TableCell>
+                          <TableCell>
                             {directory ? (
                               <button
                                 type="button"
@@ -1678,6 +1994,9 @@ export function FilesManager({
                                   t("common:status.unknown"),
                                 )}
                           </TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {formatMode(entry.mode)}
+                          </TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -1702,6 +2021,70 @@ export function FilesManager({
             </Table>
           </div>
         )}
+
+        {selectedNames.length > 0 ? (
+          <div className="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-background/95 p-2 shadow-lg backdrop-blur">
+              <span className="px-2 text-sm text-muted-foreground">
+                {t("servers-management:filesManager.selection.selected", {
+                  count: selectedNames.length,
+                })}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isActionLoading || !canWriteFiles}
+                onClick={() => {
+                  setMassMoveInput(currentPath);
+                  setMassMoveOpen(true);
+                }}
+              >
+                <FolderInput className="size-4" />
+                {t("common:actions.move")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isActionLoading || !canWriteFiles}
+                onClick={() =>
+                  openArchiveDialog(
+                    selectedEntries.map((entry) =>
+                      getFullPath(currentPath, entry),
+                    ),
+                    currentPath === "/"
+                      ? "archive"
+                      : (currentPath.split("/").pop() ?? "archive"),
+                  )
+                }
+              >
+                <Archive className="size-4" />
+                {t("common:resources.archive")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                disabled={isActionLoading || !canWriteFiles}
+                onClick={() => setMassDeleteOpen(true)}
+              >
+                <Trash2 className="size-4" />
+                {t("common:actions.delete")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={clearSelection}
+              >
+                <X className="size-4" />
+                {t("servers-management:filesManager.selection.clear")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </CardContent>
 
       <Dialog
@@ -1857,7 +2240,8 @@ export function FilesManager({
           setArchiveOpen(open);
           if (!open) {
             setArchiveNameInput("");
-            setArchiveCompression("gzip");
+            setArchiveSources([]);
+            setArchiveCompression("zstd");
             setSelectedEntry(null);
           }
         }}
@@ -1869,12 +2253,17 @@ export function FilesManager({
             </DialogTitle>
             <DialogDescription>
               {t("servers-management:filesManager.archiveDialog.description", {
-                name:
-                  selectedEntry?.name ??
-                  t("servers-management:filesManager.fallbacks.thisDirectory"),
+                count: archiveSources.length,
               })}
             </DialogDescription>
           </DialogHeader>
+          <div className="max-h-40 overflow-y-auto rounded-md border bg-muted/40 p-2">
+            <ul className="space-y-1 font-mono text-xs text-muted-foreground">
+              {archiveSources.map((source) => (
+                <li key={source}>{source}</li>
+              ))}
+            </ul>
+          </div>
           <Input
             value={archiveNameInput}
             onChange={(event) => setArchiveNameInput(event.target.value)}
@@ -2019,6 +2408,180 @@ export function FilesManager({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={permissionsOpen}
+        onOpenChange={(open) => {
+          setPermissionsOpen(open);
+          if (!open) {
+            setSelectedEntry(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t("servers-management:filesManager.permissionsDialog.title")}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                "servers-management:filesManager.permissionsDialog.description",
+                {
+                  name:
+                    selectedEntry?.name ??
+                    t("servers-management:filesManager.fallbacks.thisItem"),
+                },
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">
+              {t("servers-management:filesManager.permissionsDialog.modeLabel")}
+            </p>
+            <Input
+              value={permissionsModeInput}
+              onChange={(event) => setPermissionsModeInput(event.target.value)}
+              className="font-mono"
+              placeholder="0644"
+              disabled={!canWriteFiles}
+            />
+            <p className="font-mono text-xs text-muted-foreground">
+              {/^[0-7]{3,4}$/.test(permissionsModeInput.trim())
+                ? formatSymbolicMode(
+                    Number.parseInt(permissionsModeInput.trim(), 8),
+                  )
+                : t(
+                    "servers-management:filesManager.permissionsDialog.modeHint",
+                  )}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">
+                {t("servers-management:filesManager.permissionsDialog.uidLabel")}
+              </p>
+              <Input
+                value={permissionsUidInput}
+                onChange={(event) => setPermissionsUidInput(event.target.value)}
+                inputMode="numeric"
+                disabled={!canWriteFiles}
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">
+                {t("servers-management:filesManager.permissionsDialog.gidLabel")}
+              </p>
+              <Input
+                value={permissionsGidInput}
+                onChange={(event) => setPermissionsGidInput(event.target.value)}
+                inputMode="numeric"
+                disabled={!canWriteFiles}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPermissionsOpen(false)}
+              disabled={isActionLoading}
+            >
+              {t("common:actions.cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                void handlePermissions();
+              }}
+              loading={isActionLoading}
+              disabled={!canWriteFiles}
+            >
+              {t("common:actions.save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={massMoveOpen}
+        onOpenChange={(open) => {
+          setMassMoveOpen(open);
+          if (!open) {
+            setMassMoveInput("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t("servers-management:filesManager.massMoveDialog.title")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("servers-management:filesManager.massMoveDialog.description", {
+                count: selectedNames.length,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={massMoveInput}
+            onChange={(event) => setMassMoveInput(event.target.value)}
+            placeholder={t(
+              "servers-management:filesManager.massMoveDialog.placeholder",
+            )}
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setMassMoveOpen(false)}
+              disabled={isActionLoading}
+            >
+              {t("common:actions.cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                void handleMassMove();
+              }}
+              loading={isActionLoading}
+            >
+              {t("common:actions.move")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={massDeleteOpen} onOpenChange={setMassDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("servers-management:filesManager.massDeleteDialog.title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                "servers-management:filesManager.massDeleteDialog.description",
+                { count: selectedNames.length },
+              )}{" "}
+              {t("common:confirmDelete.cannotBeUndone")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isActionLoading}>
+              {t("common:actions.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void handleMassDelete();
+              }}
+              disabled={isActionLoading}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {t("common:actions.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog
         open={createDirectoryOpen}

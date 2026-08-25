@@ -38,8 +38,9 @@
       "recursiveSuffix": " rekursiv"
     },
     "archiveDialog": {
-      "title": "Verzeichnis archivieren",
-      "description": "Ein Archiv aus {{name}} erstellen.",
+      "title": "Archiv erstellen",
+      "description_one": "Ein Archiv aus {{count}} ausgewählten Eintrag erstellen.",
+      "description_other": "Ein Archiv aus {{count}} ausgewählten Einträgen erstellen.",
       "namePlaceholder": "archiv-name.tar.gz",
       "compressionLabel": "Komprimierungsart",
       "compressionPlaceholder": "Komprimierung auswählen",
@@ -73,7 +74,6 @@
     },
     "toasts": {
       "loadFailed": "Dateien für diesen Pfad konnten nicht geladen werden",
-      "placeholderAction": "{{name}} ist derzeit eine Platzhalteraktion.",
       "undoFailedRename": "Umbenennung konnte nicht rückgängig gemacht werden",
       "redoFailedRename": "Umbenennung konnte nicht wiederholt werden",
       "undoFailedCopy": "Kopieren konnte nicht rückgängig gemacht werden",
@@ -104,7 +104,6 @@
       "deleteFailed": "Löschen fehlgeschlagen",
       "deleted": "Erfolgreich gelöscht",
       "noPermissionArchive": "Du hast keine Berechtigung, Dateien zu archivieren",
-      "archiveDirectoriesOnly": "Archivieren wird nur für Verzeichnisse unterstützt",
       "archiveFailed": "Archivieren fehlgeschlagen",
       "archiveCreated": "Archiv erfolgreich erstellt",
       "noPermissionExtract": "Du hast keine Berechtigung, Dateien zu entpacken",
@@ -113,7 +112,21 @@
       "downloadUrlFailed": "Download-URL konnte nicht abgerufen werden",
       "noPermissionCreateDirectory": "Du hast keine Berechtigung, Verzeichnisse zu erstellen",
       "createDirectoryFailed": "Verzeichnis konnte nicht erstellt werden",
-      "directoryCreated": "Verzeichnis erstellt"
+      "directoryCreated": "Verzeichnis erstellt",
+      "noPermissionPermissions": "Du hast keine Berechtigung, Dateiberechtigungen zu ändern",
+      "modeInvalid": "Der Modus muss aus drei oder vier oktalen Ziffern bestehen",
+      "ownerInvalid": "Eigentümer und Gruppe müssen positive Zahlen sein",
+      "chmodFailed": "Modus konnte nicht geändert werden",
+      "chownFailed": "Eigentümer konnte nicht geändert werden",
+      "permissionsUpdated": "Berechtigungen aktualisiert",
+      "massDeleted_one": "{{count}} Eintrag gelöscht",
+      "massDeleted_other": "{{count}} Einträge gelöscht",
+      "massDeleteFailed_one": "{{count}} Eintrag konnte nicht gelöscht werden",
+      "massDeleteFailed_other": "{{count}} Einträge konnten nicht gelöscht werden",
+      "massMoved_one": "{{count}} Eintrag nach {{path}} verschoben",
+      "massMoved_other": "{{count}} Einträge nach {{path}} verschoben",
+      "massMoveFailed_one": "{{count}} Eintrag konnte nicht verschoben werden",
+      "massMoveFailed_other": "{{count}} Einträge konnten nicht verschoben werden"
     },
     "uploadProgress": {
       "uploading": "Lädt hoch {{done}}/{{total}}",
@@ -121,6 +134,33 @@
       "completeWithErrors": "Upload mit Fehlern beendet",
       "statusPending": "Wartet",
       "statusFailed": "Fehlgeschlagen"
+    },
+    "modeColumn": "Modus",
+    "selection": {
+      "selectAll": "Alle Einträge auswählen",
+      "selectEntry": "{{name}} auswählen",
+      "selected_one": "{{count}} ausgewählt",
+      "selected_other": "{{count}} ausgewählt",
+      "clear": "Aufheben"
+    },
+    "permissionsDialog": {
+      "title": "Berechtigungen",
+      "description": "Modus und Eigentümer von {{name}} ändern.",
+      "modeLabel": "Modus (oktal)",
+      "modeHint": "Drei oder vier oktale Ziffern eingeben, zum Beispiel 0644.",
+      "uidLabel": "Eigentümer (uid)",
+      "gidLabel": "Gruppe (gid)"
+    },
+    "massMoveDialog": {
+      "title": "Auswahl verschieben",
+      "description_one": "{{count}} Eintrag in ein anderes Verzeichnis verschieben.",
+      "description_other": "{{count}} Einträge in ein anderes Verzeichnis verschieben.",
+      "placeholder": "/zielverzeichnis"
+    },
+    "massDeleteDialog": {
+      "title": "Auswahl löschen?",
+      "description_one": "Dies löscht {{count}} Eintrag, Verzeichnisse rekursiv.",
+      "description_other": "Dies löscht {{count}} Einträge, Verzeichnisse rekursiv."
     }
   },
   "minecraftPlayerManager": {

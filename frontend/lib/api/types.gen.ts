@@ -29,6 +29,11 @@ export type ApiInstance = StoredInstance & {
     utilization: ResourceUsage;
 };
 
+export type ArchiveFilePayload = {
+    exclude?: Array<string> | null;
+    sources: Array<string>;
+};
+
 export type BackupStorage = {
     btrfs: string;
 } | 'archive';
@@ -2996,6 +3001,272 @@ export type SymlinkFileResponses = {
 
 export type SymlinkFileResponse = SymlinkFileResponses[keyof SymlinkFileResponses];
 
+export type ChmodFileData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query: {
+        /**
+         * The file path
+         */
+        file: string;
+        /**
+         * The file mode as an unsigned integer
+         */
+        mode: number;
+    };
+    url: '/file/{server_id}/chmod';
+};
+
+export type ChmodFileErrors = {
+    /**
+     * The specified file violates the sandbox
+     */
+    '400‫': {
+        error?: {
+            id?: 'file/sandbox_violated';
+            msg?: 'The specified file violates the sandbox';
+        };
+    };
+    /**
+     * The specified file mode is invalid
+     */
+    '400‬': {
+        error?: {
+            id?: 'file/mode_invalid';
+            msg?: 'The specified file mode is invalid';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified file was not found
+     */
+    '404‪': {
+        error?: {
+            id?: 'file/not_found';
+            msg?: 'The specified file was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‎': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * Storage is currently in use
+     */
+    '503‏': {
+        error?: {
+            id?: 'file/storage_unavailable';
+            msg?: 'Storage is currently in use';
+        };
+    };
+};
+
+export type ChmodFileError = ChmodFileErrors[keyof ChmodFileErrors];
+
+export type ChmodFileResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type ChmodFileResponse = ChmodFileResponses[keyof ChmodFileResponses];
+
+export type ChownFileData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query: {
+        /**
+         * The file path
+         */
+        file: string;
+        /**
+         * The owning user ID
+         */
+        uid?: number | null;
+        /**
+         * The owning group ID
+         */
+        gid?: number | null;
+    };
+    url: '/file/{server_id}/chown';
+};
+
+export type ChownFileErrors = {
+    /**
+     * The specified file violates the sandbox
+     */
+    '400‫': {
+        error?: {
+            id?: 'file/sandbox_violated';
+            msg?: 'The specified file violates the sandbox';
+        };
+    };
+    /**
+     * Neither a user nor a group was specified
+     */
+    '400‬': {
+        error?: {
+            id?: 'file/owner_missing';
+            msg?: 'Neither a user nor a group was specified';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified file was not found
+     */
+    '404‪': {
+        error?: {
+            id?: 'file/not_found';
+            msg?: 'The specified file was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‎': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * Storage is currently in use
+     */
+    '503‏': {
+        error?: {
+            id?: 'file/storage_unavailable';
+            msg?: 'Storage is currently in use';
+        };
+    };
+};
+
+export type ChownFileError = ChownFileErrors[keyof ChownFileErrors];
+
+export type ChownFileResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type ChownFileResponse = ChownFileResponses[keyof ChownFileResponses];
+
 export type DownloadUserData = {
     body?: never;
     headers?: {
@@ -3169,7 +3440,7 @@ export type UploadUserResponses = {
 export type UploadUserResponse = UploadUserResponses[keyof UploadUserResponses];
 
 export type ArchiveFileData = {
-    body?: never;
+    body: ArchiveFilePayload;
     headers?: {
         /**
          * The session token or api key
@@ -3183,10 +3454,6 @@ export type ArchiveFileData = {
         server_id: NanoId;
     };
     query: {
-        /**
-         * The name to rename from
-         */
-        from: string;
         /**
          * The name to rename to
          */
@@ -3243,6 +3510,15 @@ export type ArchiveFileErrors = {
         error?: {
             id?: 'file/compression_unsupported';
             msg?: 'The specified compression method is unsupported';
+        };
+    };
+    /**
+     * No files or directories were selected
+     */
+    '400⁡': {
+        error?: {
+            id?: 'file/sources_empty';
+            msg?: 'No files or directories were selected';
         };
     };
     /**
