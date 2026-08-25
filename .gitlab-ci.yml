@@ -117,18 +117,10 @@ clippy:
       paths:
         - .cargo_home/
         - target/
-        - crates/gitlab_clippy
       policy: pull-push
   script:
-    - mkdir crates/gitlab_clippy -p
     - rustup component add clippy
-    - cargo install --color always --verbose gitlab_clippy --root crates/gitlab_clippy
-    - cargo clippy --color always --verbose --locked --no-deps --message-format=json | crates/gitlab_clippy/bin/gitlab-clippy > gl-code-quality-report.json
-  artifacts:
-    reports:
-      codequality:
-      - gl-code-quality-report.json
-    expire_in: 1 week
+    - cargo clippy --color always --verbose --no-default-features --features ci --no-deps
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED != "true"
       when: never
