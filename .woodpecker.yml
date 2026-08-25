@@ -10,7 +10,7 @@ services:
 
 steps:
   fmt:
-    image: rust:1.95.0-alpine
+    image: rust:1.98.0-alpine
     commands:
       - apk add --no-cache git musl-dev
       - rustup component add rustfmt
@@ -28,7 +28,7 @@ steps:
       - event: [push, pull_request]
 
   clippy:
-    image: rust:1.95.0-alpine
+    image: rust:1.98.0-alpine
     environment:
       BACKEND_DATABASE_URL: postgres://postgres:postgres@db/backend
       RUSTFLAGS: "-C opt-level=0"
@@ -50,7 +50,7 @@ steps:
       - event: [push, pull_request]
 
   test:
-    image: rust:1.95.0-alpine
+    image: rust:1.98.0-alpine
     environment:
       BACKEND_DATABASE_URL: postgres://postgres:postgres@db/backend
       RUSTFLAGS: "-C opt-level=0"
@@ -71,7 +71,7 @@ steps:
       - event: manual
 
   deny:
-    image: rust:1.95.0-alpine
+    image: rust:1.98.0-alpine
     environment:
       DAEMON_SSH_KEY:
         from_secret: daemon_ssh_key

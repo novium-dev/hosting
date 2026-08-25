@@ -296,11 +296,7 @@ impl VariableBuilder {
         {
             for group in &self.0.groups {
                 for variable in &group.variables {
-                    if let VariableType::Hierarchy {
-                        field_index: _,
-                        data_index,
-                    } = variable.data
-                    {
+                    if let VariableType::Hierarchy { data_index, .. } = variable.data {
                         assert!(
                             (data_index as usize) < self.0.data.len(),
                             "Hierarchy field does exist, but its out of range: {:?} {group:?}",

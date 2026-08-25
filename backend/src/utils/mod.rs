@@ -259,8 +259,8 @@ pub trait FileResponseExtension {
 impl FileResponseExtension for FileResponse {
     fn into_data_stream(self) -> Option<DataStream> {
         match self {
-            FileResponse::Header { stream, .. } => Some(stream),
-            FileResponse::Axum(_) => None,
+            Self::Header { stream, .. } => Some(stream),
+            Self::Axum(_) => None,
         }
     }
 }
