@@ -55,6 +55,9 @@ define_error!(file {
     compression_unsupported("The specified compression method is unsupported" BAD_REQUEST),
     unsupported_type("The specified file type is unsupported" BAD_REQUEST),
     content_invalid("The specified content is invalid" BAD_REQUEST),
+    sources_empty("No files or directories were selected" BAD_REQUEST),
+    mode_invalid("The specified file mode is invalid" BAD_REQUEST),
+    owner_missing("Neither a user nor a group was specified" BAD_REQUEST),
 });
 
 define_error!(resource {
@@ -231,4 +234,16 @@ define_query_variable!(
 
 define_query_variable!(
     limit "The optional response size limit"
+);
+
+define_query_variable!(
+    mode "The file mode as an unsigned integer"
+);
+
+define_query_variable!(
+    uid "The owning user ID"
+);
+
+define_query_variable!(
+    gid "The owning group ID"
 );

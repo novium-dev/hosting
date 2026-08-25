@@ -10,9 +10,9 @@ use utoipa::openapi::{
 };
 use utoipa::{PartialSchema as _, ToSchema};
 use zelus::SUCCESS_DESCRIPTION;
-use zelus::responses::DocumentedResultResponse;
+use zelus::responses::{DocumentedResultResponse, FileResponse};
 use zelus::special::OptionalFromRequestParts;
-use zelus::types::DocumentedType;
+use zelus::types::{DataStream, DocumentedType};
 
 pub mod id;
 pub mod serde;
@@ -249,5 +249,18 @@ impl<E: Serialize + ComposeSchema + ToSchema> DocumentedResultResponse for Paged
                 )
                 .build(),
         )
+    }
+}
+
+pub trait FileResponseExtension {
+    fn into_data_stream(self) -> Option<DataStream>;
+}
+
+impl FileResponseExtension for FileResponse {
+    fn into_data_stream(self) -> Option<DataStream> {
+        match self {
+            FileResponse::Header { stream, .. } => Some(stream),
+            FileResponse::Axum(_) => None,
+        }
     }
 }
