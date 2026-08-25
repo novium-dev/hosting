@@ -98,7 +98,7 @@ impl MariadbConnection {
 
         for user in revoked.iter().chain(grants.iter().map(|grant| &grant.user)) {
             let statement = format!(
-                "REVOKE ALL PRIVILEGES, GRANT OPTION ON {quoted_database}.* FROM {}@'%'",
+                "REVOKE ALL PRIVILEGES ON {quoted_database}.* FROM {}@'%'",
                 quote_literal(&user.to_string())
             );
 

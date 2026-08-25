@@ -6,6 +6,7 @@ import {
   createUserAction,
   deleteUserAction,
   rotateUserPasswordAction,
+  setUserGrantsAction,
 } from "@/actions/databases";
 import {
   AlertDialog,
@@ -39,15 +40,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import {
+  DatabaseAccessMatrix,
+  accessToGrants,
+  grantsToAccess,
+  type AccessMap,
+} from "@/components/databases/database-access";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -69,8 +70,6 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 export type ProjectUser = ListInstanceUsersResponses[200][number];
-
-const NO_DATABASE = "none";
 
 async function copyValue(value: string, successMessage: string, errorMessage: string) {
   try {
@@ -122,6 +121,44 @@ function ConnectionCell({ user }: { user: ProjectUser }) {
   );
 }
 
+function GrantsCell({
+  user,
+  databases,
+}: {
+  user: ProjectUser;
+  databases: { uuid: string; name: string }[];
+}) {
+  const { t } = useTranslation();
+
+  if (!user.grants.length) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {t("org:databases.usersCard.accessNone")}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {user.grants.map((grant) => (
+        <Badge
+          key={grant.database_uuid}
+          variant="secondary"
+          className="gap-1 font-mono text-xs"
+        >
+          {databases.find((database) => database.uuid === grant.database_uuid)
+            ?.name ?? grant.database_uuid}
+          <span className="text-muted-foreground">
+            {grant.access === "write"
+              ? t("org:databases.usersCard.accessWriteShort")
+              : t("org:databases.usersCard.accessReadShort")}
+          </span>
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 export function InstanceUsers({
   projectId,
   instanceId,
@@ -134,7 +171,9 @@ export function InstanceUsers({
   const { t } = useTranslation();
   const [creating, setCreating] = useState(false);
   const [username, setUsername] = useState("");
-  const [database, setDatabase] = useState(NO_DATABASE);
+  const [access, setAccess] = useState<AccessMap>({});
+  const [editing, setEditing] = useState<ProjectUser | null>(null);
+  const [editingAccess, setEditingAccess] = useState<AccessMap>({});
   const [pendingDelete, setPendingDelete] = useState<ProjectUser | null>(null);
 
   const { data, error, isLoading, mutate } = useSWR(
@@ -165,7 +204,7 @@ export function InstanceUsers({
       toast.success(t("org:databases.usersCard.created"));
       setCreating(false);
       setUsername("");
-      setDatabase(NO_DATABASE);
+      setAccess({});
       void mutate();
     },
     onError: (result) => {
@@ -184,6 +223,19 @@ export function InstanceUsers({
     onError: (result) => {
       toast.error(
         result.error.serverError ?? t("org:databases.usersCard.deleteError"),
+      );
+    },
+  });
+
+  const updateGrants = useAction(setUserGrantsAction, {
+    onSuccess: () => {
+      toast.success(t("org:databases.usersCard.accessUpdated"));
+      setEditing(null);
+      void mutate();
+    },
+    onError: (result) => {
+      toast.error(
+        result.error.serverError ?? t("org:databases.usersCard.accessError"),
       );
     },
   });
@@ -244,6 +296,7 @@ export function InstanceUsers({
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("common:resources.username")}</TableHead>
+                    <TableHead>{t("org:databases.usersCard.accessColumn")}</TableHead>
                     <TableHead>{t("org:databases.usersCard.connectionColumn")}</TableHead>
                     <TableHead className="w-0" />
                   </TableRow>
@@ -253,6 +306,9 @@ export function InstanceUsers({
                     <TableRow key={user.uuid}>
                       <TableCell className="font-mono text-xs">
                         {user.identifier}
+                      </TableCell>
+                      <TableCell>
+                        <GrantsCell user={user} databases={databases ?? []} />
                       </TableCell>
                       <TableCell className="max-w-md">
                         <ConnectionCell user={user} />
@@ -266,6 +322,14 @@ export function InstanceUsers({
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  setEditing(user);
+                                  setEditingAccess(grantsToAccess(user.grants));
+                                }}
+                              >
+                                {t("org:databases.usersCard.manageAccess")}
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 onSelect={() =>
                                   void rotate.executeAsync({
@@ -317,24 +381,12 @@ export function InstanceUsers({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="grant">
-                {t("org:databases.usersCard.grantOnLabel")}
-              </Label>
-              <Select value={database} onValueChange={setDatabase}>
-                <SelectTrigger id="grant" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_DATABASE}>
-                    {t("org:databases.usersCard.noDatabaseOption")}
-                  </SelectItem>
-                  {(databases ?? []).map((option) => (
-                    <SelectItem key={option.uuid} value={option.uuid}>
-                      {option.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>{t("org:databases.usersCard.grantOnLabel")}</Label>
+              <DatabaseAccessMatrix
+                databases={databases ?? []}
+                value={access}
+                onChange={setAccess}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -347,11 +399,54 @@ export function InstanceUsers({
                   projectId,
                   instanceId,
                   username,
-                  database: database === NO_DATABASE ? undefined : database,
+                  grants: accessToGrants(access),
                 })
               }
             >
               {t("org:databases.usersCard.createSubmit")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editing !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t("org:databases.usersCard.accessDialogTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("org:databases.usersCard.accessDialogDescription", {
+                name: editing?.identifier,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DatabaseAccessMatrix
+            databases={databases ?? []}
+            value={editingAccess}
+            onChange={setEditingAccess}
+            disabled={updateGrants.isExecuting}
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              loading={updateGrants.isExecuting}
+              onClick={() => {
+                if (!editing) return;
+                void updateGrants.executeAsync({
+                  projectId,
+                  instanceId,
+                  userId: editing.uuid,
+                  grants: accessToGrants(editingAccess),
+                });
+              }}
+            >
+              {t("common:actions.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
