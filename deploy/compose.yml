@@ -9,7 +9,7 @@
 # the session cookie is issued Secure and the OAuth callback URL matches.
 services:
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3.7
     restart: unless-stopped
     command:
       - --providers.docker=true
@@ -51,7 +51,9 @@ services:
     labels:
       - traefik.enable=true
       # Higher priority than the SPA router so /api/* wins on the same host.
-      - traefik.http.routers.backend.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)
+      # `/api/` + exact `/api` rather than PathPrefix(`/api`), which would also
+      # swallow paths like /apifoo that belong to the SPA.
+      - traefik.http.routers.backend.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api/`) || Path(`/api`))
       - traefik.http.routers.backend.priority=100
       - traefik.http.routers.backend.entrypoints=websecure
       - traefik.http.services.backend.loadbalancer.server.port=8080

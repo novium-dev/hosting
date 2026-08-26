@@ -23,8 +23,11 @@ docker build --ssh default -f database_agent.Dockerfile -t novium/database-agent
 terminates TLS on one host and splits by path, which is what the backend used to
 do internally:
 
-- `Host(DOMAIN) && PathPrefix(/api)` → backend (priority 100)
+- `Host(DOMAIN) && (PathPrefix(/api/) || Path(/api))` → backend (priority 100)
 - `Host(DOMAIN)` → frontend (priority 1)
+
+Matching `/api/` rather than the prefix `/api` keeps paths like `/apifoo` on the
+SPA, which is where the backend's own fallback used to send them.
 
 Same origin for both means the httpOnly session cookie and the origin check in
 `backend/src/auth/csrf.rs` keep working unchanged.

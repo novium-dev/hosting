@@ -89,7 +89,7 @@ impl Backend {
                 let Some(template) = self.templates.read().await.get(&server.template).cloned()
                 else {
                     warn!(
-                        "Found server whose template is not registred: {}, template: {}",
+                        "Found server whose template is not registered: {}, template: {}",
                         server.id, server.template
                     );
                     return Ok(None);

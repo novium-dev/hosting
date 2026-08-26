@@ -38,6 +38,16 @@ sqlx migrate run --source backend/migrations --database-url postgres://postgres:
 
 Swagger UI is served at `/docs` in debug builds only (`/api/docs` for the backend).
 
+### Images
+
+Three, built and deployed independently (see `deploy/README.md`):
+
+```bash
+docker build --ssh default -f backend.Dockerfile -t novium/backend:latest .
+docker build -f frontend/Dockerfile -t novium/frontend:latest frontend
+docker build --ssh default -f database_agent.Dockerfile -t novium/database-agent:latest .
+```
+
 ### sqlx compile-time verification (important)
 
 Queries use the `sqlx::query!` family, which is checked **against a live database at compile time**. There is no `.sqlx` offline cache, so `cargo check`/`clippy`/`build` all require a reachable, migrated database.
