@@ -22,7 +22,7 @@ docker compose -f dev/compose.yml up -d
 
 # Build / check / run (requires a running, migrated Postgres — see sqlx note below)
 cargo check --workspace
-cargo run -p backend           # reads backend/config.toml, generates keys in BACKEND_DATA_DIR (default ".")
+cargo run -p backend           # configured from the environment, generates keys in BACKEND_DATA_DIR (default ".")
 cargo run -p database_agent    # reads ./config.toml from DATABASE_AGENT_DATA_DIR (default ".")
 
 # Lint & format (CI enforces both; the clippy config is very strict — see below)
@@ -62,7 +62,14 @@ Builds pull two git dependencies over SSH — `novium-dev/daemon` (`daemon`/`dae
 ### Feature flags
 
 - `auth_dev` — enables a dev-only auth router. A `compile_error!` forbids it in release builds.
-- `embedded_node` — runs a daemon in-process (pulls the `daemon` crate with `btrfs`) instead of only talking to remote nodes.
+
+## Configuration
+
+The **backend has no config file** — `BackendConfig::from_env` (`backend/src/config.rs`) builds the whole config from `BACKEND_*` environment variables and fails at startup with the name of the first missing or unparseable one. `backend/.env.example` is the reference. `BACKEND_DATA_DIR` only decides where the generated keys live.
+
+Two shapes are worth knowing. A **single OAuth provider** is read from `BACKEND_AUTH_*`, registered under the name in `BACKEND_AUTH_PROVIDER` (default `user`), which is the `{provider}` segment of `/api/auth/login/{provider}` and must match the frontend's `VITE_PROVIDERS`. **Database engine defaults** are built in (`InstanceDefaults::builtin`) rather than configured: image uid/gid, socket path, volumes and command are facts about the engine image, so only `BACKEND_DB_<ENGINE>_IMAGE` and the `_MEMORY`/`_SWAP`/`_DISK`/`_CPU` limits are settable, plus `_ENABLED=false` to withdraw an engine. All four engines are available unless disabled.
+
+The **database agent still uses `config.toml`** (`database_agent/config.toml.example`), read from `DATABASE_AGENT_DATA_DIR`.
 
 ## Architecture
 
@@ -76,7 +83,7 @@ Builds pull two git dependencies over SSH — `novium-dev/daemon` (`daemon`/`dae
 
 **IDs** — Projects/servers use 6-char nanoids (`GenericNanoId`, `backend/src/utils/id.rs`) created via the `define_id!` macro; they serialize as strings and encode/decode transparently for sqlx. Users and nodes use integer / UUID ids respectively.
 
-**Nodes (`backend/src/db/node/`)** are remote daemons. `sync_nodes` loads them from the `nodes` table into the in-memory `nodes` map at startup, building a `DaemonSDK` client per node (or the in-process `embedded` daemon when its id matches). `BackendNode` derefs to the daemon services trait, so backend code calls daemon RPCs directly on the node handle.
+**Nodes (`backend/src/db/node/`)** are remote daemons. `sync_nodes` loads them from the `nodes` table into the in-memory `nodes` map at startup, building a `DaemonSDK` client per node. `BackendNode` derefs to the daemon services trait, so backend code calls daemon RPCs directly on the node handle.
 
 **Templates (`backend/src/templates/`)** define how a given server type is built and configured (Minecraft variants, Satisfactory, and generic Go/Java/Python/Rust/Docker). The `Template` trait (typed) is object-safed behind `TemplateInner` (JSON-`Value`-based) so heterogeneous templates live in one `HashMap`. Templates keep a Valkey-backed cache (e.g. upstream version lists) refreshed on a background task; `.Dockerfile` files colocated in the tree are the build recipes. Templates are initialized once at startup in `load_templates`.
 

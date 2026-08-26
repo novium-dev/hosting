@@ -4,9 +4,8 @@
 #   cp .env.example .env   # fill in DOMAIN, ACME_EMAIL, image tags, secrets
 #   docker compose up -d
 #
-# The backend needs deploy/backend/config.toml (start from
-# ../backend/config.toml.example); `public_url` must be https://${DOMAIN} so
-# the session cookie is issued Secure and the OAuth callback URL matches.
+# The backend is configured entirely from the environment; see
+# ../backend/.env.example for every variable it reads.
 services:
   traefik:
     image: traefik:v3.7
@@ -44,9 +43,24 @@ services:
         condition: service_started
     environment:
       BACKEND_DATA_DIR: /data
+      BACKEND_LISTENERS: "[::]:8080"
+      BACKEND_PUBLIC_URL: https://${DOMAIN}
+      BACKEND_DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB:-backend}
+      BACKEND_CACHE_URL: valkey://valkey?protocol=resp3
+      BACKEND_AUTH_PROVIDER: ${AUTH_PROVIDER:-user}
+      BACKEND_AUTH_AUTHORIZE_URL: ${AUTH_AUTHORIZE_URL}
+      BACKEND_AUTH_TOKEN_URL: ${AUTH_TOKEN_URL}
+      BACKEND_AUTH_REDIRECT_URL: https://${DOMAIN}/api/auth/callback
+      BACKEND_AUTH_USERINFO_URL: ${AUTH_USERINFO_URL}
+      BACKEND_AUTH_CLIENT_ID: ${AUTH_CLIENT_ID}
+      BACKEND_AUTH_CLIENT_SECRET: ${AUTH_CLIENT_SECRET}
       BACKEND_CURSEFORGE_API_KEY: ${CURSEFORGE_API_KEY:-}
+      BACKEND_CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      BACKEND_PANGOLIN_API_URL: ${PANGOLIN_API_URL:-}
+      BACKEND_PANGOLIN_API_KEY: ${PANGOLIN_API_KEY:-}
+      BACKEND_PANGOLIN_ORG_ID: ${PANGOLIN_ORG_ID:-}
+      BACKEND_PANGOLIN_SITE_ID: ${PANGOLIN_SITE_ID:-}
     volumes:
-      - ./backend/config.toml:/data/config.toml:ro
       - backend_data:/data
     labels:
       - traefik.enable=true

@@ -34,20 +34,19 @@ Same origin for both means the httpOnly session cookie and the origin check in
 
 ```bash
 cd deploy
-cp .env.example .env                       # DOMAIN, ACME_EMAIL, image tags, Postgres password
-cp ../backend/config.toml.example backend/config.toml
+cp .env.example .env    # DOMAIN, ACME_EMAIL, image tags, Postgres password, OIDC client
 docker compose up -d
 ```
 
-In `backend/config.toml`, set:
+The backend has no config file — it reads everything from the environment, and
+`compose.yml` derives most of it from `.env`: `BACKEND_PUBLIC_URL` and
+`BACKEND_AUTH_REDIRECT_URL` from `DOMAIN`, `BACKEND_DATABASE_URL` from the
+Postgres credentials. `backend/.env.example` documents every variable it reads,
+including the ones `compose.yml` does not pass through.
 
-- `listeners = ["[::]:8080"]` — the port the Traefik service label points at
-- `public_url = "https://<DOMAIN>"` — decides the cookie's `Secure` flag and the allowed origin
-- `database_url` / `cache_url` — `postgres://postgres:<password>@postgres/backend` and `valkey://valkey?protocol=resp3`
-- `auth.providers.*.redirect_url` — `https://<DOMAIN>/api/auth/callback`
-
-Migrations run at startup, so the backend brings an empty Postgres up to date on
-its own.
+`BACKEND_DATA_DIR` (`/data` here, on a named volume) holds only the generated
+keys. Migrations run at startup, so the backend brings an empty Postgres up to
+date on its own.
 
 ## Serving the SPA from a different origin
 
