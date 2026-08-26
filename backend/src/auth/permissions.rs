@@ -498,25 +498,24 @@ impl Role {
     pub const fn management_permissions(self) -> ManagementPermissions {
         match self {
             Self::Admin => ManagementPermissions::all(),
-            Self::Moderator => ManagementPermissions::USER_VIEW,
+            Self::Moderator => ManagementPermissions::from_bits_retain(
+                ManagementPermissions::USER_VIEW.bits()
+                    | ManagementPermissions::SERVER_SUSPEND.bits(),
+            ),
             Self::User => ManagementPermissions::empty(),
         }
     }
 
     pub const fn project_permissions(self) -> ProjectPermissions {
         match self {
-            Self::Admin => ProjectPermissions::all(),
-            Self::Moderator => ProjectPermissions::VIEW,
+            Self::Admin | Self::Moderator => ProjectPermissions::all(),
             Self::User => ProjectPermissions::empty(),
         }
     }
 
     pub const fn server_permissions(self) -> ServerPermissions {
         match self {
-            Self::Admin => ServerPermissions::all(),
-            Self::Moderator => ServerPermissions::from_bits_retain(
-                ServerPermissions::POWER.bits() | ServerPermissions::TERMINAL_READ.bits(),
-            ),
+            Self::Admin | Self::Moderator => ServerPermissions::all(),
             Self::User => ServerPermissions::empty(),
         }
     }
