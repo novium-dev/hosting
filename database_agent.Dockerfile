@@ -9,7 +9,7 @@ ENV RUSTFLAGS="-C linker=clang-22 -C link-arg=-fuse-ld=lld $FLAGS"
 
 FROM chef AS dependencies
 
-RUN apk add --no-cache ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm22-static llvm22-dev git musl-dev llvm22 clang22 clang22-static lld22 curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+RUN apk add --no-cache ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm22-static llvm22-dev git sqlite musl-dev llvm22 clang22 clang22-static lld22 curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
 
 FROM chef AS planner
 COPY . .
