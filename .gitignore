@@ -32,3 +32,4 @@ config.toml
 
 # database_agent compile-time schema database (scripts/dev/database_agent_db.sh)
 dev/database_agent.db
+deploy/prod
