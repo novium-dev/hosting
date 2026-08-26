@@ -7,6 +7,7 @@ import {
   deleteInstanceUser,
   powerProjectInstance,
   rotateInstanceUserPassword,
+  setInstanceUserGrants,
 } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
@@ -17,6 +18,7 @@ import {
   deleteDatabaseSchema,
   instanceSchema,
   powerInstanceSchema,
+  setUserGrantsSchema,
   userSchema,
 } from "@/types/database.schema";
 
@@ -128,13 +130,34 @@ export const createUserAction = authActionClient
       },
       body: {
         username: parsedInput.username,
-        database: parsedInput.database || null,
+        grants: parsedInput.grants,
       },
     });
 
     if (response.error || !response.data) {
       throw new ActionError(
         response.error?.error?.msg || "Failed to create the user",
+      );
+    }
+
+    return response.data;
+  });
+
+export const setUserGrantsAction = authActionClient
+  .inputSchema(setUserGrantsSchema)
+  .action(async ({ parsedInput }) => {
+    const response = await setInstanceUserGrants({
+      path: {
+        project_id: parsedInput.projectId,
+        instance_id: parsedInput.instanceId,
+        user_id: parsedInput.userId,
+      },
+      body: { grants: parsedInput.grants },
+    });
+
+    if (response.error || !response.data) {
+      throw new ActionError(
+        response.error?.error?.msg || "Failed to update the database access",
       );
     }
 

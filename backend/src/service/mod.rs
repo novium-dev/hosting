@@ -140,6 +140,7 @@ define_error!(database {
     host_not_found("The specified database host was not found" NOT_FOUND),
     host_not_empty("The database host still has instances" BAD_REQUEST),
     instance_not_found("The specified database instance was not found" NOT_FOUND),
+    user_not_found("The specified database user was not found" NOT_FOUND),
     agent_error("The database agent rejected the request" BAD_GATEWAY),
 });
 

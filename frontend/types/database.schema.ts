@@ -52,6 +52,15 @@ export const deleteDatabaseSchema = instanceSchema.extend({
   databaseId: z.string(),
 });
 
+export const accessLevels = ["read", "write"] as const;
+
+export type AccessLevel = (typeof accessLevels)[number];
+
+export const userGrantSchema = z.object({
+  database_uuid: z.string(),
+  access: z.enum(accessLevels),
+});
+
 export const createUserSchema = instanceSchema.extend({
   /** The agent's identifier label: 2-23 ascii alphanumeric characters. */
   username: z
@@ -59,7 +68,7 @@ export const createUserSchema = instanceSchema.extend({
     .min(2, "Username must be at least 2 characters")
     .max(23, "Username is too long")
     .regex(/^[A-Za-z0-9]+$/, "Only letters and digits are allowed"),
-  database: z.string().optional(),
+  grants: z.array(userGrantSchema).default([]),
 });
 
 export type CreateUser = z.infer<typeof createUserSchema>;
@@ -67,3 +76,9 @@ export type CreateUser = z.infer<typeof createUserSchema>;
 export const userSchema = instanceSchema.extend({
   userId: z.string(),
 });
+
+export const setUserGrantsSchema = userSchema.extend({
+  grants: z.array(userGrantSchema).default([]),
+});
+
+export type SetUserGrants = z.infer<typeof setUserGrantsSchema>;

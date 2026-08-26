@@ -1,3 +1,4 @@
+use super::DatabaseGrant;
 use core::time::Duration;
 use database_agent_common::identifier::UserIdentifier;
 use database_agent_common::types::QueryResult;
@@ -95,12 +96,43 @@ impl MongodbConnection {
         self.run_admin(doc! { "dropUser": user.to_string() }).await
     }
 
-    pub async fn grant_user(&self, user: &UserIdentifier, database: &str) -> anyhow::Result<()> {
-        self.run_admin(doc! {
-            "grantRolesToUser": user.to_string(),
-            "roles": [{ "role": "dbOwner", "db": database }],
-        })
-        .await
+    /// Rewrites the roles on `database` to match `grants`, dropping the roles
+    /// of everyone listed either way first.
+    pub async fn sync_grants(
+        &self,
+        database: &str,
+        grants: &[DatabaseGrant],
+        revoked: &[UserIdentifier],
+    ) -> anyhow::Result<()> {
+        for user in revoked.iter().chain(grants.iter().map(|grant| &grant.user)) {
+            let command = doc! {
+                "revokeRolesFromUser": user.to_string(),
+                "roles": [
+                    { "role": "read", "db": database },
+                    { "role": "dbOwner", "db": database },
+                ],
+            };
+
+            if let Err(err) = self.run_admin(command).await {
+                tracing::debug!("nothing to revoke for {user} on {database}: {err}");
+            }
+        }
+
+        for grant in grants {
+            let role = if grant.access.is_write() {
+                "dbOwner"
+            } else {
+                "read"
+            };
+
+            self.run_admin(doc! {
+                "grantRolesToUser": grant.user.to_string(),
+                "roles": [{ "role": role, "db": database }],
+            })
+            .await?;
+        }
+
+        Ok(())
     }
 
     pub async fn delete_database(&self, name: &str) -> anyhow::Result<()> {

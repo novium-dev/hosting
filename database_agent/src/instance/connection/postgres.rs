@@ -1,5 +1,7 @@
+use super::DatabaseGrant;
+use core::fmt::Write as _;
 use database_agent_common::identifier::UserIdentifier;
-use database_agent_common::types::QueryResult;
+use database_agent_common::types::{DatabaseAccess, QueryResult};
 use std::path::PathBuf;
 use tokio_postgres::{Client, NoTls, SimpleQueryMessage};
 
@@ -12,6 +14,34 @@ fn quote_ident(value: &str) -> String {
 
 fn quote_literal(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
+}
+
+const fn database_privileges(access: DatabaseAccess) -> &'static str {
+    match access {
+        DatabaseAccess::Read => "CONNECT",
+        DatabaseAccess::Write => "ALL PRIVILEGES",
+    }
+}
+
+const fn schema_privileges(access: DatabaseAccess) -> &'static str {
+    match access {
+        DatabaseAccess::Read => "USAGE",
+        DatabaseAccess::Write => "ALL",
+    }
+}
+
+const fn table_privileges(access: DatabaseAccess) -> &'static str {
+    match access {
+        DatabaseAccess::Read => "SELECT",
+        DatabaseAccess::Write => "ALL",
+    }
+}
+
+const fn sequence_privileges(access: DatabaseAccess) -> &'static str {
+    match access {
+        DatabaseAccess::Read => "SELECT, USAGE",
+        DatabaseAccess::Write => "ALL",
+    }
 }
 
 pub struct PostgresConnection {
@@ -67,26 +97,113 @@ impl PostgresConnection {
         .await
     }
 
-    pub async fn delete_user(&self, user: &UserIdentifier) -> anyhow::Result<()> {
-        self.execute(&format!(
-            "DROP ROLE IF EXISTS {}",
-            quote_ident(&user.to_string())
-        ))
-        .await
+    /// Drops the role after handing its objects back to the admin user and
+    /// clearing the privileges it holds in `databases`, which postgres would
+    /// otherwise refuse to drop the role over.
+    pub async fn delete_user(
+        &self,
+        user: &UserIdentifier,
+        databases: &[String],
+    ) -> anyhow::Result<()> {
+        let role = quote_ident(&user.to_string());
+
+        for database in databases {
+            self.client(database)
+                .await?
+                .simple_query(&format!(
+                    "REASSIGN OWNED BY {role} TO {ADMIN_USER}; DROP OWNED BY {role};"
+                ))
+                .await?;
+        }
+
+        self.execute(&format!("DROP ROLE IF EXISTS {role}")).await
     }
 
-    pub async fn grant_user(&self, user: &UserIdentifier, database: &str) -> anyhow::Result<()> {
-        let user = quote_ident(&user.to_string());
-        self.execute(&format!(
-            "GRANT ALL PRIVILEGES ON DATABASE {} TO {user}",
-            quote_ident(database)
-        ))
-        .await?;
+    /// Rewrites the privileges on `database` to match `grants`. Readers are
+    /// granted on the tables a writer creates later through the writer's
+    /// default privileges, which is why every pair is rewritten together.
+    pub async fn sync_grants(
+        &self,
+        database: &str,
+        grants: &[DatabaseGrant],
+        revoked: &[UserIdentifier],
+    ) -> anyhow::Result<()> {
+        let quoted_database = quote_ident(database);
+        let roles: Vec<String> = grants
+            .iter()
+            .map(|grant| quote_ident(&grant.user.to_string()))
+            .chain(revoked.iter().map(|user| quote_ident(&user.to_string())))
+            .collect();
 
-        self.client(database)
-            .await?
-            .simple_query(&format!("GRANT ALL ON SCHEMA public TO {user}"))
-            .await?;
+        let mut cluster = String::new();
+        let mut schema = String::new();
+
+        for role in &roles {
+            write!(
+                cluster,
+                "REVOKE ALL PRIVILEGES ON DATABASE {quoted_database} FROM {role};"
+            )?;
+            write!(
+                schema,
+                "REVOKE ALL ON SCHEMA public FROM {role};
+                 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM {role};
+                 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM {role};"
+            )?;
+
+            for other in roles.iter().filter(|other| *other != role) {
+                write!(
+                    schema,
+                    "ALTER DEFAULT PRIVILEGES FOR ROLE {role} IN SCHEMA public
+                         REVOKE ALL ON TABLES FROM {other};
+                     ALTER DEFAULT PRIVILEGES FOR ROLE {role} IN SCHEMA public
+                         REVOKE ALL ON SEQUENCES FROM {other};"
+                )?;
+            }
+        }
+
+        for grant in grants {
+            let role = quote_ident(&grant.user.to_string());
+
+            write!(
+                cluster,
+                "GRANT {} ON DATABASE {quoted_database} TO {role};",
+                database_privileges(grant.access)
+            )?;
+            write!(
+                schema,
+                "GRANT {} ON SCHEMA public TO {role};
+                 GRANT {} ON ALL TABLES IN SCHEMA public TO {role};
+                 GRANT {} ON ALL SEQUENCES IN SCHEMA public TO {role};",
+                schema_privileges(grant.access),
+                table_privileges(grant.access),
+                sequence_privileges(grant.access)
+            )?;
+        }
+
+        for writer in grants.iter().filter(|grant| grant.access.is_write()) {
+            let owner = quote_ident(&writer.user.to_string());
+
+            for other in grants.iter().filter(|grant| grant.user != writer.user) {
+                let role = quote_ident(&other.user.to_string());
+
+                write!(
+                    schema,
+                    "ALTER DEFAULT PRIVILEGES FOR ROLE {owner} IN SCHEMA public
+                         GRANT {} ON TABLES TO {role};
+                     ALTER DEFAULT PRIVILEGES FOR ROLE {owner} IN SCHEMA public
+                         GRANT {} ON SEQUENCES TO {role};",
+                    table_privileges(other.access),
+                    sequence_privileges(other.access)
+                )?;
+            }
+        }
+
+        if cluster.is_empty() {
+            return Ok(());
+        }
+
+        self.execute(&cluster).await?;
+        self.client(database).await?.simple_query(&schema).await?;
 
         Ok(())
     }
@@ -107,16 +224,12 @@ impl PostgresConnection {
     pub async fn recreate_database(
         &self,
         name: &str,
-        users: &[UserIdentifier],
+        grants: &[DatabaseGrant],
     ) -> anyhow::Result<()> {
         self.delete_database(name).await?;
         self.create_database(name).await?;
 
-        for user in users {
-            self.grant_user(user, name).await?;
-        }
-
-        Ok(())
+        self.sync_grants(name, grants, &[]).await
     }
 
     pub async fn database_size(&self, name: &str) -> anyhow::Result<i64> {

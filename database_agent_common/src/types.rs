@@ -82,6 +82,54 @@ pub fn validate_database_name(value: &str) -> bool {
         && value.bytes().all(|byte| byte.is_ascii_alphanumeric())
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum DatabaseAccess {
+    Read,
+    Write,
+}
+
+impl DatabaseAccess {
+    pub const ALL: &'static [Self] = &[Self::Read, Self::Write];
+
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Read => "read",
+            Self::Write => "write",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_write(self) -> bool {
+        matches!(self, Self::Write)
+    }
+}
+
+impl Display for DatabaseAccess {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl FromStr for DatabaseAccess {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::ALL
+            .iter()
+            .copied()
+            .find(|access| access.as_str() == value)
+            .ok_or(())
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct UserGrant {
+    pub database_uuid: Uuid,
+    pub access: DatabaseAccess,
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ContainerState {
@@ -240,10 +288,20 @@ pub struct StoredUser {
     pub uuid: Uuid,
     pub uuid_short: i64,
     pub instance_uuid: Uuid,
-    pub database_uuid: Option<Uuid>,
+    pub grants: Vec<UserGrant>,
     pub username: String,
     pub password: String,
     pub created: DateTime<Utc>,
+}
+
+impl StoredUser {
+    #[must_use]
+    pub fn access(&self, database: Uuid) -> Option<DatabaseAccess> {
+        self.grants
+            .iter()
+            .find(|grant| grant.database_uuid == database)
+            .map(|grant| grant.access)
+    }
 }
 
 impl StoredUser {

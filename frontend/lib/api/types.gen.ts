@@ -78,7 +78,10 @@ export type CreateInstanceDatabase = {
 };
 
 export type CreateInstanceUser = {
-    database?: string | null;
+    /**
+     * The databases the user is granted on, each with its access level.
+     */
+    grants?: Array<UserGrant>;
     username: string;
 };
 
@@ -120,6 +123,10 @@ export type CreateServerPayload = {
         [key: string]: string;
     };
 };
+
+export const DatabaseAccess = { READ: 'read', WRITE: 'write' } as const;
+
+export type DatabaseAccess = typeof DatabaseAccess[keyof typeof DatabaseAccess];
 
 export const DatabaseType = {
     MARIADB: 'mariadb',
@@ -443,6 +450,13 @@ export type ServerStorage = {
     btrfs: string;
 } | 'directory';
 
+export type SetInstanceUserGrants = {
+    /**
+     * Replaces the user's grants; a database left out means no access.
+     */
+    grants?: Array<UserGrant>;
+};
+
 export type SetProjectUserPayload = {
     email: string;
     permissions: number;
@@ -497,7 +511,7 @@ export type StoredInstance = {
 
 export type StoredUser = {
     created: string;
-    database_uuid?: string | null;
+    grants: Array<UserGrant>;
     instance_uuid: string;
     password: string;
     username: string;
@@ -582,6 +596,11 @@ export type UpdateUserPayload = {
     email?: string | null;
     role?: number | null;
     username?: string | null;
+};
+
+export type UserGrant = {
+    access: DatabaseAccess;
+    database_uuid: string;
 };
 
 export type Value = unknown;
@@ -14355,6 +14374,126 @@ export type CreateInstanceUserResponses = {
 };
 
 export type CreateInstanceUserResponse = CreateInstanceUserResponses[keyof CreateInstanceUserResponses];
+
+export type SetInstanceUserGrantsData = {
+    body: SetInstanceUserGrants;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The database instance ID
+         */
+        instance_id: string;
+        /**
+         * The user ID
+         */
+        user_id: string;
+    };
+    query?: never;
+    url: '/project/{project_id}/instance/{instance_id}/user/{user_id}/grants';
+};
+
+export type SetInstanceUserGrantsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified database instance was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/instance_not_found';
+            msg?: 'The specified database instance was not found';
+        };
+    };
+    /**
+     * The specified database user was not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'database/user_not_found';
+            msg?: 'The specified database user was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‪': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‏': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+};
+
+export type SetInstanceUserGrantsError = SetInstanceUserGrantsErrors[keyof SetInstanceUserGrantsErrors];
+
+export type SetInstanceUserGrantsResponses = {
+    /**
+     * Success
+     */
+    200: StoredUser & {
+        host: string;
+        /**
+         * The name the client connects with, which carries the user's short uuid.
+         */
+        identifier: string;
+        port: number;
+        uri: string;
+    };
+};
+
+export type SetInstanceUserGrantsResponse = SetInstanceUserGrantsResponses[keyof SetInstanceUserGrantsResponses];
 
 export type DeleteInstanceUserData = {
     body?: never;

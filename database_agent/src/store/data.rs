@@ -2,11 +2,11 @@ use anyhow::Context as _;
 use chrono::{DateTime, Utc};
 use core::str::FromStr as _;
 use database_agent_common::types::{
-    DatabaseType, StoredDatabase, StoredInstance, StoredInstanceCreate, StoredInstanceUpdate,
-    StoredUser, VolumeMapping,
+    DatabaseAccess, DatabaseType, StoredDatabase, StoredInstance, StoredInstanceCreate,
+    StoredInstanceUpdate, StoredUser, UserGrant, VolumeMapping,
 };
 use sqlx::{SqlitePool, query, query_scalar};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use uuid::Uuid;
 
 fn parse_type(value: &str) -> anyhow::Result<DatabaseType> {
@@ -303,17 +303,74 @@ pub async fn delete_database(pool: &SqlitePool, database: Uuid) -> anyhow::Resul
     Ok(())
 }
 
+fn parse_access(value: &str) -> anyhow::Result<DatabaseAccess> {
+    DatabaseAccess::from_str(value).map_err(|()| anyhow::anyhow!("invalid access level {value}"))
+}
+
+struct UserRow {
+    uuid: Uuid,
+    uuid_short: i64,
+    instance_uuid: Uuid,
+    username: String,
+    password: String,
+    created: DateTime<Utc>,
+}
+
+impl UserRow {
+    fn into_user(self, grants: &mut HashMap<Uuid, Vec<UserGrant>>) -> StoredUser {
+        StoredUser {
+            grants: grants.remove(&self.uuid).unwrap_or_default(),
+            uuid: self.uuid,
+            uuid_short: self.uuid_short,
+            instance_uuid: self.instance_uuid,
+            username: self.username,
+            password: self.password,
+            created: self.created,
+        }
+    }
+}
+
+async fn instance_grants(
+    pool: &SqlitePool,
+    instance: Uuid,
+) -> anyhow::Result<HashMap<Uuid, Vec<UserGrant>>> {
+    let mut grouped: HashMap<Uuid, Vec<UserGrant>> = HashMap::new();
+
+    for row in query!(
+        r#"SELECT user_grants.user_uuid AS "user_uuid: Uuid",
+               user_grants.database_uuid AS "database_uuid: Uuid", user_grants.access
+           FROM user_grants
+           JOIN users ON users.uuid = user_grants.user_uuid
+           WHERE users.instance_uuid = ?"#,
+        instance
+    )
+    .fetch_all(pool)
+    .await?
+    {
+        grouped.entry(row.user_uuid).or_default().push(UserGrant {
+            database_uuid: row.database_uuid,
+            access: parse_access(&row.access)?,
+        });
+    }
+
+    Ok(grouped)
+}
+
 pub async fn users(pool: &SqlitePool, instance: Uuid) -> anyhow::Result<Vec<StoredUser>> {
+    let mut grants = instance_grants(pool, instance).await?;
+
     Ok(sqlx::query_as!(
-        StoredUser,
+        UserRow,
         r#"SELECT uuid AS "uuid: Uuid", uuid_short, instance_uuid AS "instance_uuid: Uuid",
-               database_uuid AS "database_uuid: Uuid", username, password,
-               created AS "created: DateTime<Utc>"
+               username, password, created AS "created: DateTime<Utc>"
            FROM users WHERE instance_uuid = ? ORDER BY username"#,
         instance
     )
     .fetch_all(pool)
-    .await?)
+    .await?
+    .into_iter()
+    .map(|row| row.into_user(&mut grants))
+    .collect())
 }
 
 pub async fn database_users(
@@ -321,17 +378,11 @@ pub async fn database_users(
     instance: Uuid,
     database: Uuid,
 ) -> anyhow::Result<Vec<StoredUser>> {
-    Ok(sqlx::query_as!(
-        StoredUser,
-        r#"SELECT uuid AS "uuid: Uuid", uuid_short, instance_uuid AS "instance_uuid: Uuid",
-               database_uuid AS "database_uuid: Uuid", username, password,
-               created AS "created: DateTime<Utc>"
-           FROM users WHERE instance_uuid = ? AND database_uuid = ?"#,
-        instance,
-        database
-    )
-    .fetch_all(pool)
-    .await?)
+    Ok(users(pool, instance)
+        .await?
+        .into_iter()
+        .filter(|user| user.access(database).is_some())
+        .collect())
 }
 
 pub async fn user(
@@ -339,25 +390,27 @@ pub async fn user(
     instance: Uuid,
     user: Uuid,
 ) -> anyhow::Result<Option<StoredUser>> {
+    let mut grants = instance_grants(pool, instance).await?;
+
     Ok(sqlx::query_as!(
-        StoredUser,
+        UserRow,
         r#"SELECT uuid AS "uuid: Uuid", uuid_short, instance_uuid AS "instance_uuid: Uuid",
-               database_uuid AS "database_uuid: Uuid", username, password,
-               created AS "created: DateTime<Utc>"
+               username, password, created AS "created: DateTime<Utc>"
            FROM users WHERE instance_uuid = ? AND uuid = ?"#,
         instance,
         user
     )
     .fetch_optional(pool)
-    .await?)
+    .await?
+    .map(|row| row.into_user(&mut grants)))
 }
 
 pub async fn insert_user(
     pool: &SqlitePool,
     instance: Uuid,
-    database: Option<Uuid>,
     username: &str,
     password: &str,
+    grants: &[UserGrant],
 ) -> anyhow::Result<StoredUser> {
     loop {
         let uuid = Uuid::new_v4();
@@ -365,13 +418,11 @@ pub async fn insert_user(
         let created = Utc::now();
 
         let result = query!(
-            "INSERT INTO users (uuid, uuid_short, instance_uuid, database_uuid, username,
-                 password, created)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO users (uuid, uuid_short, instance_uuid, username, password, created)
+             VALUES (?, ?, ?, ?, ?, ?)",
             uuid,
             uuid_short,
             instance,
-            database,
             username,
             password,
             created
@@ -381,11 +432,13 @@ pub async fn insert_user(
 
         match result {
             Ok(_) => {
+                replace_grants(pool, uuid, grants).await?;
+
                 return Ok(StoredUser {
                     uuid,
                     uuid_short,
                     instance_uuid: instance,
-                    database_uuid: database,
+                    grants: grants.to_vec(),
                     username: username.to_owned(),
                     password: password.to_owned(),
                     created,
@@ -395,6 +448,34 @@ pub async fn insert_user(
             Err(err) => return Err(err.into()),
         }
     }
+}
+
+pub async fn replace_grants(
+    pool: &SqlitePool,
+    user: Uuid,
+    grants: &[UserGrant],
+) -> anyhow::Result<()> {
+    let mut tx = pool.begin().await?;
+
+    query!("DELETE FROM user_grants WHERE user_uuid = ?", user)
+        .execute(&mut *tx)
+        .await?;
+
+    for grant in grants {
+        let access = grant.access.as_str();
+        query!(
+            "INSERT INTO user_grants (user_uuid, database_uuid, access) VALUES (?, ?, ?)",
+            user,
+            grant.database_uuid,
+            access
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
+
+    Ok(())
 }
 
 pub async fn set_user_password(
