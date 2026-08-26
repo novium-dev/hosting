@@ -108,10 +108,10 @@ steps:
       - mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
       - echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_ADDRESS" -u "$REGISTRY_USERNAME" --password-stdin
       - docker pull "$IMAGE_BACKEND:latest" || true
-      - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from "$IMAGE_BACKEND:latest" --tag "$IMAGE_BACKEND:${CI_COMMIT_SHA:0:8}" --tag "$IMAGE_BACKEND:latest" --ssh default .
+      - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from "$IMAGE_BACKEND:latest" --tag "$IMAGE_BACKEND:${CI_COMMIT_SHA:0:8}" --tag "$IMAGE_BACKEND:latest" --ssh default --file backend.Dockerfile .
       - docker push "$IMAGE_BACKEND:${CI_COMMIT_SHA:0:8}"
       - docker push "$IMAGE_BACKEND:latest"
-    depends_on: [fmt, clippy, frontend]
+    depends_on: [fmt, clippy]
     when:
       - event: push
         branch: prod
@@ -144,7 +144,34 @@ steps:
       - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from "$IMAGE_DATABASE_AGENT:latest" --tag "$IMAGE_DATABASE_AGENT:${CI_COMMIT_SHA:0:8}" --tag "$IMAGE_DATABASE_AGENT:latest" --ssh default --file database_agent.Dockerfile .
       - docker push "$IMAGE_DATABASE_AGENT:${CI_COMMIT_SHA:0:8}"
       - docker push "$IMAGE_DATABASE_AGENT:latest"
-    depends_on: [fmt, clippy, frontend]
+    depends_on: [fmt, clippy]
+    when:
+      - event: push
+        branch: prod
+      - event: [manual, deployment]
+        branch: dev
+
+  deploy_frontend:
+    image: docker:cli
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      REGISTRY_ADDRESS:
+        from_secret: registry_address
+      REGISTRY_USERNAME:
+        from_secret: registry_username
+      REGISTRY_PASSWORD:
+        from_secret: registry_password
+      IMAGE_FRONTEND:
+        from_secret: image_frontend
+    commands:
+      - echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_ADDRESS" -u "$REGISTRY_USERNAME" --password-stdin
+      - docker pull "$IMAGE_FRONTEND:latest" || true
+      - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from "$IMAGE_FRONTEND:latest" --tag "$IMAGE_FRONTEND:${CI_COMMIT_SHA:0:8}" --tag "$IMAGE_FRONTEND:latest" --file frontend/Dockerfile frontend
+      - docker push "$IMAGE_FRONTEND:${CI_COMMIT_SHA:0:8}"
+      - docker push "$IMAGE_FRONTEND:latest"
+    depends_on: [frontend]
     when:
       - event: push
         branch: prod

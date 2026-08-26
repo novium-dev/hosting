@@ -1,15 +1,4 @@
 # ============================================
-# Frontend build (client-only Vite SPA)
-# ============================================
-FROM oven/bun:1 AS frontend
-WORKDIR /app/frontend
-COPY frontend/package.json frontend/bun.lock* ./
-RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --no-save --frozen-lockfile
-COPY frontend/ ./
-RUN bun run build
-
-# ============================================
 # Backend build
 # ============================================
 FROM lukemathwalker/cargo-chef:latest-rust-1.98.0-alpine AS chef
@@ -51,16 +40,9 @@ FROM scratch AS runtime
 
 STOPSIGNAL SIGINT
 
-EXPOSE 80
+EXPOSE 8080
 
-# The backend serves the client-only SPA from this directory (see backend/src/http.rs).
-ENV BACKEND_FRONTEND_DIR=/frontend
-
-# Copy the binary directly to bin directory (/bin)
 COPY --from=builder /work/target/x86_64-unknown-linux-musl/release/backend /backend
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-
-# Built SPA served same-origin by the backend.
-COPY --from=frontend /app/frontend/dist /frontend
 
 ENTRYPOINT ["/backend"]

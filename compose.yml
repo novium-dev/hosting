@@ -5,7 +5,7 @@ services:
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
       - "/var/lib/docker/containers/:/var/lib/docker/containers/"
-      - "./db/config.toml:/etc/calagopus-db-agent/config.toml"
+      - "./db/config.toml:/data/config.toml"
       - "/var/lib/novium-database-agent/:/var/lib/novium-database-agent/"
       - "/var/log/novium-database-agent/:/var/log/novium-database-agent/"
       - "/run/novium-database-agent/:/run/novium-database-agent/"

@@ -387,7 +387,7 @@ async fn daemon_connection_test<E: FromInternalDaemonUnreachable + FromInternalD
             let mut cert_store = RootCertStore::empty();
             cert_store
                 .add(der.clone())
-                .inspect_err(|err| debug!("Unable to add deamon cert to temp. trust store for connection test: {err:?}"))
+                .inspect_err(|err| debug!("Unable to add daemon cert to temp. trust store for connection test: {err:?}"))
                 .map_err(|_err| <E as FromInternalDaemonKeyInvalid>::from())?;
 
             sdk_builder.with_custom_cert_store(Arc::new(cert_store))

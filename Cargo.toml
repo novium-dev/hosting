@@ -89,7 +89,7 @@ features = ["axum"]
 
 [workspace.dependencies.tower-http]
 version = "0.7.0"
-features = ["cors", "auth", "trace", "fs"]
+features = ["cors", "auth", "trace"]
 
 [workspace.dependencies.zelus]
 git = "https://github.com/0xIO32/zelus.git"
