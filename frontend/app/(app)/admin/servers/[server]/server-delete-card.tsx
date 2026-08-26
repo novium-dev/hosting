@@ -61,7 +61,6 @@ export function ServerDeleteCard({
       toast.success(t("admin-infra:servers.deleteCard.deleteSuccess"));
       setOpen(false);
       router.push("/admin/servers");
-      router.refresh();
     } finally {
       setIsDeleting(false);
     }

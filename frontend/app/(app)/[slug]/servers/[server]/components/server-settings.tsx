@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "@/lib/navigation";
 import { useSettingsDialog } from "@/hooks/use-settings-dialog";
 import {
   Copy,
@@ -56,7 +55,6 @@ export function ServerSettings({
   canCreateBackup,
 }: ServerSettingsProps) {
   const { t } = useTranslation();
-  const router = useRouter();
   const { open: openSettings } = useSettingsDialog();
   const [name, setName] = useState("");
   const [initialName, setInitialName] = useState("");
@@ -152,7 +150,6 @@ export function ServerSettings({
       toast.success(t("servers:settings.toasts.updateSuccess"));
       setInitialName(nextName);
       setName(nextName);
-      router.refresh();
     } finally {
       setIsSaving(false);
     }

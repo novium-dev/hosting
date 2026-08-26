@@ -138,8 +138,8 @@ fmt:
       when: never
     - when: on_success
 
-# Validates the client-only frontend builds (Vite SPA). The build output is
-# baked into the all-in-one image by the `deploy` job's Docker build.
+# Validates the client-only frontend builds (Vite SPA). The image itself is
+# built and published separately by `deploy_frontend`.
 frontend:
   stage: check
   image:
@@ -226,8 +226,8 @@ test:
         path: coverage.xml
     expire_in: 1 week
 
-# Builds the single all-in-one image (backend binary + built frontend SPA,
-# served same-origin by the backend) and publishes it as `:latest`.
+# Builds the backend (control-plane API) image. The SPA is a separate image, see
+# `deploy_frontend`; Traefik puts them on one origin (deploy/compose.yml).
 deploy:
   extends: .docker-deploy-default
   script:
@@ -235,13 +235,26 @@ deploy:
     - eval $(ssh-agent -s)
     - echo "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
     - docker pull $CI_REGISTRY_IMAGE:latest || true
-    - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} --tag $CI_REGISTRY_IMAGE:latest --ssh default .
+    - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8} --tag $CI_REGISTRY_IMAGE:latest --ssh default --file backend.Dockerfile .
     - docker push $CI_REGISTRY_IMAGE:${CI_COMMIT_SHA:0:8}
     - docker push $CI_REGISTRY_IMAGE:latest
 
+# Builds the SPA image (nginx serving the built `dist/`). Needs no SSH: the
+# private git dependencies are Rust-only.
+deploy_frontend:
+  extends: .docker-deploy-default
+  variables:
+    IMAGE: "$CI_REGISTRY_IMAGE/frontend"
+  needs: ["frontend"]
+  script:
+    - docker pull $IMAGE:latest || true
+    - docker build --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from $IMAGE:latest --tag $IMAGE:${CI_COMMIT_SHA:0:8} --tag $IMAGE:latest --file frontend/Dockerfile frontend
+    - docker push $IMAGE:${CI_COMMIT_SHA:0:8}
+    - docker push $IMAGE:latest
+
 # Builds the database agent image. It runs on its own hosts (a database host
 # registered in the admin UI), so it ships as a separate image from the
-# all-in-one backend one above.
+# backend one above.
 deploy_database_agent:
   extends: .docker-deploy-default
   variables:

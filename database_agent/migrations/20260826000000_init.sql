@@ -37,7 +37,6 @@ CREATE TABLE users (
     uuid BLOB PRIMARY KEY NOT NULL,
     uuid_short INTEGER NOT NULL,
     instance_uuid BLOB NOT NULL REFERENCES instances (uuid) ON DELETE CASCADE,
-    database_uuid BLOB REFERENCES databases (uuid) ON DELETE CASCADE,
     username TEXT NOT NULL,
     password TEXT NOT NULL,
     created TEXT NOT NULL
@@ -45,4 +44,12 @@ CREATE TABLE users (
 
 CREATE UNIQUE INDEX users_uuid_short_idx ON users (uuid_short);
 CREATE INDEX users_instance_uuid_idx ON users (instance_uuid);
-CREATE INDEX users_database_uuid_idx ON users (database_uuid);
+
+CREATE TABLE user_grants (
+    user_uuid BLOB NOT NULL REFERENCES users (uuid) ON DELETE CASCADE,
+    database_uuid BLOB NOT NULL REFERENCES databases (uuid) ON DELETE CASCADE,
+    access TEXT NOT NULL,
+    PRIMARY KEY (user_uuid, database_uuid)
+);
+
+CREATE INDEX user_grants_database_uuid_idx ON user_grants (database_uuid);

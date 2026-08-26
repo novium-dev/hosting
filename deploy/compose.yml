@@ -1,0 +1,107 @@
+# Reproduces the routing the backend used to do itself: one origin, `/api/*`
+# goes to the backend, everything else to the SPA.
+#
+#   cp .env.example .env   # fill in DOMAIN, ACME_EMAIL, image tags, secrets
+#   docker compose up -d
+#
+# The backend needs deploy/backend/config.toml (start from
+# ../backend/config.toml.example); `public_url` must be https://${DOMAIN} so
+# the session cookie is issued Secure and the OAuth callback URL matches.
+services:
+  traefik:
+    image: traefik:v3.3
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=novium
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls.certresolver=letsencrypt
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --accesslog=true
+      - --log.level=INFO
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - acme:/acme
+    networks:
+      - novium
+
+  backend:
+    image: ${IMAGE_BACKEND:-novium/backend:latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_started
+    environment:
+      BACKEND_DATA_DIR: /data
+      BACKEND_CURSEFORGE_API_KEY: ${CURSEFORGE_API_KEY:-}
+    volumes:
+      - ./backend/config.toml:/data/config.toml:ro
+      - backend_data:/data
+    labels:
+      - traefik.enable=true
+      # Higher priority than the SPA router so /api/* wins on the same host.
+      - traefik.http.routers.backend.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)
+      - traefik.http.routers.backend.priority=100
+      - traefik.http.routers.backend.entrypoints=websecure
+      - traefik.http.services.backend.loadbalancer.server.port=8080
+    networks:
+      - novium
+
+  frontend:
+    image: ${IMAGE_FRONTEND:-novium/frontend:latest}
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.frontend.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.frontend.priority=1
+      - traefik.http.routers.frontend.entrypoints=websecure
+      - traefik.http.services.frontend.loadbalancer.server.port=8080
+    networks:
+      - novium
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-backend}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-backend}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - novium
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    command: valkey-server --save 60 1 --loglevel warning
+    volumes:
+      - valkey_data:/data
+    networks:
+      - novium
+
+volumes:
+  acme:
+  backend_data:
+  postgres_data:
+  valkey_data:
+
+networks:
+  novium:
+    name: novium

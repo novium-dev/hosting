@@ -19,9 +19,7 @@ control.sock
 .DS_Store
 node_modules/
 
-# React Router
 frontend/.react-router/
-frontend/.svelte-kit/
 build/*
 gen/*
 
@@ -30,7 +28,6 @@ gen/*
 /target
 
 config.toml
-/my-better-t-app
 /frontend/dist
 
 # database_agent compile-time schema database (scripts/dev/database_agent_db.sh)

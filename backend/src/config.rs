@@ -3,7 +3,6 @@ use database_agent_common::types::{DatabaseType, StoredInstanceCreate, VolumeMap
 use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::PathBuf;
 use url::Url;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -16,8 +15,6 @@ pub struct BackendConfig {
     pub auth: AuthConfig,
     pub database_url: String,
     pub cache_url: String,
-    #[serde(default)]
-    pub frontend_dir: Option<PathBuf>,
     #[serde(default)]
     pub skip_template_cache_update: Option<bool>,
     #[serde(default)]
@@ -39,12 +36,6 @@ impl BackendConfig {
         core::iter::once(self.public_url.origin())
             .chain(self.trusted_urls.iter().map(Url::origin))
             .collect()
-    }
-
-    pub fn resolved_frontend_dir(&self) -> Option<PathBuf> {
-        self.frontend_dir
-            .clone()
-            .or_else(|| std::env::var_os("BACKEND_FRONTEND_DIR").map(PathBuf::from))
     }
 
     pub fn should_skip_template_cache_update(&self) -> bool {
