@@ -3,8 +3,6 @@
 mod config;
 mod crypto;
 pub(crate) mod db;
-#[cfg(feature = "embedded_node")]
-mod embedded_node;
 
 mod auth;
 mod http;
@@ -19,8 +17,6 @@ use crate::auth::oauth::AuthService;
 use crate::config::BackendConfig;
 use crate::db::database::BackendDatabaseHost;
 use crate::db::node::BackendNode;
-#[cfg(feature = "embedded_node")]
-use crate::embedded_node::setup_embedded_node;
 use crate::routes::RouteBackends;
 use crate::templates::TemplateInner;
 use crate::templates::games::hytale::HytaleTemplate;
@@ -89,9 +85,6 @@ pub(crate) struct Backend {
 
     pub(crate) modpack_jobs:
         Arc<RwLock<HashMap<crate::db::server::ServerId, crate::service::modpack::ModpackJob>>>,
-
-    #[cfg(feature = "embedded_node")]
-    pub(crate) embedded: daemon::Daemon<daemon::WithUserKey>,
 
     pub(crate) server_task_cancellable: Arc<Mutex<JoinSet<()>>>,
     pub(crate) server_task: Arc<Mutex<JoinSet<()>>>,
@@ -261,17 +254,6 @@ async fn main0() {
         tokio::time::sleep(Duration::from_secs(5)).await;
     };
 
-    #[cfg(feature = "embedded_node")]
-    let embedded = setup_embedded_node(
-        &database,
-        &config,
-        Arc::clone(&root_key),
-        &root_privkey,
-        user_key.clone(),
-    )
-    .await
-    .expect("Unable to setup embedded node");
-
     let curseforge_api_key = config.resources.resolved_curseforge_api_key();
     if curseforge_api_key.is_none() {
         info!("No CurseForge API key configured; the CurseForge provider stays disabled");
@@ -303,9 +285,6 @@ async fn main0() {
 
         templates: Arc::default(),
         modpack_jobs: Arc::default(),
-
-        #[cfg(feature = "embedded_node")]
-        embedded: embedded.clone(),
 
         shutdown_channel: Arc::new(Sender::new(1)),
         server_task: Arc::default(),

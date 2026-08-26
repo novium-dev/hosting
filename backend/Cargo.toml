@@ -7,7 +7,6 @@ publish = false
 [features]
 default = []
 auth_dev = []
-embedded_node = ["daemon"]
 
 [lints]
 workspace = true
@@ -81,12 +80,6 @@ features = ["sdk", "backend", "ssh"]
 [dependencies.zelus]
 workspace = true
 features = ["error", "io", "sqlx", "redis"]
-
-[dependencies.daemon]
-git = "ssh://git@github.com/novium-dev/daemon.git"
-default-features = false
-features = ["btrfs"]
-optional = true
 
 [dependencies.sentry]
 version = "0.49.1"

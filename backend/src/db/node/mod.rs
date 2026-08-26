@@ -66,9 +66,6 @@ pub struct NodeInfo {
 
 impl Backend {
     pub async fn sync_nodes(&self, tx: &mut Transaction<'_, Postgres>) -> Result<(), sqlx::Error> {
-        #[cfg(feature = "embedded_node")]
-        use daemon_common::service::DaemonServices as _;
-
         let mut nodes = HashMap::new();
 
         for node in query!(r#"SELECT id,url,display,maintenance AS "maintenance: bool",region AS "region: RegionId",default_host,default_bind,ssh_host,ssh_port FROM nodes"#)
@@ -116,14 +113,6 @@ impl Backend {
                 .with_user_key(self.user_key.clone())
                 .build());
 
-            #[cfg(feature = "embedded_node")]
-            let services: Arc<dyn DaemonServicesURLWithUserKey + Send + Sync + 'static> = if id == self.embedded.id() {
-                Arc::new(self.embedded.clone())
-            } else {
-                sdk
-            };
-
-            #[cfg(not(feature = "embedded_node"))]
             let services = sdk;
 
             nodes.insert(id, Arc::new(BackendNode {
