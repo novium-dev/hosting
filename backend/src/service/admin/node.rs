@@ -15,10 +15,12 @@ use crate::db::node::{NodePortAllocation, replace_storages};
 use crate::db::region::RegionId;
 use crate::db::server::ports::NetworkProtocol;
 use crate::service::admin::node::node_admin_service_error::{
-    AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodePortError, ListNodesError,
-    MetricsNodeError, UpdateMaintenanceError, UpdateNodeError, UpdateNodeRegionError,
+    AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodePortError,
+    ListNodeRegistrationsError, ListNodesError, MetricsNodeError, UpdateMaintenanceError,
+    UpdateNodeError, UpdateNodeRegionError, UpdateNodeRegistrationError,
 };
 use crate::service::error_os_failure::FromOsFailure;
+use crate::service::internal::REGISTRATION_TIMEOUT;
 use crate::service::*;
 use crate::{Backend, NodeRegistration};
 use daemon_common::node::{
@@ -28,6 +30,7 @@ use url::{Host, Url};
 use utoipa::ToSchema;
 
 define_path_variable!(node_id "The node identifier");
+define_path_variable!(code "The node registration code");
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct NodeInfo {
@@ -58,6 +61,19 @@ pub struct SetupNodeConfigRequest {
 
     pub storages: HashMap<String, ServerStorage>,
     pub backups: HashMap<String, BackupStorage>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct NodeRegistrationInfo {
+    pub(crate) code: String,
+    pub(crate) name: String,
+    pub(crate) region: RegionId,
+    pub(crate) base_url: Url,
+    pub(crate) default_host: String,
+    pub(crate) ssh: Option<SshEndpointRequest>,
+    pub(crate) storages: HashMap<String, ServerStorage>,
+    pub(crate) backups: HashMap<String, BackupStorage>,
+    pub(crate) expires_in: u64,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -214,6 +230,103 @@ pub(crate) impl NodeAdminService for Backend {
                 ports: node.ports.clone(),
             })
             .collect())
+    }
+
+    /// Lists the node registrations that are still waiting for a daemon to set itself up.
+    ///
+    /// Expired registrations are pruned and never returned.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_VIEW`].
+    #[route("/registrations", method = GET)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn list_node_registrations(
+        &self,
+        #[special] auth: Authentication,
+    ) -> Result<Vec<NodeRegistrationInfo>, _> {
+        auth.require::<_, _, ListNodeRegistrationsError>((), ManagementPermissions::NODES_VIEW)?;
+
+        let mut registrations = self.node_registrations.write().await;
+        registrations
+            .retain(|_code, registration| registration.time.elapsed() < REGISTRATION_TIMEOUT);
+
+        Ok(registrations
+            .iter()
+            .map(|(code, registration)| NodeRegistrationInfo {
+                code: code.clone(),
+                name: registration.name.clone(),
+                region: registration.region,
+                base_url: registration.config.base_url.clone(),
+                default_host: registration.default_host.clone(),
+                ssh: registration
+                    .config
+                    .ssh
+                    .as_ref()
+                    .map(|endpoint| SshEndpointRequest {
+                        host: endpoint.host.to_string(),
+                        port: endpoint.port,
+                    }),
+                storages: registration.config.storages.clone(),
+                backups: registration.config.backups.clone(),
+                expires_in: REGISTRATION_TIMEOUT
+                    .saturating_sub(registration.time.elapsed())
+                    .as_secs(),
+            })
+            .collect())
+    }
+
+    /// Replaces the intended config of a node registration that has not been claimed yet.
+    ///
+    /// The setup code and its expiry stay untouched, so a daemon that has not
+    /// pulled its config yet picks up the new one.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
+    #[route("/registrations/{code}", method = PATCH)]
+    #[error(node::{not_found, invalid_host}, auth::{permission_denied, unreachable}, region::not_found <- [sql:not_found], db::failure <- [sql:*])]
+    async fn update_node_registration(
+        &self,
+        #[special] auth: Authentication,
+        code: String,
+        name: String,
+        region: RegionId,
+        config: SetupNodeConfigRequest,
+    ) -> Result<(), _> {
+        auth.require::<_, _, UpdateNodeRegistrationError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        query!(
+            r#"SELECT id AS "id: RegionId" FROM regions WHERE id = $1"#,
+            &region
+        )
+        .fetch_one(&*self.database)
+        .await?;
+
+        let ssh = config
+            .ssh
+            .map(|endpoint| {
+                Ok::<_, UpdateNodeRegistrationError>(HostAndPort {
+                    host: Host::parse(&endpoint.host)
+                        .map_err(|_err| UpdateNodeRegistrationError::NodeInvalidHost)?,
+                    port: endpoint.port,
+                })
+            })
+            .transpose()?;
+
+        self.node_registrations
+            .write()
+            .await
+            .get_mut(&code)
+            .filter(|registration| registration.time.elapsed() < REGISTRATION_TIMEOUT)
+            .map(|registration| {
+                registration.name = name;
+                registration.region = region;
+                registration.default_host = config.default_host;
+                registration.config.base_url = config.base_url;
+                registration.config.ssh = ssh;
+                registration.config.storages = config.storages;
+                registration.config.backups = config.backups;
+            })
+            .ok_or(UpdateNodeRegistrationError::NodeNotFound)
     }
 
     /// Updates maintenance mode for a node.

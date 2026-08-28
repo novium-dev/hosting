@@ -560,6 +560,12 @@ export type UpdateDatabaseInstance = {
     swap?: number | null;
 };
 
+export type UpdateNodeRegistrationPayload = {
+    config: SetupNodeConfigRequest;
+    name: string;
+    region: NanoId;
+};
+
 export type UpdatePortPayload = {
     bind?: string | null;
     external_port?: null | PortRange;
@@ -6087,6 +6093,178 @@ export type UpdateNodeResponses = {
 };
 
 export type UpdateNodeResponse = UpdateNodeResponses[keyof UpdateNodeResponses];
+
+export type ListNodeRegistrationsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/node/registrations';
+};
+
+export type ListNodeRegistrationsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListNodeRegistrationsError = ListNodeRegistrationsErrors[keyof ListNodeRegistrationsErrors];
+
+export type ListNodeRegistrationsResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        backups: {
+            [key: string]: BackupStorage;
+        };
+        base_url: string;
+        code: string;
+        default_host: string;
+        expires_in: number;
+        name: string;
+        region: NanoId;
+        ssh?: null | SshEndpointRequest;
+        storages: {
+            [key: string]: ServerStorage;
+        };
+    }>;
+};
+
+export type ListNodeRegistrationsResponse = ListNodeRegistrationsResponses[keyof ListNodeRegistrationsResponses];
+
+export type UpdateNodeRegistrationData = {
+    body: UpdateNodeRegistrationPayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The node registration code
+         */
+        code: string;
+    };
+    query?: never;
+    url: '/admin/node/registrations/{code}';
+};
+
+export type UpdateNodeRegistrationErrors = {
+    /**
+     * The specified node was not found
+     */
+    '400᠎': {
+        error?: {
+            id?: 'node/not_found';
+            msg?: 'The specified node was not found';
+        };
+    };
+    /**
+     * The specified SSH host is invalid
+     */
+    '400​': {
+        error?: {
+            id?: 'node/invalid_host';
+            msg?: 'The specified SSH host is invalid';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403‌': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified region was not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'region/not_found';
+            msg?: 'The specified region was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‍': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type UpdateNodeRegistrationError = UpdateNodeRegistrationErrors[keyof UpdateNodeRegistrationErrors];
+
+export type UpdateNodeRegistrationResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UpdateNodeRegistrationResponse = UpdateNodeRegistrationResponses[keyof UpdateNodeRegistrationResponses];
 
 export type UpdateMaintenanceData = {
     body: Bool;

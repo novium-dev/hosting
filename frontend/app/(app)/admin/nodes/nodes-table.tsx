@@ -2,7 +2,7 @@
 
 import Link from "@/components/link";
 import { useMemo, useState } from "react";
-import { Network, Search } from "lucide-react";
+import { Clock, Network, Search } from "lucide-react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
@@ -15,10 +15,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { listRegions, type ListNodesResponses } from "@/lib/api";
-import { CreateNodeDialog } from "./create-nodes";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { listNodeRegistrations, listRegions, type ListNodesResponses } from "@/lib/api";
+import {
+  CreateNodeDialog,
+  EditNodeRegistrationDialog,
+  type NodeRegistration,
+} from "./create-nodes";
 
 type NodeRow = ListNodesResponses[200][number];
+
+function formatExpiry(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${minutes}:${String(remaining).padStart(2, "0")}`;
+}
 
 export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
   const { t } = useTranslation();
@@ -29,15 +44,24 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
     return response.error ? [] : (response.data ?? []);
   });
 
+  const { data: registrations, mutate: mutateRegistrations } = useSWR(
+    "admin/node/registrations",
+    async () => {
+      const response = await listNodeRegistrations();
+      return response.error ? [] : (response.data ?? []);
+    },
+    { refreshInterval: 30_000 },
+  );
+
   const regionNames = useMemo(
     () =>
       new Map((regions ?? []).map((region) => [region.id, region.display])),
     [regions],
   );
 
-  const filteredNodes = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+  const normalizedQuery = query.trim().toLowerCase();
 
+  const filteredNodes = useMemo(() => {
     if (!normalizedQuery) {
       return nodes;
     }
@@ -52,7 +76,29 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
           .includes(normalizedQuery)
       );
     });
-  }, [nodes, query, regionNames]);
+  }, [nodes, normalizedQuery, regionNames]);
+
+  const filteredRegistrations = useMemo(() => {
+    const pending: NodeRegistration[] = registrations ?? [];
+
+    if (!normalizedQuery) {
+      return pending;
+    }
+
+    return pending.filter((registration) => {
+      return (
+        registration.name.toLowerCase().includes(normalizedQuery) ||
+        registration.code.toLowerCase().includes(normalizedQuery) ||
+        registration.default_host.toLowerCase().includes(normalizedQuery) ||
+        (regionNames.get(registration.region) ?? "")
+          .toLowerCase()
+          .includes(normalizedQuery)
+      );
+    });
+  }, [registrations, normalizedQuery, regionNames]);
+
+  const isEmpty =
+    filteredNodes.length === 0 && filteredRegistrations.length === 0;
 
   return (
     <div className="space-y-4">
@@ -65,7 +111,10 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
             {t("admin-infra:nodes.table.description")}
           </p>
         </div>
-        <CreateNodeDialog canCreate={true} />
+        <CreateNodeDialog
+          canCreate={true}
+          onCreated={() => void mutateRegistrations()}
+        />
       </div>
 
       <div className="relative w-full max-w-md">
@@ -95,7 +144,7 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredNodes.length === 0 ? (
+            {isEmpty ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
@@ -110,29 +159,72 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredNodes.map((node) => (
-                <TableRow key={node.id}>
-                  <TableCell className="font-medium">{node.display}</TableCell>
-                  <TableCell>
-                    {regionNames.get(node.region) ?? node.region}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{node.id}</TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {node.default_host}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {node.default_bind}
-                  </TableCell>
-                  <TableCell>{node.ports.length}</TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild size="sm" variant="outline">
-                      <Link href={`/admin/nodes/${node.id}`}>
-                        {t("common:resources.manage")}
-                      </Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
+              <>
+                {filteredRegistrations.map((registration) => (
+                  <TableRow key={registration.code} className="bg-muted/20">
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex items-center">
+                              <Clock className="size-4 shrink-0 text-amber-500" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {t("admin-infra:nodes.table.pendingTooltip", {
+                              expires: formatExpiry(registration.expires_in),
+                            })}
+                          </TooltipContent>
+                        </Tooltip>
+                        {registration.name}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {regionNames.get(registration.region) ??
+                        registration.region}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {registration.code}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {registration.default_host}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {t("admin-infra:nodes.table.pendingSetup")}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">—</TableCell>
+                    <TableCell className="text-right">
+                      <EditNodeRegistrationDialog
+                        registration={registration}
+                        onSaved={() => void mutateRegistrations()}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredNodes.map((node) => (
+                  <TableRow key={node.id}>
+                    <TableCell className="font-medium">{node.display}</TableCell>
+                    <TableCell>
+                      {regionNames.get(node.region) ?? node.region}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{node.id}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {node.default_host}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {node.default_bind}
+                    </TableCell>
+                    <TableCell>{node.ports.length}</TableCell>
+                    <TableCell className="text-right">
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={`/admin/nodes/${node.id}`}>
+                          {t("common:resources.manage")}
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </>
             )}
           </TableBody>
         </Table>

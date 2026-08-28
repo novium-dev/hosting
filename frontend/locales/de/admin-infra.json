@@ -173,7 +173,16 @@
       "emptyState": {
         "title": "Keine Nodes gefunden",
         "description": "Suchanfrage anpassen."
-      }
+      },
+      "pendingSetup": "Wartet auf Einrichtung",
+      "pendingTooltip": "Wartet darauf, dass sich der Daemon einrichtet — der Einrichtungscode läuft in {{expires}} ab."
+    },
+    "editDialog": {
+      "trigger": "Einrichtung bearbeiten",
+      "title": "Node-Einrichtung bearbeiten",
+      "description": "Die Konfiguration anpassen, die dieser Node bei der Registrierung mit seinem Einrichtungscode übernimmt.",
+      "updateSuccess": "Node-Einrichtung aktualisiert",
+      "updateError": "Node-Einrichtung konnte nicht aktualisiert werden"
     }
   },
   "servers": {
