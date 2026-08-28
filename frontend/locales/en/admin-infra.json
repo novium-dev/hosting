@@ -211,8 +211,8 @@
       "addressUnavailable": "Address unavailable",
       "idProjectDescription": "ID: {{id}} | Project: {{project}}",
       "suspendedReason": "Suspended: {{reason}}",
-      "viewInHephaestus": "View In Hephaestus",
-      "viewInHephaestusOrgMissing": "View In Hephaestus (Org not found)",
+      "viewInHephaestus": "View In {{appName}}",
+      "viewInHephaestusOrgMissing": "View In {{appName}} (Org not found)",
       "limitsLabel": "Limits",
       "limitsValue": "CPU {{cpu}}, RAM {{ram}}, Disk {{disk}}"
     },

@@ -211,8 +211,8 @@
       "addressUnavailable": "Adresse nicht verfügbar",
       "idProjectDescription": "ID: {{id}} | Projekt: {{project}}",
       "suspendedReason": "Gesperrt: {{reason}}",
-      "viewInHephaestus": "In Hephaestus anzeigen",
-      "viewInHephaestusOrgMissing": "In Hephaestus anzeigen (Organisation nicht gefunden)",
+      "viewInHephaestus": "In {{appName}} anzeigen",
+      "viewInHephaestusOrgMissing": "In {{appName}} anzeigen (Organisation nicht gefunden)",
       "limitsLabel": "Limits",
       "limitsValue": "CPU {{cpu}}, RAM {{ram}}, Speicher {{disk}}"
     },

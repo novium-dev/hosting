@@ -2,12 +2,12 @@
   "globalError": {
     "badge": "Backend unavailable",
     "title": "The API returned an internal error.",
-    "description": "Hephaestus could not complete the request because the backend returned a server error."
+    "description": "{{appName}} could not complete the request because the backend returned a server error."
   },
   "routeError": {
     "eyebrow": "Something went wrong",
     "title": "An unexpected error occurred",
-    "description": "Hephaestus ran into a problem rendering this page. Try reloading, or head back to your dashboard."
+    "description": "{{appName}} ran into a problem rendering this page. Try reloading, or head back to your dashboard."
   },
   "notFound": {
     "eyebrow": "Error 404",

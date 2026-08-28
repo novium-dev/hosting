@@ -6,6 +6,7 @@ import type { TFunction } from "i18next";
 import { Boxes, ExternalLink, Settings2, Wrench } from "lucide-react";
 
 import { NotFoundView } from "@/components/not-found-view";
+import { appConfig } from "@/constants/config";
 import { auth } from "@/lib/auth";
 import { authClient } from "@/lib/auth-client";
 import { serverInfo } from "@/lib/api";
@@ -153,13 +154,18 @@ export default function AdminServerManagementPage() {
                   className="inline-flex items-center gap-2"
                 >
                   <ExternalLink className="size-4" />
-                  {t("admin-infra:servers.detailPage.viewInHephaestus")}
+                  {t("admin-infra:servers.detailPage.viewInHephaestus", {
+                    appName: appConfig.appName,
+                  })}
                 </Link>
               </Button>
             ) : (
               <Button type="button" disabled>
                 <ExternalLink className="size-4" />
-                {t("admin-infra:servers.detailPage.viewInHephaestusOrgMissing")}
+                {t(
+                  "admin-infra:servers.detailPage.viewInHephaestusOrgMissing",
+                  { appName: appConfig.appName },
+                )}
               </Button>
             )}
           </div>

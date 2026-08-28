@@ -4,6 +4,7 @@ import { AlertTriangle, RotateCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { appConfig } from "@/constants/config";
 
 export default function GlobalError({
   reset,
@@ -29,7 +30,9 @@ export default function GlobalError({
               {t("app:globalError.title")}
             </h1>
             <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-              {t("app:globalError.description")}
+              {t("app:globalError.description", {
+                appName: appConfig.appName,
+              })}
             </p>
           </div>
 

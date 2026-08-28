@@ -2,12 +2,12 @@
   "globalError": {
     "badge": "Backend nicht erreichbar",
     "title": "Die API hat einen internen Fehler zurückgegeben.",
-    "description": "Hephaestus konnte die Anfrage nicht abschließen, da das Backend einen Serverfehler zurückgegeben hat."
+    "description": "{{appName}} konnte die Anfrage nicht abschließen, da das Backend einen Serverfehler zurückgegeben hat."
   },
   "routeError": {
     "eyebrow": "Etwas ist schiefgelaufen",
     "title": "Ein unerwarteter Fehler ist aufgetreten",
-    "description": "Hephaestus hatte ein Problem beim Rendern dieser Seite. Lade die Seite neu oder kehre zu deinem Dashboard zurück."
+    "description": "{{appName}} hatte ein Problem beim Rendern dieser Seite. Lade die Seite neu oder kehre zu deinem Dashboard zurück."
   },
   "notFound": {
     "eyebrow": "Fehler 404",

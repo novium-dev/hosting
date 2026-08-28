@@ -1,4 +1,5 @@
 type AppConfig = {
+  appName: string;
   authRoutes: {
     default: string;
     signin: string;
@@ -15,6 +16,7 @@ type AppConfig = {
 };
 
 export const appConfig: AppConfig = {
+  appName: import.meta.env.VITE_APP_NAME || "Hephaestus",
   authRoutes: {
     default: "/",
     signin: "/signin",

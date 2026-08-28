@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import Link from "@/components/link";
 import { Button } from "@/components/ui/button";
 import { ErrorView } from "@/components/error-view";
+import { appConfig } from "@/constants/config";
 
 export function NotFound() {
   const navigate = useNavigate();
@@ -59,7 +60,9 @@ export function RouteErrorBoundary() {
       icon={AlertTriangle}
       eyebrow={t("app:routeError.eyebrow")}
       title={t("app:routeError.title")}
-      description={t("app:routeError.description")}
+      description={t("app:routeError.description", {
+        appName: appConfig.appName,
+      })}
       detail={detail}
       actions={
         <>

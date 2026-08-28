@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NoviumLogo } from "@/components/brand/novium-logo";
+import { appConfig } from "@/constants/config";
 import { NavUserMenu } from "./nav-user-menu";
 import {
   Sidebar,
@@ -128,7 +129,9 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
               <Link href="/admin/users">
                 <NoviumLogo className="size-7 shrink-0" />
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Hephaestus</span>
+                  <span className="truncate font-semibold">
+                    {appConfig.appName}
+                  </span>
                   <span className="truncate text-xs text-muted-foreground">
                     {t("navigation:adminSidebar.subtitle")}
                   </span>
