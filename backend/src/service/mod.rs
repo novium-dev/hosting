@@ -109,6 +109,7 @@ define_error!(route {
 
 define_error!(node {
     not_found("The specified node was not found" BAD_REQUEST),
+    not_empty("Node still has servers assigned" BAD_REQUEST),
     failure("Node operation failed" BAD_GATEWAY),
     invalid_host("The specified SSH host is invalid" BAD_REQUEST),
 });

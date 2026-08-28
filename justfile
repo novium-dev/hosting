@@ -72,10 +72,10 @@ clippy:
 test name="":
     cargo test {{name}} -- --nocapture
 
-# Run the backend (dev auth is routed in debug builds)
+# Run the backend with the dev auth router
 [group('rust')]
 backend *args:
-    cargo run -p backend {{args}}
+    cargo run -p backend --features auth_dev {{args}}
 
 # Run the database agent
 [group('rust')]

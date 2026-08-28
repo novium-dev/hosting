@@ -2,11 +2,22 @@
 
 import Link from "@/components/link";
 import { useMemo, useState } from "react";
-import { Clock, Network, Search } from "lucide-react";
+import { Clock, Network, Search, TimerResetIcon, Trash2Icon } from "lucide-react";
 import useSWR from "swr";
+import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -20,7 +31,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { listNodeRegistrations, listRegions, type ListNodesResponses } from "@/lib/api";
+import {
+  deleteNode,
+  extendNodeRegistration,
+  listNodeRegistrations,
+  listRegions,
+  type ListNodesResponses,
+} from "@/lib/api";
 import {
   CreateNodeDialog,
   EditNodeRegistrationDialog,
@@ -35,9 +52,18 @@ function formatExpiry(seconds: number) {
   return `${minutes}:${String(remaining).padStart(2, "0")}`;
 }
 
-export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
+export function NodesTable({
+  nodes,
+  onChanged,
+}: {
+  nodes: NodeRow[];
+  onChanged: () => void;
+}) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  const [extending, setExtending] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<NodeRow | null>(null);
+  const [isDeletePending, setIsDeletePending] = useState(false);
 
   const { data: regions } = useSWR("admin/regions", async () => {
     const response = await listRegions();
@@ -99,6 +125,49 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
 
   const isEmpty =
     filteredNodes.length === 0 && filteredRegistrations.length === 0;
+
+  const handleExtend = async (code: string) => {
+    setExtending(code);
+    try {
+      const response = await extendNodeRegistration({ path: { code } });
+
+      if (response.error) {
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:nodes.table.extendFailed"),
+        );
+        return;
+      }
+
+      toast.success(t("admin-infra:nodes.table.extended"));
+      await mutateRegistrations();
+    } finally {
+      setExtending(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+
+    setIsDeletePending(true);
+    try {
+      const response = await deleteNode({ path: { node_id: deleting.id } });
+
+      if (response.error) {
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:nodes.deleteDialog.failed"),
+        );
+        return;
+      }
+
+      toast.success(t("admin-infra:nodes.deleteDialog.deleted"));
+      setDeleting(null);
+      onChanged();
+    } finally {
+      setIsDeletePending(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -194,10 +263,27 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
                     </TableCell>
                     <TableCell className="text-muted-foreground">—</TableCell>
                     <TableCell className="text-right">
-                      <EditNodeRegistrationDialog
-                        registration={registration}
-                        onSaved={() => void mutateRegistrations()}
-                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <EditNodeRegistrationDialog
+                          registration={registration}
+                          onSaved={() => void mutateRegistrations()}
+                        />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              loading={extending === registration.code}
+                              onClick={() => void handleExtend(registration.code)}
+                            >
+                              <TimerResetIcon className="size-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {t("admin-infra:nodes.table.extendTooltip")}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -216,11 +302,34 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
                     </TableCell>
                     <TableCell>{node.ports.length}</TableCell>
                     <TableCell className="text-right">
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/admin/nodes/${node.id}`}>
-                          {t("common:resources.manage")}
-                        </Link>
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/admin/nodes/${node.id}`}>
+                            {t("common:resources.manage")}
+                          </Link>
+                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex items-center">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                disabled={node.server_count > 0}
+                                onClick={() => setDeleting(node)}
+                              >
+                                <Trash2Icon className="size-4" />
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {node.server_count > 0
+                              ? t("admin-infra:nodes.deleteDialog.blocked", {
+                                  count: node.server_count,
+                                })
+                              : t("common:actions.delete")}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -229,6 +338,41 @@ export function NodesTable({ nodes }: { nodes: NodeRow[] }) {
           </TableBody>
         </Table>
       </div>
+
+      <AlertDialog
+        open={deleting !== null}
+        onOpenChange={(next) => {
+          if (!next) setDeleting(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("admin-infra:nodes.deleteDialog.title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleting
+                ? t("admin-infra:nodes.deleteDialog.description", {
+                    display: deleting.display,
+                  })
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletePending}>
+              {t("common:actions.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDelete();
+              }}
+            >
+              {t("common:actions.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

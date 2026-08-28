@@ -175,7 +175,10 @@
         "description": "Adjust your search query."
       },
       "pendingSetup": "Awaiting setup",
-      "pendingTooltip": "Waiting for the daemon to set itself up — setup code expires in {{expires}}."
+      "pendingTooltip": "Waiting for the daemon to set itself up — setup code expires in {{expires}}.",
+      "extendTooltip": "Restart the setup code's countdown",
+      "extended": "Setup code extended",
+      "extendFailed": "Failed to extend the setup code"
     },
     "editDialog": {
       "trigger": "Edit setup",
@@ -183,6 +186,14 @@
       "description": "Adjust the config this node picks up when it registers with its setup code.",
       "updateSuccess": "Node setup updated",
       "updateError": "Failed to update node setup"
+    },
+    "deleteDialog": {
+      "title": "Delete node?",
+      "description": "{{display}} and its storage and port allocations are removed. This cannot be undone.",
+      "blocked_one": "Move or delete its {{count}} server first",
+      "blocked_other": "Move or delete its {{count}} servers first",
+      "deleted": "Node deleted",
+      "failed": "Failed to delete the node"
     }
   },
   "servers": {

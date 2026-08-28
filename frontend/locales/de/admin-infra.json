@@ -175,7 +175,10 @@
         "description": "Suchanfrage anpassen."
       },
       "pendingSetup": "Wartet auf Einrichtung",
-      "pendingTooltip": "Wartet darauf, dass sich der Daemon einrichtet — der Einrichtungscode läuft in {{expires}} ab."
+      "pendingTooltip": "Wartet darauf, dass sich der Daemon einrichtet — der Einrichtungscode läuft in {{expires}} ab.",
+      "extendTooltip": "Countdown des Einrichtungscodes neu starten",
+      "extended": "Einrichtungscode verlängert",
+      "extendFailed": "Einrichtungscode konnte nicht verlängert werden"
     },
     "editDialog": {
       "trigger": "Einrichtung bearbeiten",
@@ -183,6 +186,14 @@
       "description": "Die Konfiguration anpassen, die dieser Node bei der Registrierung mit seinem Einrichtungscode übernimmt.",
       "updateSuccess": "Node-Einrichtung aktualisiert",
       "updateError": "Node-Einrichtung konnte nicht aktualisiert werden"
+    },
+    "deleteDialog": {
+      "title": "Node löschen?",
+      "description": "{{display}} und seine Speicher- und Portzuweisungen werden entfernt. Das kann nicht rückgängig gemacht werden.",
+      "blocked_one": "Zuerst den {{count}} Server verschieben oder löschen",
+      "blocked_other": "Zuerst die {{count}} Server verschieben oder löschen",
+      "deleted": "Node gelöscht",
+      "failed": "Node konnte nicht gelöscht werden"
     }
   },
   "servers": {

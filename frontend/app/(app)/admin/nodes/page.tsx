@@ -15,17 +15,20 @@ export default function AdminNodesPage() {
       )
     : false;
 
-  const { data: nodes } = useSWR(canView ? "admin/nodes" : null, async () => {
-    const response = await listNodes();
-    return response.error ? [] : (response.data ?? []);
-  });
+  const { data: nodes, mutate } = useSWR(
+    canView ? "admin/nodes" : null,
+    async () => {
+      const response = await listNodes();
+      return response.error ? [] : (response.data ?? []);
+    },
+  );
 
   if (isLoading) return null;
   if (!canView) return <NotFoundView />;
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <NodesTable nodes={nodes ?? []} />
+      <NodesTable nodes={nodes ?? []} onChanged={() => void mutate()} />
     </div>
   );
 }

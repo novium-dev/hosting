@@ -49,7 +49,7 @@ define_query_variable!(
     node "The node ID"
 );
 
-pub(crate) const REGISTRATION_TIMEOUT: Duration = Duration::from_mins(10);
+pub(crate) const REGISTRATION_TIMEOUT: Duration = Duration::from_hours(1);
 
 #[service(path = "/internal", tag = "internal", no_sdk)]
 pub(crate) impl InternalService for Backend {

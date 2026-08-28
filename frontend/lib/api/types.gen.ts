@@ -5910,6 +5910,7 @@ export type ListNodesResponses = {
         maintenance: boolean;
         ports: Array<NodePortAllocation>;
         region: NanoId;
+        server_count: number;
         server_storages: Array<string>;
         ssh_host?: string | null;
         ssh_port?: number | null;
@@ -6007,6 +6008,92 @@ export type CreateNodeResponses = {
 };
 
 export type CreateNodeResponse = CreateNodeResponses[keyof CreateNodeResponses];
+
+export type DeleteNodeData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The node identifier
+         */
+        node_id: string;
+    };
+    query?: never;
+    url: '/admin/node/{node_id}';
+};
+
+export type DeleteNodeErrors = {
+    /**
+     * The specified node was not found
+     */
+    '400᠎': {
+        error?: {
+            id?: 'node/not_found';
+            msg?: 'The specified node was not found';
+        };
+    };
+    /**
+     * Node still has servers assigned
+     */
+    '400​': {
+        error?: {
+            id?: 'node/not_empty';
+            msg?: 'Node still has servers assigned';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403‌': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‍': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type DeleteNodeError = DeleteNodeErrors[keyof DeleteNodeErrors];
+
+export type DeleteNodeResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteNodeResponse = DeleteNodeResponses[keyof DeleteNodeResponses];
 
 export type UpdateNodeData = {
     body?: never;
@@ -6265,6 +6352,83 @@ export type UpdateNodeRegistrationResponses = {
 };
 
 export type UpdateNodeRegistrationResponse = UpdateNodeRegistrationResponses[keyof UpdateNodeRegistrationResponses];
+
+export type ExtendNodeRegistrationData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The node registration code
+         */
+        code: string;
+    };
+    query?: never;
+    url: '/admin/node/registrations/{code}/extend';
+};
+
+export type ExtendNodeRegistrationErrors = {
+    /**
+     * The specified node was not found
+     */
+    '400᠎': {
+        error?: {
+            id?: 'node/not_found';
+            msg?: 'The specified node was not found';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403​': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‌': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ExtendNodeRegistrationError = ExtendNodeRegistrationErrors[keyof ExtendNodeRegistrationErrors];
+
+export type ExtendNodeRegistrationResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type ExtendNodeRegistrationResponse = ExtendNodeRegistrationResponses[keyof ExtendNodeRegistrationResponses];
 
 export type UpdateMaintenanceData = {
     body: Bool;

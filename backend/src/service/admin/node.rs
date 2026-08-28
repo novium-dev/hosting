@@ -15,9 +15,9 @@ use crate::db::node::{NodePortAllocation, replace_storages};
 use crate::db::region::RegionId;
 use crate::db::server::ports::NetworkProtocol;
 use crate::service::admin::node::node_admin_service_error::{
-    AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodePortError,
-    ListNodeRegistrationsError, ListNodesError, MetricsNodeError, UpdateMaintenanceError,
-    UpdateNodeError, UpdateNodeRegionError, UpdateNodeRegistrationError,
+    AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodeError, DeleteNodePortError,
+    ExtendNodeRegistrationError, ListNodeRegistrationsError, ListNodesError, MetricsNodeError,
+    UpdateMaintenanceError, UpdateNodeError, UpdateNodeRegionError, UpdateNodeRegistrationError,
 };
 use crate::service::error_os_failure::FromOsFailure;
 use crate::service::internal::REGISTRATION_TIMEOUT;
@@ -45,6 +45,7 @@ pub(crate) struct NodeInfo {
     pub(crate) server_storages: Vec<String>,
     pub(crate) backup_storages: Vec<String>,
     pub(crate) ports: Vec<NodePortAllocation>,
+    pub(crate) server_count: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -211,6 +212,15 @@ pub(crate) impl NodeAdminService for Backend {
     #[error(auth::{permission_denied, unreachable}, os::failure, db::failure <- [sql:*])]
     async fn list_nodes(&self, #[special] auth: Authentication) -> Result<Vec<NodeInfo>, _> {
         auth.require::<_, _, ListNodesError>((), ManagementPermissions::NODES_VIEW)?;
+
+        let server_counts: HashMap<Uuid, i64> =
+            query!(r#"SELECT node, COUNT(*) AS "count!" FROM servers GROUP BY node"#)
+                .fetch_all(&*self.database)
+                .await?
+                .into_iter()
+                .map(|row| (row.node, row.count))
+                .collect();
+
         Ok(self
             .nodes
             .read()
@@ -228,6 +238,7 @@ pub(crate) impl NodeAdminService for Backend {
                 server_storages: node.server_storages.clone(),
                 backup_storages: node.backup_storages.clone(),
                 ports: node.ports.clone(),
+                server_count: server_counts.get(&node.id).copied().unwrap_or_default(),
             })
             .collect())
     }
@@ -327,6 +338,70 @@ pub(crate) impl NodeAdminService for Backend {
                 registration.config.backups = config.backups;
             })
             .ok_or(UpdateNodeRegistrationError::NodeNotFound)
+    }
+
+    /// Restarts the expiry countdown of a node registration that has not been
+    /// claimed yet, so the same setup code stays usable.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
+    #[route("/registrations/{code}/extend", method = POST)]
+    #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn extend_node_registration(
+        &self,
+        #[special] auth: Authentication,
+        code: String,
+    ) -> Result<(), _> {
+        auth.require::<_, _, ExtendNodeRegistrationError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        self.node_registrations
+            .write()
+            .await
+            .get_mut(&code)
+            .map(|registration| {
+                registration.time = Instant::now();
+            })
+            .ok_or(ExtendNodeRegistrationError::NodeNotFound)
+    }
+
+    /// Deletes a node. Nodes that still carry servers are rejected.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
+    #[route("/{node_id}", method = DELETE)]
+    #[error(node::{not_found, not_empty <- [sql:foreign_key]}, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn delete_node(&self, #[special] auth: Authentication, node_id: Uuid) -> Result<(), _> {
+        auth.require::<_, _, DeleteNodeError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        if !self.nodes.read().await.contains_key(&node_id) {
+            return Err(DeleteNodeError::NodeNotFound);
+        }
+
+        let mut conn = self.database.acquire().await?;
+        let backend = self.clone();
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let has_servers = query_scalar!(
+                    r#"SELECT (COUNT(*) > 0) AS "exists!" FROM servers WHERE node = $1"#,
+                    node_id
+                )
+                .fetch_one(&mut **tx)
+                .await?;
+
+                if has_servers {
+                    return Err(DeleteNodeError::NodeNotEmpty);
+                }
+
+                query!("DELETE FROM nodes WHERE id = $1", node_id)
+                    .execute(&mut **tx)
+                    .await?;
+
+                backend.sync_nodes(tx).await?;
+
+                Ok::<_, DeleteNodeError>(())
+            })
+        })
+        .await
     }
 
     /// Updates maintenance mode for a node.
