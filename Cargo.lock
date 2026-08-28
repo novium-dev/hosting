@@ -332,7 +332,6 @@ dependencies = [
  "concat-idents",
  "daemon_common",
  "database_agent_common",
- "dotenvy",
  "ed25519-dalek",
  "either",
  "futures",
