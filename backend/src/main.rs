@@ -96,6 +96,9 @@ pub(crate) struct Backend {
 }
 
 pub fn main() {
+    #[cfg(debug_assertions)]
+    let dotenv = dotenvy::dotenv();
+
     let reg = tracing_subscriber::registry()
         .with(tracing_subscriber::filter::LevelFilter::from_level(
             if cfg!(debug_assertions) || env::var("DEBUG").unwrap_or_default().eq("1") {
@@ -128,6 +131,13 @@ pub fn main() {
     };
     #[cfg(debug_assertions)]
     reg.init();
+
+    #[cfg(debug_assertions)]
+    match dotenv {
+        Ok(path) => info!("Loaded environment from {}", path.display()),
+        Err(err) if err.not_found() => {}
+        Err(err) => warn!("Unable to load .env: {err:?}"),
+    }
 
     main0();
 

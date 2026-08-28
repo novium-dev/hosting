@@ -36,12 +36,15 @@ pub(crate) impl AuthService for Backend {
         Ok(auth.serialized())
     }
 
-    /// Logs in as a seeded admin dev user and returns the raw session token.
+    /// Logs in as a seeded admin dev user, attaches the session cookie and
+    /// redirects, mirroring the OAuth callback.
     ///
     /// Only available when the crate is built with the `auth_dev` feature, which is forbidden in release builds.
-    #[route("/login/dev", method = GET, routes = [ dev_auth ])]
-    #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure)]
-    async fn login_dev(&self) -> Result<String, _> {
+    #[route("/login/dev", method = GET, query = [ redirect_url ], routes = [ dev_auth ], raw)]
+    #[error(db::failure <- [sql:*], cache::failure <- [redis:*], os::failure, auth::failure)]
+    async fn login_dev(&self, redirect_url: String) -> Result<WithCookies<Redirect<307>>, _> {
+        let destination = Url::parse(&redirect_url).map_err(|_err| LoginDevError::AuthFailure)?;
+
         let session = Session::generate().map_err(|_err| LoginDevError::OsFailure)?;
         let dev_user = 1i32;
 
@@ -59,7 +62,10 @@ pub(crate) impl AuthService for Backend {
 
         session.apply(self, dev_user).await?;
 
-        Ok(session.to_string())
+        Ok(WithCookies::new(
+            Redirect::new(destination.as_str()),
+            vec![set_session_cookie(self, &session)],
+        ))
     }
 
     /// Initiates the OAuth login process.

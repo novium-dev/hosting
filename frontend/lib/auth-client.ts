@@ -44,6 +44,37 @@ export const authClient = {
       fetchOptions?.onSuccess?.();
       window.location.assign(url.toString());
     },
+
+    // Dev-only shortcut. The route only exists when the backend is built with
+    // the `auth_dev` feature; a missing route resolves to false so the caller
+    // can surface it.
+    dev: async (options: { callbackURL?: string } = {}) => {
+      if (!import.meta.env.DEV) {
+        return false;
+      }
+
+      const redirectUrl = new URL(
+        options.callbackURL ?? "/",
+        window.location.origin,
+      ).toString();
+      const url = new URL(
+        `${apiBaseUrl}/auth/login/dev`,
+        window.location.origin,
+      );
+      url.searchParams.set("redirect_url", redirectUrl);
+
+      const response = await fetch(url, {
+        credentials: "include",
+        redirect: "manual",
+      });
+
+      if (response.type !== "opaqueredirect" && !response.ok) {
+        return false;
+      }
+
+      window.location.assign(redirectUrl);
+      return true;
+    },
   },
 
   signOut: async ({ fetchOptions }: { fetchOptions?: FetchOptions } = {}) => {

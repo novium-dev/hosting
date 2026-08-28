@@ -16,10 +16,13 @@ import { authClient } from "../../lib/auth-client";
 import { appConfig } from "../../constants/config";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
+import { Separator } from "../ui/separator";
+import { TerminalIcon } from "lucide-react";
 
 export default function SimpleAuth() {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  const [isDevLoading, setIsDevLoading] = useState(false);
 
   const handleSignIn = async () => {
     setIsLoading(true);
@@ -39,6 +42,22 @@ export default function SimpleAuth() {
       toast.error(t("state.genericError"));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDevSignIn = async () => {
+    setIsDevLoading(true);
+    try {
+      const started = await authClient.signIn.dev({
+        callbackURL: appConfig.authRoutes.onboarding,
+      });
+      if (!started) {
+        toast.error(t("common:auth.signIn.devUnavailable"));
+      }
+    } catch {
+      toast.error(t("state.genericError"));
+    } finally {
+      setIsDevLoading(false);
     }
   };
 
@@ -74,6 +93,24 @@ export default function SimpleAuth() {
         >
           {t("auth.signIn.submit")}
         </Button>
+
+        {import.meta.env.DEV ? (
+          <div className="space-y-3">
+            <Separator />
+            <Button
+              variant="outline"
+              className="w-full"
+              loading={isDevLoading}
+              icon={<TerminalIcon className="size-4" aria-hidden="true" />}
+              onClick={handleDevSignIn}
+            >
+              {t("common:auth.signIn.devSubmit")}
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              {t("common:auth.signIn.devHint")}
+            </p>
+          </div>
+        ) : null}
       </CardContent>
       <CardFooter className="bg-muted rounded-b-lg p-4">
         <div className="text-xs text-center text-muted-foreground">

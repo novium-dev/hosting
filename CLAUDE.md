@@ -63,9 +63,17 @@ Builds pull two git dependencies over SSH — `novium-dev/daemon` (`daemon`/`dae
 
 - `auth_dev` — enables a dev-only auth router. A `compile_error!` forbids it in release builds.
 
+`GET /api/auth/login/dev?redirect_url=…` seeds an admin user (id 1, `auth_id` `dev`), attaches the session cookie and redirects, exactly like the OAuth callback — so the panel is usable without an OIDC provider:
+
+```bash
+cargo run -p backend --features auth_dev
+```
+
+The sign-in page renders a matching "Sign in as dev admin" button whenever `import.meta.env.DEV` is set (the Vite dev server); production bundles drop the button and the client helper behind it.
+
 ## Configuration
 
-The **backend has no config file** — `BackendConfig::from_env` (`backend/src/config.rs`) builds the whole config from `BACKEND_*` environment variables and fails at startup with the name of the first missing or unparseable one. `backend/.env.example` is the reference. `BACKEND_DATA_DIR` only decides where the generated keys live.
+The **backend has no config file** — `BackendConfig::from_env` (`backend/src/config.rs`) builds the whole config from `BACKEND_*` environment variables and fails at startup with the name of the first missing or unparseable one. `backend/.env.example` is the reference. `BACKEND_DATA_DIR` only decides where the generated keys live. **Debug builds only**, a `.env` found from the working directory upwards is loaded first (`dotenvy`, does not override variables already set); release builds never read one.
 
 Two shapes are worth knowing. A **single OAuth provider** is read from `BACKEND_AUTH_*`, registered under the name in `BACKEND_AUTH_PROVIDER` (default `user`), which is the `{provider}` segment of `/api/auth/login/{provider}` and must match the frontend's `VITE_PROVIDERS`. **Database engine defaults** are built in (`InstanceDefaults::builtin`) rather than configured: image uid/gid, socket path, volumes and command are facts about the engine image, so only `BACKEND_DB_<ENGINE>_IMAGE` and the `_MEMORY`/`_SWAP`/`_DISK`/`_CPU` limits are settable, plus `_ENABLED=false` to withdraw an engine. All four engines are available unless disabled.
 
