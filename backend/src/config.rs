@@ -69,6 +69,13 @@ where
     )
 }
 
+fn role_set_var(key: &str) -> Result<HashSet<String>, anyhow::Error> {
+    Ok(parse_list_var::<String>(key)?
+        .into_iter()
+        .map(|role| role.to_lowercase())
+        .collect())
+}
+
 fn url_var(key: &str) -> Result<Option<Url>, anyhow::Error> {
     parse_var::<Url>(key)
 }
@@ -368,6 +375,8 @@ impl AuthConfig {
             userinfo_url: required_url_var("BACKEND_AUTH_USERINFO_URL")?,
             client_id: ClientId::new(required_var("BACKEND_AUTH_CLIENT_ID")?),
             client_secret: ClientSecret::new(required_var("BACKEND_AUTH_CLIENT_SECRET")?),
+            admin_roles: role_set_var("BACKEND_AUTH_ADMIN_ROLES")?,
+            moderator_roles: role_set_var("BACKEND_AUTH_MODERATOR_ROLES")?,
         };
 
         Ok(Self {
@@ -384,4 +393,6 @@ pub struct OAuthProviderConfig {
     pub userinfo_url: Url,
     pub client_id: ClientId,
     pub client_secret: ClientSecret,
+    pub admin_roles: HashSet<String>,
+    pub moderator_roles: HashSet<String>,
 }

@@ -68,7 +68,7 @@ pub(crate) impl AuthService for Backend {
     async fn login(&self, provider: String, redirect_url: String) -> Result<Redirect<307>, _> {
         let (url, csrf_token, pkce_verifier) = self.auth.generate_url::<LoginError>(
             &provider,
-            ["openid", "profile", "email", "profile"]
+            ["openid", "profile", "email", "roles"]
                 .into_iter()
                 .map(String::from)
                 .map(Scope::new),
@@ -107,8 +107,11 @@ pub(crate) impl AuthService for Backend {
             .auth
             .get_user::<CallbackError>(&flow.provider, &access_token)
             .await?;
+        let role = self
+            .auth
+            .role_for::<CallbackError>(&flow.provider, user.roles.as_deref())?;
         user.sub = format!("{}:{}", flow.provider, user.sub);
-        let user_id = self.get_or_create_user(user).await?;
+        let user_id = self.get_or_create_user(user, role).await?;
 
         let session = Session::generate().map_err(|_err| CallbackError::OsFailure)?;
         session.apply(self, user_id).await?;

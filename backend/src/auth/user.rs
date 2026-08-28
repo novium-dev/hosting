@@ -30,6 +30,7 @@ use serde::{Deserialize, Serialize, Serializer as _};
 use sqlx::query;
 use std::collections::HashMap;
 use tracing::error;
+use url::Url;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
 use utoipa::openapi::schema::SchemaType;
 use utoipa::openapi::{Object, RefOr, Required, ResponsesBuilder, Schema, Type};
@@ -38,6 +39,8 @@ use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
 const DAEMON_PASSWORD_LENGTH: usize = 32;
+
+const AVATAR_BASE_URL: &str = "https://avatar.novium.world/";
 
 pub const SESSION_COOKIE_NAME: &str = "session";
 
@@ -49,6 +52,7 @@ pub struct UserAuthentication {
     permissions: i64,
     role: Role,
     email: String,
+    avatar_url: String,
     first_name: Option<String>,
     last_name: Option<String>,
     projects: HashMap<ProjectId, i64>,
@@ -62,6 +66,7 @@ pub struct SerializedUser {
     pub permissions: i64,
     pub role: Role,
     pub email: String,
+    pub avatar_url: String,
     pub first_name: Option<String>,
     pub last_name: Option<String>,
 }
@@ -94,6 +99,7 @@ impl UserAuthentication {
             permissions: self.permissions,
             role: self.role,
             email: self.email.clone(),
+            avatar_url: self.avatar_url.clone(),
             first_name: self.first_name.clone(),
             last_name: self.last_name.clone(),
         }
@@ -143,7 +149,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .inspect_err(|err| error!("Unable to acquire database connection: {err:?}"))?;
 
         let Some(user) = query!(
-            r#"SELECT username, role AS "role: i32", email, first_name, last_name
+            r#"SELECT username, auth_id, role AS "role: i32", email, first_name, last_name
              FROM users
              WHERE id = $1"#,
             &id
@@ -174,6 +180,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             permissions: effective.permissions,
             role: role.unwrap_or(Role::User),
             email: user.email,
+            avatar_url: avatar_url(&user.auth_id),
             first_name: user.first_name,
             last_name: user.last_name,
             projects: effective.projects,
@@ -385,9 +392,21 @@ impl DocumentedType for UserAuthentication {
     }
 }
 
+pub fn avatar_url(auth_id: &str) -> String {
+    let uuid = auth_id.split_once(':').map_or(auth_id, |(_, sub)| sub);
+
+    Url::parse_with_params(AVATAR_BASE_URL, [("uuid", uuid)])
+        .map_or_else(|_err| AVATAR_BASE_URL.to_owned(), String::from)
+}
+
 impl Backend {
-    pub async fn get_or_create_user(&self, auth_user: AuthUser) -> Result<i32, sqlx::Error> {
+    pub async fn get_or_create_user(
+        &self,
+        auth_user: AuthUser,
+        role: Option<Role>,
+    ) -> Result<i32, sqlx::Error> {
         let daemon_password = generate_daemon_password();
+        let mapped_role = role.map(|role| role as i32);
         let record = query!(
             r#"
     INSERT INTO users
@@ -398,7 +417,8 @@ impl Backend {
         username = EXCLUDED.username,
         email = EXCLUDED.email,
         first_name = EXCLUDED.first_name,
-        last_name = EXCLUDED.last_name
+        last_name = EXCLUDED.last_name,
+        role = COALESCE($8, users.role)
     RETURNING id
     "#,
             auth_user
@@ -406,11 +426,12 @@ impl Backend {
                 .or(auth_user.preferred_username)
                 .unwrap_or_else(|| auth_user.email.clone()),
             auth_user.sub,
-            Role::User as i32,
+            mapped_role.unwrap_or(Role::User as i32),
             auth_user.email,
             auth_user.given_name,
             auth_user.family_name,
-            daemon_password
+            daemon_password,
+            mapped_role
         )
         .fetch_one(&*self.database)
         .await?;
@@ -425,4 +446,21 @@ pub(crate) fn generate_daemon_password() -> String {
         &nanoid::alphabet::SAFE,
         DAEMON_PASSWORD_LENGTH,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::avatar_url;
+
+    #[test]
+    fn builds_the_avatar_url_from_the_provider_subject() {
+        assert_eq!(
+            avatar_url("user:6a7b8c"),
+            "https://avatar.novium.world/?uuid=6a7b8c"
+        );
+        assert_eq!(
+            avatar_url("6a7b8c"),
+            "https://avatar.novium.world/?uuid=6a7b8c"
+        );
+    }
 }

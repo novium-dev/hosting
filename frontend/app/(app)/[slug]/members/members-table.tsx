@@ -11,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -102,6 +102,10 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
                 <TableRow key={member.id}>
                   <TableCell className="flex items-center gap-2">
                     <Avatar className="size-8 rounded-lg">
+                      <AvatarImage
+                        src={member.avatar_url}
+                        alt={member.username || member.email}
+                      />
                       <AvatarFallback className="rounded-lg">
                         {(member.username || member.email)
                           .charAt(0)

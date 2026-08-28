@@ -1,5 +1,6 @@
 pub mod flow;
 
+use crate::auth::permissions::Role;
 use crate::config::{AuthConfig, OAuthProviderConfig};
 use crate::service::error_auth_failure::FromAuthFailure;
 use crate::service::error_auth_invalid::FromAuthInvalid;
@@ -12,7 +13,7 @@ use oauth2::{
 };
 use reqwest::redirect::Policy;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tracing::error;
 use url::Url;
 
@@ -29,6 +30,8 @@ pub(crate) struct AuthService {
 struct OAuthProvider {
     auth_client: OAuthClient,
     userinfo_url: Url,
+    admin_roles: HashSet<String>,
+    moderator_roles: HashSet<String>,
 }
 
 impl AuthService {
@@ -63,7 +66,26 @@ impl OAuthProvider {
                 .set_token_uri(config.token_url.clone())
                 .set_redirect_uri(config.redirect_url.clone()),
             userinfo_url: config.userinfo_url.clone(),
+            admin_roles: config.admin_roles.clone(),
+            moderator_roles: config.moderator_roles.clone(),
         }
+    }
+
+    fn map_role(&self, roles: &[String]) -> Role {
+        let mut mapped = Role::User;
+        for role in roles.iter().map(|role| role.to_lowercase()) {
+            if self.admin_roles.contains(&role) {
+                return Role::Admin;
+            }
+            if self.moderator_roles.contains(&role) {
+                mapped = Role::Moderator;
+            }
+        }
+        mapped
+    }
+
+    fn maps_roles(&self) -> bool {
+        !self.admin_roles.is_empty() || !self.moderator_roles.is_empty()
     }
 }
 
@@ -79,6 +101,8 @@ pub struct AuthUser {
     pub(crate) preferred_username: Option<String>,
     #[serde(default)]
     pub(crate) username: Option<String>,
+    #[serde(default)]
+    pub(crate) roles: Option<Vec<String>>,
 }
 
 impl AuthService {
@@ -110,6 +134,20 @@ impl AuthService {
             })?;
             Ok(user)
         }
+    }
+
+    pub fn role_for<E: FromAuthFailure>(
+        &self,
+        provider: &str,
+        roles: Option<&[String]>,
+    ) -> Result<Option<Role>, E> {
+        let provider = self.provider::<E>(provider)?;
+
+        if !provider.maps_roles() {
+            return Ok(None);
+        }
+
+        Ok(roles.map(|roles| provider.map_role(roles)))
     }
 
     pub fn generate_url<E: FromAuthFailure>(
@@ -154,6 +192,7 @@ impl AuthService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
 
     #[test]
     fn ignores_null_claims_the_backend_does_not_use() {
@@ -165,5 +204,56 @@ mod tests {
         assert_eq!(user.sub, "abc");
         assert_eq!(user.email, "user@example.com");
         assert_eq!(user.given_name, None);
+        assert_eq!(user.roles, None);
+    }
+
+    fn provider(admin: &[&str], moderator: &[&str]) -> OAuthProvider {
+        OAuthProvider::new(&OAuthProviderConfig {
+            auth_url: AuthUrl::new("https://sso.example.com/oidc/auth".to_owned())
+                .expect("valid url"),
+            token_url: TokenUrl::new("https://sso.example.com/oidc/token".to_owned())
+                .expect("valid url"),
+            redirect_url: RedirectUrl::new(
+                "https://panel.example.com/api/auth/callback".to_owned(),
+            )
+            .expect("valid url"),
+            userinfo_url: Url::parse("https://sso.example.com/oidc/me").expect("valid url"),
+            client_id: ClientId::new("client".to_owned()),
+            client_secret: ClientSecret::new("secret".to_owned()),
+            admin_roles: admin.iter().map(|role| (*role).to_owned()).collect(),
+            moderator_roles: moderator.iter().map(|role| (*role).to_owned()).collect(),
+        })
+    }
+
+    #[test]
+    fn maps_the_highest_matching_role() {
+        let provider = provider(&["panel-admin"], &["panel-moderator"]);
+
+        assert_eq!(
+            provider.map_role(&["panel-moderator".to_owned(), "panel-admin".to_owned()]),
+            Role::Admin
+        );
+        assert_eq!(
+            provider.map_role(&["panel-moderator".to_owned()]),
+            Role::Moderator
+        );
+        assert_eq!(
+            provider.map_role(&["something-else".to_owned()]),
+            Role::User
+        );
+        assert_eq!(provider.map_role(&[]), Role::User);
+    }
+
+    #[test]
+    fn matches_role_names_case_insensitively() {
+        let provider = provider(&["panel-admin"], &[]);
+
+        assert_eq!(provider.map_role(&["Panel-Admin".to_owned()]), Role::Admin);
+    }
+
+    #[test]
+    fn leaves_roles_alone_without_a_mapping() {
+        assert!(!provider(&[], &[]).maps_roles());
+        assert!(provider(&[], &["panel-moderator"]).maps_roles());
     }
 }

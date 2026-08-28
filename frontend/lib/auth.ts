@@ -45,7 +45,7 @@ const normalizeUser = (user: MeResponse): AppUser => ({
   id: String(user.id),
   name: user.username,
   email: user.email,
-  image: null,
+  image: user.avatar_url,
   permissions: user.permissions,
   role: user.role.toLowerCase() as AppUser["role"],
 });
@@ -71,7 +71,7 @@ const projectMemberToAuthClientMember = (
     id: String(member.id),
     name: member.username,
     email: member.email,
-    image: null,
+    image: member.avatar_url,
   },
 });
 

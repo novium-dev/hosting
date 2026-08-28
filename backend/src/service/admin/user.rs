@@ -3,6 +3,7 @@ use crate::auth::Authentication;
 use crate::auth::permissions::{
     ManagementPermissions, ProjectPermissions, Role, ServerPermissions,
 };
+use crate::auth::user::avatar_url;
 use crate::db::project::ProjectId;
 use crate::service::admin::user::user_admin_service_error::{
     DeleteUserError, GetUserError, ListUserProjectsError, ListUsersError, UpdateUserError,
@@ -20,6 +21,7 @@ pub(crate) struct AdminUserInfo {
     pub(crate) auth_id: String,
     pub(crate) role: i32,
     pub(crate) email: String,
+    pub(crate) avatar_url: String,
     pub(crate) first_name: Option<String>,
     pub(crate) last_name: Option<String>,
 }
@@ -57,6 +59,7 @@ pub(crate) impl UserAdminService for Backend {
         .map(|user| AdminUserInfo {
             id: user.id,
             username: user.username,
+            avatar_url: avatar_url(&user.auth_id),
             auth_id: user.auth_id,
             role: user.role,
             email: user.email,
@@ -89,6 +92,7 @@ pub(crate) impl UserAdminService for Backend {
         Ok(AdminUserInfo {
             id: user.id,
             username: user.username,
+            avatar_url: avatar_url(&user.auth_id),
             auth_id: user.auth_id,
             role: user.role,
             email: user.email,

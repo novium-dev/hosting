@@ -6675,6 +6675,7 @@ export type ListUsersResponses = {
      */
     200: Array<{
         auth_id: string;
+        avatar_url: string;
         email: string;
         first_name?: string | null;
         id: number;
@@ -6846,6 +6847,7 @@ export type GetUserResponses = {
      */
     200: {
         auth_id: string;
+        avatar_url: string;
         email: string;
         first_name?: string | null;
         id: number;
@@ -7122,6 +7124,7 @@ export type MeResponses = {
      * Success
      */
     200: {
+        avatar_url: string;
         email: string;
         first_name?: string | null;
         id: number;
@@ -8138,6 +8141,7 @@ export type ListProjectUsersResponses = {
      * Success
      */
     200: Array<{
+        avatar_url: string;
         email: string;
         id: number;
         permissions: number;

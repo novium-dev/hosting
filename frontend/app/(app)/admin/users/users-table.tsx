@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import Link from "@/components/link";
 import { getAllUsersAction } from "@/actions/users";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +31,7 @@ type AdminUser = {
   id: number;
   username: string;
   email: string;
+  avatar_url: string;
   role: UserRole;
 };
 
@@ -83,6 +84,7 @@ export function UsersTable() {
         id: item.id,
         username: item.username,
         email: item.email,
+        avatar_url: item.avatar_url,
         role: roleFromValue(item.role),
       })),
     );
@@ -219,6 +221,7 @@ export function UsersTable() {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="size-8">
+                        <AvatarImage src={user.avatar_url} alt={user.username} />
                         <AvatarFallback className="text-xs">
                           {user.username.substring(0, 2).toUpperCase()}
                         </AvatarFallback>

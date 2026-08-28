@@ -2,7 +2,7 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
-use crate::auth::user::UserAuthentication;
+use crate::auth::user::{UserAuthentication, avatar_url};
 use crate::db::feature::ProjectFeature;
 use crate::db::project::ProjectId;
 use crate::service::error_project_not_found::FromProjectNotFound;
@@ -72,6 +72,7 @@ pub(crate) struct ProjectUserInfo {
     pub(crate) id: i32,
     pub(crate) username: String,
     pub(crate) email: String,
+    pub(crate) avatar_url: String,
     pub(crate) permissions: i64,
 }
 
@@ -322,7 +323,8 @@ pub(crate) impl ProjectService for Backend {
             "SELECT
                 users.id,
                 users.username,
-                users.email
+                users.email,
+                users.auth_id
              FROM projects
              JOIN users ON users.id = projects.owner
              WHERE projects.id = $1",
@@ -336,6 +338,7 @@ pub(crate) impl ProjectService for Backend {
                 users.id,
                 users.username,
                 users.email,
+                users.auth_id,
                 project_users.permissions
              FROM project_users
              JOIN users ON users.id = project_users."user"
@@ -351,12 +354,14 @@ pub(crate) impl ProjectService for Backend {
             id: owner.id,
             username: owner.username,
             email: owner.email,
+            avatar_url: avatar_url(&owner.auth_id),
             permissions: ProjectPermissions::all().bits() | ServerPermissions::all().bits(),
         })
         .chain(project_users.into_iter().map(|user| ProjectUserInfo {
             id: user.id,
             username: user.username,
             email: user.email,
+            avatar_url: avatar_url(&user.auth_id),
             permissions: user.permissions,
         }))
         .apply_pagesplit(&mut page)

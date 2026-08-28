@@ -24,7 +24,7 @@ function toSession(user: MeResponse): AppSession {
       id: String(user.id),
       name: user.username,
       email: user.email,
-      image: null,
+      image: user.avatar_url,
       permissions: user.permissions,
       role: user.role.toLowerCase() as AppSession["user"]["role"],
     },
