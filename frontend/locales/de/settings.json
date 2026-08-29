@@ -5,6 +5,14 @@
     "system": "System",
     "light": "Hell",
     "dark": "Dunkel",
+    "console": {
+      "title": "Konsole",
+      "description": "Lege fest, wie die Serverkonsole ihre Ausgabe darstellt.",
+      "enhanced": "Erweitert",
+      "terminal": "Terminal",
+      "enhancedHint": "Zerlegt Logzeilen in Spalten mit Leveln, Filtern und Suche — im Stil des restlichen Panels.",
+      "terminalHint": "Ein rohes xterm-Terminal. Tippe direkt hinein — alles wird an den Serverprozess weitergeleitet."
+    },
     "languageDescription": "Wähle die im Dashboard verwendete Sprache und überschreibe damit die automatisch erkannte."
   },
   "daemonAuth": {

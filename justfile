@@ -75,7 +75,7 @@ test name="":
 # Run the backend with the dev auth router
 [group('rust')]
 backend *args:
-    cargo run -p backend --features auth_dev {{args}}
+    cd backend && cargo run --features auth_dev {{args}}
 
 # Run the database agent
 [group('rust')]
