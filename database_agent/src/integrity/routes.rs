@@ -51,30 +51,26 @@ impl Check for RouteTable {
                         .with_detail("instance", instance.uuid.to_string())
                         .with_detail("engine", kind.as_str().to_owned()),
                     ),
-                    Some(credentials) => {
-                        if credentials.instance.uuid != instance.uuid {
-                            findings.push(
-                                IntegrityFinding::error(
-                                    "A stored user routes to a different instance than the one it \
-                                     belongs to"
-                                        .to_owned(),
-                                )
-                                .with_subject(identifier.to_string())
-                                .with_detail("instance", instance.uuid.to_string())
-                                .with_detail("routed_to", credentials.instance.uuid.to_string()),
-                            );
-                        } else if *credentials.password != *user.password {
-                            findings.push(
-                                IntegrityFinding::error(
-                                    "A stored user routes with a password that no longer matches \
-                                     the store"
-                                        .to_owned(),
-                                )
-                                .with_subject(identifier.to_string())
-                                .with_detail("instance", instance.uuid.to_string()),
-                            );
-                        }
-                    }
+                    Some(credentials) if credentials.instance.uuid != instance.uuid => findings
+                        .push(
+                            IntegrityFinding::error(
+                                "A stored user routes to a different instance than the one it \
+                                 belongs to"
+                                    .to_owned(),
+                            )
+                            .with_subject(identifier.to_string())
+                            .with_detail("instance", instance.uuid.to_string())
+                            .with_detail("routed_to", credentials.instance.uuid.to_string()),
+                        ),
+                    Some(credentials) if *credentials.password != *user.password => findings.push(
+                        IntegrityFinding::error(
+                            "A stored user routes with a password that no longer matches the store"
+                                .to_owned(),
+                        )
+                        .with_subject(identifier.to_string())
+                        .with_detail("instance", instance.uuid.to_string()),
+                    ),
+                    Some(_credentials) => {}
                 }
             }
         }
@@ -120,7 +116,7 @@ impl Check for Subsystems {
                         "The {kind} subsystem is enabled but not listening"
                     ))
                     .with_subject(kind.as_str().to_owned())
-                    .with_detail("port", configured.port.to_string()),
+                    .with_detail("bind", configured.bind.to_string()),
                 );
                 continue;
             }
@@ -140,7 +136,7 @@ impl Check for Subsystems {
                 findings.push(
                     IntegrityFinding::info(format!("The {kind} subsystem is listening"))
                         .with_subject(kind.as_str().to_owned())
-                        .with_detail("port", configured.port.to_string())
+                        .with_detail("bind", configured.bind.to_string())
                         .with_detail("connections", connections.to_string()),
                 );
             }

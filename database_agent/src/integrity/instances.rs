@@ -64,7 +64,8 @@ impl Check for InstanceState {
                 );
             }
 
-            if let Some(error) = instance.backend_auth_error.read().await.clone() {
+            let auth_error = instance.backend_auth_error.read().await.clone();
+            if let Some(error) = auth_error {
                 findings.push(
                     IntegrityFinding::error(format!(
                         "The agent cannot authenticate against this instance: {error}"
@@ -162,16 +163,22 @@ async fn scan_root(
         .await
         .map_err(|err| CheckError::Failed(format!("io error: {err}")))?
     {
+        if !entry
+            .metadata()
+            .await
+            .map_err(|err| CheckError::Failed(format!("io error: {err}")))?
+            .is_dir()
+        {
+            continue;
+        }
+
         let name = entry.file_name().to_string_lossy().into_owned();
         let subject = entry.path().to_string_lossy().into_owned();
 
         let Ok(uuid) = Uuid::from_str(&name) else {
-            if name.ends_with(".db") || name.ends_with(".db-wal") || name.ends_with(".db-shm") {
-                continue;
-            }
             findings.push(
                 IntegrityFinding::warning(format!(
-                    "The {label} root holds an entry that is not named after an instance uuid"
+                    "The {label} root holds a directory that is not named after an instance uuid"
                 ))
                 .with_subject(subject),
             );
