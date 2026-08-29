@@ -2,7 +2,7 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
-use crate::auth::user::{UserAuthentication, avatar_url};
+use crate::auth::user::avatar_url;
 use crate::db::feature::ProjectFeature;
 use crate::db::project::ProjectId;
 use crate::service::error_project_not_found::FromProjectNotFound;
@@ -139,7 +139,7 @@ pub(crate) impl ProjectService for Backend {
     #[error(db::failure <- [sql:*], auth::{unreachable, permission_denied}, project::slug_invalid, user::not_found <- [sql:not_found])]
     async fn create_project(
         &self,
-        #[special] auth: UserAuthentication,
+        #[special] auth: Authentication,
         slug: String,
         name: String,
         owner: Option<i32>,
@@ -153,7 +153,12 @@ pub(crate) impl ProjectService for Backend {
                 .fetch_one(&*self.database)
                 .await?
         } else {
-            auth.id
+            match auth {
+                Authentication::User(user_auth) => user_auth.id,
+                _ => {
+                    return Err(CreateProjectError::UserNotFound);
+                }
+            }
         };
 
         let id = ProjectId::generate();
