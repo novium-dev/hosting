@@ -218,11 +218,46 @@ export function consoleLineToText(line: ConsoleLine, withTimestamp: boolean) {
 /**
  * Splits an incoming websocket chunk into complete lines, returning the
  * trailing partial line so it can be prepended to the next chunk.
+ *
+ * A lone carriage return is a cursor return, not a line break: line editors
+ * such as JLine (which the Minecraft server console uses) repaint their `> `
+ * prompt with one, and progress bars overwrite themselves the same way.
+ * Treating those as newlines would emit a phantom line per repaint, so a bare
+ * `\r` discards the partial line instead. Only CRLF and LF end a line.
  */
 export function splitChunk(pending: string, chunk: string) {
-  const combined = pending + chunk.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const parts = combined.split("\n");
-  const rest = parts.pop() ?? "";
+  const buffer = pending + chunk;
+  const lines: string[] = [];
 
-  return { lines: parts, rest };
+  let current = "";
+
+  for (let index = 0; index < buffer.length; index += 1) {
+    const char = buffer[index];
+
+    if (char === "\n") {
+      lines.push(current);
+      current = "";
+      continue;
+    }
+
+    if (char === "\r") {
+      if (index === buffer.length - 1) {
+        return { lines, rest: `${current}\r` };
+      }
+
+      if (buffer[index + 1] === "\n") {
+        lines.push(current);
+        current = "";
+        index += 1;
+        continue;
+      }
+
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  return { lines, rest: current };
 }

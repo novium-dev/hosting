@@ -263,10 +263,18 @@ export default function LogConsole({ serverId }: { serverId: string }) {
     });
   }, [lines, hiddenLevels, query]);
 
-  const renderedLines =
-    visibleLines.length > MAX_RENDERED_LINES
-      ? visibleLines.slice(visibleLines.length - MAX_RENDERED_LINES)
-      : visibleLines;
+  const renderedLines = useMemo(
+    () =>
+      visibleLines.length > MAX_RENDERED_LINES
+        ? visibleLines.slice(visibleLines.length - MAX_RENDERED_LINES)
+        : visibleLines,
+    [visibleLines],
+  );
+
+  const sourceColumn = useMemo(
+    () => showSource && renderedLines.some((line) => line.source !== null),
+    [showSource, renderedLines],
+  );
 
   const scrollToBottom = useCallback(() => {
     const viewport = viewportRef.current;
@@ -278,7 +286,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
   useEffect(() => {
     if (!pinnedRef.current) return;
     scrollToBottom();
-  }, [visibleLines, wrapLines, showTimestamps, showSource, scrollToBottom]);
+  }, [renderedLines, wrapLines, showTimestamps, sourceColumn, scrollToBottom]);
 
   const handleScroll = useCallback(() => {
     const viewport = viewportRef.current;
@@ -406,24 +414,18 @@ export default function LogConsole({ serverId }: { serverId: string }) {
           </Button>
 
           <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={hiddenLevels.length > 0 ? "secondary" : "ghost"}
-                    size="icon"
-                    className="size-8"
-                    aria-label={t("servers:console.toolbar.levels")}
-                  >
-                    <ListFilter className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>
-                {t("servers:console.toolbar.levels")}
-              </TooltipContent>
-            </Tooltip>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant={hiddenLevels.length > 0 ? "secondary" : "ghost"}
+                size="icon"
+                className="size-8"
+                title={t("servers:console.toolbar.levels")}
+                aria-label={t("servers:console.toolbar.levels")}
+              >
+                <ListFilter className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuLabel>
                 {t("servers:console.toolbar.levels")}
@@ -533,7 +535,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
           ref={viewportRef}
           onScroll={handleScroll}
           className={cn(
-            "h-[28rem] overflow-y-auto bg-muted/30 py-2 text-[13px] leading-relaxed dark:bg-black/30",
+            "h-[26rem] overflow-y-auto bg-muted/30 py-2 text-[13px] leading-relaxed sm:h-[32rem] dark:bg-black/30",
             wrapLines ? "overflow-x-hidden" : "overflow-x-auto",
           )}
           style={{ fontFamily: "var(--font-jetbrains-mono)" }}
@@ -565,7 +567,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
                     !wrapLines && "w-max min-w-full",
                   )}
                 >
-                  {showSource && (
+                  {sourceColumn && (
                     <span
                       className="w-24 shrink-0 truncate text-muted-foreground/70"
                       title={line.source ?? undefined}

@@ -74,6 +74,7 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const { resolvedTheme } = useTheme();
 
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
@@ -170,14 +171,15 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
       return true;
     });
 
+    const panel = panelRef.current;
     const observer = new ResizeObserver(() => {
       try {
         fitAddon.fit();
       } catch {
-        // The container can be measured while hidden; ignore.
+        // The panel can be measured while hidden; ignore.
       }
     });
-    observer.observe(container);
+    if (panel) observer.observe(panel);
 
     return () => {
       observer.disconnect();
@@ -408,7 +410,8 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
       <CardContent>
         <div className="relative">
           <div
-            className="min-h-70 sm:min-h-95 overflow-hidden rounded-md border bg-white/50 p-3 font-mono sm:p-4 dark:bg-black/50"
+            ref={panelRef}
+            className="h-[26rem] overflow-hidden rounded-md border bg-white/50 p-3 font-mono sm:h-[32rem] sm:p-4 dark:bg-black/50"
             onClick={() => terminalRef.current?.focus()}
           >
             <div className="h-full w-full">

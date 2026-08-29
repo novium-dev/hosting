@@ -57,7 +57,7 @@ export function useConsoleSocket({
       const response = await serverTerminal({ path: { server_id: serverId } });
       if (disposed) return;
 
-      const url = response.data;
+      let url = response.data;
       if (response.error || !url) {
         setStatus("failed");
         handlersRef.current.onFail?.();
@@ -68,6 +68,11 @@ export function useConsoleSocket({
         setCanWrite(new URL(url).searchParams.get("write") === "true");
       } catch {
         setCanWrite(false);
+      }
+
+      // if zrl contian localhost:4000 use localhost:4001
+      if (url.includes("wss://localhost:4000")) {
+        url = url.replace("wss://localhost:4000", "ws://localhost:4001");
       }
 
       const socket = new WebSocket(url);
