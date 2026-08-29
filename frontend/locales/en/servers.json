@@ -289,17 +289,9 @@
   "terminal": {
     "title": "Console",
     "connecting": "Connecting terminal...",
-    "commandPlaceholder": "Enter command (e.g. stop, say hello)",
     "sendButton": "Send",
-    "errors": {
-      "connectFailed": "Failed to connect to terminal session.",
-      "createFailed": "Failed to create terminal session.",
-      "socketFailed": "Terminal websocket connection failed.",
-      "disconnected": "[terminal disconnected]",
-      "renderFailed": "Failed to render terminal output.",
-      "initFailed": "Failed to initialize terminal.",
-      "notConnected": "Terminal is not connected."
-    },
+    "typeHint": "Type directly into the terminal — every keystroke is sent to the server process.",
+    "readOnlyHint": "Read-only: you do not have permission to send input to this server.",
     "search": {
       "placeholder": "Search output",
       "previous": "Previous match",
@@ -307,6 +299,58 @@
       "clear": "Clear search",
       "results": "{{index}}/{{count}}",
       "noResults": "0 results"
+    }
+  },
+  "console": {
+    "connecting": "Connecting to the console...",
+    "empty": "Waiting for output...",
+    "noMatches": "No lines match your filter.",
+    "filterPlaceholder": "Filter logs...",
+    "lineCount_one": "{{count}} log",
+    "lineCount_other": "{{count}} logs",
+    "live": "Live",
+    "paused": "Paused",
+    "jumpToLatest": "Jump to latest",
+    "truncated": "Showing the last {{shown}} of {{total}} lines",
+    "copied_one": "Copied {{count}} line",
+    "copied_other": "Copied {{count}} lines",
+    "copyFailed": "Failed to copy console output",
+    "notConnected": "The console is not connected.",
+    "commandPlaceholder": "Type a command and press Enter",
+    "counts": {
+      "errors_one": "{{count}} error",
+      "errors_other": "{{count}} errors",
+      "warns_one": "{{count}} warn",
+      "warns_other": "{{count}} warn"
+    },
+    "status": {
+      "connecting": "Connecting",
+      "open": "Live",
+      "closed": "Disconnected",
+      "failed": "Unavailable"
+    },
+    "system": {
+      "disconnected": "Console disconnected.",
+      "reconnecting": "Console disconnected, reconnecting...",
+      "failed": "Could not open a console session."
+    },
+    "levels": {
+      "error": "Error",
+      "warn": "Warning",
+      "info": "Info",
+      "debug": "Debug",
+      "trace": "Trace"
+    },
+    "toolbar": {
+      "time": "Time",
+      "levels": "Log levels",
+      "copy": "Copy visible lines",
+      "download": "Download log",
+      "more": "More options",
+      "source": "Show source",
+      "wrap": "Wrap long lines",
+      "reconnect": "Reconnect",
+      "clear": "Clear console"
     }
   },
   "variablesEditor": {

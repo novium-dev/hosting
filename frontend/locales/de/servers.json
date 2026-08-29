@@ -289,17 +289,9 @@
   "terminal": {
     "title": "Konsole",
     "connecting": "Terminal wird verbunden...",
-    "commandPlaceholder": "Befehl eingeben (z. B. stop, say hello)",
     "sendButton": "Senden",
-    "errors": {
-      "connectFailed": "Verbindung zur Terminal-Sitzung fehlgeschlagen.",
-      "createFailed": "Terminal-Sitzung konnte nicht erstellt werden.",
-      "socketFailed": "Terminal-WebSocket-Verbindung fehlgeschlagen.",
-      "disconnected": "[Terminal getrennt]",
-      "renderFailed": "Terminal-Ausgabe konnte nicht dargestellt werden.",
-      "initFailed": "Terminal konnte nicht initialisiert werden.",
-      "notConnected": "Terminal ist nicht verbunden."
-    },
+    "typeHint": "Tippe direkt ins Terminal — jeder Tastendruck wird an den Serverprozess gesendet.",
+    "readOnlyHint": "Nur lesen: du hast keine Berechtigung, Eingaben an diesen Server zu senden.",
     "search": {
       "placeholder": "Ausgabe durchsuchen",
       "previous": "Vorheriger Treffer",
@@ -307,6 +299,58 @@
       "clear": "Suche zurücksetzen",
       "results": "{{index}}/{{count}}",
       "noResults": "0 Treffer"
+    }
+  },
+  "console": {
+    "connecting": "Verbinde mit der Konsole...",
+    "empty": "Warte auf Ausgabe...",
+    "noMatches": "Keine Zeilen entsprechen dem Filter.",
+    "filterPlaceholder": "Logs filtern...",
+    "lineCount_one": "{{count}} Log",
+    "lineCount_other": "{{count}} Logs",
+    "live": "Live",
+    "paused": "Pausiert",
+    "jumpToLatest": "Zum Ende springen",
+    "truncated": "Zeige die letzten {{shown}} von {{total}} Zeilen",
+    "copied_one": "{{count}} Zeile kopiert",
+    "copied_other": "{{count}} Zeilen kopiert",
+    "copyFailed": "Konsolenausgabe konnte nicht kopiert werden",
+    "notConnected": "Die Konsole ist nicht verbunden.",
+    "commandPlaceholder": "Befehl eingeben und Enter drücken",
+    "counts": {
+      "errors_one": "{{count}} Fehler",
+      "errors_other": "{{count}} Fehler",
+      "warns_one": "{{count}} Warnung",
+      "warns_other": "{{count}} Warnungen"
+    },
+    "status": {
+      "connecting": "Verbinde",
+      "open": "Live",
+      "closed": "Getrennt",
+      "failed": "Nicht verfügbar"
+    },
+    "system": {
+      "disconnected": "Konsole getrennt.",
+      "reconnecting": "Konsole getrennt, verbinde neu...",
+      "failed": "Konsolensitzung konnte nicht geöffnet werden."
+    },
+    "levels": {
+      "error": "Fehler",
+      "warn": "Warnung",
+      "info": "Info",
+      "debug": "Debug",
+      "trace": "Trace"
+    },
+    "toolbar": {
+      "time": "Zeit",
+      "levels": "Log-Level",
+      "copy": "Sichtbare Zeilen kopieren",
+      "download": "Log herunterladen",
+      "more": "Weitere Optionen",
+      "source": "Quelle anzeigen",
+      "wrap": "Lange Zeilen umbrechen",
+      "reconnect": "Neu verbinden",
+      "clear": "Konsole leeren"
     }
   },
   "variablesEditor": {

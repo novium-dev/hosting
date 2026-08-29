@@ -5,6 +5,14 @@
     "system": "System",
     "light": "Light",
     "dark": "Dark",
+    "console": {
+      "title": "Console",
+      "description": "Pick how the server console renders its output.",
+      "enhanced": "Enhanced",
+      "terminal": "Terminal",
+      "enhancedHint": "Parses log lines into columns with levels, filtering and search, styled like the rest of the panel.",
+      "terminalHint": "A raw xterm terminal. Type directly into it — everything you type is forwarded to the server process."
+    },
     "languageDescription": "Choose the language used across the dashboard, overriding what was detected automatically."
   },
   "daemonAuth": {
