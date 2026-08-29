@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod identifier;
+pub mod integrity;
 #[cfg(feature = "sdk")]
 pub mod sdk;
 #[cfg(feature = "service")]

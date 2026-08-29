@@ -1,5 +1,8 @@
 use crate::service::database::{DatabaseService, DatabaseServiceClientImpl, DatabaseServiceURL};
 use crate::service::instance::{InstanceService, InstanceServiceClientImpl, InstanceServiceURL};
+use crate::service::integrity::{
+    IntegrityService, IntegrityServiceClientImpl, IntegrityServiceURL,
+};
 use crate::service::system::{SystemService, SystemServiceClientImpl, SystemServiceURL};
 use crate::service::user::{UserService, UserServiceClientImpl, UserServiceURL};
 
@@ -13,6 +16,7 @@ pub use zelus::types::DataStream;
 
 pub mod database;
 pub mod instance;
+pub mod integrity;
 pub mod system;
 pub mod user;
 
@@ -60,7 +64,7 @@ define_query_variable!(wipe "Whether the target is wiped before the import");
 error!(BlankError, auth::invalid);
 
 pub trait DatabaseAgentServices:
-    InstanceService + DatabaseService + UserService + SystemService
+    InstanceService + DatabaseService + UserService + SystemService + IntegrityService
 {
 }
 
@@ -69,10 +73,16 @@ pub trait DatabaseAgentServicesClientImpl:
     + DatabaseServiceClientImpl
     + UserServiceClientImpl
     + SystemServiceClientImpl
+    + IntegrityServiceClientImpl
 {
 }
 
 pub trait DatabaseAgentServicesURL:
-    DatabaseAgentServices + InstanceServiceURL + DatabaseServiceURL + UserServiceURL + SystemServiceURL
+    DatabaseAgentServices
+    + InstanceServiceURL
+    + DatabaseServiceURL
+    + UserServiceURL
+    + SystemServiceURL
+    + IntegrityServiceURL
 {
 }

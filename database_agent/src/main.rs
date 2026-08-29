@@ -1,5 +1,6 @@
 mod config;
 mod instance;
+mod integrity;
 mod service;
 mod state;
 mod store;

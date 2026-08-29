@@ -1,5 +1,6 @@
 mod database;
 mod instance;
+mod integrity;
 mod system;
 mod user;
 
@@ -18,6 +19,7 @@ use database_agent_common::service::error_instance_failure::FromInstanceFailure;
 use database_agent_common::service::error_store_failure::FromStoreFailure;
 use database_agent_common::service::error_user_failure::FromUserFailure;
 use database_agent_common::service::instance::InstanceService;
+use database_agent_common::service::integrity::IntegrityService;
 use database_agent_common::service::system::SystemService;
 use database_agent_common::service::user::UserService;
 use database_agent_common::service::{BlankError, framework_router};
@@ -100,7 +102,7 @@ impl Agent {
         struct ApiDoc;
 
         let (authenticated, public) = framework_router!(Self self (with_auth,without_auth,) {
-            InstanceService, DatabaseService, UserService, SystemService
+            InstanceService, DatabaseService, UserService, SystemService, IntegrityService
         });
 
         let agent = self.clone();
