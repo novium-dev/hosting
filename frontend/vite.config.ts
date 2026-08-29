@@ -10,10 +10,6 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const apiTarget = env.VITE_DEV_API_URL ?? "http://localhost:8080";
 
-  // Fall back to a default app name so `%VITE_APP_NAME%` in index.html
-  // always resolves, even when the variable isn't set for this build.
-  process.env.VITE_APP_NAME = env.VITE_APP_NAME || "Hephaestus";
-
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
