@@ -55,7 +55,7 @@ pub(crate) async fn dump(pool: &PgPool) -> Result<IntegritySchema, sqlx::Error> 
          FROM pg_constraint con
          JOIN pg_class c ON c.oid = con.conrelid
          JOIN pg_namespace n ON n.oid = c.relnamespace
-         WHERE n.nspname = 'public'
+         WHERE n.nspname = 'public' AND con.contype <> 'n'
          ORDER BY c.relname, con.conname",
     )
     .fetch_all(pool)

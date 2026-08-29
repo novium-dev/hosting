@@ -19,6 +19,7 @@ const sectionTitleKeys: Record<string, string> = {
   templates: "common:nav.templates",
   regions: "common:nav.regions",
   nodes: "common:nav.nodes",
+  integrity: "admin-integrity:title",
 };
 
 export default function AdminLayout() {

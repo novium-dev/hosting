@@ -1,0 +1,54 @@
+{
+  "title": "Integrity",
+  "description": "Runs every consistency check this instance knows about against the backend, its nodes and its database hosts, and reports what no longer lines up.",
+  "empty": "No integrity run has been made yet. Start one to see what this instance looks like.",
+  "run": {
+    "start": "Run checks",
+    "running": "Running...",
+    "deep": "Include deep checks",
+    "started": "Integrity run started",
+    "failed": "The integrity run could not be started"
+  },
+  "filter": {
+    "onlyProblems": "Only problems"
+  },
+  "tabs": {
+    "checks": "Checks",
+    "schema": "Schema"
+  },
+  "overall": {
+    "ok": "Everything checked out",
+    "info": "Everything checked out",
+    "warning": "Some checks need attention",
+    "error": "Some checks failed",
+    "counts": "{{errors}} errors, {{warnings}} warnings",
+    "finished": "Finished {{time}}"
+  },
+  "severity": {
+    "ok": "OK",
+    "info": "OK",
+    "warning": "Warning",
+    "error": "Error"
+  },
+  "sources": {
+    "backend": "Backend",
+    "node": "Node {{name}}",
+    "databaseHost": "Database host {{name}}"
+  },
+  "check": {
+    "deep": "Deep",
+    "skipped": "Skipped",
+    "clean": "Nothing to report.",
+    "duration": "{{ms}} ms",
+    "findings_one": "{{count}} finding",
+    "findings_other": "{{count}} findings"
+  },
+  "report": {
+    "noProblems": "No check on this source reported a problem.",
+    "noChecks": "This source did not report any check."
+  },
+  "schema": {
+    "tables_one": "{{count}} table",
+    "tables_other": "{{count}} tables"
+  }
+}

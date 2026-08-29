@@ -41,6 +41,7 @@ export const ManagementPermission = {
   DOMAINS_MANAGE: 2 ** 49,
   DATABASE_HOSTS_VIEW: 2 ** 50,
   DATABASE_HOSTS_MANAGE: 2 ** 51,
+  INTEGRITY_VIEW: 2 ** 52,
 } as const;
 
 const serverDependencyMap = [
@@ -285,6 +286,15 @@ export const MANAGEMENT_PERMISSION_GROUPS: {
       {
         bit: ManagementPermission.DATABASE_HOSTS_MANAGE,
         label: "Manage database hosts & instances",
+      },
+    ],
+  },
+  {
+    group: "Diagnostics",
+    permissions: [
+      {
+        bit: ManagementPermission.INTEGRITY_VIEW,
+        label: "Run integrity checks",
       },
     ],
   },

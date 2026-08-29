@@ -10,6 +10,7 @@ import enServers from "@/locales/en/servers.json";
 import enServersManagement from "@/locales/en/servers-management.json";
 import enAdminCore from "@/locales/en/admin-core.json";
 import enAdminInfra from "@/locales/en/admin-infra.json";
+import enAdminIntegrity from "@/locales/en/admin-integrity.json";
 import deCommon from "@/locales/de/common.json";
 import deApp from "@/locales/de/app.json";
 import deOrg from "@/locales/de/org.json";
@@ -19,6 +20,7 @@ import deServers from "@/locales/de/servers.json";
 import deServersManagement from "@/locales/de/servers-management.json";
 import deAdminCore from "@/locales/de/admin-core.json";
 import deAdminInfra from "@/locales/de/admin-infra.json";
+import deAdminIntegrity from "@/locales/de/admin-integrity.json";
 
 export const defaultNamespace = "common";
 export const namespaces = [
@@ -31,6 +33,7 @@ export const namespaces = [
   "servers-management",
   "admin-core",
   "admin-infra",
+  "admin-integrity",
 ] as const;
 export const supportedLanguages = ["en", "de"] as const;
 export type SupportedLanguage = (typeof supportedLanguages)[number];
@@ -50,6 +53,7 @@ void i18next
         "servers-management": enServersManagement,
         "admin-core": enAdminCore,
         "admin-infra": enAdminInfra,
+        "admin-integrity": enAdminIntegrity,
       },
       de: {
         common: deCommon,
@@ -61,6 +65,7 @@ void i18next
         "servers-management": deServersManagement,
         "admin-core": deAdminCore,
         "admin-infra": deAdminInfra,
+        "admin-integrity": deAdminIntegrity,
       },
     },
     fallbackLng: "en",

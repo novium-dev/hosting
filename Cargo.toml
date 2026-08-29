@@ -5,6 +5,9 @@ resolver = "3"
 [patch.crates-io]
 reqwest.git = "https://github.com/0xIO32/reqwest.git"
 
+[patch."ssh://git@github.com/novium-dev/daemon.git"]
+daemon_common = { path = "../daemon/daemon_common" }
+
 [workspace.dependencies]
 anyhow = "1.0"
 arrayvec = "0.7.8"
