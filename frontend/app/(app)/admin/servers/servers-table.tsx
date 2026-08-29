@@ -1,9 +1,12 @@
 "use client";
 
-import Link from "@/components/link";
 import { useMemo, useState } from "react";
 import { Plus, Search, Server } from "lucide-react";
 import { useTranslation } from "react-i18next";
+
+import Link from "@/components/link";
+import { SortableTableHead } from "@/components/sortable-table-head";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -13,13 +16,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTableSort } from "@/hooks/use-table-sort";
 import type { ListServersResponses } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
+import {
+  hasManagementPermission,
+  ManagementPermission,
+} from "@/lib/permissions";
 
 type ServerRow = ListServersResponses[200][number];
 
+type ServerColumn = "name" | "template" | "node" | "project";
+
 export function ServersTable({ servers }: { servers: ServerRow[] }) {
   const { t } = useTranslation(["admin-infra", "common"]);
+  const { data: session } = authClient.useSession();
   const [query, setQuery] = useState("");
+
+  const canViewNodes = session
+    ? hasManagementPermission(
+        session.user.permissions,
+        ManagementPermission.NODES_VIEW,
+      )
+    : false;
 
   const filteredServers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -33,18 +52,35 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
         server.name.toLowerCase().includes(normalizedQuery) ||
         server.id.toLowerCase().includes(normalizedQuery) ||
         server.node.toLowerCase().includes(normalizedQuery) ||
-        server.project.toLowerCase().includes(normalizedQuery)
+        server.template.toLowerCase().includes(normalizedQuery) ||
+        server.project.toLowerCase().includes(normalizedQuery) ||
+        server.project_name.toLowerCase().includes(normalizedQuery) ||
+        server.project_slug.toLowerCase().includes(normalizedQuery)
       );
     });
   }, [query, servers]);
+
+  const accessors = useMemo(
+    () => ({
+      name: (server: ServerRow) => server.name,
+      template: (server: ServerRow) => server.template,
+      node: (server: ServerRow) => server.node,
+      project: (server: ServerRow) => server.project_name,
+    }),
+    [],
+  );
+
+  const { rows, sort, toggle } = useTableSort<ServerRow, ServerColumn>(
+    filteredServers,
+    accessors,
+    { column: "name", direction: "asc" },
+  );
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">
-            {t("common:nav.servers")}
-          </h1>
+          <h1 className="text-xl font-semibold">{t("common:nav.servers")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("admin-infra:servers.table.description")}
           </p>
@@ -75,19 +111,25 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>{t("common:labels.name")}</TableHead>
-              <TableHead>{t("common:labels.id")}</TableHead>
-              <TableHead>{t("admin-infra:servers.table.columns.node")}</TableHead>
-              <TableHead>
-                {t("admin-infra:servers.table.columns.projectId")}
-              </TableHead>
+              <SortableTableHead column="name" sort={sort} onSort={toggle}>
+                {t("common:labels.name")}
+              </SortableTableHead>
+              <SortableTableHead column="template" sort={sort} onSort={toggle}>
+                {t("common:labels.template")}
+              </SortableTableHead>
+              <SortableTableHead column="node" sort={sort} onSort={toggle}>
+                {t("admin-infra:servers.table.columns.node")}
+              </SortableTableHead>
+              <SortableTableHead column="project" sort={sort} onSort={toggle}>
+                {t("common:labels.project")}
+              </SortableTableHead>
               <TableHead className="text-right">
                 {t("common:resources.manage")}
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredServers.length === 0 ? (
+            {rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-32">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
@@ -102,17 +144,46 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredServers.map((server) => (
+              rows.map((server) => (
                 <TableRow key={server.id}>
-                  <TableCell className="font-medium">{server.name}</TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {server.id}
+                  <TableCell>
+                    <Link
+                      href={`/admin/servers/${server.id}`}
+                      className="font-medium hover:underline"
+                    >
+                      {server.name}
+                    </Link>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {server.id}
+                    </div>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {server.node}
+                  <TableCell>
+                    <Badge variant="secondary" className="font-normal">
+                      {server.template}
+                    </Badge>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {server.project}
+                  <TableCell>
+                    {canViewNodes ? (
+                      <Link
+                        href={`/admin/nodes/${server.node_id}`}
+                        className="hover:underline"
+                      >
+                        {server.node}
+                      </Link>
+                    ) : (
+                      server.node
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/${server.project_slug}`}
+                      className="hover:underline"
+                    >
+                      {server.project_name}
+                    </Link>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {server.project_slug}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <Button asChild size="sm" variant="outline">

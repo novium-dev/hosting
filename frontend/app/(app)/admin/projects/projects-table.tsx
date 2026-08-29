@@ -6,6 +6,7 @@ import { FlaskConical, FolderKanban, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
+import { SortableTableHead } from "@/components/sortable-table-head";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,6 +27,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTableSort } from "@/hooks/use-table-sort";
+import { authClient } from "@/lib/auth-client";
+import {
+  hasManagementPermission,
+  ManagementPermission,
+} from "@/lib/permissions";
 import {
   setProjectFeatures,
   type ListProjectFeaturesResponses,
@@ -35,6 +42,8 @@ import {
 
 type ProjectRow = ListProjectsResponses[200][number];
 type FeatureRow = ListProjectFeaturesResponses[200][number];
+
+type ProjectColumn = "name" | "slug" | "owner" | "servers";
 
 export function ProjectsTable({
   projects,
@@ -48,8 +57,16 @@ export function ProjectsTable({
   onChanged: () => void;
 }) {
   const { t } = useTranslation();
+  const { data: session } = authClient.useSession();
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<ProjectRow | null>(null);
+
+  const canViewUsers = session
+    ? hasManagementPermission(
+        session.user.permissions,
+        ManagementPermission.USER_VIEW,
+      )
+    : false;
 
   const featureNames = useMemo(
     () => new Map(features.map((feature) => [feature.id, feature.display])),
@@ -66,11 +83,28 @@ export function ProjectsTable({
     return projects.filter((project) => {
       return (
         project.name.toLowerCase().includes(normalizedQuery) ||
+        project.id.toLowerCase().includes(normalizedQuery) ||
         project.slug.toLowerCase().includes(normalizedQuery) ||
         project.owner_username.toLowerCase().includes(normalizedQuery)
       );
     });
   }, [projects, query]);
+
+  const accessors = useMemo(
+    () => ({
+      name: (project: ProjectRow) => project.name,
+      slug: (project: ProjectRow) => project.slug,
+      owner: (project: ProjectRow) => project.owner_username,
+      servers: (project: ProjectRow) => project.server_count,
+    }),
+    [],
+  );
+
+  const { rows, sort, toggle } = useTableSort<ProjectRow, ProjectColumn>(
+    filteredProjects,
+    accessors,
+    { column: "name", direction: "asc" },
+  );
 
   return (
     <div className="space-y-4">
@@ -98,20 +132,31 @@ export function ProjectsTable({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>{t("common:labels.name")}</TableHead>
-              <TableHead>{t("admin-core:shared.slugColumn")}</TableHead>
-              <TableHead>{t("common:labels.owner")}</TableHead>
+              <SortableTableHead column="name" sort={sort} onSort={toggle}>
+                {t("common:labels.name")}
+              </SortableTableHead>
+              <SortableTableHead column="slug" sort={sort} onSort={toggle}>
+                {t("admin-core:shared.slugColumn")}
+              </SortableTableHead>
+              <SortableTableHead column="owner" sort={sort} onSort={toggle}>
+                {t("common:labels.owner")}
+              </SortableTableHead>
               <TableHead>{t("admin-core:projects.table.features")}</TableHead>
-              <TableHead className="text-right">
+              <SortableTableHead
+                column="servers"
+                sort={sort}
+                onSort={toggle}
+                align="right"
+              >
                 {t("common:nav.servers")}
-              </TableHead>
+              </SortableTableHead>
               <TableHead className="text-right">
                 {t("common:resources.manage")}
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProjects.length === 0 ? (
+            {rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
@@ -126,11 +171,34 @@ export function ProjectsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              filteredProjects.map((project) => (
+              rows.map((project) => (
                 <TableRow key={project.id}>
-                  <TableCell className="font-medium">{project.name}</TableCell>
-                  <TableCell>{project.slug}</TableCell>
-                  <TableCell>{project.owner_username}</TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/${project.slug}`}
+                      className="font-medium hover:underline"
+                    >
+                      {project.name}
+                    </Link>
+                    <div className="font-mono text-xs text-muted-foreground">
+                      {project.id}
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {project.slug}
+                  </TableCell>
+                  <TableCell>
+                    {canViewUsers ? (
+                      <Link
+                        href={`/admin/users/${project.owner}`}
+                        className="hover:underline"
+                      >
+                        {project.owner_username}
+                      </Link>
+                    ) : (
+                      project.owner_username
+                    )}
+                  </TableCell>
                   <TableCell>
                     {project.features.length === 0 ? (
                       <span className="text-xs text-muted-foreground">--</span>

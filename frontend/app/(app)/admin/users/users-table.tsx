@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import Link from "@/components/link";
 import { getAllUsersAction } from "@/actions/users";
+import { SortableTableHead } from "@/components/sortable-table-head";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTableSort } from "@/hooks/use-table-sort";
 
 type UserRole = "admin" | "moderator" | "user";
 
@@ -33,6 +35,14 @@ type AdminUser = {
   email: string;
   avatar_url: string;
   role: UserRole;
+};
+
+type UserColumn = "username" | "email" | "role";
+
+const roleRank: Record<UserRole, number> = {
+  user: 0,
+  moderator: 1,
+  admin: 2,
 };
 
 function roleFromValue(role: number): UserRole {
@@ -107,6 +117,21 @@ export function UsersTable() {
     });
   }, [users, query, role]);
 
+  const accessors = useMemo(
+    () => ({
+      username: (user: AdminUser) => user.username,
+      email: (user: AdminUser) => user.email,
+      role: (user: AdminUser) => roleRank[user.role],
+    }),
+    [],
+  );
+
+  const { rows, sort, toggle } = useTableSort<AdminUser, UserColumn>(
+    filtered,
+    accessors,
+    { column: "username", direction: "asc" },
+  );
+
   const controls = (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative">
@@ -175,9 +200,15 @@ export function UsersTable() {
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>{t("common:roles.user")}</TableHead>
-              <TableHead>{t("common:labels.email")}</TableHead>
-              <TableHead>{t("common:labels.role")}</TableHead>
+              <SortableTableHead column="username" sort={sort} onSort={toggle}>
+                {t("common:roles.user")}
+              </SortableTableHead>
+              <SortableTableHead column="email" sort={sort} onSort={toggle}>
+                {t("common:labels.email")}
+              </SortableTableHead>
+              <SortableTableHead column="role" sort={sort} onSort={toggle}>
+                {t("common:labels.role")}
+              </SortableTableHead>
               <TableHead className="text-right">
                 {t("common:resources.manage")}
               </TableHead>
@@ -204,7 +235,7 @@ export function UsersTable() {
                   </TableCell>
                 </TableRow>
               ))
-            ) : filtered.length === 0 ? (
+            ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="h-24">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
@@ -216,7 +247,7 @@ export function UsersTable() {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((user) => (
+              rows.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -226,9 +257,17 @@ export function UsersTable() {
                           {user.username.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm font-medium">
-                        {user.username}
-                      </span>
+                      <div>
+                        <Link
+                          href={`/admin/users/${user.id}`}
+                          className="text-sm font-medium hover:underline"
+                        >
+                          {user.username}
+                        </Link>
+                        <div className="font-mono text-xs text-muted-foreground">
+                          {user.id}
+                        </div>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">

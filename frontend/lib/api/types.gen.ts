@@ -723,7 +723,10 @@ export type ListServersResponses = {
         id: NanoId;
         name: string;
         node: string;
+        node_id: string;
         project: NanoId;
+        project_name: string;
+        project_slug: string;
         status?: null | ServerListStatus;
         template: string;
     }>;

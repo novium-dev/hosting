@@ -314,10 +314,9 @@
     },
     "table": {
       "description": "Browse and manage all available servers.",
-      "searchPlaceholder": "Search by server, id, node, or project...",
+      "searchPlaceholder": "Search by server, id, template, node, or project...",
       "columns": {
-        "node": "Node",
-        "projectId": "Project ID"
+        "node": "Node"
       },
       "emptyState": {
         "title": "No servers found",

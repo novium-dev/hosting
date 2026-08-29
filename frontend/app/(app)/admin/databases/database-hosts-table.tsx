@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Database, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 import Link from "@/components/link";
+import { SortableTableHead } from "@/components/sortable-table-head";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTableSort } from "@/hooks/use-table-sort";
 import {
   deleteDatabaseHost,
   type ListDatabaseHostsResponses,
@@ -35,6 +37,8 @@ import { DatabaseHostDialog } from "./database-host-dialog";
 
 export type DatabaseHostRow = ListDatabaseHostsResponses[200][number];
 export type RegionRow = ListRegionsResponses[200][number];
+
+type HostColumn = "display" | "region" | "publicHost" | "instances" | "status";
 
 export function DatabaseHostsTable({
   hosts,
@@ -55,6 +59,25 @@ export function DatabaseHostsTable({
 
   const regionName = (id: string) =>
     regions.find((region) => region.id === id)?.display ?? id;
+
+  const accessors = useMemo(
+    () => ({
+      display: (host: DatabaseHostRow) => host.display,
+      region: (host: DatabaseHostRow) =>
+        regions.find((region) => region.id === host.region)?.display ??
+        host.region,
+      publicHost: (host: DatabaseHostRow) => host.public_host,
+      instances: (host: DatabaseHostRow) => host.instance_count,
+      status: (host: DatabaseHostRow) => host.maintenance,
+    }),
+    [regions],
+  );
+
+  const { rows, sort, toggle } = useTableSort<DatabaseHostRow, HostColumn>(
+    hosts,
+    accessors,
+    { column: "display", direction: "asc" },
+  );
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -104,25 +127,33 @@ export function DatabaseHostsTable({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>{t("common:labels.name")}</TableHead>
-              <TableHead>{t("common:labels.region")}</TableHead>
-              <TableHead>
+              <SortableTableHead column="display" sort={sort} onSort={toggle}>
+                {t("common:labels.name")}
+              </SortableTableHead>
+              <SortableTableHead column="region" sort={sort} onSort={toggle}>
+                {t("common:labels.region")}
+              </SortableTableHead>
+              <SortableTableHead
+                column="publicHost"
+                sort={sort}
+                onSort={toggle}
+              >
                 {t("admin-infra:databases.hostsTable.columns.publicHost")}
-              </TableHead>
-              <TableHead>
-                {t("common:nav.ports")}
-              </TableHead>
-              <TableHead>
+              </SortableTableHead>
+              <TableHead>{t("common:nav.ports")}</TableHead>
+              <SortableTableHead column="instances" sort={sort} onSort={toggle}>
                 {t("admin-infra:databases.hostsTable.columns.instances")}
-              </TableHead>
-              <TableHead>{t("common:labels.status")}</TableHead>
+              </SortableTableHead>
+              <SortableTableHead column="status" sort={sort} onSort={toggle}>
+                {t("common:labels.status")}
+              </SortableTableHead>
               <TableHead className="text-right">
                 {t("common:resources.manage")}
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {hosts.length === 0 ? (
+            {rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
@@ -139,7 +170,7 @@ export function DatabaseHostsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              hosts.map((host) => (
+              rows.map((host) => (
                 <TableRow key={host.id}>
                   <TableCell className="font-medium">
                     <Link
@@ -159,7 +190,9 @@ export function DatabaseHostsTable({
                       .join(" ") ||
                       t("admin-infra:databases.hostsTable.portsDefaultLabel")}
                   </TableCell>
-                  <TableCell>{host.instance_count}</TableCell>
+                  <TableCell className="tabular-nums">
+                    {host.instance_count}
+                  </TableCell>
                   <TableCell>
                     {host.maintenance ? (
                       <Badge variant="secondary">

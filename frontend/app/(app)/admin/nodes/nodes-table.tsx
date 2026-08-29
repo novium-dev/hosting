@@ -7,6 +7,8 @@ import useSWR from "swr";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
+import { SortableTableHead } from "@/components/sortable-table-head";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -31,6 +33,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTableSort } from "@/hooks/use-table-sort";
 import {
   deleteNode,
   extendNodeRegistration,
@@ -45,6 +48,8 @@ import {
 } from "./create-nodes";
 
 type NodeRow = ListNodesResponses[200][number];
+
+type NodeColumn = "display" | "region" | "host" | "ports" | "servers" | "status";
 
 function formatExpiry(seconds: number) {
   const minutes = Math.floor(seconds / 60);
@@ -123,8 +128,26 @@ export function NodesTable({
     });
   }, [registrations, normalizedQuery, regionNames]);
 
+  const accessors = useMemo(
+    () => ({
+      display: (node: NodeRow) => node.display,
+      region: (node: NodeRow) => regionNames.get(node.region) ?? node.region,
+      host: (node: NodeRow) => node.default_host,
+      ports: (node: NodeRow) => node.ports.length,
+      servers: (node: NodeRow) => node.server_count,
+      status: (node: NodeRow) => node.maintenance,
+    }),
+    [regionNames],
+  );
+
+  const { rows: sortedNodes, sort, toggle } = useTableSort<NodeRow, NodeColumn>(
+    filteredNodes,
+    accessors,
+    { column: "display", direction: "asc" },
+  );
+
   const isEmpty =
-    filteredNodes.length === 0 && filteredRegistrations.length === 0;
+    sortedNodes.length === 0 && filteredRegistrations.length === 0;
 
   const handleExtend = async (code: string) => {
     setExtending(code);
@@ -201,12 +224,24 @@ export function NodesTable({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>{t("admin-infra:nodes.table.columns.display")}</TableHead>
-              <TableHead>{t("common:labels.region")}</TableHead>
-              <TableHead>{t("admin-infra:nodes.shared.nodeId")}</TableHead>
-              <TableHead>{t("admin-infra:nodes.shared.defaultHost")}</TableHead>
-              <TableHead>{t("admin-infra:nodes.shared.defaultBind")}</TableHead>
-              <TableHead>{t("common:nav.ports")}</TableHead>
+              <SortableTableHead column="display" sort={sort} onSort={toggle}>
+                {t("admin-infra:nodes.table.columns.display")}
+              </SortableTableHead>
+              <SortableTableHead column="region" sort={sort} onSort={toggle}>
+                {t("common:labels.region")}
+              </SortableTableHead>
+              <SortableTableHead column="host" sort={sort} onSort={toggle}>
+                {t("admin-infra:nodes.shared.defaultHost")}
+              </SortableTableHead>
+              <SortableTableHead column="ports" sort={sort} onSort={toggle}>
+                {t("common:nav.ports")}
+              </SortableTableHead>
+              <SortableTableHead column="servers" sort={sort} onSort={toggle}>
+                {t("common:nav.servers")}
+              </SortableTableHead>
+              <SortableTableHead column="status" sort={sort} onSort={toggle}>
+                {t("common:labels.status")}
+              </SortableTableHead>
               <TableHead className="text-right">
                 {t("common:resources.manage")}
               </TableHead>
@@ -245,23 +280,28 @@ export function NodesTable({
                             })}
                           </TooltipContent>
                         </Tooltip>
-                        {registration.name}
+                        <div>
+                          {registration.name}
+                          <div className="font-mono text-xs font-normal text-muted-foreground">
+                            {registration.code}
+                          </div>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       {regionNames.get(registration.region) ??
                         registration.region}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {registration.code}
-                    </TableCell>
                     <TableCell className="font-mono text-xs">
                       {registration.default_host}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {t("admin-infra:nodes.table.pendingSetup")}
-                    </TableCell>
                     <TableCell className="text-muted-foreground">—</TableCell>
+                    <TableCell className="text-muted-foreground">—</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {t("admin-infra:nodes.table.pendingSetup")}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <EditNodeRegistrationDialog
@@ -287,20 +327,43 @@ export function NodesTable({
                     </TableCell>
                   </TableRow>
                 ))}
-                {filteredNodes.map((node) => (
+                {sortedNodes.map((node) => (
                   <TableRow key={node.id}>
-                    <TableCell className="font-medium">{node.display}</TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/admin/nodes/${node.id}`}
+                        className="font-medium hover:underline"
+                      >
+                        {node.display}
+                      </Link>
+                      <div className="font-mono text-xs text-muted-foreground">
+                        {node.id}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {regionNames.get(node.region) ?? node.region}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{node.id}</TableCell>
                     <TableCell className="font-mono text-xs">
                       {node.default_host}
+                      <div className="text-muted-foreground">
+                        {node.default_bind}
+                      </div>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {node.default_bind}
+                    <TableCell className="tabular-nums">
+                      {node.ports.length}
                     </TableCell>
-                    <TableCell>{node.ports.length}</TableCell>
+                    <TableCell className="tabular-nums">
+                      {node.server_count}
+                    </TableCell>
+                    <TableCell>
+                      {node.maintenance ? (
+                        <Badge variant="secondary">
+                          {t("admin-infra:shared.maintenance")}
+                        </Badge>
+                      ) : (
+                        <Badge>{t("common:status.active")}</Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button asChild size="sm" variant="outline">

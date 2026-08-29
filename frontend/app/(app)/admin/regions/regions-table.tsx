@@ -5,6 +5,7 @@ import { Globe2, PencilIcon, PlusIcon, Search, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
+import { SortableTableHead } from "@/components/sortable-table-head";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -34,6 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTableSort } from "@/hooks/use-table-sort";
 import {
   createRegion,
   deleteRegion,
@@ -42,6 +44,8 @@ import {
 } from "@/lib/api";
 
 type RegionRow = ListRegionsResponses[200][number];
+
+type RegionColumn = "display" | "slug" | "id" | "nodes";
 
 function slugify(value: string) {
   return value
@@ -81,6 +85,22 @@ export function RegionsTable({
         region.id.toLowerCase().includes(normalizedQuery),
     );
   }, [regions, query]);
+
+  const accessors = useMemo(
+    () => ({
+      display: (region: RegionRow) => region.display,
+      slug: (region: RegionRow) => region.slug,
+      id: (region: RegionRow) => region.id,
+      nodes: (region: RegionRow) => region.node_count,
+    }),
+    [],
+  );
+
+  const { rows, sort, toggle } = useTableSort<RegionRow, RegionColumn>(
+    filteredRegions,
+    accessors,
+    { column: "display", direction: "asc" },
+  );
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -140,17 +160,25 @@ export function RegionsTable({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>{t("common:labels.name")}</TableHead>
-              <TableHead>{t("admin-core:shared.slugColumn")}</TableHead>
-              <TableHead>{t("admin-core:regions.table.regionId")}</TableHead>
-              <TableHead>{t("common:nav.nodes")}</TableHead>
+              <SortableTableHead column="display" sort={sort} onSort={toggle}>
+                {t("common:labels.name")}
+              </SortableTableHead>
+              <SortableTableHead column="slug" sort={sort} onSort={toggle}>
+                {t("admin-core:shared.slugColumn")}
+              </SortableTableHead>
+              <SortableTableHead column="id" sort={sort} onSort={toggle}>
+                {t("admin-core:regions.table.regionId")}
+              </SortableTableHead>
+              <SortableTableHead column="nodes" sort={sort} onSort={toggle}>
+                {t("common:nav.nodes")}
+              </SortableTableHead>
               <TableHead className="text-right">
                 {t("common:resources.manage")}
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredRegions.length === 0 ? (
+            {rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
@@ -165,7 +193,7 @@ export function RegionsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRegions.map((region) => (
+              rows.map((region) => (
                 <TableRow key={region.id}>
                   <TableCell className="font-medium">
                     {region.display}
@@ -176,7 +204,9 @@ export function RegionsTable({
                   <TableCell className="font-mono text-xs">
                     {region.id}
                   </TableCell>
-                  <TableCell>{region.node_count}</TableCell>
+                  <TableCell className="tabular-nums">
+                    {region.node_count}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button

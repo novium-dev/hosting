@@ -42,8 +42,11 @@ pub(crate) struct ServerListInfo {
     id: ServerId,
     name: String,
     project: ProjectId,
+    project_name: String,
+    project_slug: String,
     template: String,
     node: String,
+    node_id: Uuid,
 
     status: Option<ServerListStatus>,
 }
@@ -59,6 +62,8 @@ struct ServerListRecord {
     id: ServerId,
     name: String,
     project: ProjectId,
+    project_name: String,
+    project_slug: String,
     template: String,
     node: Uuid,
     node_server_id: i32,
@@ -133,9 +138,12 @@ pub(crate) impl ServerService for Backend {
         let servers = if let Some(project) = project {
             sqlx::query_as!(
                 ServerListRecord,
-                r#"SELECT id AS "id: ServerId", name, project AS "project: ProjectId", node, node_server_id, template
+                r#"SELECT servers.id AS "id: ServerId", servers.name, servers.project AS "project: ProjectId",
+                          projects.name AS project_name, projects.slug AS project_slug,
+                          servers.node, servers.node_server_id, servers.template
                    FROM servers
-                   WHERE project = $1"#,
+                   JOIN projects ON projects.id = servers.project
+                   WHERE servers.project = $1"#,
                 &project
             )
             .fetch_all(&*self.database)
@@ -143,8 +151,11 @@ pub(crate) impl ServerService for Backend {
         } else {
             sqlx::query_as!(
                 ServerListRecord,
-                r#"SELECT id AS "id: ServerId", name, project AS "project: ProjectId", node, node_server_id, template
-                   FROM servers"#
+                r#"SELECT servers.id AS "id: ServerId", servers.name, servers.project AS "project: ProjectId",
+                          projects.name AS project_name, projects.slug AS project_slug,
+                          servers.node, servers.node_server_id, servers.template
+                   FROM servers
+                   JOIN projects ON projects.id = servers.project"#
             )
             .fetch_all(&*self.database)
             .await?
@@ -200,6 +211,9 @@ pub(crate) impl ServerService for Backend {
                 id: server.id,
                 name: server.name,
                 project: server.project,
+                project_name: server.project_name,
+                project_slug: server.project_slug,
+                node_id: server.node,
                 status: statuses.remove(&server.id),
                 template: templates
                   .get(&server.template).map_or_else(|| {

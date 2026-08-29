@@ -70,6 +70,8 @@
     "type": "Type",
     "region": "Region",
     "owner": "Owner",
+    "project": "Project",
+    "template": "Template",
     "id": "ID",
     "date": "Date",
     "size": "Size",
