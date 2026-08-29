@@ -311,7 +311,6 @@
     "live": "Live",
     "paused": "Paused",
     "jumpToLatest": "Jump to latest",
-    "truncated": "Showing the last {{shown}} of {{total}} lines",
     "copied_one": "Copied {{count}} line",
     "copied_other": "Copied {{count}} lines",
     "copyFailed": "Failed to copy console output",

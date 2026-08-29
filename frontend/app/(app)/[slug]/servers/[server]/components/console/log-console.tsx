@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -21,6 +20,7 @@ import {
   Trash2,
   WrapText,
 } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -56,8 +56,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useConsolePreferences } from "@/stores/console-preferences";
 
-const MAX_LINES = 5000;
-const MAX_RENDERED_LINES = 1500;
+const MAX_LINES = 10000;
+const ROW_ESTIMATE = 22;
+const OVERSCAN = 24;
 const FLUSH_INTERVAL = 60;
 const BOTTOM_THRESHOLD = 32;
 const COMMAND_HISTORY_STORAGE_KEY = "console-command-history-v1";
@@ -150,6 +151,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
   } = useConsolePreferences();
 
   const [lines, setLines] = useState<ConsoleLine[]>([]);
+  const [anySource, setAnySource] = useState(false);
   const [filter, setFilter] = useState("");
   const [pinnedToBottom, setPinnedToBottom] = useState(true);
   const [command, setCommand] = useState("");
@@ -163,6 +165,8 @@ export default function LogConsole({ serverId }: { serverId: string }) {
   const previousLineRef = useRef<ConsoleLine | null>(null);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pinnedRef = useRef(true);
+  const anySourceRef = useRef(false);
+  const countRef = useRef(0);
 
   pinnedRef.current = pinnedToBottom;
 
@@ -204,6 +208,11 @@ export default function LogConsole({ serverId }: { serverId: string }) {
         });
         previousLineRef.current = line;
         bufferRef.current.push(line);
+
+        if (line.source !== null && !anySourceRef.current) {
+          anySourceRef.current = true;
+          setAnySource(true);
+        }
       }
 
       if (parts.length > 0) scheduleFlush();
@@ -263,30 +272,35 @@ export default function LogConsole({ serverId }: { serverId: string }) {
     });
   }, [lines, hiddenLevels, query]);
 
-  const renderedLines = useMemo(
-    () =>
-      visibleLines.length > MAX_RENDERED_LINES
-        ? visibleLines.slice(visibleLines.length - MAX_RENDERED_LINES)
-        : visibleLines,
-    [visibleLines],
-  );
+  const sourceColumn = showSource && anySource;
 
-  const sourceColumn = useMemo(
-    () => showSource && renderedLines.some((line) => line.source !== null),
-    [showSource, renderedLines],
-  );
+  countRef.current = visibleLines.length;
+
+  const virtualizer = useVirtualizer({
+    count: visibleLines.length,
+    getScrollElement: () => viewportRef.current,
+    estimateSize: () => ROW_ESTIMATE,
+    overscan: OVERSCAN,
+    getItemKey: (index) => visibleLines[index]?.id ?? index,
+  });
 
   const scrollToBottom = useCallback(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
+    const count = countRef.current;
+    if (count === 0) return;
 
-    viewport.scrollTop = viewport.scrollHeight;
-  }, []);
+    virtualizer.scrollToIndex(count - 1, { align: "end" });
+  }, [virtualizer]);
+
+  // Row heights change when the columns or wrapping change, so the cached
+  // measurements have to be thrown away before the next paint.
+  useEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, wrapLines, showTimestamps, sourceColumn]);
 
   useEffect(() => {
     if (!pinnedRef.current) return;
     scrollToBottom();
-  }, [renderedLines, wrapLines, showTimestamps, sourceColumn, scrollToBottom]);
+  }, [visibleLines, wrapLines, showTimestamps, sourceColumn, scrollToBottom]);
 
   const handleScroll = useCallback(() => {
     const viewport = viewportRef.current;
@@ -300,6 +314,8 @@ export default function LogConsole({ serverId }: { serverId: string }) {
   const clear = useCallback(() => {
     bufferRef.current = [];
     previousLineRef.current = null;
+    anySourceRef.current = false;
+    setAnySource(false);
     setLines([]);
   }, []);
 
@@ -540,7 +556,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
           )}
           style={{ fontFamily: "var(--font-jetbrains-mono)" }}
         >
-          {renderedLines.length === 0 ? (
+          {visibleLines.length === 0 ? (
             <p className="px-4 py-6 text-sm text-muted-foreground">
               {status === "connecting"
                 ? t("servers:console.connecting")
@@ -549,66 +565,71 @@ export default function LogConsole({ serverId }: { serverId: string }) {
                   : t("servers:console.noMatches")}
             </p>
           ) : (
-            <Fragment>
-              {visibleLines.length > renderedLines.length && (
-                <p className="px-4 pb-1 text-xs text-muted-foreground">
-                  {t("servers:console.truncated", {
-                    shown: renderedLines.length,
-                    total: visibleLines.length,
-                  })}
-                </p>
-              )}
+            <div
+              className="relative w-full"
+              style={{
+                height: virtualizer.getTotalSize(),
+                overflowAnchor: "none",
+              }}
+            >
+              {virtualizer.getVirtualItems().map((item) => {
+                const line = visibleLines[item.index];
+                if (!line) return null;
 
-              {renderedLines.map((line) => (
-                <div
-                  key={line.id}
-                  className={cn(
-                    "flex gap-3 px-4 py-px transition-colors hover:bg-foreground/[0.04]",
-                    !wrapLines && "w-max min-w-full",
-                  )}
-                >
-                  {sourceColumn && (
+                return (
+                  <div
+                    key={item.key}
+                    data-index={item.index}
+                    ref={virtualizer.measureElement}
+                    className={cn(
+                      "absolute left-0 top-0 flex gap-3 px-4 py-px transition-colors hover:bg-foreground/[0.04]",
+                      wrapLines ? "w-full" : "w-max min-w-full",
+                    )}
+                    style={{ transform: `translateY(${item.start}px)` }}
+                  >
+                    {sourceColumn && (
+                      <span
+                        className="w-24 shrink-0 truncate text-muted-foreground/70"
+                        title={line.source ?? undefined}
+                      >
+                        {line.source ?? ""}
+                      </span>
+                    )}
+
                     <span
-                      className="w-24 shrink-0 truncate text-muted-foreground/70"
-                      title={line.source ?? undefined}
+                      className={cn(
+                        "w-12 shrink-0 text-[10px] font-semibold leading-6 tracking-wider",
+                        LEVEL_TEXT[line.level],
+                      )}
                     >
-                      {line.source ?? ""}
+                      {line.continuation || line.system
+                        ? ""
+                        : LEVEL_LABEL[line.level]}
                     </span>
-                  )}
 
-                  <span
-                    className={cn(
-                      "w-12 shrink-0 text-[10px] font-semibold leading-6 tracking-wider",
-                      LEVEL_TEXT[line.level],
+                    {showTimestamps && (
+                      <span className="w-[4.75rem] shrink-0 tabular-nums text-muted-foreground/70">
+                        {formatLineTime(line)}
+                      </span>
                     )}
-                  >
-                    {line.continuation || line.system
-                      ? ""
-                      : LEVEL_LABEL[line.level]}
-                  </span>
 
-                  {showTimestamps && (
-                    <span className="w-[4.75rem] shrink-0 tabular-nums text-muted-foreground/70">
-                      {formatLineTime(line)}
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1",
+                        line.system
+                          ? "italic text-muted-foreground"
+                          : MESSAGE_TEXT[line.level],
+                        wrapLines
+                          ? "whitespace-pre-wrap break-words"
+                          : "whitespace-pre",
+                      )}
+                    >
+                      <Highlight text={line.message} query={query} />
                     </span>
-                  )}
-
-                  <span
-                    className={cn(
-                      "min-w-0 flex-1",
-                      line.system
-                        ? "italic text-muted-foreground"
-                        : MESSAGE_TEXT[line.level],
-                      wrapLines
-                        ? "whitespace-pre-wrap break-words"
-                        : "whitespace-pre",
-                    )}
-                  >
-                    <Highlight text={line.message} query={query} />
-                  </span>
-                </div>
-              ))}
-            </Fragment>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
 

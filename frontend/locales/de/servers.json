@@ -311,7 +311,6 @@
     "live": "Live",
     "paused": "Pausiert",
     "jumpToLatest": "Zum Ende springen",
-    "truncated": "Zeige die letzten {{shown}} von {{total}} Zeilen",
     "copied_one": "{{count}} Zeile kopiert",
     "copied_other": "{{count}} Zeilen kopiert",
     "copyFailed": "Konsolenausgabe konnte nicht kopiert werden",
