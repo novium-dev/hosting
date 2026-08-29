@@ -1,11 +1,11 @@
 use crate::Backend;
 use crate::integrity::{Check, CheckError};
+use core::fmt::Write as _;
 use daemon_common::integrity::{
     IntegrityCategory, IntegrityFinding, IntegritySchema, IntegritySchemaTable,
 };
 use sqlx::{PgPool, Row as _, query, query_scalar};
 use std::collections::BTreeMap;
-use std::fmt::Write as _;
 
 struct Column {
     name: String,
@@ -15,7 +15,9 @@ struct Column {
 }
 
 pub(crate) async fn dump(pool: &PgPool) -> Result<IntegritySchema, sqlx::Error> {
-    let database: String = query_scalar("SELECT current_database()").fetch_one(pool).await?;
+    let database: String = query_scalar("SELECT current_database()")
+        .fetch_one(pool)
+        .await?;
 
     let mut columns: BTreeMap<String, Vec<Column>> = BTreeMap::new();
     for row in query(
@@ -95,8 +97,8 @@ pub(crate) async fn dump(pool: &PgPool) -> Result<IntegritySchema, sqlx::Error> 
             let definition = render(
                 &table,
                 &table_columns,
-                constraints.get(&table).map(Vec::as_slice).unwrap_or(&[]),
-                indexes.get(&table).map(Vec::as_slice).unwrap_or(&[]),
+                constraints.get(&table).map_or(&[][..], Vec::as_slice),
+                indexes.get(&table).map_or(&[][..], Vec::as_slice),
             );
             IntegritySchemaTable {
                 name: table,

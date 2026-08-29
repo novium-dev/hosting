@@ -2,10 +2,10 @@ use crate::Backend;
 use crate::db::database::BackendDatabaseHost;
 use crate::integrity::{Check, CheckError, describe_transport};
 use daemon_common::integrity::{IntegrityCategory, IntegrityFinding};
-use database_agent_common::service::instance::instance_service_error::ListInstancesError;
 use database_agent_common::service::instance::InstanceService as _;
-use database_agent_common::service::system::system_service_error::SystemStatusError;
+use database_agent_common::service::instance::instance_service_error::ListInstancesError;
 use database_agent_common::service::system::SystemService as _;
+use database_agent_common::service::system::system_service_error::SystemStatusError;
 use database_agent_common::types::{DatabaseType, SystemStatus};
 use sqlx::query;
 use std::collections::{HashMap, HashSet};
@@ -28,7 +28,9 @@ async fn hosts(backend: &Backend) -> Vec<Arc<BackendDatabaseHost>> {
 async fn status(host: &BackendDatabaseHost) -> Result<SystemStatus, String> {
     host.sdk.system_status().await.map_err(|err| match err {
         SystemStatusError::Communication(inner) => describe_transport(&inner),
-        other => format!("the host answered with an error: {other:?}"),
+        other @ SystemStatusError::AuthInvalid => {
+            format!("the host answered with an error: {other:?}")
+        }
     })
 }
 
@@ -206,7 +208,7 @@ impl Check for HostsInstances {
             expected
                 .entry(row.host)
                 .or_default()
-                .insert(row.id, (row.display, row.project.to_string()));
+                .insert(row.id, (row.display, row.project.clone()));
         }
 
         let mut findings = Vec::new();
@@ -234,8 +236,7 @@ impl Check for HostsInstances {
                 }
             };
 
-            let present: HashSet<Uuid> =
-                actual.iter().map(|instance| instance.data.uuid).collect();
+            let present: HashSet<Uuid> = actual.iter().map(|instance| instance.data.uuid).collect();
             let known = expected.remove(&host.id).unwrap_or_default();
 
             for (id, (display, project)) in &known {

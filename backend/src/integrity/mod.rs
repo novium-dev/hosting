@@ -13,7 +13,7 @@ use uuid::Uuid;
 use zelus::async_trait;
 
 pub(crate) const CHECK_TIMEOUT: Duration = Duration::from_secs(300);
-pub(crate) const SOURCE_TIMEOUT: Duration = Duration::from_secs(900);
+pub(crate) const SOURCE_TIMEOUT: Duration = Duration::from_mins(15);
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -113,7 +113,7 @@ pub(crate) trait Check: Send + Sync {
 /// Turns a transport failure into a message that says which layer gave up, so
 /// an unreachable node can be told apart from one that answered with a
 /// certificate the backend does not trust.
-pub(crate) fn describe_transport(err: &reqwest::Error) -> String {
+pub(crate) fn describe_transport(err: &zelus::reqwest::Error) -> String {
     let mut chain = Vec::new();
     let mut source: Option<&(dyn core::error::Error + 'static)> = Some(err);
     while let Some(current) = source {

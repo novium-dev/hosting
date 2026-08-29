@@ -4,7 +4,7 @@ mod routes;
 pub(crate) mod schema;
 mod templates;
 
-use super::{Check, CheckError, CHECK_TIMEOUT};
+use super::{CHECK_TIMEOUT, Check, CheckError};
 use crate::Backend;
 use daemon_common::integrity::{
     IntegrityCheckInfo, IntegrityCheckResult, IntegrityFinding, IntegrityReport, IntegritySeverity,

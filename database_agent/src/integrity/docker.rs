@@ -104,9 +104,10 @@ impl Check for DockerContainers {
                             .with_subject(uuid.to_string())
                             .with_detail(
                                 "state",
-                                container
-                                    .state
-                                    .map_or_else(|| "unknown".to_owned(), |state| format!("{state:?}")),
+                                container.state.map_or_else(
+                                    || "unknown".to_owned(),
+                                    |state| format!("{state:?}"),
+                                ),
                             ),
                         );
                     }

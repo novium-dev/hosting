@@ -476,7 +476,8 @@ impl Check for NodesPorts {
 
         for row in rows {
             let label = format!("{} ({})", row.server_name, row.server);
-            let port_subject = format!("{}:{}-{} {}", row.external_ip, row.start, row.end, row.name);
+            let port_subject =
+                format!("{}:{}-{} {}", row.external_ip, row.start, row.end, row.name);
 
             if let Some(node) = nodes.get(&row.node) {
                 let inside = node.ports.iter().any(|allocation| {

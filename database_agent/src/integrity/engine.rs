@@ -68,7 +68,10 @@ async fn engine_databases(
         DatabaseType::Mariadb => first_column(&connection.query(None, "SHOW DATABASES").await?),
         DatabaseType::Postgres => first_column(
             &connection
-                .query(None, "SELECT datname FROM pg_database WHERE NOT datistemplate")
+                .query(
+                    None,
+                    "SELECT datname FROM pg_database WHERE NOT datistemplate",
+                )
                 .await?,
         ),
         DatabaseType::Mongodb => mongo_field(
@@ -92,12 +95,16 @@ async fn engine_users(
     kind: DatabaseType,
 ) -> Result<Option<Vec<String>>, CheckError> {
     let names = match kind {
-        DatabaseType::Mariadb => {
-            first_column(&connection.query(None, "SELECT User FROM mysql.user").await?)
-        }
-        DatabaseType::Postgres => {
-            first_column(&connection.query(None, "SELECT rolname FROM pg_roles").await?)
-        }
+        DatabaseType::Mariadb => first_column(
+            &connection
+                .query(None, "SELECT User FROM mysql.user")
+                .await?,
+        ),
+        DatabaseType::Postgres => first_column(
+            &connection
+                .query(None, "SELECT rolname FROM pg_roles")
+                .await?,
+        ),
         DatabaseType::Mongodb => mongo_field(
             &connection
                 .query(None, r#"{"usersInfo": {"forAllDBs": true}}"#)

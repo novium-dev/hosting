@@ -1,6 +1,6 @@
 use super::{
-    agent, checks, IntegrityRun, IntegrityRunState, IntegritySource, IntegritySourceChecks,
-    IntegritySourceReport, IntegritySourceSchema, SOURCE_TIMEOUT,
+    IntegrityRun, IntegrityRunState, IntegritySource, IntegritySourceChecks, IntegritySourceReport,
+    IntegritySourceSchema, SOURCE_TIMEOUT, agent, checks,
 };
 use crate::Backend;
 use crate::db::database::BackendDatabaseHost;
@@ -31,7 +31,7 @@ fn host_source(host: &BackendDatabaseHost) -> IntegritySource {
     }
 }
 
-fn failed(source: IntegritySource, error: String) -> IntegritySourceReport {
+const fn failed(source: IntegritySource, error: String) -> IntegritySourceReport {
     IntegritySourceReport {
         source,
         severity: IntegritySeverity::Error,
@@ -40,7 +40,7 @@ fn failed(source: IntegritySource, error: String) -> IntegritySourceReport {
     }
 }
 
-fn succeeded(source: IntegritySource, report: IntegrityReport) -> IntegritySourceReport {
+const fn succeeded(source: IntegritySource, report: IntegrityReport) -> IntegritySourceReport {
     IntegritySourceReport {
         source,
         severity: report.severity,
@@ -57,13 +57,8 @@ impl Backend {
     }
 
     async fn hosts_sorted(&self) -> Vec<Arc<BackendDatabaseHost>> {
-        let mut hosts: Vec<Arc<BackendDatabaseHost>> = self
-            .database_hosts
-            .read()
-            .await
-            .values()
-            .cloned()
-            .collect();
+        let mut hosts: Vec<Arc<BackendDatabaseHost>> =
+            self.database_hosts.read().await.values().cloned().collect();
         hosts.sort_by(|left, right| left.display.cmp(&right.display));
         hosts
     }
@@ -97,8 +92,8 @@ impl Backend {
                 error: None,
                 started_at: Some(chrono::Utc::now().timestamp()),
                 finished_at: None,
-            };
-        }
+            }
+        };
 
         let backend = self.clone();
         self.server_task_cancellable
@@ -124,7 +119,7 @@ impl Backend {
     async fn execute_integrity_run(&self, selected: Option<Vec<String>>, deep: bool) {
         info!("Running integrity checks (deep: {deep})");
 
-        self.update_run(|run| run.step = "Checking the backend".to_owned())
+        self.update_run(|run| "Checking the backend".clone_into(&mut run.step))
             .await;
         let local = checks::run(self, selected.as_deref(), deep).await;
         self.push_report(
@@ -162,7 +157,7 @@ impl Backend {
 
         self.update_run(|run| {
             run.state = IntegrityRunState::Completed;
-            run.step = "Finished".to_owned();
+            "Finished".clone_into(&mut run.step);
             run.finished_at = Some(chrono::Utc::now().timestamp());
         })
         .await;
@@ -190,7 +185,7 @@ impl Backend {
                     checks: Vec::new(),
                     error: Some(match err {
                         IntegrityChecksError::Communication(inner) => describe_transport(&inner),
-                        other => format!("{other:?}"),
+                        other @ IntegrityChecksError::AuthInvalid => format!("{other:?}"),
                     }),
                 },
             });
@@ -283,7 +278,10 @@ async fn run_node(
         Ok(Err(IntegrityRunError::Communication(inner))) => {
             failed(source, describe_transport(&inner))
         }
-        Ok(Err(other)) => failed(source, format!("the node refused to run its checks: {other:?}")),
+        Ok(Err(other)) => failed(
+            source,
+            format!("the node refused to run its checks: {other:?}"),
+        ),
         Err(_elapsed) => failed(
             source,
             "the node did not finish its checks in time".to_owned(),

@@ -41,11 +41,11 @@ impl Check for InstanceState {
             let kind = instance.database_type().await;
 
             let finding = match (suspended, state) {
-                (true, ContainerState::Running | ContainerState::Starting) => Some(
-                    IntegrityFinding::error(
+                (true, ContainerState::Running | ContainerState::Starting) => {
+                    Some(IntegrityFinding::error(
                         "The instance is suspended but its container is still running".to_owned(),
-                    ),
-                ),
+                    ))
+                }
                 (false, ContainerState::Offline) => Some(IntegrityFinding::warning(
                     "The instance is not suspended but its container is offline; every database \
                      on it is unreachable"
