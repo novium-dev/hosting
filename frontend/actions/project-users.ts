@@ -10,7 +10,7 @@ import {
 export const setProjectUserAction = authActionClient
   .inputSchema(setProjectUserSchema)
   .action(async ({ parsedInput }) => {
-    const { projectId, email, permissions } = parsedInput;
+    const { projectId, email, permissions, expiresAt } = parsedInput;
 
     const response = await setProjectUser({
       path: { project_id: projectId },
@@ -18,6 +18,7 @@ export const setProjectUserAction = authActionClient
         email,
         // Expand implied dependencies so the stored bitfield is consistent.
         permissions: resolveServerPermissions(permissions),
+        expires_at: expiresAt,
       },
     });
 

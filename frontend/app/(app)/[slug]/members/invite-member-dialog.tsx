@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { PermissionsField } from "@/components/permissions-field";
+import { MembershipExpiryField } from "./membership-expiry-field";
 import { ServerPermission } from "@/lib/permissions";
 import { setProjectUserSchema } from "@/types/project-user.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,6 +41,7 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
           projectId,
           email: "",
           permissions: ServerPermission.VIEW,
+          expiresAt: null,
         },
       },
       actionProps: {
@@ -97,6 +99,22 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
                   <FormLabel>{t("common:labels.permissions")}</FormLabel>
                   <FormControl>
                     <PermissionsField
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="expiresAt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("org:members.expiry.label")}</FormLabel>
+                  <FormControl>
+                    <MembershipExpiryField
                       value={field.value}
                       onChange={field.onChange}
                     />

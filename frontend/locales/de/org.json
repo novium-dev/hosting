@@ -173,6 +173,16 @@
       "description": "Lege genau fest, was dieses Mitglied auf den Servern des Projekts tun kann.",
       "submit": "Berechtigungen aktualisieren",
       "success": "Mitgliedsberechtigungen erfolgreich aktualisiert"
+    },
+    "expiry": {
+      "label": "Zugriffsdauer",
+      "column": "Zugriff",
+      "limitTitle": "Zugriffsdauer begrenzen",
+      "limitDescription": "Das Mitglied verliert den Zugriff automatisch, sobald der Zeitpunkt erreicht ist.",
+      "preset_one": "{{count}} Tag",
+      "preset_other": "{{count}} Tage",
+      "permanent": "Unbefristet",
+      "expiresOn": "Bis {{date}}"
     }
   },
   "settings": {

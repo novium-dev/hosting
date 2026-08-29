@@ -125,6 +125,7 @@ pub(crate) impl UserAdminService for Backend {
              LEFT JOIN project_users
                 ON project_users.project = projects.id
                 AND project_users."user" = $1
+                AND (project_users.expires_at IS NULL OR project_users.expires_at > now())
              WHERE projects.owner = $1 OR project_users."user" IS NOT NULL
              ORDER BY projects.slug"#,
             user_id

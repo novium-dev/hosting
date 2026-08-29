@@ -461,6 +461,7 @@ export type SetInstanceUserGrants = {
 
 export type SetProjectUserPayload = {
     email: string;
+    expires_at?: string | null;
     permissions: number;
 };
 
@@ -8490,6 +8491,7 @@ export type ListProjectUsersResponses = {
     200: Array<{
         avatar_url: string;
         email: string;
+        expires_at?: string | null;
         id: number;
         permissions: number;
         username: string;
@@ -8517,6 +8519,15 @@ export type SetProjectUserData = {
 };
 
 export type SetProjectUserErrors = {
+    /**
+     * The membership expiry must be in the future
+     */
+    '400‎': {
+        error?: {
+            id?: 'project/expiry_invalid';
+            msg?: 'The membership expiry must be in the future';
+        };
+    };
     /**
      * Invalid authentication credentials
      */
@@ -8547,7 +8558,7 @@ export type SetProjectUserErrors = {
     /**
      * User not found
      */
-    '404‎': {
+    '404‏': {
         error?: {
             id?: 'user/not_found';
             msg?: 'User not found';

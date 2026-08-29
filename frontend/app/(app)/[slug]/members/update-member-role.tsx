@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { PermissionsField } from "@/components/permissions-field";
+import { MembershipExpiryField } from "./membership-expiry-field";
 import { ServerPermission } from "@/lib/permissions";
 import { setProjectUserSchema } from "@/types/project-user.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -49,6 +50,7 @@ export function UpdateMemberRoleDialog({
           projectId,
           email: member?.email ?? "",
           permissions: member?.permissions ?? ServerPermission.VIEW,
+          expiresAt: member?.expires_at ?? null,
         },
       },
       actionProps: {
@@ -69,6 +71,7 @@ export function UpdateMemberRoleDialog({
         projectId,
         email: member.email,
         permissions: member.permissions,
+        expiresAt: member.expires_at ?? null,
       });
     }
   }, [member, form, projectId]);
@@ -94,6 +97,22 @@ export function UpdateMemberRoleDialog({
                   <FormLabel>{t("common:labels.permissions")}</FormLabel>
                   <FormControl>
                     <PermissionsField
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="expiresAt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("org:members.expiry.label")}</FormLabel>
+                  <FormControl>
+                    <MembershipExpiryField
                       value={field.value}
                       onChange={field.onChange}
                     />

@@ -911,7 +911,10 @@ export const listProjectUsers = <ThrowOnError extends boolean = false>(options: 
 /**
  *  Sets project permissions for a user, identified by email.
  *
- *  Sets project permissions for a user, identified by email.
+ *  Sets project permissions for a user, identified by email.<br/>
+ * <br/>
+ * An `expires_at` timestamp limits the membership to that point in time;<br/>
+ * omitting it grants access until the member is removed.
  */
 export const setProjectUser = <ThrowOnError extends boolean = false>(options: Options<SetProjectUserData, ThrowOnError>) => (options.client ?? client).put<SetProjectUserResponses, SetProjectUserErrors, ThrowOnError>({
     url: '/project/{project_id}/users',

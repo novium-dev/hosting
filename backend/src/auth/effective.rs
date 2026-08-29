@@ -49,7 +49,8 @@ impl EffectivePermissions {
         let mut projects: HashMap<ProjectId, i64> = query!(
             r#"SELECT project AS "project: ProjectId", permissions
              FROM project_users
-             WHERE "user" = $1"#,
+             WHERE "user" = $1
+               AND (expires_at IS NULL OR expires_at > now())"#,
             &id
         )
         .fetch_all(&mut *conn)
@@ -72,6 +73,7 @@ impl EffectivePermissions {
              LEFT JOIN project_users
                 ON project_users.project = servers.project
                 AND project_users."user" = $1
+                AND (project_users.expires_at IS NULL OR project_users.expires_at > now())
              WHERE projects.owner = $2
                 OR project_users."user" IS NOT NULL
                 OR $3"#,

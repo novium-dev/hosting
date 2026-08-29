@@ -299,6 +299,7 @@ where
          LEFT JOIN project_users
             ON project_users.project = servers.project
             AND project_users."user" = $1
+            AND (project_users.expires_at IS NULL OR project_users.expires_at > now())
          WHERE servers.node = $2
             AND (
                 projects.owner = $3

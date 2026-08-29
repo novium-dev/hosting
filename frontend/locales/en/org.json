@@ -173,6 +173,16 @@
       "description": "Choose exactly what this member can do in the project's servers.",
       "submit": "Update Permissions",
       "success": "Member permissions updated successfully"
+    },
+    "expiry": {
+      "label": "Access duration",
+      "column": "Access",
+      "limitTitle": "Limit access duration",
+      "limitDescription": "The member loses access automatically once the expiry passes.",
+      "preset_one": "{{count}} day",
+      "preset_other": "{{count}} days",
+      "permanent": "Permanent",
+      "expiresOn": "Until {{date}}"
     }
   },
   "settings": {

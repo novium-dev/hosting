@@ -12,6 +12,7 @@ use crate::service::project::project_service_error::{
     ListProjectsError, RemoveProjectUserError, SetProjectUserError, UpdateProjectError,
 };
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::{query, query_scalar};
 use zelus::{define_query_variable, service};
@@ -74,6 +75,7 @@ pub(crate) struct ProjectUserInfo {
     pub(crate) email: String,
     pub(crate) avatar_url: String,
     pub(crate) permissions: i64,
+    pub(crate) expires_at: Option<DateTime<Utc>>,
 }
 
 #[service(path = "/project", tag = "project", no_sdk)]
@@ -339,12 +341,14 @@ pub(crate) impl ProjectService for Backend {
                 users.username,
                 users.email,
                 users.auth_id,
-                project_users.permissions
+                project_users.permissions,
+                project_users.expires_at
              FROM project_users
              JOIN users ON users.id = project_users."user"
              JOIN projects ON projects.id = project_users.project
             WHERE project_users.project = $1
-              AND project_users."user" != projects.owner"#,
+              AND project_users."user" != projects.owner
+              AND (project_users.expires_at IS NULL OR project_users.expires_at > now())"#,
             &project_id,
         )
         .fetch_all(&*self.database)
@@ -356,6 +360,7 @@ pub(crate) impl ProjectService for Backend {
             email: owner.email,
             avatar_url: avatar_url(&owner.auth_id),
             permissions: ProjectPermissions::all().bits() | ServerPermissions::all().bits(),
+            expires_at: None,
         })
         .chain(project_users.into_iter().map(|user| ProjectUserInfo {
             id: user.id,
@@ -363,36 +368,47 @@ pub(crate) impl ProjectService for Backend {
             email: user.email,
             avatar_url: avatar_url(&user.auth_id),
             permissions: user.permissions,
+            expires_at: user.expires_at,
         }))
         .apply_pagesplit(&mut page)
         .collect_paged(page))
     }
 
     /// Sets project permissions for a user, identified by email.
+    ///
+    /// An `expires_at` timestamp limits the membership to that point in time;
+    /// omitting it grants access until the member is removed.
     #[route("/{project_id}/users", method = PUT)]
-    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found, user::not_found <- [sql:not_found])]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found, expiry_invalid}, user::not_found <- [sql:not_found])]
     async fn set_project_user(
         &self,
         #[special] auth: Authentication,
         project_id: ProjectId,
         email: String,
         permissions: i64,
+        expires_at: Option<DateTime<Utc>>,
     ) -> Result<(), _> {
         auth.require::<_, _, SetProjectUserError>(project_id, ProjectPermissions::USER_EDIT)?;
         ensure_project_exists::<SetProjectUserError>(self, project_id).await?;
+
+        if expires_at.is_some_and(|expires_at| expires_at <= Utc::now()) {
+            return Err(SetProjectUserError::ProjectExpiryInvalid);
+        }
 
         let user_id = query_scalar!("SELECT id FROM users WHERE email = $1", email)
             .fetch_one(&*self.database)
             .await?;
 
         query!(
-            r#"INSERT INTO project_users ("user", project, permissions)
-             VALUES ($1, $2, $3)
+            r#"INSERT INTO project_users ("user", project, permissions, expires_at)
+             VALUES ($1, $2, $3, $4)
              ON CONFLICT ("user", project) DO UPDATE SET
-                permissions = EXCLUDED.permissions"#,
+                permissions = EXCLUDED.permissions,
+                expires_at = EXCLUDED.expires_at"#,
             user_id,
             &project_id,
-            permissions
+            permissions,
+            expires_at
         )
         .execute(&*self.database)
         .await?;

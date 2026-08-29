@@ -10,6 +10,13 @@ export const setProjectUserSchema = z.object({
     .refine((permissions) => permissions > 0, {
       message: "Select at least one permission",
     }),
+  expiresAt: z
+    .string()
+    .datetime()
+    .nullable()
+    .refine((expiresAt) => expiresAt === null || Date.parse(expiresAt) > Date.now(), {
+      message: "The access expiry must be in the future",
+    }),
 });
 
 export type SetProjectUser = z.infer<typeof setProjectUserSchema>;

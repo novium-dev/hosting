@@ -43,13 +43,23 @@ import { useTranslation } from "react-i18next";
 import type { ProjectMember } from "./members-view";
 import { UpdateMemberRoleDialog } from "./update-member-role";
 
+function formatExpiry(value: string, language: string) {
+  return new Date(value).toLocaleString(language, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 interface MembersTableProps {
   members: ProjectMember[];
   projectId: string;
 }
 
 export function MembersTable({ members, projectId }: MembersTableProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [updateOpen, setUpdateOpen] = useState(false);
   const [removeMember, setRemoveMember] = useState<ProjectMember | null>(null);
   const [member, setMember] = useState<ProjectMember | null>(null);
@@ -74,13 +84,14 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
             </TableHead>
             <TableHead>{t("common:labels.email")}</TableHead>
             <TableHead>{t("common:labels.permissions")}</TableHead>
+            <TableHead>{t("org:members.expiry.column")}</TableHead>
             <TableHead></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {members.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="h-28">
+              <TableCell colSpan={5} className="h-28">
                 <div className="flex flex-col items-center justify-center gap-2 text-center">
                   <Users className="size-5 text-muted-foreground" />
                   <p className="text-sm font-medium">
@@ -132,6 +143,19 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
                           : t("org:shared.noPermissions")}
                       </TooltipContent>
                     </Tooltip>
+                  </TableCell>
+                  <TableCell>
+                    {member.expires_at ? (
+                      <Badge variant="outline">
+                        {t("org:members.expiry.expiresOn", {
+                          date: formatExpiry(member.expires_at, i18n.language),
+                        })}
+                      </Badge>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        {t("org:members.expiry.permanent")}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu modal={false}>
