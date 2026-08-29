@@ -119,7 +119,7 @@ const fn loader_type(loader: ResourceLoader) -> Option<&'static str> {
         ResourceLoader::Forge => Some("1"),
         ResourceLoader::Fabric => Some("4"),
         ResourceLoader::Neoforge => Some("6"),
-        ResourceLoader::Paper => None,
+        ResourceLoader::Paper | ResourceLoader::Velocity | ResourceLoader::Bungeecord => None,
     }
 }
 
@@ -127,7 +127,9 @@ const fn class_id(loader: ResourceLoader, kind: ResourceKind) -> &'static str {
     match kind {
         ResourceKind::Modpack => CLASS_MODPACKS,
         ResourceKind::Resource => match loader {
-            ResourceLoader::Paper => CLASS_BUKKIT_PLUGINS,
+            ResourceLoader::Paper | ResourceLoader::Velocity | ResourceLoader::Bungeecord => {
+                CLASS_BUKKIT_PLUGINS
+            }
             ResourceLoader::Fabric | ResourceLoader::Forge | ResourceLoader::Neoforge => CLASS_MODS,
         },
     }

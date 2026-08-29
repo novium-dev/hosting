@@ -33,6 +33,7 @@ use crate::service::{
     error_resource_provider_unavailable::FromResourceProviderUnavailable,
 };
 use crate::templates::games::minecraft::MinecraftTemplate;
+use crate::templates::games::minecraft_proxy::MinecraftProxyTemplate;
 use crate::templates::{Template as _, TemplateError};
 use chrono::{DateTime, FixedOffset};
 use daemon_common::files::FileMode;
@@ -114,12 +115,18 @@ pub(crate) struct InstallResourcePayload {
     pub(crate) title: Option<String>,
 }
 
-const FEATURE_LOADERS: [(&str, ResourceLoader); 4] = [
+const FEATURE_LOADERS: [(&str, ResourceLoader); 6] = [
     ("minecraft_plugins_paper", ResourceLoader::Paper),
     ("minecraft_mods_fabric", ResourceLoader::Fabric),
     ("minecraft_mods_forge", ResourceLoader::Forge),
     ("minecraft_mods_neoforge", ResourceLoader::Neoforge),
+    ("minecraft_plugins_velocity", ResourceLoader::Velocity),
+    ("minecraft_plugins_bungeecord", ResourceLoader::Bungeecord),
 ];
+
+fn template_supports_resources(template: &str) -> bool {
+    template == MinecraftTemplate::ID || template == MinecraftProxyTemplate::ID
+}
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ModpackMod {
@@ -652,7 +659,7 @@ pub(crate) impl ResourceService for Backend {
             .await?
             .ok_or(ResourceContextError::ServerNotFound)?;
 
-        if server.template.id() != MinecraftTemplate::ID {
+        if !template_supports_resources(server.template.id()) {
             return Err(ResourceContextError::ResourceWrongTemplate);
         }
 
@@ -972,7 +979,7 @@ pub(crate) impl ResourceService for Backend {
             .await?
             .ok_or(InstallResourceError::ServerNotFound)?;
 
-        if server.template.id() != MinecraftTemplate::ID {
+        if !template_supports_resources(server.template.id()) {
             return Err(InstallResourceError::ResourceWrongTemplate);
         }
 
@@ -1074,7 +1081,7 @@ pub(crate) impl ResourceService for Backend {
             .await?
             .ok_or(UpdateResourceError::ServerNotFound)?;
 
-        if server.template.id() != MinecraftTemplate::ID {
+        if !template_supports_resources(server.template.id()) {
             return Err(UpdateResourceError::ResourceWrongTemplate);
         }
 
@@ -1139,7 +1146,7 @@ pub(crate) impl ResourceService for Backend {
             .await?
             .ok_or(UpdateAllResourcesError::ServerNotFound)?;
 
-        if server.template.id() != MinecraftTemplate::ID {
+        if !template_supports_resources(server.template.id()) {
             return Err(UpdateAllResourcesError::ResourceWrongTemplate);
         }
 

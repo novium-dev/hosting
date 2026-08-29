@@ -21,7 +21,14 @@ import { ActionError } from "@/types/safe-action.types";
 // providers into one shape and caches the upstream responses in Valkey.
 
 const providerSchema = z.enum(["modrinth", "curseforge", "hangar", "spigot"]);
-const loaderSchema = z.enum(["paper", "fabric", "forge", "neoforge"]);
+const loaderSchema = z.enum([
+  "paper",
+  "fabric",
+  "forge",
+  "neoforge",
+  "velocity",
+  "bungeecord",
+]);
 const kindSchema = z.enum(["resource", "modpack"]);
 const serverSchema = z.string().min(1);
 

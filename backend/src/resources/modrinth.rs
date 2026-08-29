@@ -129,7 +129,10 @@ pub(super) async fn search(
 ) -> Result<Vec<ResourceProject>, ResourceError> {
     let project_type = match (query.kind, query.loader) {
         (ResourceKind::Modpack, _) => "modpack",
-        (ResourceKind::Resource, ResourceLoader::Paper) => "plugin",
+        (
+            ResourceKind::Resource,
+            ResourceLoader::Paper | ResourceLoader::Velocity | ResourceLoader::Bungeecord,
+        ) => "plugin",
         (
             ResourceKind::Resource,
             ResourceLoader::Fabric | ResourceLoader::Forge | ResourceLoader::Neoforge,

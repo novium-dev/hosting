@@ -71,6 +71,7 @@ function readSatisfactoryPlayers(
 
 const PLAYER_SOURCES: Record<string, PlayerSource | undefined> = {
   minecraft: readMinecraftPlayers,
+  minecraft_proxy: readMinecraftPlayers,
   satisfactory: readSatisfactoryPlayers,
 };
 

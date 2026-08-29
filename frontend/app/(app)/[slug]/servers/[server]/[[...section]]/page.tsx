@@ -105,9 +105,7 @@ function getVisibleSections(
   features: string[],
   projectFeatures: ProjectFeature[],
 ) {
-  const isMinecraftServer = features.some((feature) =>
-    feature.startsWith("minecraft_"),
-  );
+  const isMinecraftServer = features.includes("minecraft_commands");
 
   return SERVER_SECTIONS.filter((entry) => {
     if (!hasServerPermission(permissions, entry.permission)) {

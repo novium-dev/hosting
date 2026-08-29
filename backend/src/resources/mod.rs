@@ -60,12 +60,16 @@ impl ResourceProvider {
     pub(crate) const fn supports(self, loader: ResourceLoader, kind: ResourceKind) -> bool {
         match kind {
             ResourceKind::Resource => match self {
-                Self::Modrinth | Self::Curseforge => true,
+                Self::Modrinth => true,
+                Self::Curseforge => !loader.is_proxy(),
                 Self::Hangar | Self::Spigot => matches!(loader, ResourceLoader::Paper),
             },
             ResourceKind::Modpack => {
                 matches!(self, Self::Modrinth | Self::Curseforge)
-                    && !matches!(loader, ResourceLoader::Paper)
+                    && matches!(
+                        loader,
+                        ResourceLoader::Fabric | ResourceLoader::Forge | ResourceLoader::Neoforge
+                    )
             }
         }
     }
@@ -94,6 +98,8 @@ pub(crate) enum ResourceLoader {
     Fabric,
     Forge,
     Neoforge,
+    Velocity,
+    Bungeecord,
 }
 
 impl ResourceLoader {
@@ -103,12 +109,18 @@ impl ResourceLoader {
             Self::Fabric => "fabric",
             Self::Forge => "forge",
             Self::Neoforge => "neoforge",
+            Self::Velocity => "velocity",
+            Self::Bungeecord => "bungeecord",
         }
+    }
+
+    pub(crate) const fn is_proxy(self) -> bool {
+        matches!(self, Self::Velocity | Self::Bungeecord)
     }
 
     pub(crate) const fn resource_type(self) -> ResourceType {
         match self {
-            Self::Paper => ResourceType::Plugin,
+            Self::Paper | Self::Velocity | Self::Bungeecord => ResourceType::Plugin,
             Self::Fabric | Self::Forge | Self::Neoforge => ResourceType::Modification,
         }
     }

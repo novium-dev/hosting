@@ -60,6 +60,8 @@ const RESOURCE_FEATURES = [
   "minecraft_mods_fabric",
   "minecraft_mods_forge",
   "minecraft_mods_neoforge",
+  "minecraft_plugins_velocity",
+  "minecraft_plugins_bungeecord",
 ];
 
 export function hasResourceSupport(features: string[]) {
@@ -71,4 +73,6 @@ export const LOADER_LABELS: Record<ResourceLoader, string> = {
   fabric: "Fabric mods",
   forge: "Forge mods",
   neoforge: "NeoForge mods",
+  velocity: "Velocity plugins",
+  bungeecord: "BungeeCord plugins",
 };

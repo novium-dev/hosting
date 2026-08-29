@@ -288,7 +288,9 @@ export const ResourceLoader = {
     PAPER: 'paper',
     FABRIC: 'fabric',
     FORGE: 'forge',
-    NEOFORGE: 'neoforge'
+    NEOFORGE: 'neoforge',
+    VELOCITY: 'velocity',
+    BUNGEECORD: 'bungeecord'
 } as const;
 
 export type ResourceLoader = typeof ResourceLoader[keyof typeof ResourceLoader];

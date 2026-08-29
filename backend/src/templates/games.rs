@@ -1,3 +1,4 @@
 pub mod hytale;
 pub mod minecraft;
+pub mod minecraft_proxy;
 pub mod satisfactory;

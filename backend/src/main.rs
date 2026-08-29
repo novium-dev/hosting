@@ -40,6 +40,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 use templates::games::minecraft::MinecraftTemplate;
+use templates::games::minecraft_proxy::MinecraftProxyTemplate;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinSet;
@@ -149,6 +150,13 @@ async fn load_templates(backend: &Backend) {
         .await
         .expect("Unable to initialize minecraft template");
     templates.insert(minecraft.id().to_owned(), Arc::new(minecraft));
+
+    let minecraft_proxy = MinecraftProxyTemplate;
+    minecraft_proxy
+        .init(backend.cache.clone(), skip_cache_update)
+        .await
+        .expect("Unable to initialize minecraft proxy template");
+    templates.insert(minecraft_proxy.id().to_owned(), Arc::new(minecraft_proxy));
 
     let go = GoTemplate;
     go.init(backend.cache.clone(), skip_cache_update)
