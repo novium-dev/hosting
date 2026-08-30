@@ -21,7 +21,7 @@ use daemon_common::service::backup::backup_service_error::{
 use daemon_common::service::files::files_service_error::WipeServerError;
 use daemon_common::service::server::server_service_error::CreateServerError as DaemonCreateServerError;
 use daemon_common::service::server::{
-    ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
+    ServerBuildImage, ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
@@ -411,7 +411,7 @@ pub(crate) impl ServerAdminService for Backend {
             })?;
 
         query!(
-            "UPDATE servers SET template = $1, template_extra = $2 WHERE id = $3",
+            "UPDATE servers SET template = $1, template_extra = $2, custom_dockerfile = NULL WHERE id = $3",
             template.id(),
             &extra,
             &server_id
@@ -466,11 +466,22 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(AddPortError::ServerNotFound)?;
 
-        let build = server
+        let mut build = server
             .template
             .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
             .await
             .map_err(TemplateError::into::<AddPortError>)?;
+        if let Some(custom_dockerfile) = &server.custom_dockerfile {
+            build.image = ServerBuildImage {
+                default_tag: None,
+                tag: None,
+                parents: vec![build.image],
+                args: HashMap::new(),
+                dockerfile: custom_dockerfile.clone(),
+                base: Some(0),
+            };
+            build.image.tag = Some(format!("custom_{}_{}", server.id, build.image.id()));
+        }
 
         let mut conn = self.database.acquire().await?;
 
@@ -556,6 +567,17 @@ pub(crate) impl ServerAdminService for Backend {
                     });
                 }
             }
+            if let Some(custom_dockerfile) = &server.custom_dockerfile {
+                build.image = ServerBuildImage {
+                    default_tag: None,
+                    tag: None,
+                    parents: vec![build.image],
+                    args: HashMap::new(),
+                    dockerfile: custom_dockerfile.clone(),
+                    base: Some(0),
+                };
+                build.image.tag = Some(format!("custom_{}_{}", server.id, build.image.id()));
+            }
 
             server
                 .node
@@ -634,11 +656,22 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(UpdatePortError::ServerNotFound)?;
 
-        let build = server
+        let mut build = server
             .template
             .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
             .await
             .map_err(TemplateError::into::<UpdatePortError>)?;
+        if let Some(custom_dockerfile) = &server.custom_dockerfile {
+            build.image = ServerBuildImage {
+                default_tag: None,
+                tag: None,
+                parents: vec![build.image],
+                args: HashMap::new(),
+                dockerfile: custom_dockerfile.clone(),
+                base: Some(0),
+            };
+            build.image.tag = Some(format!("custom_{}_{}", server.id, build.image.id()));
+        }
 
         let mut conn = self.database.acquire().await?;
 
@@ -866,11 +899,22 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(DeletePortError::ServerNotFound)?;
 
-        let build = server
+        let mut build = server
             .template
             .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
             .await
             .map_err(TemplateError::into::<DeletePortError>)?;
+        if let Some(custom_dockerfile) = &server.custom_dockerfile {
+            build.image = ServerBuildImage {
+                default_tag: None,
+                tag: None,
+                parents: vec![build.image],
+                args: HashMap::new(),
+                dockerfile: custom_dockerfile.clone(),
+                base: Some(0),
+            };
+            build.image.tag = Some(format!("custom_{}_{}", server.id, build.image.id()));
+        }
 
         let routes = self.port_routes(port_id).await?;
 
