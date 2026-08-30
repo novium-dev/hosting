@@ -1,21 +1,27 @@
-use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::project::ProjectId;
 use crate::db::region::RegionId;
 use crate::service::admin::database::database_admin_service_error::{
     CreateDatabaseHostError, DeleteDatabaseHostError, DeleteDatabaseInstanceError,
+    ExtendDatabaseHostRegistrationError, ListDatabaseHostRegistrationsError,
     ListDatabaseHostsError, ListDatabaseInstancesError, UpdateDatabaseHostError,
-    UpdateDatabaseInstanceError,
+    UpdateDatabaseHostRegistrationError, UpdateDatabaseInstanceError,
 };
+use crate::service::admin::node::gen_code;
 use crate::service::error_database_agent_error::FromDatabaseAgentError;
+use crate::service::internal::REGISTRATION_TIMEOUT;
 use crate::service::*;
+use crate::{Backend, DatabaseHostRegistration};
 use core::str::FromStr as _;
 use database_agent_common::service::instance::InstanceService as _;
-use database_agent_common::types::{ApiInstance, DatabaseType, StoredInstanceUpdate};
+use database_agent_common::types::{
+    ApiInstance, DatabaseType, SetupAgentConfig, StoredInstanceUpdate,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
 use std::collections::HashMap;
+use std::time::Instant;
 use url::Url;
 use uuid::Uuid;
 use zelus::service;
@@ -36,11 +42,21 @@ pub(crate) struct DatabaseHostInfo {
 pub(crate) struct CreateDatabaseHost {
     pub(crate) display: String,
     pub(crate) region: RegionId,
-    pub(crate) url: Url,
-    pub(crate) token: String,
+    pub(crate) base_url: Url,
     pub(crate) public_host: String,
     #[serde(default)]
     pub(crate) ports: HashMap<DatabaseType, u16>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct DatabaseHostRegistrationInfo {
+    pub(crate) code: String,
+    pub(crate) display: String,
+    pub(crate) region: RegionId,
+    pub(crate) base_url: Url,
+    pub(crate) public_host: String,
+    pub(crate) ports: HashMap<DatabaseType, u16>,
+    pub(crate) expires_in: u64,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -51,8 +67,6 @@ pub(crate) struct UpdateDatabaseHost {
     pub(crate) region: Option<RegionId>,
     #[serde(default)]
     pub(crate) url: Option<Url>,
-    #[serde(default)]
-    pub(crate) token: Option<String>,
     #[serde(default)]
     pub(crate) public_host: Option<String>,
     #[serde(default)]
@@ -94,6 +108,8 @@ pub(crate) struct UpdateDatabaseInstance {
     #[serde(default)]
     pub(crate) suspended: Option<bool>,
 }
+
+define_path_variable!(code "The database host registration code");
 
 fn agent_failure<E: FromDatabaseAgentError>(error: &impl core::fmt::Debug) -> E {
     tracing::error!("The database agent returned an error: {error:?}");
@@ -173,18 +189,21 @@ pub(crate) impl DatabaseAdminService for Backend {
         Ok(hosts)
     }
 
-    /// Registers a new database host.
+    /// Creates a new setup code for a database host.
+    ///
+    /// The agent pulls its config during setup (`GET /internal/database_agent/config`)
+    /// using the returned code and registers itself against it.
     ///
     /// # Permissions
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host", method = PUT)]
-    #[error(auth::{permission_denied, unreachable}, region::not_found <- [sql:not_found],
-        db::failure <- [sql:*])]
+    #[error(auth::{permission_denied, unreachable}, os::failure,
+        region::not_found <- [sql:not_found], db::failure <- [sql:*])]
     async fn create_database_host(
         &self,
         #[special] auth: Authentication,
         payload: CreateDatabaseHost,
-    ) -> Result<CreatedId, _> {
+    ) -> Result<String, _> {
         auth.require::<_, _, CreateDatabaseHostError>(
             (),
             ManagementPermissions::DATABASE_HOSTS_MANAGE,
@@ -197,35 +216,133 @@ pub(crate) impl DatabaseAdminService for Backend {
         .fetch_one(&*self.database)
         .await?;
 
-        let id = Uuid::new_v4();
+        let code = gen_code::<CreateDatabaseHostError>()?;
+
+        self.database_host_registrations.write().await.insert(
+            code.clone(),
+            DatabaseHostRegistration {
+                time: Instant::now(),
+                display: payload.display,
+                region: payload.region,
+                public_host: payload.public_host,
+                config: SetupAgentConfig {
+                    base_url: payload.base_url,
+                    ports: payload.ports,
+                },
+            },
+        );
+
+        Ok(code)
+    }
+
+    /// Lists the database host registrations that are still waiting for an agent
+    /// to set itself up.
+    ///
+    /// Expired registrations are pruned and never returned.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::DATABASE_HOSTS_VIEW`].
+    #[route("/host/registrations", method = GET)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn list_database_host_registrations(
+        &self,
+        #[special] auth: Authentication,
+    ) -> Result<Vec<DatabaseHostRegistrationInfo>, _> {
+        auth.require::<_, _, ListDatabaseHostRegistrationsError>(
+            (),
+            ManagementPermissions::DATABASE_HOSTS_VIEW,
+        )?;
+
+        let mut registrations = self.database_host_registrations.write().await;
+        registrations
+            .retain(|_code, registration| registration.time.elapsed() < REGISTRATION_TIMEOUT);
+
+        Ok(registrations
+            .iter()
+            .map(|(code, registration)| DatabaseHostRegistrationInfo {
+                code: code.clone(),
+                display: registration.display.clone(),
+                region: registration.region,
+                base_url: registration.config.base_url.clone(),
+                public_host: registration.public_host.clone(),
+                ports: registration.config.ports.clone(),
+                expires_in: REGISTRATION_TIMEOUT
+                    .saturating_sub(registration.time.elapsed())
+                    .as_secs(),
+            })
+            .collect())
+    }
+
+    /// Replaces the intended config of a database host registration that has not
+    /// been claimed yet.
+    ///
+    /// The setup code and its expiry stay untouched, so an agent that has not
+    /// pulled its config yet picks up the new one.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
+    #[route("/host/registrations/{code}", method = PATCH)]
+    #[error(auth::{permission_denied, unreachable}, database::host_not_found,
+        region::not_found <- [sql:not_found], db::failure <- [sql:*])]
+    async fn update_database_host_registration(
+        &self,
+        #[special] auth: Authentication,
+        code: String,
+        payload: CreateDatabaseHost,
+    ) -> Result<(), _> {
+        auth.require::<_, _, UpdateDatabaseHostRegistrationError>(
+            (),
+            ManagementPermissions::DATABASE_HOSTS_MANAGE,
+        )?;
 
         query!(
-            "INSERT INTO database_hosts (id, display, region, url, token, public_host)
-             VALUES ($1, $2, $3, $4, $5, $6)",
-            id,
-            payload.display,
-            &payload.region,
-            payload.url.to_string(),
-            payload.token,
-            payload.public_host
+            r#"SELECT id AS "id: RegionId" FROM regions WHERE id = $1"#,
+            &payload.region
         )
-        .execute(&*self.database)
+        .fetch_one(&*self.database)
         .await?;
 
-        for (kind, port) in payload.ports {
-            query!(
-                "INSERT INTO database_host_ports (host, type, port) VALUES ($1, $2, $3)",
-                id,
-                kind.as_str(),
-                i32::from(port)
-            )
-            .execute(&*self.database)
-            .await?;
-        }
+        self.database_host_registrations
+            .write()
+            .await
+            .get_mut(&code)
+            .filter(|registration| registration.time.elapsed() < REGISTRATION_TIMEOUT)
+            .map(|registration| {
+                registration.display = payload.display;
+                registration.region = payload.region;
+                registration.public_host = payload.public_host;
+                registration.config.base_url = payload.base_url;
+                registration.config.ports = payload.ports;
+            })
+            .ok_or(UpdateDatabaseHostRegistrationError::DatabaseHostNotFound)
+    }
 
-        self.reload_database_hosts().await?;
+    /// Restarts the expiry countdown of a database host registration that has not
+    /// been claimed yet, so the same setup code stays usable.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
+    #[route("/host/registrations/{code}/extend", method = POST)]
+    #[error(auth::{permission_denied, unreachable}, database::host_not_found,
+        db::failure <- [sql:*])]
+    async fn extend_database_host_registration(
+        &self,
+        #[special] auth: Authentication,
+        code: String,
+    ) -> Result<(), _> {
+        auth.require::<_, _, ExtendDatabaseHostRegistrationError>(
+            (),
+            ManagementPermissions::DATABASE_HOSTS_MANAGE,
+        )?;
 
-        Ok(CreatedId { id })
+        self.database_host_registrations
+            .write()
+            .await
+            .get_mut(&code)
+            .map(|registration| {
+                registration.time = Instant::now();
+            })
+            .ok_or(ExtendDatabaseHostRegistrationError::DatabaseHostNotFound)
     }
 
     /// Updates a registered database host.
@@ -251,15 +368,13 @@ pub(crate) impl DatabaseAdminService for Backend {
                  display = COALESCE($2, display),
                  region = COALESCE($3, region),
                  url = COALESCE($4, url),
-                 token = COALESCE($5, token),
-                 public_host = COALESCE($6, public_host),
-                 maintenance = COALESCE($7, maintenance)
+                 public_host = COALESCE($5, public_host),
+                 maintenance = COALESCE($6, maintenance)
              WHERE id = $1",
             host_id,
             payload.display,
             payload.region.as_ref().map(ToString::to_string),
             payload.url.map(|url| url.to_string()),
-            payload.token,
             payload.public_host,
             payload.maintenance
         )

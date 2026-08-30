@@ -5,6 +5,7 @@ use crate::store::{Store, data};
 use crate::subsystems::SubsystemRegistry;
 use bollard::Docker;
 use core::ops::Deref;
+use daemon_common::key::{DaemonKey, DaemonRootKey};
 use database_agent_common::types::StoredInstanceCreate;
 use std::io;
 use std::sync::Arc;
@@ -16,6 +17,9 @@ pub struct AgentInner {
     pub config: Arc<AgentConfig>,
     pub store: Store,
     pub docker: Docker,
+
+    pub root: Arc<DaemonRootKey>,
+    pub key: Arc<DaemonKey>,
 
     pub instances: RwLock<Vec<Instance>>,
     pub routes: Arc<DatabaseRouteManager>,
@@ -37,12 +41,20 @@ impl Deref for Agent {
 }
 
 impl Agent {
-    pub fn new(config: Arc<AgentConfig>, store: Store, docker: Docker) -> Self {
+    pub fn new(
+        config: Arc<AgentConfig>,
+        store: Store,
+        docker: Docker,
+        root: Arc<DaemonRootKey>,
+        key: Arc<DaemonKey>,
+    ) -> Self {
         Self(Arc::new(AgentInner {
             disk_check_semaphore: Semaphore::new(config.disk_check_concurrency.max(1)),
             config,
             store,
             docker,
+            root,
+            key,
             instances: RwLock::new(Vec::new()),
             routes: Arc::default(),
             subsystems: Arc::default(),

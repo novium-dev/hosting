@@ -7,7 +7,10 @@ use crate::{
     service::internal::{
         error_internal_daemon_key_invalid::FromInternalDaemonKeyInvalid,
         error_internal_daemon_unreachable::FromInternalDaemonUnreachable,
-        internal_service_error::{DaemonConfigError, DaemonRegisterError, DaemonRootKeyError},
+        internal_service_error::{
+            DaemonConfigError, DaemonRegisterError, DaemonRootKeyError, DatabaseAgentConfigError,
+            DatabaseAgentRegisterError, DatabaseAgentRootKeyError,
+        },
     },
 };
 use axum_extra::headers::authorization::Basic;
@@ -24,6 +27,11 @@ use daemon_common::{
     sdk::DaemonSDK,
     service::setup::{SetupService as _, setup_service_error::ConfigError},
 };
+use database_agent_common::sdk::DatabaseAgentSDK;
+use database_agent_common::service::setup::{
+    SetupService as _, setup_service_error::ConfigError as AgentConfigError,
+};
+use database_agent_common::types::{AgentRegistrationRequest, SetupAgentConfig};
 use rustls::{
     RootCertStore,
     pki_types::{CertificateDer, CertificateSigningRequestDer},
@@ -176,6 +184,141 @@ pub(crate) impl InternalService for Backend {
             Ok(signed.to_vec())
         } else {
             Err(DaemonRegisterError::AuthInvalid)
+        }
+    }
+
+    /// Returns the public daemon root key as pem.
+    ///
+    /// This route should only be used directly by the database agent.
+    #[route("/database_agent/root_key", no_auth)]
+    #[error(auth::invalid)]
+    async fn database_agent_root_key(
+        &self,
+        TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
+    ) -> Result<String, _> {
+        if let Some(registration) = self
+            .database_host_registrations
+            .read()
+            .await
+            .get(&auth.token().to_owned())
+            && registration.time.elapsed() < REGISTRATION_TIMEOUT
+        {
+            Ok(self.root_key.dump(None, None))
+        } else {
+            Err(DatabaseAgentRootKeyError::AuthInvalid)
+        }
+    }
+
+    /// Returns the intended logical config for a pending database host registration.
+    ///
+    /// The agent pulls this during setup (between `root_key` and `register`) to
+    /// build its local config.
+    ///
+    /// This route should only be used directly by the database agent.
+    #[route("/database_agent/config", no_auth)]
+    #[error(auth::invalid)]
+    async fn database_agent_config(
+        &self,
+        TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
+    ) -> Result<SetupAgentConfig, _> {
+        if let Some(registration) = self
+            .database_host_registrations
+            .read()
+            .await
+            .get(&auth.token().to_owned())
+            && registration.time.elapsed() < REGISTRATION_TIMEOUT
+        {
+            Ok(registration.config.clone())
+        } else {
+            Err(DatabaseAgentConfigError::AuthInvalid)
+        }
+    }
+
+    /// Registers a new database agent.
+    ///
+    /// This route should only be used directly by the database agent.
+    #[route("/database_agent/register", method = POST, raw, no_auth)]
+    #[error(internal_daemon::{key_invalid, unreachable, sign_failed}, db::failure <- [sql:*], auth::invalid)]
+    async fn database_agent_register(
+        &self,
+        TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
+        AgentRegistrationRequest { cert, csr }: AgentRegistrationRequest,
+    ) -> Result<Vec<u8>, _> {
+        if let Some(registration) = self
+            .database_host_registrations
+            .write()
+            .await
+            .remove(&auth.token().to_owned())
+            && registration.time.elapsed() < REGISTRATION_TIMEOUT
+        {
+            let cert = CertificateDer::from(cert);
+            let config = registration.config.clone();
+
+            database_agent_connection_test::<DatabaseAgentRegisterError>(
+                Uuid::nil(),
+                &config.base_url,
+                self,
+                &cert,
+            )
+            .await?;
+
+            let csr = CertificateSigningRequestDer::from(csr);
+            let csr = CertificateSigningRequestParams::from_der(&csr)
+                .map_err(|_err| DatabaseAgentRegisterError::InternalDaemonKeyInvalid)?;
+            let Some(common_name) = csr.params.distinguished_name.get(&DnType::CommonName) else {
+                return Err(DatabaseAgentRegisterError::InternalDaemonKeyInvalid);
+            };
+            if !common_name.eq(&DnValue::from("node")) {
+                return Err(DatabaseAgentRegisterError::InternalDaemonKeyInvalid);
+            }
+
+            let uuid = Uuid::new_v4();
+            let signed = self
+                .root_key
+                .sign_daemon_key(&self.root_privkey, csr.public_key, uuid)
+                .inspect_err(|err| error!("Unable to sign database agent cert: {err:?}"))
+                .map_err(|_err| DatabaseAgentRegisterError::InternalDaemonSignFailed)?;
+
+            let backend = self.clone();
+            self.database
+                .acquire()
+                .await?
+                .transaction(move |tx| {
+                    Box::pin(async move {
+                        query!(
+                            "INSERT INTO database_hosts (id, display, region, url, public_host) VALUES ($1, $2, $3, $4, $5)",
+                            &uuid,
+                            registration.display,
+                            &registration.region,
+                            config.base_url.as_str(),
+                            registration.public_host
+                        )
+                        .execute(&mut **tx)
+                        .await
+                        .inspect_err(|err| error!("Failed to insert database host: {err:?}"))?;
+
+                        for (kind, port) in config.ports {
+                            query!(
+                                "INSERT INTO database_host_ports (host, type, port) VALUES ($1, $2, $3)",
+                                &uuid,
+                                kind.as_str(),
+                                i32::from(port)
+                            )
+                            .execute(&mut **tx)
+                            .await
+                            .inspect_err(|err| error!("Failed to insert database host port: {err:?}"))?;
+                        }
+
+                        backend.sync_database_hosts(tx).await?;
+
+                        Ok::<_, DatabaseAgentRegisterError>(())
+                    })
+                })
+                .await?;
+
+            Ok(signed.to_vec())
+        } else {
+            Err(DatabaseAgentRegisterError::AuthInvalid)
         }
     }
 
@@ -402,6 +545,37 @@ async fn daemon_connection_test<E: FromInternalDaemonUnreachable + FromInternalD
 
     let result = sdk.config().await;
     let Err(ConfigError::AwaitingSetup) = result else {
+        debug!("Connection test failed, Expected Err(AwaitingSetup), Got: {result:?}");
+        return Err(<E as FromInternalDaemonUnreachable>::from());
+    };
+    Ok(())
+}
+
+async fn database_agent_connection_test<
+    E: FromInternalDaemonUnreachable + FromInternalDaemonKeyInvalid,
+>(
+    identifier: Uuid,
+    base_url: &Url,
+    backend: &Backend,
+    trust: &CertificateDer<'static>,
+) -> Result<(), E> {
+    let mut cert_store = RootCertStore::empty();
+    cert_store
+        .add(trust.clone())
+        .inspect_err(|err| {
+            debug!("Unable to add agent cert to temp. trust store for connection test: {err:?}");
+        })
+        .map_err(|_err| <E as FromInternalDaemonKeyInvalid>::from())?;
+
+    let sdk = DatabaseAgentSDK::builder()
+        .with_identifier(identifier)
+        .with_custom_cert_store(Arc::new(cert_store))
+        .with_backend_key(Arc::clone(&backend.key))
+        .with_url(base_url.clone())
+        .build();
+
+    let result = sdk.config().await;
+    let Err(AgentConfigError::AwaitingSetup) = result else {
         debug!("Connection test failed, Expected Err(AwaitingSetup), Got: {result:?}");
         return Err(<E as FromInternalDaemonUnreachable>::from());
     };

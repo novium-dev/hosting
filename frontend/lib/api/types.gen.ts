@@ -23,6 +23,11 @@ export type AddSshKeyPayload = {
     public_key: string;
 };
 
+export type AgentRegistrationRequest = {
+    cert: Array<number>;
+    csr: Array<number>;
+};
+
 export type ApiInstance = StoredInstance & {
     backend_auth_error?: string | null;
     database_count: number;
@@ -63,14 +68,13 @@ export type CreateApiKeyPayload = {
 };
 
 export type CreateDatabaseHost = {
+    base_url: string;
     display: string;
     ports?: {
         [key: string]: number;
     };
     public_host: string;
     region: NanoId;
-    token: string;
-    url: string;
 };
 
 export type CreateInstanceDatabase = {
@@ -550,7 +554,6 @@ export type UpdateDatabaseHost = {
     } | null;
     public_host?: string | null;
     region?: null | NanoId;
-    token?: string | null;
     url?: string | null;
 };
 
@@ -8004,7 +8007,7 @@ export type CreateProjectData = {
     body: CreateProjectPayload;
     headers?: {
         /**
-         * The session token
+         * The session token or api key
          */
         Authorization?: string;
     };
@@ -8942,6 +8945,155 @@ export type DaemonRegisterResponses = {
 };
 
 export type DaemonRegisterResponse = DaemonRegisterResponses[keyof DaemonRegisterResponses];
+
+export type DatabaseAgentRootKeyData = {
+    body?: never;
+    headers: {
+        /**
+         * The authorization code for the registration
+         */
+        authorization: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/internal/database_agent/root_key';
+};
+
+export type DatabaseAgentRootKeyErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+};
+
+export type DatabaseAgentRootKeyError = DatabaseAgentRootKeyErrors[keyof DatabaseAgentRootKeyErrors];
+
+export type DatabaseAgentRootKeyResponses = {
+    /**
+     * Success
+     */
+    200: string;
+};
+
+export type DatabaseAgentRootKeyResponse = DatabaseAgentRootKeyResponses[keyof DatabaseAgentRootKeyResponses];
+
+export type DatabaseAgentConfigData = {
+    body?: never;
+    headers: {
+        /**
+         * The authorization code for the registration
+         */
+        authorization: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/internal/database_agent/config';
+};
+
+export type DatabaseAgentConfigErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+};
+
+export type DatabaseAgentConfigError = DatabaseAgentConfigErrors[keyof DatabaseAgentConfigErrors];
+
+export type DatabaseAgentConfigResponses = {
+    /**
+     * Success
+     */
+    200: {
+        base_url: string;
+        ports?: {
+            [key: string]: number;
+        };
+    };
+};
+
+export type DatabaseAgentConfigResponse = DatabaseAgentConfigResponses[keyof DatabaseAgentConfigResponses];
+
+export type DatabaseAgentRegisterData = {
+    body: AgentRegistrationRequest;
+    headers: {
+        /**
+         * The authorization code for the registration
+         */
+        authorization: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/internal/database_agent/register';
+};
+
+export type DatabaseAgentRegisterErrors = {
+    /**
+     * Invalid key for certificate request
+     */
+    '400؜': {
+        error?: {
+            id?: 'internal_daemon/key_invalid';
+            msg?: 'Invalid key for certificate request';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401‍': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * Unable to sign daemon key
+     */
+    '500​': {
+        error?: {
+            id?: 'internal_daemon/sign_failed';
+            msg?: 'Unable to sign daemon key';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Connection test failed
+     */
+    '502᠎': {
+        error?: {
+            id?: 'internal_daemon/unreachable';
+            msg?: 'Connection test failed';
+        };
+    };
+};
+
+export type DatabaseAgentRegisterError = DatabaseAgentRegisterErrors[keyof DatabaseAgentRegisterErrors];
+
+export type DatabaseAgentRegisterResponses = {
+    /**
+     * Success
+     */
+    200: Array<number>;
+};
+
+export type DatabaseAgentRegisterResponse = DatabaseAgentRegisterResponses[keyof DatabaseAgentRegisterResponses];
 
 export type AuthPasswordData = {
     body?: never;
@@ -15180,10 +15332,255 @@ export type CreateDatabaseHostErrors = {
     /**
      * The specified region was not found
      */
-    '404‌': {
+    '404‍': {
         error?: {
             id?: 'region/not_found';
             msg?: 'The specified region was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * OS operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'os/failure';
+            msg?: 'OS operation failed';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type CreateDatabaseHostError = CreateDatabaseHostErrors[keyof CreateDatabaseHostErrors];
+
+export type CreateDatabaseHostResponses = {
+    /**
+     * Success
+     */
+    200: string;
+};
+
+export type CreateDatabaseHostResponse = CreateDatabaseHostResponses[keyof CreateDatabaseHostResponses];
+
+export type ListDatabaseHostRegistrationsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/database/host/registrations';
+};
+
+export type ListDatabaseHostRegistrationsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListDatabaseHostRegistrationsError = ListDatabaseHostRegistrationsErrors[keyof ListDatabaseHostRegistrationsErrors];
+
+export type ListDatabaseHostRegistrationsResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        base_url: string;
+        code: string;
+        display: string;
+        expires_in: number;
+        ports: {
+            [key: string]: number;
+        };
+        public_host: string;
+        region: NanoId;
+    }>;
+};
+
+export type ListDatabaseHostRegistrationsResponse = ListDatabaseHostRegistrationsResponses[keyof ListDatabaseHostRegistrationsResponses];
+
+export type UpdateDatabaseHostRegistrationData = {
+    body: CreateDatabaseHost;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The database host registration code
+         */
+        code: string;
+    };
+    query?: never;
+    url: '/admin/database/host/registrations/{code}';
+};
+
+export type UpdateDatabaseHostRegistrationErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified database host was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'database/host_not_found';
+            msg?: 'The specified database host was not found';
+        };
+    };
+    /**
+     * The specified region was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'region/not_found';
+            msg?: 'The specified region was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type UpdateDatabaseHostRegistrationError = UpdateDatabaseHostRegistrationErrors[keyof UpdateDatabaseHostRegistrationErrors];
+
+export type UpdateDatabaseHostRegistrationResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UpdateDatabaseHostRegistrationResponse = UpdateDatabaseHostRegistrationResponses[keyof UpdateDatabaseHostRegistrationResponses];
+
+export type ExtendDatabaseHostRegistrationData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The database host registration code
+         */
+        code: string;
+    };
+    query?: never;
+    url: '/admin/database/host/registrations/{code}/extend';
+};
+
+export type ExtendDatabaseHostRegistrationErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified database host was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'database/host_not_found';
+            msg?: 'The specified database host was not found';
         };
     };
     /**
@@ -15206,18 +15603,16 @@ export type CreateDatabaseHostErrors = {
     };
 };
 
-export type CreateDatabaseHostError = CreateDatabaseHostErrors[keyof CreateDatabaseHostErrors];
+export type ExtendDatabaseHostRegistrationError = ExtendDatabaseHostRegistrationErrors[keyof ExtendDatabaseHostRegistrationErrors];
 
-export type CreateDatabaseHostResponses = {
+export type ExtendDatabaseHostRegistrationResponses = {
     /**
      * Success
      */
-    200: {
-        id: string;
-    };
+    204: void;
 };
 
-export type CreateDatabaseHostResponse = CreateDatabaseHostResponses[keyof CreateDatabaseHostResponses];
+export type ExtendDatabaseHostRegistrationResponse = ExtendDatabaseHostRegistrationResponses[keyof ExtendDatabaseHostRegistrationResponses];
 
 export type DeleteDatabaseHostData = {
     body?: never;

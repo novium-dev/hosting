@@ -1,11 +1,15 @@
-use crate::sdk::DatabaseAgentSDK;
+use crate::sdk::{DatabaseAgentSDK, DatabaseAgentSDKServerNameResolver};
 use core::time::Duration;
+use daemon_common::key::{BackendKey, DaemonKeyVerifier, DaemonRootKey};
+use either::Either;
+use rustls::client::WebPkiServerVerifier;
+use rustls::{ClientConfig, RootCertStore};
+use std::sync::Arc;
 use uuid::Uuid;
-use zelus::http::HeaderMap;
-use zelus::http::header::{AUTHORIZATION, HeaderValue};
 use zelus::reqwest::Client;
 use zelus::url::Url;
 
+#[expect(private_bounds, reason = "trait should be sealed")]
 pub trait DatabaseAgentSDKBuilderState: DatabaseAgentSdkSealed {
     type Inner;
 }
@@ -13,41 +17,40 @@ pub trait DatabaseAgentSDKBuilderState: DatabaseAgentSdkSealed {
 pub(crate) trait DatabaseAgentSdkSealed {}
 
 pub enum RequiresIdentifier {}
+pub enum RequiresRootKey {}
+pub enum RequiresBackendKey {}
 pub enum RequiresBaseURL {}
-pub enum RequiresToken {}
 
 impl DatabaseAgentSdkSealed for RequiresIdentifier {}
+impl DatabaseAgentSdkSealed for RequiresRootKey {}
+impl DatabaseAgentSdkSealed for RequiresBackendKey {}
 impl DatabaseAgentSdkSealed for RequiresBaseURL {}
-impl DatabaseAgentSdkSealed for RequiresToken {}
 impl DatabaseAgentSdkSealed for () {}
 
 impl DatabaseAgentSDKBuilderState for RequiresIdentifier {
     type Inner = ();
 }
-impl DatabaseAgentSDKBuilderState for RequiresBaseURL {
+impl DatabaseAgentSDKBuilderState for RequiresRootKey {
     type Inner = Uuid;
 }
-impl DatabaseAgentSDKBuilderState for RequiresToken {
-    type Inner = (Uuid, Url);
+impl DatabaseAgentSDKBuilderState for RequiresBackendKey {
+    type Inner = (Uuid, Either<Arc<DaemonRootKey>, Arc<RootCertStore>>);
+}
+impl DatabaseAgentSDKBuilderState for RequiresBaseURL {
+    type Inner = (
+        Uuid,
+        Either<Arc<DaemonRootKey>, Arc<RootCertStore>>,
+        Arc<BackendKey>,
+    );
 }
 impl DatabaseAgentSDKBuilderState for () {
-    type Inner = (Uuid, Url, String);
+    type Inner = (
+        Uuid,
+        Either<Arc<DaemonRootKey>, Arc<RootCertStore>>,
+        Arc<BackendKey>,
+        Url,
+    );
 }
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum DatabaseAgentSDKError {
-    TokenInvalid,
-}
-
-impl core::fmt::Display for DatabaseAgentSDKError {
-    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        formatter.write_str(match *self {
-            Self::TokenInvalid => "the agent token is not a valid header value",
-        })
-    }
-}
-
-impl core::error::Error for DatabaseAgentSDKError {}
 
 #[must_use]
 pub struct DatabaseAgentSDKBuilder<T: DatabaseAgentSDKBuilderState>(T::Inner);
@@ -62,47 +65,89 @@ impl DatabaseAgentSDKBuilder<RequiresIdentifier> {
     pub const fn with_identifier(
         self,
         identifier: Uuid,
-    ) -> DatabaseAgentSDKBuilder<RequiresBaseURL> {
+    ) -> DatabaseAgentSDKBuilder<RequiresRootKey> {
         DatabaseAgentSDKBuilder(identifier)
     }
 }
 
+impl DatabaseAgentSDKBuilder<RequiresRootKey> {
+    pub const fn with_root_key(
+        self,
+        root: Arc<DaemonRootKey>,
+    ) -> DatabaseAgentSDKBuilder<RequiresBackendKey> {
+        DatabaseAgentSDKBuilder((self.0, Either::Left(root)))
+    }
+
+    pub const fn with_custom_cert_store(
+        self,
+        store: Arc<RootCertStore>,
+    ) -> DatabaseAgentSDKBuilder<RequiresBackendKey> {
+        DatabaseAgentSDKBuilder((self.0, Either::Right(store)))
+    }
+}
+
+impl DatabaseAgentSDKBuilder<RequiresBackendKey> {
+    pub fn with_backend_key(
+        self,
+        backend: Arc<BackendKey>,
+    ) -> DatabaseAgentSDKBuilder<RequiresBaseURL> {
+        DatabaseAgentSDKBuilder((self.0.0, self.0.1, backend))
+    }
+}
+
 impl DatabaseAgentSDKBuilder<RequiresBaseURL> {
-    pub fn with_url(self, mut url: Url) -> DatabaseAgentSDKBuilder<RequiresToken> {
+    pub fn with_url(self, mut url: Url) -> DatabaseAgentSDKBuilder<()> {
         url.set_query(None);
         url.set_fragment(None);
         if !url.path().ends_with('/') {
             url.set_path(&format!("{}/", url.path()));
         }
-        DatabaseAgentSDKBuilder((self.0, url))
-    }
-}
-
-impl DatabaseAgentSDKBuilder<RequiresToken> {
-    pub fn with_token(self, token: impl Into<String>) -> DatabaseAgentSDKBuilder<()> {
-        DatabaseAgentSDKBuilder((self.0.0, self.0.1, token.into()))
+        DatabaseAgentSDKBuilder((self.0.0, self.0.1, self.0.2, url))
     }
 }
 
 impl DatabaseAgentSDKBuilder<()> {
-    pub fn build(self) -> Result<DatabaseAgentSDK, DatabaseAgentSDKError> {
-        let (identifier, base_url, token) = self.0;
+    pub fn build(self) -> DatabaseAgentSDK {
+        let (identifier, root_key, backend_key, base_url) = self.0;
 
-        let mut authorization = HeaderValue::from_str(&format!("Bearer {token}"))
-            .map_err(|_err| DatabaseAgentSDKError::TokenInvalid)?;
-        authorization.set_sensitive(true);
+        let cert_store = match root_key {
+            Either::Left(key) => Arc::clone(&key.cert_store),
+            Either::Right(store) => store,
+        };
 
-        let mut headers = HeaderMap::new();
-        headers.insert(AUTHORIZATION, authorization);
+        let mut tls = ClientConfig::builder()
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(DaemonKeyVerifier(
+                identifier,
+                WebPkiServerVerifier::builder(cert_store)
+                    .build()
+                    .expect("Unable to build webpki server verifier"),
+            )))
+            .with_client_auth_cert(
+                backend_key.tls_cert.cert.clone(),
+                backend_key.privkey.clone_key(),
+            )
+            .expect("Unable to build client config");
+        tls.enable_sni = true;
+        tls.alpn_protocols = vec!["h2".into()];
 
-        Ok(DatabaseAgentSDK {
+        DatabaseAgentSDK {
             client: Client::builder()
-                .default_headers(headers)
+                .no_hickory_dns()
+                .zstd(true)
+                .https_only(true)
+                .http2_prior_knowledge()
                 .timeout(Duration::from_mins(2))
+                .tls_backend_rustls()
+                .tls_certs_only([])
+                .tls_version_min(zelus::reqwest::tls::Version::TLS_1_3)
+                .tls_sni(true)
+                .tls_backend_preconfigured(tls)
+                .with_server_name_resolver(Arc::new(DatabaseAgentSDKServerNameResolver(identifier)))
                 .build()
-                .map_err(|_err| DatabaseAgentSDKError::TokenInvalid)?,
+                .expect("Unable to build reqwest client"),
             identifier,
             base_url,
-        })
+        }
     }
 }

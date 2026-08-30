@@ -38,22 +38,25 @@
       "suspendedDescription": "Weist jede Client-Verbindung am Proxy zurück."
     },
     "hostDialog": {
-      "saveError": "Der Datenbank-Host konnte nicht gespeichert werden",
+      "saveError": "Datenbank-Host konnte nicht gespeichert werden",
       "updateSuccess": "Datenbank-Host aktualisiert",
       "registerSuccess": "Datenbank-Host registriert",
       "editTitle": "Datenbank-Host bearbeiten",
+      "editRegistrationTitle": "Ausstehenden Host bearbeiten",
       "registerTitle": "Datenbank-Host registrieren",
-      "description": "Die URL ist die Adresse, unter der das Backend die API des Agenten erreicht. Der öffentliche Host ist das, was Benutzer in ihre Verbindungszeichenfolgen eintragen.",
+      "description": "Über die URL erreicht das Backend die API des Agents. Der öffentliche Host steht in den Verbindungszeichenfolgen der Nutzer.",
+      "setupDescription": "Erstellt einen Setup-Code. Der Agent registriert sich damit selbst gegen diese Konfiguration.",
       "urlLabel": "Agent-API-URL",
-      "tokenLabel": "API-Token",
-      "tokenLabelKeepHint": "(leer lassen zum Beibehalten)",
-      "tokenPlaceholderUnchanged": "Unverändert",
-      "tokenPlaceholderHint": "Das [api]-Token des Agenten",
+      "urlDescription": "Der Agent muss während des Setups hier erreichbar sein; das Backend verbindet sich per mTLS.",
       "publicHostLabel": "Öffentlicher Host",
       "publicPortsLabel": "Öffentliche Ports",
-      "publicPortsDescription": "Der Port, auf dem der Proxy jeder Engine lauscht. Leer verwendet den Standardport der Engine.",
-      "maintenanceDescription": "Schließt diesen Host bei der Platzierung neuer Datenbanken aus.",
-      "registerButton": "Host registrieren"
+      "publicPortsDescription": "Der Port, auf dem der Proxy jeder Engine lauscht. Leer nutzt den Standardport.",
+      "maintenanceDescription": "Schließt diesen Host bei der Vergabe neuer Datenbanken aus.",
+      "registerButton": "Host registrieren",
+      "setupCodeTitle": "Setup-Code",
+      "setupCodeDescription": "Starte den Agent mit SETUP_URL und diesem Code als SETUP_TOKEN. Er wird nur einmal angezeigt und läuft in einer Stunde ab.",
+      "setupCodeCopied": "Setup-Code kopiert",
+      "copyCodeButton": "Code kopieren"
     },
     "hostsTable": {
       "title": "Datenbank-Hosts",
@@ -71,7 +74,12 @@
       "deleteError": "Der Datenbank-Host konnte nicht gelöscht werden",
       "deleteSuccess": "Datenbank-Host gelöscht",
       "deleteDescription": "Der Host wird hier nur abgemeldet; auf der Maschine selbst wird nichts entfernt. Er darf keine Instanzen mehr besitzen.",
-      "portsDefaultLabel": "Standardwerte"
+      "portsDefaultLabel": "Standardwerte",
+      "pendingSetup": "Wartet auf Setup",
+      "pendingTooltip": "Wartet darauf, dass der Agent sich einrichtet — der Setup-Code läuft in {{expires}} ab.",
+      "extendTooltip": "Countdown des Setup-Codes neu starten",
+      "extended": "Setup-Code verlängert",
+      "extendFailed": "Setup-Code konnte nicht verlängert werden"
     }
   },
   "nodes": {

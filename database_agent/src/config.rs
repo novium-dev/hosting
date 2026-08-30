@@ -1,23 +1,24 @@
 use core::net::SocketAddr;
-use database_agent_common::types::DatabaseType;
+use database_agent_common::types::{BackendAgentConfig, DatabaseType};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
+use url::Url;
 use uuid::Uuid;
 
-fn default_data_dir() -> PathBuf {
+pub(crate) fn default_data_dir() -> PathBuf {
     PathBuf::from("/var/lib/novium-database-agent/data")
 }
 
-fn default_socket_dir() -> PathBuf {
+pub(crate) fn default_socket_dir() -> PathBuf {
     PathBuf::from("/run/novium-database-agent")
 }
 
-const fn default_disk_check_interval() -> u64 {
+pub(crate) const fn default_disk_check_interval() -> u64 {
     60
 }
 
-const fn default_disk_check_concurrency() -> usize {
+pub(crate) const fn default_disk_check_concurrency() -> usize {
     5
 }
 
@@ -102,11 +103,23 @@ impl AgentConfig {
             DatabaseType::Redis => &self.redis,
         }
     }
+
+    #[must_use]
+    pub fn to_backend_config(&self) -> BackendAgentConfig {
+        BackendAgentConfig {
+            base_url: self.api.public_url.clone(),
+            ports: DatabaseType::ALL
+                .iter()
+                .copied()
+                .map(|kind| (kind, self.subsystem(kind).bind.port()))
+                .collect(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiConfig {
-    pub token: String,
+    pub public_url: Url,
     #[serde(default = "default_api_bind")]
     pub bind: SocketAddr,
 }
