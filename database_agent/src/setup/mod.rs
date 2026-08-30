@@ -21,7 +21,7 @@ use rustls::pki_types::CertificateDer;
 use rustls::server::WebPkiClientVerifier;
 use std::path::Path;
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 use url::Url;
 use utoipa_axum::router::OpenApiRouter;
 
@@ -183,11 +183,15 @@ async fn test_host(
     let bind = config.api.bind;
     info!("Starting temporary setup server on {bind}...");
 
-    tokio::task::spawn(
-        Server::bind(bind)
+    tokio::task::spawn(async move {
+        let _ = Server::bind(bind)
             .acceptor(TlsAcceptor(RustlsAcceptor::new(rustls)))
-            .serve(router.into_make_service()),
-    );
+            .serve(router.into_make_service())
+            .await
+            .inspect_err(|err| {
+                error!("failed to serve the temporary setup server on {bind}: {err}");
+            });
+    });
 
     tokio::time::sleep(Duration::from_secs(5)).await;
 
