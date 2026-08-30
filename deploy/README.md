@@ -59,3 +59,17 @@ the same-origin layout above avoids that entirely.
 
 The agent runs on its own host (it needs the Docker socket and binds the engine
 proxy ports directly); see `../compose.yml`.
+
+It authenticates with mTLS against the same CA the backend uses for daemons, so
+a fresh agent has to register before it can serve. Create the database host in
+the admin panel, which returns a setup code, then start the agent once with an
+empty data directory and
+
+```
+SETUP_URL=https://panel.example.com SETUP_TOKEN=<code>
+```
+
+set. Setup pulls the CA and the intended config from the backend, proves it is
+reachable on the registered base URL, and writes `config.toml`, `agent_root.pem`
+and `agent.pem` into `DATABASE_AGENT_DATA_DIR`. Later starts find the config and
+run normally; keep those three files on a persistent volume.

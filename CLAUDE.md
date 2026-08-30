@@ -95,7 +95,7 @@ The **database agent still uses `config.toml`** (`database_agent/config.toml.exa
 
 **Templates (`backend/src/templates/`)** define how a given server type is built and configured (Minecraft variants, Satisfactory, and generic Go/Java/Python/Rust/Docker). The `Template` trait (typed) is object-safed behind `TemplateInner` (JSON-`Value`-based) so heterogeneous templates live in one `HashMap`. Templates keep a Valkey-backed cache (e.g. upstream version lists) refreshed on a background task; `.Dockerfile` files colocated in the tree are the build recipes. Templates are initialized once at startup in `load_templates`.
 
-**Databases (`backend/src/db/database.rs`, `backend/src/service/database.rs`)** — a project may hold up to `MAX_PROJECT_DATABASES` (4) databases; going beyond that needs `ManagementPermissions::LIMITS_BYPASS`. `sync_database_hosts` mirrors `sync_nodes`: it loads the `database_hosts` table into an in-memory map, building a `DatabaseAgentSDK` per host. Creating a project database picks an instance of the requested engine (host not in maintenance, project's region preferred, fewest databases), then calls the agent to create the database and its user. `backend/src/service/admin/database.rs` registers hosts and their public ports and manages instances.
+**Databases (`backend/src/db/database.rs`, `backend/src/service/database.rs`)** — a project may hold up to `MAX_PROJECT_DATABASES` (4) databases; going beyond that needs `ManagementPermissions::LIMITS_BYPASS`. `sync_database_hosts` mirrors `sync_nodes`: it loads the `database_hosts` table into an in-memory map, building a `DatabaseAgentSDK` per host from the root and backend keys. Creating a project database picks an instance of the requested engine (host not in maintenance, project's region preferred, fewest databases), then calls the agent to create the database and its user. `backend/src/service/admin/database.rs` issues host setup codes, manages their public ports and manages instances.
 
 ## The database agent
 
@@ -105,7 +105,9 @@ The **database agent still uses `config.toml`** (`database_agent/config.toml.exa
 
 **Proxy subsystems (`database_agent/src/subsystems/`)** are the point of the agent. One TCP listener per engine (5432/3306/27017/6379) serves every instance of that engine. A client connects as `u<8 hex>_<label>` (`database_agent_common::identifier`); the agent parses the username, looks it up in the `DatabaseRouteManager`, authenticates the client itself (SCRAM-SHA-256 for postgres/mongodb, `mysql_native_password` for mariadb, `AUTH`/`HELLO` for redis), re-authenticates against the instance's socket, then `copy_bidirectional`s. Suspended instances and unknown users are rejected before any relay. The protocol modules carry module-level `#![expect(...)]` blocks for the endianness and cast lints — wire formats fix both, so those lints don't apply there.
 
-**Agent auth** is a shared bearer token from `[api] token`, checked with `constant_time_eq` in an axum middleware over zelus's `with_auth` router group. The agent is not user facing and speaks plain HTTP; keep it on a private network.
+**Agent auth is mTLS, identical to the daemon's.** The agent serves TLS with `agent.pem` (a `DaemonKey`, CN/SAN `node-{host_id}`) and a `WebPkiClientVerifier` built from the CA in `agent_root.pem`; the middleware over zelus's `with_auth` group rejects any request that arrives without a peer certificate. The backend presents its `BackendKey` as the client certificate and pins the host id as the server name (`DatabaseAgentSDK::builder().with_root_key(..).with_backend_key(..)`), exactly like `DaemonSDK`. Both key types come from `daemon_common::key`, so a database host is signed by the same CA as the nodes.
+
+**Agent setup mirrors the daemon's.** With no `config.toml` in `DATABASE_AGENT_DATA_DIR` the agent runs `setup` (`--setup-url`/`SETUP_URL`, `--setup-token`/`SETUP_TOKEN`, `--port`) instead of serving: it pulls the CA (`GET /api/internal/database_agent/root_key`) and the intended config (`/config`), generates a keypair, brings up a temporary mTLS server so the backend can prove it is reachable, `POST`s its CSR to `/register`, and only then writes `config.toml`, `agent_root.pem` and `agent.pem`. The backend side is `create_database_host`, which no longer takes a URL and token but returns a setup code (`/admin/database/host/registrations` lists, updates and extends the pending ones, like the node ones).
 
 ### Running the agent on macOS
 
@@ -114,14 +116,17 @@ The agent must run on **Linux**, not on the macOS host. It reaches its instances
 Run it in an OrbStack Linux machine instead, which shares the same Docker daemon — bind mounts and unix sockets then behave exactly as in production:
 
 ```bash
-./scripts/dev/database_agent_orb.sh start     # build + run as a systemd --user unit
-./scripts/dev/database_agent_orb.sh forward   # expose its ports on macOS
+./scripts/dev/database_agent_orb.sh forward         # expose its ports on macOS
+./scripts/dev/database_agent_orb.sh setup <code>    # register against the backend
+./scripts/dev/database_agent_orb.sh start           # build + run as a systemd --user unit
 ./scripts/dev/database_agent_orb.sh logs
 ```
 
+The agent has to register before it can serve, so create the database host in the admin panel first and pass its setup code to `setup`. Run `forward` before that and register the host as `https://127.0.0.1:18090` — the backend connection-tests the base URL during registration, and `<machine>.orb.local` routing is not reliable on every Mac. `setup` rewrites the generated config to the OrbStack layout afterwards (the two specifics below).
+
 The script builds inside the machine with a machine-local `CARGO_TARGET_DIR`, so the macOS `target/` is untouched, and seeds cargo's git cache from `~/.cargo/git/db` on first run — the workspace lockfile pins the SSH-only `daemon` repo, which a fresh machine cannot fetch itself.
 
-Two OrbStack specifics land in the generated `~/database-agent/config.toml`:
+Two OrbStack specifics land in `~/database-agent/config.toml`:
 
 - `[docker] socket` is `/run/user/<uid>/docker.sock`, not `/var/run/docker.sock`. The latter exists but is `root:docker`, and the agent's user is not in that group.
 - `[docker] rootless = true`. OrbStack's per-user daemon remaps container uids, so chowning the socket and volume directories to the image's uid — what the agent does otherwise — makes them *unreadable* to the container, and the engine fails to start with `Permission denied`.

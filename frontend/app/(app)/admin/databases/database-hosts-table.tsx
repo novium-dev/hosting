@@ -1,8 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Database, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import {
+  Clock,
+  Database,
+  PencilIcon,
+  PlusIcon,
+  TimerResetIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { toast } from "sonner";
+import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import Link from "@/components/link";
@@ -27,16 +35,32 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useTableSort } from "@/hooks/use-table-sort";
 import {
   deleteDatabaseHost,
+  extendDatabaseHostRegistration,
+  listDatabaseHostRegistrations,
+  type ListDatabaseHostRegistrationsResponses,
   type ListDatabaseHostsResponses,
   type ListRegionsResponses,
 } from "@/lib/api";
 import { DatabaseHostDialog } from "./database-host-dialog";
 
 export type DatabaseHostRow = ListDatabaseHostsResponses[200][number];
+export type DatabaseHostRegistrationRow =
+  ListDatabaseHostRegistrationsResponses[200][number];
 export type RegionRow = ListRegionsResponses[200][number];
+
+function formatExpiry(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${minutes}:${String(remaining).padStart(2, "0")}`;
+}
 
 type HostColumn = "display" | "region" | "publicHost" | "instances" | "status";
 
@@ -53,9 +77,21 @@ export function DatabaseHostsTable({
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState<DatabaseHostRow | null>(null);
+  const [editingRegistration, setEditingRegistration] =
+    useState<DatabaseHostRegistrationRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<DatabaseHostRow | null>(null);
   const [isDeletePending, setIsDeletePending] = useState(false);
+  const [extending, setExtending] = useState<string | null>(null);
+
+  const { data: registrations, mutate: mutateRegistrations } = useSWR(
+    "admin/database-host/registrations",
+    async () => {
+      const response = await listDatabaseHostRegistrations();
+      return response.error ? [] : (response.data ?? []);
+    },
+    { refreshInterval: 30_000 },
+  );
 
   const regionName = (id: string) =>
     regions.find((region) => region.id === id)?.display ?? id;
@@ -78,6 +114,26 @@ export function DatabaseHostsTable({
     accessors,
     { column: "display", direction: "asc" },
   );
+
+  const handleExtend = async (code: string) => {
+    setExtending(code);
+    try {
+      const response = await extendDatabaseHostRegistration({ path: { code } });
+
+      if (response.error) {
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:databases.hostsTable.extendFailed"),
+        );
+        return;
+      }
+
+      toast.success(t("admin-infra:databases.hostsTable.extended"));
+      await mutateRegistrations();
+    } finally {
+      setExtending(null);
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -153,7 +209,7 @@ export function DatabaseHostsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.length === 0 ? (
+            {rows.length === 0 && (registrations ?? []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
@@ -170,7 +226,85 @@ export function DatabaseHostsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((host) => (
+              <>
+                {(registrations ?? []).map((registration) => (
+                  <TableRow key={registration.code} className="bg-muted/20">
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex items-center">
+                              <Clock className="size-4 shrink-0 text-amber-500" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {t("admin-infra:databases.hostsTable.pendingTooltip", {
+                              expires: formatExpiry(registration.expires_in),
+                            })}
+                          </TooltipContent>
+                        </Tooltip>
+                        <div>
+                          {registration.display}
+                          <div className="font-mono text-xs font-normal text-muted-foreground">
+                            {registration.code}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{regionName(registration.region)}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {registration.public_host}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {Object.entries(registration.ports)
+                        .map(([type, port]) => `${type}:${port}`)
+                        .join(" ") ||
+                        t("admin-infra:databases.hostsTable.portsDefaultLabel")}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">—</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {t("admin-infra:databases.hostsTable.pendingSetup")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {canManage ? (
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingRegistration(registration)}
+                            aria-label={t(
+                              "admin-infra:databases.hostsTable.editAria",
+                            )}
+                          >
+                            <PencilIcon className="size-4" />
+                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                loading={extending === registration.code}
+                                onClick={() =>
+                                  void handleExtend(registration.code)
+                                }
+                              >
+                                <TimerResetIcon className="size-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {t("admin-infra:databases.hostsTable.extendTooltip")}
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {rows.map((host) => (
                 <TableRow key={host.id}>
                   <TableCell className="font-medium">
                     <Link
@@ -230,8 +364,9 @@ export function DatabaseHostsTable({
                       </div>
                     ) : null}
                   </TableCell>
-                </TableRow>
-              ))
+                  </TableRow>
+                ))}
+              </>
             )}
           </TableBody>
         </Table>
@@ -241,7 +376,19 @@ export function DatabaseHostsTable({
         open={creating}
         onOpenChange={setCreating}
         regions={regions}
-        onSaved={onChanged}
+        onSaved={() => {
+          void mutateRegistrations();
+          onChanged();
+        }}
+      />
+      <DatabaseHostDialog
+        open={editingRegistration !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingRegistration(null);
+        }}
+        registration={editingRegistration ?? undefined}
+        regions={regions}
+        onSaved={() => void mutateRegistrations()}
       />
       <DatabaseHostDialog
         open={editing !== null}

@@ -42,18 +42,21 @@
       "updateSuccess": "Database host updated",
       "registerSuccess": "Database host registered",
       "editTitle": "Edit database host",
+      "editRegistrationTitle": "Edit pending host",
       "registerTitle": "Register database host",
       "description": "The URL is where the backend reaches the agent's API. The public host is what users put in their connection strings.",
+      "setupDescription": "Creates a setup code. Start the agent with it and it registers itself against this config.",
       "urlLabel": "Agent API URL",
-      "tokenLabel": "API token",
-      "tokenLabelKeepHint": "(leave blank to keep)",
-      "tokenPlaceholderUnchanged": "Unchanged",
-      "tokenPlaceholderHint": "The agent's [api] token",
+      "urlDescription": "The agent has to be reachable here during setup; the backend connects to it over mTLS.",
       "publicHostLabel": "Public host",
       "publicPortsLabel": "Public ports",
       "publicPortsDescription": "The port each engine's proxy listens on. Blank uses the engine default.",
       "maintenanceDescription": "Excludes this host when placing new databases.",
-      "registerButton": "Register host"
+      "registerButton": "Register host",
+      "setupCodeTitle": "Setup code",
+      "setupCodeDescription": "Start the agent with SETUP_URL and this code as SETUP_TOKEN. It is shown once and expires in an hour.",
+      "setupCodeCopied": "Setup code copied",
+      "copyCodeButton": "Copy code"
     },
     "hostsTable": {
       "title": "Database hosts",
@@ -71,7 +74,12 @@
       "deleteError": "Failed to delete the database host",
       "deleteSuccess": "Database host deleted",
       "deleteDescription": "The host is only unregistered here; nothing is removed from the machine itself. It must have no instances left.",
-      "portsDefaultLabel": "defaults"
+      "portsDefaultLabel": "defaults",
+      "pendingSetup": "Awaiting setup",
+      "pendingTooltip": "Waiting for the agent to set itself up — setup code expires in {{expires}}.",
+      "extendTooltip": "Restart the setup code's countdown",
+      "extended": "Setup code extended",
+      "extendFailed": "Failed to extend the setup code"
     }
   },
   "nodes": {

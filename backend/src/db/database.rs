@@ -57,7 +57,7 @@ impl Backend {
         let mut hosts = HashMap::new();
 
         for host in query!(
-            r#"SELECT id, display, region AS "region: RegionId", url, token, public_host,
+            r#"SELECT id, display, region AS "region: RegionId", url, public_host,
                    maintenance AS "maintenance: bool"
                FROM database_hosts"#
         )
@@ -80,10 +80,10 @@ impl Backend {
 
             let sdk = DatabaseAgentSDK::builder()
                 .with_identifier(host.id)
+                .with_root_key(Arc::clone(&self.root_key))
+                .with_backend_key(Arc::clone(&self.key))
                 .with_url(Url::parse(&host.url).map_err(|err| sqlx::Error::Decode(Box::new(err)))?)
-                .with_token(host.token)
-                .build()
-                .map_err(|err| sqlx::Error::Decode(Box::new(err)))?;
+                .build();
 
             hosts.insert(
                 host.id,
