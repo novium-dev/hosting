@@ -17,7 +17,7 @@ RUN apk add --no-cache ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev 
 
 FROM chef AS planner
 COPY . .
-RUN cargo chef prepare --recipe-path recipe.json
+RUN cargo chef prepare --bin backend --recipe-path recipe.json
 
 FROM dependencies AS builder
 
@@ -28,7 +28,7 @@ COPY --from=planner /work/recipe.json recipe.json
 
 ARG FEATURES="default"
 
-RUN --mount=type=ssh cargo chef cook --release --recipe-path recipe.json --no-default-features --features "$FEATURES" --target x86_64-unknown-linux-musl
+RUN --mount=type=ssh cargo chef cook --bin backend --release --recipe-path recipe.json --no-default-features --features "$FEATURES" --target x86_64-unknown-linux-musl
 
 COPY --from=utils /usr/local/cargo/bin/cargo-sqlx /usr/local/cargo/bin/cargo-sqlx
 COPY . .

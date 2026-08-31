@@ -12,6 +12,6 @@ export BACKEND_DATABASE_URL="postgres://postgres@127.0.0.1/backend"
 cargo sqlx database create --database-url "$BACKEND_DATABASE_URL"
 cargo sqlx migrate run --database-url "$BACKEND_DATABASE_URL" --source backend/migrations
 
-cargo build -p backend --target x86_64-unknown-linux-musl --release --no-default-features --features "$FEATURES"
+cargo build --bin backend --target x86_64-unknown-linux-musl --release --no-default-features --features "$FEATURES"
 
 # llvm-strip target/x86_64-unknown-linux-musl/release/backend

@@ -13,7 +13,7 @@ RUN apk add --no-cache ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev 
 
 FROM chef AS planner
 COPY . .
-RUN cargo chef prepare --recipe-path recipe.json
+RUN cargo chef prepare --bin database_agent --recipe-path recipe.json
 
 FROM dependencies AS builder
 
@@ -22,7 +22,7 @@ ENV LLVM_CONFIG_PATH="/llvm-config-static.sh"
 
 COPY --from=planner /work/recipe.json recipe.json
 
-RUN --mount=type=ssh cargo chef cook --release --recipe-path recipe.json --target x86_64-unknown-linux-musl
+RUN --mount=type=ssh cargo chef cook --bin database_agent --release --recipe-path recipe.json --target x86_64-unknown-linux-musl
 
 COPY . .
 
