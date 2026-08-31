@@ -576,6 +576,22 @@ pub(crate) impl ServerService for Backend {
                     })?;
                 }
 
+                if let Some(resource) = resource {
+                    query!(
+                        "UPDATE servers SET cpu = $1, ram = $2, swap = $3, disk = $4 WHERE id = $5",
+                        resource.cpu,
+                        resource.ram.map(u32::cast_signed),
+                        resource.swap.map(u32::cast_signed),
+                        resource.disk.map(u64::cast_signed),
+                        &server_id
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| {
+                        error!("Failed to update server (resource): {err:?}");
+                    })?;
+                }
+
                 Ok::<(), UpdateServerError>(())
             })
         })
