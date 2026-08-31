@@ -52,7 +52,7 @@ export function PermissionsField({
       <div className="space-y-4 p-3">
         <label className="flex items-center gap-2 text-sm font-medium">
           <Checkbox
-            checked={allSelected ? true : someSelected ? "indeterminate" : false}
+            checked={allSelected}
             disabled={disabled}
             onCheckedChange={(next) =>
               onChange(next === true ? allBits : 0)
