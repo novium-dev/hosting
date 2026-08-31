@@ -36,8 +36,10 @@ STOPSIGNAL SIGINT
 # default) come from the config file and are not declared here.
 EXPOSE 8090
 
-# Reads config.toml from this directory; mount the docker socket, the socket
-# directory and the data directory the config points at.
+# Reads config.toml, agent_root.pem and agent.pem from this directory; mount the
+# docker socket, the socket directory and the data directory the config points
+# at. When config.toml is missing the agent runs its setup instead, which needs
+# SETUP_URL and SETUP_TOKEN and writes all three files here.
 ENV DATABASE_AGENT_DATA_DIR=/data
 
 COPY --from=builder /work/target/x86_64-unknown-linux-musl/release/database_agent /database_agent

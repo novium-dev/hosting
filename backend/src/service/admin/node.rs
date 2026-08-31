@@ -698,7 +698,7 @@ pub(crate) impl NodeAdminService for Backend {
     }
 }
 
-fn gen_code<E: FromOsFailure>() -> Result<String, E> {
+pub(crate) fn gen_code<E: FromOsFailure>() -> Result<String, E> {
     let mut data = [0u8; 8];
     rand::rng()
         .try_fill_bytes(&mut data)

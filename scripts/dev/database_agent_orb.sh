@@ -9,13 +9,24 @@ set -eu
 # machine shares that same Docker daemon, so running the agent there puts both
 # ends in one kernel and everything behaves like production.
 #
-#   ./scripts/dev/database_agent_orb.sh build     # compile inside the machine
-#   ./scripts/dev/database_agent_orb.sh run       # build, then run in foreground
-#   ./scripts/dev/database_agent_orb.sh start     # run as a systemd --user unit
+#   ./scripts/dev/database_agent_orb.sh build           # compile inside the machine
+#   ./scripts/dev/database_agent_orb.sh setup <code>    # register against the backend
+#   ./scripts/dev/database_agent_orb.sh run             # build, then run in foreground
+#   ./scripts/dev/database_agent_orb.sh start           # run as a systemd --user unit
 #   ./scripts/dev/database_agent_orb.sh stop
 #   ./scripts/dev/database_agent_orb.sh logs
-#   ./scripts/dev/database_agent_orb.sh forward   # expose the ports on macOS
+#   ./scripts/dev/database_agent_orb.sh forward         # expose the ports on macOS
 #   ./scripts/dev/database_agent_orb.sh shell
+#
+# The agent authenticates with mTLS, so it has to run `setup` once before it can
+# serve: create a database host in the admin panel, then pass the setup code
+# here. `setup` pulls the CA and the intended config from the backend, registers
+# and writes config.toml, agent_root.pem and agent.pem into the agent directory.
+#
+# SETUP_URL points at the backend (default http://host.internal:8080). The base
+# URL the backend later calls back on is the one entered in the admin panel; run
+# `forward` first and register the host as https://127.0.0.1:18090, since
+# <machine>.orb.local routing is not reliable on every Mac.
 
 MACHINE="${ORB_MACHINE:-ubuntu}"
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
@@ -55,46 +66,31 @@ seed_cargo_cache() {
     "
 }
 
-ensure_config() {
+# Setup writes the built-in production defaults; rewrite the paths and the
+# docker socket to the OrbStack layout afterwards. Rootless is required here:
+# OrbStack's per-user daemon remaps container uids, so chowning the socket and
+# volume directories would make them unreadable to the engine containers.
+localize_config() {
     guest "
         set -eu
         mkdir -p ${AGENT_DIR}/data ${AGENT_DIR}/sock
-        if [ ! -f ${AGENT_DIR}/config.toml ]; then
-            cat > ${AGENT_DIR}/config.toml <<EOF
-id = \"\$(cat /proc/sys/kernel/random/uuid)\"
-data_dir = \"${AGENT_DIR}/data\"
-socket_dir = \"${AGENT_DIR}/sock\"
-
-[docker]
-rootless = true
-socket = \"/run/user/\$(id -u)/docker.sock\"
-
-[api]
-bind = \"0.0.0.0:8090\"
-token = \"dev-token\"
-
-[store]
-url = \"sqlite://${AGENT_DIR}/data/agent.db?mode=rwc\"
-
-[postgres]
-enabled = true
-bind = \"0.0.0.0:5432\"
-
-[mariadb]
-enabled = true
-bind = \"0.0.0.0:3306\"
-
-[mongodb]
-enabled = true
-bind = \"0.0.0.0:27017\"
-
-[redis]
-enabled = true
-bind = \"0.0.0.0:6379\"
-EOF
-            echo \"wrote ${AGENT_DIR}/config.toml\"
-        fi
+        sed -i \
+            -e \"s|^data_dir = .*|data_dir = '${AGENT_DIR}/data'|\" \
+            -e \"s|^socket_dir = .*|socket_dir = '${AGENT_DIR}/sock'|\" \
+            -e \"s|^url = .*|url = 'sqlite://${AGENT_DIR}/data/agent.db?mode=rwc'|\" \
+            -e \"s|^socket = .*|socket = '/run/user/\$(id -u)/docker.sock'|\" \
+            -e \"s|^rootless = .*|rootless = true|\" \
+            ${AGENT_DIR}/config.toml
+        echo 'localized ${AGENT_DIR}/config.toml'
     "
+}
+
+require_config() {
+    if ! guest "test -f ${AGENT_DIR}/config.toml" >/dev/null 2>&1; then
+        echo "the agent is not set up yet; run:" >&2
+        echo "  $0 setup <code>" >&2
+        exit 1
+    fi
 }
 
 build() {
@@ -112,14 +108,31 @@ case "${1:-run}" in
     build)
         build
         ;;
+    setup)
+        if [ $# -lt 2 ]; then
+            echo "usage: $0 setup <code>" >&2
+            exit 1
+        fi
+        build
+        guest "
+            set -eu
+            mkdir -p ${AGENT_DIR}
+            rm -f ${AGENT_DIR}/config.toml
+            DATABASE_AGENT_DATA_DIR=${AGENT_DIR} \
+                SETUP_URL='${SETUP_URL:-http://host.internal:8080}' \
+                SETUP_TOKEN='$2' \
+                ${TARGET_DIR}/debug/database_agent
+        "
+        localize_config
+        ;;
     run)
         build
-        ensure_config
+        require_config
         guest "DATABASE_AGENT_DATA_DIR=${AGENT_DIR} ${TARGET_DIR}/debug/database_agent"
         ;;
     start)
         build
-        ensure_config
+        require_config
         guest "
             systemctl --user reset-failed database-agent 2>/dev/null || true
             systemd-run --user --unit=database-agent --collect \
@@ -159,7 +172,7 @@ case "${1:-run}" in
         orb -m "$MACHINE"
         ;;
     *)
-        echo "usage: $0 [build|run|start|stop|logs|forward|shell]" >&2
+        echo "usage: $0 [build|setup <code>|run|start|stop|logs|forward|shell]" >&2
         exit 1
         ;;
 esac

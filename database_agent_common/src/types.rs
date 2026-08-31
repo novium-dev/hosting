@@ -2,8 +2,9 @@ use chrono::{DateTime, Utc};
 use core::fmt::{Display, Formatter};
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Component, Path, PathBuf};
+use url::Url;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -337,4 +338,23 @@ pub struct SystemStatus {
     pub uptime: u64,
     pub instance_count: usize,
     pub subsystems: BTreeMap<String, SubsystemStatus>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct AgentRegistrationRequest {
+    pub cert: Vec<u8>,
+    pub csr: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SetupAgentConfig {
+    pub base_url: Url,
+    #[serde(default)]
+    pub ports: HashMap<DatabaseType, u16>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BackendAgentConfig {
+    pub base_url: Url,
+    pub ports: HashMap<DatabaseType, u16>,
 }

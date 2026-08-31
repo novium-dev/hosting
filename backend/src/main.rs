@@ -31,6 +31,7 @@ use core::time::Duration;
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
 use daemon_common::node::SetupNodeConfig;
+use database_agent_common::types::SetupAgentConfig;
 use ed25519_dalek::SigningKey;
 use redis::aio::ConnectionManager as CacheConnectionManager;
 use sqlx::postgres::PgPoolOptions;
@@ -64,6 +65,16 @@ pub struct NodeRegistration {
 
 type NodeRegistrationMap = HashMap<String, NodeRegistration>;
 
+pub struct DatabaseHostRegistration {
+    time: Instant,
+    display: String,
+    region: crate::db::region::RegionId,
+    public_host: String,
+    config: SetupAgentConfig,
+}
+
+type DatabaseHostRegistrationMap = HashMap<String, DatabaseHostRegistration>;
+
 #[derive(Clone)]
 pub(crate) struct Backend {
     pub(crate) database: Arc<PgPool>,
@@ -80,6 +91,7 @@ pub(crate) struct Backend {
     pub(crate) route_backends: Arc<RouteBackends>,
 
     pub(crate) node_registrations: Arc<RwLock<NodeRegistrationMap>>,
+    pub(crate) database_host_registrations: Arc<RwLock<DatabaseHostRegistrationMap>>,
 
     pub(crate) templates: Arc<RwLock<HashMap<String, Arc<dyn TemplateInner + Send + Sync>>>>,
 
@@ -282,6 +294,7 @@ async fn main0() {
         route_backends: Arc::new(route_backends),
 
         node_registrations: Arc::default(),
+        database_host_registrations: Arc::default(),
 
         templates: Arc::default(),
         modpack_jobs: Arc::default(),

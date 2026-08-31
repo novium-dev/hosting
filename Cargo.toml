@@ -28,7 +28,9 @@ serde = "1.0"
 serde_json = "1.0"
 sha2 = "0.11.0"
 tokio = { version = "1.53.1", features = ["full"] }
+tokio-rustls = "0.26.4"
 tokio-util = { version = "0.7", features = ["io"] }
+tower-layer = "0.3.3"
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 url = "2.5.8"
@@ -36,9 +38,13 @@ uuid = "1.25.0"
 
 axum = "0.8.9"
 axum-extra = { version = "0.12.6", features = ["typed-header", "cookie"] }
-axum-server = "0.8.0"
+axum-server = { version = "0.8.0", features = ["tls-rustls"] }
 
 database_agent_common = { path = "database_agent_common", default-features = false }
+
+[workspace.dependencies.daemon_common]
+git = "ssh://git@github.com/novium-dev/daemon.git"
+default-features = false
 
 [workspace.dependencies.reqwest]
 version = "0.12.28"
@@ -81,7 +87,7 @@ features = ["serde", "preserve_order"]
 
 [workspace.dependencies.utoipa]
 version = "5.5.0"
-features = ["macros", "preserve_path_order", "uuid", "indexmap", "chrono"]
+features = ["macros", "preserve_path_order", "uuid", "indexmap", "chrono", "url"]
 
 [workspace.dependencies.utoipa-axum]
 version = "0.2.0"

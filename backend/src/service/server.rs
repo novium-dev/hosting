@@ -455,22 +455,23 @@ pub(crate) impl ServerService for Backend {
             }
         }
 
-        let new_build = if custom_dockerfile.is_some() {
+        let new_build = if let Some(dockerfile) = &custom_dockerfile {
             let mut build = server
                 .template
                 .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
                 .await
                 .map_err(TemplateError::into::<UpdateServerError>)?;
 
-            if let Some(dockerfile) = custom_dockerfile.clone().flatten() {
+            if let Some(dockerfile) = dockerfile {
                 build.image = ServerBuildImage {
                     default_tag: None,
-                    tag: Some(format!("custom_{}", server.id)),
+                    tag: None,
                     parents: vec![build.image],
                     args: HashMap::new(),
-                    dockerfile,
+                    dockerfile: dockerfile.clone(),
                     base: Some(0),
                 };
+                build.image.tag = Some(format!("custom_{}_{}", server.id, build.image.id()));
             }
             Some(build)
         } else {
@@ -509,6 +510,15 @@ pub(crate) impl ServerService for Backend {
                     .execute(&mut **tx)
                     .await
                     .inspect_err(|err| error!("Failed to update server (name): {err:?}"))?;
+                }
+
+                if let Some(custom_dockerfile) = custom_dockerfile {
+               		query!("UPDATE servers SET custom_dockerfile = $1 WHERE id = $2", custom_dockerfile, &server_id)
+                 		.execute(&mut **tx)
+                  		.await
+                   		.inspect_err(|err| {
+                    		error!("Failed to update server (custom_dockerfile): {err:?}");
+                    	})?;
                 }
 
                 match (suspended, suspension_reason) {
@@ -969,12 +979,13 @@ pub(crate) impl ServerService for Backend {
         if let Some(custom_dockerfile) = &server.custom_dockerfile {
             new_build.image = ServerBuildImage {
                 default_tag: None,
-                tag: Some(format!("custom_{}", server.id)),
+                tag: None,
                 parents: vec![new_build.image],
                 args: HashMap::new(),
                 dockerfile: custom_dockerfile.clone(),
                 base: Some(0),
             };
+            new_build.image.tag = Some(format!("custom_{}_{}", server.id, new_build.image.id()));
         }
 
         new_build

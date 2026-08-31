@@ -35,7 +35,6 @@ allow = [
   "MIT",
   "Apache-2.0",
   "Unicode-3.0",
-  "Apache-2.0 WITH LLVM-exception",
   "ISC",
   "CC0-1.0",
   "BSD-3-Clause",
@@ -43,8 +42,6 @@ allow = [
   "Zlib",
   "AGPL-3.0-only",
   "CDLA-Permissive-2.0",
-
-  "bzip2-1.0.6" # No osi approvel yet?
 ]
 
 [licenses.private]
@@ -52,6 +49,4 @@ ignore = true
 
 [advisories]
 unmaintained = "workspace"
-ignore = [
-    "RUSTSEC-2023-0071", # TODO: Marvin side-channel attack on rsa@0.9.8
-]
+ignore = []

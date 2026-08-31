@@ -1,6 +1,3 @@
-# Identifies this agent to the backend. Generate one with `uuidgen`.
-id = "00000000-0000-0000-0000-000000000000"
-
 data_dir = "/var/lib/novium-database-agent/data"
 socket_dir = "/run/novium-database-agent"
 
@@ -9,11 +6,17 @@ socket_dir = "/run/novium-database-agent"
 disk_check_interval = 60
 disk_check_concurrency = 5
 
-# The backend talks to this API with `Authorization: Bearer <token>`. The agent
-# is not user facing and speaks plain HTTP, so keep it on a private network.
+# The agent normally writes this file itself during setup (`--setup-url` /
+# `--setup-token`), together with agent_root.pem and agent.pem. It is kept here
+# as a reference for the values setup cannot know.
+
+# The backend talks to this API over mTLS: the agent serves agent.pem and only
+# accepts clients whose certificate was signed by the CA in agent_root.pem.
+# `public_url` is the base URL the backend calls back on, and its host is what
+# the backend registered the host under.
 [api]
 bind = "0.0.0.0:8090"
-token = "<token>"
+public_url = "https://db-eu-1.example.com:8090"
 
 [store]
 url = "sqlite:///var/lib/novium-database-agent/data/agent.db?mode=rwc"
