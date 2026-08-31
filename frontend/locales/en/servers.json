@@ -311,6 +311,8 @@
     "live": "Live",
     "paused": "Paused",
     "jumpToLatest": "Jump to latest",
+    "hiddenLines_one": "{{count}} more line",
+    "hiddenLines_other": "{{count}} more lines",
     "copied_one": "Copied {{count}} line",
     "copied_other": "Copied {{count}} lines",
     "copyFailed": "Failed to copy console output",

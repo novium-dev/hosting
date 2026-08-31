@@ -9,6 +9,8 @@ import {
 } from "react";
 import {
   ArrowDown,
+  ChevronDown,
+  ChevronRight,
   Clock,
   Copy,
   CornerDownLeft,
@@ -65,6 +67,8 @@ const FLUSH_INTERVAL = 60;
 const BOTTOM_THRESHOLD = 32;
 const COMMAND_HISTORY_STORAGE_KEY = "console-command-history-v1";
 const COMMAND_HISTORY_LIMIT = 25;
+const COLLAPSIBLE_LINES = 2;
+const AUTO_COLLAPSE_LINES = 4;
 
 const LEVEL_TEXT: Record<ConsoleLevel, string> = {
   error: "text-red-600 dark:text-red-400",
@@ -107,6 +111,13 @@ const MESSAGE_TEXT: Record<ConsoleLevel, string> = {
   info: "text-foreground/90",
   debug: "text-foreground/70",
   trace: "text-muted-foreground",
+};
+
+type ConsoleRow = {
+  line: ConsoleLine;
+  hiddenCount: number;
+  collapsible: boolean;
+  collapsed: boolean;
 };
 
 function Highlight({ text, query }: { text: string; query: string }) {
@@ -221,6 +232,9 @@ export default function LogConsole({ serverId }: { serverId: string }) {
   const [command, setCommand] = useState("");
   const [history, setHistory] = useState<string[]>(() => loadCommandHistory());
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [groupOverrides, setGroupOverrides] = useState<Record<number, boolean>>(
+    {},
+  );
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const bufferRef = useRef<ConsoleLine[]>([]);
@@ -342,6 +356,67 @@ export default function LogConsole({ serverId }: { serverId: string }) {
     });
   }, [lines, hiddenLevels, query]);
 
+  // Stack traces arrive as continuation lines under the line that opened them.
+  // Grouping them keeps a single trace from flooding the viewport: anything
+  // past AUTO_COLLAPSE_LINES folds into its parent until it is opened.
+  const rows = useMemo(() => {
+    const counts = new Map<number, number>();
+    let parentId: number | null = null;
+
+    for (const line of visibleLines) {
+      if (line.continuation && parentId !== null) {
+        counts.set(parentId, (counts.get(parentId) ?? 0) + 1);
+        continue;
+      }
+
+      parentId = line.continuation ? null : line.id;
+    }
+
+    const result: ConsoleRow[] = [];
+    let collapsedParent = false;
+
+    parentId = null;
+
+    for (const line of visibleLines) {
+      if (line.continuation && parentId !== null) {
+        if (!collapsedParent) {
+          result.push({
+            line,
+            hiddenCount: 0,
+            collapsible: false,
+            collapsed: false,
+          });
+        }
+
+        continue;
+      }
+
+      parentId = line.continuation ? null : line.id;
+
+      const hiddenCount = parentId === null ? 0 : (counts.get(parentId) ?? 0);
+      const override = parentId === null ? undefined : groupOverrides[parentId];
+      const collapsible = hiddenCount >= COLLAPSIBLE_LINES;
+      const collapsed =
+        collapsible &&
+        (override === undefined
+          ? hiddenCount >= AUTO_COLLAPSE_LINES
+          : !override);
+
+      collapsedParent = collapsed;
+
+      result.push({ line, hiddenCount, collapsible, collapsed });
+    }
+
+    return result;
+  }, [visibleLines, groupOverrides]);
+
+  const toggleGroup = useCallback(
+    (id: number, expanded: boolean) => {
+      setGroupOverrides((previous) => ({ ...previous, [id]: expanded }));
+    },
+    [],
+  );
+
   const sourceColumn = showSource && anySource;
 
   // Lines carry the clock offset learned from the last timestamped line, so
@@ -349,14 +424,14 @@ export default function LogConsole({ serverId }: { serverId: string }) {
   // server's clock instead of mixing it with the browser's.
   const clockOffset = lines[lines.length - 1]?.clockOffset ?? 0;
 
-  countRef.current = visibleLines.length;
+  countRef.current = rows.length;
 
   const virtualizer = useVirtualizer({
-    count: visibleLines.length,
+    count: rows.length,
     getScrollElement: () => viewportRef.current,
     estimateSize: () => ROW_ESTIMATE,
     overscan: OVERSCAN,
-    getItemKey: (index) => visibleLines[index]?.id ?? index,
+    getItemKey: (index) => rows[index]?.line.id ?? index,
   });
 
   const scrollToBottom = useCallback(() => {
@@ -375,7 +450,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
   useEffect(() => {
     if (!pinnedRef.current) return;
     scrollToBottom();
-  }, [visibleLines, wrapLines, showTimestamps, sourceColumn, scrollToBottom]);
+  }, [rows, wrapLines, showTimestamps, sourceColumn, scrollToBottom]);
 
   const handleScroll = useCallback(() => {
     const viewport = viewportRef.current;
@@ -391,6 +466,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
     previousLineRef.current = null;
     anySourceRef.current = false;
     setAnySource(false);
+    setGroupOverrides({});
     setLines([]);
   }, []);
 
@@ -648,8 +724,10 @@ export default function LogConsole({ serverId }: { serverId: string }) {
               }}
             >
               {virtualizer.getVirtualItems().map((item) => {
-                const line = visibleLines[item.index];
-                if (!line) return null;
+                const row = rows[item.index];
+                if (!row) return null;
+
+                const line = row.line;
 
                 return (
                   <div
@@ -699,6 +777,28 @@ export default function LogConsole({ serverId }: { serverId: string }) {
                           : "whitespace-pre",
                       )}
                     >
+                      {row.collapsible && (
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(line.id, row.collapsed)}
+                          aria-expanded={!row.collapsed}
+                          aria-label={t("servers:console.hiddenLines", {
+                            count: row.hiddenCount,
+                          })}
+                          className="mr-2 inline-flex items-center gap-0.5 rounded border border-border/60 bg-foreground/5 px-1 align-middle text-[11px] leading-4 font-medium text-muted-foreground hover:bg-foreground/10"
+                        >
+                          {row.collapsed ? (
+                            <ChevronRight className="size-3" />
+                          ) : (
+                            <ChevronDown className="size-3" />
+                          )}
+                          {row.collapsed
+                            ? t("servers:console.hiddenLines", {
+                                count: row.hiddenCount,
+                              })
+                            : null}
+                        </button>
+                      )}
                       <LineText segments={line.segments} query={query} />
                     </span>
                   </div>
