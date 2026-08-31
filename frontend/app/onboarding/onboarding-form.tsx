@@ -1,6 +1,6 @@
 "use client";
 
-import { CreateOrganizationForm } from "@/components/create-organization-form";
+import { CreateProjectForm } from "@/components/create-project-form";
 import { Button } from "@/components/ui/button";
 import { appConfig } from "@/constants/config";
 import { authClient } from "@/lib/auth-client";
@@ -13,9 +13,7 @@ export default function OnboardingForm() {
 
   return (
     <div className="flex flex-col gap-4">
-      <CreateOrganizationForm
-        onSuccess={({ slug }) => router.push(`/${slug}`)}
-      />
+      <CreateProjectForm onSuccess={({ slug }) => router.push(`/${slug}`)} />
       <Button
         variant="outline"
         onClick={() => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { NoviumLogo } from "@/components/brand/novium-logo";
-import { CreateOrganizationForm } from "@/components/create-organization-form";
+import { CreateProjectForm } from "@/components/create-project-form";
 import {
   Card,
   CardContent,
@@ -13,7 +13,7 @@ import Link from "@/components/link";
 import { useRouter } from "@/lib/navigation";
 import { useTranslation } from "react-i18next";
 
-export default function CreateOrganizationPage() {
+export default function CreateProjectPage() {
   const { t } = useTranslation(["app", "common"]);
   const router = useRouter();
 
@@ -22,9 +22,9 @@ export default function CreateOrganizationPage() {
       <Card className="w-full max-w-xs sm:max-w-sm">
         <CardHeader className="flex flex-col items-center gap-2">
           <NoviumLogo className="size-8" />
-          <CardTitle>{t("app:createOrganizationPage.title")}</CardTitle>
+          <CardTitle>{t("app:createProjectPage.title")}</CardTitle>
           <CardDescription>
-            {t("app:createOrganizationPage.description")}
+            {t("app:createProjectPage.description")}
           </CardDescription>
           <Link
             href="/"
@@ -34,7 +34,7 @@ export default function CreateOrganizationPage() {
           </Link>
         </CardHeader>
         <CardContent>
-          <CreateOrganizationForm
+          <CreateProjectForm
             onSuccess={({ slug }) => {
               router.push(`/${slug}`);
             }}

@@ -61,7 +61,7 @@ import type {
   TemplateInfoResponse,
 } from "@/lib/api";
 
-type OrganizationOption = {
+type ProjectOption = {
   id: string;
   name: string;
   slug: string;
@@ -88,8 +88,8 @@ type PortOption = {
 
 const MAX_PORT_OPTIONS = 250;
 
-function formatOrganizationLabel(org: OrganizationOption) {
-  return `${org.name} (${org.slug})`;
+function formatProjectLabel(project: ProjectOption) {
+  return `${project.name} (${project.slug})`;
 }
 
 function getPortUsageKey(protocol: string, port: number) {
@@ -318,11 +318,11 @@ function toNullableNumber(input: string): number | null {
 }
 
 export function ServerCreateForm({
-  organizations,
+  projects,
   templates,
   nodes,
 }: {
-  organizations: OrganizationOption[];
+  projects: ProjectOption[];
   templates: string[];
   nodes: NodeOption[];
 }) {
@@ -331,7 +331,7 @@ export function ServerCreateForm({
   const canViewSecrets = true;
 
   const [name, setName] = useState("");
-  const [owner, setOwner] = useState<string>(organizations[0]?.id ?? "");
+  const [owner, setOwner] = useState<string>(projects[0]?.id ?? "");
   const [template, setTemplate] = useState<string>(templates[0] ?? "");
   const [node, setNode] = useState<string>(nodes[0]?.id ?? "");
   const [storage, setStorage] = useState(nodes[0]?.serverStorages?.[0] ?? "");
@@ -496,9 +496,9 @@ export function ServerCreateForm({
     setPorts(buildDefaultPorts(templateDetails.ports, allowedPortRanges));
   }, [templateDetails, allowedPortRanges]);
 
-  const selectedOrganization = useMemo(() => {
-    return organizations.find((org) => org.id === owner);
-  }, [organizations, owner]);
+  const selectedProject = useMemo(() => {
+    return projects.find((project) => project.id === owner);
+  }, [projects, owner]);
 
   const portGroups = useMemo(() => {
     return templateDetails ? buildPortGroups(templateDetails.ports) : [];
@@ -665,10 +665,10 @@ export function ServerCreateForm({
                   role="combobox"
                   className="w-full justify-between"
                 >
-                  {selectedOrganization
-                    ? formatOrganizationLabel(selectedOrganization)
+                  {selectedProject
+                    ? formatProjectLabel(selectedProject)
                     : t(
-                        "admin-infra:servers.createForm.selectOrganizationPlaceholder",
+                        "admin-infra:servers.createForm.selectProjectPlaceholder",
                       )}
                   <ChevronsUpDown className="size-4 opacity-50" />
                 </Button>
@@ -680,30 +680,30 @@ export function ServerCreateForm({
                 <Command>
                   <CommandInput
                     placeholder={t(
-                      "admin-infra:servers.createForm.searchOrganizationPlaceholder",
+                      "admin-infra:servers.createForm.searchProjectPlaceholder",
                     )}
                   />
                   <CommandList>
                     <CommandEmpty>
-                      {t("admin-infra:servers.createForm.noOrganizationFound")}
+                      {t("admin-infra:servers.createForm.noProjectFound")}
                     </CommandEmpty>
                     <CommandGroup>
-                      {organizations.map((org) => (
+                      {projects.map((project) => (
                         <CommandItem
-                          key={org.id}
-                          value={`${org.name} ${org.slug} ${org.id}`}
+                          key={project.id}
+                          value={`${project.name} ${project.slug} ${project.id}`}
                           onSelect={() => {
-                            setOwner(org.id);
+                            setOwner(project.id);
                             setOwnerComboboxOpen(false);
                           }}
                         >
                           <Check
                             className={cn(
                               "mr-2 size-4",
-                              owner === org.id ? "opacity-100" : "opacity-0",
+                              owner === project.id ? "opacity-100" : "opacity-0",
                             )}
                           />
-                          <span>{formatOrganizationLabel(org)}</span>
+                          <span>{formatProjectLabel(project)}</span>
                         </CommandItem>
                       ))}
                     </CommandGroup>

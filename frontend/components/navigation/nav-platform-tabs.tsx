@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import Link from "@/components/link";
 import { useTranslation } from "react-i18next";
-import { useOrganization } from "@/hooks/use-organization";
+import { useProject } from "@/hooks/use-project";
 import { useParams, usePathname } from "@/lib/navigation";
 import { ServerPermission, hasServerPermission } from "@/lib/permissions";
 
@@ -11,7 +11,7 @@ export function NavPlatformTabs() {
   const params = useParams<{ slug: string }>();
   const pathname = usePathname();
   const slug = params.slug;
-  const { data: organization } = useOrganization(slug);
+  const { data: project } = useProject(slug);
   const { t } = useTranslation();
 
   const items = [
@@ -46,7 +46,7 @@ export function NavPlatformTabs() {
   const visible = items.filter(
     (item) =>
       !("permission" in item) ||
-      hasServerPermission(organization?.permissions ?? 0, item.permission),
+      hasServerPermission(project?.permissions ?? 0, item.permission),
   );
 
   return (

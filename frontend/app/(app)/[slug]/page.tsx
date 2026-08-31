@@ -241,9 +241,9 @@ export default function ProjectPage() {
       <MainLayout breadcrumbs={[{ label: slug ?? "" }]}>
         <Card>
           <CardHeader>
-            <CardTitle>{t("project:dashboard.noOrgTitle")}</CardTitle>
+            <CardTitle>{t("project:dashboard.noProjectTitle")}</CardTitle>
             <p className="text-sm text-muted-foreground">
-              {t("project:dashboard.noOrgDescription")}
+              {t("project:dashboard.noProjectDescription")}
             </p>
           </CardHeader>
         </Card>

@@ -144,11 +144,11 @@ export default function AdminUserPage() {
             {t("admin-core:users.detail.tabs.overview")}
           </TabsTrigger>
           <TabsTrigger
-            value="organizations"
+            value="projects"
             className="inline-flex items-center gap-2"
           >
             <FolderKanban className="size-4" />
-            {t("admin-core:users.detail.tabs.organizations")}
+            {t("admin-core:users.detail.tabs.projects")}
           </TabsTrigger>
           <TabsTrigger value="settings" className="inline-flex items-center gap-2">
             <Settings2 className="size-4" />
@@ -182,7 +182,7 @@ export default function AdminUserPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="organizations">
+        <TabsContent value="projects">
           <div className="overflow-hidden rounded-lg border">
             <Table>
               <TableHeader className="bg-muted/40">
@@ -190,7 +190,7 @@ export default function AdminUserPage() {
                   <TableHead>{t("common:labels.name")}</TableHead>
                   <TableHead>{t("admin-core:shared.slugColumn")}</TableHead>
                   <TableHead>
-                    {t("admin-core:users.detail.organizations.table.membership")}
+                    {t("admin-core:users.detail.projects.table.membership")}
                   </TableHead>
                   <TableHead className="text-right">
                     {t("common:nav.servers")}
@@ -207,7 +207,7 @@ export default function AdminUserPage() {
                       <div className="flex flex-col items-center justify-center gap-2 text-center">
                         <Users className="size-5 text-muted-foreground" />
                         <p className="text-sm font-medium">
-                          {t("admin-core:users.detail.organizations.emptyState")}
+                          {t("admin-core:users.detail.projects.emptyState")}
                         </p>
                       </div>
                     </TableCell>
@@ -230,8 +230,8 @@ export default function AdminUserPage() {
                             <User className="size-3" />
                           )}
                           {project.owner
-                            ? t("admin-core:users.detail.organizations.ownerBadge")
-                            : t("admin-core:users.detail.organizations.memberBadge")}
+                            ? t("admin-core:users.detail.projects.ownerBadge")
+                            : t("admin-core:users.detail.projects.memberBadge")}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">

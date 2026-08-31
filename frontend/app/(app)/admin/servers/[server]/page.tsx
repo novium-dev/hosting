@@ -32,10 +32,10 @@ import { ServerTemplateCard } from "./server-template-card";
 function getPanelPath(
   ownerId: string,
   serverId: string,
-  organizations: Array<{ id: string; slug: string }>,
+  projects: Array<{ id: string; slug: string }>,
 ) {
-  const ownerOrg = organizations.find((org) => org.id === ownerId);
-  return ownerOrg ? `/${ownerOrg.slug}/servers/${serverId}` : null;
+  const ownerProject = projects.find((project) => project.id === ownerId);
+  return ownerProject ? `/${ownerProject.slug}/servers/${serverId}` : null;
 }
 
 function getServerAddress(
@@ -65,13 +65,13 @@ export default function AdminServerManagementPage() {
   const { data: bundle, mutate } = useSWR(
     session && server ? ["admin-server", server] : null,
     async () => {
-      const [serverResponse, organizations] = await Promise.all([
+      const [serverResponse, projects] = await Promise.all([
         serverInfo({ path: { server_id: server } }),
-        auth.api.listOrganizations(),
+        auth.api.listProjects(),
       ]);
       return {
         data: serverResponse.error ? null : serverResponse.data,
-        organizations,
+        projects,
       };
     },
   );
@@ -81,11 +81,11 @@ export default function AdminServerManagementPage() {
   if (!bundle) return null;
 
   const data = bundle.data;
-  const organizations = bundle.organizations;
+  const projects = bundle.projects;
 
   if (!data) return <NotFoundView />;
 
-  const panelPath = getPanelPath(data.project, data.id, organizations);
+  const panelPath = getPanelPath(data.project, data.id, projects);
   const initialPorts = extractAdminPorts(data);
   const canManageServers = hasManagementPermission(
     session.user.permissions,
@@ -157,7 +157,7 @@ export default function AdminServerManagementPage() {
               <Button type="button" disabled>
                 <ExternalLink className="size-4" />
                 {t(
-                  "admin-infra:servers.detailPage.viewInHephaestusOrgMissing",
+                  "admin-infra:servers.detailPage.viewInHephaestusProjectMissing",
                   { appName: appConfig.appName },
                 )}
               </Button>

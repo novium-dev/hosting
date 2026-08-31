@@ -1,24 +1,23 @@
 import { Navigate } from "react-router-dom";
 import useSWR from "swr";
 import { auth } from "@/lib/auth";
-import { useOrganizationStore } from "@/stores/organizations";
+import { useProjectStore } from "@/stores/projects";
 
 export default function Home() {
-  const { data: organizations, isLoading } = useSWR(
-    "home/own-organizations",
-    () => auth.api.listOrganizations({ own: true }),
+  const { data: projects, isLoading } = useSWR("home/own-projects", () =>
+    auth.api.listProjects({ own: true }),
   );
-  const currentSlug = useOrganizationStore((state) => state.currentSlug);
+  const currentSlug = useProjectStore((state) => state.currentSlug);
 
-  if (isLoading || !organizations) return null;
+  if (isLoading || !projects) return null;
 
-  if (organizations.length === 0) return <Navigate to="/onboarding" replace />;
+  if (projects.length === 0) return <Navigate to="/onboarding" replace />;
 
-  // Prefer the last-visited org (if the user still has access), else the first.
+  // Prefer the last-visited project (if the user still has access), else the first.
   const preferred =
-    currentSlug && organizations.some((org) => org.slug === currentSlug)
+    currentSlug && projects.some((project) => project.slug === currentSlug)
       ? currentSlug
-      : organizations[0].slug;
+      : projects[0].slug;
 
   return <Navigate to={`/${preferred}`} replace />;
 }

@@ -12,26 +12,26 @@ import { appConfig } from "@/constants/config";
 import { NoviumLogo } from "@/components/brand/novium-logo";
 import { auth } from "@/lib/auth";
 import { authClient } from "@/lib/auth-client";
-import { useOrganizationStore } from "@/stores/organizations";
+import { useProjectStore } from "@/stores/projects";
 import OnboardingForm from "./onboarding-form";
 
 export default function OnboardingPage() {
   const { t } = useTranslation("app");
   const { data, isLoading } = authClient.useSession();
-  const { data: organizations, isLoading: orgsLoading } = useSWR(
-    data ? "onboarding/own-organizations" : null,
-    () => auth.api.listOrganizations({ own: true }),
+  const { data: projects, isLoading: projectsLoading } = useSWR(
+    data ? "onboarding/own-projects" : null,
+    () => auth.api.listProjects({ own: true }),
   );
-  const currentSlug = useOrganizationStore((state) => state.currentSlug);
+  const currentSlug = useProjectStore((state) => state.currentSlug);
 
   if (isLoading) return null;
   if (!data) return <Navigate to={appConfig.authRoutes.signin} replace />;
-  if (orgsLoading) return null;
-  if (organizations && organizations.length > 0) {
+  if (projectsLoading) return null;
+  if (projects && projects.length > 0) {
     const preferred =
-      currentSlug && organizations.some((org) => org.slug === currentSlug)
+      currentSlug && projects.some((project) => project.slug === currentSlug)
         ? currentSlug
-        : organizations[0].slug;
+        : projects[0].slug;
     return <Navigate to={`/${preferred}`} replace />;
   }
 

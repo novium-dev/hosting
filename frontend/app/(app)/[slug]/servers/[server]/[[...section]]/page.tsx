@@ -24,7 +24,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ProjectFeature, serverInfo } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
-import { useOrganization } from "@/hooks/use-organization";
+import { useProject } from "@/hooks/use-project";
 import { useSearchParams } from "@/lib/navigation";
 import { hasResourceSupport } from "@/lib/mod-browser/types";
 import {
@@ -152,18 +152,18 @@ export default function ClientServerSectionPage() {
     server ? ["server-info", server] : null,
     () => serverInfo({ path: { server_id: server } }),
   );
-  const { data: org } = useOrganization(slug);
+  const { data: project } = useProject(slug);
 
   const serverData =
     infoResponse && !infoResponse.error ? infoResponse.data : null;
   const effectivePermissions = mergePermissions(
     session?.user.permissions ?? 0,
-    org?.permissions ?? 0,
+    project?.permissions ?? 0,
   );
   const visibleSections = getVisibleSections(
     effectivePermissions,
     serverData?.features ?? [],
-    org?.features ?? [],
+    project?.features ?? [],
   );
   const activeSection = getActiveSection(visibleSections, section);
 

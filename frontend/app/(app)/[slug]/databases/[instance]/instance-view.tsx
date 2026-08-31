@@ -99,7 +99,7 @@ export function InstanceView({
             className="inline-flex items-center gap-2"
           >
             <entry.icon className="size-4" />
-            {t(`org:databases.sections.${entry.key}`)}
+            {t(`project:databases.sections.${entry.key}`)}
           </Button>
         ))}
       </div>

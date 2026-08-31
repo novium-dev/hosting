@@ -1,4 +1,4 @@
-// Organizations resolve to `/<slug>`, so a slug that matches a top-level route
+// Projects resolve to `/<slug>`, so a slug that matches a top-level route
 // segment (or a framework/static path) would shadow that route and lock users
 // out of it. Keep this in sync with the top-level entries under `app/`.
 export const RESERVED_SLUGS = new Set<string>([

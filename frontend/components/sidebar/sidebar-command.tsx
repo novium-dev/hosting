@@ -30,7 +30,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { appConfig } from "@/constants/config";
-import { useOrganization } from "@/hooks/use-organization";
+import { useProject } from "@/hooks/use-project";
 import { authClient } from "@/lib/auth-client";
 import { ServerPermission, hasServerPermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -59,7 +59,7 @@ export function SidebarCommand({
   const slug = params.slug;
 
   const { data: session } = authClient.useSession();
-  const { data: organization } = useOrganization(slug);
+  const { data: project } = useProject(slug);
   const { theme, setTheme } = useTheme();
   const { open: openSettings } = useSettingsDialog();
   const [open, setOpen] = useState(false);
@@ -103,7 +103,7 @@ export function SidebarCommand({
           keywords: ["users", "collaborators", "invite"],
         },
         ...(hasServerPermission(
-          organization?.permissions ?? 0,
+          project?.permissions ?? 0,
           ServerPermission.DATABASE_VIEW,
         )
           ? [

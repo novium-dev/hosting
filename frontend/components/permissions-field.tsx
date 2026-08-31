@@ -8,6 +8,7 @@ import {
   resolveServerPermissions,
   setPermissionBit,
 } from "@/lib/permissions";
+import { useTranslation } from "react-i18next";
 
 type PermissionGroups = {
   group: string;
@@ -34,11 +35,31 @@ export function PermissionsField({
   resolve?: (permissions: number) => number;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const resolved = resolve(value);
+
+  const allBits = groups.reduce(
+    (total, group) =>
+      group.permissions.reduce((sum, { bit }) => sum | bit, total),
+    0,
+  );
+  const selectedBits = resolved & allBits;
+  const allSelected = selectedBits === allBits;
+  const someSelected = selectedBits !== 0;
 
   return (
     <ScrollArea className={`${className} rounded-md border`}>
       <div className="space-y-4 p-3">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <Checkbox
+            checked={allSelected ? true : someSelected ? "indeterminate" : false}
+            disabled={disabled}
+            onCheckedChange={(next) =>
+              onChange(next === true ? allBits : 0)
+            }
+          />
+          {t("common:actions.selectAll")}
+        </label>
         {groups.map((group) => (
           <div key={group.group} className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

@@ -9,7 +9,7 @@ const templateInfoSchema = z.object({
 
 const createServerSchema = z.object({
   name: z.string().min(1, "Server name is required"),
-  owner: z.string().min(1, "Organization is required"),
+  owner: z.string().min(1, "Project is required"),
   template: z.string().min(1, "Template is required"),
   node: z.string().min(1, "Node is required"),
   storage: z.string().min(1, "Storage is required"),

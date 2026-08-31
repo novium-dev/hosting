@@ -35,7 +35,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { serverPermissionLabels } from "@/lib/permissions";
-import { MoreHorizontal, Users } from "lucide-react";
+import { Crown, MoreHorizontal, Users } from "lucide-react";
 import { useAction } from "@/lib/action-hooks";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -56,9 +56,14 @@ function formatExpiry(value: string, language: string) {
 interface MembersTableProps {
   members: ProjectMember[];
   projectId: string;
+  ownerId: number;
 }
 
-export function MembersTable({ members, projectId }: MembersTableProps) {
+export function MembersTable({
+  members,
+  projectId,
+  ownerId,
+}: MembersTableProps) {
   const { t, i18n } = useTranslation();
   const [updateOpen, setUpdateOpen] = useState(false);
   const [removeMember, setRemoveMember] = useState<ProjectMember | null>(null);
@@ -126,6 +131,16 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
                     <TextEllipsis className="text-sm" width={160}>
                       {member.username || member.email}
                     </TextEllipsis>
+                    {member.id === ownerId && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Crown className="size-3.5 shrink-0 text-amber-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {t("project:members.table.ownerTooltip")}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </TableCell>
                   <TableCell>{member.email}</TableCell>
                   <TableCell>

@@ -13,7 +13,7 @@ import SigninPage from "@/app/(auth)/signin/page";
 import OnboardingPage from "@/app/onboarding/page";
 
 import AppLayout from "@/app/(app)/layout";
-import CreateOrganizationPage from "@/app/(app)/create/page";
+import CreateProjectPage from "@/app/(app)/create/page";
 
 import AdminLayout from "@/app/(app)/admin/layout";
 import AdminApiKeysPage from "@/app/(app)/admin/api-keys/page";
@@ -33,7 +33,7 @@ import AdminServerCreatePage from "@/app/(app)/admin/servers/create/page";
 import AdminServerPage from "@/app/(app)/admin/servers/[server]/page";
 
 import SlugLayout from "@/app/(app)/[slug]/layout";
-import OrganizationPage from "@/app/(app)/[slug]/page";
+import ProjectPage from "@/app/(app)/[slug]/page";
 import SettingsPage from "@/app/(app)/[slug]/settings/page";
 import MembersPage from "@/app/(app)/[slug]/members/page";
 import ApiKeysPage from "@/app/(app)/[slug]/api-keys/page";
@@ -62,7 +62,7 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: "/", element: <HomePage /> },
-          { path: "/create", element: <CreateOrganizationPage /> },
+          { path: "/create", element: <CreateProjectPage /> },
 
           {
             path: "/admin",
@@ -90,7 +90,7 @@ export const router = createBrowserRouter([
             path: "/:slug",
             element: <SlugLayout />,
             children: [
-              { index: true, element: <OrganizationPage /> },
+              { index: true, element: <ProjectPage /> },
               { path: "settings", element: <SettingsPage /> },
               { path: "members", element: <MembersPage /> },
               { path: "api-keys", element: <ApiKeysPage /> },

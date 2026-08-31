@@ -15,7 +15,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { appConfig } from "@/constants/config";
 import { serverInfo } from "@/lib/api";
-import { useOrganization } from "@/hooks/use-organization";
+import { useProject } from "@/hooks/use-project";
 import {
   hasManagementPermission,
   hasServerPermission,
@@ -56,16 +56,16 @@ export default function ServerLayout() {
   }>();
 
   const { data: session, isLoading: sessionLoading } = authClient.useSession();
-  const { data: org, isLoading: orgLoading } = useOrganization(slug);
+  const { data: project, isLoading: projectLoading } = useProject(slug);
   const { data: infoResponse, isLoading: infoLoading } = useSWR(
     server ? ["server-info", server] : null,
     () => serverInfo({ path: { server_id: server! } }),
   );
 
-  if (sessionLoading || orgLoading) return null;
+  if (sessionLoading || projectLoading) return null;
   if (!session) return <Navigate to={appConfig.authRoutes.signin} replace />;
 
-  if (!org) {
+  if (!project) {
     return (
       <MainLayout
         breadcrumbs={[
@@ -75,9 +75,9 @@ export default function ServerLayout() {
       >
         <Card>
           <CardHeader>
-            <CardTitle>{t("servers:layout.noOrganization.title")}</CardTitle>
+            <CardTitle>{t("servers:layout.noProject.title")}</CardTitle>
             <CardDescription>
-              {t("servers:layout.noOrganization.description")}
+              {t("servers:layout.noProject.description")}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -90,7 +90,7 @@ export default function ServerLayout() {
   const serverData =
     infoResponse && !infoResponse.error ? infoResponse.data : null;
 
-  if (!serverData || serverData.project !== org.id) {
+  if (!serverData || serverData.project !== project.id) {
     return (
       <MainLayout
         breadcrumbs={[
@@ -118,7 +118,7 @@ export default function ServerLayout() {
   const serverAddress = getServerAddress(serverData);
   const effectivePermissions = mergePermissions(
     session.user.permissions,
-    org.permissions,
+    project.permissions,
   );
 
   const hasSuspensionBypassPermission =
