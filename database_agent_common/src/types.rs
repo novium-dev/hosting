@@ -335,6 +335,8 @@ pub struct SubsystemStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SystemStatus {
     pub version: String,
+    #[serde(default)]
+    pub api_hash: String,
     pub uptime: u64,
     pub instance_count: usize,
     pub subsystems: BTreeMap<String, SubsystemStatus>,

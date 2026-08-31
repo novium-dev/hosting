@@ -2,6 +2,7 @@ use crate::Backend;
 use crate::db::database::BackendDatabaseHost;
 use crate::integrity::{Check, CheckError, describe_transport};
 use daemon_common::integrity::{IntegrityCategory, IntegrityFinding};
+use database_agent_common::API_HASH;
 use database_agent_common::service::instance::InstanceService as _;
 use database_agent_common::service::instance::instance_service_error::ListInstancesError;
 use database_agent_common::service::system::SystemService as _;
@@ -76,6 +77,7 @@ impl Check for HostsReachable {
                         IntegrityFinding::info("The database host answered".to_owned())
                             .with_subject(subject(&host))
                             .with_detail("version", status.version.clone())
+                            .with_detail("api", status.api_hash.clone())
                             .with_detail("uptime_seconds", status.uptime.to_string())
                             .with_detail("instances", status.instance_count.to_string())
                             .with_detail("maintenance", host.maintenance.to_string()),
@@ -124,12 +126,13 @@ impl Check for HostsVersion {
     }
 
     fn title(&self) -> &'static str {
-        "Database hosts run the same build as the backend"
+        "Database hosts were built against the same agent API as the backend"
     }
 
     fn description(&self) -> &'static str {
-        "The backend and its database agents are released together. A host on a different commit \
-         may be missing store migrations or answering an older shape of the api."
+        "Both sides carry a fingerprint of the shared agent service definitions they were \
+         compiled from. A host whose fingerprint differs answers a different shape of the api \
+         than this backend calls, whatever commit it reports."
     }
 
     fn category(&self) -> IntegrityCategory {
@@ -137,7 +140,6 @@ impl Check for HostsVersion {
     }
 
     async fn run(&self, backend: &Backend) -> Result<Vec<IntegrityFinding>, CheckError> {
-        let expected = env!("GIT_HASH").trim();
         let hosts = hosts(backend).await;
         if hosts.is_empty() {
             return Err(CheckError::Skipped(
@@ -150,15 +152,17 @@ impl Check for HostsVersion {
             let Ok(status) = status(&host).await else {
                 continue;
             };
-            if status.version.trim() != expected {
+            if status.api_hash != API_HASH {
                 findings.push(
-                    IntegrityFinding::warning(format!(
-                        "The database host runs commit {} while the backend runs {expected}",
-                        status.version.trim()
-                    ))
+                    IntegrityFinding::error(
+                        "The database host was built against different agent service definitions \
+                         than this backend; the two do not agree on the shape of the api"
+                            .to_owned(),
+                    )
                     .with_subject(subject(&host))
-                    .with_detail("host", status.version)
-                    .with_detail("backend", expected.to_owned()),
+                    .with_detail("host_api", display_hash(&status.api_hash))
+                    .with_detail("host_commit", status.version)
+                    .with_detail("backend_api", API_HASH.to_owned()),
                 );
             }
         }
@@ -285,5 +289,13 @@ impl Check for HostsInstances {
         }
 
         Ok(findings)
+    }
+}
+
+fn display_hash(hash: &str) -> String {
+    if hash.is_empty() {
+        "unknown (the host predates the fingerprint)".to_owned()
+    } else {
+        hash.to_owned()
     }
 }

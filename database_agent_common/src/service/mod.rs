@@ -66,12 +66,7 @@ define_query_variable!(wipe "Whether the target is wiped before the import");
 error!(BlankError, auth::invalid);
 
 pub trait DatabaseAgentServices:
-    InstanceService
-    + DatabaseService
-    + UserService
-    + SystemService
-    + SetupService
-    + IntegrityService
+    InstanceService + DatabaseService + UserService + SystemService + SetupService + IntegrityService
 {
 }
 

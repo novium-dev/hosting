@@ -13,7 +13,6 @@ use uuid::Uuid;
 use zelus::async_trait;
 
 pub(crate) const CHECK_TIMEOUT: Duration = Duration::from_secs(300);
-pub(crate) const MIN_DAEMON_PROTOCOL_VERSION: u32 = 1;
 pub(crate) const SOURCE_TIMEOUT: Duration = Duration::from_mins(15);
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]

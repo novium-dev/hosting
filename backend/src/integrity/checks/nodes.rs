@@ -1,8 +1,8 @@
 use crate::Backend;
 use crate::db::node::BackendNode;
 use crate::db::server::ports::NetworkProtocol;
-use crate::integrity::{Check, CheckError, MIN_DAEMON_PROTOCOL_VERSION, describe_transport};
-use daemon_common::DAEMON_PROTOCOL_VERSION;
+use crate::integrity::{Check, CheckError, describe_transport};
+use daemon_common::API_HASH;
 use daemon_common::integrity::{IntegrityCategory, IntegrityFinding, IntegrityStatus};
 use daemon_common::node::BackendNodeConfig;
 use daemon_common::service::integrity::integrity_service_error::{
@@ -69,7 +69,7 @@ impl Check for NodesReachable {
                     IntegrityFinding::info("The node answered over mTLS".to_owned())
                         .with_subject(subject(&node))
                         .with_detail("version", status.version)
-                        .with_detail("protocol", status.protocol.to_string())
+                        .with_detail("api", status.api_hash.clone())
                         .with_detail("uptime_seconds", status.uptime.to_string())
                         .with_detail("servers", status.server_count.to_string())
                         .with_detail("maintenance", node.maintenance.to_string()),
@@ -95,14 +95,14 @@ impl Check for NodesVersion {
     }
 
     fn title(&self) -> &'static str {
-        "Nodes speak a daemon protocol this backend supports"
+        "Nodes were built against the same daemon API as the backend"
     }
 
     fn description(&self) -> &'static str {
         "Nodes are released on their own schedule, so their commit does not have to match the \
-         backend's. What has to match is the daemon protocol: a node below the backend's minimum \
-         answers an older shape of the API, and a node above the version the backend was built \
-         against may expect calls this backend does not make yet."
+         backend's. What has to match is the API: both sides carry a fingerprint of the shared \
+         service definitions they were compiled from, and a node whose fingerprint differs \
+         answers a different shape of the API than this backend calls."
     }
 
     fn category(&self) -> IntegrityCategory {
@@ -123,30 +123,17 @@ impl Check for NodesVersion {
                 continue;
             };
 
-            let finding = if status.protocol < MIN_DAEMON_PROTOCOL_VERSION {
-                Some(IntegrityFinding::error(format!(
-                    "The node speaks daemon protocol {}, but this backend needs at least {}. \
-                     Upgrade the node",
-                    status.protocol, MIN_DAEMON_PROTOCOL_VERSION
-                )))
-            } else if status.protocol > DAEMON_PROTOCOL_VERSION {
-                Some(IntegrityFinding::warning(format!(
-                    "The node speaks daemon protocol {}, which is newer than the {} this backend \
-                     was built against. Upgrade the backend",
-                    status.protocol, DAEMON_PROTOCOL_VERSION
-                )))
-            } else {
-                None
-            };
-
-            if let Some(finding) = finding {
+            if status.api_hash != API_HASH {
                 findings.push(
-                    finding
-                        .with_subject(subject(&node))
-                        .with_detail("node_protocol", status.protocol.to_string())
-                        .with_detail("node_commit", status.version)
-                        .with_detail("backend_minimum", MIN_DAEMON_PROTOCOL_VERSION.to_string())
-                        .with_detail("backend_protocol", DAEMON_PROTOCOL_VERSION.to_string()),
+                    IntegrityFinding::error(
+                        "The node was built against different daemon service definitions than \
+                         this backend; the two do not agree on the shape of the API"
+                            .to_owned(),
+                    )
+                    .with_subject(subject(&node))
+                    .with_detail("node_api", display_hash(&status.api_hash))
+                    .with_detail("node_commit", status.version)
+                    .with_detail("backend_api", API_HASH.to_owned()),
                 );
             }
         }
@@ -558,4 +545,12 @@ struct PortClaim {
     end: i32,
     label: String,
     subject: String,
+}
+
+fn display_hash(hash: &str) -> String {
+    if hash.is_empty() {
+        "unknown (the node predates the fingerprint)".to_owned()
+    } else {
+        hash.to_owned()
+    }
 }
