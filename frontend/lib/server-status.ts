@@ -96,6 +96,10 @@ function formatBaseUsage(max: number | null) {
   return `-- / ${formatMib(max)}`;
 }
 
+function formatCores(value: number) {
+  return value.toFixed(2).replace(/\.?0+$/, "");
+}
+
 function formatBaseCpuUsage(max: number | null) {
   if (max === null) {
     return "-- / Unlimited";
@@ -105,7 +109,7 @@ function formatBaseCpuUsage(max: number | null) {
     return "--";
   }
 
-  return `-- / ${max.toFixed(2)}%`;
+  return `-- / ${formatCores(max)}`;
 }
 
 export function buildBaseUsage(limits: {
@@ -161,10 +165,10 @@ export function formatCpuUsage(current: unknown, max: unknown) {
 
   const maxNumber = toFiniteNumber(max);
   if (maxNumber === null || maxNumber === 0) {
-    return `${currentNumber.toFixed(2)}%`;
+    return `${formatCores(currentNumber)} / Unlimited`;
   }
 
-  return `${currentNumber.toFixed(2)}% / ${maxNumber.toFixed(2)}%`;
+  return `${formatCores(currentNumber)} / ${formatCores(maxNumber)}`;
 }
 
 const MIB_SCALES = [
@@ -206,7 +210,24 @@ export function formatUsageCompact(current: unknown, max: unknown): string {
   return `${valueText} / ${formatScaled(limit / scale.factor)} ${scale.unit}`;
 }
 
-export function formatCpuCompact(current: unknown): string {
+export function formatCpuCompact(current: unknown, max: unknown): string {
+  const value = current == null ? null : toFiniteNumber(current);
+  const limit = max == null ? null : toFiniteNumber(max);
+
+  if (value === null && limit === null) {
+    return "-- / --";
+  }
+
+  const valueText = value === null ? "--" : formatCores(value);
+
+  if (limit === null) {
+    return `${valueText} / ∞`;
+  }
+
+  return `${valueText} / ${formatCores(limit)}`;
+}
+
+export function formatCpuPercentCompact(current: unknown): string {
   const value = current == null ? null : toFiniteNumber(current);
   return value === null ? "--" : `${formatScaled(value)}%`;
 }

@@ -336,7 +336,7 @@ export function ServerCreateForm({
   const [node, setNode] = useState<string>(nodes[0]?.id ?? "");
   const [storage, setStorage] = useState(nodes[0]?.serverStorages?.[0] ?? "");
 
-  const [cpu, setCpu] = useState("100");
+  const [cpu, setCpu] = useState("1");
   const [ram, setRam] = useState("1024");
   const [disk, setDisk] = useState("4096");
   const [swap, setSwap] = useState("0");
@@ -838,7 +838,7 @@ export function ServerCreateForm({
             </div>
             <div className="space-y-2">
               <Label htmlFor="cpu">
-                {t("common:resources.cpu")}
+                {t("admin-infra:servers.createForm.cpuLabel")}
               </Label>
               <Input
                 id="cpu"

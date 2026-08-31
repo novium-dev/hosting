@@ -336,7 +336,7 @@ export function ServerAdminSettings({
               placeholder={t(
                 "admin-infra:servers.adminSettings.unlimitedPlaceholder",
               )}
-              inputMode="numeric"
+              inputMode="decimal"
             />
           </div>
 

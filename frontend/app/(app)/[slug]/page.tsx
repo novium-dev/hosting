@@ -116,7 +116,7 @@ function ServerRow({
     {
       icon: Cpu,
       label: t("common:resources.cpu"),
-      value: stats ? formatCpuCompact(stats.cpu) : "--",
+      value: stats ? formatCpuCompact(stats.cpu, stats.cpu_max) : "-- / --",
       percent: stats ? usagePercentValue(stats.cpu, stats.cpu_max) : null,
     },
     {

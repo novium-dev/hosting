@@ -319,7 +319,7 @@ export function ServerManagementBar({
               const ramCurrent = payload.ram ?? payload.mem;
               const ramMax =
                 payload.ram_max ?? payload.mem_max ?? limits.ramLimit;
-              const cpuCurrent = payload.cpu ?? payload.cpu_absolute;
+              const cpuCurrent = payload.cpu;
               const cpuMax = payload.cpu_max ?? limits.cpuLimit;
               const diskCurrent = payload.disk ?? payload.storage;
               const diskMax =
