@@ -50,8 +50,10 @@ import {
   parseConsoleLine,
   splitChunk,
   systemConsoleLine,
+  type ConsoleColor,
   type ConsoleLevel,
   type ConsoleLine,
+  type ConsoleSegment,
 } from "@/lib/console-log";
 import { cn } from "@/lib/utils";
 import { useConsolePreferences } from "@/stores/console-preferences";
@@ -78,6 +80,25 @@ const LEVEL_LABEL: Record<ConsoleLevel, string> = {
   info: "INFO",
   debug: "DEBUG",
   trace: "TRACE",
+};
+
+const ANSI_TEXT: Record<ConsoleColor, string> = {
+  black: "text-neutral-700 dark:text-neutral-300",
+  red: "text-red-600 dark:text-red-400",
+  green: "text-emerald-600 dark:text-emerald-400",
+  yellow: "text-amber-600 dark:text-amber-400",
+  blue: "text-blue-600 dark:text-blue-400",
+  magenta: "text-fuchsia-600 dark:text-fuchsia-400",
+  cyan: "text-cyan-600 dark:text-cyan-400",
+  white: "text-foreground/90",
+  brightBlack: "text-muted-foreground",
+  brightRed: "text-red-500 dark:text-red-300",
+  brightGreen: "text-emerald-500 dark:text-emerald-300",
+  brightYellow: "text-amber-500 dark:text-amber-300",
+  brightBlue: "text-sky-500 dark:text-sky-300",
+  brightMagenta: "text-fuchsia-500 dark:text-fuchsia-300",
+  brightCyan: "text-cyan-500 dark:text-cyan-300",
+  brightWhite: "text-foreground",
 };
 
 const MESSAGE_TEXT: Record<ConsoleLevel, string> = {
@@ -115,6 +136,49 @@ function Highlight({ text, query }: { text: string; query: string }) {
   parts.push(text.slice(cursor));
 
   return <>{parts}</>;
+}
+
+function isPlainSegment(segment: ConsoleSegment) {
+  return (
+    segment.color === null &&
+    !segment.bold &&
+    !segment.dim &&
+    !segment.italic &&
+    !segment.underline
+  );
+}
+
+function LineText({
+  segments,
+  query,
+}: {
+  segments: ConsoleSegment[];
+  query: string;
+}) {
+  const only = segments.length === 1 ? segments[0] : null;
+
+  if (only && isPlainSegment(only)) {
+    return <Highlight text={only.text} query={query} />;
+  }
+
+  return (
+    <>
+      {segments.map((segment, index) => (
+        <span
+          key={`${index}-${segment.text.length}`}
+          className={cn(
+            segment.color ? ANSI_TEXT[segment.color] : null,
+            segment.bold && "font-semibold",
+            segment.dim && "opacity-70",
+            segment.italic && "italic",
+            segment.underline && "underline",
+          )}
+        >
+          <Highlight text={segment.text} query={query} />
+        </span>
+      ))}
+    </>
+  );
 }
 
 function loadCommandHistory() {
@@ -190,7 +254,13 @@ export default function LogConsole({ serverId }: { serverId: string }) {
 
   const pushSystemLine = useCallback(
     (message: string) => {
-      bufferRef.current.push(systemConsoleLine(nextIdRef.current++, message));
+      const line = systemConsoleLine(
+        nextIdRef.current++,
+        message,
+        previousLineRef.current,
+      );
+      previousLineRef.current = line;
+      bufferRef.current.push(line);
       scheduleFlush();
     },
     [scheduleFlush],
@@ -274,6 +344,11 @@ export default function LogConsole({ serverId }: { serverId: string }) {
 
   const sourceColumn = showSource && anySource;
 
+  // Lines carry the clock offset learned from the last timestamped line, so
+  // rendering from the newest one keeps every fallback timestamp on the
+  // server's clock instead of mixing it with the browser's.
+  const clockOffset = lines[lines.length - 1]?.clockOffset ?? 0;
+
   countRef.current = visibleLines.length;
 
   const virtualizer = useVirtualizer({
@@ -321,7 +396,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
 
   const copyVisible = useCallback(async () => {
     const text = visibleLines
-      .map((line) => consoleLineToText(line, showTimestamps))
+      .map((line) => consoleLineToText(line, showTimestamps, clockOffset))
       .join("\n");
 
     try {
@@ -332,11 +407,11 @@ export default function LogConsole({ serverId }: { serverId: string }) {
     } catch {
       toast.error(t("servers:console.copyFailed"));
     }
-  }, [visibleLines, showTimestamps, t]);
+  }, [visibleLines, showTimestamps, clockOffset, t]);
 
   const download = useCallback(() => {
     const text = lines
-      .map((line) => consoleLineToText(line, showTimestamps))
+      .map((line) => consoleLineToText(line, showTimestamps, clockOffset))
       .join("\n");
 
     const url = URL.createObjectURL(
@@ -347,7 +422,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
     anchor.download = `${serverId}-console.log`;
     anchor.click();
     URL.revokeObjectURL(url);
-  }, [lines, showTimestamps, serverId]);
+  }, [lines, showTimestamps, clockOffset, serverId]);
 
   const rememberCommand = useCallback((value: string) => {
     setHistory((previous) => {
@@ -609,7 +684,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
 
                     {showTimestamps && (
                       <span className="w-[4.75rem] shrink-0 tabular-nums text-muted-foreground/70">
-                        {formatLineTime(line)}
+                        {formatLineTime(line, clockOffset)}
                       </span>
                     )}
 
@@ -624,7 +699,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
                           : "whitespace-pre",
                       )}
                     >
-                      <Highlight text={line.message} query={query} />
+                      <LineText segments={line.segments} query={query} />
                     </span>
                   </div>
                 );
