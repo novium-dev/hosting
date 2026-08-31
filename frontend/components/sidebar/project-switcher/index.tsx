@@ -1,12 +1,11 @@
 import useSWR from "swr";
 import { auth } from "@/lib/auth";
-import { OrganizationDropdown } from "./organization-dropdown";
+import { ProjectDropdown } from "./project-dropdown";
 
-export function OrganizationSwitcher() {
-  const { data: organizations } = useSWR(
-    "switcher/own-organizations",
-    () => auth.api.listOrganizations({ own: true }),
+export function ProjectSwitcher() {
+  const { data: projects } = useSWR("switcher/own-projects", () =>
+    auth.api.listProjects({ own: true }),
   );
 
-  return <OrganizationDropdown organizations={organizations ?? []} />;
+  return <ProjectDropdown projects={projects ?? []} />;
 }

@@ -1,4 +1,4 @@
-import { updateOrganizationSlugAction } from "@/actions/organizations";
+import { updateProjectSlugAction } from "@/actions/projects";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,35 +24,31 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
-import { updateOrganizationSlugSchema } from "@/types/organization.schema";
+import { updateProjectSlugSchema } from "@/types/project.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
 import { IconCheck, IconX } from "@tabler/icons-react";
-import type { AppOrganization } from "@/lib/auth";
+import type { AppProject } from "@/lib/auth";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
-export function UpdateOrganizationSlug({
-  organization,
-}: {
-  organization: AppOrganization;
-}) {
+export function UpdateProjectSlug({ project }: { project: AppProject }) {
   const { t } = useTranslation();
   const [slug, setSlug] = useState({
-    initialValue: organization.slug,
+    initialValue: project.slug,
     value: "",
     isValidating: false,
     isError: false,
   });
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
     useHookFormAction(
-      updateOrganizationSlugAction,
-      zodResolver(updateOrganizationSlugSchema),
+      updateProjectSlugAction,
+      zodResolver(updateProjectSlugSchema),
       {
         formProps: {
           mode: "onChange",
-          defaultValues: { id: organization.id, slug: organization.slug },
+          defaultValues: { id: project.id, slug: project.slug },
         },
         actionProps: {
           onSuccess: () => {
@@ -71,7 +67,7 @@ export function UpdateOrganizationSlug({
       try {
         setSlug((prev) => ({ ...prev, isValidating: true }));
         if (value === slug.initialValue) return;
-        const { error } = await authClient.organization.checkSlug({
+        const { error } = await authClient.project.checkSlug({
           slug: value,
         });
         if (error) {

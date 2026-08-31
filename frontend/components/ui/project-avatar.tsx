@@ -4,9 +4,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 
-interface OrganizationAvatarProps {
-  orgId: string;
-  orgName: string;
+interface ProjectAvatarProps {
+  projectId: string;
+  projectName: string;
   className?: string;
   fallbackClassName?: string;
   size?: "sm" | "md" | "lg";
@@ -80,7 +80,7 @@ function getColorStyles(str: string) {
   };
 }
 
-// Function to get initials from organization name
+// Function to get initials from project name
 function getInitials(name: string): string {
   const cleanName = name.trim();
 
@@ -106,20 +106,20 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-export function OrganizationAvatar({
-  orgId,
-  orgName,
+export function ProjectAvatar({
+  projectId,
+  projectName,
   className,
   fallbackClassName,
   size = "sm",
   shape = "square",
   border = false,
-}: OrganizationAvatarProps) {
-  const colorStyles = useMemo(() => getColorStyles(orgId), [orgId]);
+}: ProjectAvatarProps) {
+  const colorStyles = useMemo(() => getColorStyles(projectId), [projectId]);
   const initials = useMemo(() => {
-    if (!orgName) return "UA";
-    return getInitials(orgName);
-  }, [orgName]);
+    if (!projectName) return "UA";
+    return getInitials(projectName);
+  }, [projectName]);
 
   const sizeClasses = {
     sm: "h-6 w-6 text-[10px]",

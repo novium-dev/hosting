@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { MainLayout } from "@/components/sidebar/main-layout";
-import { useOrganization } from "@/hooks/use-organization";
+import { useProject } from "@/hooks/use-project";
 import { listServers } from "@/lib/api";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -217,17 +217,17 @@ function ServerRow({
   );
 }
 
-export default function OrganizationPage() {
+export default function ProjectPage() {
   const { t } = useTranslation();
   const { slug = "" } = useParams<{ slug: string }>();
 
-  const { data: org, isLoading } = useOrganization(slug);
+  const { data: project, isLoading } = useProject(slug);
 
   const { data: serversData } = useSWR(
-    org ? ["servers", org.id] : null,
+    project ? ["servers", project.id] : null,
     async () => {
       const res = await listServers({
-        query: { project: org!.id, include: true },
+        query: { project: project!.id, include: true },
       });
       return res.error ? [] : (res.data ?? []);
     },
@@ -236,7 +236,7 @@ export default function OrganizationPage() {
 
   if (isLoading) return null;
 
-  if (!org) {
+  if (!project) {
     return (
       <MainLayout breadcrumbs={[{ label: slug ?? "" }]}>
         <Card>

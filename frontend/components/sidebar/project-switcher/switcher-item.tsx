@@ -1,20 +1,20 @@
 "use client";
 
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { OrganizationAvatar } from "@/components/ui/organization-avatar";
+import { ProjectAvatar } from "@/components/ui/project-avatar";
 import { TextEllipsis } from "@/components/ui/text-ellipsis";
-import type { AppOrganization } from "@/lib/auth";
+import type { AppProject } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { usePathname } from "@/lib/navigation";
 import { useRouter } from "@/lib/navigation";
 
 export function SwitcherItem({
-  organization,
-  activeOrganizationId,
+  project,
+  activeProjectId,
 }: {
-  organization: AppOrganization;
-  activeOrganizationId: string;
+  project: AppProject;
+  activeProjectId: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -24,26 +24,26 @@ export function SwitcherItem({
     <DropdownMenuItem
       onClick={(e) => {
         e.preventDefault();
-        if (activeOrganizationId === organization.id) return;
+        if (activeProjectId === project.id) return;
         const nextPath = pathAfterSlug
-          ? `/${organization.slug}/${pathAfterSlug}`
-          : `/${organization.slug}`;
+          ? `/${project.slug}/${pathAfterSlug}`
+          : `/${project.slug}`;
         router.replace(nextPath);
       }}
       className={cn(
         "gap-2 p-2 cursor-pointer",
-        activeOrganizationId === organization.id && "bg-accent",
+        activeProjectId === project.id && "bg-accent",
       )}
     >
-      <OrganizationAvatar
-        orgId={organization.id}
-        orgName={organization.name}
+      <ProjectAvatar
+        projectId={project.id}
+        projectName={project.name}
         className="size-5"
       />
       <div className="flex flex-col">
-        <TextEllipsis width={140}>{organization.name}</TextEllipsis>
+        <TextEllipsis width={140}>{project.name}</TextEllipsis>
       </div>
-      {activeOrganizationId === organization.id && (
+      {activeProjectId === project.id && (
         <Check className="ml-auto size-4 text-primary" />
       )}
     </DropdownMenuItem>

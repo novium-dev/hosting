@@ -1,4 +1,4 @@
-import { updateOrganizationNameAction } from "@/actions/organizations";
+import { updateProjectNameAction } from "@/actions/projects";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,41 +17,37 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { updateOrganizationNameSchema } from "@/types/organization.schema";
+import { updateProjectNameSchema } from "@/types/project.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
-import type { AppOrganization } from "@/lib/auth";
-import { useOrganizationStore } from "@/stores/organizations";
+import type { AppProject } from "@/lib/auth";
+import { useProjectStore } from "@/stores/projects";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
-export function UpdateOrganizationName({
-  organization,
-}: {
-  organization: AppOrganization;
-}) {
+export function UpdateProjectName({ project }: { project: AppProject }) {
   const { t } = useTranslation();
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
     useHookFormAction(
-      updateOrganizationNameAction,
-      zodResolver(updateOrganizationNameSchema),
+      updateProjectNameAction,
+      zodResolver(updateProjectNameSchema),
       {
         formProps: {
           mode: "onChange",
-          defaultValues: { id: organization.id, name: organization.name },
+          defaultValues: { id: project.id, name: project.name },
         },
         actionProps: {
           onSuccess: () => {
             resetFormAndAction();
-            // Drop the cached org so the new name is refetched on next view.
-            useOrganizationStore.getState().invalidate(organization.slug);
+            // Drop the cached project so the new name is refetched on next view.
+            useProjectStore.getState().invalidate(project.slug);
             toast.success(t("project:settings.nameCard.success"));
           },
           onError: (error) => {
             toast.error(error.error.serverError);
           },
         },
-      }
+      },
     );
 
   return (

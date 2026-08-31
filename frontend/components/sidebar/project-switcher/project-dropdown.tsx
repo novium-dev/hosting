@@ -9,39 +9,37 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { OrganizationAvatar } from "@/components/ui/organization-avatar";
+import { ProjectAvatar } from "@/components/ui/project-avatar";
 import { TextEllipsis } from "@/components/ui/text-ellipsis";
-import type { AppOrganization } from "@/lib/auth";
+import type { AppProject } from "@/lib/auth";
 import { ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "@/lib/navigation";
-import { CreateOrganizationModal } from "./create-organization";
+import { CreateProjectModal } from "./create-project";
 import { SwitcherItem } from "./switcher-item";
 
-export function OrganizationDropdown({
-  organizations,
+export function ProjectDropdown({
+  projects,
 }: {
-  organizations: AppOrganization[];
+  projects: AppProject[];
 }) {
   const params = useParams();
   const slug = params.slug as string;
   const { t } = useTranslation();
 
-  const activeOrganization = organizations.find(
-    (organization) => organization.slug === slug,
-  );
+  const activeProject = projects.find((project) => project.slug === slug);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-9 gap-2 px-2">
-          <OrganizationAvatar
-            orgId={activeOrganization?.id ?? ""}
-            orgName={activeOrganization?.name ?? ""}
+          <ProjectAvatar
+            projectId={activeProject?.id ?? ""}
+            projectName={activeProject?.name ?? ""}
           />
           <span className="hidden max-w-40 truncate font-semibold md:block">
             <TextEllipsis width={140}>
-              {activeOrganization?.name ?? ""}
+              {activeProject?.name ?? ""}
             </TextEllipsis>
           </span>
           <ChevronDown className="opacity-50" />
@@ -54,27 +52,27 @@ export function OrganizationDropdown({
         sideOffset={8}
       >
         <DropdownMenuItem className="flex items-center gap-2">
-          <OrganizationAvatar
-            orgId={activeOrganization?.id ?? ""}
-            orgName={activeOrganization?.name ?? ""}
+          <ProjectAvatar
+            projectId={activeProject?.id ?? ""}
+            projectName={activeProject?.name ?? ""}
           />
           <span className="truncate font-semibold">
-            {activeOrganization?.name ?? ""}
+            {activeProject?.name ?? ""}
           </span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-xs text-muted-foreground">
-          {t("navigation:organizationSwitcher.switchOrganization")}
+          {t("navigation:projectSwitcher.switchProject")}
         </DropdownMenuLabel>
-        {organizations?.map((organization) => (
+        {projects?.map((project) => (
           <SwitcherItem
-            key={organization.id}
-            organization={organization}
-            activeOrganizationId={activeOrganization?.id ?? ""}
+            key={project.id}
+            project={project}
+            activeProjectId={activeProject?.id ?? ""}
           />
         ))}
         <DropdownMenuSeparator />
-        <CreateOrganizationModal />
+        <CreateProjectModal />
       </DropdownMenuContent>
     </DropdownMenu>
   );

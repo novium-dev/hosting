@@ -1,15 +1,15 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useParams } from "react-router-dom";
-import { OrganizationNavbar } from "@/components/navigation/organization-navbar";
+import { ProjectNavbar } from "@/components/navigation/project-navbar";
 import { authClient } from "@/lib/auth-client";
-import { useOrganizationStore } from "@/stores/organizations";
+import { useProjectStore } from "@/stores/projects";
 
 export default function SlugLayout() {
   const { slug } = useParams<{ slug: string }>();
   const { data: session, isLoading } = authClient.useSession();
-  const setCurrentSlug = useOrganizationStore((state) => state.setCurrentSlug);
+  const setCurrentSlug = useProjectStore((state) => state.setCurrentSlug);
 
-  // Remember the org the user is currently in so the root URL can return here.
+  // Remember the project the user is currently in so the root URL can return here.
   useEffect(() => {
     if (slug) setCurrentSlug(slug);
   }, [slug, setCurrentSlug]);
@@ -19,7 +19,7 @@ export default function SlugLayout() {
 
   return (
     <div className="min-h-svh bg-background">
-      <OrganizationNavbar user={session.user} />
+      <ProjectNavbar user={session.user} />
       <main className="mx-auto w-full max-w-400 pb-6">
         <Outlet />
       </main>

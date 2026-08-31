@@ -2,12 +2,12 @@ import Link from "@/components/link";
 import { Shield } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { OrganizationSwitcher } from "@/components/sidebar/organization-switcher";
+import { ProjectSwitcher } from "@/components/sidebar/project-switcher";
 import { NavPlatformTabs } from "./nav-platform-tabs";
 import { NavUserMenu } from "./nav-user-menu";
 import { hasAnyManagementPermission } from "@/lib/permissions";
 
-export function OrganizationNavbar({
+export function ProjectNavbar({
   user,
 }: {
   user: {
@@ -22,7 +22,7 @@ export function OrganizationNavbar({
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/70">
       <div className="mx-auto flex h-14 w-full max-w-400 items-center gap-2 px-3 md:px-4">
         <div className="shrink-0">
-          <OrganizationSwitcher />
+          <ProjectSwitcher />
         </div>
 
         <div className="hidden min-w-0 flex-1 lg:flex lg:justify-center">

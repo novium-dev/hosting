@@ -1,6 +1,6 @@
 "use client";
 
-import { createOrganizationAction } from "@/actions/organizations";
+import { createProjectAction } from "@/actions/projects";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -18,17 +18,17 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group";
-import { OrganizationAvatar } from "@/components/ui/organization-avatar";
+import { ProjectAvatar } from "@/components/ui/project-avatar";
 import { Spinner } from "@/components/ui/spinner";
 import { isReservedSlug } from "@/constants/reserved-slugs";
 import { TextEllipsis } from "@/components/ui/text-ellipsis";
 import { authClient } from "@/lib/auth-client";
-import type { AppOrganization } from "@/lib/auth";
+import type { AppProject } from "@/lib/auth";
 import {
   SLUG_MAX_LENGTH,
   SLUG_PATTERN,
-  createOrganizationSchema,
-} from "@/types/organization.schema";
+  createProjectSchema,
+} from "@/types/project.schema";
 import { slugify } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
@@ -37,13 +37,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-type CreateOrganizationFormProps = {
-  onSuccess: (organization: AppOrganization) => void;
+type CreateProjectFormProps = {
+  onSuccess: (project: AppProject) => void;
 };
 
-export function CreateOrganizationForm({
-  onSuccess,
-}: CreateOrganizationFormProps) {
+export function CreateProjectForm({ onSuccess }: CreateProjectFormProps) {
   const { t } = useTranslation(["app", "common"]);
   const [isValidatingSlug, setIsValidatingSlug] = useState(false);
   const [isSlugError, setIsSlugError] = useState(false);
@@ -51,8 +49,8 @@ export function CreateOrganizationForm({
 
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
     useHookFormAction(
-      createOrganizationAction,
-      zodResolver(createOrganizationSchema),
+      createProjectAction,
+      zodResolver(createProjectSchema),
       {
         formProps: {
           mode: "onChange",
@@ -64,7 +62,7 @@ export function CreateOrganizationForm({
             if (args.data?.data) {
               onSuccess?.(args.data.data);
             }
-            toast.success(t("app:createOrganizationForm.createdSuccess"));
+            toast.success(t("app:createProjectForm.createdSuccess"));
           },
           onError: (error) => {
             toast.error(error.error.serverError);
@@ -83,18 +81,18 @@ export function CreateOrganizationForm({
       if (isReservedSlug(slug)) {
         setIsSlugError(true);
         form.setError("slug", {
-          message: t("app:createOrganizationForm.slugReserved"),
+          message: t("app:createProjectForm.slugReserved"),
         });
         return;
       }
 
       try {
         setIsValidatingSlug(true);
-        const { error } = await authClient.organization.checkSlug({ slug });
+        const { error } = await authClient.project.checkSlug({ slug });
         if (error) {
           setIsSlugError(true);
           form.setError("slug", {
-            message: t("app:createOrganizationForm.slugTaken"),
+            message: t("app:createProjectForm.slugTaken"),
           });
         } else {
           setIsSlugError(false);
@@ -102,7 +100,7 @@ export function CreateOrganizationForm({
       } catch (error) {
         setIsSlugError(true);
         form.setError("slug", {
-          message: t("app:createOrganizationForm.slugCheckError"),
+          message: t("app:createProjectForm.slugCheckError"),
         });
       } finally {
         setIsValidatingSlug(false);
@@ -140,9 +138,9 @@ export function CreateOrganizationForm({
       <form onSubmit={handleSubmitWithAction}>
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <OrganizationAvatar
-              orgId="preview"
-              orgName={form.watch("name")}
+            <ProjectAvatar
+              projectId="preview"
+              projectName={form.watch("name")}
               className="w-10 h-10"
             />
             <div className="flex flex-col">
@@ -162,12 +160,12 @@ export function CreateOrganizationForm({
                   <Input
                     {...field}
                     type="text"
-                    placeholder={t("app:createOrganizationForm.namePlaceholder")}
+                    placeholder={t("app:createProjectForm.namePlaceholder")}
                   />
                 </FormControl>
                 <FormMessage />
                 <FormDescription>
-                  {t("app:createOrganizationForm.nameDescription")}
+                  {t("app:createProjectForm.nameDescription")}
                 </FormDescription>
               </FormItem>
             )}
@@ -177,12 +175,12 @@ export function CreateOrganizationForm({
             name="slug"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t("app:createOrganizationForm.slugLabel")}</FormLabel>
+                <FormLabel>{t("app:createProjectForm.slugLabel")}</FormLabel>
                 <FormControl>
                   <InputGroup>
                     <InputGroupInput
                       {...field}
-                      placeholder={t("app:createOrganizationForm.slugPlaceholder")}
+                      placeholder={t("app:createProjectForm.slugPlaceholder")}
                       onChange={(e) => {
                         field.onChange(e);
                         setSlugToCheck(e.target.value);
@@ -208,7 +206,7 @@ export function CreateOrganizationForm({
                 </FormControl>
                 <FormMessage />
                 <FormDescription>
-                  {t("app:createOrganizationForm.slugDescription")}
+                  {t("app:createProjectForm.slugDescription")}
                 </FormDescription>
               </FormItem>
             )}
@@ -224,7 +222,7 @@ export function CreateOrganizationForm({
             }
             loading={action.isExecuting}
           >
-            {t("app:createOrganizationForm.submit")}
+            {t("app:createProjectForm.submit")}
           </Button>
         </div>
       </form>

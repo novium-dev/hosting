@@ -9,10 +9,11 @@ export type ProjectMember = ListProjectUsersResponses[200][number];
 
 interface MembersViewProps {
   projectId: string;
+  ownerId: number;
   members: ProjectMember[];
 }
 
-export function MembersView({ projectId, members }: MembersViewProps) {
+export function MembersView({ projectId, ownerId, members }: MembersViewProps) {
   const { t } = useTranslation();
 
   return (
@@ -27,7 +28,11 @@ export function MembersView({ projectId, members }: MembersViewProps) {
         <InviteMemberDialog projectId={projectId} />
       </div>
       <div className="space-y-8">
-        <MembersTable members={members} projectId={projectId} />
+        <MembersTable
+          members={members}
+          projectId={projectId}
+          ownerId={ownerId}
+        />
       </div>
     </div>
   );

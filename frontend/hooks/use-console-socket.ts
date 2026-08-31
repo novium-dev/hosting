@@ -71,9 +71,9 @@ export function useConsoleSocket({
       }
 
       // if zrl contian localhost:4000 use localhost:4001
-      if (url.includes("wss://localhost:4000")) {
-        url = url.replace("wss://localhost:4000", "ws://localhost:4001");
-      }
+      //if (url.includes("wss://localhost:4000")) {
+      //  url = url.replace("wss://localhost:4000", "ws://localhost:4001");
+      //}
 
       const socket = new WebSocket(url);
       socket.binaryType = "arraybuffer";

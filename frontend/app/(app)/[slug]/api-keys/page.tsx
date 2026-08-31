@@ -2,16 +2,16 @@ import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/sidebar/main-layout";
 import { NotFoundView } from "@/components/not-found-view";
-import { useOrganization } from "@/hooks/use-organization";
+import { useProject } from "@/hooks/use-project";
 import { ApiKeysView } from "./api-keys-view";
 
 export default function ApiKeysPage() {
   const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
-  const { data: organization, isLoading } = useOrganization(slug);
+  const { data: project, isLoading } = useProject(slug);
 
   if (isLoading) return null;
-  if (!organization) return <NotFoundView />;
+  if (!project) return <NotFoundView />;
 
   return (
     <MainLayout
@@ -20,10 +20,7 @@ export default function ApiKeysPage() {
         { label: t("common:nav.apiKeys") },
       ]}
     >
-      <ApiKeysView
-        projectId={organization.id}
-        permissions={organization.permissions}
-      />
+      <ApiKeysView projectId={project.id} permissions={project.permissions} />
     </MainLayout>
   );
 }

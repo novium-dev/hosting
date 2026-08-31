@@ -1,6 +1,17 @@
 "use client";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { deleteProjectAction } from "@/actions/projects";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,21 +20,40 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { AppOrganization } from "@/lib/auth";
-import { AlertCircle } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { useAction } from "@/lib/action-hooks";
+import type { AppProject } from "@/lib/auth";
+import { useRouter } from "@/lib/navigation";
+import { useProjectStore } from "@/stores/projects";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { UpdateOrganizationName } from "./update-organization-name";
-import { UpdateOrganizationSlug } from "./update-organization-slug";
+import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import { UpdateProjectName } from "./update-project-name";
+import { UpdateProjectSlug } from "./update-project-slug";
 
-interface OrganizationSettingsProps {
-  organization: AppOrganization;
+interface ProjectSettingsProps {
+  project: AppProject;
 }
 
-export function OrganizationSettings({
-  organization,
-}: OrganizationSettingsProps) {
+export function ProjectSettings({ project }: ProjectSettingsProps) {
   const { t } = useTranslation();
+  const router = useRouter();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const deleteProject = useAction(deleteProjectAction, {
+    onSuccess: () => {
+      useProjectStore.getState().invalidate(project.slug);
+      useProjectStore.getState().setCurrentSlug(null);
+      toast.success(t("project:settings.dangerZone.deleteSuccess"));
+      router.push("/");
+    },
+    onError: (error) => {
+      toast.error(
+        error.error.serverError ?? t("project:settings.dangerZone.deleteError"),
+      );
+    },
+  });
 
   return (
     <div className="space-y-4">
@@ -33,9 +63,9 @@ export function OrganizationSettings({
           {t("project:settings.subheading")}
         </p>
       </div>
-      <UpdateOrganizationName organization={organization} />
+      <UpdateProjectName project={project} />
 
-      <UpdateOrganizationSlug organization={organization} />
+      <UpdateProjectSlug project={project} />
 
       <Card>
         <CardHeader>
@@ -45,19 +75,44 @@ export function OrganizationSettings({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* <AlertDestructive>
-            <p className="text-sm">
-              Deleting your organization will permanently remove all associated
-              data, including workspaces, forms, and responses. This action
-              cannot be undone.
-            </p>
-          </AlertDestructive> */}
           <p className="text-sm text-destructive">
             {t("project:settings.dangerZone.deleteWarning")}
           </p>
-          <Button variant="destructive" size="sm">
-            {t("project:settings.dangerZone.deleteButton")}
-          </Button>
+          <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm">
+                {t("project:settings.dangerZone.deleteButton")}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {t("project:settings.dangerZone.deleteDialog.title")}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("project:settings.dangerZone.deleteDialog.description", {
+                    name: project.name,
+                  })}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <Separator />
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleteProject.isExecuting}>
+                  {t("common:actions.cancel")}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  className={buttonVariants({ variant: "destructive" })}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    deleteProject.execute({ id: project.id });
+                  }}
+                  disabled={deleteProject.isExecuting}
+                >
+                  {t("project:settings.dangerZone.deleteButton")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
     </div>

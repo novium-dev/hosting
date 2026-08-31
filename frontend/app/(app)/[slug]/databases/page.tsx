@@ -2,23 +2,20 @@ import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/sidebar/main-layout";
 import { NotFoundView } from "@/components/not-found-view";
-import { useOrganization } from "@/hooks/use-organization";
+import { useProject } from "@/hooks/use-project";
 import { ServerPermission, hasServerPermission } from "@/lib/permissions";
 import { DatabasesView } from "./databases-view";
 
 export default function DatabasesPage() {
   const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
-  const { data: organization, isLoading } = useOrganization(slug);
+  const { data: project, isLoading } = useProject(slug);
 
   if (isLoading) return null;
-  if (!organization) return <NotFoundView />;
+  if (!project) return <NotFoundView />;
 
   if (
-    !hasServerPermission(
-      organization.permissions,
-      ServerPermission.DATABASE_VIEW,
-    )
+    !hasServerPermission(project.permissions, ServerPermission.DATABASE_VIEW)
   ) {
     return <NotFoundView />;
   }
@@ -31,9 +28,9 @@ export default function DatabasesPage() {
       ]}
     >
       <DatabasesView
-        projectId={organization.id}
+        projectId={project.id}
         slug={slug ?? ""}
-        permissions={organization.permissions}
+        permissions={project.permissions}
       />
     </MainLayout>
   );

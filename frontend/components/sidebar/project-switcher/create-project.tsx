@@ -1,6 +1,6 @@
 "use client";
 
-import { CreateOrganizationForm } from "@/components/create-organization-form";
+import { CreateProjectForm } from "@/components/create-project-form";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import { useRouter } from "@/lib/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-export function CreateOrganizationModal() {
+export function CreateProjectModal() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { t } = useTranslation();
@@ -31,22 +31,22 @@ export function CreateOrganizationModal() {
             <Plus className="size-4" />
           </div>
           <span className="font-medium">
-            {t("navigation:organizationSwitcher.createOrganization")}
+            {t("navigation:projectSwitcher.createProject")}
           </span>
         </DropdownMenuItem>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {t("navigation:organizationSwitcher.createOrganization")}
+            {t("navigation:projectSwitcher.createProject")}
           </DialogTitle>
           <DialogDescription>
-            {t("navigation:organizationSwitcher.createOrganizationDescription")}
+            {t("navigation:projectSwitcher.createProjectDescription")}
           </DialogDescription>
         </DialogHeader>
         <div className="shadow-xs border-none">
           <div className="space-y-6 p-0">
-            <CreateOrganizationForm
+            <CreateProjectForm
               onSuccess={({ slug }) => {
                 setOpen(false);
                 router.push(`/${slug}`);
