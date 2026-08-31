@@ -9,6 +9,7 @@
     "pathInputPlaceholder": "Pfad eingeben",
     "openPathButton": "Pfad öffnen",
     "newFolderButton": "Neuer Ordner",
+    "newFileButton": "Neue Datei",
     "loadingFiles": "Dateien werden geladen...",
     "emptyState": {
       "title": "Dieses Verzeichnis ist leer.",
@@ -64,6 +65,11 @@
       "description": "Einen neuen Ordner in {{path}} erstellen.",
       "placeholder": "ordner-name"
     },
+    "createFileDialog": {
+      "title": "Datei erstellen",
+      "description": "Erstellt eine neue leere Datei in {{path}} und öffnet sie im Editor.",
+      "placeholder": "datei-name.txt"
+    },
     "undo": {
       "actionLabels": {
         "move": "{{name}} verschieben",
@@ -115,6 +121,10 @@
       "noPermissionCreateDirectory": "Du hast keine Berechtigung, Verzeichnisse zu erstellen",
       "createDirectoryFailed": "Verzeichnis konnte nicht erstellt werden",
       "directoryCreated": "Verzeichnis erstellt",
+      "noPermissionCreateFile": "Du hast keine Berechtigung, Dateien zu erstellen",
+      "createFileFailed": "Datei konnte nicht erstellt werden",
+      "fileCreated": "Datei erstellt",
+      "fileAlreadyExists": "{{fileName}} existiert bereits",
       "noPermissionPermissions": "Du hast keine Berechtigung, Dateiberechtigungen zu ändern",
       "modeInvalid": "Der Modus muss aus drei oder vier oktalen Ziffern bestehen",
       "ownerInvalid": "Eigentümer und Gruppe müssen positive Zahlen sein",

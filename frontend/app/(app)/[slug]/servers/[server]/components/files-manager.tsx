@@ -18,6 +18,7 @@ import {
   Copy,
   Download,
   File,
+  FilePlus,
   Folder,
   FolderInput,
   FolderPlus,
@@ -318,6 +319,7 @@ export function FilesManager({
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [unarchiveOpen, setUnarchiveOpen] = useState(false);
   const [createDirectoryOpen, setCreateDirectoryOpen] = useState(false);
+  const [createFileOpen, setCreateFileOpen] = useState(false);
   const [renameInput, setRenameInput] = useState("");
   const [copyInput, setCopyInput] = useState("");
   const [archiveNameInput, setArchiveNameInput] = useState("");
@@ -326,6 +328,7 @@ export function FilesManager({
     useState<ArchiveCompression>("zstd");
   const [unarchiveNameInput, setUnarchiveNameInput] = useState("");
   const [newDirectoryNameInput, setNewDirectoryNameInput] = useState("");
+  const [newFileNameInput, setNewFileNameInput] = useState("");
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [permissionsModeInput, setPermissionsModeInput] = useState("");
   const [permissionsUidInput, setPermissionsUidInput] = useState("");
@@ -1592,6 +1595,74 @@ export function FilesManager({
     fileInputRef.current?.click();
   };
 
+  const handleCreateFile = async () => {
+    if (!canWriteFiles) {
+      toast.error(
+        t("servers-management:filesManager.toasts.noPermissionCreateFile"),
+      );
+      return;
+    }
+
+    const fileName = newFileNameInput.trim();
+    if (!fileName) {
+      return;
+    }
+
+    if (files.some((entry) => entry.name === fileName)) {
+      toast.error(
+        t("servers-management:filesManager.toasts.fileAlreadyExists", {
+          fileName,
+        }),
+      );
+      return;
+    }
+
+    const path = normalizePath(joinPath(currentPath, fileName));
+
+    setIsActionLoading(true);
+
+    try {
+      const uploadUrlResponse = await uploadUser({
+        path: { server_id: serverId },
+        query: { file: path },
+      });
+
+      if (uploadUrlResponse.error || !uploadUrlResponse.data?.url) {
+        toast.error(
+          uploadUrlResponse.error?.error?.msg ??
+            t("servers-management:filesManager.toasts.uploadUrlFailed", {
+              fileName,
+            }),
+        );
+        return;
+      }
+
+      const created = await uploadToSignedUrl({
+        url: uploadUrlResponse.data.url,
+        file: new Blob([], { type: "text/plain;charset=utf-8" }),
+        fileName,
+      });
+
+      if (!created) {
+        toast.error(
+          t("servers-management:filesManager.toasts.createFileFailed"),
+        );
+        return;
+      }
+
+      toast.success(t("servers-management:filesManager.toasts.fileCreated"));
+      setCreateFileOpen(false);
+      setNewFileNameInput("");
+      router.push(
+        `/${slug}/servers/${serverId}/edit?path=${encodeURIComponent(path)}`,
+      );
+    } catch {
+      toast.error(t("servers-management:filesManager.toasts.createFileFailed"));
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
   const handleCreateDirectory = async () => {
     if (!canWriteFiles) {
       toast.error(
@@ -1863,6 +1934,15 @@ export function FilesManager({
           >
             <Upload className="size-4" />
             {t("common:actions.upload")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setCreateFileOpen(true)}
+            disabled={isActionLoading || !canWriteFiles}
+          >
+            <FilePlus className="size-4" />
+            {t("servers-management:filesManager.newFileButton")}
           </Button>
           <Button
             type="button"
@@ -2693,6 +2773,56 @@ export function FilesManager({
               type="button"
               onClick={() => {
                 void handleCreateDirectory();
+              }}
+              loading={isActionLoading}
+            >
+              {t("common:actions.create")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={createFileOpen}
+        onOpenChange={(open) => {
+          setCreateFileOpen(open);
+          if (!open) {
+            setNewFileNameInput("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t("servers-management:filesManager.createFileDialog.title")}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                "servers-management:filesManager.createFileDialog.description",
+                { path: currentPath },
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={newFileNameInput}
+            onChange={(event) => setNewFileNameInput(event.target.value)}
+            placeholder={t(
+              "servers-management:filesManager.createFileDialog.placeholder",
+            )}
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCreateFileOpen(false)}
+              disabled={isActionLoading}
+            >
+              {t("common:actions.cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                void handleCreateFile();
               }}
               loading={isActionLoading}
             >

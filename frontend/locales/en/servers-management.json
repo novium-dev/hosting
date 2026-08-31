@@ -9,6 +9,7 @@
     "pathInputPlaceholder": "Enter path",
     "openPathButton": "Open Path",
     "newFolderButton": "New Folder",
+    "newFileButton": "New File",
     "loadingFiles": "Loading files...",
     "emptyState": {
       "title": "This directory is empty.",
@@ -64,6 +65,11 @@
       "description": "Create a new folder inside {{path}}.",
       "placeholder": "folder-name"
     },
+    "createFileDialog": {
+      "title": "Create file",
+      "description": "Create a new empty file inside {{path}} and open it in the editor.",
+      "placeholder": "file-name.txt"
+    },
     "undo": {
       "actionLabels": {
         "move": "Move {{name}}",
@@ -115,6 +121,10 @@
       "noPermissionCreateDirectory": "You do not have permission to create directories",
       "createDirectoryFailed": "Failed to create directory",
       "directoryCreated": "Directory created",
+      "noPermissionCreateFile": "You do not have permission to create files",
+      "createFileFailed": "Failed to create file",
+      "fileCreated": "File created",
+      "fileAlreadyExists": "{{fileName}} already exists",
       "noPermissionPermissions": "You do not have permission to change file permissions",
       "modeInvalid": "The mode must be three or four octal digits",
       "ownerInvalid": "Owner and group must be positive numbers",
