@@ -54,13 +54,13 @@
     }
   },
   "layout": {
-    "noOrganization": {
-      "title": "No active organization selected",
-      "description": "Please select an organization before viewing this server."
+    "noProject": {
+      "title": "No active project selected",
+      "description": "Please select a project before viewing this server."
     },
     "notFound": {
       "title": "Server not found",
-      "description": "This server does not exist or is not part of your organization."
+      "description": "This server does not exist or is not part of your project."
     },
     "noPowerPermission": "You do not have permission to control power."
   },

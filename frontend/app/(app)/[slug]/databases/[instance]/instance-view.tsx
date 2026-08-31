@@ -81,9 +81,9 @@ export function InstanceView({
 
       {!running && !instance.suspended ? (
         <Alert>
-          <AlertTitle>{t("org:databases.instanceView.notRunningTitle")}</AlertTitle>
+          <AlertTitle>{t("project:databases.instanceView.notRunningTitle")}</AlertTitle>
           <AlertDescription>
-            {t("org:databases.instanceView.notRunningDescription")}
+            {t("project:databases.instanceView.notRunningDescription")}
           </AlertDescription>
         </Alert>
       ) : null}

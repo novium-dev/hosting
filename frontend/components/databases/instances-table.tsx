@@ -93,25 +93,25 @@ export function InstancesTable({
 
   const power = useAction(powerInstanceAction, {
     onSuccess: () => {
-      toast.success(t("org:databases.instancesTable.powerChanged"));
+      toast.success(t("project:databases.instancesTable.powerChanged"));
       onChanged();
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("org:databases.managementBar.powerError"),
+        result.error.serverError ?? t("project:databases.managementBar.powerError"),
       );
     },
   });
 
   const remove = useAction(deleteInstanceAction, {
     onSuccess: () => {
-      toast.success(t("org:databases.instancesTable.deleted"));
+      toast.success(t("project:databases.instancesTable.deleted"));
       setPendingDelete(null);
       onChanged();
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("org:databases.instancesTable.deleteError"),
+        result.error.serverError ?? t("project:databases.instancesTable.deleteError"),
       );
     },
   });
@@ -128,7 +128,7 @@ export function InstancesTable({
   if (error) {
     return (
       <p className="text-sm text-destructive">
-        {t("org:databases.instancesTable.loadError")}
+        {t("project:databases.instancesTable.loadError")}
       </p>
     );
   }
@@ -138,10 +138,10 @@ export function InstancesTable({
       <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-10 text-center">
         <Database className="size-6 text-muted-foreground" />
         <p className="text-sm font-medium">
-          {t("org:databases.instancesTable.emptyTitle")}
+          {t("project:databases.instancesTable.emptyTitle")}
         </p>
         <p className="text-sm text-muted-foreground">
-          {t("org:databases.instancesTable.emptyDescription")}
+          {t("project:databases.instancesTable.emptyDescription")}
         </p>
       </div>
     );
@@ -154,8 +154,8 @@ export function InstancesTable({
           <TableHeader className="bg-muted/40">
             <TableRow>
               <TableHead>{t("common:labels.name")}</TableHead>
-              <TableHead>{t("org:databases.engineLabel")}</TableHead>
-              <TableHead>{t("org:databases.instancesTable.stateColumn")}</TableHead>
+              <TableHead>{t("project:databases.engineLabel")}</TableHead>
+              <TableHead>{t("project:databases.instancesTable.stateColumn")}</TableHead>
               <TableHead>{t("common:labels.address")}</TableHead>
               <TableHead>{t("common:resources.memory")}</TableHead>
               <TableHead className="w-0" />
@@ -217,7 +217,7 @@ export function InstancesTable({
                           }
                         >
                           <RotateCw className="size-4" />
-                          {t("org:databases.managementBar.restart")}
+                          {t("project:databases.managementBar.restart")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={() =>
@@ -229,7 +229,7 @@ export function InstancesTable({
                           }
                         >
                           <Square className="size-4" />
-                          {t("org:databases.managementBar.stop")}
+                          {t("project:databases.managementBar.stop")}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -260,7 +260,7 @@ export function InstancesTable({
           </AlertDialogTitle>
           <AlertDialogHeader>
             <AlertDialogDescription>
-              {t("org:databases.instancesTable.deleteDescription")}
+              {t("project:databases.instancesTable.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

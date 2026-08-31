@@ -158,7 +158,8 @@
       "removeAction": "Remove Member",
       "removeTitle": "Remove Member?",
       "removeDescription": "This will remove {{email}} from the project. They will lose access to all of its servers.",
-      "removeSuccess": "Member removed successfully"
+      "removeSuccess": "Member removed successfully",
+      "ownerTooltip": "Project owner"
     },
     "inviteDialog": {
       "trigger": "Add member",
@@ -186,37 +187,44 @@
     }
   },
   "settings": {
-    "heading": "Organization Settings",
-    "subheading": "Manage your organization settings here.",
+    "heading": "Project Settings",
+    "subheading": "Manage your project settings here.",
     "dangerZone": {
       "title": "Danger Zone",
       "description": "Irreversible and destructive actions",
-      "deleteWarning": "Deleting your organization will permanently remove all associated data, including workspaces, forms, and responses. This action cannot be undone.",
-      "deleteButton": "Delete Organization"
+      "deleteWarning": "Deleting your project will permanently remove all associated data, including servers, members, databases, and API keys. This action cannot be undone.",
+      "deleteButton": "Delete Project",
+      "deleteDialog": {
+        "title": "Delete project?",
+        "description": "This permanently deletes {{name}} and everything in it. This action cannot be undone.",
+        "notEmpty": "The project still has servers. Delete them first."
+      },
+      "deleteSuccess": "Project deleted",
+      "deleteError": "Failed to delete the project"
     },
     "nameCard": {
-      "title": "Organization Name",
-      "label": "Please enter your organization name",
-      "placeholder": "My Organization",
-      "description": "This action will update the name of the organization.",
-      "success": "Organization name updated successfully"
+      "title": "Project Name",
+      "label": "Please enter your project name",
+      "placeholder": "My Project",
+      "description": "This action will update the name of the project.",
+      "success": "Project name updated successfully"
     },
     "slugCard": {
-      "title": "Organization Slug",
+      "title": "Project Slug",
       "label": "Please enter a unique slug",
       "placeholder": "acme-inc",
       "slugTaken": "Slug is already taken",
       "checkError": "Error checking slug",
       "hint": "Use only lowercase letters, numbers, and hyphens.",
-      "success": "Organization slug updated successfully"
+      "success": "Project slug updated successfully"
     }
   },
   "dashboard": {
     "heading": "Your Servers",
     "subheading": "Manage your game servers, view logs, and access the console.",
-    "noOrgTitle": "No active organization selected",
-    "noOrgDescription": "Please select an organization before viewing servers.",
+    "noProjectTitle": "No active project selected",
+    "noProjectDescription": "Please select a project before viewing servers.",
     "emptyTitle": "No servers found",
-    "emptyDescription": "This organization doesn't have any game servers yet."
+    "emptyDescription": "This project doesn't have any game servers yet."
   }
 }

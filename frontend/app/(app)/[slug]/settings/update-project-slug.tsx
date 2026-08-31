@@ -57,7 +57,7 @@ export function UpdateOrganizationSlug({
         actionProps: {
           onSuccess: () => {
             resetFormAndAction();
-            toast.success(t("org:settings.slugCard.success"));
+            toast.success(t("project:settings.slugCard.success"));
           },
           onError: (error) => {
             toast.error(error.error.serverError);
@@ -77,7 +77,7 @@ export function UpdateOrganizationSlug({
         if (error) {
           setSlug((prev) => ({ ...prev, isError: true }));
           form.setError("slug", {
-            message: t("org:settings.slugCard.slugTaken"),
+            message: t("project:settings.slugCard.slugTaken"),
           });
         } else {
           setSlug((prev) => ({ ...prev, isError: false }));
@@ -85,7 +85,7 @@ export function UpdateOrganizationSlug({
       } catch (error) {
         setSlug((prev) => ({ ...prev, isError: true }));
         form.setError("slug", {
-          message: t("org:settings.slugCard.checkError"),
+          message: t("project:settings.slugCard.checkError"),
         });
       } finally {
         setSlug((prev) => ({ ...prev, isValidating: false }));
@@ -116,7 +116,7 @@ export function UpdateOrganizationSlug({
         <input type="hidden" {...form.register("id")} />
         <Card>
           <CardHeader>
-            <CardTitle>{t("org:settings.slugCard.title")}</CardTitle>
+            <CardTitle>{t("project:settings.slugCard.title")}</CardTitle>
           </CardHeader>
           <CardContent>
             <FormField
@@ -124,7 +124,7 @@ export function UpdateOrganizationSlug({
               name="slug"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("org:settings.slugCard.label")}</FormLabel>
+                  <FormLabel>{t("project:settings.slugCard.label")}</FormLabel>
                   <FormControl>
                     <InputGroup>
                       <InputGroupInput
@@ -136,7 +136,7 @@ export function UpdateOrganizationSlug({
                             value: e.target.value,
                           }));
                         }}
-                        placeholder={t("org:settings.slugCard.placeholder")}
+                        placeholder={t("project:settings.slugCard.placeholder")}
                         className="pl-1!"
                       />
                       <InputGroupAddon>
@@ -165,7 +165,7 @@ export function UpdateOrganizationSlug({
           <Separator />
           <CardFooter className="flex flex-row justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              {t("org:settings.slugCard.hint")}
+              {t("project:settings.slugCard.hint")}
             </p>
             <Button
               type="submit"

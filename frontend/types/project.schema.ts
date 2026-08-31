@@ -18,23 +18,25 @@ const slugSchema = z
     message: "This slug is reserved and cannot be used",
   });
 
-export const createOrganizationSchema = z.object({
+export const createProjectSchema = z.object({
   name: z.string().min(1, { message: "Name is required" }),
   slug: slugSchema,
 });
 
-export type CreateOrganization = z.infer<typeof createOrganizationSchema>;
+export type CreateProject = z.infer<typeof createProjectSchema>;
 
-export const updateOrganizationNameSchema = z.object({
-  id: z.string().min(1, "Organization ID is required"),
+export const updateProjectNameSchema = z.object({
+  id: z.string().min(1, "Project ID is required"),
   name: z.string(),
 });
 
-export type UpdateOrganizationName = z.infer<
-  typeof updateOrganizationNameSchema
->;
+export type UpdateProjectName = z.infer<typeof updateProjectNameSchema>;
 
-export const updateOrganizationSlugSchema = z.object({
-  id: z.string().min(1, "Organization ID is required"),
+export const updateProjectSlugSchema = z.object({
+  id: z.string().min(1, "Project ID is required"),
   slug: slugSchema,
+});
+
+export const deleteProjectSchema = z.object({
+  id: z.string().min(1, "Project ID is required"),
 });

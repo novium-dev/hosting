@@ -66,7 +66,7 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
 
   const remove = useAction(removeProjectUserAction, {
     onSuccess: () => {
-      toast.success(t("org:members.table.removeSuccess"));
+      toast.success(t("project:members.table.removeSuccess"));
       setRemoveMember(null);
     },
     onError: (error) => {
@@ -84,7 +84,7 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
             </TableHead>
             <TableHead>{t("common:labels.email")}</TableHead>
             <TableHead>{t("common:labels.permissions")}</TableHead>
-            <TableHead>{t("org:members.expiry.column")}</TableHead>
+            <TableHead>{t("project:members.expiry.column")}</TableHead>
             <TableHead></TableHead>
           </TableRow>
         </TableHeader>
@@ -95,10 +95,10 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
                 <div className="flex flex-col items-center justify-center gap-2 text-center">
                   <Users className="size-5 text-muted-foreground" />
                   <p className="text-sm font-medium">
-                    {t("org:members.table.emptyTitle")}
+                    {t("project:members.table.emptyTitle")}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {t("org:members.table.emptyDescription")}
+                    {t("project:members.table.emptyDescription")}
                   </p>
                 </div>
               </TableCell>
@@ -132,7 +132,7 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Badge variant="secondary">
-                          {t("org:shared.permissionCount", {
+                          {t("project:shared.permissionCount", {
                             count: permissionLabels.length,
                           })}
                         </Badge>
@@ -140,20 +140,20 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
                       <TooltipContent className="max-w-xs">
                         {permissionLabels.length
                           ? permissionLabels.join(", ")
-                          : t("org:shared.noPermissions")}
+                          : t("project:shared.noPermissions")}
                       </TooltipContent>
                     </Tooltip>
                   </TableCell>
                   <TableCell>
                     {member.expires_at ? (
                       <Badge variant="outline">
-                        {t("org:members.expiry.expiresOn", {
+                        {t("project:members.expiry.expiresOn", {
                           date: formatExpiry(member.expires_at, i18n.language),
                         })}
                       </Badge>
                     ) : (
                       <span className="text-sm text-muted-foreground">
-                        {t("org:members.expiry.permanent")}
+                        {t("project:members.expiry.permanent")}
                       </span>
                     )}
                   </TableCell>
@@ -172,13 +172,13 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
                             setUpdateOpen(true);
                           }}
                         >
-                          {t("org:members.table.updateAction")}
+                          {t("project:members.table.updateAction")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="cursor-pointer text-destructive"
                           onSelect={() => setRemoveMember(member)}
                         >
-                          {t("org:members.table.removeAction")}
+                          {t("project:members.table.removeAction")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -205,9 +205,9 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("org:members.table.removeTitle")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("project:members.table.removeTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("org:members.table.removeDescription", {
+              {t("project:members.table.removeDescription", {
                 email: removeMember?.email,
               })}
             </AlertDialogDescription>
@@ -224,7 +224,7 @@ export function MembersTable({ members, projectId }: MembersTableProps) {
               }}
               disabled={remove.isExecuting}
             >
-              {t("org:members.table.removeAction")}
+              {t("project:members.table.removeAction")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

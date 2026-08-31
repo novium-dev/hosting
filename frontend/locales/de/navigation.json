@@ -22,10 +22,10 @@
     "darkMode": "Dunkler Modus",
     "logOut": "Abmelden"
   },
-  "organizationSwitcher": {
-    "createOrganization": "Organisation erstellen",
-    "createOrganizationDescription": "Verwalte deine Organisation und ihre Inhalte",
-    "switchOrganization": "Organisation wechseln"
+  "projectSwitcher": {
+    "createProject": "Projekt erstellen",
+    "createProjectDescription": "Verwalte dein Projekt und seine Inhalte",
+    "switchProject": "Projekt wechseln"
   },
   "command": {
     "searchTrigger": "Suchen...",

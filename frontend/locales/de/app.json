@@ -18,24 +18,24 @@
     "description": "Diese Seite existiert nicht oder du hast keinen Zugriff darauf."
   },
   "onboarding": {
-    "title": "Erstelle deine Organisation",
-    "description": "Erstelle deine Organisation, um loszulegen"
+    "title": "Erstelle dein Projekt",
+    "description": "Erstelle dein Projekt, um loszulegen"
   },
-  "createOrganizationForm": {
+  "createProjectForm": {
     "namePlaceholder": "Acme Inc.",
-    "nameDescription": "Dies ist der Name deiner Organisation.",
+    "nameDescription": "Dies ist der Name deines Projekts.",
     "slugLabel": "Slug",
     "slugPlaceholder": "acme-inc",
     "slugDescription": "Nur Kleinbuchstaben, Zahlen und Bindestriche – keine Leerzeichen oder Sonderzeichen.",
     "slugReserved": "Dieser Slug ist reserviert und kann nicht verwendet werden",
     "slugTaken": "Slug ist bereits vergeben",
     "slugCheckError": "Fehler beim Prüfen des Slugs",
-    "submit": "Organisation erstellen",
-    "createdSuccess": "Organisation erfolgreich erstellt"
+    "submit": "Projekt erstellen",
+    "createdSuccess": "Projekt erfolgreich erstellt"
   },
-  "createOrganizationPage": {
-    "title": "Organisation erstellen",
-    "description": "Erstelle eine neue Organisation, um loszulegen"
+  "createProjectPage": {
+    "title": "Projekt erstellen",
+    "description": "Erstelle ein neues Projekt, um loszulegen"
   },
   "searchableSelect": {
     "placeholder": "Wert auswählen",

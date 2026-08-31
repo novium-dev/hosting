@@ -158,7 +158,8 @@
       "removeAction": "Mitglied entfernen",
       "removeTitle": "Mitglied entfernen?",
       "removeDescription": "Dies entfernt {{email}} aus dem Projekt. Die Person verliert den Zugriff auf alle zugehörigen Server.",
-      "removeSuccess": "Mitglied erfolgreich entfernt"
+      "removeSuccess": "Mitglied erfolgreich entfernt",
+      "ownerTooltip": "Projektinhaber"
     },
     "inviteDialog": {
       "trigger": "Mitglied hinzufügen",
@@ -186,37 +187,44 @@
     }
   },
   "settings": {
-    "heading": "Organisationseinstellungen",
-    "subheading": "Verwalte hier die Einstellungen deiner Organisation.",
+    "heading": "Projekteinstellungen",
+    "subheading": "Verwalte hier die Einstellungen deines Projekts.",
     "dangerZone": {
       "title": "Gefahrenzone",
       "description": "Unumkehrbare und destruktive Aktionen",
-      "deleteWarning": "Das Löschen deiner Organisation entfernt dauerhaft alle zugehörigen Daten, einschließlich Arbeitsbereiche, Formulare und Antworten. Diese Aktion kann nicht rückgängig gemacht werden.",
-      "deleteButton": "Organisation löschen"
+      "deleteWarning": "Das Löschen deines Projekts entfernt dauerhaft alle zugehörigen Daten, einschließlich Server, Mitglieder, Datenbanken und API-Schlüssel. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "deleteButton": "Projekt löschen",
+      "deleteDialog": {
+        "title": "Projekt löschen?",
+        "description": "Dies löscht {{name}} und alles darin dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
+        "notEmpty": "Das Projekt hat noch Server. Lösche sie zuerst."
+      },
+      "deleteSuccess": "Projekt gelöscht",
+      "deleteError": "Das Projekt konnte nicht gelöscht werden"
     },
     "nameCard": {
-      "title": "Organisationsname",
-      "label": "Bitte gib den Namen deiner Organisation ein",
-      "placeholder": "Meine Organisation",
-      "description": "Diese Aktion aktualisiert den Namen der Organisation.",
-      "success": "Organisationsname erfolgreich aktualisiert"
+      "title": "Projektname",
+      "label": "Bitte gib den Namen deines Projekts ein",
+      "placeholder": "Mein Projekt",
+      "description": "Diese Aktion aktualisiert den Namen des Projekts.",
+      "success": "Projektname erfolgreich aktualisiert"
     },
     "slugCard": {
-      "title": "Organisations-Slug",
+      "title": "Projekt-Slug",
       "label": "Bitte gib einen eindeutigen Slug ein",
       "placeholder": "acme-inc",
       "slugTaken": "Slug ist bereits vergeben",
       "checkError": "Fehler beim Prüfen des Slugs",
       "hint": "Nur Kleinbuchstaben, Ziffern und Bindestriche verwenden.",
-      "success": "Organisations-Slug erfolgreich aktualisiert"
+      "success": "Projekt-Slug erfolgreich aktualisiert"
     }
   },
   "dashboard": {
     "heading": "Deine Server",
     "subheading": "Verwalte deine Spieleserver, sieh dir Logs an und greife auf die Konsole zu.",
-    "noOrgTitle": "Keine aktive Organisation ausgewählt",
-    "noOrgDescription": "Bitte wähle eine Organisation aus, bevor du Server ansiehst.",
+    "noProjectTitle": "Kein aktives Projekt ausgewählt",
+    "noProjectDescription": "Bitte wähle ein Projekt aus, bevor du Server ansiehst.",
     "emptyTitle": "Keine Server gefunden",
-    "emptyDescription": "Diese Organisation hat noch keine Spieleserver."
+    "emptyDescription": "Dieses Projekt hat noch keine Spieleserver."
   }
 }

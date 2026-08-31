@@ -63,10 +63,10 @@ export function DatabasesView({
         <div>
           <h1 className="text-xl font-semibold">{t("common:nav.databases")}</h1>
           <p className="text-sm text-muted-foreground">
-            {t("org:databases.description")}{" "}
+            {t("project:databases.description")}{" "}
             {bypassesLimit
-              ? t("org:databases.descriptionBypass")
-              : t("org:databases.descriptionLimit", { limit: INSTANCE_LIMIT })}
+              ? t("project:databases.descriptionBypass")
+              : t("project:databases.descriptionLimit", { limit: INSTANCE_LIMIT })}
           </p>
         </div>
         {canManage ? (

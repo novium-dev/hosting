@@ -21,7 +21,7 @@ export function MembersView({ projectId, members }: MembersViewProps) {
         <div>
           <h1 className="text-xl font-semibold">{t("common:nav.members")}</h1>
           <p className="text-sm text-muted-foreground">
-            {t("org:members.description")}
+            {t("project:members.description")}
           </p>
         </div>
         <InviteMemberDialog projectId={projectId} />

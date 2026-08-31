@@ -57,7 +57,7 @@ export function UpdateMemberRoleDialog({
         onSuccess: () => {
           resetFormAndAction();
           setOpen(false);
-          toast.success(t("org:members.updateDialog.success"));
+          toast.success(t("project:members.updateDialog.success"));
         },
         onError: (error) => {
           toast.error(error.error.serverError ?? t("common:state.genericError"));
@@ -80,9 +80,9 @@ export function UpdateMemberRoleDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("org:members.updateDialog.title")}</DialogTitle>
+          <DialogTitle>{t("project:members.updateDialog.title")}</DialogTitle>
           <DialogDescription>
-            {t("org:members.updateDialog.description")}
+            {t("project:members.updateDialog.description")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -110,7 +110,7 @@ export function UpdateMemberRoleDialog({
               name="expiresAt"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("org:members.expiry.label")}</FormLabel>
+                  <FormLabel>{t("project:members.expiry.label")}</FormLabel>
                   <FormControl>
                     <MembershipExpiryField
                       value={field.value}
@@ -126,7 +126,7 @@ export function UpdateMemberRoleDialog({
               className="w-full"
               loading={action.isExecuting}
             >
-              {t("org:members.updateDialog.submit")}
+              {t("project:members.updateDialog.submit")}
             </Button>
           </form>
         </Form>

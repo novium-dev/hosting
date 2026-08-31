@@ -112,7 +112,7 @@
     }
   },
   "users": {
-    "description": "Manage user accounts, roles, and organizations.",
+    "description": "Manage user accounts, roles, and projects.",
     "searchPlaceholder": "Search by username or email...",
     "loadError": "Failed to load users.",
     "emptyState": "No users found",
@@ -133,13 +133,13 @@
       "backToUsers": "Back to users",
       "tabs": {
         "overview": "Overview",
-        "organizations": "Organizations"
+        "projects": "Projects"
       },
-      "organizations": {
+      "projects": {
         "table": {
           "membership": "Membership"
         },
-        "emptyState": "Not part of any organization",
+        "emptyState": "Not part of any project",
         "ownerBadge": "Owner",
         "memberBadge": "Member"
       }

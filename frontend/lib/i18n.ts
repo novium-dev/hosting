@@ -3,7 +3,7 @@ import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
 import enCommon from "@/locales/en/common.json";
 import enApp from "@/locales/en/app.json";
-import enOrg from "@/locales/en/org.json";
+import enProject from "@/locales/en/project.json";
 import enNavigation from "@/locales/en/navigation.json";
 import enSettings from "@/locales/en/settings.json";
 import enServers from "@/locales/en/servers.json";
@@ -13,7 +13,7 @@ import enAdminInfra from "@/locales/en/admin-infra.json";
 import enAdminIntegrity from "@/locales/en/admin-integrity.json";
 import deCommon from "@/locales/de/common.json";
 import deApp from "@/locales/de/app.json";
-import deOrg from "@/locales/de/org.json";
+import deProject from "@/locales/de/project.json";
 import deNavigation from "@/locales/de/navigation.json";
 import deSettings from "@/locales/de/settings.json";
 import deServers from "@/locales/de/servers.json";
@@ -26,7 +26,7 @@ export const defaultNamespace = "common";
 export const namespaces = [
   "common",
   "app",
-  "org",
+  "project",
   "navigation",
   "settings",
   "servers",
@@ -46,7 +46,7 @@ void i18next
       en: {
         common: enCommon,
         app: enApp,
-        org: enOrg,
+        project: enProject,
         navigation: enNavigation,
         settings: enSettings,
         servers: enServers,
@@ -58,7 +58,7 @@ void i18next
       de: {
         common: deCommon,
         app: deApp,
-        org: deOrg,
+        project: deProject,
         navigation: deNavigation,
         settings: deSettings,
         servers: deServers,

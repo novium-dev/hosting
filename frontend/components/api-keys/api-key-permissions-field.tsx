@@ -37,7 +37,7 @@ export function ApiKeyPermissionsField({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <FormLabel>{t("org:apiKeys.permissionsField.instanceLabel")}</FormLabel>
+        <FormLabel>{t("project:apiKeys.permissionsField.instanceLabel")}</FormLabel>
         <ManagementPermissionsField
           className="h-48"
           value={maskPermissions(value, allManagementPermissions)}
@@ -49,9 +49,9 @@ export function ApiKeyPermissionsField({
         />
       </div>
       <div className="space-y-2">
-        <FormLabel>{t("org:apiKeys.permissionsField.serverLabel")}</FormLabel>
+        <FormLabel>{t("project:apiKeys.permissionsField.serverLabel")}</FormLabel>
         <FormDescription>
-          {t("org:apiKeys.permissionsField.serverDescription")}
+          {t("project:apiKeys.permissionsField.serverDescription")}
         </FormDescription>
         <PermissionsField
           className="h-48"

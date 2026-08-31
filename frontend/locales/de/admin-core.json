@@ -112,7 +112,7 @@
     }
   },
   "users": {
-    "description": "Benutzerkonten, Rollen und Organisationen verwalten.",
+    "description": "Benutzerkonten, Rollen und Projekte verwalten.",
     "searchPlaceholder": "Suche nach Benutzername oder E-Mail...",
     "loadError": "Benutzer konnten nicht geladen werden.",
     "emptyState": "Keine Benutzer gefunden",
@@ -133,13 +133,13 @@
       "backToUsers": "Zurück zu Benutzern",
       "tabs": {
         "overview": "Übersicht",
-        "organizations": "Organisationen"
+        "projects": "Projekte"
       },
-      "organizations": {
+      "projects": {
         "table": {
           "membership": "Mitgliedschaft"
         },
-        "emptyState": "Kein Teil einer Organisation",
+        "emptyState": "Kein Teil eines Projekts",
         "ownerBadge": "Besitzer",
         "memberBadge": "Mitglied"
       }

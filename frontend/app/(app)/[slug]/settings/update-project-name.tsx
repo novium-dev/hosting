@@ -45,7 +45,7 @@ export function UpdateOrganizationName({
             resetFormAndAction();
             // Drop the cached org so the new name is refetched on next view.
             useOrganizationStore.getState().invalidate(organization.slug);
-            toast.success(t("org:settings.nameCard.success"));
+            toast.success(t("project:settings.nameCard.success"));
           },
           onError: (error) => {
             toast.error(error.error.serverError);
@@ -60,7 +60,7 @@ export function UpdateOrganizationName({
         <input type="hidden" {...form.register("id")} />
         <Card>
           <CardHeader>
-            <CardTitle>{t("org:settings.nameCard.title")}</CardTitle>
+            <CardTitle>{t("project:settings.nameCard.title")}</CardTitle>
           </CardHeader>
           <CardContent>
             <FormField
@@ -68,11 +68,11 @@ export function UpdateOrganizationName({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("org:settings.nameCard.label")}</FormLabel>
+                  <FormLabel>{t("project:settings.nameCard.label")}</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
-                      placeholder={t("org:settings.nameCard.placeholder")}
+                      placeholder={t("project:settings.nameCard.placeholder")}
                     />
                   </FormControl>
                   <FormMessage />
@@ -83,7 +83,7 @@ export function UpdateOrganizationName({
           <Separator />
           <CardFooter className="flex flex-row justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              {t("org:settings.nameCard.description")}
+              {t("project:settings.nameCard.description")}
             </p>
             <Button type="submit" size="sm" loading={action.isExecuting}>
               {t("common:actions.save")}

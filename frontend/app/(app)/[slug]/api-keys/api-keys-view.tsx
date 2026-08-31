@@ -47,7 +47,7 @@ export function ApiKeysView({ projectId, permissions }: ApiKeysViewProps) {
         <div>
           <h1 className="text-xl font-semibold">{t("common:nav.apiKeys")}</h1>
           <p className="text-sm text-muted-foreground">
-            {t("org:apiKeys.description")}
+            {t("project:apiKeys.description")}
           </p>
         </div>
         <CreateApiKeyDialog

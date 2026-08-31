@@ -67,7 +67,7 @@ export function CreateInstanceDialog({
           resetFormAndAction();
           setOpen(false);
           onCreated();
-          toast.success(t("org:databases.createDialog.created"));
+          toast.success(t("project:databases.createDialog.created"));
         },
         onError: (error) => {
           toast.error(error.error.serverError ?? t("common:state.genericError"));
@@ -80,14 +80,14 @@ export function CreateInstanceDialog({
       <DialogTrigger asChild>
         <Button disabled={atLimit}>
           <Plus className="size-4" />
-          {t("org:databases.createDialog.trigger")}
+          {t("project:databases.createDialog.trigger")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("org:databases.createDialog.title")}</DialogTitle>
+          <DialogTitle>{t("project:databases.createDialog.title")}</DialogTitle>
           <DialogDescription>
-            {t("org:databases.createDialog.description")}
+            {t("project:databases.createDialog.description")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -97,7 +97,7 @@ export function CreateInstanceDialog({
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("org:databases.engineLabel")}</FormLabel>
+                  <FormLabel>{t("project:databases.engineLabel")}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="w-full">
@@ -127,11 +127,11 @@ export function CreateInstanceDialog({
                   <FormControl>
                     <Input
                       {...field}
-                      placeholder={t("org:databases.createDialog.namePlaceholder")}
+                      placeholder={t("project:databases.createDialog.namePlaceholder")}
                     />
                   </FormControl>
                   <FormDescription>
-                    {t("org:databases.createDialog.nameDescription")}
+                    {t("project:databases.createDialog.nameDescription")}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -143,7 +143,7 @@ export function CreateInstanceDialog({
                 className="w-full"
                 loading={action.isExecuting}
               >
-                {t("org:databases.createDialog.submit")}
+                {t("project:databases.createDialog.submit")}
               </Button>
             </DialogFooter>
           </form>

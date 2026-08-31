@@ -1,6 +1,6 @@
 import { checkProjectSlug, logout } from "@/lib/api";
 import { useSession } from "@/contexts/session-provider";
-import { useOrganizationStore } from "@/stores/organizations";
+import { useProjectStore } from "@/stores/projects";
 import { useSessionStore } from "@/stores/session";
 
 // Matches the API base in lib/api-client.ts.
@@ -85,14 +85,14 @@ export const authClient = {
       });
       return response;
     }
-    // Clear the cached session and org data for the signed-out user.
+    // Clear the cached session and project data for the signed-out user.
     useSessionStore.getState().clear();
-    useOrganizationStore.getState().clear();
+    useProjectStore.getState().clear();
     fetchOptions?.onSuccess?.();
     return response;
   },
 
-  organization: {
+  project: {
     // Returns `{ error }` where a truthy error means the slug is taken, matching
     // the shape the forms expect. Fails open on a request error (the backend
     // still enforces uniqueness on create/update).

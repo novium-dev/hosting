@@ -18,24 +18,24 @@
     "description": "This page doesn't exist or you don't have access to it."
   },
   "onboarding": {
-    "title": "Create your organization",
-    "description": "Create your organization to get started"
+    "title": "Create your project",
+    "description": "Create your project to get started"
   },
-  "createOrganizationForm": {
+  "createProjectForm": {
     "namePlaceholder": "Acme Inc.",
-    "nameDescription": "This is the name of your organization.",
+    "nameDescription": "This is the name of your project.",
     "slugLabel": "Slug",
     "slugPlaceholder": "acme-inc",
     "slugDescription": "Only lowercase letters, numbers, and hyphens — no spaces or special characters.",
     "slugReserved": "This slug is reserved and cannot be used",
     "slugTaken": "Slug is already taken",
     "slugCheckError": "Error checking slug",
-    "submit": "Create Organization",
-    "createdSuccess": "Organization created successfully"
+    "submit": "Create Project",
+    "createdSuccess": "Project created successfully"
   },
-  "createOrganizationPage": {
-    "title": "Create Organization",
-    "description": "Create a new organization to get started"
+  "createProjectPage": {
+    "title": "Create Project",
+    "description": "Create a new project to get started"
   },
   "searchableSelect": {
     "placeholder": "Select value",

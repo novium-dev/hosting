@@ -41,7 +41,7 @@ export function DatabaseAccessMatrix({
   if (!databases.length) {
     return (
       <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-        {t("org:databases.usersCard.noDatabasesHint")}
+        {t("project:databases.usersCard.noDatabasesHint")}
       </p>
     );
   }
@@ -68,13 +68,13 @@ export function DatabaseAccessMatrix({
             }}
           >
             <ToggleGroupItem value="none">
-              {t("org:databases.usersCard.accessNone")}
+              {t("project:databases.usersCard.accessNone")}
             </ToggleGroupItem>
             <ToggleGroupItem value="read">
-              {t("org:databases.usersCard.accessRead")}
+              {t("project:databases.usersCard.accessRead")}
             </ToggleGroupItem>
             <ToggleGroupItem value="write">
-              {t("org:databases.usersCard.accessWrite")}
+              {t("project:databases.usersCard.accessWrite")}
             </ToggleGroupItem>
           </ToggleGroup>
         </div>

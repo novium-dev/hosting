@@ -42,10 +42,10 @@ export function MembershipExpiryField({
       <div className="flex items-center justify-between gap-4 rounded-md border p-3">
         <div className="space-y-0.5">
           <p className="text-sm font-medium">
-            {t("org:members.expiry.limitTitle")}
+            {t("project:members.expiry.limitTitle")}
           </p>
           <p className="text-xs text-muted-foreground">
-            {t("org:members.expiry.limitDescription")}
+            {t("project:members.expiry.limitDescription")}
           </p>
         </div>
         <Switch
@@ -68,7 +68,7 @@ export function MembershipExpiryField({
                 disabled={disabled}
                 onClick={() => onChange(inDays(days))}
               >
-                {t("org:members.expiry.preset", { count: days })}
+                {t("project:members.expiry.preset", { count: days })}
               </Button>
             ))}
           </div>

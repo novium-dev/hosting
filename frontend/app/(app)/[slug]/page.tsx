@@ -121,7 +121,7 @@ function ServerRow({
     },
     {
       icon: MemoryStick,
-      label: t("org:shared.ram"),
+      label: t("project:shared.ram"),
       value: stats ? formatUsageCompact(stats.ram, stats.ram_max) : "-- / --",
       percent: stats ? usagePercentValue(stats.ram, stats.ram_max) : null,
     },
@@ -241,9 +241,9 @@ export default function OrganizationPage() {
       <MainLayout breadcrumbs={[{ label: slug ?? "" }]}>
         <Card>
           <CardHeader>
-            <CardTitle>{t("org:dashboard.noOrgTitle")}</CardTitle>
+            <CardTitle>{t("project:dashboard.noOrgTitle")}</CardTitle>
             <p className="text-sm text-muted-foreground">
-              {t("org:dashboard.noOrgDescription")}
+              {t("project:dashboard.noOrgDescription")}
             </p>
           </CardHeader>
         </Card>
@@ -261,10 +261,10 @@ export default function OrganizationPage() {
         {/* Header */}
         <div className="flex flex-col gap-2">
           <p className="text-3xl font-semibold tracking-tight">
-            {t("org:dashboard.heading")}
+            {t("project:dashboard.heading")}
           </p>
           <p className="text-sm text-muted-foreground">
-            {t("org:dashboard.subheading")}
+            {t("project:dashboard.subheading")}
           </p>
         </div>
 
@@ -279,10 +279,10 @@ export default function OrganizationPage() {
 
                 <div className="space-y-1">
                   <p className="text-base font-medium">
-                    {t("org:dashboard.emptyTitle")}
+                    {t("project:dashboard.emptyTitle")}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {t("org:dashboard.emptyDescription")}
+                    {t("project:dashboard.emptyDescription")}
                   </p>
                 </div>
               </CardContent>

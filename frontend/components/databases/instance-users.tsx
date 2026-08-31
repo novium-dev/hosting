@@ -97,8 +97,8 @@ function ConnectionCell({ user }: { user: ProjectUser }) {
         onClick={() => setRevealed((current) => !current)}
         aria-label={
           revealed
-            ? t("org:databases.usersCard.hidePassword")
-            : t("org:databases.usersCard.revealPassword")
+            ? t("project:databases.usersCard.hidePassword")
+            : t("project:databases.usersCard.revealPassword")
         }
       >
         {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -109,11 +109,11 @@ function ConnectionCell({ user }: { user: ProjectUser }) {
         onClick={() =>
           void copyValue(
             user.uri,
-            t("org:databases.usersCard.connectionUriCopied"),
-            t("org:databases.usersCard.connectionUriCopyFailed"),
+            t("project:databases.usersCard.connectionUriCopied"),
+            t("project:databases.usersCard.connectionUriCopyFailed"),
           )
         }
-        aria-label={t("org:databases.usersCard.copyUriAriaLabel")}
+        aria-label={t("project:databases.usersCard.copyUriAriaLabel")}
       >
         <Copy className="size-4" />
       </Button>
@@ -133,7 +133,7 @@ function GrantsCell({
   if (!user.grants.length) {
     return (
       <span className="text-xs text-muted-foreground">
-        {t("org:databases.usersCard.accessNone")}
+        {t("project:databases.usersCard.accessNone")}
       </span>
     );
   }
@@ -150,8 +150,8 @@ function GrantsCell({
             ?.name ?? grant.database_uuid}
           <span className="text-muted-foreground">
             {grant.access === "write"
-              ? t("org:databases.usersCard.accessWriteShort")
-              : t("org:databases.usersCard.accessReadShort")}
+              ? t("project:databases.usersCard.accessWriteShort")
+              : t("project:databases.usersCard.accessReadShort")}
           </span>
         </Badge>
       ))}
@@ -201,7 +201,7 @@ export function InstanceUsers({
 
   const create = useAction(createUserAction, {
     onSuccess: () => {
-      toast.success(t("org:databases.usersCard.created"));
+      toast.success(t("project:databases.usersCard.created"));
       setCreating(false);
       setUsername("");
       setAccess({});
@@ -209,45 +209,45 @@ export function InstanceUsers({
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("org:databases.usersCard.createError"),
+        result.error.serverError ?? t("project:databases.usersCard.createError"),
       );
     },
   });
 
   const remove = useAction(deleteUserAction, {
     onSuccess: () => {
-      toast.success(t("org:databases.usersCard.deleted"));
+      toast.success(t("project:databases.usersCard.deleted"));
       setPendingDelete(null);
       void mutate();
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("org:databases.usersCard.deleteError"),
+        result.error.serverError ?? t("project:databases.usersCard.deleteError"),
       );
     },
   });
 
   const updateGrants = useAction(setUserGrantsAction, {
     onSuccess: () => {
-      toast.success(t("org:databases.usersCard.accessUpdated"));
+      toast.success(t("project:databases.usersCard.accessUpdated"));
       setEditing(null);
       void mutate();
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("org:databases.usersCard.accessError"),
+        result.error.serverError ?? t("project:databases.usersCard.accessError"),
       );
     },
   });
 
   const rotate = useAction(rotateUserPasswordAction, {
     onSuccess: () => {
-      toast.success(t("org:databases.usersCard.passwordRotated"));
+      toast.success(t("project:databases.usersCard.passwordRotated"));
       void mutate();
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("org:databases.usersCard.rotateError"),
+        result.error.serverError ?? t("project:databases.usersCard.rotateError"),
       );
     },
   });
@@ -259,7 +259,7 @@ export function InstanceUsers({
           <div>
             <CardTitle>{t("common:nav.users")}</CardTitle>
             <CardDescription>
-              {t("org:databases.usersCard.description")}
+              {t("project:databases.usersCard.description")}
             </CardDescription>
           </div>
 
@@ -267,7 +267,7 @@ export function InstanceUsers({
             <div>
               <Button type="button" onClick={() => setCreating(true)}>
                 <Plus className="size-4" />
-                {t("org:databases.usersCard.createTrigger")}
+                {t("project:databases.usersCard.createTrigger")}
               </Button>
             </div>
           ) : null}
@@ -278,16 +278,16 @@ export function InstanceUsers({
             <Skeleton className="h-24 w-full" />
           ) : error ? (
             <p className="text-sm text-destructive">
-              {t("org:databases.usersCard.loadError")}
+              {t("project:databases.usersCard.loadError")}
             </p>
           ) : !data?.length ? (
             <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-center">
               <UserRound className="size-5 text-muted-foreground" />
               <p className="text-sm font-medium">
-                {t("org:databases.usersCard.emptyTitle")}
+                {t("project:databases.usersCard.emptyTitle")}
               </p>
               <p className="text-sm text-muted-foreground">
-                {t("org:databases.usersCard.emptyDescription")}
+                {t("project:databases.usersCard.emptyDescription")}
               </p>
             </div>
           ) : (
@@ -296,8 +296,8 @@ export function InstanceUsers({
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("common:resources.username")}</TableHead>
-                    <TableHead>{t("org:databases.usersCard.accessColumn")}</TableHead>
-                    <TableHead>{t("org:databases.usersCard.connectionColumn")}</TableHead>
+                    <TableHead>{t("project:databases.usersCard.accessColumn")}</TableHead>
+                    <TableHead>{t("project:databases.usersCard.connectionColumn")}</TableHead>
                     <TableHead className="w-0" />
                   </TableRow>
                 </TableHeader>
@@ -328,7 +328,7 @@ export function InstanceUsers({
                                   setEditingAccess(grantsToAccess(user.grants));
                                 }}
                               >
-                                {t("org:databases.usersCard.manageAccess")}
+                                {t("project:databases.usersCard.manageAccess")}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onSelect={() =>
@@ -339,7 +339,7 @@ export function InstanceUsers({
                                   })
                                 }
                               >
-                                {t("org:databases.usersCard.rotatePassword")}
+                                {t("project:databases.usersCard.rotatePassword")}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 variant="destructive"
@@ -363,9 +363,9 @@ export function InstanceUsers({
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("org:databases.usersCard.createDialogTitle")}</DialogTitle>
+            <DialogTitle>{t("project:databases.usersCard.createDialogTitle")}</DialogTitle>
             <DialogDescription>
-              {t("org:databases.usersCard.createDialogDescription")}
+              {t("project:databases.usersCard.createDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -377,11 +377,11 @@ export function InstanceUsers({
                 id="username"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                placeholder={t("org:databases.usersCard.usernamePlaceholder")}
+                placeholder={t("project:databases.usersCard.usernamePlaceholder")}
               />
             </div>
             <div className="space-y-2">
-              <Label>{t("org:databases.usersCard.grantOnLabel")}</Label>
+              <Label>{t("project:databases.usersCard.grantOnLabel")}</Label>
               <DatabaseAccessMatrix
                 databases={databases ?? []}
                 value={access}
@@ -403,7 +403,7 @@ export function InstanceUsers({
                 })
               }
             >
-              {t("org:databases.usersCard.createSubmit")}
+              {t("project:databases.usersCard.createSubmit")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -418,10 +418,10 @@ export function InstanceUsers({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t("org:databases.usersCard.accessDialogTitle")}
+              {t("project:databases.usersCard.accessDialogTitle")}
             </DialogTitle>
             <DialogDescription>
-              {t("org:databases.usersCard.accessDialogDescription", {
+              {t("project:databases.usersCard.accessDialogDescription", {
                 name: editing?.identifier,
               })}
             </DialogDescription>
@@ -466,7 +466,7 @@ export function InstanceUsers({
               })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t("org:databases.usersCard.deleteDescription")}
+              {t("project:databases.usersCard.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

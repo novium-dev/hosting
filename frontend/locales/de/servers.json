@@ -54,13 +54,13 @@
     }
   },
   "layout": {
-    "noOrganization": {
-      "title": "Keine aktive Organisation ausgewählt",
-      "description": "Bitte wähle eine Organisation aus, bevor du diesen Server ansiehst."
+    "noProject": {
+      "title": "Kein aktives Projekt ausgewählt",
+      "description": "Bitte wähle ein Projekt aus, bevor du diesen Server ansiehst."
     },
     "notFound": {
       "title": "Server nicht gefunden",
-      "description": "Dieser Server existiert nicht oder gehört nicht zu deiner Organisation."
+      "description": "Dieser Server existiert nicht oder gehört nicht zu deinem Projekt."
     },
     "noPowerPermission": "Du hast keine Berechtigung, die Energieverwaltung zu steuern."
   },

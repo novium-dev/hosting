@@ -90,7 +90,7 @@ export function ApiKeysTable({
     onSuccess: () => {
       setDeleteKey(null);
       onChanged();
-      toast.success(t("org:apiKeys.table.revoked"));
+      toast.success(t("project:apiKeys.table.revoked"));
     },
     onError: (actionError) => {
       toast.error(actionError.error.serverError ?? t("common:state.genericError"));
@@ -102,7 +102,7 @@ export function ApiKeysTable({
   if (error) {
     return (
       <div className="text-sm text-destructive">
-        {t("org:apiKeys.table.loadError")}
+        {t("project:apiKeys.table.loadError")}
       </div>
     );
   }
@@ -115,14 +115,14 @@ export function ApiKeysTable({
             <TableRow>
               <TableHead>{t("common:labels.name")}</TableHead>
               {showScope ? (
-                <TableHead>{t("org:apiKeys.table.columns.scope")}</TableHead>
+                <TableHead>{t("project:apiKeys.table.columns.scope")}</TableHead>
               ) : null}
               {showOwner ? (
                 <TableHead>{t("common:labels.owner")}</TableHead>
               ) : null}
               <TableHead>{t("common:labels.permissions")}</TableHead>
               <TableHead>{t("common:labels.created")}</TableHead>
-              <TableHead>{t("org:apiKeys.table.columns.lastUsed")}</TableHead>
+              <TableHead>{t("project:apiKeys.table.columns.lastUsed")}</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
@@ -141,10 +141,10 @@ export function ApiKeysTable({
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <KeyRound className="size-5 text-muted-foreground" />
                     <p className="text-sm font-medium">
-                      {t("org:apiKeys.table.emptyTitle")}
+                      {t("project:apiKeys.table.emptyTitle")}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {t("org:apiKeys.table.emptyDescription")}
+                      {t("project:apiKeys.table.emptyDescription")}
                     </p>
                   </div>
                 </TableCell>
@@ -168,7 +168,7 @@ export function ApiKeysTable({
                             {apiKey.project_slug ?? apiKey.project}
                           </Badge>
                         ) : (
-                          <Badge>{t("org:apiKeys.table.instanceScope")}</Badge>
+                          <Badge>{t("project:apiKeys.table.instanceScope")}</Badge>
                         )}
                       </TableCell>
                     ) : null}
@@ -181,7 +181,7 @@ export function ApiKeysTable({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Badge variant="secondary">
-                            {t("org:shared.permissionCount", {
+                            {t("project:shared.permissionCount", {
                               count: labels.length,
                             })}
                           </Badge>
@@ -189,15 +189,15 @@ export function ApiKeysTable({
                         <TooltipContent className="max-w-xs">
                           {labels.length
                             ? labels.join(", ")
-                            : t("org:shared.noPermissions")}
+                            : t("project:shared.noPermissions")}
                         </TooltipContent>
                       </Tooltip>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(apiKey.created_at, t("org:apiKeys.table.never"))}
+                      {formatDate(apiKey.created_at, t("project:apiKeys.table.never"))}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(apiKey.last_used, t("org:apiKeys.table.never"))}
+                      {formatDate(apiKey.last_used, t("project:apiKeys.table.never"))}
                     </TableCell>
                     <TableCell className="text-right">
                       {canEdit(apiKey) || canDelete(apiKey) ? (
@@ -216,7 +216,7 @@ export function ApiKeysTable({
                                   setEditOpen(true);
                                 }}
                               >
-                                {t("org:apiKeys.table.editAction")}
+                                {t("project:apiKeys.table.editAction")}
                               </DropdownMenuItem>
                             ) : null}
                             {canDelete(apiKey) ? (
@@ -224,7 +224,7 @@ export function ApiKeysTable({
                                 className="cursor-pointer text-destructive"
                                 onSelect={() => setDeleteKey(apiKey)}
                               >
-                                {t("org:apiKeys.table.revokeAction")}
+                                {t("project:apiKeys.table.revokeAction")}
                               </DropdownMenuItem>
                             ) : null}
                           </DropdownMenuContent>
@@ -254,9 +254,9 @@ export function ApiKeysTable({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("org:apiKeys.table.revokeTitle")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("project:apiKeys.table.revokeTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("org:apiKeys.table.revokeDescription", {
+              {t("project:apiKeys.table.revokeDescription", {
                 name: deleteKey?.name,
               })}
             </AlertDialogDescription>
@@ -273,7 +273,7 @@ export function ApiKeysTable({
               }}
               disabled={remove.isExecuting}
             >
-              {t("org:apiKeys.table.revokeAction")}
+              {t("project:apiKeys.table.revokeAction")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

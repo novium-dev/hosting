@@ -28,9 +28,9 @@ export function OrganizationSettings({
   return (
     <div className="space-y-4">
       <div className="flex flex-col">
-        <h2 className="text-2xl font-bold">{t("org:settings.heading")}</h2>
+        <h2 className="text-2xl font-bold">{t("project:settings.heading")}</h2>
         <p className="text-sm text-muted-foreground">
-          {t("org:settings.subheading")}
+          {t("project:settings.subheading")}
         </p>
       </div>
       <UpdateOrganizationName organization={organization} />
@@ -39,9 +39,9 @@ export function OrganizationSettings({
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("org:settings.dangerZone.title")}</CardTitle>
+          <CardTitle>{t("project:settings.dangerZone.title")}</CardTitle>
           <CardDescription>
-            {t("org:settings.dangerZone.description")}
+            {t("project:settings.dangerZone.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -53,10 +53,10 @@ export function OrganizationSettings({
             </p>
           </AlertDestructive> */}
           <p className="text-sm text-destructive">
-            {t("org:settings.dangerZone.deleteWarning")}
+            {t("project:settings.dangerZone.deleteWarning")}
           </p>
           <Button variant="destructive" size="sm">
-            {t("org:settings.dangerZone.deleteButton")}
+            {t("project:settings.dangerZone.deleteButton")}
           </Button>
         </CardContent>
       </Card>

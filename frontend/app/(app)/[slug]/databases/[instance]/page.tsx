@@ -28,7 +28,7 @@ export default function DatabaseInstancePage() {
       breadcrumbs={[
         { label: slug ?? "", href: `/${slug}` },
         { label: t("common:nav.databases"), href: `/${slug}/databases` },
-        { label: t("org:databases.instanceBreadcrumb") },
+        { label: t("project:databases.instanceBreadcrumb") },
       ]}
     >
       <InstanceView

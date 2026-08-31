@@ -48,7 +48,7 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
         onSuccess: () => {
           resetFormAndAction();
           setOpen(false);
-          toast.success(t("org:members.inviteDialog.success"));
+          toast.success(t("project:members.inviteDialog.success"));
         },
         onError: (error) => {
           toast.error(error.error.serverError ?? t("common:state.genericError"));
@@ -61,14 +61,14 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
       <DialogTrigger asChild>
         <Button>
           <UserPlus className="h-4 w-4" />
-          {t("org:members.inviteDialog.trigger")}
+          {t("project:members.inviteDialog.trigger")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("org:members.inviteDialog.title")}</DialogTitle>
+          <DialogTitle>{t("project:members.inviteDialog.title")}</DialogTitle>
           <DialogDescription>
-            {t("org:members.inviteDialog.description")}
+            {t("project:members.inviteDialog.description")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -84,7 +84,7 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
                     <Input
                       {...field}
                       type="email"
-                      placeholder={t("org:members.inviteDialog.emailPlaceholder")}
+                      placeholder={t("project:members.inviteDialog.emailPlaceholder")}
                     />
                   </FormControl>
                   <FormMessage />
@@ -112,7 +112,7 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
               name="expiresAt"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("org:members.expiry.label")}</FormLabel>
+                  <FormLabel>{t("project:members.expiry.label")}</FormLabel>
                   <FormControl>
                     <MembershipExpiryField
                       value={field.value}
@@ -128,7 +128,7 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
               className="w-full"
               loading={action.isExecuting}
             >
-              {t("org:members.inviteDialog.submit")}
+              {t("project:members.inviteDialog.submit")}
             </Button>
           </form>
         </Form>

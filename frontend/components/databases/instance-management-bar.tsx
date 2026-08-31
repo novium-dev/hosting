@@ -55,9 +55,9 @@ function toMib(bytes: number | null | undefined) {
 
 const COMMAND_SENT_KEYS: Record<PowerAction, string> = {
   start: "common:resources.startCommandSent",
-  restart: "org:databases.managementBar.restartCommandSent",
-  stop: "org:databases.managementBar.stopCommandSent",
-  kill: "org:databases.managementBar.killCommandSent",
+  restart: "project:databases.managementBar.restartCommandSent",
+  stop: "project:databases.managementBar.stopCommandSent",
+  kill: "project:databases.managementBar.killCommandSent",
 };
 
 export function InstanceManagementBar({
@@ -89,7 +89,7 @@ export function InstanceManagementBar({
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("org:databases.managementBar.powerError"),
+        result.error.serverError ?? t("project:databases.managementBar.powerError"),
       );
       setPendingAction(null);
     },
@@ -115,9 +115,9 @@ export function InstanceManagementBar({
     try {
       await navigator.clipboard.writeText(address);
       setAddressCopied(true);
-      toast.success(t("org:databases.managementBar.addressCopied"));
+      toast.success(t("project:databases.managementBar.addressCopied"));
     } catch {
-      toast.error(t("org:databases.managementBar.addressCopyFailed"));
+      toast.error(t("project:databases.managementBar.addressCopyFailed"));
     }
   };
 
@@ -142,7 +142,7 @@ export function InstanceManagementBar({
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {t("org:databases.managementBar.suspendedTooltip")}
+                    {t("project:databases.managementBar.suspendedTooltip")}
                   </TooltipContent>
                 </Tooltip>
               ) : null}
@@ -151,7 +151,7 @@ export function InstanceManagementBar({
               <button
                 type="button"
                 onClick={() => void handleCopyAddress()}
-                title={t("org:databases.managementBar.copyAddressTitle")}
+                title={t("project:databases.managementBar.copyAddressTitle")}
                 className="group inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Waypoints className="size-4" />
@@ -173,7 +173,7 @@ export function InstanceManagementBar({
               {uptimeMs !== null && (
                 <span
                   className="inline-flex items-center gap-1.5"
-                  title={t("org:databases.managementBar.uptimeTitle")}
+                  title={t("project:databases.managementBar.uptimeTitle")}
                 >
                   <Clock className="size-4" />
                   {formatUptime(uptimeMs)}
@@ -181,7 +181,7 @@ export function InstanceManagementBar({
               )}
               {!canManage && (
                 <span className="inline-flex items-center gap-1.5 text-destructive">
-                  {t("org:databases.managementBar.noPowerPermission")}
+                  {t("project:databases.managementBar.noPowerPermission")}
                 </span>
               )}
             </CardDescription>
@@ -207,7 +207,7 @@ export function InstanceManagementBar({
               disabled={disableAllButtons || !controls.canStop}
             >
               <RotateCcw className="size-4" />
-              {t("org:databases.managementBar.restart")}
+              {t("project:databases.managementBar.restart")}
             </Button>
             <Button
               type="button"
@@ -218,7 +218,7 @@ export function InstanceManagementBar({
               disabled={disableAllButtons || !controls.canStop}
             >
               <Pause className="size-4" />
-              {t("org:databases.managementBar.stop")}
+              {t("project:databases.managementBar.stop")}
             </Button>
             <Button
               type="button"
@@ -229,7 +229,7 @@ export function InstanceManagementBar({
               disabled={disableAllButtons || !controls.canKill}
             >
               <ShieldAlert className="size-4" />
-              {t("org:databases.managementBar.kill")}
+              {t("project:databases.managementBar.kill")}
             </Button>
           </div>
         </div>

@@ -22,10 +22,10 @@
     "darkMode": "Dark Mode",
     "logOut": "Log out"
   },
-  "organizationSwitcher": {
-    "createOrganization": "Create Organization",
-    "createOrganizationDescription": "Manage your organization and its content",
-    "switchOrganization": "Switch Organization"
+  "projectSwitcher": {
+    "createProject": "Create Project",
+    "createProjectDescription": "Manage your project and its content",
+    "switchProject": "Switch Project"
   },
   "command": {
     "searchTrigger": "Search...",

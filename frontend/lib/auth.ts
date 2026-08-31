@@ -37,7 +37,7 @@ export type AppSession = {
 type Project = ListProjectsResponse[number];
 type ProjectMember = ListProjectUsersResponse[number];
 
-export type AppOrganization = Project & {
+export type AppProject = Project & {
   members?: AuthClientMember[];
 };
 
@@ -76,15 +76,14 @@ const projectMemberToAuthClientMember = (
 });
 
 const resolveProject = async (query?: {
-  organizationId?: string;
-  organizationSlug?: string;
+  projectId?: string;
+  projectSlug?: string;
 }) => {
   const projects = await listCurrentProjects();
   return (
     projects.find(
       (project) =>
-        project.id === query?.organizationId ||
-        project.slug === query?.organizationSlug,
+        project.id === query?.projectId || project.slug === query?.projectSlug,
     ) ?? null
   );
 };
@@ -107,13 +106,13 @@ export const auth = {
 
     getToken: async () => ({ token: "" }),
 
-    listOrganizations: async ({ own }: { own?: boolean } = {}) =>
+    listProjects: async ({ own }: { own?: boolean } = {}) =>
       listCurrentProjects(own),
 
-    getFullOrganization: async ({
+    getFullProject: async ({
       query,
     }: {
-      query?: { organizationId?: string; organizationSlug?: string };
+      query?: { projectId?: string; projectSlug?: string };
     }) => {
       const project = await resolveProject(query);
       if (!project) return null;
@@ -127,10 +126,10 @@ export const auth = {
         members: members.error
           ? []
           : (members.data ?? []).map(projectMemberToAuthClientMember),
-      } satisfies AppOrganization;
+      } satisfies AppProject;
     },
 
-    createOrganization: async ({
+    createProject: async ({
       body,
     }: {
       body: { name: string; slug: string };
@@ -141,14 +140,14 @@ export const auth = {
       return projects.find((project) => project.slug === body.slug) ?? null;
     },
 
-    updateOrganization: async ({
+    updateProject: async ({
       body,
     }: {
-      body: { organizationId?: string; data: { name?: string; slug?: string } };
+      body: { projectId?: string; data: { name?: string; slug?: string } };
     }) => {
       const project = await resolveProject({
-        organizationId: body.organizationId,
-        organizationSlug: body.data.slug,
+        projectId: body.projectId,
+        projectSlug: body.data.slug,
       });
       if (!project) throw new Error("Project not found");
 
@@ -176,7 +175,7 @@ export const auth = {
       query: { redirect_url: string };
     }) => login({ path, query }),
 
-    listAdminOrganizations: async () => {
+    listAdminProjects: async () => {
       const response = await listProjects();
       if (response.error || !response.data) return [];
       return response.data satisfies ListProjectsResponse;

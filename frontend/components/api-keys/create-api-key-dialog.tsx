@@ -72,9 +72,9 @@ export function CreateApiKeyDialog({
     if (!token) return;
     try {
       await navigator.clipboard.writeText(token);
-      toast.success(t("org:apiKeys.createDialog.copied"));
+      toast.success(t("project:apiKeys.createDialog.copied"));
     } catch {
-      toast.error(t("org:apiKeys.createDialog.copyFailed"));
+      toast.error(t("project:apiKeys.createDialog.copyFailed"));
     }
   };
 
@@ -84,16 +84,16 @@ export function CreateApiKeyDialog({
         <DialogTrigger asChild>
           <Button>
             <Plus className="size-4" />
-            {t("org:apiKeys.createDialog.trigger")}
+            {t("project:apiKeys.createDialog.trigger")}
           </Button>
         </DialogTrigger>
         <DialogContent className="max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t("org:apiKeys.createDialog.title")}</DialogTitle>
+            <DialogTitle>{t("project:apiKeys.createDialog.title")}</DialogTitle>
             <DialogDescription>
               {projectId
-                ? t("org:apiKeys.createDialog.descriptionProject")
-                : t("org:apiKeys.createDialog.descriptionInstance")}
+                ? t("project:apiKeys.createDialog.descriptionProject")
+                : t("project:apiKeys.createDialog.descriptionInstance")}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -107,7 +107,7 @@ export function CreateApiKeyDialog({
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder={t("org:apiKeys.createDialog.namePlaceholder")}
+                        placeholder={t("project:apiKeys.createDialog.namePlaceholder")}
                       />
                     </FormControl>
                     <FormMessage />
@@ -138,7 +138,7 @@ export function CreateApiKeyDialog({
                 className="w-full"
                 loading={action.isExecuting}
               >
-                {t("org:apiKeys.createDialog.submit")}
+                {t("project:apiKeys.createDialog.submit")}
               </Button>
             </form>
           </Form>
@@ -155,10 +155,10 @@ export function CreateApiKeyDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <KeyRound className="size-5 text-muted-foreground" />
-              {t("org:apiKeys.createDialog.copyTitle")}
+              {t("project:apiKeys.createDialog.copyTitle")}
             </DialogTitle>
             <DialogDescription>
-              {t("org:apiKeys.createDialog.copyDescription")}
+              {t("project:apiKeys.createDialog.copyDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2">
@@ -168,20 +168,20 @@ export function CreateApiKeyDialog({
               variant="outline"
               size="icon"
               onClick={() => void copyToken()}
-              aria-label={t("org:apiKeys.createDialog.copyAriaLabel")}
+              aria-label={t("project:apiKeys.createDialog.copyAriaLabel")}
             >
               <Copy className="size-4" />
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
             <Trans
-              i18nKey="org:apiKeys.createDialog.sendAs"
+              i18nKey="project:apiKeys.createDialog.sendAs"
               components={{ code: <code className="font-mono" /> }}
             />
           </p>
           <DialogFooter>
             <Button type="button" onClick={() => setToken(null)}>
-              {t("org:apiKeys.createDialog.done")}
+              {t("project:apiKeys.createDialog.done")}
             </Button>
           </DialogFooter>
         </DialogContent>

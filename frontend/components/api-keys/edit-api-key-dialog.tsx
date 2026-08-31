@@ -56,7 +56,7 @@ export function EditApiKeyDialog({
           resetFormAndAction();
           setOpen(false);
           onUpdated();
-          toast.success(t("org:apiKeys.editDialog.updated"));
+          toast.success(t("project:apiKeys.editDialog.updated"));
         },
         onError: (error) => {
           toast.error(error.error.serverError ?? t("common:state.genericError"));
@@ -78,9 +78,9 @@ export function EditApiKeyDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{t("org:apiKeys.editDialog.title")}</DialogTitle>
+          <DialogTitle>{t("project:apiKeys.editDialog.title")}</DialogTitle>
           <DialogDescription>
-            {t("org:apiKeys.editDialog.description")}
+            {t("project:apiKeys.editDialog.description")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
