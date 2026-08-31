@@ -87,7 +87,7 @@ export function CreateApiKeyDialog({
             {t("project:apiKeys.createDialog.trigger")}
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("project:apiKeys.createDialog.title")}</DialogTitle>
             <DialogDescription>

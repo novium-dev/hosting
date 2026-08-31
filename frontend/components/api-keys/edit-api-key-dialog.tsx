@@ -76,7 +76,7 @@ export function EditApiKeyDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("project:apiKeys.editDialog.title")}</DialogTitle>
           <DialogDescription>
