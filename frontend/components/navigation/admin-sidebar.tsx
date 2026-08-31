@@ -2,6 +2,7 @@ import Link from "@/components/link";
 import {
   Boxes,
   Database,
+  ShieldCheck,
   FolderKanban,
   Globe,
   Globe2,
@@ -106,6 +107,17 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
           href: "/admin/databases",
           icon: Database,
           permission: ManagementPermission.DATABASE_HOSTS_VIEW,
+        },
+      ],
+    },
+    {
+      label: t("navigation:adminSidebar.groups.diagnostics"),
+      items: [
+        {
+          title: t("admin-integrity:title"),
+          href: "/admin/integrity",
+          icon: ShieldCheck,
+          permission: ManagementPermission.INTEGRITY_VIEW,
         },
       ],
     },

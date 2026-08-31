@@ -4,7 +4,8 @@
     "groups": {
       "access": "Zugriff",
       "workloads": "Workloads",
-      "infrastructure": "Infrastruktur"
+      "infrastructure": "Infrastruktur",
+      "diagnostics": "Diagnose"
     },
     "items": {
       "domains": "Domains"

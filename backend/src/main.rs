@@ -6,6 +6,7 @@ pub(crate) mod db;
 
 mod auth;
 mod http;
+pub(crate) mod integrity;
 pub(crate) mod resources;
 pub(crate) mod routes;
 pub(crate) mod service;
@@ -96,6 +97,8 @@ pub(crate) struct Backend {
 
     pub(crate) modpack_jobs:
         Arc<RwLock<HashMap<crate::db::server::ServerId, crate::service::modpack::ModpackJob>>>,
+
+    pub(crate) integrity: Arc<RwLock<crate::integrity::IntegrityRun>>,
 
     pub(crate) server_task_cancellable: Arc<Mutex<JoinSet<()>>>,
     pub(crate) server_task: Arc<Mutex<JoinSet<()>>>,
@@ -295,6 +298,7 @@ async fn main0() {
 
         templates: Arc::default(),
         modpack_jobs: Arc::default(),
+        integrity: Arc::default(),
 
         shutdown_channel: Arc::new(Sender::new(1)),
         server_task: Arc::default(),

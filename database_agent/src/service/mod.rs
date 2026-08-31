@@ -1,5 +1,6 @@
 mod database;
 mod instance;
+mod integrity;
 mod setup;
 mod system;
 mod user;
@@ -22,10 +23,11 @@ use database_agent_common::service::error_instance_failure::FromInstanceFailure;
 use database_agent_common::service::error_store_failure::FromStoreFailure;
 use database_agent_common::service::error_user_failure::FromUserFailure;
 use database_agent_common::service::instance::InstanceService;
+use database_agent_common::service::integrity::IntegrityService;
 use database_agent_common::service::setup::SetupService;
 use database_agent_common::service::system::SystemService;
 use database_agent_common::service::user::UserService;
-use database_agent_common::service::{BlankError, framework_router};
+use database_agent_common::service::{BlankError, DatabaseAgentServices, framework_router};
 use rustls::ServerConfig;
 use rustls::server::WebPkiClientVerifier;
 use std::sync::Arc;
@@ -97,6 +99,8 @@ pub async fn middleware(
     next.run(request).await
 }
 
+impl DatabaseAgentServices for Agent {}
+
 impl Agent {
     pub fn router(&self) -> Router {
         #[derive(OpenApi)]
@@ -104,7 +108,8 @@ impl Agent {
         struct ApiDoc;
 
         let (authenticated, public) = framework_router!(Self self (with_auth,without_auth,) {
-            InstanceService, DatabaseService, UserService, SystemService, SetupService
+            InstanceService, DatabaseService, UserService, SystemService, SetupService,
+            IntegrityService
         });
 
         let authenticated = authenticated

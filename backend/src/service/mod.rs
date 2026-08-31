@@ -119,6 +119,10 @@ define_error!(feature {
     disabled("This feature is not enabled for the project" FORBIDDEN),
 });
 
+define_error!(integrity {
+    already_running("An integrity run is already in progress" CONFLICT),
+});
+
 define_error!(license {
     not_found("The specified license is not required by this server" NOT_FOUND),
     not_accepted("A license required by this server has not been accepted yet" BAD_REQUEST),

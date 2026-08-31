@@ -29,7 +29,7 @@ use tokio::io::AsyncWrite;
 use tokio::task::JoinHandle;
 use uuid::Uuid;
 
-const SERVICE_LABEL: &str = "novium-database-agent";
+pub const SERVICE_LABEL: &str = "novium-database-agent";
 const STOP_TIMEOUT: i32 = 30;
 
 pub struct ExecOptions {

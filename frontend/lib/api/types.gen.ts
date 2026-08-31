@@ -192,6 +192,104 @@ export type InstalledResource = {
     version: string;
 };
 
+export const IntegrityCategory = {
+    CONNECTIVITY: 'connectivity',
+    VERSION: 'version',
+    CONFIGURATION: 'configuration',
+    DATABASE: 'database',
+    DOCKER: 'docker',
+    STORAGE: 'storage',
+    BACKUP: 'backup',
+    SCHEMA: 'schema'
+} as const;
+
+export type IntegrityCategory = typeof IntegrityCategory[keyof typeof IntegrityCategory];
+
+export type IntegrityCheckInfo = {
+    category: IntegrityCategory;
+    deep: boolean;
+    description: string;
+    id: string;
+    title: string;
+};
+
+export type IntegrityCheckResult = {
+    category: IntegrityCategory;
+    deep: boolean;
+    description: string;
+    duration_ms: number;
+    findings: Array<IntegrityFinding>;
+    id: string;
+    severity: IntegritySeverity;
+    skipped?: string | null;
+    title: string;
+};
+
+export type IntegrityFinding = {
+    details: {
+        [key: string]: string;
+    };
+    message: string;
+    severity: IntegritySeverity;
+    subject?: string | null;
+};
+
+export type IntegrityReport = {
+    checks: Array<IntegrityCheckResult>;
+    duration_ms: number;
+    generated: string;
+    severity: IntegritySeverity;
+    version: string;
+};
+
+export const IntegrityRunState = {
+    IDLE: 'idle',
+    RUNNING: 'running',
+    COMPLETED: 'completed',
+    FAILED: 'failed'
+} as const;
+
+export type IntegrityRunState = typeof IntegrityRunState[keyof typeof IntegrityRunState];
+
+export type IntegritySchema = {
+    database: string;
+    engine: string;
+    tables: Array<IntegritySchemaTable>;
+};
+
+export type IntegritySchemaTable = {
+    definition: string;
+    name: string;
+};
+
+export const IntegritySeverity = {
+    OK: 'ok',
+    INFO: 'info',
+    WARNING: 'warning',
+    ERROR: 'error'
+} as const;
+
+export type IntegritySeverity = typeof IntegritySeverity[keyof typeof IntegritySeverity];
+
+export type IntegritySource = {
+    kind: 'backend';
+} | {
+    display: string;
+    id: string;
+    kind: 'node';
+} | {
+    display: string;
+    id: string;
+    kind: 'database_host';
+};
+
+export type IntegritySourceReport = {
+    error?: string | null;
+    report?: null | IntegrityReport;
+    severity: IntegritySeverity;
+    source: IntegritySource;
+};
+
 export type LightNodeInfo = {
     display: string;
     host: string;
@@ -397,6 +495,11 @@ export const RouteStatus = {
 } as const;
 
 export type RouteStatus = typeof RouteStatus[keyof typeof RouteStatus];
+
+export type RunIntegrityChecksPayload = {
+    checks?: Array<string> | null;
+    deep: boolean;
+};
 
 export type ServerLimits = {
     backup?: number | null;
@@ -16060,3 +16163,345 @@ export type UpdateDatabaseInstanceResponses = {
 };
 
 export type UpdateDatabaseInstanceResponse = UpdateDatabaseInstanceResponses[keyof UpdateDatabaseInstanceResponses];
+
+export type ListIntegrityChecksData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/integrity/checks';
+};
+
+export type ListIntegrityChecksErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListIntegrityChecksError = ListIntegrityChecksErrors[keyof ListIntegrityChecksErrors];
+
+export type ListIntegrityChecksResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        checks: Array<IntegrityCheckInfo>;
+        error?: string | null;
+        source: IntegritySource;
+    }>;
+};
+
+export type ListIntegrityChecksResponse = ListIntegrityChecksResponses[keyof ListIntegrityChecksResponses];
+
+export type IntegrityReportData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/integrity';
+};
+
+export type IntegrityReportErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type IntegrityReportError = IntegrityReportErrors[keyof IntegrityReportErrors];
+
+export type IntegrityReportResponses = {
+    /**
+     * Success
+     */
+    200: {
+        deep: boolean;
+        done: number;
+        error?: string | null;
+        finished_at?: number | null;
+        reports: Array<IntegritySourceReport>;
+        severity: IntegritySeverity;
+        started_at?: number | null;
+        state: IntegrityRunState;
+        step: string;
+        total: number;
+    };
+};
+
+export type IntegrityReportResponse = IntegrityReportResponses[keyof IntegrityReportResponses];
+
+export type RunIntegrityChecksData = {
+    body: RunIntegrityChecksPayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/integrity/run';
+};
+
+export type RunIntegrityChecksErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * An integrity run is already in progress
+     */
+    '409‌': {
+        error?: {
+            id?: 'integrity/already_running';
+            msg?: 'An integrity run is already in progress';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type RunIntegrityChecksError = RunIntegrityChecksErrors[keyof RunIntegrityChecksErrors];
+
+export type RunIntegrityChecksResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type RunIntegrityChecksResponse = RunIntegrityChecksResponses[keyof RunIntegrityChecksResponses];
+
+export type IntegritySchemaData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/integrity/schema';
+};
+
+export type IntegritySchemaErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type IntegritySchemaError = IntegritySchemaErrors[keyof IntegritySchemaErrors];
+
+export type IntegritySchemaResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        error?: string | null;
+        schema?: null | IntegritySchema;
+        source: IntegritySource;
+    }>;
+};
+
+export type IntegritySchemaResponse = IntegritySchemaResponses[keyof IntegritySchemaResponses];
+
+export type LoginDevData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * The URL to redirect to after login
+         */
+        redirect_url: string;
+    };
+    url: '/auth/login/dev';
+};
+
+export type LoginDevErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500​': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * OS operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'os/failure';
+            msg?: 'OS operation failed';
+        };
+    };
+    /**
+     * Authentication is failure
+     */
+    '500‍': {
+        error?: {
+            id?: 'auth/failure';
+            msg?: 'Authentication is failure';
+        };
+    };
+};
+
+export type LoginDevError = LoginDevErrors[keyof LoginDevErrors];

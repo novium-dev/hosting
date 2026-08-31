@@ -230,6 +230,11 @@ bitflags! {
         ///
         /// Depends on [`ManagementPermissions::DATABASE_HOSTS_VIEW`]
         const DATABASE_HOSTS_MANAGE = 1 << 51;
+
+        /// Allows the user to run integrity checks against this instance, its
+        /// nodes and its database hosts, and to read the reports they produce.
+        ///
+        const INTEGRITY_VIEW = 1 << 52;
     }
 }
 

@@ -1,5 +1,6 @@
 mod config;
 mod instance;
+mod integrity;
 mod key;
 mod service;
 mod setup;

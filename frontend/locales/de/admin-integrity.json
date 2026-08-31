@@ -1,0 +1,54 @@
+{
+  "title": "Integrität",
+  "description": "Führt alle Konsistenzprüfungen dieser Instanz gegen das Backend, seine Nodes und seine Datenbank-Hosts aus und meldet, was nicht mehr zusammenpasst.",
+  "empty": "Es wurde noch keine Integritätsprüfung ausgeführt. Starte eine, um den Zustand dieser Instanz zu sehen.",
+  "run": {
+    "start": "Prüfungen ausführen",
+    "running": "Läuft...",
+    "deep": "Tiefe Prüfungen einschließen",
+    "started": "Integritätsprüfung gestartet",
+    "failed": "Die Integritätsprüfung konnte nicht gestartet werden"
+  },
+  "filter": {
+    "onlyProblems": "Nur Probleme"
+  },
+  "tabs": {
+    "checks": "Prüfungen",
+    "schema": "Schema"
+  },
+  "overall": {
+    "ok": "Alles in Ordnung",
+    "info": "Alles in Ordnung",
+    "warning": "Einige Prüfungen brauchen Aufmerksamkeit",
+    "error": "Einige Prüfungen sind fehlgeschlagen",
+    "counts": "{{errors}} Fehler, {{warnings}} Warnungen",
+    "finished": "Beendet {{time}}"
+  },
+  "severity": {
+    "ok": "OK",
+    "info": "OK",
+    "warning": "Warnung",
+    "error": "Fehler"
+  },
+  "sources": {
+    "backend": "Backend",
+    "node": "Node {{name}}",
+    "databaseHost": "Datenbank-Host {{name}}"
+  },
+  "check": {
+    "deep": "Tief",
+    "skipped": "Übersprungen",
+    "clean": "Nichts zu melden.",
+    "duration": "{{ms}} ms",
+    "findings_one": "{{count}} Befund",
+    "findings_other": "{{count}} Befunde"
+  },
+  "report": {
+    "noProblems": "Keine Prüfung dieser Quelle hat ein Problem gemeldet.",
+    "noChecks": "Diese Quelle hat keine Prüfung gemeldet."
+  },
+  "schema": {
+    "tables_one": "{{count}} Tabelle",
+    "tables_other": "{{count}} Tabellen"
+  }
+}
