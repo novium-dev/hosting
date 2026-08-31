@@ -262,7 +262,6 @@ export function DaemonAuthSection() {
                   type="button"
                   variant="outline"
                   size="icon"
-                  disabled={!showDaemonPassword || !daemonPasswordValue}
                   onClick={() => {
                     if (daemonPasswordValue) {
                       void handleCopy(
