@@ -75,7 +75,8 @@
     "actions": {
       "restart": "Restart",
       "stop": "Stop",
-      "kill": "Kill"
+      "kill": "Kill",
+      "start": "Start"
     },
     "commandSent": "Server {{action}} command sent",
     "errors": {

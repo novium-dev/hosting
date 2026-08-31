@@ -75,7 +75,8 @@
     "actions": {
       "restart": "Neustarten",
       "stop": "Stoppen",
-      "kill": "Beenden"
+      "kill": "Beenden",
+      "start": "Starten"
     },
     "commandSent": "Befehl „{{action}}“ an den Server gesendet",
     "errors": {
