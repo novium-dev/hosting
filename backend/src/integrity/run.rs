@@ -7,7 +7,7 @@ use crate::db::database::BackendDatabaseHost;
 use crate::db::node::BackendNode;
 use crate::integrity::describe_transport;
 use daemon_common::integrity::{
-    ExpectedServer, IntegrityExpectation, IntegrityReport, IntegritySeverity,
+    ExpectedServer, IntegrityCheckResult, IntegrityExpectation, IntegrityReport, IntegritySeverity,
 };
 use daemon_common::service::integrity::integrity_service_error::{
     IntegrityChecksError, IntegrityRunError, IntegritySchemaError,
@@ -36,21 +36,49 @@ fn host_source(host: &BackendDatabaseHost) -> IntegritySource {
     }
 }
 
-const fn failed(source: IntegritySource, error: String) -> IntegritySourceReport {
-    IntegritySourceReport {
-        source,
-        severity: IntegritySeverity::Error,
-        report: None,
-        error: Some(error),
-    }
-}
-
 const fn succeeded(source: IntegritySource, report: IntegrityReport) -> IntegritySourceReport {
     IntegritySourceReport {
         source,
         severity: report.severity,
         report: Some(report),
         error: None,
+    }
+}
+
+/// Folds the checks the backend ran about a source into the report the source
+/// sent back, so a finding about a node shows up on that node rather than in
+/// the backend's own report.
+fn combine(
+    source: IntegritySource,
+    local: Vec<IntegrityCheckResult>,
+    remote: Option<IntegrityReport>,
+    error: Option<String>,
+) -> IntegritySourceReport {
+    let (version, duration_ms, mut checks) = remote.map_or_else(
+        || (String::new(), 0u64, Vec::new()),
+        |report| (report.version, report.duration_ms, report.checks),
+    );
+
+    let mut all = local;
+    all.append(&mut checks);
+
+    let report = IntegrityReport {
+        severity: all
+            .iter()
+            .map(|check| check.severity)
+            .max()
+            .unwrap_or(IntegritySeverity::Ok),
+        version,
+        generated: chrono::Utc::now(),
+        duration_ms,
+        checks: all,
+    };
+
+    IntegritySourceReport {
+        source,
+        severity: report.severity,
+        report: Some(report),
+        error,
     }
 }
 
@@ -167,7 +195,7 @@ impl Backend {
         let mut stream = futures::stream::iter(
             targets
                 .into_iter()
-                .map(|(node, expected)| run_node(node, selected.clone(), deep, expected)),
+                .map(|(node, expected)| run_node(self, node, selected.clone(), deep, expected)),
         )
         .buffer_unordered(CONCURRENCY);
 
@@ -180,7 +208,7 @@ impl Backend {
         let mut stream = futures::stream::iter(
             hosts
                 .into_iter()
-                .map(|host| run_host(host, selected.clone(), deep)),
+                .map(|host| run_host(self, host, selected.clone(), deep)),
         )
         .buffer_unordered(CONCURRENCY);
 
@@ -210,14 +238,18 @@ impl Backend {
         for node in self.nodes_sorted().await {
             let source = node_source(&node);
             catalogue.push(match node.integrity_checks().await {
-                Ok(checks) => IntegritySourceChecks {
-                    source,
-                    checks,
-                    error: None,
-                },
+                Ok(mut remote) => {
+                    let mut all = checks::node_checks();
+                    all.append(&mut remote);
+                    IntegritySourceChecks {
+                        source,
+                        checks: all,
+                        error: None,
+                    }
+                }
                 Err(err) => IntegritySourceChecks {
                     source,
-                    checks: Vec::new(),
+                    checks: checks::node_checks(),
                     error: Some(match err {
                         IntegrityChecksError::Communication(inner) => describe_transport(&inner),
                         other @ IntegrityChecksError::AuthInvalid => format!("{other:?}"),
@@ -229,14 +261,18 @@ impl Backend {
         for host in self.hosts_sorted().await {
             let source = host_source(&host);
             catalogue.push(match host.sdk.integrity_checks().await {
-                Ok(checks) => IntegritySourceChecks {
-                    source,
-                    checks: checks.into_iter().map(agent::check_info).collect(),
-                    error: None,
-                },
+                Ok(remote) => {
+                    let mut all = checks::host_checks();
+                    all.extend(remote.into_iter().map(agent::check_info));
+                    IntegritySourceChecks {
+                        source,
+                        checks: all,
+                        error: None,
+                    }
+                }
                 Err(err) => IntegritySourceChecks {
                     source,
-                    checks: Vec::new(),
+                    checks: checks::host_checks(),
                     error: Some(format!("{err:?}")),
                 },
             });
@@ -302,46 +338,57 @@ impl Backend {
 }
 
 async fn run_node(
+    backend: &Backend,
     node: Arc<BackendNode>,
     selected: Option<Vec<String>>,
     deep: bool,
     expected: IntegrityExpectation,
 ) -> IntegritySourceReport {
     let source = node_source(&node);
+    let local = checks::run_node(backend, &node, selected.as_deref(), deep).await;
     let call = node.integrity_run(selected, deep, Some(expected));
 
-    match tokio::time::timeout(SOURCE_TIMEOUT, call).await {
-        Ok(Ok(report)) => succeeded(source, report),
+    let (remote, error) = match tokio::time::timeout(SOURCE_TIMEOUT, call).await {
+        Ok(Ok(report)) => (Some(report), None),
         Ok(Err(IntegrityRunError::Communication(inner))) => {
-            failed(source, describe_transport(&inner))
+            (None, Some(describe_transport(&inner)))
         }
-        Ok(Err(other)) => failed(
-            source,
-            format!("the node refused to run its checks: {other:?}"),
+        Ok(Err(other)) => (
+            None,
+            Some(format!("the node refused to run its checks: {other:?}")),
         ),
-        Err(_elapsed) => failed(
-            source,
-            "the node did not finish its checks in time".to_owned(),
+        Err(_elapsed) => (
+            None,
+            Some("the node did not finish its checks in time".to_owned()),
         ),
-    }
+    };
+
+    combine(source, local, remote, error)
 }
 
 async fn run_host(
+    backend: &Backend,
     host: Arc<BackendDatabaseHost>,
     selected: Option<Vec<String>>,
     deep: bool,
 ) -> IntegritySourceReport {
     let source = host_source(&host);
+    let local = checks::run_host(backend, &host, selected.as_deref(), deep).await;
+    let call = host.sdk.integrity_run(selected, deep);
 
-    match tokio::time::timeout(SOURCE_TIMEOUT, host.sdk.integrity_run(selected, deep)).await {
-        Ok(Ok(report)) => succeeded(source, agent::report(report)),
-        Ok(Err(other)) => failed(
-            source,
-            format!("the database host refused to run its checks: {other:?}"),
+    let (remote, error) = match tokio::time::timeout(SOURCE_TIMEOUT, call).await {
+        Ok(Ok(report)) => (Some(agent::report(report)), None),
+        Ok(Err(other)) => (
+            None,
+            Some(format!(
+                "the database host refused to run its checks: {other:?}"
+            )),
         ),
-        Err(_elapsed) => failed(
-            source,
-            "the database host did not finish its checks in time".to_owned(),
+        Err(_elapsed) => (
+            None,
+            Some("the database host did not finish its checks in time".to_owned()),
         ),
-    }
+    };
+
+    combine(source, local, remote, error)
 }

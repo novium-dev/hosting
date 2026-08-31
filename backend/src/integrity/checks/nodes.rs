@@ -1,7 +1,7 @@
 use crate::Backend;
 use crate::db::node::BackendNode;
 use crate::db::server::ports::NetworkProtocol;
-use crate::integrity::{Check, CheckError, describe_transport};
+use crate::integrity::{CheckError, NodeCheck, describe_transport};
 use daemon_common::integrity::{IntegrityCategory, IntegrityFinding, IntegrityStatus};
 use daemon_common::node::BackendNodeConfig;
 use daemon_common::service::integrity::integrity_service_error::{
@@ -10,15 +10,8 @@ use daemon_common::service::integrity::integrity_service_error::{
 use daemon_common::service::setup::setup_service_error::ConfigError;
 use sqlx::query;
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::sync::Arc;
 use uuid::Uuid;
 use zelus::async_trait;
-
-async fn nodes(backend: &Backend) -> Vec<Arc<BackendNode>> {
-    let mut nodes: Vec<Arc<BackendNode>> = backend.nodes.read().await.values().cloned().collect();
-    nodes.sort_by(|left, right| left.display.cmp(&right.display));
-    nodes
-}
 
 async fn status(node: &BackendNode) -> Result<IntegrityStatus, String> {
     node.integrity_status().await.map_err(|err| match err {
@@ -27,74 +20,68 @@ async fn status(node: &BackendNode) -> Result<IntegrityStatus, String> {
     })
 }
 
-fn subject(node: &BackendNode) -> String {
-    format!("{} ({})", node.display, node.id)
+fn display_hash(hash: &str) -> String {
+    if hash.is_empty() {
+        "unknown (the node predates the fingerprint)".to_owned()
+    } else {
+        hash.to_owned()
+    }
 }
 
 pub(crate) struct NodesReachable;
 
 #[async_trait]
-impl Check for NodesReachable {
+impl NodeCheck for NodesReachable {
     fn id(&self) -> &'static str {
         "nodes.reachable"
     }
 
     fn title(&self) -> &'static str {
-        "Nodes are reachable over mTLS"
+        "Reachable over mTLS"
     }
 
     fn description(&self) -> &'static str {
-        "Every registered node must answer the backend over its mutually authenticated TLS \
-         connection. The handshake pins the node's certificate to its id, so a node that answers \
-         at all is also presenting the certificate this backend issued to it."
+        "The node must answer the backend over its mutually authenticated TLS connection. The \
+         handshake pins the node's certificate to its id, so a node that answers at all is also \
+         presenting the certificate this backend issued to it."
     }
 
     fn category(&self) -> IntegrityCategory {
         IntegrityCategory::Connectivity
     }
 
-    async fn run(&self, backend: &Backend) -> Result<Vec<IntegrityFinding>, CheckError> {
-        let nodes = nodes(backend).await;
-        if nodes.is_empty() {
-            return Err(CheckError::Skipped(
-                "No node is registered on this instance".to_owned(),
-            ));
+    async fn run(
+        &self,
+        _backend: &Backend,
+        node: &BackendNode,
+    ) -> Result<Vec<IntegrityFinding>, CheckError> {
+        match status(node).await {
+            Ok(status) => Ok(vec![
+                IntegrityFinding::info("The node answered over mTLS")
+                    .with_detail("version", status.version)
+                    .with_detail("api", status.api_hash)
+                    .with_detail("uptime_seconds", status.uptime.to_string())
+                    .with_detail("servers", status.server_count.to_string())
+                    .with_detail("maintenance", node.maintenance.to_string()),
+            ]),
+            Err(reason) => Ok(vec![
+                IntegrityFinding::error(format!("The node is not reachable: {reason}"))
+                    .with_detail("maintenance", node.maintenance.to_string()),
+            ]),
         }
-
-        let mut findings = Vec::new();
-        for node in nodes {
-            match status(&node).await {
-                Ok(status) => findings.push(
-                    IntegrityFinding::info("The node answered over mTLS")
-                        .with_subject(subject(&node))
-                        .with_detail("version", status.version)
-                        .with_detail("api", status.api_hash.clone())
-                        .with_detail("uptime_seconds", status.uptime.to_string())
-                        .with_detail("servers", status.server_count.to_string())
-                        .with_detail("maintenance", node.maintenance.to_string()),
-                ),
-                Err(reason) => findings.push(
-                    IntegrityFinding::error(format!("The node is not reachable: {reason}"))
-                        .with_subject(subject(&node))
-                        .with_detail("maintenance", node.maintenance.to_string()),
-                ),
-            }
-        }
-
-        Ok(findings)
     }
 }
 
 pub(crate) struct NodesVersion;
 
 #[async_trait]
-impl Check for NodesVersion {
+impl NodeCheck for NodesVersion {
     fn id(&self) -> &'static str {
         "nodes.version"
     }
 
     fn title(&self) -> &'static str {
-        "Nodes were built against the same daemon API as the backend"
+        "Built against the same daemon API as the backend"
     }
 
     fn description(&self) -> &'static str {
@@ -109,49 +96,44 @@ impl Check for NodesVersion {
         IntegrityCategory::Version
     }
 
-    async fn run(&self, backend: &Backend) -> Result<Vec<IntegrityFinding>, CheckError> {
-        let nodes = nodes(backend).await;
-        if nodes.is_empty() {
+    async fn run(
+        &self,
+        backend: &Backend,
+        node: &BackendNode,
+    ) -> Result<Vec<IntegrityFinding>, CheckError> {
+        let Ok(status) = status(node).await else {
             return Err(CheckError::Skipped(
-                "No node is registered on this instance".to_owned(),
+                "The node did not answer, so its API could not be compared".to_owned(),
             ));
+        };
+
+        let expected = backend.daemon_api_hash();
+        if status.api_hash == expected {
+            return Ok(Vec::new());
         }
 
-        let mut findings = Vec::new();
-        for node in nodes {
-            let Ok(status) = status(&node).await else {
-                continue;
-            };
-
-            let expected = backend.daemon_api_hash();
-            if status.api_hash != expected {
-                findings.push(
-                    IntegrityFinding::error(
-                        "The node was built against different daemon service definitions than \
-                         this backend; the two do not agree on the shape of the API",
-                    )
-                    .with_subject(subject(&node))
-                    .with_detail("node_api", display_hash(&status.api_hash))
-                    .with_detail("node_commit", status.version)
-                    .with_detail("backend_api", expected.to_owned()),
-                );
-            }
-        }
-
-        Ok(findings)
+        Ok(vec![
+            IntegrityFinding::error(
+                "The node was built against different daemon service definitions than this \
+                 backend; the two do not agree on the shape of the API",
+            )
+            .with_detail("node_api", display_hash(&status.api_hash))
+            .with_detail("node_commit", status.version)
+            .with_detail("backend_api", expected),
+        ])
     }
 }
 
 pub(crate) struct NodesConfig;
 
 #[async_trait]
-impl Check for NodesConfig {
+impl NodeCheck for NodesConfig {
     fn id(&self) -> &'static str {
         "nodes.config"
     }
 
     fn title(&self) -> &'static str {
-        "Stored node config matches the running daemon"
+        "Stored config matches the running daemon"
     }
 
     fn description(&self) -> &'static str {
@@ -164,66 +146,50 @@ impl Check for NodesConfig {
         IntegrityCategory::Configuration
     }
 
-    async fn run(&self, backend: &Backend) -> Result<Vec<IntegrityFinding>, CheckError> {
-        let nodes = nodes(backend).await;
-        if nodes.is_empty() {
-            return Err(CheckError::Skipped(
-                "No node is registered on this instance".to_owned(),
-            ));
-        }
+    async fn run(
+        &self,
+        _backend: &Backend,
+        node: &BackendNode,
+    ) -> Result<Vec<IntegrityFinding>, CheckError> {
+        let live: BackendNodeConfig = match node.config().await {
+            Ok(config) => config,
+            Err(ConfigError::Communication(inner)) => {
+                return Err(CheckError::Skipped(format!(
+                    "The node's config could not be pulled: {}",
+                    describe_transport(&inner)
+                )));
+            }
+            Err(other) => {
+                return Ok(vec![IntegrityFinding::error(format!(
+                    "The node refused to hand out its config: {other:?}"
+                ))]);
+            }
+        };
 
         let mut findings = Vec::new();
-        for node in nodes {
-            let live: BackendNodeConfig = match node.config().await {
-                Ok(config) => config,
-                Err(ConfigError::Communication(inner)) => {
-                    findings.push(
-                        IntegrityFinding::error(format!(
-                            "The node's config could not be pulled: {}",
-                            describe_transport(&inner)
-                        ))
-                        .with_subject(subject(&node)),
-                    );
-                    continue;
-                }
-                Err(other) => {
-                    findings.push(
-                        IntegrityFinding::error(format!(
-                            "The node refused to hand out its config: {other:?}"
-                        ))
-                        .with_subject(subject(&node)),
-                    );
-                    continue;
-                }
-            };
 
-            let stored_ssh = node.ssh_port;
-            if stored_ssh != live.ssh_port {
-                findings.push(
-                    IntegrityFinding::warning(
-                        "The stored ssh port differs from the one the node reports",
-                    )
-                    .with_subject(subject(&node))
-                    .with_detail("stored", format_option(stored_ssh))
-                    .with_detail("node", format_option(live.ssh_port)),
-                );
-            }
-
-            compare_names(
-                &mut findings,
-                &node,
-                "server storage",
-                &node.server_storages,
-                &live.storages,
-            );
-            compare_names(
-                &mut findings,
-                &node,
-                "backup storage",
-                &node.backup_storages,
-                &live.backups,
+        if node.ssh_port != live.ssh_port {
+            findings.push(
+                IntegrityFinding::warning(
+                    "The stored ssh port differs from the one the node reports",
+                )
+                .with_detail("stored", format_option(node.ssh_port))
+                .with_detail("node", format_option(live.ssh_port)),
             );
         }
+
+        compare_names(
+            &mut findings,
+            "server storage",
+            &node.server_storages,
+            &live.storages,
+        );
+        compare_names(
+            &mut findings,
+            "backup storage",
+            &node.backup_storages,
+            &live.backups,
+        );
 
         Ok(findings)
     }
@@ -235,7 +201,6 @@ fn format_option(value: Option<u16>) -> String {
 
 fn compare_names(
     findings: &mut Vec<IntegrityFinding>,
-    node: &BackendNode,
     label: &str,
     stored: &[String],
     live: &[String],
@@ -248,8 +213,7 @@ fn compare_names(
             IntegrityFinding::error(format!(
                 "The backend still offers the {label} {name}, but the node no longer has it"
             ))
-            .with_subject(subject(node))
-            .with_detail("storage", (*name).clone()),
+            .with_subject((*name).clone()),
         );
     }
     for name in live.difference(&stored) {
@@ -258,8 +222,7 @@ fn compare_names(
                 "The node has the {label} {name}, but the backend does not know about it. Pull \
                  the node's config to pick it up"
             ))
-            .with_subject(subject(node))
-            .with_detail("storage", (*name).clone()),
+            .with_subject((*name).clone()),
         );
     }
 }
@@ -267,7 +230,7 @@ fn compare_names(
 pub(crate) struct NodesServers;
 
 #[async_trait]
-impl Check for NodesServers {
+impl NodeCheck for NodesServers {
     fn id(&self) -> &'static str {
         "nodes.servers"
     }
@@ -277,7 +240,7 @@ impl Check for NodesServers {
     }
 
     fn description(&self) -> &'static str {
-        "Every server the backend places on a node must exist in that node's database, and the \
+        "Every server the backend places on this node must exist in the node's database, and the \
          node must not hold servers the backend has forgotten. An orphan on the node keeps its \
          storage, ports and container; a server missing on the node can never be started."
     }
@@ -286,94 +249,62 @@ impl Check for NodesServers {
         IntegrityCategory::Database
     }
 
-    async fn run(&self, backend: &Backend) -> Result<Vec<IntegrityFinding>, CheckError> {
-        let nodes = nodes(backend).await;
-        if nodes.is_empty() {
-            return Err(CheckError::Skipped(
-                "No node is registered on this instance".to_owned(),
-            ));
-        }
+    async fn run(
+        &self,
+        backend: &Backend,
+        node: &BackendNode,
+    ) -> Result<Vec<IntegrityFinding>, CheckError> {
+        let actual = match node.integrity_servers().await {
+            Ok(servers) => servers,
+            Err(IntegrityServersError::Communication(inner)) => {
+                return Err(CheckError::Skipped(format!(
+                    "The node's server list could not be pulled: {}",
+                    describe_transport(&inner)
+                )));
+            }
+            Err(other) => {
+                return Ok(vec![IntegrityFinding::error(format!(
+                    "The node refused to list its servers: {other:?}"
+                ))]);
+            }
+        };
 
         let rows = query!(
-            r#"SELECT id, name, node, node_server_id FROM servers ORDER BY node, node_server_id"#
+            r#"SELECT id, name, node_server_id FROM servers WHERE node = $1 ORDER BY node_server_id"#,
+            node.id
         )
         .fetch_all(&*backend.database)
         .await?;
 
-        let mut expected: HashMap<Uuid, HashMap<u32, (String, String)>> = HashMap::new();
-        for row in rows {
-            expected
-                .entry(row.node)
-                .or_default()
-                .insert(row.node_server_id.cast_unsigned(), (row.id, row.name));
-        }
+        let actual: HashSet<u32> = actual.into_iter().collect();
+        let known: HashMap<u32, (String, String)> = rows
+            .into_iter()
+            .map(|row| (row.node_server_id.cast_unsigned(), (row.id, row.name)))
+            .collect();
 
         let mut findings = Vec::new();
-        for node in nodes {
-            let actual = match node.integrity_servers().await {
-                Ok(servers) => servers,
-                Err(IntegrityServersError::Communication(inner)) => {
-                    findings.push(
-                        IntegrityFinding::error(format!(
-                            "The node's server list could not be pulled: {}",
-                            describe_transport(&inner)
-                        ))
-                        .with_subject(subject(&node)),
-                    );
-                    continue;
-                }
-                Err(other) => {
-                    findings.push(
-                        IntegrityFinding::error(format!(
-                            "The node refused to list its servers: {other:?}"
-                        ))
-                        .with_subject(subject(&node)),
-                    );
-                    continue;
-                }
-            };
 
-            let actual: HashSet<u32> = actual.into_iter().collect();
-            let known = expected.remove(&node.id).unwrap_or_default();
-
-            for (node_server_id, (id, name)) in &known {
-                if !actual.contains(node_server_id) {
-                    findings.push(
-                        IntegrityFinding::error(format!(
-                            "Server {name} is placed on this node, but the node's database does \
-                             not have it"
-                        ))
-                        .with_subject(format!("{id} ({name})"))
-                        .with_detail("node", subject(&node))
-                        .with_detail("node_server_id", node_server_id.to_string()),
-                    );
-                }
-            }
-
-            for node_server_id in &actual {
-                if !known.contains_key(node_server_id) {
-                    findings.push(
-                        IntegrityFinding::error(format!(
-                            "The node runs server {node_server_id}, but the backend has no record \
-                             of it. Its storage, ports and container are never cleaned up"
-                        ))
-                        .with_subject(format!("{}/{node_server_id}", node.display))
-                        .with_detail("node", subject(&node))
-                        .with_detail("node_server_id", node_server_id.to_string()),
-                    );
-                }
+        for (node_server_id, (id, name)) in &known {
+            if !actual.contains(node_server_id) {
+                findings.push(
+                    IntegrityFinding::error(format!(
+                        "Server {name} is placed on this node, but the node's database does not \
+                         have it"
+                    ))
+                    .with_subject(format!("{id} ({name})"))
+                    .with_detail("node_server_id", node_server_id.to_string()),
+                );
             }
         }
 
-        for (node, servers) in expected {
-            for (node_server_id, (id, name)) in servers {
+        for node_server_id in &actual {
+            if !known.contains_key(node_server_id) {
                 findings.push(
                     IntegrityFinding::error(format!(
-                        "Server {name} is placed on node {node}, which is not registered on this \
-                         instance"
+                        "The node runs server {node_server_id}, but the backend has no record of \
+                         it. Its storage, ports and container are never cleaned up"
                     ))
-                    .with_subject(format!("{id} ({name})"))
-                    .with_detail("node", node.to_string())
+                    .with_subject(node_server_id.to_string())
                     .with_detail("node_server_id", node_server_id.to_string()),
                 );
             }
@@ -386,13 +317,13 @@ impl Check for NodesServers {
 pub(crate) struct NodesStorages;
 
 #[async_trait]
-impl Check for NodesStorages {
+impl NodeCheck for NodesStorages {
     fn id(&self) -> &'static str {
         "nodes.storages"
     }
 
     fn title(&self) -> &'static str {
-        "Servers point at a storage their node has"
+        "Servers point at a storage this node has"
     }
 
     fn description(&self) -> &'static str {
@@ -404,26 +335,27 @@ impl Check for NodesStorages {
         IntegrityCategory::Storage
     }
 
-    async fn run(&self, backend: &Backend) -> Result<Vec<IntegrityFinding>, CheckError> {
-        let nodes = backend.nodes.read().await.clone();
-
-        let rows = query!(r#"SELECT id, name, node, storage FROM servers ORDER BY id"#)
-            .fetch_all(&*backend.database)
-            .await?;
+    async fn run(
+        &self,
+        backend: &Backend,
+        node: &BackendNode,
+    ) -> Result<Vec<IntegrityFinding>, CheckError> {
+        let rows = query!(
+            r#"SELECT id, name, storage FROM servers WHERE node = $1 ORDER BY id"#,
+            node.id
+        )
+        .fetch_all(&*backend.database)
+        .await?;
 
         let mut findings = Vec::new();
         for row in rows {
-            let Some(node) = nodes.get(&row.node) else {
-                continue;
-            };
             if !node.server_storages.contains(&row.storage) {
                 findings.push(
                     IntegrityFinding::error(format!(
-                        "Server {} lives on storage {}, which node {} does not have",
-                        row.name, row.storage, node.display
+                        "Server {} lives on storage {}, which this node does not have",
+                        row.name, row.storage
                     ))
                     .with_subject(format!("{} ({})", row.id, row.name))
-                    .with_detail("node", subject(node))
                     .with_detail("storage", row.storage)
                     .with_detail("available", node.server_storages.join(", ")),
                 );
@@ -437,13 +369,13 @@ impl Check for NodesStorages {
 pub(crate) struct NodesPorts;
 
 #[async_trait]
-impl Check for NodesPorts {
+impl NodeCheck for NodesPorts {
     fn id(&self) -> &'static str {
         "nodes.ports"
     }
 
     fn title(&self) -> &'static str {
-        "Allocated ports stay inside their node's ranges and do not collide"
+        "Allocated ports stay inside this node's ranges and do not collide"
     }
 
     fn description(&self) -> &'static str {
@@ -456,57 +388,55 @@ impl Check for NodesPorts {
         IntegrityCategory::Configuration
     }
 
-    async fn run(&self, backend: &Backend) -> Result<Vec<IntegrityFinding>, CheckError> {
-        let nodes = backend.nodes.read().await.clone();
-
+    async fn run(
+        &self,
+        backend: &Backend,
+        node: &BackendNode,
+    ) -> Result<Vec<IntegrityFinding>, CheckError> {
         let rows = query!(
             r#"SELECT
-                   server_ports.id,
                    server_ports.server,
                    server_ports.name,
                    server_ports.external_ip,
                    server_ports.protocol AS "protocol: NetworkProtocol",
                    lower(server_ports.external_port) AS "start!",
                    upper(server_ports.external_port) - 1 AS "end!",
-                   servers.node,
                    servers.name AS server_name
                FROM server_ports
                JOIN servers ON servers.id = server_ports.server
-               ORDER BY servers.node, server_ports.external_ip, server_ports.id"#
+               WHERE servers.node = $1
+               ORDER BY server_ports.external_ip, server_ports.id"#,
+            node.id
         )
         .fetch_all(&*backend.database)
         .await?;
 
         let mut findings = Vec::new();
-        let mut claimed: HashMap<(Uuid, String, NetworkProtocol), Vec<PortClaim>> = HashMap::new();
+        let mut claimed: HashMap<(String, NetworkProtocol), Vec<PortClaim>> = HashMap::new();
 
         for row in rows {
             let label = format!("{} ({})", row.server_name, row.server);
             let port_subject =
                 format!("{}:{}-{} {}", row.external_ip, row.start, row.end, row.name);
 
-            if let Some(node) = nodes.get(&row.node) {
-                let inside = node.ports.iter().any(|allocation| {
-                    allocation.protocol == row.protocol
-                        && allocation.start <= row.start
-                        && allocation.end >= row.end
-                });
-                if !inside {
-                    findings.push(
-                        IntegrityFinding::error(format!(
-                            "Port {}-{} of server {label} is outside every range allocated to node \
-                             {}",
-                            row.start, row.end, node.display
-                        ))
-                        .with_subject(port_subject.clone())
-                        .with_detail("node", subject(node))
-                        .with_detail("protocol", row.protocol.to_string()),
-                    );
-                }
+            let inside = node.ports.iter().any(|allocation| {
+                allocation.protocol == row.protocol
+                    && allocation.start <= row.start
+                    && allocation.end >= row.end
+            });
+            if !inside {
+                findings.push(
+                    IntegrityFinding::error(format!(
+                        "Port {}-{} of server {label} is outside every range allocated to this node",
+                        row.start, row.end
+                    ))
+                    .with_subject(port_subject.clone())
+                    .with_detail("protocol", row.protocol.to_string()),
+                );
             }
 
             claimed
-                .entry((row.node, row.external_ip, row.protocol))
+                .entry((row.external_ip, row.protocol))
                 .or_default()
                 .push(PortClaim {
                     start: row.start,
@@ -516,7 +446,7 @@ impl Check for NodesPorts {
                 });
         }
 
-        for ((_node, address, protocol), mut claims) in claimed {
+        for ((address, protocol), mut claims) in claimed {
             claims.sort_by_key(|claim| claim.start);
             for pair in claims.windows(2) {
                 let (Some(left), Some(right)) = (pair.first(), pair.get(1)) else {
@@ -547,10 +477,73 @@ struct PortClaim {
     subject: String,
 }
 
-fn display_hash(hash: &str) -> String {
-    if hash.is_empty() {
-        "unknown (the node predates the fingerprint)".to_owned()
-    } else {
-        hash.to_owned()
+pub(crate) struct OrphanedPlacements;
+
+#[async_trait]
+impl crate::integrity::Check for OrphanedPlacements {
+    fn id(&self) -> &'static str {
+        "placements.orphaned"
+    }
+
+    fn title(&self) -> &'static str {
+        "Servers and instances point at registered infrastructure"
+    }
+
+    fn description(&self) -> &'static str {
+        "A server records the node it runs on and a database instance the host it lives on. When \
+         that node or host is not registered here, nothing can reach the resource and no per node \
+         check will ever look at it."
+    }
+
+    fn category(&self) -> IntegrityCategory {
+        IntegrityCategory::Database
+    }
+
+    async fn run(&self, backend: &Backend) -> Result<Vec<IntegrityFinding>, CheckError> {
+        let nodes: HashSet<Uuid> = backend.nodes.read().await.keys().copied().collect();
+        let hosts: HashSet<Uuid> = backend
+            .database_hosts
+            .read()
+            .await
+            .keys()
+            .copied()
+            .collect();
+
+        let mut findings = Vec::new();
+
+        for row in query!(r#"SELECT id, name, node FROM servers ORDER BY id"#)
+            .fetch_all(&*backend.database)
+            .await?
+        {
+            if !nodes.contains(&row.node) {
+                findings.push(
+                    IntegrityFinding::error(format!(
+                        "Server {} is placed on node {}, which is not registered on this instance",
+                        row.name, row.node
+                    ))
+                    .with_subject(format!("{} ({})", row.id, row.name))
+                    .with_detail("node", row.node.to_string()),
+                );
+            }
+        }
+
+        for row in query!(r#"SELECT id, display, host FROM database_instances ORDER BY id"#)
+            .fetch_all(&*backend.database)
+            .await?
+        {
+            if !hosts.contains(&row.host) {
+                findings.push(
+                    IntegrityFinding::error(format!(
+                        "Instance {} is recorded on host {}, which is not registered on this \
+                         instance",
+                        row.display, row.host
+                    ))
+                    .with_subject(row.id.to_string())
+                    .with_detail("host", row.host.to_string()),
+                );
+            }
+        }
+
+        Ok(findings)
     }
 }

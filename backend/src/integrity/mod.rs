@@ -3,6 +3,8 @@ pub(crate) mod checks;
 pub(crate) mod run;
 
 use crate::Backend;
+use crate::db::database::BackendDatabaseHost;
+use crate::db::node::BackendNode;
 use core::time::Duration;
 use daemon_common::integrity::{
     IntegrityCategory, IntegrityCheckInfo, IntegrityFinding, IntegrityReport, IntegritySchema,
@@ -147,6 +149,45 @@ pub(crate) trait Check: Send + Sync {
     }
 
     async fn run(&self, backend: &Backend) -> Result<Vec<IntegrityFinding>, CheckError>;
+}
+
+/// A check that examines one node, so its findings land on that node's report
+/// instead of being buried in the backend's.
+#[async_trait]
+pub(crate) trait NodeCheck: Send + Sync {
+    fn id(&self) -> &'static str;
+    fn title(&self) -> &'static str;
+    fn description(&self) -> &'static str;
+    fn category(&self) -> IntegrityCategory;
+
+    fn deep(&self) -> bool {
+        false
+    }
+
+    async fn run(
+        &self,
+        backend: &Backend,
+        node: &BackendNode,
+    ) -> Result<Vec<IntegrityFinding>, CheckError>;
+}
+
+/// The database host counterpart of [`NodeCheck`].
+#[async_trait]
+pub(crate) trait HostCheck: Send + Sync {
+    fn id(&self) -> &'static str;
+    fn title(&self) -> &'static str;
+    fn description(&self) -> &'static str;
+    fn category(&self) -> IntegrityCategory;
+
+    fn deep(&self) -> bool {
+        false
+    }
+
+    async fn run(
+        &self,
+        backend: &Backend,
+        host: &BackendDatabaseHost,
+    ) -> Result<Vec<IntegrityFinding>, CheckError>;
 }
 
 /// Turns a transport failure into a message that says which layer gave up, so

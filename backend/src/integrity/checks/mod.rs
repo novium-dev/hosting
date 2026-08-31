@@ -4,8 +4,11 @@ mod routes;
 pub(crate) mod schema;
 mod templates;
 
-use super::{CHECK_TIMEOUT, Check, CheckError};
+use super::{CHECK_TIMEOUT, Check, CheckError, HostCheck, NodeCheck};
 use crate::Backend;
+use crate::db::database::BackendDatabaseHost;
+use crate::db::node::BackendNode;
+use core::future::Future;
 use daemon_common::integrity::{
     IntegrityCheckInfo, IntegrityCheckResult, IntegrityFinding, IntegrityReport, IntegritySeverity,
 };
@@ -13,32 +16,98 @@ use std::time::Instant;
 use tracing::{error, warn};
 
 const CHECKS: &[&dyn Check] = &[
+    &nodes::OrphanedPlacements,
+    &templates::Templates,
+    &routes::Routes,
+    &schema::SchemaDump,
+];
+
+const NODE_CHECKS: &[&dyn NodeCheck] = &[
     &nodes::NodesReachable,
     &nodes::NodesVersion,
     &nodes::NodesConfig,
     &nodes::NodesServers,
     &nodes::NodesStorages,
     &nodes::NodesPorts,
+];
+
+const HOST_CHECKS: &[&dyn HostCheck] = &[
     &hosts::HostsReachable,
     &hosts::HostsVersion,
     &hosts::HostsInstances,
-    &templates::Templates,
-    &routes::Routes,
-    &schema::SchemaDump,
 ];
+
+struct Metadata {
+    id: &'static str,
+    title: &'static str,
+    description: &'static str,
+    category: daemon_common::integrity::IntegrityCategory,
+    deep: bool,
+}
+
+fn info(meta: &Metadata) -> IntegrityCheckInfo {
+    IntegrityCheckInfo {
+        id: meta.id.to_owned(),
+        title: meta.title.to_owned(),
+        description: meta.description.to_owned(),
+        category: meta.category,
+        deep: meta.deep,
+    }
+}
 
 #[must_use]
 pub(crate) fn checks() -> Vec<IntegrityCheckInfo> {
-    CHECKS
+    CHECKS.iter().map(|check| info(&metadata(*check))).collect()
+}
+
+#[must_use]
+pub(crate) fn node_checks() -> Vec<IntegrityCheckInfo> {
+    NODE_CHECKS
         .iter()
-        .map(|check| IntegrityCheckInfo {
-            id: check.id().to_owned(),
-            title: check.title().to_owned(),
-            description: check.description().to_owned(),
-            category: check.category(),
-            deep: check.deep(),
-        })
+        .map(|check| info(&node_metadata(*check)))
         .collect()
+}
+
+#[must_use]
+pub(crate) fn host_checks() -> Vec<IntegrityCheckInfo> {
+    HOST_CHECKS
+        .iter()
+        .map(|check| info(&host_metadata(*check)))
+        .collect()
+}
+
+fn metadata(check: &dyn Check) -> Metadata {
+    Metadata {
+        id: check.id(),
+        title: check.title(),
+        description: check.description(),
+        category: check.category(),
+        deep: check.deep(),
+    }
+}
+
+fn node_metadata(check: &dyn NodeCheck) -> Metadata {
+    Metadata {
+        id: check.id(),
+        title: check.title(),
+        description: check.description(),
+        category: check.category(),
+        deep: check.deep(),
+    }
+}
+
+fn host_metadata(check: &dyn HostCheck) -> Metadata {
+    Metadata {
+        id: check.id(),
+        title: check.title(),
+        description: check.description(),
+        category: check.category(),
+        deep: check.deep(),
+    }
+}
+
+fn wanted(meta: &Metadata, selected: Option<&[String]>, deep: bool) -> bool {
+    selected.is_none_or(|ids| ids.iter().any(|id| id == meta.id)) && (!meta.deep || deep)
 }
 
 pub(crate) async fn run(
@@ -50,11 +119,11 @@ pub(crate) async fn run(
     let mut results = Vec::new();
 
     for check in CHECKS {
-        let wanted = selected.is_none_or(|ids| ids.iter().any(|id| id == check.id()));
-        if !wanted || (check.deep() && !deep) {
+        let meta = metadata(*check);
+        if !wanted(&meta, selected, deep) {
             continue;
         }
-        results.push(run_one(backend, *check).await);
+        results.push(finish(&meta, check.run(backend)).await);
     }
 
     IntegrityReport::new(
@@ -64,15 +133,56 @@ pub(crate) async fn run(
     )
 }
 
-async fn run_one(backend: &Backend, check: &dyn Check) -> IntegrityCheckResult {
+pub(crate) async fn run_node(
+    backend: &Backend,
+    node: &BackendNode,
+    selected: Option<&[String]>,
+    deep: bool,
+) -> Vec<IntegrityCheckResult> {
+    let mut results = Vec::new();
+
+    for check in NODE_CHECKS {
+        let meta = node_metadata(*check);
+        if !wanted(&meta, selected, deep) {
+            continue;
+        }
+        results.push(finish(&meta, check.run(backend, node)).await);
+    }
+
+    results
+}
+
+pub(crate) async fn run_host(
+    backend: &Backend,
+    host: &BackendDatabaseHost,
+    selected: Option<&[String]>,
+    deep: bool,
+) -> Vec<IntegrityCheckResult> {
+    let mut results = Vec::new();
+
+    for check in HOST_CHECKS {
+        let meta = host_metadata(*check);
+        if !wanted(&meta, selected, deep) {
+            continue;
+        }
+        results.push(finish(&meta, check.run(backend, host)).await);
+    }
+
+    results
+}
+
+async fn finish(
+    meta: &Metadata,
+    run: impl Future<Output = Result<Vec<IntegrityFinding>, CheckError>> + Send,
+) -> IntegrityCheckResult {
     let started = Instant::now();
-    let outcome = tokio::time::timeout(CHECK_TIMEOUT, check.run(backend)).await;
+    let outcome = tokio::time::timeout(CHECK_TIMEOUT, run).await;
 
     let (severity, findings, skipped) = match outcome {
         Ok(Ok(findings)) => (IntegrityCheckResult::severity_of(&findings), findings, None),
         Ok(Err(CheckError::Skipped(reason))) => (IntegritySeverity::Ok, Vec::new(), Some(reason)),
         Ok(Err(CheckError::Failed(reason))) => {
-            error!("Integrity check {} failed: {reason}", check.id());
+            error!("Integrity check {} failed: {reason}", meta.id);
             (
                 IntegritySeverity::Error,
                 vec![IntegrityFinding::error(format!(
@@ -82,7 +192,7 @@ async fn run_one(backend: &Backend, check: &dyn Check) -> IntegrityCheckResult {
             )
         }
         Err(_elapsed) => {
-            warn!("Integrity check {} timed out", check.id());
+            warn!("Integrity check {} timed out", meta.id);
             (
                 IntegritySeverity::Error,
                 vec![IntegrityFinding::error(
@@ -94,11 +204,11 @@ async fn run_one(backend: &Backend, check: &dyn Check) -> IntegrityCheckResult {
     };
 
     IntegrityCheckResult {
-        id: check.id().to_owned(),
-        title: check.title().to_owned(),
-        description: check.description().to_owned(),
-        category: check.category(),
-        deep: check.deep(),
+        id: meta.id.to_owned(),
+        title: meta.title.to_owned(),
+        description: meta.description.to_owned(),
+        category: meta.category,
+        deep: meta.deep,
         severity,
         duration_ms: elapsed_ms(started),
         findings,
