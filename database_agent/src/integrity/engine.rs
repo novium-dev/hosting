@@ -168,12 +168,10 @@ impl Check for EngineDatabases {
                 expected.insert(database.name.clone());
                 if !actual.contains(&database.name) {
                     findings.push(
-                        IntegrityFinding::error(
-                            "A stored database does not exist in its engine".to_owned(),
-                        )
-                        .with_subject(database.name)
-                        .with_detail("instance", instance.uuid.to_string())
-                        .with_detail("engine", kind.as_str().to_owned()),
+                        IntegrityFinding::error("A stored database does not exist in its engine")
+                            .with_subject(database.name)
+                            .with_detail("instance", instance.uuid.to_string())
+                            .with_detail("engine", kind.as_str().to_owned()),
                     );
                 }
             }
@@ -182,7 +180,7 @@ impl Check for EngineDatabases {
                 if !expected.contains(name) {
                     findings.push(
                         IntegrityFinding::warning(
-                            "The engine holds a database the agent does not know about".to_owned(),
+                            "The engine holds a database the agent does not know about",
                         )
                         .with_subject(name.clone())
                         .with_detail("instance", instance.uuid.to_string())
@@ -250,8 +248,7 @@ impl Check for EngineUsers {
                     findings.push(
                         IntegrityFinding::error(
                             "A stored user cannot be turned into a connection identifier; it can \
-                             never sign in through the proxy"
-                                .to_owned(),
+                             never sign in through the proxy",
                         )
                         .with_subject(user.username)
                         .with_detail("instance", instance.uuid.to_string()),
@@ -263,12 +260,10 @@ impl Check for EngineUsers {
                 expected.insert(name.clone());
                 if !managed.contains(&name) {
                     findings.push(
-                        IntegrityFinding::error(
-                            "A stored user has no account in its engine".to_owned(),
-                        )
-                        .with_subject(name)
-                        .with_detail("instance", instance.uuid.to_string())
-                        .with_detail("engine", kind.as_str().to_owned()),
+                        IntegrityFinding::error("A stored user has no account in its engine")
+                            .with_subject(name)
+                            .with_detail("instance", instance.uuid.to_string())
+                            .with_detail("engine", kind.as_str().to_owned()),
                     );
                 }
             }
@@ -278,8 +273,7 @@ impl Check for EngineUsers {
                     findings.push(
                         IntegrityFinding::error(
                             "The engine holds an agent shaped account the agent does not know \
-                             about"
-                                .to_owned(),
+                             about",
                         )
                         .with_subject(name.clone())
                         .with_detail("instance", instance.uuid.to_string())

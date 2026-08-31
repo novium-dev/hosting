@@ -68,7 +68,7 @@ impl Check for Routes {
             if row.port_server != row.server {
                 findings.push(
                     IntegrityFinding::error(
-                        "The route publishes a port that belongs to a different server".to_owned(),
+                        "The route publishes a port that belongs to a different server",
                     )
                     .with_subject(subject.clone())
                     .with_detail("server", detail_server.clone())
@@ -80,15 +80,14 @@ impl Check for Routes {
                 RouteStatus::Active => {}
                 RouteStatus::Pending => findings.push(
                     IntegrityFinding::warning(
-                        "The route was never applied at its backend and is still pending"
-                            .to_owned(),
+                        "The route was never applied at its backend and is still pending",
                     )
                     .with_subject(subject.clone())
                     .with_detail("server", detail_server.clone()),
                 ),
                 RouteStatus::Failed => findings.push(
                     IntegrityFinding::error(
-                        "The route failed to apply at its backend and does not resolve".to_owned(),
+                        "The route failed to apply at its backend and does not resolve",
                     )
                     .with_subject(subject.clone())
                     .with_detail("server", detail_server.clone()),
@@ -98,8 +97,7 @@ impl Check for Routes {
             if row.https && !row.domain_https {
                 findings.push(
                     IntegrityFinding::error(
-                        "The route asks for https, but its domain is not served over https"
-                            .to_owned(),
+                        "The route asks for https, but its domain is not served over https",
                     )
                     .with_subject(subject.clone())
                     .with_detail("server", detail_server.clone()),

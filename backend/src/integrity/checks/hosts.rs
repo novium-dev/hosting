@@ -2,7 +2,6 @@ use crate::Backend;
 use crate::db::database::BackendDatabaseHost;
 use crate::integrity::{Check, CheckError, describe_transport};
 use daemon_common::integrity::{IntegrityCategory, IntegrityFinding};
-use database_agent_common::API_HASH;
 use database_agent_common::service::instance::InstanceService as _;
 use database_agent_common::service::instance::instance_service_error::ListInstancesError;
 use database_agent_common::service::system::SystemService as _;
@@ -74,7 +73,7 @@ impl Check for HostsReachable {
             match status(&host).await {
                 Ok(status) => {
                     findings.push(
-                        IntegrityFinding::info("The database host answered".to_owned())
+                        IntegrityFinding::info("The database host answered")
                             .with_subject(subject(&host))
                             .with_detail("version", status.version.clone())
                             .with_detail("api", status.api_hash.clone())
@@ -130,9 +129,10 @@ impl Check for HostsVersion {
     }
 
     fn description(&self) -> &'static str {
-        "Both sides carry a fingerprint of the shared agent service definitions they were \
-         compiled from. A host whose fingerprint differs answers a different shape of the api \
-         than this backend calls, whatever commit it reports."
+        "Both sides carry a fingerprint of the `OpenAPI` document generated from the shared \
+         agent service definitions they were compiled from. A host whose fingerprint differs \
+         answers a different shape of the api than this backend calls, whatever commit it \
+         reports."
     }
 
     fn category(&self) -> IntegrityCategory {
@@ -152,17 +152,17 @@ impl Check for HostsVersion {
             let Ok(status) = status(&host).await else {
                 continue;
             };
-            if status.api_hash != API_HASH {
+            let expected = backend.agent_api_hash();
+            if status.api_hash != expected {
                 findings.push(
                     IntegrityFinding::error(
                         "The database host was built against different agent service definitions \
-                         than this backend; the two do not agree on the shape of the api"
-                            .to_owned(),
+                         than this backend; the two do not agree on the shape of the api",
                     )
                     .with_subject(subject(&host))
                     .with_detail("host_api", display_hash(&status.api_hash))
                     .with_detail("host_commit", status.version)
-                    .with_detail("backend_api", API_HASH.to_owned()),
+                    .with_detail("backend_api", expected.to_owned()),
                 );
             }
         }
@@ -262,8 +262,7 @@ impl Check for HostsInstances {
                     findings.push(
                         IntegrityFinding::error(
                             "The host runs an instance the backend has no record of. Its \
-                             container, volume and proxy routes are never cleaned up"
-                                .to_owned(),
+                             container, volume and proxy routes are never cleaned up",
                         )
                         .with_subject(instance.data.uuid.to_string())
                         .with_detail("host", subject(&host))

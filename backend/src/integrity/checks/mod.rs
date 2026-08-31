@@ -12,26 +12,24 @@ use daemon_common::integrity::{
 use std::time::Instant;
 use tracing::{error, warn};
 
-fn catalogue() -> Vec<Box<dyn Check>> {
-    vec![
-        Box::new(nodes::NodesReachable),
-        Box::new(nodes::NodesVersion),
-        Box::new(nodes::NodesConfig),
-        Box::new(nodes::NodesServers),
-        Box::new(nodes::NodesStorages),
-        Box::new(nodes::NodesPorts),
-        Box::new(hosts::HostsReachable),
-        Box::new(hosts::HostsVersion),
-        Box::new(hosts::HostsInstances),
-        Box::new(templates::Templates),
-        Box::new(routes::Routes),
-        Box::new(schema::SchemaDump),
-    ]
-}
+const CHECKS: &[&dyn Check] = &[
+    &nodes::NodesReachable,
+    &nodes::NodesVersion,
+    &nodes::NodesConfig,
+    &nodes::NodesServers,
+    &nodes::NodesStorages,
+    &nodes::NodesPorts,
+    &hosts::HostsReachable,
+    &hosts::HostsVersion,
+    &hosts::HostsInstances,
+    &templates::Templates,
+    &routes::Routes,
+    &schema::SchemaDump,
+];
 
 #[must_use]
 pub(crate) fn checks() -> Vec<IntegrityCheckInfo> {
-    catalogue()
+    CHECKS
         .iter()
         .map(|check| IntegrityCheckInfo {
             id: check.id().to_owned(),
@@ -51,12 +49,12 @@ pub(crate) async fn run(
     let started = Instant::now();
     let mut results = Vec::new();
 
-    for check in catalogue() {
+    for check in CHECKS {
         let wanted = selected.is_none_or(|ids| ids.iter().any(|id| id == check.id()));
         if !wanted || (check.deep() && !deep) {
             continue;
         }
-        results.push(run_one(backend, check.as_ref()).await);
+        results.push(run_one(backend, *check).await);
     }
 
     IntegrityReport::new(
@@ -88,7 +86,7 @@ async fn run_one(backend: &Backend, check: &dyn Check) -> IntegrityCheckResult {
             (
                 IntegritySeverity::Error,
                 vec![IntegrityFinding::error(
-                    "The check timed out before it could finish".to_owned(),
+                    "The check timed out before it could finish",
                 )],
                 None,
             )

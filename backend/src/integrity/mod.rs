@@ -8,11 +8,50 @@ use daemon_common::integrity::{
     IntegrityCategory, IntegrityCheckInfo, IntegrityFinding, IntegrityReport, IntegritySchema,
     IntegritySeverity,
 };
+use daemon_common::sdk::DaemonSDK;
+use database_agent_common::sdk::DatabaseAgentSDK;
 use serde::Serialize;
+use std::sync::{Arc, OnceLock};
+use url::Url;
 use uuid::Uuid;
 use zelus::async_trait;
 
-pub(crate) const CHECK_TIMEOUT: Duration = Duration::from_secs(300);
+pub(crate) const CHECK_TIMEOUT: Duration = Duration::from_mins(5);
+
+static DAEMON_API_HASH: OnceLock<String> = OnceLock::new();
+static AGENT_API_HASH: OnceLock<String> = OnceLock::new();
+
+impl Backend {
+    /// The fingerprint of the daemon API this backend was compiled against,
+    /// built from the same service definitions a node reports its own from.
+    pub(crate) fn daemon_api_hash(&self) -> &'static str {
+        DAEMON_API_HASH.get_or_init(|| {
+            let probe = DaemonSDK::builder()
+                .with_identifier(Uuid::nil())
+                .with_root_key(Arc::clone(&self.root_key))
+                .with_backend_key(Arc::clone(&self.key))
+                .with_url(Url::parse("https://node.invalid").expect("the probe url is valid"))
+                .build();
+
+            daemon_common::service::api_hash(&probe)
+        })
+    }
+
+    /// The fingerprint of the database agent API this backend was compiled
+    /// against, built the same way a host reports its own.
+    pub(crate) fn agent_api_hash(&self) -> &'static str {
+        AGENT_API_HASH.get_or_init(|| {
+            let probe = DatabaseAgentSDK::builder()
+                .with_identifier(Uuid::nil())
+                .with_root_key(Arc::clone(&self.root_key))
+                .with_backend_key(Arc::clone(&self.key))
+                .with_url(Url::parse("https://host.invalid").expect("the probe url is valid"))
+                .build();
+
+            database_agent_common::service::api_hash(&probe)
+        })
+    }
+}
 pub(crate) const SOURCE_TIMEOUT: Duration = Duration::from_mins(15);
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]

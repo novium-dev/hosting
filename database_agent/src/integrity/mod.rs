@@ -14,7 +14,7 @@ use std::time::Instant;
 use tracing::{error, warn};
 use zelus::async_trait;
 
-pub const CHECK_TIMEOUT: Duration = Duration::from_secs(300);
+pub const CHECK_TIMEOUT: Duration = Duration::from_mins(5);
 
 pub enum CheckError {
     Skipped(String),
@@ -53,23 +53,21 @@ pub trait Check: Send + Sync {
     async fn run(&self, agent: &Agent) -> Result<Vec<IntegrityFinding>, CheckError>;
 }
 
-fn catalogue() -> Vec<Box<dyn Check>> {
-    vec![
-        Box::new(docker::DockerReachable),
-        Box::new(docker::DockerContainers),
-        Box::new(instances::InstanceState),
-        Box::new(instances::InstanceDirectories),
-        Box::new(engine::EngineDatabases),
-        Box::new(engine::EngineUsers),
-        Box::new(routes::RouteTable),
-        Box::new(routes::Subsystems),
-        Box::new(schema::SchemaDump),
-    ]
-}
+const CHECKS: &[&dyn Check] = &[
+    &docker::DockerReachable,
+    &docker::DockerContainers,
+    &instances::InstanceState,
+    &instances::InstanceDirectories,
+    &engine::EngineDatabases,
+    &engine::EngineUsers,
+    &routes::RouteTable,
+    &routes::Subsystems,
+    &schema::SchemaDump,
+];
 
 #[must_use]
 pub fn checks() -> Vec<IntegrityCheckInfo> {
-    catalogue()
+    CHECKS
         .iter()
         .map(|check| IntegrityCheckInfo {
             id: check.id().to_owned(),
@@ -85,12 +83,12 @@ pub async fn run(agent: &Agent, selected: Option<&[String]>, deep: bool) -> Inte
     let started = Instant::now();
     let mut results = Vec::new();
 
-    for check in catalogue() {
+    for check in CHECKS {
         let wanted = selected.is_none_or(|ids| ids.iter().any(|id| id == check.id()));
         if !wanted || (check.deep() && !deep) {
             continue;
         }
-        results.push(run_one(agent, check.as_ref()).await);
+        results.push(run_one(agent, *check).await);
     }
 
     IntegrityReport::new(
@@ -122,7 +120,7 @@ async fn run_one(agent: &Agent, check: &dyn Check) -> IntegrityCheckResult {
             (
                 IntegritySeverity::Error,
                 vec![IntegrityFinding::error(
-                    "The check timed out before it could finish".to_owned(),
+                    "The check timed out before it could finish",
                 )],
                 None,
             )

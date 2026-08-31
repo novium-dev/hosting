@@ -43,13 +43,12 @@ impl Check for InstanceState {
             let finding = match (suspended, state) {
                 (true, ContainerState::Running | ContainerState::Starting) => {
                     Some(IntegrityFinding::error(
-                        "The instance is suspended but its container is still running".to_owned(),
+                        "The instance is suspended but its container is still running",
                     ))
                 }
                 (false, ContainerState::Offline) => Some(IntegrityFinding::warning(
                     "The instance is not suspended but its container is offline; every database \
-                     on it is unreachable"
-                        .to_owned(),
+                     on it is unreachable",
                 )),
                 _ => None,
             };
@@ -117,7 +116,7 @@ impl Check for InstanceDirectories {
             ("data", agent.config.data_dir.as_path()),
             ("socket", agent.config.socket_dir.as_path()),
         ] {
-            findings.extend(scan_root(label, root, &stored).await?);
+            scan_root(&mut findings, label, root, &stored).await?;
         }
 
         for uuid in &stored {
@@ -125,7 +124,7 @@ impl Check for InstanceDirectories {
                 ("data", agent.config.data_dir(*uuid)),
                 ("socket", agent.config.socket_dir(*uuid)),
             ] {
-                if !path.exists() {
+                if fs::symlink_metadata(&path).await.is_err() {
                     findings.push(
                         IntegrityFinding::error(format!(
                             "The {label} directory of an instance is missing"
@@ -142,22 +141,23 @@ impl Check for InstanceDirectories {
 }
 
 async fn scan_root(
+    findings: &mut Vec<IntegrityFinding>,
     label: &str,
     root: &Path,
     stored: &HashSet<Uuid>,
-) -> Result<Vec<IntegrityFinding>, CheckError> {
+) -> Result<(), CheckError> {
     let mut read_dir = match fs::read_dir(root).await {
         Ok(read_dir) => read_dir,
         Err(err) if err.kind() == ErrorKind::NotFound => {
-            return Ok(vec![
+            findings.push(
                 IntegrityFinding::error(format!("The {label} root directory does not exist"))
                     .with_subject(root.to_string_lossy().into_owned()),
-            ]);
+            );
+            return Ok(());
         }
         Err(err) => return Err(CheckError::Failed(format!("io error: {err}"))),
     };
 
-    let mut findings = Vec::new();
     while let Some(entry) = read_dir
         .next_entry()
         .await
@@ -197,5 +197,5 @@ async fn scan_root(
         }
     }
 
-    Ok(findings)
+    Ok(())
 }

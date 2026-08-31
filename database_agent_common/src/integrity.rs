@@ -14,18 +14,6 @@ pub enum IntegritySeverity {
     Error,
 }
 
-impl IntegritySeverity {
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Ok => "ok",
-            Self::Info => "info",
-            Self::Warning => "warning",
-            Self::Error => "error",
-        }
-    }
-}
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum IntegrityCategory {
@@ -39,22 +27,6 @@ pub enum IntegrityCategory {
     Schema,
 }
 
-impl IntegrityCategory {
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Connectivity => "connectivity",
-            Self::Version => "version",
-            Self::Configuration => "configuration",
-            Self::Database => "database",
-            Self::Docker => "docker",
-            Self::Storage => "storage",
-            Self::Backup => "backup",
-            Self::Schema => "schema",
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct IntegrityFinding {
     pub severity: IntegritySeverity,
@@ -65,27 +37,27 @@ pub struct IntegrityFinding {
 
 impl IntegrityFinding {
     #[must_use]
-    pub const fn new(severity: IntegritySeverity, message: String) -> Self {
+    pub fn new(severity: IntegritySeverity, message: impl Into<String>) -> Self {
         Self {
             severity,
-            message,
+            message: message.into(),
             subject: None,
             details: BTreeMap::new(),
         }
     }
 
     #[must_use]
-    pub const fn info(message: String) -> Self {
+    pub fn info(message: impl Into<String>) -> Self {
         Self::new(IntegritySeverity::Info, message)
     }
 
     #[must_use]
-    pub const fn warning(message: String) -> Self {
+    pub fn warning(message: impl Into<String>) -> Self {
         Self::new(IntegritySeverity::Warning, message)
     }
 
     #[must_use]
-    pub const fn error(message: String) -> Self {
+    pub fn error(message: impl Into<String>) -> Self {
         Self::new(IntegritySeverity::Error, message)
     }
 

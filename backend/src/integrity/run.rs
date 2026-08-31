@@ -6,14 +6,19 @@ use crate::Backend;
 use crate::db::database::BackendDatabaseHost;
 use crate::db::node::BackendNode;
 use crate::integrity::describe_transport;
-use daemon_common::integrity::{IntegrityReport, IntegritySeverity};
+use daemon_common::integrity::{
+    ExpectedServer, IntegrityExpectation, IntegrityReport, IntegritySeverity,
+};
 use daemon_common::service::integrity::integrity_service_error::{
     IntegrityChecksError, IntegrityRunError, IntegritySchemaError,
 };
 use database_agent_common::service::integrity::IntegrityService as _;
 use futures::StreamExt as _;
+use sqlx::query_scalar;
+use std::collections::HashSet;
 use std::sync::Arc;
 use tracing::{error, info};
+use uuid::Uuid;
 
 const CONCURRENCY: usize = 4;
 
@@ -116,6 +121,31 @@ impl Backend {
         run.step = step;
     }
 
+    /// The backend's own view of a node, so the daemon can report records the
+    /// backend knows about but the node does not.
+    async fn node_expectation(&self, node: Uuid) -> IntegrityExpectation {
+        let servers = query_scalar!(
+            r#"SELECT node_server_id FROM servers WHERE node = $1"#,
+            node
+        )
+        .fetch_all(&*self.database)
+        .await
+        .inspect_err(|err| error!("Unable to collect the expected servers of {node}: {err:?}"))
+        .unwrap_or_default();
+
+        let ids: HashSet<u32> = servers.into_iter().map(i32::cast_unsigned).collect();
+
+        IntegrityExpectation {
+            servers: Some(
+                ids.iter()
+                    .map(|id| (*id, ExpectedServer { schedules: None }))
+                    .collect(),
+            ),
+            databases: None,
+            storages: Some(ids),
+        }
+    }
+
     async fn execute_integrity_run(&self, selected: Option<Vec<String>>, deep: bool) {
         info!("Running integrity checks (deep: {deep})");
 
@@ -128,11 +158,16 @@ impl Backend {
         )
         .await;
 
-        let nodes = self.nodes_sorted().await;
+        let mut targets = Vec::new();
+        for node in self.nodes_sorted().await {
+            let expected = self.node_expectation(node.id).await;
+            targets.push((node, expected));
+        }
+
         let mut stream = futures::stream::iter(
-            nodes
+            targets
                 .into_iter()
-                .map(|node| run_node(node, selected.clone(), deep)),
+                .map(|(node, expected)| run_node(node, selected.clone(), deep, expected)),
         )
         .buffer_unordered(CONCURRENCY);
 
@@ -270,10 +305,12 @@ async fn run_node(
     node: Arc<BackendNode>,
     selected: Option<Vec<String>>,
     deep: bool,
+    expected: IntegrityExpectation,
 ) -> IntegritySourceReport {
     let source = node_source(&node);
+    let call = node.integrity_run(selected, deep, Some(expected));
 
-    match tokio::time::timeout(SOURCE_TIMEOUT, node.integrity_run(selected, deep)).await {
+    match tokio::time::timeout(SOURCE_TIMEOUT, call).await {
         Ok(Ok(report)) => succeeded(source, report),
         Ok(Err(IntegrityRunError::Communication(inner))) => {
             failed(source, describe_transport(&inner))

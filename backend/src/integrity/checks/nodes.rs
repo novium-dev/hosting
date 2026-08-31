@@ -2,7 +2,6 @@ use crate::Backend;
 use crate::db::node::BackendNode;
 use crate::db::server::ports::NetworkProtocol;
 use crate::integrity::{Check, CheckError, describe_transport};
-use daemon_common::API_HASH;
 use daemon_common::integrity::{IntegrityCategory, IntegrityFinding, IntegrityStatus};
 use daemon_common::node::BackendNodeConfig;
 use daemon_common::service::integrity::integrity_service_error::{
@@ -66,7 +65,7 @@ impl Check for NodesReachable {
         for node in nodes {
             match status(&node).await {
                 Ok(status) => findings.push(
-                    IntegrityFinding::info("The node answered over mTLS".to_owned())
+                    IntegrityFinding::info("The node answered over mTLS")
                         .with_subject(subject(&node))
                         .with_detail("version", status.version)
                         .with_detail("api", status.api_hash.clone())
@@ -101,8 +100,9 @@ impl Check for NodesVersion {
     fn description(&self) -> &'static str {
         "Nodes are released on their own schedule, so their commit does not have to match the \
          backend's. What has to match is the API: both sides carry a fingerprint of the shared \
-         service definitions they were compiled from, and a node whose fingerprint differs \
-         answers a different shape of the API than this backend calls."
+         OpenAPI document generated from the service definitions they were compiled from, and a \
+         node whose fingerprint differs answers a different shape of the API than this backend \
+         calls."
     }
 
     fn category(&self) -> IntegrityCategory {
@@ -123,17 +123,17 @@ impl Check for NodesVersion {
                 continue;
             };
 
-            if status.api_hash != API_HASH {
+            let expected = backend.daemon_api_hash();
+            if status.api_hash != expected {
                 findings.push(
                     IntegrityFinding::error(
                         "The node was built against different daemon service definitions than \
-                         this backend; the two do not agree on the shape of the API"
-                            .to_owned(),
+                         this backend; the two do not agree on the shape of the API",
                     )
                     .with_subject(subject(&node))
                     .with_detail("node_api", display_hash(&status.api_hash))
                     .with_detail("node_commit", status.version)
-                    .with_detail("backend_api", API_HASH.to_owned()),
+                    .with_detail("backend_api", expected.to_owned()),
                 );
             }
         }
@@ -201,7 +201,7 @@ impl Check for NodesConfig {
             if stored_ssh != live.ssh_port {
                 findings.push(
                     IntegrityFinding::warning(
-                        "The stored ssh port differs from the one the node reports".to_owned(),
+                        "The stored ssh port differs from the one the node reports",
                     )
                     .with_subject(subject(&node))
                     .with_detail("stored", format_option(stored_ssh))
@@ -209,18 +209,20 @@ impl Check for NodesConfig {
                 );
             }
 
-            findings.extend(compare_names(
+            compare_names(
+                &mut findings,
                 &node,
                 "server storage",
                 &node.server_storages,
                 &live.storages,
-            ));
-            findings.extend(compare_names(
+            );
+            compare_names(
+                &mut findings,
                 &node,
                 "backup storage",
                 &node.backup_storages,
                 &live.backups,
-            ));
+            );
         }
 
         Ok(findings)
@@ -232,14 +234,14 @@ fn format_option(value: Option<u16>) -> String {
 }
 
 fn compare_names(
+    findings: &mut Vec<IntegrityFinding>,
     node: &BackendNode,
     label: &str,
     stored: &[String],
     live: &[String],
-) -> Vec<IntegrityFinding> {
+) {
     let stored: BTreeSet<&String> = stored.iter().collect();
     let live: BTreeSet<&String> = live.iter().collect();
-    let mut findings = Vec::new();
 
     for name in stored.difference(&live) {
         findings.push(
@@ -260,8 +262,6 @@ fn compare_names(
             .with_detail("storage", (*name).clone()),
         );
     }
-
-    findings
 }
 
 pub(crate) struct NodesServers;

@@ -31,7 +31,7 @@ impl Check for DockerReachable {
     async fn run(&self, agent: &Agent) -> Result<Vec<IntegrityFinding>, CheckError> {
         match agent.docker.ping().await {
             Ok(version) => Ok(vec![
-                IntegrityFinding::info("The container engine responded to a ping".to_owned())
+                IntegrityFinding::info("The container engine responded to a ping")
                     .with_detail("response", version),
             ]),
             Err(err) => Ok(vec![IntegrityFinding::error(format!(
@@ -99,7 +99,7 @@ impl Check for DockerContainers {
                     if !stored.contains(&uuid) {
                         findings.push(
                             IntegrityFinding::error(
-                                "A container of this agent has no instance in the store".to_owned(),
+                                "A container of this agent has no instance in the store",
                             )
                             .with_subject(uuid.to_string())
                             .with_detail(
@@ -114,7 +114,7 @@ impl Check for DockerContainers {
                 }
                 None => findings.push(
                     IntegrityFinding::warning(
-                        "A container of this agent is not named after an instance uuid".to_owned(),
+                        "A container of this agent is not named after an instance uuid",
                     )
                     .with_subject(names.join(", ")),
                 ),
@@ -125,8 +125,7 @@ impl Check for DockerContainers {
             if !present.contains(uuid) {
                 findings.push(
                     IntegrityFinding::error(
-                        "An instance in the store has no container; it cannot be started"
-                            .to_owned(),
+                        "An instance in the store has no container; it cannot be started",
                     )
                     .with_subject(uuid.to_string()),
                 );

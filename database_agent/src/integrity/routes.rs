@@ -45,7 +45,7 @@ impl Check for RouteTable {
                 match agent.routes.find(kind, &identifier) {
                     None => findings.push(
                         IntegrityFinding::error(
-                            "A stored user has no entry in the proxy route table".to_owned(),
+                            "A stored user has no entry in the proxy route table",
                         )
                         .with_subject(identifier.to_string())
                         .with_detail("instance", instance.uuid.to_string())
@@ -55,8 +55,7 @@ impl Check for RouteTable {
                         .push(
                             IntegrityFinding::error(
                                 "A stored user routes to a different instance than the one it \
-                                 belongs to"
-                                    .to_owned(),
+                                 belongs to",
                             )
                             .with_subject(identifier.to_string())
                             .with_detail("instance", instance.uuid.to_string())
@@ -64,8 +63,7 @@ impl Check for RouteTable {
                         ),
                     Some(credentials) if *credentials.password != *user.password => findings.push(
                         IntegrityFinding::error(
-                            "A stored user routes with a password that no longer matches the store"
-                                .to_owned(),
+                            "A stored user routes with a password that no longer matches the store",
                         )
                         .with_subject(identifier.to_string())
                         .with_detail("instance", instance.uuid.to_string()),

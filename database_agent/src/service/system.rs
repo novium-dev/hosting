@@ -9,7 +9,7 @@ impl SystemService for Agent {
     async fn system_status(&self) -> Result<SystemStatus, SystemStatusError> {
         Ok(SystemStatus {
             version: env!("GIT_HASH").to_owned(),
-            api_hash: database_agent_common::API_HASH.to_owned(),
+            api_hash: database_agent_common::service::api_hash(self),
             uptime: self.started.elapsed().as_secs(),
             instance_count: self.instances.read().await.len(),
             subsystems: self.subsystems.snapshot(),

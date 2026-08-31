@@ -27,7 +27,7 @@ use database_agent_common::service::integrity::IntegrityService;
 use database_agent_common::service::setup::SetupService;
 use database_agent_common::service::system::SystemService;
 use database_agent_common::service::user::UserService;
-use database_agent_common::service::{BlankError, framework_router};
+use database_agent_common::service::{BlankError, DatabaseAgentServices, framework_router};
 use rustls::ServerConfig;
 use rustls::server::WebPkiClientVerifier;
 use std::sync::Arc;
@@ -98,6 +98,8 @@ pub async fn middleware(
     }
     next.run(request).await
 }
+
+impl DatabaseAgentServices for Agent {}
 
 impl Agent {
     pub fn router(&self) -> Router {
