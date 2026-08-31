@@ -17,7 +17,7 @@ RUN apk add --no-cache ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev 
 
 FROM chef AS planner
 COPY . .
-RUN cargo chef prepare --bin backend --recipe-path recipe.json
+RUN cargo chef prepare --recipe-path recipe.json
 
 FROM dependencies AS builder
 
