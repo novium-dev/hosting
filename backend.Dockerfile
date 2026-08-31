@@ -4,8 +4,8 @@
 FROM lukemathwalker/cargo-chef:latest-rust-1.98.0-alpine AS chef
 WORKDIR /work
 
-ARG FLAGS="-C debuginfo=0 -C codegen-units=40 -C opt-level=3"
-ENV RUSTFLAGS="-C linker=clang-22 -C link-arg=-fuse-ld=lld $FLAGS"
+ARG FLAGS="-C debuginfo=0 -C codegen-units=40 -C opt-level=3 -C lto=off"
+ENV RUSTFLAGS="-C linker=clang-22 -C link-arg=-fuse-ld=mold $FLAGS"
 
 FROM chef AS utils
 
@@ -13,7 +13,7 @@ RUN RUSTFLAGS="-C opt-level=0 -C codegen-units=40" cargo install sqlx-cli --no-d
 
 FROM chef AS dependencies
 
-RUN apk add --no-cache ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm22-static llvm22-dev git postgresql18 postgresql18-client musl-dev llvm22 clang22 clang22-static lld22 curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+RUN apk add --no-cache ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm22-static llvm22-dev git postgresql18 postgresql18-client musl-dev llvm22 clang22 clang22-static mold curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
 
 FROM chef AS planner
 COPY . .
