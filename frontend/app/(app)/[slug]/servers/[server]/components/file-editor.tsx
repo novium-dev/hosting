@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import {
   Card,
   CardContent,
@@ -354,6 +355,7 @@ export function FileEditor({
 
   return (
     <Card className="overflow-hidden">
+      <UnsavedChangesGuard when={hasUnsavedChanges} />
       <CardHeader className="border-b">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">

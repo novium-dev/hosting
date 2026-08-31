@@ -11,8 +11,12 @@ export type UploadTask = {
   name: string;
   loaded: number;
   total: number;
-  status: "pending" | "uploading" | "done" | "error";
+  status: "pending" | "uploading" | "done" | "error" | "cancelled";
 };
+
+function isTaskActive(task: UploadTask) {
+  return task.status === "pending" || task.status === "uploading";
+}
 
 function taskPercent(task: UploadTask) {
   if (task.status === "done") {
@@ -28,19 +32,25 @@ function taskPercent(task: UploadTask) {
 
 export default function UploadProgressPanel({
   tasks,
+  onCancelTask,
+  onCancelAll,
   onDismiss,
-}: Readonly<{ tasks: UploadTask[]; onDismiss: () => void }>) {
+}: Readonly<{
+  tasks: UploadTask[];
+  onCancelTask: (id: string) => void;
+  onCancelAll: () => void;
+  onDismiss: () => void;
+}>) {
   const { t } = useTranslation();
 
   if (tasks.length === 0) {
     return null;
   }
 
-  const finished = tasks.filter(
-    (task) => task.status === "done" || task.status === "error",
-  ).length;
+  const finished = tasks.filter((task) => !isTaskActive(task)).length;
   const isRunning = finished < tasks.length;
   const hasErrors = tasks.some((task) => task.status === "error");
+  const hasCancelled = tasks.some((task) => task.status === "cancelled");
 
   const totalBytes = tasks.reduce(
     (sum, task) => sum + Math.max(task.total, 0),
@@ -62,7 +72,9 @@ export default function UploadProgressPanel({
       })
     : hasErrors
       ? t("servers-management:filesManager.uploadProgress.completeWithErrors")
-      : t("servers-management:filesManager.uploadProgress.complete");
+      : hasCancelled
+        ? t("servers-management:filesManager.uploadProgress.cancelled")
+        : t("servers-management:filesManager.uploadProgress.complete");
 
   return (
     <div className="fixed bottom-4 right-4 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-lg border bg-card p-3 shadow-lg">
@@ -71,22 +83,36 @@ export default function UploadProgressPanel({
           <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
         ) : hasErrors ? (
           <AlertCircle className="size-4 shrink-0 text-destructive" />
+        ) : hasCancelled ? (
+          <AlertCircle className="size-4 shrink-0 text-muted-foreground" />
         ) : (
           <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
         )}
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
           {title}
         </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-6"
-          aria-label={t("common:actions.close")}
-          onClick={onDismiss}
-        >
-          <X className="size-3.5" />
-        </Button>
+        {isRunning ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 shrink-0 px-2 text-xs"
+            onClick={onCancelAll}
+          >
+            {t("servers-management:filesManager.uploadProgress.cancelAll")}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-6"
+            aria-label={t("common:actions.close")}
+            onClick={onDismiss}
+          >
+            <X className="size-3.5" />
+          </Button>
+        )}
       </div>
 
       <Progress value={overallPercent} className="mt-2" />
@@ -101,16 +127,41 @@ export default function UploadProgressPanel({
                   ? t(
                       "servers-management:filesManager.uploadProgress.statusFailed",
                     )
-                  : task.status === "pending"
+                  : task.status === "cancelled"
                     ? t(
-                        "servers-management:filesManager.uploadProgress.statusPending",
+                        "servers-management:filesManager.uploadProgress.statusCancelled",
                       )
-                    : `${taskPercent(task)}%`}
+                    : task.status === "pending"
+                      ? t(
+                          "servers-management:filesManager.uploadProgress.statusPending",
+                        )
+                      : `${taskPercent(task)}%`}
               </span>
+              {isTaskActive(task) ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-5 shrink-0"
+                  aria-label={t(
+                    "servers-management:filesManager.uploadProgress.cancelFile",
+                    { fileName: task.name },
+                  )}
+                  onClick={() => {
+                    onCancelTask(task.id);
+                  }}
+                >
+                  <X className="size-3" />
+                </Button>
+              ) : null}
             </div>
             <Progress
               value={taskPercent(task)}
-              className={`h-1 ${task.status === "error" ? "opacity-40" : ""}`}
+              className={`h-1 ${
+                task.status === "error" || task.status === "cancelled"
+                  ? "opacity-40"
+                  : ""
+              }`}
             />
           </div>
         ))}

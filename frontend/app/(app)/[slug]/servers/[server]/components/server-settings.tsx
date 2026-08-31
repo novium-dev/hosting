@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import {
   Card,
   CardContent,
@@ -204,6 +205,7 @@ export function ServerSettings({
 
   return (
     <div className="space-y-4">
+      <UnsavedChangesGuard when={isNameDirty} />
       <Card>
         <CardHeader>
           <CardTitle>{t("common:nav.settings")}</CardTitle>

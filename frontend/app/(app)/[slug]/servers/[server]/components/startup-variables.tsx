@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import {
   Card,
   CardContent,
@@ -140,6 +141,7 @@ export function StartupVariables({
 
   return (
     <Card>
+      <UnsavedChangesGuard when={hasChanges} />
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <div>
           <CardTitle>{t("servers:startup.title")}</CardTitle>

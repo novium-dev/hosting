@@ -122,6 +122,12 @@
     "title": "Delete {{name}}?",
     "cannotBeUndone": "This action cannot be undone."
   },
+  "unsavedChanges": {
+    "title": "Unsaved changes",
+    "description": "You have unsaved changes. If you leave now, they will be lost.",
+    "stay": "Stay on page",
+    "discard": "Discard changes"
+  },
   "pagination": {
     "label": "pagination",
     "previous": "Previous",

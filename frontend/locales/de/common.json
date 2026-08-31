@@ -122,6 +122,12 @@
     "title": "{{name}} löschen?",
     "cannotBeUndone": "Diese Aktion kann nicht rückgängig gemacht werden."
   },
+  "unsavedChanges": {
+    "title": "Ungespeicherte Änderungen",
+    "description": "Du hast ungespeicherte Änderungen. Wenn du die Seite jetzt verlässt, gehen sie verloren.",
+    "stay": "Auf der Seite bleiben",
+    "discard": "Änderungen verwerfen"
+  },
   "pagination": {
     "label": "Seitennummerierung",
     "previous": "Vorherige",
