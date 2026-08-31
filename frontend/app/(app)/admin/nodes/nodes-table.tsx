@@ -59,9 +59,11 @@ function formatExpiry(seconds: number) {
 
 export function NodesTable({
   nodes,
+  canManage,
   onChanged,
 }: {
   nodes: NodeRow[];
+  canManage: boolean;
   onChanged: () => void;
 }) {
   const { t } = useTranslation();
@@ -204,7 +206,7 @@ export function NodesTable({
           </p>
         </div>
         <CreateNodeDialog
-          canCreate={true}
+          canCreate={canManage}
           onCreated={() => void mutateRegistrations()}
         />
       </div>
@@ -306,6 +308,7 @@ export function NodesTable({
                       <div className="flex items-center justify-end gap-2">
                         <EditNodeRegistrationDialog
                           registration={registration}
+                          canManage={canManage}
                           onSaved={() => void mutateRegistrations()}
                         />
                         <Tooltip>
@@ -313,6 +316,7 @@ export function NodesTable({
                             <Button
                               size="icon"
                               variant="outline"
+                              disabled={!canManage}
                               loading={extending === registration.code}
                               onClick={() => void handleExtend(registration.code)}
                             >
@@ -377,7 +381,7 @@ export function NodesTable({
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                disabled={node.server_count > 0}
+                                disabled={!canManage || node.server_count > 0}
                                 onClick={() => setDeleting(node)}
                               >
                                 <Trash2Icon className="size-4" />

@@ -642,13 +642,19 @@ export function CreateNodeDialog({
 
 export function EditNodeRegistrationDialog({
   registration,
+  canManage,
   onSaved,
 }: {
   registration: NodeRegistration;
+  canManage: boolean;
   onSaved?: () => void;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+
+  if (!canManage) {
+    return null;
+  }
 
   return (
     <>

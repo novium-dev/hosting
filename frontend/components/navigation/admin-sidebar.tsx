@@ -65,13 +65,13 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
           title: t("common:nav.projects"),
           href: "/admin/projects",
           icon: FolderKanban,
-          permission: ManagementPermission.SERVER_MANAGE,
+          permission: 0,
         },
         {
           title: t("common:nav.servers"),
           href: "/admin/servers",
           icon: Server,
-          permission: ManagementPermission.SERVER_MANAGE,
+          permission: 0,
         },
         {
           title: t("common:nav.templates"),

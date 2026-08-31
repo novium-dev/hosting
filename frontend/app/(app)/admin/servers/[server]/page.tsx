@@ -61,15 +61,9 @@ export default function AdminServerManagementPage() {
   const { server = "" } = useParams<{ server: string }>();
 
   const { data: session, isLoading } = authClient.useSession();
-  const canManage = session
-    ? hasManagementPermission(
-        session.user.permissions,
-        ManagementPermission.SERVER_MANAGE,
-      )
-    : false;
 
   const { data: bundle, mutate } = useSWR(
-    canManage && server ? ["admin-server", server] : null,
+    session && server ? ["admin-server", server] : null,
     async () => {
       const [serverResponse, organizations] = await Promise.all([
         serverInfo({ path: { server_id: server } }),
@@ -83,7 +77,7 @@ export default function AdminServerManagementPage() {
   );
 
   if (isLoading) return null;
-  if (!session || !canManage) return <NotFoundView />;
+  if (!session) return <NotFoundView />;
   if (!bundle) return null;
 
   const data = bundle.data;

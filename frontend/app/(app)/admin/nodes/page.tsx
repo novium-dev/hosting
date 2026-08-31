@@ -23,12 +23,23 @@ export default function AdminNodesPage() {
     },
   );
 
+  const canManage = session
+    ? hasManagementPermission(
+        session.user.permissions,
+        ManagementPermission.NODES_MANAGE,
+      )
+    : false;
+
   if (isLoading) return null;
   if (!canView) return <NotFoundView />;
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <NodesTable nodes={nodes ?? []} onChanged={() => void mutate()} />
+      <NodesTable
+        nodes={nodes ?? []}
+        canManage={canManage}
+        onChanged={() => void mutate()}
+      />
     </div>
   );
 }
