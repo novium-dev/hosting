@@ -155,7 +155,7 @@ export function EditInstanceDialog({
               </Label>
               <Input
                 id="cpu"
-                inputMode="numeric"
+                inputMode="decimal"
                 value={cpu}
                 onChange={(event) => setCpu(event.target.value)}
               />

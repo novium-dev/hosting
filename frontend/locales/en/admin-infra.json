@@ -34,7 +34,7 @@
       "memoryLabel": "Memory (MiB)",
       "swapLabel": "Swap (MiB)",
       "diskLabel": "Disk (MiB)",
-      "cpuLabel": "CPU (%)",
+      "cpuLabel": "CPU (cores)",
       "suspendedDescription": "Rejects every client connection at the proxy."
     },
     "hostDialog": {

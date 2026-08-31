@@ -92,9 +92,13 @@ fn resources(data: &StoredInstance, config: &AgentConfig) -> Resources {
             0 => None,
             limit => Some(limit),
         },
-        cpu_quota: Some(if data.cpu > 0 { data.cpu * 1000 } else { -1 }),
-        cpu_period: (data.cpu > 0).then_some(100_000),
-        cpu_shares: (data.cpu > 0).then_some(1024),
+        cpu_quota: Some(if data.cpu > 0.0f64 {
+            (data.cpu * 100_000.0f64).round() as i64
+        } else {
+            -1
+        }),
+        cpu_period: (data.cpu > 0.0f64).then_some(100_000),
+        cpu_shares: (data.cpu > 0.0f64).then_some(1024),
         ..Default::default()
     }
 }
@@ -398,7 +402,7 @@ impl DockerHandle {
 
     #[expect(
         clippy::cast_precision_loss,
-        reason = "the cpu percentage does not need full integer precision"
+        reason = "the cpu usage does not need full integer precision"
     )]
     async fn stats_loop(
         docker: Docker,
@@ -464,7 +468,7 @@ impl DockerHandle {
                     let wall_delta = now.duration_since(previous).as_nanos() as f64;
 
                     if wall_delta > 0.0f64 && cpu_delta > 0.0f64 {
-                        ((cpu_delta / wall_delta) * 100.0f64 * 1000.0f64).round() / 1000.0f64
+                        ((cpu_delta / wall_delta) * 1000.0f64).round() / 1000.0f64
                     } else {
                         0.0f64
                     }

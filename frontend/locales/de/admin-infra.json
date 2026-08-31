@@ -34,7 +34,7 @@
       "memoryLabel": "Arbeitsspeicher (MiB)",
       "swapLabel": "Swap (MiB)",
       "diskLabel": "Speicherplatz (MiB)",
-      "cpuLabel": "CPU (%)",
+      "cpuLabel": "CPU (Kerne)",
       "suspendedDescription": "Weist jede Client-Verbindung am Proxy zurück."
     },
     "hostDialog": {

@@ -178,7 +178,7 @@ impl DatabaseConfig {
             if let Some(disk) = parse_var::<i64>(&format!("{prefix}_DISK"))? {
                 entry.disk = disk;
             }
-            if let Some(cpu) = parse_var::<i64>(&format!("{prefix}_CPU"))? {
+            if let Some(cpu) = parse_var::<f64>(&format!("{prefix}_CPU"))? {
                 entry.cpu = cpu;
             }
 
@@ -202,7 +202,7 @@ pub struct InstanceDefaults {
     pub memory: i64,
     pub swap: i64,
     pub disk: i64,
-    pub cpu: i64,
+    pub cpu: f64,
     pub volumes: BTreeMap<String, String>,
     pub env: BTreeMap<String, String>,
     pub cmd: Option<Vec<String>>,
@@ -219,7 +219,7 @@ impl InstanceDefaults {
                 memory: 1024,
                 swap: 0,
                 disk: 10240,
-                cpu: 100,
+                cpu: 1.0f64,
                 volumes: BTreeMap::from([("data".to_owned(), "/var/lib/postgresql".to_owned())]),
                 env: BTreeMap::from([
                     ("POSTGRES_HOST_AUTH_METHOD".to_owned(), "trust".to_owned()),
@@ -235,7 +235,7 @@ impl InstanceDefaults {
                 memory: 1024,
                 swap: 0,
                 disk: 10240,
-                cpu: 100,
+                cpu: 1.0f64,
                 volumes: BTreeMap::from([("data".to_owned(), "/var/lib/mysql".to_owned())]),
                 env: BTreeMap::from([(
                     "MARIADB_ALLOW_EMPTY_ROOT_PASSWORD".to_owned(),
@@ -251,7 +251,7 @@ impl InstanceDefaults {
                 memory: 1024,
                 swap: 0,
                 disk: 10240,
-                cpu: 100,
+                cpu: 1.0f64,
                 volumes: BTreeMap::from([("data".to_owned(), "/data/db".to_owned())]),
                 env: BTreeMap::new(),
                 cmd: Some(vec![
@@ -268,7 +268,7 @@ impl InstanceDefaults {
                 memory: 512,
                 swap: 0,
                 disk: 2048,
-                cpu: 100,
+                cpu: 1.0f64,
                 volumes: BTreeMap::from([("data".to_owned(), "/data".to_owned())]),
                 env: BTreeMap::new(),
                 cmd: Some(vec![

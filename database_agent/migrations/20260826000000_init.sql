@@ -7,7 +7,7 @@ CREATE TABLE instances (
     swap INTEGER NOT NULL,
     disk INTEGER NOT NULL,
     io_weight INTEGER,
-    cpu INTEGER NOT NULL,
+    cpu REAL NOT NULL,
     image TEXT NOT NULL,
     image_uid INTEGER NOT NULL,
     image_gid INTEGER NOT NULL,

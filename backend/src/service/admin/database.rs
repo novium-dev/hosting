@@ -104,7 +104,7 @@ pub(crate) struct UpdateDatabaseInstance {
     #[serde(default)]
     pub(crate) disk: Option<i64>,
     #[serde(default)]
-    pub(crate) cpu: Option<i64>,
+    pub(crate) cpu: Option<f64>,
     #[serde(default)]
     pub(crate) suspended: Option<bool>,
 }

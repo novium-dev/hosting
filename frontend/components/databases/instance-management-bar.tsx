@@ -35,7 +35,7 @@ import { useAction } from "@/lib/action-hooks";
 import type { ListProjectInstancesResponses } from "@/lib/api";
 import {
   controlsFromState,
-  formatCpuPercentCompact,
+  formatCpuCores,
   formatUptime,
   formatUsageCompact,
   statusFromLabel,
@@ -257,7 +257,7 @@ export function InstanceManagementBar({
         <div className="rounded-md border bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground">{t("common:resources.cpu")}</p>
           <p className="mt-1 text-sm font-medium">
-            {formatCpuPercentCompact(utilization?.cpu_absolute)}
+            {formatCpuCores(utilization?.cpu_absolute)}
           </p>
         </div>
       </CardContent>

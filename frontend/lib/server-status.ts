@@ -227,9 +227,9 @@ export function formatCpuCompact(current: unknown, max: unknown): string {
   return `${valueText} / ${formatCores(limit)}`;
 }
 
-export function formatCpuPercentCompact(current: unknown): string {
+export function formatCpuCores(current: unknown): string {
   const value = current == null ? null : toFiniteNumber(current);
-  return value === null ? "--" : `${formatScaled(value)}%`;
+  return value === null ? "--" : formatCores(value);
 }
 
 export function formatUptime(ms: number): string {
