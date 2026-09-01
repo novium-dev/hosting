@@ -192,5 +192,9 @@
     "usernameHint": "Your username cannot be changed.",
     "saveChanges": "Save changes",
     "daemonAuth": "Daemon Auth"
+  },
+  "policy": {
+    "projectCreationDisabled": "Creating projects is disabled on this instance. Ask an administrator to create one for you.",
+    "projectUpdateDisabled": "Renaming projects is disabled on this instance. Ask an administrator to change the name or the slug."
   }
 }

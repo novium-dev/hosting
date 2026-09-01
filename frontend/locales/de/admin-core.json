@@ -60,6 +60,11 @@
   },
   "projects": {
     "description": "Projekte durchsuchen, auf die die aktuelle Admin-Sitzung zugreifen kann.",
+    "createButton": "Projekt erstellen",
+    "createDialog": {
+      "title": "Projekt erstellen",
+      "description": "Erstelle ein Projekt im Namen eines anderen Nutzers."
+    },
     "searchPlaceholder": "Suche nach Projekt, Slug oder Besitzer...",
     "featuresButton": "Features",
     "table": {

@@ -21,6 +21,7 @@ const slugSchema = z
 export const createProjectSchema = z.object({
   name: z.string().min(1, { message: "Name is required" }),
   slug: slugSchema,
+  owner: z.number().int().positive().optional(),
 });
 
 export type CreateProject = z.infer<typeof createProjectSchema>;

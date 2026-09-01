@@ -380,5 +380,48 @@
       "accepted": "{{license}} accepted",
       "failed": "Failed to accept the license"
     }
+  },
+  "tasks": {
+    "busyStorage": "The server's files are locked by another task: {{task}}",
+    "kinds": {
+      "backup_restore": "Backup is being restored",
+      "backup_create": "Backup is being created",
+      "backup_download": "Backup is being downloaded",
+      "backup_delete": "Backup is being deleted",
+      "backup_update": "Backup is being updated",
+      "backup_list": "Backups are being listed",
+      "realtime_download": "Download running",
+      "wipe": "Files are being wiped",
+      "sftp": "SFTP session active",
+      "files_watch_websocket": "File watcher active",
+      "file_operation": "File operation running",
+      "scan": "Storage is being scanned",
+      "server_running": "Server is running",
+      "start": "Server is starting",
+      "stop": "Server is stopping",
+      "restart": "Server is restarting",
+      "kill": "Server is being killed",
+      "delete": "Server is being deleted",
+      "schedule_task_run": "Scheduled task running",
+      "schedule_terminal_command": "Scheduled command running",
+      "container_command": "Console command running"
+    },
+    "fileOperations": {
+      "archive_create": "create archive",
+      "archive_unpack": "unpack archive",
+      "chmod": "permissions",
+      "chown": "owner",
+      "copy_file": "copy",
+      "delete": "delete",
+      "download": "download",
+      "list": "list",
+      "mkdir": "create directory",
+      "rename": "rename",
+      "stat": "stat",
+      "symlink": "symlink",
+      "write": "write",
+      "write_by_url": "download to file",
+      "write_by_template": "template write"
+    }
   }
 }

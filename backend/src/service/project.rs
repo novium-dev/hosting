@@ -135,6 +135,8 @@ pub(crate) impl ProjectService for Backend {
     ///
     /// # Permissions
     /// Requires [`ManagementPermissions::USER_MANAGE`] if `owner` is set.
+    /// Requires [`ManagementPermissions::LIMITS_BYPASS`] if this instance does
+    /// not let users create projects themselves.
     #[route("", method = PUT)]
     #[error(db::failure <- [sql:*], auth::{unreachable, permission_denied}, project::slug_invalid, user::not_found <- [sql:not_found])]
     async fn create_project(
@@ -144,6 +146,10 @@ pub(crate) impl ProjectService for Backend {
         name: String,
         owner: Option<i32>,
     ) -> Result<String, _> {
+        if !self.config.projects.self_creation {
+            auth.require::<_, _, CreateProjectError>((), ManagementPermissions::LIMITS_BYPASS)?;
+        }
+
         validate_slug::<CreateProjectError>(&slug)?;
 
         let owner = if let Some(owner) = owner {
@@ -233,6 +239,11 @@ pub(crate) impl ProjectService for Backend {
     }
 
     /// Updates project metadata.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::ADMIN_MANAGEMENT`].
+    /// Requires [`ManagementPermissions::LIMITS_BYPASS`] to change the name or
+    /// the slug if this instance does not let users rename their own projects.
     #[route("/{project_id}", method = PATCH)]
     #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found <- [sql:not_found], slug_invalid}, user::not_found <- [sql:foreign_key])]
     async fn update_project(
@@ -244,6 +255,10 @@ pub(crate) impl ProjectService for Backend {
         owner: Option<i32>,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateProjectError>(project_id, ProjectPermissions::ADMIN_MANAGEMENT)?;
+
+        if !self.config.projects.self_update && (slug.is_some() || name.is_some()) {
+            auth.require::<_, _, UpdateProjectError>((), ManagementPermissions::LIMITS_BYPASS)?;
+        }
 
         if let Some(slug) = slug.as_deref() {
             validate_slug::<UpdateProjectError>(slug)?;

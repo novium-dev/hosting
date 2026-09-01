@@ -15,6 +15,7 @@ import type { AppProject } from "@/lib/auth";
 import { ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "@/lib/navigation";
+import { useInstancePolicy } from "@/hooks/use-instance-policy";
 import { CreateProjectModal } from "./create-project";
 import { SwitcherItem } from "./switcher-item";
 
@@ -26,6 +27,7 @@ export function ProjectDropdown({
   const params = useParams();
   const slug = params.slug as string;
   const { t } = useTranslation();
+  const { canCreateProject } = useInstancePolicy();
 
   const activeProject = projects.find((project) => project.slug === slug);
 
@@ -71,8 +73,12 @@ export function ProjectDropdown({
             activeProjectId={activeProject?.id ?? ""}
           />
         ))}
-        <DropdownMenuSeparator />
-        <CreateProjectModal />
+        {canCreateProject && (
+          <>
+            <DropdownMenuSeparator />
+            <CreateProjectModal />
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

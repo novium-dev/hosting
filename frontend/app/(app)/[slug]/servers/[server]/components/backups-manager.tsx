@@ -54,6 +54,8 @@ import {
   restoreBackup,
   type ListBackupsResponses,
 } from "@/lib/api";
+import { TaskLockNotice } from "@/components/server/task-lock-notice";
+import { useServerTaskLock } from "@/stores/server-tasks";
 
 type BackupsManagerProps = {
   serverId: string;
@@ -102,6 +104,8 @@ function backupIdFromRow(backup: BackupRow) {
 
 export function BackupsManager({ serverId }: BackupsManagerProps) {
   const { t } = useTranslation();
+  const storageLock = useServerTaskLock(serverId, "storage", "read");
+  const restoreLock = useServerTaskLock(serverId, "storage", "write");
   const [backups, setBackups] = useState<BackupRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -286,7 +290,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
           <Button
             type="button"
             onClick={() => setCreateOpen(true)}
-            disabled={isActionLoading}
+            disabled={isActionLoading || storageLock.locked}
           >
             <HardDrive className="size-4" />
             {t("servers:backups.createButton")}
@@ -297,11 +301,12 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
             onClick={() => {
               void refresh();
             }}
-            disabled={isActionLoading}
+            disabled={isActionLoading || storageLock.locked}
           >
             <RefreshCcw className="size-4" />
             {t("common:actions.refresh")}
           </Button>
+          <TaskLockNotice lock={restoreLock} />
         </div>
       </CardHeader>
 
@@ -359,7 +364,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
                             onClick={() => {
                               void handleDownload(backup);
                             }}
-                            disabled={isActionLoading}
+                            disabled={isActionLoading || storageLock.locked}
                           >
                             <Download className="size-4" />
                             {t("common:actions.download")}
@@ -372,7 +377,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
                               setSelectedBackup(backup);
                               setRestoreOpen(true);
                             }}
-                            disabled={isActionLoading}
+                            disabled={isActionLoading || restoreLock.locked}
                           >
                             <RotateCcw className="size-4" />
                             {t("servers:backups.restoreButton")}
@@ -385,7 +390,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
                               setSelectedBackup(backup);
                               setDeleteOpen(true);
                             }}
-                            disabled={isActionLoading}
+                            disabled={isActionLoading || storageLock.locked}
                           >
                             <Trash2 className="size-4" />
                             {t("common:actions.delete")}
@@ -429,6 +434,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
                 void handleCreateBackup();
               }}
               loading={isActionLoading}
+              disabled={storageLock.locked}
             >
               {t("common:actions.create")}
             </Button>
@@ -458,6 +464,8 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          <TaskLockNotice lock={restoreLock} />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isActionLoading}>
               {t("common:actions.cancel")}
@@ -467,7 +475,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
                 event.preventDefault();
                 void handleRestore();
               }}
-              disabled={isActionLoading}
+              disabled={isActionLoading || restoreLock.locked}
             >
               {t("servers:backups.restoreButton")}
             </AlertDialogAction>
@@ -507,7 +515,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
                 event.preventDefault();
                 void handleDelete();
               }}
-              disabled={isActionLoading}
+              disabled={isActionLoading || storageLock.locked}
             >
               {t("common:actions.delete")}
             </AlertDialogAction>

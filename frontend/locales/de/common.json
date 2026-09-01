@@ -192,5 +192,9 @@
     "usernameHint": "Dein Benutzername kann nicht geändert werden.",
     "saveChanges": "Änderungen speichern",
     "daemonAuth": "Daemon-Auth"
+  },
+  "policy": {
+    "projectCreationDisabled": "Das Erstellen von Projekten ist auf dieser Instanz deaktiviert. Bitte einen Administrator, eines für dich anzulegen.",
+    "projectUpdateDisabled": "Das Umbenennen von Projekten ist auf dieser Instanz deaktiviert. Bitte einen Administrator, den Namen oder den Slug zu ändern."
   }
 }

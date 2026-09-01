@@ -5,15 +5,25 @@ import { Button } from "@/components/ui/button";
 import { appConfig } from "@/constants/config";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "@/lib/navigation";
+import { useInstancePolicy } from "@/hooks/use-instance-policy";
 import { useTranslation } from "react-i18next";
 
 export default function OnboardingForm() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { canCreateProject, isLoading } = useInstancePolicy();
+
+  if (isLoading) return null;
 
   return (
     <div className="flex flex-col gap-4">
-      <CreateProjectForm onSuccess={({ slug }) => router.push(`/${slug}`)} />
+      {canCreateProject ? (
+        <CreateProjectForm onSuccess={({ slug }) => router.push(`/${slug}`)} />
+      ) : (
+        <p className="text-sm text-muted-foreground text-center">
+          {t("common:policy.projectCreationDisabled")}
+        </p>
+      )}
       <Button
         variant="outline"
         onClick={() => {

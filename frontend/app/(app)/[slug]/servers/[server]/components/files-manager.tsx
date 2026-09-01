@@ -105,6 +105,9 @@ import {
   type ListFilesResponses,
 } from "@/lib/api";
 import { FileMode, modeToType } from "@/lib/files";
+import { useServerTaskLock } from "@/stores/server-tasks";
+import { taskLabel } from "@/lib/server-tasks";
+import { TaskLockNotice } from "@/components/server/task-lock-notice";
 import { isUploadAborted, uploadToSignedUrl } from "@/lib/file-upload";
 import { appConfig } from "@/constants/config";
 import {
@@ -125,6 +128,7 @@ type FileRow = ListFilesResponses[200][number];
 type ActionMenuItem = ComponentType<{
   children?: ReactNode;
   className?: string;
+  disabled?: boolean;
   onSelect?: (event: Event) => void;
 }>;
 
@@ -307,6 +311,22 @@ export function FilesManager({
   canWriteFiles,
 }: FilesManagerProps) {
   const { t } = useTranslation();
+  const storageLock = useServerTaskLock(serverId, "storage", "read");
+  const filesBlocked = storageLock.locked;
+
+  const ensureStorageUnlocked = () => {
+    if (!storageLock.locked || !storageLock.blocking) {
+      return true;
+    }
+
+    toast.error(
+      t("servers:tasks.busyStorage", {
+        task: taskLabel(storageLock.blocking, t),
+      }),
+    );
+
+    return false;
+  };
   const router = useRouter();
   const [currentPath, setCurrentPath] = useState("/");
   const [pathInput, setPathInput] = useState("/");
@@ -767,6 +787,10 @@ export function FilesManager({
     incomingFiles: File[],
     targetDirectoryPath = currentPath,
   ) => {
+    if (!ensureStorageUnlocked()) {
+      return;
+    }
+
     if (!canWriteFiles) {
       toast.error(
         t("servers-management:filesManager.toasts.noPermissionUpload"),
@@ -955,6 +979,10 @@ export function FilesManager({
     entry: FileRow,
     targetDirectoryPath: string,
   ) => {
+    if (!ensureStorageUnlocked()) {
+      return;
+    }
+
     if (!canWriteFiles) {
       toast.error(t("servers-management:filesManager.toasts.noPermissionMove"));
       return;
@@ -1823,6 +1851,7 @@ export function FilesManager({
       return (
         <Item
           key={`${entry.relative_path}-${action}`}
+          disabled={filesBlocked}
           onSelect={() => {
             void onAction(entry, action);
           }}
@@ -1875,6 +1904,7 @@ export function FilesManager({
             onDrop={(event) => {
               void handleDropToPath(event, parentPath);
             }}
+            disabled={filesBlocked}
             className={
               dropTargetPath === parentPath
                 ? "border-primary bg-primary/10"
@@ -1936,13 +1966,18 @@ export function FilesManager({
               "servers-management:filesManager.pathInputPlaceholder",
             )}
           />
-          <Button type="button" onClick={() => void refresh(pathInput)}>
+          <Button
+            type="button"
+            onClick={() => void refresh(pathInput)}
+            disabled={filesBlocked}
+          >
             {t("servers-management:filesManager.openPathButton")}
           </Button>
           <Button
             type="button"
             variant="outline"
             onClick={() => void refresh()}
+            disabled={filesBlocked}
           >
             <RefreshCcw className="size-4" />
             {t("common:actions.refresh")}
@@ -1953,7 +1988,7 @@ export function FilesManager({
             onClick={() => {
               handleUpload();
             }}
-            disabled={isActionLoading || !canWriteFiles}
+            disabled={isActionLoading || !canWriteFiles || filesBlocked}
           >
             <Upload className="size-4" />
             {t("common:actions.upload")}
@@ -1962,7 +1997,7 @@ export function FilesManager({
             type="button"
             variant="outline"
             onClick={() => setCreateFileOpen(true)}
-            disabled={isActionLoading || !canWriteFiles}
+            disabled={isActionLoading || !canWriteFiles || filesBlocked}
           >
             <FilePlus className="size-4" />
             {t("servers-management:filesManager.newFileButton")}
@@ -1971,11 +2006,12 @@ export function FilesManager({
             type="button"
             variant="outline"
             onClick={() => setCreateDirectoryOpen(true)}
-            disabled={isActionLoading || !canWriteFiles}
+            disabled={isActionLoading || !canWriteFiles || filesBlocked}
           >
             <FolderPlus className="size-4" />
             {t("servers-management:filesManager.newFolderButton")}
           </Button>
+          <TaskLockNotice lock={storageLock} />
         </div>
       </CardHeader>
 
@@ -2206,7 +2242,7 @@ export function FilesManager({
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={isActionLoading || !canWriteFiles}
+                disabled={isActionLoading || !canWriteFiles || filesBlocked}
                 onClick={() => {
                   setMassMoveInput(currentPath);
                   setMassMoveOpen(true);
@@ -2219,7 +2255,7 @@ export function FilesManager({
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={isActionLoading || !canWriteFiles}
+                disabled={isActionLoading || !canWriteFiles || filesBlocked}
                 onClick={() =>
                   openArchiveDialog(
                     selectedEntries.map((entry) =>
@@ -2239,7 +2275,7 @@ export function FilesManager({
                 size="sm"
                 variant="outline"
                 className="text-destructive hover:text-destructive"
-                disabled={isActionLoading || !canWriteFiles}
+                disabled={isActionLoading || !canWriteFiles || filesBlocked}
                 onClick={() => setMassDeleteOpen(true)}
               >
                 <Trash2 className="size-4" />
@@ -2302,6 +2338,7 @@ export function FilesManager({
                 void handleRename();
               }}
               loading={isActionLoading}
+              disabled={filesBlocked}
             >
               {t("common:actions.rename")}
             </Button>
@@ -2352,6 +2389,7 @@ export function FilesManager({
                 void handleCopy();
               }}
               loading={isActionLoading}
+              disabled={filesBlocked}
             >
               {t("common:actions.copy")}
             </Button>
@@ -2398,7 +2436,7 @@ export function FilesManager({
                 event.preventDefault();
                 void handleDelete();
               }}
-              disabled={isActionLoading}
+              disabled={isActionLoading || filesBlocked}
             >
               {t("common:actions.delete")}
             </AlertDialogAction>
@@ -2517,6 +2555,7 @@ export function FilesManager({
                 void handleArchive();
               }}
               loading={isActionLoading}
+              disabled={filesBlocked}
             >
               {t("common:resources.archive")}
             </Button>
@@ -2572,6 +2611,7 @@ export function FilesManager({
                 void handleUnarchive();
               }}
               loading={isActionLoading}
+              disabled={filesBlocked}
             >
               {t(
                 "servers-management:filesManager.unarchiveDialog.submitButton",
@@ -2615,7 +2655,7 @@ export function FilesManager({
               onChange={(event) => setPermissionsModeInput(event.target.value)}
               className="font-mono"
               placeholder="0644"
-              disabled={!canWriteFiles}
+              disabled={!canWriteFiles || filesBlocked}
             />
             <p className="font-mono text-xs text-muted-foreground">
               {/^[0-7]{3,4}$/.test(permissionsModeInput.trim())
@@ -2636,7 +2676,7 @@ export function FilesManager({
                 value={permissionsUidInput}
                 onChange={(event) => setPermissionsUidInput(event.target.value)}
                 inputMode="numeric"
-                disabled={!canWriteFiles}
+                disabled={!canWriteFiles || filesBlocked}
               />
             </div>
             <div className="space-y-2">
@@ -2647,7 +2687,7 @@ export function FilesManager({
                 value={permissionsGidInput}
                 onChange={(event) => setPermissionsGidInput(event.target.value)}
                 inputMode="numeric"
-                disabled={!canWriteFiles}
+                disabled={!canWriteFiles || filesBlocked}
               />
             </div>
           </div>
@@ -2666,7 +2706,7 @@ export function FilesManager({
                 void handlePermissions();
               }}
               loading={isActionLoading}
-              disabled={!canWriteFiles}
+              disabled={!canWriteFiles || filesBlocked}
             >
               {t("common:actions.save")}
             </Button>
@@ -2716,6 +2756,7 @@ export function FilesManager({
                 void handleMassMove();
               }}
               loading={isActionLoading}
+              disabled={filesBlocked}
             >
               {t("common:actions.move")}
             </Button>
@@ -2746,7 +2787,7 @@ export function FilesManager({
                 event.preventDefault();
                 void handleMassDelete();
               }}
-              disabled={isActionLoading}
+              disabled={isActionLoading || filesBlocked}
               className="bg-destructive hover:bg-destructive/90"
             >
               {t("common:actions.delete")}
@@ -2798,6 +2839,7 @@ export function FilesManager({
                 void handleCreateDirectory();
               }}
               loading={isActionLoading}
+              disabled={filesBlocked}
             >
               {t("common:actions.create")}
             </Button>
@@ -2848,6 +2890,7 @@ export function FilesManager({
                 void handleCreateFile();
               }}
               loading={isActionLoading}
+              disabled={filesBlocked}
             >
               {t("common:actions.create")}
             </Button>

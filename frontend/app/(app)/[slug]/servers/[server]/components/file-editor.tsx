@@ -29,6 +29,8 @@ import { downloadUser, statFile, uploadUser } from "@/lib/api";
 import { uploadToSignedUrl } from "@/lib/file-upload";
 import { appConfig } from "@/constants/config";
 import { FileMode, modeToType } from "@/lib/files";
+import { useServerTaskLock } from "@/stores/server-tasks";
+import { TaskLockNotice } from "@/components/server/task-lock-notice";
 
 type FileEditorProps = {
   serverId: string;
@@ -174,6 +176,7 @@ export function FileEditor({
   canWriteFiles,
 }: FileEditorProps) {
   const { t } = useTranslation();
+  const storageLock = useServerTaskLock(serverId, "storage", "read");
   const normalizedPath = useMemo(() => (path ? normalizePath(path) : ""), [path]);
   const fileName = useMemo(
     () =>
@@ -412,12 +415,14 @@ export function FileEditor({
                 !canWriteFiles ||
                 mode !== "text" ||
                 !hasUnsavedChanges ||
-                isSaving
+                isSaving ||
+                storageLock.locked
               }
               loading={isSaving}
             >
               {t("common:actions.save")}
             </Button>
+            <TaskLockNotice lock={storageLock} />
           </div>
         </div>
 

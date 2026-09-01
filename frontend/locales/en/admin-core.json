@@ -60,6 +60,11 @@
   },
   "projects": {
     "description": "Browse projects available to the current admin session.",
+    "createButton": "Create project",
+    "createDialog": {
+      "title": "Create project",
+      "description": "Create a project on behalf of another user."
+    },
     "searchPlaceholder": "Search by project, slug, or owner...",
     "featuresButton": "Features",
     "table": {

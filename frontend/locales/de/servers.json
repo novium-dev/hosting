@@ -380,5 +380,48 @@
       "accepted": "{{license}} akzeptiert",
       "failed": "Lizenz konnte nicht akzeptiert werden"
     }
+  },
+  "tasks": {
+    "busyStorage": "Die Dateien des Servers sind durch eine andere Aufgabe gesperrt: {{task}}",
+    "kinds": {
+      "backup_restore": "Backup wird wiederhergestellt",
+      "backup_create": "Backup wird erstellt",
+      "backup_download": "Backup wird heruntergeladen",
+      "backup_delete": "Backup wird gelöscht",
+      "backup_update": "Backup wird aktualisiert",
+      "backup_list": "Backups werden aufgelistet",
+      "realtime_download": "Download läuft",
+      "wipe": "Dateien werden gelöscht",
+      "sftp": "SFTP-Sitzung aktiv",
+      "files_watch_websocket": "Dateiüberwachung aktiv",
+      "file_operation": "Dateioperation läuft",
+      "scan": "Speicher wird gescannt",
+      "server_running": "Server läuft",
+      "start": "Server startet",
+      "stop": "Server stoppt",
+      "restart": "Server startet neu",
+      "kill": "Server wird gekillt",
+      "delete": "Server wird gelöscht",
+      "schedule_task_run": "Geplante Aufgabe läuft",
+      "schedule_terminal_command": "Geplanter Befehl läuft",
+      "container_command": "Konsolenbefehl läuft"
+    },
+    "fileOperations": {
+      "archive_create": "Archiv erstellen",
+      "archive_unpack": "Archiv entpacken",
+      "chmod": "Rechte",
+      "chown": "Besitzer",
+      "copy_file": "kopieren",
+      "delete": "löschen",
+      "download": "herunterladen",
+      "list": "auflisten",
+      "mkdir": "Ordner erstellen",
+      "rename": "umbenennen",
+      "stat": "Status",
+      "symlink": "Symlink",
+      "write": "schreiben",
+      "write_by_url": "Download in Datei",
+      "write_by_template": "Template-Schreiben"
+    }
   }
 }

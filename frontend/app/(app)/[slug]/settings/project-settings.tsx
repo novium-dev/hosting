@@ -24,6 +24,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { useAction } from "@/lib/action-hooks";
 import type { AppProject } from "@/lib/auth";
 import { useRouter } from "@/lib/navigation";
+import { useInstancePolicy } from "@/hooks/use-instance-policy";
 import { useProjectStore } from "@/stores/projects";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -40,6 +41,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const { canUpdateProject } = useInstancePolicy();
 
   const deleteProject = useAction(deleteProjectAction, {
     onSuccess: () => {
@@ -63,9 +65,17 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
           {t("project:settings.subheading")}
         </p>
       </div>
-      <UpdateProjectName project={project} />
+      {canUpdateProject ? (
+        <>
+          <UpdateProjectName project={project} />
 
-      <UpdateProjectSlug project={project} />
+          <UpdateProjectSlug project={project} />
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {t("common:policy.projectUpdateDisabled")}
+        </p>
+      )}
 
       <Card>
         <CardHeader>

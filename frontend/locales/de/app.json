@@ -31,7 +31,9 @@
     "slugTaken": "Slug ist bereits vergeben",
     "slugCheckError": "Fehler beim Prüfen des Slugs",
     "submit": "Projekt erstellen",
-    "createdSuccess": "Projekt erfolgreich erstellt"
+    "createdSuccess": "Projekt erfolgreich erstellt",
+    "ownerPlaceholder": "Besitzer auswählen",
+    "ownerDescription": "Der Nutzer, dem dieses Projekt gehört."
   },
   "createProjectPage": {
     "title": "Projekt erstellen",

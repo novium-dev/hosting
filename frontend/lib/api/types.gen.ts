@@ -1122,7 +1122,16 @@ export type ServerTerminalData = {
          */
         server_id: NanoId;
     };
-    query?: never;
+    query?: {
+        /**
+         * The number of columns for the terminal
+         */
+        cols?: number | null;
+        /**
+         * The number of rows for the terminal
+         */
+        rows?: number | null;
+    };
     url: '/server/{server_id}/terminal';
 };
 
@@ -8636,6 +8645,15 @@ export type SetProjectUserErrors = {
         };
     };
     /**
+     * The project owner cannot be modified or removed
+     */
+    '400‏': {
+        error?: {
+            id?: 'project/owner_immutable';
+            msg?: 'The project owner cannot be modified or removed';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -8665,7 +8683,7 @@ export type SetProjectUserErrors = {
     /**
      * User not found
      */
-    '404‏': {
+    '404‪': {
         error?: {
             id?: 'user/not_found';
             msg?: 'User not found';
@@ -8725,6 +8743,15 @@ export type RemoveProjectUserData = {
 };
 
 export type RemoveProjectUserErrors = {
+    /**
+     * The project owner cannot be modified or removed
+     */
+    '400‎': {
+        error?: {
+            id?: 'project/owner_immutable';
+            msg?: 'The project owner cannot be modified or removed';
+        };
+    };
     /**
      * Invalid authentication credentials
      */
@@ -16444,6 +16471,63 @@ export type IntegritySchemaResponses = {
 };
 
 export type IntegritySchemaResponse = IntegritySchemaResponses[keyof IntegritySchemaResponses];
+
+export type InstancePolicyData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/instance/policy';
+};
+
+export type InstancePolicyErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+};
+
+export type InstancePolicyError = InstancePolicyErrors[keyof InstancePolicyErrors];
+
+export type InstancePolicyResponses = {
+    /**
+     * Success
+     */
+    200: {
+        can_create_project: boolean;
+        can_update_project: boolean;
+    };
+};
+
+export type InstancePolicyResponse = InstancePolicyResponses[keyof InstancePolicyResponses];
 
 export type LoginDevData = {
     body?: never;

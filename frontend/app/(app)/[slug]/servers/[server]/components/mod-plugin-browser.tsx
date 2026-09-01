@@ -80,6 +80,8 @@ import {
   type ResourceVersion,
 } from "@/lib/mod-browser/types";
 import { cn } from "@/lib/utils";
+import { useServerTaskLock } from "@/stores/server-tasks";
+import { TaskLockNotice } from "@/components/server/task-lock-notice";
 
 type ModPluginBrowserProps = {
   serverId: string;
@@ -131,6 +133,7 @@ export function ModPluginBrowser({
   canWriteFiles,
 }: ModPluginBrowserProps) {
   const { t } = useTranslation();
+  const storageLock = useServerTaskLock(serverId, "storage", "read");
   const [activeLoader, setActiveLoader] = useState<ResourceLoader | null>(null);
   const [activeProvider, setActiveProvider] = useState<ResourceProvider | null>(
     null,
@@ -849,7 +852,8 @@ export function ModPluginBrowser({
                     !canWriteFiles ||
                     !selectedVersion ||
                     selectedVersion.downloadable === false ||
-                    modpackJob?.state === "running"
+                    modpackJob?.state === "running" ||
+                    storageLock.locked
                   }
                 >
                   {selectedInstall ? (
@@ -863,6 +867,8 @@ export function ModPluginBrowser({
                       )
                     : t("servers-management:modPluginBrowser.installButton")}
                 </Button>
+
+                <TaskLockNotice lock={storageLock} />
 
                 {selectedVersion?.downloadable === false ? (
                   <p className="text-sm text-muted-foreground">
@@ -945,7 +951,7 @@ export function ModPluginBrowser({
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={!canWriteFiles}
+                      disabled={!canWriteFiles || storageLock.locked}
                       onClick={() =>
                         handleSetState(
                           entry.resource_type,
@@ -1164,7 +1170,7 @@ export function ModPluginBrowser({
             {updates.length > 0 ? (
               <Button
                 size="sm"
-                disabled={!canWriteFiles}
+                disabled={!canWriteFiles || storageLock.locked}
                 onClick={handleUpdateAll}
               >
                 <ArrowUpCircle data-icon="inline-start" />
@@ -1221,6 +1227,7 @@ export function ModPluginBrowser({
                       size="sm"
                       disabled={
                         !canWriteFiles ||
+                        storageLock.locked ||
                         updateByProject.get(
                           installKey(entry.provider, entry.project),
                         )?.downloadable === false
@@ -1234,7 +1241,7 @@ export function ModPluginBrowser({
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={!canWriteFiles}
+                    disabled={!canWriteFiles || storageLock.locked}
                     onClick={() =>
                       handleSetState(
                         entry.resource_type,
@@ -1256,7 +1263,7 @@ export function ModPluginBrowser({
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={!canWriteFiles}
+                    disabled={!canWriteFiles || storageLock.locked}
                     onClick={() => handleUninstall(entry)}
                   >
                     <Trash2 data-icon="inline-start" />
@@ -1314,7 +1321,7 @@ export function ModPluginBrowser({
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={!canWriteFiles}
+                      disabled={!canWriteFiles || storageLock.locked}
                       onClick={() =>
                         handleSetState(
                           entry.resource_type,
