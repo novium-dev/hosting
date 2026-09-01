@@ -7,6 +7,7 @@ pub(crate) mod auth;
 pub(crate) mod backup;
 pub(crate) mod database;
 pub(crate) mod file;
+pub(crate) mod instance;
 pub(crate) mod internal;
 pub(crate) mod minecraft;
 pub(crate) mod modpack;

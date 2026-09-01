@@ -54,6 +54,8 @@ import {
   restoreBackup,
   type ListBackupsResponses,
 } from "@/lib/api";
+import { TaskLockNotice } from "@/components/server/task-lock-notice";
+import { useServerTaskLock } from "@/stores/server-tasks";
 
 type BackupsManagerProps = {
   serverId: string;
@@ -102,6 +104,8 @@ function backupIdFromRow(backup: BackupRow) {
 
 export function BackupsManager({ serverId }: BackupsManagerProps) {
   const { t } = useTranslation();
+  const storageLock = useServerTaskLock(serverId, "storage", "read");
+  const restoreLock = useServerTaskLock(serverId, "storage", "write");
   const [backups, setBackups] = useState<BackupRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);

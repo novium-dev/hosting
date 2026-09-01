@@ -97,6 +97,7 @@ pub struct BackendConfig {
     pub resources: ResourceConfig,
     pub routes: RouteConfig,
     pub databases: DatabaseConfig,
+    pub projects: ProjectPolicyConfig,
 }
 
 impl BackendConfig {
@@ -123,6 +124,7 @@ impl BackendConfig {
             resources: ResourceConfig::from_env(),
             routes: RouteConfig::from_env()?,
             databases: DatabaseConfig::from_env()?,
+            projects: ProjectPolicyConfig::from_env(),
         })
     }
 
@@ -134,6 +136,21 @@ impl BackendConfig {
         core::iter::once(self.public_url.origin())
             .chain(self.trusted_urls.iter().map(Url::origin))
             .collect()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ProjectPolicyConfig {
+    pub self_creation: bool,
+    pub self_update: bool,
+}
+
+impl ProjectPolicyConfig {
+    fn from_env() -> Self {
+        Self {
+            self_creation: flag_var("BACKEND_SELF_ORG_CREATION", true),
+            self_update: flag_var("BACKEND_SELF_ORG_UPDATE", true),
+        }
     }
 }
 

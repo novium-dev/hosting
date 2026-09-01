@@ -11,11 +11,15 @@ import {
 } from "@/components/ui/card";
 import Link from "@/components/link";
 import { useRouter } from "@/lib/navigation";
+import { useInstancePolicy } from "@/hooks/use-instance-policy";
 import { useTranslation } from "react-i18next";
 
 export default function CreateProjectPage() {
   const { t } = useTranslation(["app", "common"]);
   const router = useRouter();
+  const { canCreateProject, isLoading } = useInstancePolicy();
+
+  if (isLoading) return null;
 
   return (
     <div className="flex h-svh items-center justify-center px-4">
@@ -34,11 +38,17 @@ export default function CreateProjectPage() {
           </Link>
         </CardHeader>
         <CardContent>
-          <CreateProjectForm
-            onSuccess={({ slug }) => {
-              router.push(`/${slug}`);
-            }}
-          />
+          {canCreateProject ? (
+            <CreateProjectForm
+              onSuccess={({ slug }) => {
+                router.push(`/${slug}`);
+              }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t("common:policy.projectCreationDisabled")}
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
