@@ -30,7 +30,7 @@ export function TaskLockNotice({ lock, className }: TaskLockNoticeProps) {
       )}
     >
       <Loader2 className="size-3.5 animate-spin" />
-      {t("servers:tasks.blocked", { task: taskLabel(lock.blocking, t) })}
+      {t("servers:tasks.running", { task: taskLabel(lock.blocking, t) })}
       {percent === null ? null : ` (${percent.toFixed(0)}%)`}
     </p>
   );

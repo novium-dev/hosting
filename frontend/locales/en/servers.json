@@ -382,7 +382,7 @@
     }
   },
   "tasks": {
-    "blocked": "Blocked by {{task}}",
+    "running": "{{task}} in progress",
     "busyStorage": "The server's files are locked by another task: {{task}}",
     "kinds": {
       "backup_restore": "Backup restore",

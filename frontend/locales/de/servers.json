@@ -382,7 +382,7 @@
     }
   },
   "tasks": {
-    "blocked": "Blockiert durch {{task}}",
+    "running": "{{task}} läuft",
     "busyStorage": "Die Dateien des Servers sind durch eine andere Aufgabe gesperrt: {{task}}",
     "kinds": {
       "backup_restore": "Backup-Wiederherstellung",

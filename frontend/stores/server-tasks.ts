@@ -4,7 +4,7 @@ import { create } from "zustand";
 import {
   EMPTY_SERVER_TASKS,
   NO_TASKS,
-  serverTasksSignature,
+  mergeServerTasks,
   taskLock,
   type ServerTaskEntry,
   type ServerTasksSnapshot,
@@ -15,30 +15,24 @@ import {
 
 // Active daemon tasks per server, published by the management bar's stats
 // websocket (`TASKS!`) so every section can grey out the actions the daemon
-// would reject while a task holds the storage or server lock.
+// would refuse while a task holds the storage or server lock.
 
 type ServerTasksState = {
   tasks: Record<string, ServerTasksSnapshot>;
-  signatures: Record<string, string>;
   setTasks: (serverId: string, snapshot: ServerTasksSnapshot) => void;
   forget: (serverId: string) => void;
 };
 
 const useServerTasksStore = create<ServerTasksState>((set) => ({
   tasks: {},
-  signatures: {},
   setTasks: (serverId, snapshot) =>
     set((state) => {
-      const signature = serverTasksSignature(snapshot);
+      const previous = state.tasks[serverId];
+      const merged = mergeServerTasks(previous, snapshot);
 
-      if (state.signatures[serverId] === signature) {
-        return state;
-      }
-
-      return {
-        tasks: { ...state.tasks, [serverId]: snapshot },
-        signatures: { ...state.signatures, [serverId]: signature },
-      };
+      return merged === previous
+        ? state
+        : { tasks: { ...state.tasks, [serverId]: merged } };
     }),
   forget: (serverId) =>
     set((state) => {
@@ -46,10 +40,8 @@ const useServerTasksStore = create<ServerTasksState>((set) => ({
         return state;
       }
 
-      const { [serverId]: _removedTasks, ...tasks } = state.tasks;
-      const { [serverId]: _removedSignature, ...signatures } = state.signatures;
-
-      return { tasks, signatures };
+      const { [serverId]: _removed, ...tasks } = state.tasks;
+      return { tasks };
     }),
 }));
 
