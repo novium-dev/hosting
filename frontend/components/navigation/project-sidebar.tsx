@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   Database,
   KeyRound,
-  LayoutDashboard,
+  Server,
   Settings,
   Shield,
   Users,
@@ -82,9 +82,9 @@ export function ProjectSidebar() {
 
   const projectItems = [
     {
-      title: t("navigation:projectSidebar.dashboard"),
+      title: t("common:nav.servers"),
       href: `/${slug}`,
-      icon: LayoutDashboard,
+      icon: Server,
       exact: true,
     },
     {

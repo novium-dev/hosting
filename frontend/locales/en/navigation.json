@@ -13,7 +13,6 @@
     "backToApp": "Back to app"
   },
   "projectSidebar": {
-    "dashboard": "Dashboard",
     "groups": {
       "project": "Project",
       "server": "Server",

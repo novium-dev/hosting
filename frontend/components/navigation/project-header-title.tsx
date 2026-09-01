@@ -91,9 +91,7 @@ export function ProjectHeaderTitle() {
 
   return (
     <span className="text-sm font-medium">
-      {sectionTitleKey
-        ? t(sectionTitleKey)
-        : t("navigation:projectSidebar.dashboard")}
+      {sectionTitleKey ? t(sectionTitleKey) : t("common:nav.servers")}
     </span>
   );
 }
