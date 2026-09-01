@@ -16,9 +16,9 @@ import {
 export const createProjectAction = authActionClient
   .inputSchema(createProjectSchema)
   .action(async ({ parsedInput }) => {
-    const { name, slug } = parsedInput;
+    const { name, slug, owner } = parsedInput;
     const createdProject = await auth.api.createProject({
-      body: { name, slug },
+      body: { name, slug, owner },
     });
     return {
       success: true,

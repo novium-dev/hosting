@@ -19,6 +19,7 @@ import {
   InputGroupText,
 } from "@/components/ui/input-group";
 import { ProjectAvatar } from "@/components/ui/project-avatar";
+import { SearchableSelect } from "@/components/searchable-select";
 import { Spinner } from "@/components/ui/spinner";
 import { isReservedSlug } from "@/constants/reserved-slugs";
 import { TextEllipsis } from "@/components/ui/text-ellipsis";
@@ -37,11 +38,16 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+export type ProjectOwnerOption = { id: number; username: string };
+
 type CreateProjectFormProps = {
   onSuccess: (project: AppProject) => void;
+  // When passed, the project is created for the picked user instead of the
+  // current one. Requires the USER_MANAGE permission on the backend.
+  owners?: ProjectOwnerOption[];
 };
 
-export function CreateProjectForm({ onSuccess }: CreateProjectFormProps) {
+export function CreateProjectForm({ onSuccess, owners }: CreateProjectFormProps) {
   const { t } = useTranslation(["app", "common"]);
   const [isValidatingSlug, setIsValidatingSlug] = useState(false);
   const [isSlugError, setIsSlugError] = useState(false);
@@ -54,7 +60,7 @@ export function CreateProjectForm({ onSuccess }: CreateProjectFormProps) {
       {
         formProps: {
           mode: "onChange",
-          defaultValues: { name: "", slug: "" },
+          defaultValues: { name: "", slug: "", owner: undefined },
         },
         actionProps: {
           onSuccess: (args) => {
@@ -170,6 +176,32 @@ export function CreateProjectForm({ onSuccess }: CreateProjectFormProps) {
               </FormItem>
             )}
           />
+          {owners ? (
+            <FormField
+              control={form.control}
+              name="owner"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("common:labels.owner")}</FormLabel>
+                  <FormControl>
+                    <SearchableSelect
+                      value={field.value ? String(field.value) : ""}
+                      onChange={(value) => field.onChange(Number(value))}
+                      options={owners.map((owner) => ({
+                        value: String(owner.id),
+                        label: owner.username,
+                      }))}
+                      placeholder={t("app:createProjectForm.ownerPlaceholder")}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                  <FormDescription>
+                    {t("app:createProjectForm.ownerDescription")}
+                  </FormDescription>
+                </FormItem>
+              )}
+            />
+          ) : null}
           <FormField
             control={form.control}
             name="slug"
@@ -218,7 +250,8 @@ export function CreateProjectForm({ onSuccess }: CreateProjectFormProps) {
               action.isExecuting ||
               !form.formState.isValid ||
               isValidatingSlug ||
-              hasSlugError
+              hasSlugError ||
+              (owners !== undefined && !form.watch("owner"))
             }
             loading={action.isExecuting}
           >

@@ -28,6 +28,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTableSort } from "@/hooks/use-table-sort";
+import type { ProjectOwnerOption } from "@/components/create-project-form";
+import { CreateProjectDialog } from "./create-project-dialog";
 import { authClient } from "@/lib/auth-client";
 import {
   hasManagementPermission,
@@ -49,11 +51,13 @@ export function ProjectsTable({
   projects,
   features,
   canManageFeatures,
+  owners,
   onChanged,
 }: {
   projects: ProjectRow[];
   features: FeatureRow[];
   canManageFeatures: boolean;
+  owners: ProjectOwnerOption[] | null;
   onChanged: () => void;
 }) {
   const { t } = useTranslation();
@@ -108,13 +112,16 @@ export function ProjectsTable({
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">
-          {t("common:nav.projects")}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {t("admin-core:projects.description")}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">{t("common:nav.projects")}</h1>
+          <p className="text-sm text-muted-foreground">
+            {t("admin-core:projects.description")}
+          </p>
+        </div>
+        {owners ? (
+          <CreateProjectDialog owners={owners} onCreated={onChanged} />
+        ) : null}
       </div>
 
       <div className="relative w-full max-w-md">

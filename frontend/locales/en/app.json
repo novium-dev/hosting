@@ -31,7 +31,9 @@
     "slugTaken": "Slug is already taken",
     "slugCheckError": "Error checking slug",
     "submit": "Create Project",
-    "createdSuccess": "Project created successfully"
+    "createdSuccess": "Project created successfully",
+    "ownerPlaceholder": "Select an owner",
+    "ownerDescription": "The user this project belongs to."
   },
   "createProjectPage": {
     "title": "Create Project",

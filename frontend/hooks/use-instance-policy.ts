@@ -1,22 +1,16 @@
 import useSWR from "swr";
 import { instancePolicy } from "@/lib/api";
 import type { InstancePolicyResponse } from "@/lib/api";
-import { authClient } from "@/lib/auth-client";
-import {
-  hasManagementPermission,
-  ManagementPermission,
-} from "@/lib/permissions";
 
-// Instance-wide self-service policy, fetched once and shared through SWR's
-// cache. Anything the policy withdraws stays available to users who can bypass
-// instance limits, which is what the backend checks too.
+// Self-service actions this instance allows the current user, resolved by the
+// backend against both the instance policy and the user's permissions. Fetched
+// once and shared through SWR's cache.
 const optimisticPolicy: InstancePolicyResponse = {
-  self_project_creation: true,
-  self_project_update: true,
+  can_create_project: true,
+  can_update_project: true,
 };
 
 export function useInstancePolicy() {
-  const { data: session } = authClient.useSession();
   const { data, isLoading } = useSWR(
     "instance/policy",
     async () => {
@@ -28,14 +22,10 @@ export function useInstancePolicy() {
   );
 
   const policy = data ?? optimisticPolicy;
-  const canBypassLimits = hasManagementPermission(
-    session?.user.permissions ?? 0,
-    ManagementPermission.LIMITS_BYPASS,
-  );
 
   return {
-    canCreateProject: policy.self_project_creation || canBypassLimits,
-    canUpdateProject: policy.self_project_update || canBypassLimits,
+    canCreateProject: policy.can_create_project,
+    canUpdateProject: policy.can_update_project,
     isLoading,
   };
 }

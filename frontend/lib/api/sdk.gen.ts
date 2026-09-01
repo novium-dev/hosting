@@ -1980,12 +1980,13 @@ export const runIntegrityChecks = <ThrowOnError extends boolean = false>(options
 export const integritySchema = <ThrowOnError extends boolean = false>(options?: Options<IntegritySchemaData, ThrowOnError>) => (options?.client ?? client).get<IntegritySchemaResponses, IntegritySchemaErrors, ThrowOnError>({ url: '/admin/integrity/schema', ...options });
 
 /**
- *  Lists the instance-wide self-service policy flags.
+ *  Lists the self-service actions this instance allows the caller.
  *
- *  Lists the instance-wide self-service policy flags.<br/>
+ *  Lists the self-service actions this instance allows the caller.<br/>
  * <br/>
- * A flag that is off restricts the action to users holding<br/>
- * `crate::auth::permissions::ManagementPermissions::LIMITS_BYPASS`.
+ * An action the instance withdraws stays available to callers holding<br/>
+ * `ManagementPermissions::LIMITS_BYPASS`. Owning the project is checked<br/>
+ * separately, when the action itself is performed.
  */
 export const instancePolicy = <ThrowOnError extends boolean = false>(options?: Options<InstancePolicyData, ThrowOnError>) => (options?.client ?? client).get<InstancePolicyResponses, InstancePolicyErrors, ThrowOnError>({ url: '/instance/policy', ...options });
 

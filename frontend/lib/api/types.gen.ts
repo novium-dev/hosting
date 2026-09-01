@@ -16522,8 +16522,8 @@ export type InstancePolicyResponses = {
      * Success
      */
     200: {
-        self_project_creation: boolean;
-        self_project_update: boolean;
+        can_create_project: boolean;
+        can_update_project: boolean;
     };
 };
 

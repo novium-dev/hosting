@@ -1,6 +1,6 @@
 import useSWR from "swr";
 
-import { listProjectFeatures, listProjects } from "@/lib/api";
+import { listProjectFeatures, listProjects, listUsers } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import {
   hasManagementPermission,
@@ -15,6 +15,13 @@ export default function AdminProjectsPage() {
     ? hasManagementPermission(
         session.user.permissions,
         ManagementPermission.FEATURES_MANAGE,
+      )
+    : false;
+
+  const canManageUsers = session
+    ? hasManagementPermission(
+        session.user.permissions,
+        ManagementPermission.USER_MANAGE,
       )
     : false;
 
@@ -34,6 +41,14 @@ export default function AdminProjectsPage() {
     },
   );
 
+  const { data: owners } = useSWR(
+    canManageUsers ? "admin/project-owners" : null,
+    async () => {
+      const response = await listUsers();
+      return response.error ? [] : (response.data ?? []);
+    },
+  );
+
   if (isLoading) return null;
 
   return (
@@ -42,6 +57,7 @@ export default function AdminProjectsPage() {
         projects={projects ?? []}
         features={features ?? []}
         canManageFeatures={canManageFeatures}
+        owners={canManageUsers ? (owners ?? []) : null}
         onChanged={() => void mutate()}
       />
     </div>

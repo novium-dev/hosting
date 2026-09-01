@@ -1,27 +1,32 @@
 use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
+use crate::auth::permissions::ManagementPermissions;
 use serde::Serialize;
 use zelus::service;
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct InstancePolicy {
-    pub(crate) self_project_creation: bool,
-    pub(crate) self_project_update: bool,
+    pub(crate) can_create_project: bool,
+    pub(crate) can_update_project: bool,
 }
 
 #[service(path = "/instance", tag = "instance", no_sdk)]
 pub(crate) impl InstanceService for Backend {
-    /// Lists the instance-wide self-service policy flags.
+    /// Lists the self-service actions this instance allows the caller.
     ///
-    /// A flag that is off restricts the action to users holding
-    /// [`crate::auth::permissions::ManagementPermissions::LIMITS_BYPASS`].
+    /// An action the instance withdraws stays available to callers holding
+    /// [`ManagementPermissions::LIMITS_BYPASS`]. Owning the project is checked
+    /// separately, when the action itself is performed.
     #[route("/policy", method = GET)]
     #[error(db::failure <- [sql:*], auth::unreachable)]
-    async fn instance_policy(&self, #[special] _auth: Authentication) -> Result<InstancePolicy, _> {
+    async fn instance_policy(&self, #[special] auth: Authentication) -> Result<InstancePolicy, _> {
+        let can_bypass_limits = auth.has((), ManagementPermissions::LIMITS_BYPASS);
+        let policy = self.config.projects;
+
         Ok(InstancePolicy {
-            self_project_creation: self.config.projects.self_creation,
-            self_project_update: self.config.projects.self_update,
+            can_create_project: policy.self_creation || can_bypass_limits,
+            can_update_project: policy.self_update || can_bypass_limits,
         })
     }
 }

@@ -132,7 +132,7 @@ export const auth = {
     createProject: async ({
       body,
     }: {
-      body: { name: string; slug: string };
+      body: { name: string; slug: string; owner?: number };
     }) => {
       const response = await createProject({ body });
       if (response.error) throw new Error("Failed to create project");
