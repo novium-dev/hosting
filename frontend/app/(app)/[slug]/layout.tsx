@@ -1,6 +1,13 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useParams } from "react-router-dom";
-import { ProjectNavbar } from "@/components/navigation/project-navbar";
+import { ProjectHeaderTitle } from "@/components/navigation/project-header-title";
+import { ProjectSidebar } from "@/components/navigation/project-sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { authClient } from "@/lib/auth-client";
 import { useProjectStore } from "@/stores/projects";
 
@@ -9,7 +16,6 @@ export default function SlugLayout() {
   const { data: session, isLoading } = authClient.useSession();
   const setCurrentSlug = useProjectStore((state) => state.setCurrentSlug);
 
-  // Remember the project the user is currently in so the root URL can return here.
   useEffect(() => {
     if (slug) setCurrentSlug(slug);
   }, [slug, setCurrentSlug]);
@@ -18,11 +24,18 @@ export default function SlugLayout() {
   if (!session) return <Navigate to="/signin" replace />;
 
   return (
-    <div className="min-h-svh bg-background">
-      <ProjectNavbar user={session.user} />
-      <main className="mx-auto w-full max-w-400 pb-6">
-        <Outlet />
-      </main>
-    </div>
+    <SidebarProvider>
+      <ProjectSidebar />
+      <SidebarInset>
+        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur supports-backdrop-filter:bg-background/70 md:px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-1 h-4" />
+          <ProjectHeaderTitle />
+        </header>
+        <main className="w-full max-w-400 pb-6">
+          <Outlet />
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

@@ -12,8 +12,12 @@
     },
     "backToApp": "Zurück zur App"
   },
-  "platformTabs": {
-    "dashboard": "Dashboard"
+  "projectSidebar": {
+    "dashboard": "Dashboard",
+    "groups": {
+      "project": "Projekt",
+      "server": "Server"
+    }
   },
   "userMenu": {
     "profileSettings": "Profileinstellungen",

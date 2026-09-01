@@ -8,49 +8,50 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
+import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { ProjectAvatar } from "@/components/ui/project-avatar";
-import { TextEllipsis } from "@/components/ui/text-ellipsis";
 import type { AppProject } from "@/lib/auth";
-import { ChevronDown } from "lucide-react";
+import { ChevronsUpDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useProject } from "@/hooks/use-project";
 import { useParams } from "@/lib/navigation";
 import { useInstancePolicy } from "@/hooks/use-instance-policy";
 import { CreateProjectModal } from "./create-project";
 import { SwitcherItem } from "./switcher-item";
 
-export function ProjectDropdown({
-  projects,
-}: {
-  projects: AppProject[];
-}) {
+export function ProjectDropdown({ projects }: { projects: AppProject[] }) {
   const params = useParams();
   const slug = params.slug as string;
   const { t } = useTranslation();
   const { canCreateProject } = useInstancePolicy();
+  const { data: currentProject } = useProject(slug);
 
-  const activeProject = projects.find((project) => project.slug === slug);
+  const activeProject =
+    projects.find((project) => project.slug === slug) ?? currentProject;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-9 gap-2 px-2">
+        <SidebarMenuButton size="lg">
           <ProjectAvatar
             projectId={activeProject?.id ?? ""}
             projectName={activeProject?.name ?? ""}
           />
-          <span className="hidden max-w-40 truncate font-semibold md:block">
-            <TextEllipsis width={140}>
+          <div className="grid flex-1 text-left text-sm leading-tight">
+            <span className="truncate font-semibold">
               {activeProject?.name ?? ""}
-            </TextEllipsis>
-          </span>
-          <ChevronDown className="opacity-50" />
-        </Button>
+            </span>
+            <span className="truncate text-xs text-muted-foreground">
+              {activeProject?.slug ?? slug}
+            </span>
+          </div>
+          <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+        </SidebarMenuButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         className="w-64 rounded-lg"
         align="start"
-        side="bottom"
+        side="right"
         sideOffset={8}
       >
         <DropdownMenuItem className="flex items-center gap-2">

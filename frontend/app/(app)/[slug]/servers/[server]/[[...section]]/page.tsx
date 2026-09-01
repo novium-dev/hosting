@@ -2,16 +2,6 @@ import Link from "@/components/link";
 import { useParams } from "react-router-dom";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
-import {
-  Network,
-  Archive,
-  FolderTree,
-  Settings,
-  TerminalSquare,
-  Wrench,
-  PackageSearch,
-  Users,
-} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,12 +11,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { ProjectFeature, serverInfo } from "@/lib/api";
+import { serverInfo } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { useProject } from "@/hooks/use-project";
 import { useSearchParams } from "@/lib/navigation";
-import { hasResourceSupport } from "@/lib/mod-browser/types";
 import {
   hasManagementPermission,
   hasServerPermission,
@@ -34,6 +22,10 @@ import {
   mergePermissions,
   ServerPermission,
 } from "@/lib/permissions";
+import {
+  getActiveServerSection,
+  getVisibleServerSections,
+} from "@/lib/server-sections";
 import { ServerConsole } from "../components/server-console";
 import { BackupsManager } from "../components/backups-manager";
 import { FileEditor } from "../components/file-editor";
@@ -44,99 +36,6 @@ import { ServerSettings } from "../components/server-settings";
 import { StartupVariables } from "../components/startup-variables";
 import { ModPluginBrowser } from "../components/mod-plugin-browser";
 import { MinecraftPlayerManager } from "../components/minecraft-player-manager";
-
-type ServerSection = {
-  key: string;
-  icon: React.ComponentType<{ className?: string }>;
-  permission: number;
-  requiresMinecraftResources?: boolean;
-  requiresMinecraftServer?: boolean;
-  requiresProjectFeature?: ProjectFeature;
-};
-
-const SERVER_SECTIONS: ServerSection[] = [
-  {
-    key: "console",
-    icon: TerminalSquare,
-    permission: ServerPermission.TERMINAL_READ,
-  },
-  {
-    key: "files",
-    icon: FolderTree,
-    permission: ServerPermission.FILES_READ,
-  },
-  {
-    key: "backups",
-    icon: Archive,
-    permission: ServerPermission.BACKUP_VIEW,
-  },
-  {
-    key: "mods",
-    icon: PackageSearch,
-    permission: ServerPermission.FILES_READ,
-    requiresMinecraftResources: true,
-    requiresProjectFeature: ProjectFeature.MOD_INSTALLER,
-  },
-  {
-    key: "players",
-    icon: Users,
-    permission: ServerPermission.USER_VIEW,
-    requiresMinecraftServer: true,
-  },
-  {
-    key: "network",
-    icon: Network,
-    permission: ServerPermission.NETWORK_VIEW,
-  },
-  {
-    key: "settings",
-    icon: Settings,
-    permission: ServerPermission.BUILD_VIEW,
-  },
-  {
-    key: "startup",
-    icon: Wrench,
-    permission: ServerPermission.BUILD_VIEW,
-  },
-];
-
-function getVisibleSections(
-  permissions: number,
-  features: string[],
-  projectFeatures: ProjectFeature[],
-) {
-  const isMinecraftServer = features.includes("minecraft_commands");
-
-  return SERVER_SECTIONS.filter((entry) => {
-    if (!hasServerPermission(permissions, entry.permission)) {
-      return false;
-    }
-
-    if (
-      entry.requiresProjectFeature &&
-      !projectFeatures.includes(entry.requiresProjectFeature)
-    ) {
-      return false;
-    }
-
-    if (entry.requiresMinecraftResources) {
-      return hasResourceSupport(features);
-    }
-
-    if (entry.requiresMinecraftServer) {
-      return isMinecraftServer;
-    }
-
-    return true;
-  });
-}
-
-function getActiveSection(sections: ServerSection[], section?: string[]) {
-  const value = section?.[0] ?? "console";
-  const match = sections.find((entry) => entry.key === value);
-
-  return match ?? sections[0] ?? SERVER_SECTIONS[0];
-}
 
 export default function ClientServerSectionPage() {
   const { t } = useTranslation();
@@ -160,12 +59,12 @@ export default function ClientServerSectionPage() {
     session?.user.permissions ?? 0,
     project?.permissions ?? 0,
   );
-  const visibleSections = getVisibleSections(
+  const visibleSections = getVisibleServerSections(
     effectivePermissions,
     serverData?.features ?? [],
     project?.features ?? [],
   );
-  const activeSection = getActiveSection(visibleSections, section);
+  const activeSection = getActiveServerSection(visibleSections, section);
 
   const hasSuspensionBypassPermission =
     hasManagementPermission(
@@ -221,32 +120,6 @@ export default function ClientServerSectionPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap gap-2">
-        {visibleSections.map((entry) => {
-          const isActive = !isEditRoute && entry.key === activeSection.key;
-          const href =
-            entry.key === "console"
-              ? `/${slug}/servers/${server}`
-              : `/${slug}/servers/${server}/${entry.key}`;
-
-          return (
-            <Button
-              key={entry.key}
-              asChild
-              variant={isActive ? "default" : "outline"}
-              size="sm"
-            >
-              <Link href={href} className="inline-flex items-center gap-2">
-                <entry.icon className="size-4" />
-                {t(`servers:page.sections.${entry.key}.label`)}
-              </Link>
-            </Button>
-          );
-        })}
-      </div>
-
-      <Separator />
-
       {visibleSections.length === 0 ? (
         <Card className="border-dashed">
           <CardHeader>
