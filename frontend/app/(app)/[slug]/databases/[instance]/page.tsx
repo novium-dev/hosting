@@ -8,7 +8,11 @@ import { InstanceView } from "./instance-view";
 
 export default function DatabaseInstancePage() {
   const { t } = useTranslation();
-  const { slug, instance } = useParams<{ slug: string; instance: string }>();
+  const { slug, instance, section } = useParams<{
+    slug: string;
+    instance: string;
+    section: string;
+  }>();
   const { data: project, isLoading } = useProject(slug);
 
   if (isLoading) return null;
@@ -30,8 +34,8 @@ export default function DatabaseInstancePage() {
     >
       <InstanceView
         projectId={project.id}
-        slug={slug ?? ""}
         instanceId={instance}
+        section={section ?? "databases"}
         permissions={project.permissions}
       />
     </MainLayout>

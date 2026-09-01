@@ -16,7 +16,8 @@
     "dashboard": "Dashboard",
     "groups": {
       "project": "Project",
-      "server": "Server"
+      "server": "Server",
+      "instance": "Instance"
     }
   },
   "userMenu": {

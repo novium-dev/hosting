@@ -54,7 +54,7 @@ function toMib(bytes: number | null | undefined) {
 }
 
 const COMMAND_SENT_KEYS: Record<PowerAction, string> = {
-  start: "common:resources.startCommandSent",
+  start: "project:databases.managementBar.startCommandSent",
   restart: "project:databases.managementBar.restartCommandSent",
   stop: "project:databases.managementBar.stopCommandSent",
   kill: "project:databases.managementBar.killCommandSent",

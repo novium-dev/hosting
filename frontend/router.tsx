@@ -100,6 +100,10 @@ export const router = createBrowserRouter([
                 element: <DatabaseInstancePage />,
               },
               {
+                path: "databases/:instance/:section",
+                element: <DatabaseInstancePage />,
+              },
+              {
                 path: "profile",
                 element: <ProfilePage />,
               },

@@ -1,42 +1,31 @@
 "use client";
 
-import { useState } from "react";
-import { Table2, UserRound } from "lucide-react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import { InstanceDatabases } from "@/components/databases/instance-databases";
 import { InstanceManagementBar } from "@/components/databases/instance-management-bar";
 import { InstanceUsers } from "@/components/databases/instance-users";
-import Link from "@/components/link";
 import { NotFoundView } from "@/components/not-found-view";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { listProjectInstances } from "@/lib/api";
+import { getActiveInstanceSection } from "@/lib/instance-sections";
 import { ServerPermission, hasServerPermission } from "@/lib/permissions";
-
-const SECTIONS = [
-  { key: "databases", icon: Table2 },
-  { key: "users", icon: UserRound },
-] as const;
-
-type SectionKey = (typeof SECTIONS)[number]["key"];
 
 export function InstanceView({
   projectId,
-  slug,
   instanceId,
+  section,
   permissions,
 }: {
   projectId: string;
-  slug: string;
   instanceId: string;
+  section: string;
   permissions: number;
 }) {
   const { t } = useTranslation();
-  const [section, setSection] = useState<SectionKey>("databases");
+  const activeSection = getActiveInstanceSection(section);
 
   const {
     data: instances,
@@ -88,25 +77,7 @@ export function InstanceView({
         </Alert>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        {SECTIONS.map((entry) => (
-          <Button
-            key={entry.key}
-            type="button"
-            variant={entry.key === section ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSection(entry.key)}
-            className="inline-flex items-center gap-2"
-          >
-            <entry.icon className="size-4" />
-            {t(`project:databases.sections.${entry.key}`)}
-          </Button>
-        ))}
-      </div>
-
-      <Separator />
-
-      {section === "databases" ? (
+      {activeSection === "databases" ? (
         <InstanceDatabases
           projectId={projectId}
           instanceId={instanceId}

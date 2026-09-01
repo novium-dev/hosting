@@ -26,7 +26,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { useProject } from "@/hooks/use-project";
-import { serverInfo } from "@/lib/api";
+import { listProjectInstances, serverInfo } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { useProjectRoute } from "@/lib/project-route";
 import {
@@ -36,6 +36,11 @@ import {
   ServerPermission,
 } from "@/lib/permissions";
 import {
+  getActiveInstanceSection,
+  INSTANCE_SECTIONS,
+  instanceSectionHref,
+} from "@/lib/instance-sections";
+import {
   getVisibleServerSections,
   serverSectionHref,
 } from "@/lib/server-sections";
@@ -43,7 +48,8 @@ import { NavUserMenu } from "./nav-user-menu";
 
 export function ProjectSidebar() {
   const { t } = useTranslation();
-  const { pathname, slug, server, serverSection } = useProjectRoute();
+  const { pathname, slug, server, serverSection, instance, instanceSection } =
+    useProjectRoute();
   const { data: session } = authClient.useSession();
   const { data: project } = useProject(slug);
   const { data: infoResponse } = useSWR(
@@ -51,8 +57,24 @@ export function ProjectSidebar() {
     () => serverInfo({ path: { server_id: server } }),
   );
 
+  const { data: instances } = useSWR(
+    instance && project ? ["project-instances", project.id] : null,
+    async () => {
+      const response = await listProjectInstances({
+        path: { project_id: project?.id ?? "" },
+      });
+      if (response.error) {
+        throw new Error(response.error.error?.msg ?? "Failed to load instances");
+      }
+      return response.data ?? [];
+    },
+  );
+
   const serverData =
     infoResponse && !infoResponse.error ? infoResponse.data : null;
+  const instanceData = instances?.find(
+    (candidate) => candidate.id === instance,
+  );
   const effectivePermissions = mergePermissions(
     session?.user.permissions ?? 0,
     project?.permissions ?? 0,
@@ -104,6 +126,8 @@ export function ProjectSidebar() {
 
   const activeServerSection =
     serverSection === "edit" ? "files" : serverSection;
+
+  const activeInstanceSection = getActiveInstanceSection(instanceSection);
 
   const canAccessAdmin = hasAnyManagementPermission(
     session?.user.permissions ?? 0,
@@ -168,6 +192,39 @@ export function ProjectSidebar() {
                         isActive={activeServerSection === entry.key}
                       >
                         <Link href={serverSectionHref(slug, server, entry.key)}>
+                          <entry.icon />
+                          <span>{title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {instance && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="truncate">
+              {instanceData?.display ??
+                t("navigation:projectSidebar.groups.instance")}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {INSTANCE_SECTIONS.map((entry) => {
+                  const title = t(entry.titleKey);
+
+                  return (
+                    <SidebarMenuItem key={entry.key}>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip={title}
+                        isActive={activeInstanceSection === entry.key}
+                      >
+                        <Link
+                          href={instanceSectionHref(slug, instance, entry.key)}
+                        >
                           <entry.icon />
                           <span>{title}</span>
                         </Link>
