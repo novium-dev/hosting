@@ -25,6 +25,7 @@ import {
   readPlayersFromHealthCheck,
   type ServerPlayer,
 } from "@/lib/server-players";
+import { useServerTaskLock } from "@/stores/server-tasks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -128,6 +129,7 @@ export function MinecraftPlayerManager({
   canManagePlayers,
 }: MinecraftPlayerManagerProps) {
   const { t } = useTranslation();
+  const commandLock = useServerTaskLock(serverId, "server", "read");
   const [healthCheck, setHealthCheck] = useState<MinecraftHealthCheck | null>(
     null,
   );
@@ -444,6 +446,7 @@ export function MinecraftPlayerManager({
                               size="icon"
                               disabled={
                                 !canManagePlayers ||
+                                commandLock.locked ||
                                 pendingAction === `op:${player.name}` ||
                                 isOp
                               }
@@ -466,6 +469,7 @@ export function MinecraftPlayerManager({
                               size="icon"
                               disabled={
                                 !canManagePlayers ||
+                                commandLock.locked ||
                                 pendingAction === `deop:${player.name}` ||
                                 !isOp
                               }
@@ -488,6 +492,7 @@ export function MinecraftPlayerManager({
                               size="icon"
                               disabled={
                                 !canManagePlayers ||
+                                commandLock.locked ||
                                 pendingAction === `ban:${player.name}`
                               }
                               onClick={() => executePlayerAction("ban", player)}
@@ -577,6 +582,7 @@ export function MinecraftPlayerManager({
                                 size="icon"
                                 disabled={
                                   !canManagePlayers ||
+                                  commandLock.locked ||
                                   !entry.name ||
                                   pendingAction === `pardon:${entry.name}`
                                 }

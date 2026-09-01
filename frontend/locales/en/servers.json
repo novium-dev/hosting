@@ -380,5 +380,49 @@
       "accepted": "{{license}} accepted",
       "failed": "Failed to accept the license"
     }
+  },
+  "tasks": {
+    "blocked": "Blocked by {{task}}",
+    "busyStorage": "The server's files are locked by another task: {{task}}",
+    "kinds": {
+      "backup_restore": "Backup restore",
+      "backup_create": "Backup creation",
+      "backup_download": "Backup download",
+      "backup_delete": "Backup deletion",
+      "backup_update": "Backup update",
+      "backup_list": "Backup listing",
+      "realtime_download": "Download",
+      "wipe": "File wipe",
+      "sftp": "SFTP session",
+      "files_watch_websocket": "File watcher",
+      "file_operation": "File operation",
+      "scan": "Storage scan",
+      "server_running": "Running server",
+      "start": "Server start",
+      "stop": "Server stop",
+      "restart": "Server restart",
+      "kill": "Server kill",
+      "delete": "Server deletion",
+      "schedule_task_run": "Scheduled task",
+      "schedule_terminal_command": "Scheduled command",
+      "container_command": "Console command"
+    },
+    "fileOperations": {
+      "archive_create": "create archive",
+      "archive_unpack": "unpack archive",
+      "chmod": "permissions",
+      "chown": "owner",
+      "copy_file": "copy",
+      "delete": "delete",
+      "download": "download",
+      "list": "list",
+      "mkdir": "create directory",
+      "rename": "rename",
+      "stat": "stat",
+      "symlink": "symlink",
+      "write": "write",
+      "write_by_url": "download to file",
+      "write_by_template": "template write"
+    }
   }
 }

@@ -38,6 +38,8 @@ import { Label } from "@/components/ui/label";
 import { listBackups, serverInfo, updateServer, wipeServer } from "@/lib/api";
 import { allowsWipe, statusFromLabel } from "@/lib/server-status";
 import { useServerStatus } from "@/stores/server-status";
+import { useServerTaskLock } from "@/stores/server-tasks";
+import { TaskLockNotice } from "@/components/server/task-lock-notice";
 import { ServerLicenseList } from "./server-licenses";
 
 type ServerSettingsProps = {
@@ -71,6 +73,7 @@ export function ServerSettings({
   const [infoState, setInfoState] = useState<string | null>(null);
 
   const liveStatus = useServerStatus(serverId);
+  const wipeLock = useServerTaskLock(serverId, "storage", "write");
   const status =
     liveStatus === "unknown" && infoState
       ? statusFromLabel(infoState)
@@ -378,11 +381,12 @@ export function ServerSettings({
                 void refreshStatus();
                 void refreshBackupSlot();
               }}
-              disabled={isWiping || !canWipe}
+              disabled={isWiping || !canWipe || wipeLock.locked}
             >
               <Trash2 className="size-4" />
               {t("servers:settings.wipe.button")}
             </Button>
+            <TaskLockNotice lock={wipeLock} />
             {canWipe ? null : (
               <p className="text-xs text-muted-foreground">
                 {t("servers:settings.wipe.requiresStopped")}
@@ -410,6 +414,8 @@ export function ServerSettings({
               {t("servers:settings.wipe.requiresStopped")}
             </p>
           )}
+
+          <TaskLockNotice lock={wipeLock} />
 
           {canCreateBackup && backupSlotFree && (
             <div className="flex items-start gap-3 rounded-lg border p-3">
@@ -442,7 +448,7 @@ export function ServerSettings({
                 event.preventDefault();
                 void onWipe();
               }}
-              disabled={isWiping || !canWipe}
+              disabled={isWiping || !canWipe || wipeLock.locked}
             >
               {wipeWithBackup
                 ? t("servers:settings.wipe.confirmWithBackupButton")

@@ -51,6 +51,13 @@ import {
   useForgetServerStatus,
   usePublishServerStatus,
 } from "@/stores/server-status";
+import {
+  useForgetServerTasks,
+  usePublishServerTasks,
+  useServerTaskLock,
+} from "@/stores/server-tasks";
+import { EMPTY_SERVER_TASKS, readServerTasks } from "@/lib/server-tasks";
+import { TaskLockNotice } from "@/components/server/task-lock-notice";
 import { cn, titleCase } from "@/lib/utils";
 import {
   HIGH_USAGE_SUSTAIN_MS,
@@ -201,12 +208,19 @@ export function ServerManagementBar({
 
   const publishStatus = usePublishServerStatus();
   const forgetStatus = useForgetServerStatus();
+  const publishTasks = usePublishServerTasks();
+  const forgetTasks = useForgetServerTasks();
+
+  const powerLock = useServerTaskLock(serverId, "server", "read");
+  const startLock = useServerTaskLock(serverId, "server", "write");
 
   useEffect(() => {
     publishStatus(serverId, status);
   }, [publishStatus, serverId, status]);
 
   useEffect(() => () => forgetStatus(serverId), [forgetStatus, serverId]);
+
+  useEffect(() => () => forgetTasks(serverId), [forgetTasks, serverId]);
 
   const disableAllButtons = pendingAction !== null || actionsDisabled;
   const canRestart = controls.canStop;
@@ -299,6 +313,7 @@ export function ServerManagementBar({
           }
 
           setConnection("disconnected");
+          publishTasks(serverId, EMPTY_SERVER_TASKS);
         };
 
         socket.onclose = () => {
@@ -307,6 +322,7 @@ export function ServerManagementBar({
           }
 
           setConnection("disconnected");
+          publishTasks(serverId, EMPTY_SERVER_TASKS);
         };
 
         socket.onmessage = (event) => {
@@ -315,6 +331,12 @@ export function ServerManagementBar({
           }
 
           const message = event.data;
+
+          const nextTasks = readServerTasks(message);
+          if (nextTasks) {
+            publishTasks(serverId, nextTasks);
+            return;
+          }
 
           const nextPlayers = readServerPlayers(template, message);
           if (nextPlayers) {
@@ -414,7 +436,7 @@ export function ServerManagementBar({
       mounted = false;
       socket?.close();
     };
-  }, [serverId, template]);
+  }, [serverId, template, publishTasks]);
 
   useEffect(() => {
     if (status !== "running") {
@@ -677,6 +699,7 @@ export function ServerManagementBar({
                     {disabledReason}
                   </span>
                 )}
+                <TaskLockNotice lock={startLock} />
               </CardDescription>
             </div>
 
@@ -694,7 +717,9 @@ export function ServerManagementBar({
                 size="sm"
                 onClick={() => executePowerAction("start")}
                 loading={pendingAction === "start"}
-                disabled={disableAllButtons || !controls.canStart}
+                disabled={
+                  disableAllButtons || !controls.canStart || startLock.locked
+                }
               >
                 <Play className="size-4" />
                 {t("common:resources.start")}
@@ -705,7 +730,7 @@ export function ServerManagementBar({
                 variant="outline"
                 onClick={() => executePowerAction("restart")}
                 loading={pendingAction === "restart"}
-                disabled={disableAllButtons || !canRestart}
+                disabled={disableAllButtons || !canRestart || powerLock.locked}
               >
                 <RotateCcw className="size-4" />
                 {t("servers:managementBar.actions.restart")}
@@ -716,7 +741,9 @@ export function ServerManagementBar({
                 variant="destructive"
                 onClick={() => executePowerAction("stop")}
                 loading={pendingAction === "stop"}
-                disabled={disableAllButtons || !controls.canStop}
+                disabled={
+                  disableAllButtons || !controls.canStop || powerLock.locked
+                }
               >
                 <Pause className="size-4" />
                 {t("servers:managementBar.actions.stop")}
@@ -727,7 +754,9 @@ export function ServerManagementBar({
                 variant="secondary"
                 onClick={() => executePowerAction("kill")}
                 loading={pendingAction === "kill"}
-                disabled={disableAllButtons || !controls.canKill}
+                disabled={
+                  disableAllButtons || !controls.canKill || powerLock.locked
+                }
               >
                 <ShieldAlert className="size-4" />
                 {t("servers:managementBar.actions.kill")}

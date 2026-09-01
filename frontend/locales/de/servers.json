@@ -380,5 +380,49 @@
       "accepted": "{{license}} akzeptiert",
       "failed": "Lizenz konnte nicht akzeptiert werden"
     }
+  },
+  "tasks": {
+    "blocked": "Blockiert durch {{task}}",
+    "busyStorage": "Die Dateien des Servers sind durch eine andere Aufgabe gesperrt: {{task}}",
+    "kinds": {
+      "backup_restore": "Backup-Wiederherstellung",
+      "backup_create": "Backup-Erstellung",
+      "backup_download": "Backup-Download",
+      "backup_delete": "Backup-Löschung",
+      "backup_update": "Backup-Aktualisierung",
+      "backup_list": "Backup-Auflistung",
+      "realtime_download": "Download",
+      "wipe": "Dateien löschen",
+      "sftp": "SFTP-Sitzung",
+      "files_watch_websocket": "Datei-Überwachung",
+      "file_operation": "Dateioperation",
+      "scan": "Speicher-Scan",
+      "server_running": "Laufender Server",
+      "start": "Serverstart",
+      "stop": "Serverstopp",
+      "restart": "Serverneustart",
+      "kill": "Server-Kill",
+      "delete": "Serverlöschung",
+      "schedule_task_run": "Geplante Aufgabe",
+      "schedule_terminal_command": "Geplanter Befehl",
+      "container_command": "Konsolenbefehl"
+    },
+    "fileOperations": {
+      "archive_create": "Archiv erstellen",
+      "archive_unpack": "Archiv entpacken",
+      "chmod": "Rechte",
+      "chown": "Besitzer",
+      "copy_file": "kopieren",
+      "delete": "löschen",
+      "download": "herunterladen",
+      "list": "auflisten",
+      "mkdir": "Ordner erstellen",
+      "rename": "umbenennen",
+      "stat": "Status",
+      "symlink": "Symlink",
+      "write": "schreiben",
+      "write_by_url": "Download in Datei",
+      "write_by_template": "Template-Schreiben"
+    }
   }
 }
