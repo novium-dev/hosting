@@ -106,6 +106,7 @@ import {
 } from "@/lib/api";
 import { FileMode, modeToType } from "@/lib/files";
 import { isUploadAborted, uploadToSignedUrl } from "@/lib/file-upload";
+import { appConfig } from "@/constants/config";
 import {
   DISK_USAGE_EVENT,
   type DiskUsageEventDetail,
@@ -777,12 +778,34 @@ export function FilesManager({
       return;
     }
 
+    const { maxFileSize } = appConfig.uploads;
+    const files =
+      maxFileSize === null
+        ? incomingFiles
+        : incomingFiles.filter((file) => file.size <= maxFileSize);
+
+    if (maxFileSize !== null && files.length < incomingFiles.length) {
+      const rejected = incomingFiles.filter((file) => file.size > maxFileSize);
+
+      toast.error(
+        t("servers-management:filesManager.toasts.uploadTooLarge", {
+          count: rejected.length,
+          fileName: rejected[0]?.name,
+          limit: formatBytes(maxFileSize, t("common:status.unknown")),
+        }),
+      );
+    }
+
+    if (files.length === 0) {
+      return;
+    }
+
     if (uploadDismissTimeoutRef.current !== null) {
       window.clearTimeout(uploadDismissTimeoutRef.current);
       uploadDismissTimeoutRef.current = null;
     }
 
-    const queue = incomingFiles.map((file) => ({
+    const queue = files.map((file) => ({
       file,
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       controller: new AbortController(),

@@ -138,7 +138,9 @@
       "massMoved_one": "Moved {{count}} entry to {{path}}",
       "massMoved_other": "Moved {{count}} entries to {{path}}",
       "massMoveFailed_one": "Failed to move {{count}} entry",
-      "massMoveFailed_other": "Failed to move {{count}} entries"
+      "massMoveFailed_other": "Failed to move {{count}} entries",
+      "uploadTooLarge_one": "{{fileName}} is larger than the {{limit}} upload limit",
+      "uploadTooLarge_other": "{{count}} files are larger than the {{limit}} upload limit"
     },
     "uploadProgress": {
       "uploading": "Uploading {{done}}/{{total}}",

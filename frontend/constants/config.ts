@@ -13,7 +13,28 @@ type AppConfig = {
     terms: string;
     privacy: string;
   };
+  uploads: {
+    behindCloudflare: boolean;
+    maxFileSize: number | null;
+  };
 };
+
+const CLOUDFLARE_MAX_UPLOAD_SIZE = 100 * 1024 * 1024;
+
+function parseBoolean(value: string | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  return normalized === "true" || normalized === "1" || normalized === "yes";
+}
+
+const behindCloudflare = parseBoolean(
+  window.__RUNTIME_CONFIG__?.BEHIND_CLOUDFLARE ||
+    import.meta.env.VITE_BEHIND_CLOUDFLARE,
+);
 
 export const appConfig: AppConfig = {
   appName:
@@ -32,5 +53,9 @@ export const appConfig: AppConfig = {
   legalLinks: {
     terms: "https://novium.world/agb",
     privacy: "https://novium.world/privacy",
+  },
+  uploads: {
+    behindCloudflare,
+    maxFileSize: behindCloudflare ? CLOUDFLARE_MAX_UPLOAD_SIZE : null,
   },
 };

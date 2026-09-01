@@ -138,7 +138,9 @@
       "massMoved_one": "{{count}} Eintrag nach {{path}} verschoben",
       "massMoved_other": "{{count}} Einträge nach {{path}} verschoben",
       "massMoveFailed_one": "{{count}} Eintrag konnte nicht verschoben werden",
-      "massMoveFailed_other": "{{count}} Einträge konnten nicht verschoben werden"
+      "massMoveFailed_other": "{{count}} Einträge konnten nicht verschoben werden",
+      "uploadTooLarge_one": "{{fileName}} überschreitet das Upload-Limit von {{limit}}",
+      "uploadTooLarge_other": "{{count}} Dateien überschreiten das Upload-Limit von {{limit}}"
     },
     "uploadProgress": {
       "uploading": "Lädt hoch {{done}}/{{total}}",

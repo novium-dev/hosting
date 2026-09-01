@@ -27,6 +27,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { downloadUser, statFile, uploadUser } from "@/lib/api";
 import { uploadToSignedUrl } from "@/lib/file-upload";
+import { appConfig } from "@/constants/config";
 import { FileMode, modeToType } from "@/lib/files";
 
 type FileEditorProps = {
@@ -309,6 +310,18 @@ export function FileEditor({
       return;
     }
 
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const { maxFileSize } = appConfig.uploads;
+
+    if (maxFileSize !== null && blob.size > maxFileSize) {
+      toast.error(
+        t("servers:fileEditor.toasts.tooLarge", {
+          limit: formatBytes(maxFileSize, t("common:status.unknown")),
+        }),
+      );
+      return;
+    }
+
     setIsSaving(true);
     setSaveProgress(0);
 
@@ -325,8 +338,6 @@ export function FileEditor({
         );
         return;
       }
-
-      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
 
       const uploaded = await uploadToSignedUrl({
         url: uploadUrlResponse.data.url,

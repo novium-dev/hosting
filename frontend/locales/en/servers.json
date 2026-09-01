@@ -165,7 +165,8 @@
       "loadFailed": "Failed to load file",
       "uploadUrlFailed": "Failed to get upload URL",
       "saveSuccess": "File saved",
-      "saveFailed": "Failed to save file"
+      "saveFailed": "Failed to save file",
+      "tooLarge": "The file is larger than the {{limit}} upload limit"
     },
     "saving": "Saving file..."
   },

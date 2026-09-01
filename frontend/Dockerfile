@@ -19,6 +19,11 @@ ENV VITE_API_URL=$VITE_API_URL
 ARG VITE_APP_NAME=""
 ENV VITE_APP_NAME=$VITE_APP_NAME
 
+# Cloudflare's proxy caps request bodies at 100 MB; when set, the SPA rejects
+# larger uploads itself. Overridable at container runtime like VITE_APP_NAME.
+ARG VITE_BEHIND_CLOUDFLARE=""
+ENV VITE_BEHIND_CLOUDFLARE=$VITE_BEHIND_CLOUDFLARE
+
 RUN bun run build
 
 # ============================================
