@@ -103,6 +103,7 @@ pub(crate) struct ServerInfo {
     pub(crate) suspended: bool,
     pub(crate) suspension_reason: Option<String>,
     pub(crate) primary_port: Option<PrimaryPortInfo>,
+    pub(crate) custom_dockerfile: Option<String>,
 
     pub(crate) stats: Option<ServerStats>,
     pub(crate) state: Option<String>,
@@ -377,6 +378,10 @@ pub(crate) impl ServerService for Backend {
             },
             suspended: server.suspended,
             suspension_reason: server.suspension_reason.clone(),
+            custom_dockerfile: server
+                .custom_dockerfile
+                .clone()
+                .filter(|_| auth.has((), ManagementPermissions::SERVER_MANAGE)),
         })
     }
 

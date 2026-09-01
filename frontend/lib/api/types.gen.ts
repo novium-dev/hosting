@@ -953,6 +953,7 @@ export type ServerInfoResponses = {
      */
     200: {
         cpu?: number | null;
+        custom_dockerfile?: string | null;
         disk?: number | null;
         features: Array<string>;
         id: NanoId;

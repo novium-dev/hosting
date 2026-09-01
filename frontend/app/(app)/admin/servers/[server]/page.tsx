@@ -109,7 +109,7 @@ export default function AdminServerManagementPage() {
     ram: data.ram ?? null,
     swap: data.swap ?? null,
     disk: data.disk ?? null,
-    customDockerfile: null,
+    customDockerfile: data.custom_dockerfile ?? null,
   };
 
   return (
