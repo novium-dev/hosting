@@ -7,8 +7,14 @@ import { serverTerminal } from "@/lib/api";
 
 export type ConsoleSocketStatus = "connecting" | "open" | "closed" | "failed";
 
+export type TerminalSize = {
+  cols: number;
+  rows: number;
+};
+
 const AUTO_RETRY_LIMIT = 3;
 const AUTO_RETRY_BASE_DELAY = 2000;
+const RESIZE_PREFIX = "DAEMON_TTY_RESIZE:";
 
 type ConsoleSocketOptions = {
   serverId: string;
@@ -16,6 +22,7 @@ type ConsoleSocketOptions = {
   onOpen?: () => void;
   onClose?: (willRetry: boolean) => void;
   onFail?: () => void;
+  getSize?: () => TerminalSize | null;
 };
 
 export function useConsoleSocket({
@@ -24,6 +31,7 @@ export function useConsoleSocket({
   onOpen,
   onClose,
   onFail,
+  getSize,
 }: ConsoleSocketOptions) {
   const [status, setStatus] = useState<ConsoleSocketStatus>("connecting");
   const [canWrite, setCanWrite] = useState(false);
@@ -31,11 +39,11 @@ export function useConsoleSocket({
 
   const socketRef = useRef<WebSocket | null>(null);
   const autoRetriesRef = useRef(0);
-  const handlersRef = useRef({ onChunk, onOpen, onClose, onFail });
+  const handlersRef = useRef({ onChunk, onOpen, onClose, onFail, getSize });
 
   useLayoutEffect(() => {
-    handlersRef.current = { onChunk, onOpen, onClose, onFail };
-  }, [onChunk, onOpen, onClose, onFail]);
+    handlersRef.current = { onChunk, onOpen, onClose, onFail, getSize };
+  }, [onChunk, onOpen, onClose, onFail, getSize]);
 
   useEffect(() => {
     let disposed = false;
@@ -54,7 +62,11 @@ export function useConsoleSocket({
     };
 
     const connect = async () => {
-      const response = await serverTerminal({ path: { server_id: serverId } });
+      const size = handlersRef.current.getSize?.();
+      const response = await serverTerminal({
+        path: { server_id: serverId },
+        query: size ? { cols: size.cols, rows: size.rows } : undefined,
+      });
       if (disposed) return;
 
       let url = response.data;
@@ -139,10 +151,15 @@ export function useConsoleSocket({
     return true;
   }, []);
 
+  const sendResize = useCallback(
+    (size: TerminalSize) => send(`${RESIZE_PREFIX}${size.cols}:${size.rows}`),
+    [send],
+  );
+
   const reconnect = useCallback(() => {
     autoRetriesRef.current = 0;
     setAttempt((value) => value + 1);
   }, []);
 
-  return { status, canWrite, send, reconnect };
+  return { status, canWrite, send, sendResize, reconnect };
 }

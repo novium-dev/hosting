@@ -31,7 +31,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useTheme } from "@/components/theme-provider";
-import { useConsoleSocket } from "@/hooks/use-console-socket";
+import {
+  useConsoleSocket,
+  type TerminalSize,
+} from "@/hooks/use-console-socket";
 import { cn } from "@/lib/utils";
 
 import "@xterm/xterm/css/xterm.css";
@@ -79,8 +82,10 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
   const terminalRef = useRef<Terminal | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const sizeRef = useRef<TerminalSize | null>(null);
   const pendingRef = useRef<string[]>([]);
   const sendRef = useRef<(data: string) => boolean>(() => false);
+  const sendResizeRef = useRef<(size: TerminalSize) => boolean>(() => false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResults>({
@@ -111,6 +116,26 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
     }),
     [resolvedTheme],
   );
+
+  const syncSize = useCallback((force = false) => {
+    const term = terminalRef.current;
+    if (!term) return;
+
+    const previous = sizeRef.current;
+    const size = { cols: term.cols, rows: term.rows };
+    sizeRef.current = size;
+
+    if (
+      !force &&
+      previous &&
+      previous.cols === size.cols &&
+      previous.rows === size.rows
+    ) {
+      return;
+    }
+
+    sendResizeRef.current(size);
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -147,6 +172,7 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
 
     terminalRef.current = term;
     searchAddonRef.current = searchAddon;
+    sizeRef.current = { cols: term.cols, rows: term.rows };
 
     for (const chunk of pendingRef.current) term.write(chunk);
     pendingRef.current = [];
@@ -175,6 +201,7 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
     const observer = new ResizeObserver(() => {
       try {
         fitAddon.fit();
+        syncSize();
       } catch {
         // The panel can be measured while hidden; ignore.
       }
@@ -186,10 +213,11 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
       dataListener.dispose();
       resultsListener.dispose();
       searchAddonRef.current = null;
+      sizeRef.current = null;
       terminalRef.current = null;
       term.dispose();
     };
-  }, []);
+  }, [syncSize]);
 
   useEffect(() => {
     const term = terminalRef.current;
@@ -207,6 +235,12 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
 
     term.write(chunk);
   }, []);
+
+  const handleOpen = useCallback(() => {
+    syncSize(true);
+  }, [syncSize]);
+
+  const getSize = useCallback(() => sizeRef.current, []);
 
   const handleClose = useCallback(
     (willRetry: boolean) => {
@@ -227,14 +261,17 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
     );
   }, [t]);
 
-  const { status, canWrite, send, reconnect } = useConsoleSocket({
+  const { status, canWrite, send, sendResize, reconnect } = useConsoleSocket({
     serverId,
     onChunk: handleChunk,
+    onOpen: handleOpen,
     onClose: handleClose,
     onFail: handleFail,
+    getSize,
   });
 
   sendRef.current = send;
+  sendResizeRef.current = sendResize;
 
   useEffect(() => {
     const term = terminalRef.current;
