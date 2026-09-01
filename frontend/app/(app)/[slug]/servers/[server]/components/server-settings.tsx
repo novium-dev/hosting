@@ -74,6 +74,7 @@ export function ServerSettings({
 
   const liveStatus = useServerStatus(serverId);
   const wipeLock = useServerTaskLock(serverId, "storage", "write");
+  const showWipeLock = wipeLock.blocking?.kind !== "server_running";
   const status =
     liveStatus === "unknown" && infoState
       ? statusFromLabel(infoState)
@@ -386,7 +387,7 @@ export function ServerSettings({
               <Trash2 className="size-4" />
               {t("servers:settings.wipe.button")}
             </Button>
-            <TaskLockNotice lock={wipeLock} />
+            {showWipeLock ? <TaskLockNotice lock={wipeLock} /> : null}
             {canWipe ? null : (
               <p className="text-xs text-muted-foreground">
                 {t("servers:settings.wipe.requiresStopped")}
@@ -415,7 +416,7 @@ export function ServerSettings({
             </p>
           )}
 
-          <TaskLockNotice lock={wipeLock} />
+          {showWipeLock ? <TaskLockNotice lock={wipeLock} /> : null}
 
           {canCreateBackup && backupSlotFree && (
             <div className="flex items-start gap-3 rounded-lg border p-3">

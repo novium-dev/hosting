@@ -25,12 +25,12 @@ export function TaskLockNotice({ lock, className }: TaskLockNoticeProps) {
   return (
     <p
       className={cn(
-        "inline-flex items-center gap-1.5 text-xs text-muted-foreground",
+        "flex items-center gap-1.5 text-xs text-muted-foreground",
         className,
       )}
     >
-      <Loader2 className="size-3.5 animate-spin" />
-      {t("servers:tasks.running", { task: taskLabel(lock.blocking, t) })}
+      <Loader2 className="size-3.5 shrink-0 animate-spin" />
+      {taskLabel(lock.blocking, t)}
       {percent === null ? null : ` (${percent.toFixed(0)}%)`}
     </p>
   );
