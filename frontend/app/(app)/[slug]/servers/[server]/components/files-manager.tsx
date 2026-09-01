@@ -114,7 +114,10 @@ import {
   DISK_USAGE_EVENT,
   type DiskUsageEventDetail,
 } from "./server-management-bar";
-import UploadProgressPanel, { type UploadTask } from "./upload-progress";
+import UploadProgressPanel, {
+  isUploadTaskActive,
+  type UploadTask,
+} from "./upload-progress";
 import type { LucideIcon } from "lucide-react";
 
 type FilesManagerProps = {
@@ -209,6 +212,8 @@ function isDirectory(row: FileRow) {
 }
 
 const PERMISSION_BITS = 0o7777;
+
+const UPLOAD_DISMISS_DELAY = 2500;
 
 function permissionBits(mode: number) {
   return mode & PERMISSION_BITS;
@@ -365,6 +370,7 @@ export function FilesManager({
   const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([]);
   const uploadDismissTimeoutRef = useRef<number | null>(null);
   const uploadControllersRef = useRef(new Map<string, AbortController>());
+  const uploadRunRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const undoStackRef = useRef<UndoableAction[]>([]);
   const redoStackRef = useRef<UndoableAction[]>([]);
@@ -756,17 +762,40 @@ export function FilesManager({
     );
   };
 
+  const clearUploadDismissTimeout = () => {
+    if (uploadDismissTimeoutRef.current !== null) {
+      window.clearTimeout(uploadDismissTimeoutRef.current);
+      uploadDismissTimeoutRef.current = null;
+    }
+  };
+
+  const scheduleUploadDismiss = () => {
+    clearUploadDismissTimeout();
+
+    uploadDismissTimeoutRef.current = window.setTimeout(() => {
+      uploadDismissTimeoutRef.current = null;
+      setUploadTasks([]);
+    }, UPLOAD_DISMISS_DELAY);
+  };
+
   const cancelUploadTask = (id: string) => {
     uploadControllersRef.current.get(id)?.abort();
 
     setUploadTasks((previous) =>
       previous.map((task) =>
-        task.id === id &&
-        (task.status === "pending" || task.status === "uploading")
+        task.id === id && isUploadTaskActive(task)
           ? { ...task, status: "cancelled" }
           : task,
       ),
     );
+
+    const remainsActive = uploadTasks.some(
+      (task) => task.id !== id && isUploadTaskActive(task),
+    );
+
+    if (!remainsActive) {
+      scheduleUploadDismiss();
+    }
   };
 
   const cancelAllUploads = () => {
@@ -776,11 +805,11 @@ export function FilesManager({
 
     setUploadTasks((previous) =>
       previous.map((task) =>
-        task.status === "pending" || task.status === "uploading"
-          ? { ...task, status: "cancelled" }
-          : task,
+        isUploadTaskActive(task) ? { ...task, status: "cancelled" } : task,
       ),
     );
+
+    scheduleUploadDismiss();
   };
 
   const uploadFiles = async (
@@ -824,10 +853,10 @@ export function FilesManager({
       return;
     }
 
-    if (uploadDismissTimeoutRef.current !== null) {
-      window.clearTimeout(uploadDismissTimeoutRef.current);
-      uploadDismissTimeoutRef.current = null;
-    }
+    clearUploadDismissTimeout();
+
+    const runId = uploadRunRef.current + 1;
+    uploadRunRef.current = runId;
 
     const queue = files.map((file) => ({
       file,
@@ -853,6 +882,7 @@ export function FilesManager({
 
     let successCount = 0;
     let cancelledCount = 0;
+    let errorCount = 0;
 
     try {
       for (const { file, id, controller } of queue) {
@@ -883,6 +913,7 @@ export function FilesManager({
 
         if (uploadUrlResponse.error || !uploadUrlResponse.data?.url) {
           updateUploadTask(id, { status: "error" });
+          errorCount += 1;
           toast.error(
             uploadUrlResponse.error?.error?.msg ??
               t("servers-management:filesManager.toasts.uploadUrlFailed", {
@@ -918,6 +949,7 @@ export function FilesManager({
 
         if (!uploaded) {
           updateUploadTask(id, { status: "error" });
+          errorCount += 1;
           toast.error(
             t("servers-management:filesManager.toasts.uploadFailedFile", {
               fileName: file.name,
@@ -949,19 +981,29 @@ export function FilesManager({
       if (successCount > 0 || cancelledCount > 0) {
         await refresh(currentPath, { preserveScroll: true });
       }
-
-      if (successCount + cancelledCount === queue.length) {
-        uploadDismissTimeoutRef.current = window.setTimeout(() => {
-          uploadDismissTimeoutRef.current = null;
-          setUploadTasks([]);
-        }, 2500);
-      }
     } catch {
       toast.error(t("servers-management:filesManager.toasts.uploadFailed"));
     } finally {
-      uploadControllersRef.current.clear();
-      setIsActionLoading(false);
-      setIsFileDropActive(false);
+      if (uploadRunRef.current === runId) {
+        for (const controller of uploadControllersRef.current.values()) {
+          controller.abort();
+        }
+
+        uploadControllersRef.current.clear();
+
+        setUploadTasks((previous) =>
+          previous.map((task) =>
+            isUploadTaskActive(task) ? { ...task, status: "cancelled" } : task,
+          ),
+        );
+
+        if (errorCount === 0) {
+          scheduleUploadDismiss();
+        }
+
+        setIsActionLoading(false);
+        setIsFileDropActive(false);
+      }
     }
   };
 
@@ -2030,11 +2072,7 @@ export function FilesManager({
           onCancelTask={cancelUploadTask}
           onCancelAll={cancelAllUploads}
           onDismiss={() => {
-            if (uploadDismissTimeoutRef.current !== null) {
-              window.clearTimeout(uploadDismissTimeoutRef.current);
-              uploadDismissTimeoutRef.current = null;
-            }
-
+            clearUploadDismissTimeout();
             setUploadTasks([]);
           }}
         />

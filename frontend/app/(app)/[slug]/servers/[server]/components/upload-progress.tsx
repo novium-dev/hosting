@@ -14,7 +14,7 @@ export type UploadTask = {
   status: "pending" | "uploading" | "done" | "error" | "cancelled";
 };
 
-function isTaskActive(task: UploadTask) {
+export function isUploadTaskActive(task: UploadTask) {
   return task.status === "pending" || task.status === "uploading";
 }
 
@@ -47,7 +47,7 @@ export default function UploadProgressPanel({
     return null;
   }
 
-  const finished = tasks.filter((task) => !isTaskActive(task)).length;
+  const finished = tasks.filter((task) => !isUploadTaskActive(task)).length;
   const isRunning = finished < tasks.length;
   const hasErrors = tasks.some((task) => task.status === "error");
   const hasCancelled = tasks.some((task) => task.status === "cancelled");
@@ -137,7 +137,7 @@ export default function UploadProgressPanel({
                         )
                       : `${taskPercent(task)}%`}
               </span>
-              {isTaskActive(task) ? (
+              {isUploadTaskActive(task) ? (
                 <Button
                   type="button"
                   variant="ghost"
