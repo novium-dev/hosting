@@ -290,6 +290,9 @@ export default function LogConsole({ serverId }: { serverId: string }) {
           id: nextIdRef.current++,
           previous: previousLineRef.current,
         });
+
+        if (line.raw.length === 0 && part.trim().length > 0) continue;
+
         previousLineRef.current = line;
         bufferRef.current.push(line);
 

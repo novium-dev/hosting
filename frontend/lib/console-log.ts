@@ -324,8 +324,17 @@ export function parseAnsi(input: string): ConsoleSegment[] {
   while (match) {
     style = appendText(segments, input.slice(cursor, match.index), style);
 
-    if (match[2] === "m") {
-      style = applySgr(style, match[1] ?? "");
+    const final = match[2];
+    const params = match[1] ?? "";
+
+    if (final === "m") {
+      style = applySgr(style, params);
+    } else if (final === "K") {
+      if (params === "1" || params === "2") segments.length = 0;
+    } else if (final === "G" || final === "`") {
+      if (params === "" || params === "0" || params === "1") {
+        segments.length = 0;
+      }
     }
 
     cursor = match.index + match[0].length;
@@ -383,6 +392,11 @@ function sliceSegments(segments: ConsoleSegment[], start: number) {
   }
 
   return sliced;
+}
+
+function stripPrompt(segments: ConsoleSegment[]) {
+  const match = PROMPT_PATTERN.exec(segmentsToText(segments));
+  return match?.[0] ? sliceSegments(segments, match[0].length) : segments;
 }
 
 function plainSegments(text: string): ConsoleSegment[] {
@@ -453,6 +467,8 @@ const PATTERNS: RegExp[] = [
   // ERROR: message   /   ERROR message
   new RegExp(String.raw`^(?<level>${WORD})\s*:?\s+(?<rest>[\s\S]*)$`),
 ];
+
+const PROMPT_PATTERN = /^(?:\s*>[ \t]+)+|^(?:\s*>[ \t]*)+$/;
 
 const CONTINUATION_PATTERN =
   /^(?:\s+at\s|\s*Caused by:|\s*Suppressed:|\s*\.{3}\s*\d+\s+more|\s{4,}\S)/;
@@ -543,7 +559,7 @@ export function parseConsoleLine(
   input: string,
   { id, receivedAt = Date.now(), previous = null }: ParseOptions,
 ): ConsoleLine {
-  const segments = trimTrailing(parseAnsi(input));
+  const segments = trimTrailing(stripPrompt(parseAnsi(input)));
   const raw = segmentsToText(segments);
 
   const base = {
