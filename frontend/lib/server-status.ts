@@ -97,7 +97,7 @@ function formatBaseUsage(max: number | null) {
 }
 
 function formatCores(value: number) {
-  return value.toFixed(2).replace(/\.?0+$/, "");
+  return value.toFixed(2).replace(/\.?0+$/, "") + " Cores";
 }
 
 function formatBaseCpuUsage(max: number | null) {

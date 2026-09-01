@@ -36,6 +36,8 @@ define_query_variable!(project "The project");
 define_query_variable!(node "The node");
 define_query_variable!(template "The template");
 define_query_variable!(include "Whether to include live status from the daemon");
+define_query_variable!(cols "The number of columns for the terminal");
+define_query_variable!(rows "The number of rows for the terminal");
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ServerListInfo {
@@ -616,12 +618,14 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::TERMINAL_READ`].
     /// Grants Write Permissions, if [`ServerPermissions::TERMINAL_WRITE`] is present.
-    #[route("/{server_id}/terminal", method = GET)]
+    #[route("/{server_id}/terminal", method = GET, query = [cols, rows])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn server_terminal(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
+        cols: Option<u16>,
+        rows: Option<u16>,
     ) -> Result<String, _> {
         auth.require::<_, _, ServerTerminalError>(server_id, ServerPermissions::TERMINAL_READ)?;
         let server = self
@@ -634,8 +638,8 @@ pub(crate) impl ServerService for Backend {
             .services
             .server_terminal_user_url_signed(
                 server.node_server_id,
-                None,
-                None,
+                cols,
+                rows,
                 auth.has(server_id, ServerPermissions::TERMINAL_WRITE),
             )
             .to_string();
