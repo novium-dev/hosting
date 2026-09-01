@@ -47,6 +47,10 @@ import {
   supportsPlayers,
   type ServerPlayers,
 } from "@/lib/server-players";
+import {
+  useForgetServerStatus,
+  usePublishServerStatus,
+} from "@/stores/server-status";
 import { cn, titleCase } from "@/lib/utils";
 import {
   HIGH_USAGE_SUSTAIN_MS,
@@ -195,6 +199,15 @@ export function ServerManagementBar({
     ram: number | null;
   }>({ cpu: null, ram: null });
 
+  const publishStatus = usePublishServerStatus();
+  const forgetStatus = useForgetServerStatus();
+
+  useEffect(() => {
+    publishStatus(serverId, status);
+  }, [publishStatus, serverId, status]);
+
+  useEffect(() => () => forgetStatus(serverId), [forgetStatus, serverId]);
+
   const disableAllButtons = pendingAction !== null || actionsDisabled;
   const canRestart = controls.canStop;
 
@@ -331,7 +344,9 @@ export function ServerManagementBar({
                 ram: formatUsage(ramCurrent, ramMax),
                 disk: formatUsage(diskCurrent, diskMax),
                 swap:
-                  swapMax === 0 ? "Disabled" : formatUsage(payload.swap, swapMax),
+                  swapMax === 0
+                    ? "Disabled"
+                    : formatUsage(payload.swap, swapMax),
               });
 
               const diskPercent = usagePercentValue(diskCurrent, diskMax);
@@ -480,7 +495,8 @@ export function ServerManagementBar({
   };
 
   const canCopyAddress = address !== null;
-  const displayAddress = address ?? t("servers:managementBar.addressUnavailable");
+  const displayAddress =
+    address ?? t("servers:managementBar.addressUnavailable");
   const uptimeMs =
     status === "running" && startedAt !== null ? now - startedAt : null;
   const playerCount = players
@@ -567,214 +583,214 @@ export function ServerManagementBar({
       )}
 
       <Card className="border-border/70">
-      <CardHeader className="space-y-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <CardTitle className="text-xl">{serverName}</CardTitle>
-              <Badge variant={statusVariant(status)}>
-                {statusLabel(status)}
-              </Badge>
-            </div>
-            <CardDescription className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-              {canCopyAddress ? (
-                <button
-                  type="button"
-                  onClick={handleCopyAddress}
-                  title={t("servers:managementBar.copyAddressTitle")}
-                  className="group inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Waypoints className="size-4" />
-                  {displayAddress}
-                  {addressCopied ? (
-                    <Check className="size-3.5 text-green-500" />
-                  ) : (
-                    <Copy className="size-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
-                  )}
-                </button>
-              ) : (
-                <span className="inline-flex items-center gap-1.5">
-                  <Waypoints className="size-4" />
-                  {displayAddress}
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1.5">
-                <Server className="size-4" />
-                {nodeDisplay}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Globe className="size-4" />
-                {titleCase(template)}
-              </span>
-              {uptimeMs !== null && (
-                <span
-                  className="inline-flex items-center gap-1.5"
-                  title={t("servers:managementBar.uptimeTitle")}
-                >
-                  <Clock className="size-4" />
-                  {formatUptime(uptimeMs)}
-                </span>
-              )}
-              {playerCount && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Users className="size-4" />
-                      {playerCount}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {playerNames.length > 0 ? (
-                      <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
-                        {playerNames.map((name) => (
-                          <span key={name}>{name}</span>
-                        ))}
-                      </div>
+        <CardHeader className="space-y-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-xl">{serverName}</CardTitle>
+                <Badge variant={statusVariant(status)}>
+                  {statusLabel(status)}
+                </Badge>
+              </div>
+              <CardDescription className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                {canCopyAddress ? (
+                  <button
+                    type="button"
+                    onClick={handleCopyAddress}
+                    title={t("servers:managementBar.copyAddressTitle")}
+                    className="group inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Waypoints className="size-4" />
+                    {displayAddress}
+                    {addressCopied ? (
+                      <Check className="size-3.5 text-green-500" />
                     ) : (
-                      t("servers:managementBar.playersOnline")
+                      <Copy className="size-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
                     )}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {suspended &&
-                (suspensionReason ? (
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Waypoints className="size-4" />
+                    {displayAddress}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1.5">
+                  <Server className="size-4" />
+                  {nodeDisplay}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Globe className="size-4" />
+                  {titleCase(template)}
+                </span>
+                {uptimeMs !== null && (
+                  <span
+                    className="inline-flex items-center gap-1.5"
+                    title={t("servers:managementBar.uptimeTitle")}
+                  >
+                    <Clock className="size-4" />
+                    {formatUptime(uptimeMs)}
+                  </span>
+                )}
+                {playerCount && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="destructive">
-                        {t("servers:managementBar.suspendedBadge")}
-                      </Badge>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Users className="size-4" />
+                        {playerCount}
+                      </span>
                     </TooltipTrigger>
-                    <TooltipContent>{suspensionReason}</TooltipContent>
+                    <TooltipContent>
+                      {playerNames.length > 0 ? (
+                        <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
+                          {playerNames.map((name) => (
+                            <span key={name}>{name}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        t("servers:managementBar.playersOnline")
+                      )}
+                    </TooltipContent>
                   </Tooltip>
-                ) : (
+                )}
+                {suspended &&
+                  (suspensionReason ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="destructive">
+                          {t("servers:managementBar.suspendedBadge")}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>{suspensionReason}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Badge variant="destructive">
+                      {t("servers:managementBar.suspendedBadge")}
+                    </Badge>
+                  ))}
+                {nodeMaintenance && (
                   <Badge variant="destructive">
-                    {t("servers:managementBar.suspendedBadge")}
+                    {t("servers:managementBar.maintenanceBadge")}
                   </Badge>
-                ))}
-              {nodeMaintenance && (
-                <Badge variant="destructive">
-                  {t("servers:managementBar.maintenanceBadge")}
-                </Badge>
-              )}
-              {actionsDisabled && disabledReason && (
-                <span className="inline-flex items-center gap-1.5 text-destructive">
-                  {disabledReason}
-                </span>
-              )}
-            </CardDescription>
-          </div>
+                )}
+                {actionsDisabled && disabledReason && (
+                  <span className="inline-flex items-center gap-1.5 text-destructive">
+                    {disabledReason}
+                  </span>
+                )}
+              </CardDescription>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {adminHref && (
-              <Button asChild size="sm" variant="outline">
-                <Link href={adminHref}>
-                  <Shield className="mr-2 size-4" />
-                  {t("servers:managementBar.adminUiButton")}
-                </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              {adminHref && (
+                <Button asChild size="sm" variant="outline">
+                  <Link href={adminHref}>
+                    <Shield className="mr-2 size-4" />
+                    {t("servers:managementBar.adminUiButton")}
+                  </Link>
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => executePowerAction("start")}
+                loading={pendingAction === "start"}
+                disabled={disableAllButtons || !controls.canStart}
+              >
+                <Play className="size-4" />
+                {t("common:resources.start")}
               </Button>
-            )}
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => executePowerAction("start")}
-              loading={pendingAction === "start"}
-              disabled={disableAllButtons || !controls.canStart}
-            >
-              <Play className="size-4" />
-              {t("common:resources.start")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => executePowerAction("restart")}
-              loading={pendingAction === "restart"}
-              disabled={disableAllButtons || !canRestart}
-            >
-              <RotateCcw className="size-4" />
-              {t("servers:managementBar.actions.restart")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              onClick={() => executePowerAction("stop")}
-              loading={pendingAction === "stop"}
-              disabled={disableAllButtons || !controls.canStop}
-            >
-              <Pause className="size-4" />
-              {t("servers:managementBar.actions.stop")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => executePowerAction("kill")}
-              loading={pendingAction === "kill"}
-              disabled={disableAllButtons || !controls.canKill}
-            >
-              <ShieldAlert className="size-4" />
-              {t("servers:managementBar.actions.kill")}
-            </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => executePowerAction("restart")}
+                loading={pendingAction === "restart"}
+                disabled={disableAllButtons || !canRestart}
+              >
+                <RotateCcw className="size-4" />
+                {t("servers:managementBar.actions.restart")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                onClick={() => executePowerAction("stop")}
+                loading={pendingAction === "stop"}
+                disabled={disableAllButtons || !controls.canStop}
+              >
+                <Pause className="size-4" />
+                {t("servers:managementBar.actions.stop")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => executePowerAction("kill")}
+                loading={pendingAction === "kill"}
+                disabled={disableAllButtons || !controls.canKill}
+              >
+                <ShieldAlert className="size-4" />
+                {t("servers:managementBar.actions.kill")}
+              </Button>
+            </div>
           </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
 
-      <CardContent
-        className={
-          usage.swap === "Disabled"
-            ? "grid grid-cols-3 gap-4"
-            : "grid grid-cols-4 gap-4"
-        }
-      >
-        <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">
-            {t("common:resources.disk")}
-          </p>
-          <p
-            className={cn(
-              "mt-1 text-sm font-medium",
-              diskHigh && "text-destructive",
-            )}
-          >
-            {usage.disk}
-          </p>
-        </div>
-        <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">
-            {t("servers:managementBar.stats.ram")}
-          </p>
-          <p
-            className={cn(
-              "mt-1 text-sm font-medium",
-              ramHigh && "text-destructive",
-            )}
-          >
-            {usage.ram}
-          </p>
-        </div>
-        {usage.swap !== "Disabled" && (
+        <CardContent
+          className={
+            usage.swap === "Disabled"
+              ? "grid grid-cols-3 gap-4"
+              : "grid grid-cols-4 gap-4"
+          }
+        >
           <div className="rounded-md border bg-muted/30 p-3">
             <p className="text-xs text-muted-foreground">
-              {t("servers:managementBar.stats.swap")}
+              {t("common:resources.disk")}
             </p>
-            <p className="mt-1 text-sm font-medium">{usage.swap}</p>
+            <p
+              className={cn(
+                "mt-1 text-sm font-medium",
+                diskHigh && "text-destructive",
+              )}
+            >
+              {usage.disk}
+            </p>
           </div>
-        )}
-        <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">
-            {t("common:resources.cpu")}
-          </p>
-          <p
-            className={cn(
-              "mt-1 text-sm font-medium",
-              cpuHigh && "text-destructive",
-            )}
-          >
-            {usage.cpu}
-          </p>
-        </div>
-      </CardContent>
+          <div className="rounded-md border bg-muted/30 p-3">
+            <p className="text-xs text-muted-foreground">
+              {t("servers:managementBar.stats.ram")}
+            </p>
+            <p
+              className={cn(
+                "mt-1 text-sm font-medium",
+                ramHigh && "text-destructive",
+              )}
+            >
+              {usage.ram}
+            </p>
+          </div>
+          {usage.swap !== "Disabled" && (
+            <div className="rounded-md border bg-muted/30 p-3">
+              <p className="text-xs text-muted-foreground">
+                {t("servers:managementBar.stats.swap")}
+              </p>
+              <p className="mt-1 text-sm font-medium">{usage.swap}</p>
+            </div>
+          )}
+          <div className="rounded-md border bg-muted/30 p-3">
+            <p className="text-xs text-muted-foreground">
+              {t("common:resources.cpu")}
+            </p>
+            <p
+              className={cn(
+                "mt-1 text-sm font-medium",
+                cpuHigh && "text-destructive",
+              )}
+            >
+              {usage.cpu}
+            </p>
+          </div>
+        </CardContent>
       </Card>
     </div>
   );

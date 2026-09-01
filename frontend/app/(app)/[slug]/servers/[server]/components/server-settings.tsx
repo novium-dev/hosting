@@ -36,6 +36,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { listBackups, serverInfo, updateServer, wipeServer } from "@/lib/api";
+import { allowsWipe, statusFromLabel } from "@/lib/server-status";
+import { useServerStatus } from "@/stores/server-status";
 import { ServerLicenseList } from "./server-licenses";
 
 type ServerSettingsProps = {
@@ -66,6 +68,14 @@ export function ServerSettings({
   const [isWiping, setIsWiping] = useState(false);
   const [wipeWithBackup, setWipeWithBackup] = useState(false);
   const [backupSlotFree, setBackupSlotFree] = useState(false);
+  const [infoState, setInfoState] = useState<string | null>(null);
+
+  const liveStatus = useServerStatus(serverId);
+  const status =
+    liveStatus === "unknown" && infoState
+      ? statusFromLabel(infoState)
+      : liveStatus;
+  const canWipe = allowsWipe(status);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -82,6 +92,7 @@ export function ServerSettings({
       const nextName = response.data.name;
       setName(nextName);
       setInitialName(nextName);
+      setInfoState(response.data.state ?? null);
     } catch {
       toast.error(t("servers:settings.toasts.loadFailed"));
     } finally {
@@ -99,6 +110,16 @@ export function ServerSettings({
 
     setSftpUrl(`sftp://${encodeURIComponent(username)}@${host}${portPart}`);
   }, [serverId, username, nodeHostname, sshPort, t]);
+
+  const refreshStatus = useCallback(async () => {
+    const response = await serverInfo({ path: { server_id: serverId } });
+
+    if (response.error || !response.data) {
+      return;
+    }
+
+    setInfoState(response.data.state ?? null);
+  }, [serverId]);
 
   const refreshBackupSlot = useCallback(async () => {
     if (!canCreateBackup) {
@@ -143,7 +164,8 @@ export function ServerSettings({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("servers:settings.toasts.updateFailed"),
+          response.error.error?.msg ??
+            t("servers:settings.toasts.updateFailed"),
         );
         return;
       }
@@ -346,20 +368,26 @@ export function ServerSettings({
               {t("servers:settings.wipe.description")}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-2">
             <Button
               type="button"
               variant="destructive"
               onClick={() => {
                 setWipeWithBackup(false);
                 setWipeOpen(true);
+                void refreshStatus();
                 void refreshBackupSlot();
               }}
-              disabled={isWiping}
+              disabled={isWiping || !canWipe}
             >
               <Trash2 className="size-4" />
               {t("servers:settings.wipe.button")}
             </Button>
+            {canWipe ? null : (
+              <p className="text-xs text-muted-foreground">
+                {t("servers:settings.wipe.requiresStopped")}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -376,6 +404,12 @@ export function ServerSettings({
               {t("servers:settings.wipe.dialogDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {canWipe ? null : (
+            <p className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">
+              {t("servers:settings.wipe.requiresStopped")}
+            </p>
+          )}
 
           {canCreateBackup && backupSlotFree && (
             <div className="flex items-start gap-3 rounded-lg border p-3">
@@ -408,7 +442,7 @@ export function ServerSettings({
                 event.preventDefault();
                 void onWipe();
               }}
-              disabled={isWiping}
+              disabled={isWiping || !canWipe}
             >
               {wipeWithBackup
                 ? t("servers:settings.wipe.confirmWithBackupButton")

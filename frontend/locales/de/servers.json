@@ -256,6 +256,7 @@
       "dialogTitle": "Alle Dateien von {{name}} löschen?",
       "thisServer": "diesem Server",
       "dialogDescription": "Dadurch werden alle Dateien des Servers gelöscht, einschließlich Welten und Konfigurationen. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "requiresStopped": "Der Server muss gestoppt sein, bevor seine Dateien gelöscht werden können.",
       "backupCheckboxLabel": "Zuerst ein Backup erstellen",
       "backupCheckboxHelp": "Das Löschen wird abgebrochen, wenn das Backup fehlschlägt, sodass die Dateien niemals ohne Backup gelöscht werden.",
       "confirmButton": "Dateien löschen",

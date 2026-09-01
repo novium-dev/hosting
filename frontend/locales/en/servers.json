@@ -256,6 +256,7 @@
       "dialogTitle": "Wipe all files of {{name}}?",
       "thisServer": "this server",
       "dialogDescription": "This deletes every file of the server, including worlds and configs. This action cannot be undone.",
+      "requiresStopped": "The server has to be stopped before its files can be wiped.",
       "backupCheckboxLabel": "Create a backup first",
       "backupCheckboxHelp": "The wipe is cancelled if the backup fails, so the files are never deleted without it.",
       "confirmButton": "Wipe Files",
