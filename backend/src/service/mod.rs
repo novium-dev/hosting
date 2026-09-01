@@ -38,6 +38,7 @@ define_error!(project {
     not_empty("Project still has servers or databases" BAD_REQUEST),
     slug_invalid("The slug must be 1-64 characters of lowercase letters, numbers or hyphens, and must not be reserved" BAD_REQUEST),
     expiry_invalid("The membership expiry must be in the future" BAD_REQUEST),
+    owner_immutable("The project owner cannot be modified or removed" BAD_REQUEST),
 });
 
 define_error!(user {

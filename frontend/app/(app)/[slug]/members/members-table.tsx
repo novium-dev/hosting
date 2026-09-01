@@ -173,30 +173,32 @@ export function MembersTable({
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <DropdownMenu modal={false}>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          className="cursor-pointer"
-                          onSelect={() => {
-                            setMember(member);
-                            setUpdateOpen(true);
-                          }}
-                        >
-                          {t("project:members.table.updateAction")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="cursor-pointer text-destructive"
-                          onSelect={() => setRemoveMember(member)}
-                        >
-                          {t("project:members.table.removeAction")}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {member.id !== ownerId && (
+                      <DropdownMenu modal={false}>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onSelect={() => {
+                              setMember(member);
+                              setUpdateOpen(true);
+                            }}
+                          >
+                            {t("project:members.table.updateAction")}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="cursor-pointer text-destructive"
+                            onSelect={() => setRemoveMember(member)}
+                          >
+                            {t("project:members.table.removeAction")}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </TableCell>
                 </TableRow>
               );
@@ -220,7 +222,9 @@ export function MembersTable({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("project:members.table.removeTitle")}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("project:members.table.removeTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {t("project:members.table.removeDescription", {
                 email: removeMember?.email,

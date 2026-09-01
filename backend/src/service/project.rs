@@ -382,9 +382,10 @@ pub(crate) impl ProjectService for Backend {
     /// Sets project permissions for a user, identified by email.
     ///
     /// An `expires_at` timestamp limits the membership to that point in time;
-    /// omitting it grants access until the member is removed.
+    /// omitting it grants access until the member is removed. The project owner
+    /// always holds every permission and cannot be changed.
     #[route("/{project_id}/users", method = PUT)]
-    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found, expiry_invalid}, user::not_found <- [sql:not_found])]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found, expiry_invalid, owner_immutable}, user::not_found <- [sql:not_found])]
     async fn set_project_user(
         &self,
         #[special] auth: Authentication,
@@ -394,7 +395,7 @@ pub(crate) impl ProjectService for Backend {
         expires_at: Option<DateTime<Utc>>,
     ) -> Result<(), _> {
         auth.require::<_, _, SetProjectUserError>(project_id, ProjectPermissions::USER_EDIT)?;
-        ensure_project_exists::<SetProjectUserError>(self, project_id).await?;
+        let owner = project_owner::<SetProjectUserError>(self, project_id).await?;
 
         if expires_at.is_some_and(|expires_at| expires_at <= Utc::now()) {
             return Err(SetProjectUserError::ProjectExpiryInvalid);
@@ -403,6 +404,10 @@ pub(crate) impl ProjectService for Backend {
         let user_id = query_scalar!("SELECT id FROM users WHERE email = $1", email)
             .fetch_one(&*self.database)
             .await?;
+
+        if user_id == owner {
+            return Err(SetProjectUserError::ProjectOwnerImmutable);
+        }
 
         query!(
             r#"INSERT INTO project_users ("user", project, permissions, expires_at)
@@ -422,8 +427,10 @@ pub(crate) impl ProjectService for Backend {
     }
 
     /// Removes a project member.
+    ///
+    /// The project owner cannot be removed.
     #[route("/{project_id}/users/{user_id}", method = DELETE)]
-    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found)]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found, owner_immutable})]
     async fn remove_project_user(
         &self,
         #[special] auth: Authentication,
@@ -431,7 +438,10 @@ pub(crate) impl ProjectService for Backend {
         user_id: i32,
     ) -> Result<(), _> {
         auth.require::<_, _, RemoveProjectUserError>(project_id, ProjectPermissions::USER_EDIT)?;
-        ensure_project_exists::<RemoveProjectUserError>(self, project_id).await?;
+
+        if project_owner::<RemoveProjectUserError>(self, project_id).await? == user_id {
+            return Err(RemoveProjectUserError::ProjectOwnerImmutable);
+        }
 
         query!(
             r#"DELETE FROM project_users WHERE project = $1 AND "user" = $2"#,
@@ -443,6 +453,16 @@ pub(crate) impl ProjectService for Backend {
 
         Ok(())
     }
+}
+
+async fn project_owner<E: From<sqlx::Error> + FromProjectNotFound>(
+    backend: &Backend,
+    project_id: ProjectId,
+) -> Result<i32, E> {
+    query_scalar!("SELECT owner FROM projects WHERE id = $1", &project_id)
+        .fetch_optional(&*backend.database)
+        .await?
+        .ok_or_else(<E as FromProjectNotFound>::from)
 }
 
 async fn ensure_project_exists<E: From<sqlx::Error> + FromProjectNotFound>(
