@@ -27,6 +27,8 @@ tokio-util.workspace = true
 
 rand.workspace = true
 chrono.workspace = true
+chrono-tz.workspace = true
+cron.workspace = true
 hex.workspace = true
 sha2.workspace = true
 

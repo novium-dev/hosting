@@ -15,6 +15,7 @@ pub(crate) mod profile;
 pub(crate) mod project;
 pub(crate) mod resource;
 pub(crate) mod route;
+pub(crate) mod schedule;
 pub(crate) mod server;
 pub(crate) mod template;
 
@@ -110,6 +111,15 @@ define_error!(route {
     backend_error("The route backend rejected the request" BAD_GATEWAY),
 });
 
+define_error!(schedule {
+    not_found("The specified schedule was not found" NOT_FOUND),
+    name_invalid("The schedule name must be 1-64 characters" BAD_REQUEST),
+    cron_invalid("The cron expression is invalid" BAD_REQUEST),
+    timezone_invalid("The timezone is not a known IANA timezone" BAD_REQUEST),
+    steps_invalid("A schedule needs between 1 and 32 steps, each with a non-empty command" BAD_REQUEST),
+    limit_exceeded("The server schedule limit has been reached" BAD_REQUEST),
+});
+
 define_error!(node {
     not_found("The specified node was not found" BAD_REQUEST),
     not_empty("Node still has servers assigned" BAD_REQUEST),
@@ -175,6 +185,10 @@ define_path_variable!(
 
 define_path_variable!(
     port_id "The port ID"
+);
+
+define_path_variable!(
+    schedule_id "The schedule ID"
 );
 
 define_path_variable!(

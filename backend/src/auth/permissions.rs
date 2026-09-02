@@ -145,6 +145,15 @@ bitflags! {
         ///
         /// Depends on [`ServerPermissions::ROUTES_VIEW`]
         const ROUTES_MANAGE = 1 << 18;
+
+        /// Allows the user to see the server's schedules and the steps they run.
+        ///
+        /// Depends on [`ProjectPermissions::VIEW`]
+        const SCHEDULE_VIEW = 1 << 21;
+        /// Allows the user to create, edit and delete the server's schedules.
+        ///
+        /// Depends on [`ServerPermissions::SCHEDULE_VIEW`]
+        const SCHEDULE_MANAGE = 1 << 22;
     }
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
@@ -433,6 +442,8 @@ impl ServerPermissions {
 
         self.with_dependency(Self::ROUTES_VIEW, Self::NETWORK_VIEW);
         self.with_dependency(Self::ROUTES_MANAGE, Self::ROUTES_VIEW | Self::NETWORK_VIEW);
+
+        self.with_dependency(Self::SCHEDULE_MANAGE, Self::SCHEDULE_VIEW);
 
         self
     }
