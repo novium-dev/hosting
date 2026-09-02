@@ -29,6 +29,10 @@
         "label": "Network",
         "description": "Ports, routes and the records that point at them."
       },
+      "schedules": {
+        "label": "Schedules",
+        "description": "Cron jobs the node runs against this server."
+      },
       "settings": {
         "label": "Settings",
         "description": "Update name and personal server settings."
@@ -236,6 +240,89 @@
       "copyFailed": "Failed to copy",
       "deleteFailed": "Failed to delete route",
       "deleteSuccess": "Route deleted"
+    }
+  },
+  "schedules": {
+    "title": "Schedules",
+    "description": "Cron jobs the node runs against this server, without the panel needing to be online.",
+    "newScheduleButton": "New schedule",
+    "empty": "No schedules yet.",
+    "table": {
+      "cron": "Cron",
+      "policy": "Runs",
+      "steps": "Steps",
+      "nextRun": "Next run"
+    },
+    "policies": {
+      "always": "Always",
+      "running": "Only when running",
+      "stopped": "Only when stopped"
+    },
+    "policyHelp": {
+      "always": "The steps run whatever state the server is in.",
+      "running": "The steps are skipped unless the server is running.",
+      "stopped": "The steps are skipped unless the server is stopped."
+    },
+    "cronFields": {
+      "second": "Second",
+      "minute": "Minute",
+      "hour": "Hour",
+      "dayOfMonth": "Day of month",
+      "month": "Month",
+      "dayOfWeek": "Day of week"
+    },
+    "presets": {
+      "hourly": "Every hour",
+      "daily": "Every day at 04:00",
+      "weekly": "Every Sunday at 04:00",
+      "monthly": "First of the month at 04:00"
+    },
+    "stepTypes": {
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart",
+      "kill": "Kill",
+      "sleep": "Wait",
+      "terminal": "Console command",
+      "container": "Container command"
+    },
+    "stepHelp": {
+      "start": "Starts the server and waits for it to come up.",
+      "stop": "Stops the server gracefully.",
+      "restart": "Restarts the server.",
+      "kill": "Kills the server immediately."
+    },
+    "dialog": {
+      "createTitle": "New schedule",
+      "editTitle": "Edit schedule",
+      "description": "Pick when the schedule fires and which steps the node runs, in order.",
+      "namePlaceholder": "Nightly restart",
+      "cronLabel": "Cron expression",
+      "cronHelp": "Each field takes cron syntax, for example */15, 1-5 or MON. Use * for every value.",
+      "presets": "Presets",
+      "timezone": "Timezone",
+      "policy": "Run policy",
+      "enabledHelp": "A disabled schedule is kept but never fires.",
+      "stepsLabel": "Steps",
+      "addStep": "Add step",
+      "stepsHelp": "Steps run top to bottom. If one fails, the remaining steps are skipped.",
+      "sleepSeconds": "Seconds to wait",
+      "terminalPlaceholder": "say Restarting in 5 minutes",
+      "containerPlaceholder": "sh -c 'echo hello'",
+      "moveUp": "Move step up",
+      "moveDown": "Move step down"
+    },
+    "deleteDialog": {
+      "title": "Delete this schedule?",
+      "description": "\"{{name}}\" will stop running on the node. This cannot be undone."
+    },
+    "toasts": {
+      "loadFailed": "Unable to load the schedules.",
+      "saveFailed": "Unable to save the schedule.",
+      "createSuccess": "Schedule created.",
+      "updateSuccess": "Schedule updated.",
+      "deleteFailed": "Unable to delete the schedule.",
+      "deleteSuccess": "Schedule deleted."
     }
   },
   "settings": {

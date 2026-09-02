@@ -20,6 +20,8 @@ export const ServerPermission = {
   ROUTES_MANAGE: 2 ** 18,
   DATABASE_VIEW: 2 ** 19,
   DATABASE_MANAGE: 2 ** 20,
+  SCHEDULE_VIEW: 2 ** 21,
+  SCHEDULE_MANAGE: 2 ** 22,
 } as const;
 
 export const ManagementPermission = {
@@ -57,6 +59,7 @@ const serverDependencyMap = [
   [ServerPermission.ROUTES_MANAGE, ServerPermission.ROUTES_VIEW],
   [ServerPermission.ROUTES_MANAGE, ServerPermission.NETWORK_VIEW],
   [ServerPermission.DATABASE_MANAGE, ServerPermission.DATABASE_VIEW],
+  [ServerPermission.SCHEDULE_MANAGE, ServerPermission.SCHEDULE_VIEW],
 ] as const;
 
 const managementDependencyMap = [
@@ -235,6 +238,13 @@ export const SERVER_PERMISSION_GROUPS: {
     permissions: [
       { bit: ServerPermission.DATABASE_VIEW, label: "View databases & credentials" },
       { bit: ServerPermission.DATABASE_MANAGE, label: "Create & delete databases" },
+    ],
+  },
+  {
+    group: "Schedules",
+    permissions: [
+      { bit: ServerPermission.SCHEDULE_VIEW, label: "View schedules" },
+      { bit: ServerPermission.SCHEDULE_MANAGE, label: "Create & delete schedules" },
     ],
   },
 ];

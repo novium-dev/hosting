@@ -32,6 +32,7 @@ import { FileEditor } from "../components/file-editor";
 import { FilesManager } from "../components/files-manager";
 import { NetworkPorts } from "../components/network-ports";
 import { RoutesManager } from "../components/routes-manager";
+import { SchedulesManager } from "../components/schedules-manager";
 import { ServerSettings } from "../components/server-settings";
 import { StartupVariables } from "../components/startup-variables";
 import { ModPluginBrowser } from "../components/mod-plugin-browser";
@@ -204,6 +205,14 @@ export default function ClientServerSectionPage() {
             />
           ) : null}
         </div>
+      ) : activeSection.key === "schedules" ? (
+        <SchedulesManager
+          serverId={server}
+          canManage={hasServerPermission(
+            effectivePermissions,
+            ServerPermission.SCHEDULE_MANAGE,
+          )}
+        />
       ) : activeSection.key === "settings" ? (
         <ServerSettings
           serverId={server}

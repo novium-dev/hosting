@@ -73,7 +73,13 @@ The sign-in page renders a matching "Sign in as dev admin" button whenever `impo
 
 ## Configuration
 
-The **backend has no config file** — `BackendConfig::from_env` (`backend/src/config.rs`) builds the whole config from `BACKEND_*` environment variables and fails at startup with the name of the first missing or unparseable one. `backend/.env.example` is the reference. `BACKEND_DATA_DIR` only decides where the generated keys live. **Debug builds only**, a `.env` found from the working directory upwards is loaded first (`dotenvy`, does not override variables already set); release builds never read one.
+The **backend has no config file** — `BackendConfig::from_env` (`backend/src/config.rs`) builds the whole config from `BACKEND_*` environment variables and fails at startup with the name of the first missing or unparseable one. `backend/.env.example` is the reference. `BACKEND_DATA_DIR` only decides where the generated keys live.
+
+The backend **never reads a `.env` file itself** — there is no `dotenvy`, in debug builds or otherwise. The `.env` files in the repo are for your shell (and for Vite, which does read the root one); export them yourself before running the backend:
+
+```bash
+set -a && . ./.env && set +a && cargo run -p backend --features auth_dev
+```
 
 Two shapes are worth knowing. A **single OAuth provider** is read from `BACKEND_AUTH_*`, registered under the name in `BACKEND_AUTH_PROVIDER` (default `user`), which is the `{provider}` segment of `/api/auth/login/{provider}` and must match the frontend's `VITE_PROVIDERS`. **Database engine defaults** are built in (`InstanceDefaults::builtin`) rather than configured: image uid/gid, socket path, volumes and command are facts about the engine image, so only `BACKEND_DB_<ENGINE>_IMAGE` and the `_MEMORY`/`_SWAP`/`_DISK`/`_CPU` limits are settable, plus `_ENABLED=false` to withdraw an engine. All four engines are available unless disabled.
 
