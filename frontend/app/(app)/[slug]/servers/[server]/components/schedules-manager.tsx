@@ -1,10 +1,10 @@
 "use client";
 
+import type { DragEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
   CalendarClock,
+  GripVertical,
   Loader2,
   Pencil,
   Plus,
@@ -50,6 +50,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -67,6 +68,17 @@ import {
   type ListSchedulesResponse,
   type ScheduleTask,
 } from "@/lib/api";
+import {
+  CRON_FIELDS,
+  WEEKDAYS,
+  buildCron,
+  cronFields,
+  nextCronRuns,
+  parseCron,
+  parseCronField,
+  toSimpleSchedule,
+  type SimpleSchedule,
+} from "@/lib/cron";
 
 type SchedulesManagerProps = {
   serverId: string;
@@ -88,23 +100,16 @@ const TASK_TYPES: TaskType[] = [
   "minecraft",
 ];
 
-const CRON_FIELDS = [
-  "second",
-  "minute",
-  "hour",
-  "dayOfMonth",
-  "month",
-  "dayOfWeek",
-] as const;
-
 const DEFAULT_CRON = ["0", "0", "4", "*", "*", "*"];
 
-const CRON_PRESETS: { key: string; fields: string[] }[] = [
-  { key: "hourly", fields: ["0", "0", "*", "*", "*", "*"] },
-  { key: "daily", fields: ["0", "0", "4", "*", "*", "*"] },
-  { key: "weekly", fields: ["0", "0", "4", "*", "*", "SUN"] },
-  { key: "monthly", fields: ["0", "0", "4", "1", "*", "*"] },
+const FREQUENCIES: SimpleSchedule["frequency"][] = [
+  "hourly",
+  "daily",
+  "weekly",
+  "monthly",
 ];
+
+const PREVIEW_RUNS = 3;
 
 const POLICIES = [
   SchedulePolicy.ALWAYS,
@@ -137,16 +142,31 @@ function timezones(): string[] {
   return [localTimezone(), "Etc/UTC"];
 }
 
-/**
- * Splits a stored expression into the six fields the form edits. The backend
- * stores six-field expressions, but a five-field one is read as starting at the
- * minute, matching how the backend normalises it.
- */
-function splitCron(expression: string) {
-  const fields = expression.trim().split(/\s+/);
-  const padded = fields.length === 5 ? ["0", ...fields] : fields;
+function clamp(value: number, min: number, max: number) {
+  if (Number.isNaN(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
 
-  return CRON_FIELDS.map((_field, index) => padded[index] ?? "*");
+function pad(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+/**
+ * Renders a run returned by `nextCronRuns`. Its UTC fields carry the wall clock
+ * of the schedule's own timezone, so it is formatted as UTC on purpose.
+ */
+function formatWallClock(run: Date, language: string) {
+  return new Intl.DateTimeFormat(language, {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(run);
 }
 
 function emptyTask(type: TaskType): ScheduleTask {
@@ -198,8 +218,12 @@ export function SchedulesManager({
   const [enabled, setEnabled] = useState(true);
   const [policy, setPolicy] = useState<SchedulePolicy>(SchedulePolicy.ALWAYS);
   const [cron, setCron] = useState<string[]>(DEFAULT_CRON);
+  const [cronMode, setCronMode] = useState<"simple" | "advanced">("simple");
   const [timezone, setTimezone] = useState(localTimezone());
   const [tasks, setTasks] = useState<ScheduleTask[]>([{ type: "restart" }]);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [draggableIndex, setDraggableIndex] = useState<number | null>(null);
 
   const zones = useMemo(timezones, []);
   const taskTypes = useMemo(
@@ -254,6 +278,7 @@ export function SchedulesManager({
     setEnabled(true);
     setPolicy(SchedulePolicy.ALWAYS);
     setCron(DEFAULT_CRON);
+    setCronMode("simple");
     setTimezone(localTimezone());
     setTasks([{ type: "restart" }]);
     setEditorOpen(true);
@@ -264,7 +289,8 @@ export function SchedulesManager({
     setName(schedule.name);
     setEnabled(schedule.enabled);
     setPolicy(schedule.policy);
-    setCron(splitCron(schedule.cron));
+    setCron(cronFields(schedule.cron));
+    setCronMode(toSimpleSchedule(schedule.cron) ? "simple" : "advanced");
     setTimezone(schedule.timezone);
     setTasks(schedule.tasks.length > 0 ? schedule.tasks : [{ type: "restart" }]);
     setEditorOpen(true);
@@ -276,27 +302,75 @@ export function SchedulesManager({
     );
   };
 
+  const expression = cron.map((field) => field.trim()).join(" ");
+  const simple = useMemo(() => toSimpleSchedule(expression), [expression]);
+  const invalidFields = useMemo(
+    () =>
+      CRON_FIELDS.map(
+        (spec, index) => parseCronField(cron[index] ?? "", spec) === null,
+      ),
+    [cron],
+  );
+  const preview = useMemo(
+    () => nextCronRuns(expression, timezone, PREVIEW_RUNS),
+    [expression, timezone],
+  );
+
+  const applySimple = (next: SimpleSchedule) => {
+    setCron(cronFields(buildCron(next)));
+  };
+
+  const simpleOr = (fallback: SimpleSchedule): SimpleSchedule =>
+    simple ?? fallback;
+
   const setTask = (index: number, task: ScheduleTask) => {
     setTasks((current) =>
       current.map((entry, position) => (position === index ? task : entry)),
     );
   };
 
-  const moveTask = (index: number, offset: number) => {
+  const moveTask = (from: number, to: number) => {
     setTasks((current) => {
-      const target = index + offset;
-      if (target < 0 || target >= current.length) return current;
+      if (to < 0 || to >= current.length || from === to) return current;
 
       const next = [...current];
-      const [moved] = next.splice(index, 1);
-      next.splice(target, 0, moved);
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
 
       return next;
     });
   };
 
+  const endDrag = () => {
+    setDragIndex(null);
+    setDropIndex(null);
+    setDraggableIndex(null);
+  };
+
+  const handleDragStart = (event: DragEvent<HTMLElement>, index: number) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+    setDragIndex(index);
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLElement>, index: number) => {
+    if (dragIndex === null) return;
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDropIndex(index);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLElement>, index: number) => {
+    if (dragIndex === null) return;
+
+    event.preventDefault();
+    moveTask(dragIndex, index);
+    endDrag();
+  };
+
   const nameValid = name.trim().length > 0 && name.trim().length <= 64;
-  const cronValid = cron.every((field) => field.trim().length > 0);
+  const cronValid = parseCron(expression) !== null;
   const tasksValid = tasks.length > 0 && tasks.every(taskIsComplete);
   const canSubmit = nameValid && cronValid && tasksValid && timezone.length > 0;
 
@@ -534,55 +608,248 @@ export function SchedulesManager({
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <Label>{t("servers:schedules.dialog.cronLabel")}</Label>
-                <Select
-                  value=""
-                  onValueChange={(value) => {
-                    const preset = CRON_PRESETS.find(
-                      (entry) => entry.key === value,
-                    );
-                    if (preset) setCron(preset.fields);
-                  }}
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue
-                      placeholder={t("servers:schedules.dialog.presets")}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CRON_PRESETS.map((preset) => (
-                      <SelectItem key={preset.key} value={preset.key}>
-                        {t(`servers:schedules.presets.${preset.key}`)}
-                      </SelectItem>
+              <Label>{t("servers:schedules.dialog.cronLabel")}</Label>
+              <Tabs
+                value={cronMode}
+                onValueChange={(value) =>
+                  setCronMode(value === "advanced" ? "advanced" : "simple")
+                }
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="simple">
+                    {t("servers:schedules.dialog.modeSimple")}
+                  </TabsTrigger>
+                  <TabsTrigger value="advanced">
+                    {t("servers:schedules.dialog.modeAdvanced")}
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="simple" className="space-y-3 pt-3">
+                  {simple ? (
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">
+                          {t("servers:schedules.dialog.frequency")}
+                        </Label>
+                        <Select
+                          value={simple.frequency}
+                          onValueChange={(value) => {
+                            const frequency =
+                              value as SimpleSchedule["frequency"];
+                            const hour = "hour" in simple ? simple.hour : 4;
+
+                            applySimple(
+                              frequency === "hourly"
+                                ? { frequency, minute: simple.minute }
+                                : frequency === "daily"
+                                  ? { frequency, hour, minute: simple.minute }
+                                  : frequency === "weekly"
+                                    ? {
+                                        frequency,
+                                        weekday:
+                                          "weekday" in simple
+                                            ? simple.weekday
+                                            : 2,
+                                        hour,
+                                        minute: simple.minute,
+                                      }
+                                    : {
+                                        frequency,
+                                        dayOfMonth:
+                                          "dayOfMonth" in simple
+                                            ? simple.dayOfMonth
+                                            : 1,
+                                        hour,
+                                        minute: simple.minute,
+                                      },
+                            );
+                          }}
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FREQUENCIES.map((frequency) => (
+                              <SelectItem key={frequency} value={frequency}>
+                                {t(
+                                  `servers:schedules.frequencies.${frequency}`,
+                                )}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {simple.frequency === "weekly" ? (
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">
+                            {t("servers:schedules.cronFields.dayOfWeek")}
+                          </Label>
+                          <Select
+                            value={String(simple.weekday)}
+                            onValueChange={(value) =>
+                              applySimple({ ...simple, weekday: Number(value) })
+                            }
+                          >
+                            <SelectTrigger className="w-[150px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {WEEKDAYS.map((weekday) => (
+                                <SelectItem
+                                  key={weekday.ordinal}
+                                  value={String(weekday.ordinal)}
+                                >
+                                  {t(
+                                    `servers:schedules.weekdays.${weekday.key}`,
+                                  )}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : null}
+
+                      {simple.frequency === "monthly" ? (
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor="schedule-day-of-month"
+                            className="text-xs text-muted-foreground"
+                          >
+                            {t("servers:schedules.cronFields.dayOfMonth")}
+                          </Label>
+                          <Input
+                            id="schedule-day-of-month"
+                            type="number"
+                            min={1}
+                            max={31}
+                            className="w-[110px]"
+                            value={simple.dayOfMonth}
+                            onChange={(event) =>
+                              applySimple({
+                                ...simple,
+                                dayOfMonth: clamp(
+                                  Number(event.target.value),
+                                  1,
+                                  31,
+                                ),
+                              })
+                            }
+                          />
+                        </div>
+                      ) : null}
+
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="schedule-time"
+                          className="text-xs text-muted-foreground"
+                        >
+                          {simple.frequency === "hourly"
+                            ? t("servers:schedules.cronFields.minute")
+                            : t("servers:schedules.dialog.time")}
+                        </Label>
+                        {simple.frequency === "hourly" ? (
+                          <Input
+                            id="schedule-time"
+                            type="number"
+                            min={0}
+                            max={59}
+                            className="w-[110px]"
+                            value={simple.minute}
+                            onChange={(event) =>
+                              applySimple({
+                                ...simple,
+                                minute: clamp(Number(event.target.value), 0, 59),
+                              })
+                            }
+                          />
+                        ) : (
+                          <Input
+                            id="schedule-time"
+                            type="time"
+                            className="w-[140px]"
+                            value={`${pad(simple.hour)}:${pad(simple.minute)}`}
+                            onChange={(event) => {
+                              const [hour, minute] = event.target.value
+                                .split(":")
+                                .map(Number);
+                              if (Number.isNaN(hour) || Number.isNaN(minute)) {
+                                return;
+                              }
+
+                              applySimple({ ...simple, hour, minute });
+                            }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                      {t("servers:schedules.dialog.tooComplexForSimple")}
+                    </p>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="advanced" className="space-y-2 pt-3">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
+                    {CRON_FIELDS.map((spec, index) => (
+                      <div key={spec.key} className="space-y-1">
+                        <Label
+                          htmlFor={`schedule-cron-${spec.key}`}
+                          className="text-xs text-muted-foreground"
+                        >
+                          {t(`servers:schedules.cronFields.${spec.key}`)}
+                        </Label>
+                        <Input
+                          id={`schedule-cron-${spec.key}`}
+                          className={`font-mono ${
+                            invalidFields[index]
+                              ? "border-destructive focus-visible:ring-destructive"
+                              : ""
+                          }`}
+                          value={cron[index] ?? "*"}
+                          autoComplete="off"
+                          aria-invalid={invalidFields[index]}
+                          onChange={(event) =>
+                            setCronField(index, event.target.value)
+                          }
+                        />
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
-                {CRON_FIELDS.map((field, index) => (
-                  <div key={field} className="space-y-1">
-                    <Label
-                      htmlFor={`schedule-cron-${field}`}
-                      className="text-xs text-muted-foreground"
-                    >
-                      {t(`servers:schedules.cronFields.${field}`)}
-                    </Label>
-                    <Input
-                      id={`schedule-cron-${field}`}
-                      className="font-mono"
-                      value={cron[index] ?? "*"}
-                      autoComplete="off"
-                      onChange={(event) =>
-                        setCronField(index, event.target.value)
-                      }
-                    />
                   </div>
-                ))}
+                  <p className="text-xs text-muted-foreground">
+                    {t("servers:schedules.dialog.cronHelp")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("servers:schedules.dialog.weekdayHelp")}
+                  </p>
+                </TabsContent>
+              </Tabs>
+
+              <div className="rounded-md border p-3">
+                <p className="text-xs font-medium">
+                  {t("servers:schedules.dialog.preview")}
+                </p>
+                {preview.length === 0 ? (
+                  <p className="mt-1 text-xs text-destructive">
+                    {t("servers:schedules.dialog.previewNone")}
+                  </p>
+                ) : (
+                  <ul className="mt-1 space-y-0.5">
+                    {preview.map((run) => (
+                      <li
+                        key={run.toISOString()}
+                        className="text-xs text-muted-foreground"
+                      >
+                        {formatWallClock(run, i18n.language)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                  {expression} · {timezone}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {t("servers:schedules.dialog.cronHelp")}
-              </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -667,8 +934,42 @@ export function SchedulesManager({
                 {tasks.map((task, index) => (
                   <div
                     key={`${task.type}-${index}`}
-                    className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center"
+                    draggable={draggableIndex === index}
+                    onDragStart={(event) => handleDragStart(event, index)}
+                    onDragOver={(event) => handleDragOver(event, index)}
+                    onDrop={(event) => handleDrop(event, index)}
+                    onDragEnd={endDrag}
+                    className={`flex flex-col gap-2 rounded-md border p-3 transition-colors sm:flex-row sm:items-center ${
+                      dragIndex === index ? "opacity-50" : ""
+                    } ${
+                      dropIndex === index && dragIndex !== index
+                        ? "border-primary"
+                        : ""
+                    }`}
                   >
+                    <button
+                      type="button"
+                      aria-label={t("servers:schedules.dialog.reorder", {
+                        position: index + 1,
+                        total: tasks.length,
+                      })}
+                      className="cursor-grab self-start text-muted-foreground hover:text-foreground active:cursor-grabbing sm:self-auto"
+                      onMouseDown={() => setDraggableIndex(index)}
+                      onMouseUp={() => setDraggableIndex(null)}
+                      onKeyDown={(event) => {
+                        if (event.key === "ArrowUp") {
+                          event.preventDefault();
+                          moveTask(index, index - 1);
+                        }
+                        if (event.key === "ArrowDown") {
+                          event.preventDefault();
+                          moveTask(index, index + 1);
+                        }
+                      }}
+                    >
+                      <GripVertical className="size-4" />
+                    </button>
+
                     <Select
                       value={task.type}
                       onValueChange={(value) =>
@@ -739,44 +1040,22 @@ export function SchedulesManager({
                       </span>
                     )}
 
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        disabled={index === 0}
-                        aria-label={t("servers:schedules.dialog.moveUp")}
-                        onClick={() => moveTask(index, -1)}
-                      >
-                        <ArrowUp className="size-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        disabled={index === tasks.length - 1}
-                        aria-label={t("servers:schedules.dialog.moveDown")}
-                        onClick={() => moveTask(index, 1)}
-                      >
-                        <ArrowDown className="size-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        disabled={tasks.length === 1}
-                        aria-label={t("common:actions.remove")}
-                        onClick={() =>
-                          setTasks((current) =>
-                            current.filter(
-                              (_entry, position) => position !== index,
-                            ),
-                          )
-                        }
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      disabled={tasks.length === 1}
+                      aria-label={t("common:actions.remove")}
+                      onClick={() =>
+                        setTasks((current) =>
+                          current.filter(
+                            (_entry, position) => position !== index,
+                          ),
+                        )
+                      }
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
                   </div>
                 ))}
               </div>

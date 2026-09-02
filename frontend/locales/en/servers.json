@@ -271,12 +271,6 @@
       "month": "Month",
       "dayOfWeek": "Day of week"
     },
-    "presets": {
-      "hourly": "Every hour",
-      "daily": "Every day at 04:00",
-      "weekly": "Every Sunday at 04:00",
-      "monthly": "First of the month at 04:00"
-    },
     "taskTypes": {
       "start": "Start",
       "stop": "Stop",
@@ -300,7 +294,6 @@
       "namePlaceholder": "Nightly restart",
       "cronLabel": "Cron expression",
       "cronHelp": "Each field takes cron syntax, for example */15, 1-5 or MON. Use * for every value.",
-      "presets": "Presets",
       "timezone": "Timezone",
       "policy": "Run policy",
       "enabledHelp": "A disabled schedule is kept but never fires.",
@@ -311,8 +304,15 @@
       "terminalPlaceholder": "say Restarting in 5 minutes",
       "minecraftPlaceholder": "say Restarting in 5 minutes",
       "containerPlaceholder": "sh -c 'echo hello'",
-      "moveUp": "Move step up",
-      "moveDown": "Move step down"
+      "modeSimple": "Simple",
+      "modeAdvanced": "Advanced",
+      "frequency": "Frequency",
+      "time": "Time",
+      "tooComplexForSimple": "This expression is more specific than the simple editor can show. Edit it under Advanced.",
+      "weekdayHelp": "Days of the week run 1-7 with Sunday as 1, or use names like MON. A plain 0 is not valid.",
+      "preview": "Next runs",
+      "previewNone": "This expression never fires. Check the fields marked in red.",
+      "reorder": "Step {{position}} of {{total}}, drag to reorder or use the arrow keys"
     },
     "deleteDialog": {
       "title": "Delete this schedule?",
@@ -326,7 +326,22 @@
       "deleteFailed": "Unable to delete the schedule.",
       "deleteSuccess": "Schedule deleted."
     },
-    "outOfSync": "Not on node"
+    "outOfSync": "Not on node",
+    "frequencies": {
+      "hourly": "Hourly",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly"
+    },
+    "weekdays": {
+      "mon": "Monday",
+      "tue": "Tuesday",
+      "wed": "Wednesday",
+      "thu": "Thursday",
+      "fri": "Friday",
+      "sat": "Saturday",
+      "sun": "Sunday"
+    }
   },
   "settings": {
     "description": "Update your server display name.",

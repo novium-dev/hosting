@@ -271,12 +271,6 @@
       "month": "Monat",
       "dayOfWeek": "Wochentag"
     },
-    "presets": {
-      "hourly": "Jede Stunde",
-      "daily": "Täglich um 04:00",
-      "weekly": "Jeden Sonntag um 04:00",
-      "monthly": "Am Monatsersten um 04:00"
-    },
     "taskTypes": {
       "start": "Starten",
       "stop": "Stoppen",
@@ -300,7 +294,6 @@
       "namePlaceholder": "Nächtlicher Neustart",
       "cronLabel": "Cron-Ausdruck",
       "cronHelp": "Jedes Feld nutzt Cron-Syntax, zum Beispiel */15, 1-5 oder MON. * steht für jeden Wert.",
-      "presets": "Vorlagen",
       "timezone": "Zeitzone",
       "policy": "Ausführungsregel",
       "enabledHelp": "Ein deaktivierter Zeitplan bleibt erhalten, löst aber nie aus.",
@@ -311,8 +304,15 @@
       "terminalPlaceholder": "say Neustart in 5 Minuten",
       "minecraftPlaceholder": "say Neustart in 5 Minuten",
       "containerPlaceholder": "sh -c 'echo hallo'",
-      "moveUp": "Schritt nach oben",
-      "moveDown": "Schritt nach unten"
+      "modeSimple": "Einfach",
+      "modeAdvanced": "Erweitert",
+      "frequency": "Häufigkeit",
+      "time": "Uhrzeit",
+      "tooComplexForSimple": "Dieser Ausdruck ist genauer, als der einfache Editor darstellen kann. Bearbeite ihn unter „Erweitert“.",
+      "weekdayHelp": "Wochentage laufen von 1 bis 7 mit Sonntag als 1, alternativ Namen wie MON. Eine einfache 0 ist ungültig.",
+      "preview": "Nächste Ausführungen",
+      "previewNone": "Dieser Ausdruck löst nie aus. Prüfe die rot markierten Felder.",
+      "reorder": "Schritt {{position}} von {{total}}, zum Umsortieren ziehen oder Pfeiltasten benutzen"
     },
     "deleteDialog": {
       "title": "Diesen Zeitplan löschen?",
@@ -326,7 +326,22 @@
       "deleteFailed": "Der Zeitplan konnte nicht gelöscht werden.",
       "deleteSuccess": "Zeitplan gelöscht."
     },
-    "outOfSync": "Nicht auf Node"
+    "outOfSync": "Nicht auf Node",
+    "frequencies": {
+      "hourly": "Stündlich",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "monthly": "Monatlich"
+    },
+    "weekdays": {
+      "mon": "Montag",
+      "tue": "Dienstag",
+      "wed": "Mittwoch",
+      "thu": "Donnerstag",
+      "fri": "Freitag",
+      "sat": "Samstag",
+      "sun": "Sonntag"
+    }
   },
   "settings": {
     "description": "Aktualisiere den Anzeigenamen deines Servers.",
