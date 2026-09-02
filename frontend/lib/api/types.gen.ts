@@ -501,6 +501,42 @@ export type RunIntegrityChecksPayload = {
     deep: boolean;
 };
 
+export type SchedulePayloadRequest = {
+    enabled: boolean;
+    name: string;
+    policy: ScheduleRunPolicy;
+    schedule: string;
+    steps: Array<ScheduleStep>;
+    timezone: string;
+};
+
+export const ScheduleRunPolicy = {
+    ALWAYS: 'always',
+    RUNNING: 'running',
+    STOPPED: 'stopped'
+} as const;
+
+export type ScheduleRunPolicy = typeof ScheduleRunPolicy[keyof typeof ScheduleRunPolicy];
+
+export type ScheduleStep = {
+    type: 'start';
+} | {
+    type: 'stop';
+} | {
+    type: 'restart';
+} | {
+    type: 'kill';
+} | {
+    time: number;
+    type: 'sleep';
+} | {
+    command: string;
+    type: 'terminal';
+} | {
+    command: Array<string>;
+    type: 'container';
+};
+
 export type ServerLimits = {
     backup?: number | null;
 };
@@ -14083,6 +14119,457 @@ export type AllowDomainProjectResponses = {
 };
 
 export type AllowDomainProjectResponse = AllowDomainProjectResponses[keyof AllowDomainProjectResponses];
+
+export type ListSchedulesData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/schedule/{server_id}';
+};
+
+export type ListSchedulesErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‍': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+};
+
+export type ListSchedulesError = ListSchedulesErrors[keyof ListSchedulesErrors];
+
+export type ListSchedulesResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        enabled: boolean;
+        id: number;
+        name: string;
+        next_run?: string | null;
+        policy: ScheduleRunPolicy;
+        schedule: string;
+        steps: Array<ScheduleStep>;
+        timezone: string;
+    }>;
+};
+
+export type ListSchedulesResponse = ListSchedulesResponses[keyof ListSchedulesResponses];
+
+export type CreateScheduleData = {
+    body: SchedulePayloadRequest;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/schedule/{server_id}';
+};
+
+export type CreateScheduleErrors = {
+    /**
+     * The schedule name must be 1-64 characters
+     */
+    '400‍': {
+        error?: {
+            id?: 'schedule/name_invalid';
+            msg?: 'The schedule name must be 1-64 characters';
+        };
+    };
+    /**
+     * The cron expression is invalid
+     */
+    '400‎': {
+        error?: {
+            id?: 'schedule/cron_invalid';
+            msg?: 'The cron expression is invalid';
+        };
+    };
+    /**
+     * The timezone is not a known IANA timezone
+     */
+    '400‏': {
+        error?: {
+            id?: 'schedule/timezone_invalid';
+            msg?: 'The timezone is not a known IANA timezone';
+        };
+    };
+    /**
+     * A schedule needs between 1 and 32 steps, each with a non-empty command
+     */
+    '400‪': {
+        error?: {
+            id?: 'schedule/steps_invalid';
+            msg?: 'A schedule needs between 1 and 32 steps, each with a non-empty command';
+        };
+    };
+    /**
+     * The server schedule limit has been reached
+     */
+    '400‫': {
+        error?: {
+            id?: 'schedule/limit_exceeded';
+            msg?: 'The server schedule limit has been reached';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‭': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‬': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+};
+
+export type CreateScheduleError = CreateScheduleErrors[keyof CreateScheduleErrors];
+
+export type CreateScheduleResponses = {
+    /**
+     * Success
+     */
+    200: number;
+};
+
+export type CreateScheduleResponse = CreateScheduleResponses[keyof CreateScheduleResponses];
+
+export type DeleteScheduleData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+        /**
+         * The schedule ID
+         */
+        schedule_id: number;
+    };
+    query?: never;
+    url: '/schedule/{server_id}/{schedule_id}';
+};
+
+export type DeleteScheduleErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‍': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+};
+
+export type DeleteScheduleError = DeleteScheduleErrors[keyof DeleteScheduleErrors];
+
+export type DeleteScheduleResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteScheduleResponse = DeleteScheduleResponses[keyof DeleteScheduleResponses];
+
+export type UpdateScheduleData = {
+    body: SchedulePayloadRequest;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+        /**
+         * The schedule ID
+         */
+        schedule_id: number;
+    };
+    query?: never;
+    url: '/schedule/{server_id}/{schedule_id}';
+};
+
+export type UpdateScheduleErrors = {
+    /**
+     * The schedule name must be 1-64 characters
+     */
+    '400‎': {
+        error?: {
+            id?: 'schedule/name_invalid';
+            msg?: 'The schedule name must be 1-64 characters';
+        };
+    };
+    /**
+     * The cron expression is invalid
+     */
+    '400‏': {
+        error?: {
+            id?: 'schedule/cron_invalid';
+            msg?: 'The cron expression is invalid';
+        };
+    };
+    /**
+     * The timezone is not a known IANA timezone
+     */
+    '400‪': {
+        error?: {
+            id?: 'schedule/timezone_invalid';
+            msg?: 'The timezone is not a known IANA timezone';
+        };
+    };
+    /**
+     * A schedule needs between 1 and 32 steps, each with a non-empty command
+     */
+    '400‫': {
+        error?: {
+            id?: 'schedule/steps_invalid';
+            msg?: 'A schedule needs between 1 and 32 steps, each with a non-empty command';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified schedule was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'schedule/not_found';
+            msg?: 'The specified schedule was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‭': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‬': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+};
+
+export type UpdateScheduleError = UpdateScheduleErrors[keyof UpdateScheduleErrors];
+
+export type UpdateScheduleResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UpdateScheduleResponse = UpdateScheduleResponses[keyof UpdateScheduleResponses];
 
 export type ListProjectInstancesData = {
     body?: never;
