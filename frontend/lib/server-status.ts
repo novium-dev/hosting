@@ -96,8 +96,14 @@ function formatBaseUsage(max: number | null) {
   return `-- / ${formatMib(max)}`;
 }
 
-function formatCores(value: number) {
-  return value.toFixed(2).replace(/\.?0+$/, "") + " Cores";
+const PERCENT_PER_CORE = 100;
+
+function formatCoresAsPercent(value: number) {
+  return `${(value * PERCENT_PER_CORE).toFixed(2)}%`;
+}
+
+function formatCoresAsPercentScaled(value: number) {
+  return `${formatScaled(value * PERCENT_PER_CORE)}%`;
 }
 
 function formatBaseCpuUsage(max: number | null) {
@@ -109,7 +115,7 @@ function formatBaseCpuUsage(max: number | null) {
     return "--";
   }
 
-  return `-- / ${formatCores(max)}`;
+  return `-- / ${formatCoresAsPercent(max)}`;
 }
 
 export function buildBaseUsage(limits: {
@@ -165,10 +171,10 @@ export function formatCpuUsage(current: unknown, max: unknown) {
 
   const maxNumber = toFiniteNumber(max);
   if (maxNumber === null || maxNumber === 0) {
-    return `${formatCores(currentNumber)} / Unlimited`;
+    return `${formatCoresAsPercent(currentNumber)} / Unlimited`;
   }
 
-  return `${formatCores(currentNumber)} / ${formatCores(maxNumber)}`;
+  return `${formatCoresAsPercent(currentNumber)} / ${formatCoresAsPercent(maxNumber)}`;
 }
 
 const MIB_SCALES = [
@@ -218,18 +224,18 @@ export function formatCpuCompact(current: unknown, max: unknown): string {
     return "-- / --";
   }
 
-  const valueText = value === null ? "--" : formatCores(value);
+  const valueText = value === null ? "--" : formatCoresAsPercentScaled(value);
 
   if (limit === null) {
     return `${valueText} / ∞`;
   }
 
-  return `${valueText} / ${formatCores(limit)}`;
+  return `${valueText} / ${formatCoresAsPercentScaled(limit)}`;
 }
 
-export function formatCpuCores(current: unknown): string {
+export function formatCpuPercent(current: unknown): string {
   const value = current == null ? null : toFiniteNumber(current);
-  return value === null ? "--" : formatCores(value);
+  return value === null ? "--" : formatCoresAsPercentScaled(value);
 }
 
 export function formatUptime(ms: number): string {
