@@ -212,6 +212,9 @@ export default function ClientServerSectionPage() {
             effectivePermissions,
             ServerPermission.SCHEDULE_MANAGE,
           )}
+          isMinecraftServer={(serverData?.features ?? []).includes(
+            "minecraft_commands",
+          )}
         />
       ) : activeSection.key === "settings" ? (
         <ServerSettings

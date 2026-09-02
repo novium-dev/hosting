@@ -250,8 +250,8 @@
     "table": {
       "cron": "Cron",
       "policy": "Läuft",
-      "steps": "Schritte",
-      "nextRun": "Nächste Ausführung"
+      "nextRun": "Nächste Ausführung",
+      "tasks": "Schritte"
     },
     "policies": {
       "always": "Immer",
@@ -277,16 +277,17 @@
       "weekly": "Jeden Sonntag um 04:00",
       "monthly": "Am Monatsersten um 04:00"
     },
-    "stepTypes": {
+    "taskTypes": {
       "start": "Starten",
       "stop": "Stoppen",
       "restart": "Neu starten",
       "kill": "Beenden",
       "sleep": "Warten",
       "terminal": "Konsolenbefehl",
-      "container": "Container-Befehl"
+      "container": "Container-Befehl",
+      "minecraft": "Minecraft-Befehl"
     },
-    "stepHelp": {
+    "taskHelp": {
       "start": "Startet den Server und wartet, bis er läuft.",
       "stop": "Stoppt den Server regulär.",
       "restart": "Startet den Server neu.",
@@ -303,11 +304,12 @@
       "timezone": "Zeitzone",
       "policy": "Ausführungsregel",
       "enabledHelp": "Ein deaktivierter Zeitplan bleibt erhalten, löst aber nie aus.",
-      "stepsLabel": "Schritte",
-      "addStep": "Schritt hinzufügen",
-      "stepsHelp": "Die Schritte laufen von oben nach unten. Schlägt einer fehl, werden die restlichen übersprungen.",
+      "tasksLabel": "Schritte",
+      "addTask": "Schritt hinzufügen",
+      "tasksHelp": "Die Schritte laufen von oben nach unten. Schlägt einer fehl, werden die restlichen übersprungen.",
       "sleepSeconds": "Wartezeit in Sekunden",
       "terminalPlaceholder": "say Neustart in 5 Minuten",
+      "minecraftPlaceholder": "say Neustart in 5 Minuten",
       "containerPlaceholder": "sh -c 'echo hallo'",
       "moveUp": "Schritt nach oben",
       "moveDown": "Schritt nach unten"
@@ -323,7 +325,8 @@
       "updateSuccess": "Zeitplan aktualisiert.",
       "deleteFailed": "Der Zeitplan konnte nicht gelöscht werden.",
       "deleteSuccess": "Zeitplan gelöscht."
-    }
+    },
+    "outOfSync": "Nicht auf Node"
   },
   "settings": {
     "description": "Aktualisiere den Anzeigenamen deines Servers.",

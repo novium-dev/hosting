@@ -250,8 +250,8 @@
     "table": {
       "cron": "Cron",
       "policy": "Runs",
-      "steps": "Steps",
-      "nextRun": "Next run"
+      "nextRun": "Next run",
+      "tasks": "Steps"
     },
     "policies": {
       "always": "Always",
@@ -277,16 +277,17 @@
       "weekly": "Every Sunday at 04:00",
       "monthly": "First of the month at 04:00"
     },
-    "stepTypes": {
+    "taskTypes": {
       "start": "Start",
       "stop": "Stop",
       "restart": "Restart",
       "kill": "Kill",
       "sleep": "Wait",
       "terminal": "Console command",
-      "container": "Container command"
+      "container": "Container command",
+      "minecraft": "Minecraft command"
     },
-    "stepHelp": {
+    "taskHelp": {
       "start": "Starts the server and waits for it to come up.",
       "stop": "Stops the server gracefully.",
       "restart": "Restarts the server.",
@@ -303,11 +304,12 @@
       "timezone": "Timezone",
       "policy": "Run policy",
       "enabledHelp": "A disabled schedule is kept but never fires.",
-      "stepsLabel": "Steps",
-      "addStep": "Add step",
-      "stepsHelp": "Steps run top to bottom. If one fails, the remaining steps are skipped.",
+      "tasksLabel": "Steps",
+      "addTask": "Add step",
+      "tasksHelp": "Steps run top to bottom. If one fails, the remaining steps are skipped.",
       "sleepSeconds": "Seconds to wait",
       "terminalPlaceholder": "say Restarting in 5 minutes",
+      "minecraftPlaceholder": "say Restarting in 5 minutes",
       "containerPlaceholder": "sh -c 'echo hello'",
       "moveUp": "Move step up",
       "moveDown": "Move step down"
@@ -323,7 +325,8 @@
       "updateSuccess": "Schedule updated.",
       "deleteFailed": "Unable to delete the schedule.",
       "deleteSuccess": "Schedule deleted."
-    }
+    },
+    "outOfSync": "Not on node"
   },
   "settings": {
     "description": "Update your server display name.",

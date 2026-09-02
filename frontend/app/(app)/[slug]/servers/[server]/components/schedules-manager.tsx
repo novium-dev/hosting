@@ -63,20 +63,21 @@ import {
   deleteSchedule,
   listSchedules,
   updateSchedule,
-  ScheduleRunPolicy,
+  SchedulePolicy,
   type ListSchedulesResponse,
-  type ScheduleStep,
+  type ScheduleTask,
 } from "@/lib/api";
 
 type SchedulesManagerProps = {
   serverId: string;
   canManage: boolean;
+  isMinecraftServer: boolean;
 };
 
 type Schedule = ListSchedulesResponse[number];
-type StepType = ScheduleStep["type"];
+type TaskType = ScheduleTask["type"];
 
-const STEP_TYPES: StepType[] = [
+const TASK_TYPES: TaskType[] = [
   "start",
   "stop",
   "restart",
@@ -84,6 +85,7 @@ const STEP_TYPES: StepType[] = [
   "sleep",
   "terminal",
   "container",
+  "minecraft",
 ];
 
 const CRON_FIELDS = [
@@ -105,9 +107,9 @@ const CRON_PRESETS: { key: string; fields: string[] }[] = [
 ];
 
 const POLICIES = [
-  ScheduleRunPolicy.ALWAYS,
-  ScheduleRunPolicy.RUNNING,
-  ScheduleRunPolicy.STOPPED,
+  SchedulePolicy.ALWAYS,
+  SchedulePolicy.RUNNING,
+  SchedulePolicy.STOPPED,
 ];
 
 function localTimezone() {
@@ -147,23 +149,26 @@ function splitCron(expression: string) {
   return CRON_FIELDS.map((_field, index) => padded[index] ?? "*");
 }
 
-function emptyStep(type: StepType): ScheduleStep {
+function emptyTask(type: TaskType): ScheduleTask {
   switch (type) {
     case "sleep":
       return { type, time: 60 };
     case "terminal":
+    case "minecraft":
       return { type, command: "" };
     case "container":
       return { type, command: [] };
     default:
-      return { type } as ScheduleStep;
+      return { type } as ScheduleTask;
   }
 }
 
-function stepIsComplete(step: ScheduleStep) {
-  if (step.type === "terminal") return step.command.trim().length > 0;
-  if (step.type === "container") {
-    return step.command.some((part) => part.trim().length > 0);
+function taskIsComplete(task: ScheduleTask) {
+  if (task.type === "terminal" || task.type === "minecraft") {
+    return task.command.trim().length > 0;
+  }
+  if (task.type === "container") {
+    return task.command.some((part) => part.trim().length > 0);
   }
 
   return true;
@@ -179,6 +184,7 @@ function errorMessage(
 export function SchedulesManager({
   serverId,
   canManage,
+  isMinecraftServer,
 }: SchedulesManagerProps) {
   const { t, i18n } = useTranslation();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -190,14 +196,17 @@ export function SchedulesManager({
 
   const [name, setName] = useState("");
   const [enabled, setEnabled] = useState(true);
-  const [policy, setPolicy] = useState<ScheduleRunPolicy>(
-    ScheduleRunPolicy.ALWAYS,
-  );
+  const [policy, setPolicy] = useState<SchedulePolicy>(SchedulePolicy.ALWAYS);
   const [cron, setCron] = useState<string[]>(DEFAULT_CRON);
   const [timezone, setTimezone] = useState(localTimezone());
-  const [steps, setSteps] = useState<ScheduleStep[]>([{ type: "restart" }]);
+  const [tasks, setTasks] = useState<ScheduleTask[]>([{ type: "restart" }]);
 
   const zones = useMemo(timezones, []);
+  const taskTypes = useMemo(
+    () =>
+      TASK_TYPES.filter((type) => type !== "minecraft" || isMinecraftServer),
+    [isMinecraftServer],
+  );
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -243,10 +252,10 @@ export function SchedulesManager({
     setEditing(null);
     setName("");
     setEnabled(true);
-    setPolicy(ScheduleRunPolicy.ALWAYS);
+    setPolicy(SchedulePolicy.ALWAYS);
     setCron(DEFAULT_CRON);
     setTimezone(localTimezone());
-    setSteps([{ type: "restart" }]);
+    setTasks([{ type: "restart" }]);
     setEditorOpen(true);
   };
 
@@ -255,9 +264,9 @@ export function SchedulesManager({
     setName(schedule.name);
     setEnabled(schedule.enabled);
     setPolicy(schedule.policy);
-    setCron(splitCron(schedule.schedule));
+    setCron(splitCron(schedule.cron));
     setTimezone(schedule.timezone);
-    setSteps(schedule.steps.length > 0 ? schedule.steps : [{ type: "restart" }]);
+    setTasks(schedule.tasks.length > 0 ? schedule.tasks : [{ type: "restart" }]);
     setEditorOpen(true);
   };
 
@@ -267,14 +276,14 @@ export function SchedulesManager({
     );
   };
 
-  const setStep = (index: number, step: ScheduleStep) => {
-    setSteps((current) =>
-      current.map((entry, position) => (position === index ? step : entry)),
+  const setTask = (index: number, task: ScheduleTask) => {
+    setTasks((current) =>
+      current.map((entry, position) => (position === index ? task : entry)),
     );
   };
 
-  const moveStep = (index: number, offset: number) => {
-    setSteps((current) => {
+  const moveTask = (index: number, offset: number) => {
+    setTasks((current) => {
       const target = index + offset;
       if (target < 0 || target >= current.length) return current;
 
@@ -288,8 +297,8 @@ export function SchedulesManager({
 
   const nameValid = name.trim().length > 0 && name.trim().length <= 64;
   const cronValid = cron.every((field) => field.trim().length > 0);
-  const stepsValid = steps.length > 0 && steps.every(stepIsComplete);
-  const canSubmit = nameValid && cronValid && stepsValid && timezone.length > 0;
+  const tasksValid = tasks.length > 0 && tasks.every(taskIsComplete);
+  const canSubmit = nameValid && cronValid && tasksValid && timezone.length > 0;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -300,9 +309,9 @@ export function SchedulesManager({
       name: name.trim(),
       enabled,
       policy,
-      schedule: cron.map((field) => field.trim()).join(" "),
+      cron: cron.map((field) => field.trim()).join(" "),
       timezone,
-      steps,
+      tasks,
     };
 
     try {
@@ -410,7 +419,7 @@ export function SchedulesManager({
                     <TableHead>{t("common:labels.name")}</TableHead>
                     <TableHead>{t("servers:schedules.table.cron")}</TableHead>
                     <TableHead>{t("servers:schedules.table.policy")}</TableHead>
-                    <TableHead>{t("servers:schedules.table.steps")}</TableHead>
+                    <TableHead>{t("servers:schedules.table.tasks")}</TableHead>
                     <TableHead>
                       {t("servers:schedules.table.nextRun")}
                     </TableHead>
@@ -428,7 +437,7 @@ export function SchedulesManager({
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-xs">
-                        <div>{schedule.schedule}</div>
+                        <div>{schedule.cron}</div>
                         <div className="text-muted-foreground">
                           {schedule.timezone}
                         </div>
@@ -439,22 +448,32 @@ export function SchedulesManager({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {schedule.steps
-                          .map((step) =>
-                            t(`servers:schedules.stepTypes.${step.type}`),
+                        {schedule.tasks
+                          .map((task) =>
+                            t(`servers:schedules.taskTypes.${task.type}`),
                           )
                           .join(" → ")}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {schedule.enabled ? formatNextRun(schedule.next_run) : "—"}
+                        {schedule.enabled
+                          ? formatNextRun(schedule.next_run)
+                          : "—"}
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant={schedule.enabled ? "default" : "secondary"}
+                          variant={
+                            !schedule.enabled
+                              ? "secondary"
+                              : schedule.synchronized
+                                ? "default"
+                                : "destructive"
+                          }
                         >
-                          {schedule.enabled
-                            ? t("common:status.enabled")
-                            : t("common:status.disabled")}
+                          {!schedule.enabled
+                            ? t("common:status.disabled")
+                            : schedule.synchronized
+                              ? t("common:status.enabled")
+                              : t("servers:schedules.outOfSync")}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -592,7 +611,7 @@ export function SchedulesManager({
                 <Select
                   value={policy}
                   onValueChange={(value) =>
-                    setPolicy(value as ScheduleRunPolicy)
+                    setPolicy(value as SchedulePolicy)
                   }
                 >
                   <SelectTrigger id="schedule-policy" className="w-full">
@@ -630,83 +649,83 @@ export function SchedulesManager({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <Label>{t("servers:schedules.dialog.stepsLabel")}</Label>
+                <Label>{t("servers:schedules.dialog.tasksLabel")}</Label>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   onClick={() =>
-                    setSteps((current) => [...current, emptyStep("restart")])
+                    setTasks((current) => [...current, emptyTask("restart")])
                   }
                 >
                   <Plus className="size-4" />
-                  {t("servers:schedules.dialog.addStep")}
+                  {t("servers:schedules.dialog.addTask")}
                 </Button>
               </div>
 
               <div className="space-y-2">
-                {steps.map((step, index) => (
+                {tasks.map((task, index) => (
                   <div
-                    key={`${step.type}-${index}`}
+                    key={`${task.type}-${index}`}
                     className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center"
                   >
                     <Select
-                      value={step.type}
+                      value={task.type}
                       onValueChange={(value) =>
-                        setStep(index, emptyStep(value as StepType))
+                        setTask(index, emptyTask(value as TaskType))
                       }
                     >
                       <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {STEP_TYPES.map((type) => (
+                        {taskTypes.map((type) => (
                           <SelectItem key={type} value={type}>
-                            {t(`servers:schedules.stepTypes.${type}`)}
+                            {t(`servers:schedules.taskTypes.${type}`)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
 
-                    {step.type === "sleep" ? (
+                    {task.type === "sleep" ? (
                       <Input
                         type="number"
                         min={1}
                         className="w-full sm:flex-1"
-                        value={step.time}
+                        value={task.time}
                         aria-label={t("servers:schedules.dialog.sleepSeconds")}
                         onChange={(event) =>
-                          setStep(index, {
+                          setTask(index, {
                             type: "sleep",
                             time: Math.max(1, Number(event.target.value) || 1),
                           })
                         }
                       />
-                    ) : step.type === "terminal" ? (
+                    ) : task.type === "terminal" || task.type === "minecraft" ? (
                       <Input
                         className="w-full font-mono sm:flex-1"
-                        value={step.command}
+                        value={task.command}
                         placeholder={t(
-                          "servers:schedules.dialog.terminalPlaceholder",
+                          `servers:schedules.dialog.${task.type}Placeholder`,
                         )}
                         autoComplete="off"
                         onChange={(event) =>
-                          setStep(index, {
-                            type: "terminal",
+                          setTask(index, {
+                            type: task.type,
                             command: event.target.value,
                           })
                         }
                       />
-                    ) : step.type === "container" ? (
+                    ) : task.type === "container" ? (
                       <Input
                         className="w-full font-mono sm:flex-1"
-                        value={step.command.join(" ")}
+                        value={task.command.join(" ")}
                         placeholder={t(
                           "servers:schedules.dialog.containerPlaceholder",
                         )}
                         autoComplete="off"
                         onChange={(event) =>
-                          setStep(index, {
+                          setTask(index, {
                             type: "container",
                             command: event.target.value
                               .split(/\s+/)
@@ -716,7 +735,7 @@ export function SchedulesManager({
                       />
                     ) : (
                       <span className="flex-1 text-xs text-muted-foreground">
-                        {t(`servers:schedules.stepHelp.${step.type}`)}
+                        {t(`servers:schedules.taskHelp.${task.type}`)}
                       </span>
                     )}
 
@@ -727,7 +746,7 @@ export function SchedulesManager({
                         variant="ghost"
                         disabled={index === 0}
                         aria-label={t("servers:schedules.dialog.moveUp")}
-                        onClick={() => moveStep(index, -1)}
+                        onClick={() => moveTask(index, -1)}
                       >
                         <ArrowUp className="size-4" />
                       </Button>
@@ -735,9 +754,9 @@ export function SchedulesManager({
                         type="button"
                         size="icon"
                         variant="ghost"
-                        disabled={index === steps.length - 1}
+                        disabled={index === tasks.length - 1}
                         aria-label={t("servers:schedules.dialog.moveDown")}
-                        onClick={() => moveStep(index, 1)}
+                        onClick={() => moveTask(index, 1)}
                       >
                         <ArrowDown className="size-4" />
                       </Button>
@@ -745,11 +764,13 @@ export function SchedulesManager({
                         type="button"
                         size="icon"
                         variant="ghost"
-                        disabled={steps.length === 1}
+                        disabled={tasks.length === 1}
                         aria-label={t("common:actions.remove")}
                         onClick={() =>
-                          setSteps((current) =>
-                            current.filter((_entry, position) => position !== index),
+                          setTasks((current) =>
+                            current.filter(
+                              (_entry, position) => position !== index,
+                            ),
                           )
                         }
                       >
@@ -761,7 +782,7 @@ export function SchedulesManager({
               </div>
 
               <p className="text-xs text-muted-foreground">
-                {t("servers:schedules.dialog.stepsHelp")}
+                {t("servers:schedules.dialog.tasksHelp")}
               </p>
             </div>
           </div>

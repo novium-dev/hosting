@@ -14,8 +14,8 @@ use daemon_common::service::integrity::integrity_service_error::{
 };
 use database_agent_common::service::integrity::IntegrityService as _;
 use futures::StreamExt as _;
-use sqlx::query_scalar;
-use std::collections::HashSet;
+use sqlx::{query, query_scalar};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tracing::{error, info};
 use uuid::Uuid;
@@ -163,10 +163,36 @@ impl Backend {
 
         let ids: HashSet<u32> = servers.into_iter().map(i32::cast_unsigned).collect();
 
+        let mut schedules: HashMap<u32, HashSet<u32>> = HashMap::new();
+        for row in query!(
+            r#"SELECT servers.node_server_id, server_schedules.node_schedule_id AS "node_schedule_id!"
+               FROM server_schedules
+               JOIN servers ON servers.id = server_schedules.server
+               WHERE servers.node = $1 AND server_schedules.node_schedule_id IS NOT NULL"#,
+            node
+        )
+        .fetch_all(&*self.database)
+        .await
+        .inspect_err(|err| error!("Unable to collect the expected schedules of {node}: {err:?}"))
+        .unwrap_or_default()
+        {
+            schedules
+                .entry(row.node_server_id.cast_unsigned())
+                .or_default()
+                .insert(row.node_schedule_id.cast_unsigned());
+        }
+
         IntegrityExpectation {
             servers: Some(
                 ids.iter()
-                    .map(|id| (*id, ExpectedServer { schedules: None }))
+                    .map(|id| {
+                        (
+                            *id,
+                            ExpectedServer {
+                                schedules: Some(schedules.remove(id).unwrap_or_default()),
+                            },
+                        )
+                    })
                     .collect(),
             ),
             databases: None,

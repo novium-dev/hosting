@@ -116,7 +116,8 @@ define_error!(schedule {
     name_invalid("The schedule name must be 1-64 characters" BAD_REQUEST),
     cron_invalid("The cron expression is invalid" BAD_REQUEST),
     timezone_invalid("The timezone is not a known IANA timezone" BAD_REQUEST),
-    steps_invalid("A schedule needs between 1 and 32 steps, each with a non-empty command" BAD_REQUEST),
+    tasks_invalid("A schedule needs between 1 and 32 steps, each with a non-empty command" BAD_REQUEST),
+    minecraft_unsupported("The server does not accept Minecraft commands" BAD_REQUEST),
     limit_exceeded("The server schedule limit has been reached" BAD_REQUEST),
 });
 

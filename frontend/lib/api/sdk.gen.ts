@@ -1621,9 +1621,12 @@ export const denyDomainProject = <ThrowOnError extends boolean = false>(options:
 export const allowDomainProject = <ThrowOnError extends boolean = false>(options: Options<AllowDomainProjectData, ThrowOnError>) => (options.client ?? client).put<AllowDomainProjectResponses, AllowDomainProjectErrors, ThrowOnError>({ url: '/admin/route/domains/{domain_id}/projects/{project_id}', ...options });
 
 /**
- *  Lists the schedules the node runs for this server, with the next time each one fires.
+ *  Lists the server's schedules, with the next time each enabled one fires.
  *
- *  Lists the schedules the node runs for this server, with the next time each one fires.<br/>
+ *  Lists the server's schedules, with the next time each enabled one fires.<br/>
+ * <br/>
+ * `synchronized` is false while the node does not hold the schedule, which<br/>
+ * only happens when it is disabled or a previous push failed.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::SCHEDULE_VIEW`.
@@ -1631,12 +1634,12 @@ export const allowDomainProject = <ThrowOnError extends boolean = false>(options
 export const listSchedules = <ThrowOnError extends boolean = false>(options: Options<ListSchedulesData, ThrowOnError>) => (options.client ?? client).get<ListSchedulesResponses, ListSchedulesErrors, ThrowOnError>({ url: '/schedule/{server_id}', ...options });
 
 /**
- *  Creates a schedule on the server's node and returns its id.
+ *  Creates a schedule and pushes it to the server's node.
  *
- *  Creates a schedule on the server's node and returns its id.<br/>
+ *  Creates a schedule and pushes it to the server's node.<br/>
  * <br/>
- * A cron expression may be given with five fields (minute first) or six (second first);<br/>
- * five-field expressions are stored as running at second zero.<br/>
+ * The cron expression may carry five fields (minute first) or six (second<br/>
+ * first); a five-field expression is stored as running at second zero.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::SCHEDULE_MANAGE`.
