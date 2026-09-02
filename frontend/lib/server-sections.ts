@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import {
   Archive,
+  CalendarClock,
   FolderTree,
   Network,
   PackageSearch,
@@ -56,6 +57,11 @@ export const SERVER_SECTIONS: ServerSection[] = [
     key: "network",
     icon: Network,
     permission: ServerPermission.NETWORK_VIEW,
+  },
+  {
+    key: "schedules",
+    icon: CalendarClock,
+    permission: ServerPermission.SCHEDULE_VIEW,
   },
   {
     key: "settings",

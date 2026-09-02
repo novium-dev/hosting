@@ -8,6 +8,7 @@ use std::sync::Arc;
 pub mod ports;
 pub mod resources;
 pub mod resync;
+pub mod schedule;
 
 define_id!(ServerId);
 

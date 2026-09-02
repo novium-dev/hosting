@@ -13,6 +13,8 @@ base64 = "0.23.1"
 bitflags = "2.13.1"
 bytes = "1.12.1"
 chrono = "0.4.45"
+chrono-tz = { version = "0.10.4", features = ["serde"] }
+cron = { version = "0.17.0", features = ["serde"] }
 futures = "0.3.34"
 futures-util = "0.3.34"
 hex = "0.4.3"

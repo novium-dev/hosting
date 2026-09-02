@@ -11,6 +11,23 @@ use tracing::{error, warn};
 
 const PORT_ENVIRONMENT_PREFIX: &str = "NOVIUM_PORT_";
 
+pub fn rcon_command(command: impl IntoIterator<Item = String>) -> Vec<String> {
+    vec![
+        "rcon".to_owned(),
+        "-H".to_owned(),
+        "::1".to_owned(),
+        "-p".to_owned(),
+        "25575".to_owned(),
+        "-P".to_owned(),
+        "_".to_owned(),
+        "-m".to_owned(),
+        "--".to_owned(),
+    ]
+    .into_iter()
+    .chain(command)
+    .collect()
+}
+
 pub fn port_environment_key(name: &str) -> String {
     let mut key = String::with_capacity(PORT_ENVIRONMENT_PREFIX.len().saturating_add(name.len()));
     key.push_str(PORT_ENVIRONMENT_PREFIX);
@@ -137,23 +154,7 @@ impl Backend {
 
         server
             .node
-            .exec_server(
-                server.node_server_id,
-                vec![
-                    "rcon".to_owned(),
-                    "-H".to_owned(),
-                    "::1".to_owned(),
-                    "-p".to_owned(),
-                    "25575".to_owned(),
-                    "-P".to_owned(),
-                    "_".to_owned(),
-                    "-m".to_owned(),
-                    "--".to_owned(),
-                ]
-                .into_iter()
-                .chain(command)
-                .collect::<Vec<_>>(),
-            )
+            .exec_server(server.node_server_id, rcon_command(command))
             .await
             .map_err(|err| match err {
                 ExecServerError::Communication(_) => {

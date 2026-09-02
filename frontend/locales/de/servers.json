@@ -29,6 +29,10 @@
         "label": "Netzwerk",
         "description": "Ports, Routen und die Einträge, die auf sie verweisen."
       },
+      "schedules": {
+        "label": "Zeitpläne",
+        "description": "Cron-Jobs, die der Node für diesen Server ausführt."
+      },
       "settings": {
         "label": "Einstellungen",
         "description": "Name und persönliche Servereinstellungen aktualisieren."
@@ -237,6 +241,111 @@
       "deleteFailed": "Route konnte nicht gelöscht werden",
       "deleteSuccess": "Route gelöscht"
     }
+  },
+  "schedules": {
+    "title": "Zeitpläne",
+    "description": "Cron-Jobs, die der Node für diesen Server ausführt – auch wenn das Panel offline ist.",
+    "newScheduleButton": "Neuer Zeitplan",
+    "empty": "Noch keine Zeitpläne.",
+    "table": {
+      "cron": "Cron",
+      "policy": "Läuft",
+      "nextRun": "Nächste Ausführung",
+      "tasks": "Schritte"
+    },
+    "policies": {
+      "always": "Immer",
+      "running": "Nur wenn gestartet",
+      "stopped": "Nur wenn gestoppt"
+    },
+    "policyHelp": {
+      "always": "Die Schritte laufen unabhängig vom Serverzustand.",
+      "running": "Die Schritte werden übersprungen, wenn der Server nicht läuft.",
+      "stopped": "Die Schritte werden übersprungen, wenn der Server nicht gestoppt ist."
+    },
+    "cronFields": {
+      "second": "Sekunde",
+      "minute": "Minute",
+      "hour": "Stunde",
+      "dayOfMonth": "Tag des Monats",
+      "month": "Monat",
+      "dayOfWeek": "Wochentag"
+    },
+    "taskTypes": {
+      "start": "Starten",
+      "stop": "Stoppen",
+      "restart": "Neu starten",
+      "kill": "Beenden",
+      "sleep": "Warten",
+      "terminal": "Konsolenbefehl",
+      "container": "Container-Befehl",
+      "minecraft": "Minecraft-Befehl"
+    },
+    "taskHelp": {
+      "start": "Startet den Server und wartet, bis er läuft.",
+      "stop": "Stoppt den Server regulär.",
+      "restart": "Startet den Server neu.",
+      "kill": "Beendet den Server sofort."
+    },
+    "dialog": {
+      "createTitle": "Neuer Zeitplan",
+      "editTitle": "Zeitplan bearbeiten",
+      "description": "Lege fest, wann der Zeitplan auslöst und welche Schritte der Node der Reihe nach ausführt.",
+      "namePlaceholder": "Nächtlicher Neustart",
+      "cronLabel": "Cron-Ausdruck",
+      "cronHelp": "Jedes Feld nutzt Cron-Syntax, zum Beispiel */15, 1-5 oder MON. * steht für jeden Wert.",
+      "timezone": "Zeitzone",
+      "policy": "Ausführungsregel",
+      "enabledHelp": "Ein deaktivierter Zeitplan bleibt erhalten, löst aber nie aus.",
+      "tasksLabel": "Schritte",
+      "addTask": "Schritt hinzufügen",
+      "tasksHelp": "Die Schritte laufen von oben nach unten. Schlägt einer fehl, werden die restlichen übersprungen.",
+      "sleepSeconds": "Wartezeit in Sekunden",
+      "terminalPlaceholder": "say Neustart in 5 Minuten",
+      "minecraftPlaceholder": "say Neustart in 5 Minuten",
+      "containerPlaceholder": "sh -c 'echo hallo'",
+      "modeSimple": "Einfach",
+      "modeAdvanced": "Erweitert",
+      "frequency": "Häufigkeit",
+      "time": "Uhrzeit",
+      "tooComplexForSimple": "Dieser Ausdruck ist genauer, als der einfache Editor darstellen kann. Bearbeite ihn unter „Erweitert“.",
+      "weekdayHelp": "Wochentage laufen von 1 bis 7 mit Sonntag als 1, alternativ Namen wie MON. Eine einfache 0 ist ungültig.",
+      "preview": "Nächste Ausführungen",
+      "previewNone": "Dieser Ausdruck löst nie aus. Prüfe die rot markierten Felder.",
+      "reorder": "Schritt {{position}} von {{total}}, zum Umsortieren ziehen oder Pfeiltasten benutzen"
+    },
+    "deleteDialog": {
+      "title": "Diesen Zeitplan löschen?",
+      "description": "„{{name}}“ wird auf dem Node nicht mehr ausgeführt. Das kann nicht rückgängig gemacht werden."
+    },
+    "toasts": {
+      "loadFailed": "Die Zeitpläne konnten nicht geladen werden.",
+      "saveFailed": "Der Zeitplan konnte nicht gespeichert werden.",
+      "createSuccess": "Zeitplan erstellt.",
+      "updateSuccess": "Zeitplan aktualisiert.",
+      "deleteFailed": "Der Zeitplan konnte nicht gelöscht werden.",
+      "deleteSuccess": "Zeitplan gelöscht.",
+      "runStarted": "„{{name}}“ wurde an den Node übergeben. Die Schritte laufen im Hintergrund.",
+      "runFailed": "Der Zeitplan konnte nicht ausgeführt werden."
+    },
+    "outOfSync": "Nicht auf Node",
+    "frequencies": {
+      "hourly": "Stündlich",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "monthly": "Monatlich"
+    },
+    "weekdays": {
+      "mon": "Montag",
+      "tue": "Dienstag",
+      "wed": "Mittwoch",
+      "thu": "Donnerstag",
+      "fri": "Freitag",
+      "sat": "Samstag",
+      "sun": "Sonntag"
+    },
+    "runNow": "Jetzt ausführen",
+    "runUnavailable": "Ein deaktivierter Zeitplan liegt nicht auf dem Node und kann nicht ausgeführt werden"
   },
   "settings": {
     "description": "Aktualisiere den Anzeigenamen deines Servers.",

@@ -22,6 +22,7 @@ use crate::service::profile::ProfileService;
 use crate::service::project::ProjectService;
 use crate::service::resource::ResourceService;
 use crate::service::route::RouteService;
+use crate::service::schedule::ScheduleService;
 use crate::service::server::ServerService;
 use crate::service::template::TemplateService;
 use axum::{Extension, Router};
@@ -41,7 +42,7 @@ impl Backend {
         #[openapi()]
         struct ApiDoc;
 
-        let (default_router,) = framework_router!(Self self (default,) { ServerService, FileService, BackupService, ServerAdminService, NodeAdminService, UserAdminService, AuthService, ProfileService, ProjectService, TemplateService, InternalService, MinecraftService, ResourceService, ModpackService, ApiKeyService, ApiKeyAdminService, TemplateAdminService, RegionAdminService, ProjectAdminService, RouteService, RouteAdminService, DatabaseService, DatabaseAdminService, IntegrityAdminService, InstanceService });
+        let (default_router,) = framework_router!(Self self (default,) { ServerService, FileService, BackupService, ServerAdminService, NodeAdminService, UserAdminService, AuthService, ProfileService, ProjectService, TemplateService, InternalService, MinecraftService, ResourceService, ModpackService, ApiKeyService, ApiKeyAdminService, TemplateAdminService, RegionAdminService, ProjectAdminService, RouteService, RouteAdminService, ScheduleService, DatabaseService, DatabaseAdminService, IntegrityAdminService, InstanceService });
         let (dev_auth_router,) = framework_router!(Self self (dev_auth,) { AuthService });
 
         let router = if cfg!(feature = "auth_dev") {

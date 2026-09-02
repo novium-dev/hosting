@@ -29,6 +29,10 @@
         "label": "Network",
         "description": "Ports, routes and the records that point at them."
       },
+      "schedules": {
+        "label": "Schedules",
+        "description": "Cron jobs the node runs against this server."
+      },
       "settings": {
         "label": "Settings",
         "description": "Update name and personal server settings."
@@ -237,6 +241,111 @@
       "deleteFailed": "Failed to delete route",
       "deleteSuccess": "Route deleted"
     }
+  },
+  "schedules": {
+    "title": "Schedules",
+    "description": "Cron jobs the node runs against this server, without the panel needing to be online.",
+    "newScheduleButton": "New schedule",
+    "empty": "No schedules yet.",
+    "table": {
+      "cron": "Cron",
+      "policy": "Runs",
+      "nextRun": "Next run",
+      "tasks": "Steps"
+    },
+    "policies": {
+      "always": "Always",
+      "running": "Only when running",
+      "stopped": "Only when stopped"
+    },
+    "policyHelp": {
+      "always": "The steps run whatever state the server is in.",
+      "running": "The steps are skipped unless the server is running.",
+      "stopped": "The steps are skipped unless the server is stopped."
+    },
+    "cronFields": {
+      "second": "Second",
+      "minute": "Minute",
+      "hour": "Hour",
+      "dayOfMonth": "Day of month",
+      "month": "Month",
+      "dayOfWeek": "Day of week"
+    },
+    "taskTypes": {
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart",
+      "kill": "Kill",
+      "sleep": "Wait",
+      "terminal": "Console command",
+      "container": "Container command",
+      "minecraft": "Minecraft command"
+    },
+    "taskHelp": {
+      "start": "Starts the server and waits for it to come up.",
+      "stop": "Stops the server gracefully.",
+      "restart": "Restarts the server.",
+      "kill": "Kills the server immediately."
+    },
+    "dialog": {
+      "createTitle": "New schedule",
+      "editTitle": "Edit schedule",
+      "description": "Pick when the schedule fires and which steps the node runs, in order.",
+      "namePlaceholder": "Nightly restart",
+      "cronLabel": "Cron expression",
+      "cronHelp": "Each field takes cron syntax, for example */15, 1-5 or MON. Use * for every value.",
+      "timezone": "Timezone",
+      "policy": "Run policy",
+      "enabledHelp": "A disabled schedule is kept but never fires.",
+      "tasksLabel": "Steps",
+      "addTask": "Add step",
+      "tasksHelp": "Steps run top to bottom. If one fails, the remaining steps are skipped.",
+      "sleepSeconds": "Seconds to wait",
+      "terminalPlaceholder": "say Restarting in 5 minutes",
+      "minecraftPlaceholder": "say Restarting in 5 minutes",
+      "containerPlaceholder": "sh -c 'echo hello'",
+      "modeSimple": "Simple",
+      "modeAdvanced": "Advanced",
+      "frequency": "Frequency",
+      "time": "Time",
+      "tooComplexForSimple": "This expression is more specific than the simple editor can show. Edit it under Advanced.",
+      "weekdayHelp": "Days of the week run 1-7 with Sunday as 1, or use names like MON. A plain 0 is not valid.",
+      "preview": "Next runs",
+      "previewNone": "This expression never fires. Check the fields marked in red.",
+      "reorder": "Step {{position}} of {{total}}, drag to reorder or use the arrow keys"
+    },
+    "deleteDialog": {
+      "title": "Delete this schedule?",
+      "description": "\"{{name}}\" will stop running on the node. This cannot be undone."
+    },
+    "toasts": {
+      "loadFailed": "Unable to load the schedules.",
+      "saveFailed": "Unable to save the schedule.",
+      "createSuccess": "Schedule created.",
+      "updateSuccess": "Schedule updated.",
+      "deleteFailed": "Unable to delete the schedule.",
+      "deleteSuccess": "Schedule deleted.",
+      "runStarted": "\"{{name}}\" was handed to the node. Its steps run in the background.",
+      "runFailed": "Unable to run the schedule."
+    },
+    "outOfSync": "Not on node",
+    "frequencies": {
+      "hourly": "Hourly",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly"
+    },
+    "weekdays": {
+      "mon": "Monday",
+      "tue": "Tuesday",
+      "wed": "Wednesday",
+      "thu": "Thursday",
+      "fri": "Friday",
+      "sat": "Saturday",
+      "sun": "Sunday"
+    },
+    "runNow": "Run now",
+    "runUnavailable": "A disabled schedule is not on the node and cannot be run"
   },
   "settings": {
     "description": "Update your server display name.",
