@@ -7,7 +7,8 @@ use crate::db::server::schedule::{
 };
 use crate::db::server::{Server, ServerId};
 use crate::service::schedule::schedule_service_error::{
-    CreateScheduleError, DeleteScheduleError, ListSchedulesError, UpdateScheduleError,
+    CreateScheduleError, DeleteScheduleError, ListSchedulesError, RunScheduleError,
+    UpdateScheduleError,
 };
 use crate::service::*;
 use chrono::{DateTime, Utc};
@@ -16,7 +17,7 @@ use core::str::FromStr as _;
 use daemon_common::service::schedule::SchedulePayload;
 use daemon_common::service::schedule::schedule_service_error::{
     CreateScheduleError as NodeCreateScheduleError, DeleteScheduleError as NodeDeleteScheduleError,
-    UpdateScheduleError as NodeUpdateScheduleError,
+    RunScheduleError as NodeRunScheduleError, UpdateScheduleError as NodeUpdateScheduleError,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::query;
@@ -414,6 +415,62 @@ pub(crate) impl ScheduleService for Backend {
         .await?;
 
         Ok(())
+    }
+
+    /// Runs a schedule's steps on the node right now, whatever its cron says.
+    ///
+    /// The run policy is not consulted, so the steps run even when the server is
+    /// in a state an unattended run would have skipped. The node executes them
+    /// in the background; this answers as soon as it has accepted the request.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::SCHEDULE_MANAGE`].
+    #[route("/{server_id}/{schedule_id}/run", method = POST)]
+    #[error(
+        auth::{permission_denied, unreachable},
+        server::not_found,
+        schedule::{not_found, not_synchronized},
+        node::failure,
+        db::failure <- [sql:*]
+    )]
+    async fn run_schedule(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        schedule_id: i32,
+    ) -> Result<(), _> {
+        auth.require::<_, _, RunScheduleError>(server_id, ServerPermissions::SCHEDULE_MANAGE)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(RunScheduleError::ServerNotFound)?;
+
+        let node_schedule_id = query!(
+            "SELECT node_schedule_id FROM server_schedules WHERE id = $1 AND server = $2",
+            schedule_id,
+            &server_id
+        )
+        .fetch_optional(&*self.database)
+        .await?
+        .ok_or(RunScheduleError::ScheduleNotFound)?
+        .node_schedule_id
+        .ok_or(RunScheduleError::ScheduleNotSynchronized)?;
+
+        server
+            .node
+            .run_schedule(server.node_server_id, node_schedule_id.cast_unsigned())
+            .await
+            .map_err(|err| match err {
+                NodeRunScheduleError::ServerNotFound => RunScheduleError::ServerNotFound,
+                NodeRunScheduleError::ScheduleNotFound => RunScheduleError::ScheduleNotFound,
+                NodeRunScheduleError::Communication(_)
+                | NodeRunScheduleError::AuthInvalid
+                | NodeRunScheduleError::SqlFailure => {
+                    error!("The node refused to run schedule {schedule_id}: {err:?}");
+                    RunScheduleError::NodeFailure
+                }
+            })
     }
 
     /// Deletes a schedule and stops the node from running it.

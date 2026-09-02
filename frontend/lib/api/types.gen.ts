@@ -14600,6 +14600,114 @@ export type UpdateScheduleResponses = {
 
 export type UpdateScheduleResponse = UpdateScheduleResponses[keyof UpdateScheduleResponses];
 
+export type RunScheduleData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+        /**
+         * The schedule ID
+         */
+        schedule_id: number;
+    };
+    query?: never;
+    url: '/schedule/{server_id}/{schedule_id}/run';
+};
+
+export type RunScheduleErrors = {
+    /**
+     * The schedule is disabled and therefore not on the node
+     */
+    '400‎': {
+        error?: {
+            id?: 'schedule/not_synchronized';
+            msg?: 'The schedule is disabled and therefore not on the node';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * The specified schedule was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'schedule/not_found';
+            msg?: 'The specified schedule was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‪': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‏': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+};
+
+export type RunScheduleError = RunScheduleErrors[keyof RunScheduleErrors];
+
+export type RunScheduleResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type RunScheduleResponse = RunScheduleResponses[keyof RunScheduleResponses];
+
 export type ListProjectInstancesData = {
     body?: never;
     headers?: {

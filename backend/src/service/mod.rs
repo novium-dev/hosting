@@ -118,6 +118,7 @@ define_error!(schedule {
     timezone_invalid("The timezone is not a known IANA timezone" BAD_REQUEST),
     tasks_invalid("A schedule needs between 1 and 32 steps, each with a non-empty command" BAD_REQUEST),
     minecraft_unsupported("The server does not accept Minecraft commands" BAD_REQUEST),
+    not_synchronized("The schedule is disabled and therefore not on the node" BAD_REQUEST),
     limit_exceeded("The server schedule limit has been reached" BAD_REQUEST),
 });
 

@@ -324,7 +324,9 @@
       "createSuccess": "Schedule created.",
       "updateSuccess": "Schedule updated.",
       "deleteFailed": "Unable to delete the schedule.",
-      "deleteSuccess": "Schedule deleted."
+      "deleteSuccess": "Schedule deleted.",
+      "runStarted": "\"{{name}}\" was handed to the node. Its steps run in the background.",
+      "runFailed": "Unable to run the schedule."
     },
     "outOfSync": "Not on node",
     "frequencies": {
@@ -341,7 +343,9 @@
       "fri": "Friday",
       "sat": "Saturday",
       "sun": "Sunday"
-    }
+    },
+    "runNow": "Run now",
+    "runUnavailable": "A disabled schedule is not on the node and cannot be run"
   },
   "settings": {
     "description": "Update your server display name.",

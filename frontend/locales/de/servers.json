@@ -324,7 +324,9 @@
       "createSuccess": "Zeitplan erstellt.",
       "updateSuccess": "Zeitplan aktualisiert.",
       "deleteFailed": "Der Zeitplan konnte nicht gelöscht werden.",
-      "deleteSuccess": "Zeitplan gelöscht."
+      "deleteSuccess": "Zeitplan gelöscht.",
+      "runStarted": "„{{name}}“ wurde an den Node übergeben. Die Schritte laufen im Hintergrund.",
+      "runFailed": "Der Zeitplan konnte nicht ausgeführt werden."
     },
     "outOfSync": "Nicht auf Node",
     "frequencies": {
@@ -341,7 +343,9 @@
       "fri": "Freitag",
       "sat": "Samstag",
       "sun": "Sonntag"
-    }
+    },
+    "runNow": "Jetzt ausführen",
+    "runUnavailable": "Ein deaktivierter Zeitplan liegt nicht auf dem Node und kann nicht ausgeführt werden"
   },
   "settings": {
     "description": "Aktualisiere den Anzeigenamen deines Servers.",

@@ -7,6 +7,7 @@ import {
   GripVertical,
   Loader2,
   Pencil,
+  Play,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -63,6 +64,7 @@ import {
   createSchedule,
   deleteSchedule,
   listSchedules,
+  runSchedule,
   updateSchedule,
   SchedulePolicy,
   type ListSchedulesResponse,
@@ -213,6 +215,7 @@ export function SchedulesManager({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Schedule | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Schedule | null>(null);
+  const [runningId, setRunningId] = useState<number | null>(null);
 
   const [name, setName] = useState("");
   const [enabled, setEnabled] = useState(true);
@@ -423,6 +426,34 @@ export function SchedulesManager({
     }
   };
 
+  const runNow = async (schedule: Schedule) => {
+    setRunningId(schedule.id);
+
+    try {
+      const response = await runSchedule({
+        path: { server_id: serverId, schedule_id: schedule.id },
+      });
+
+      if (response.error) {
+        throw new Error(
+          errorMessage(response.error, t("servers:schedules.toasts.runFailed")),
+        );
+      }
+
+      toast.success(
+        t("servers:schedules.toasts.runStarted", { name: schedule.name }),
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t("servers:schedules.toasts.runFailed"),
+      );
+    } finally {
+      setRunningId(null);
+    }
+  };
+
   const remove = async () => {
     if (!pendingDelete) return;
 
@@ -553,6 +584,27 @@ export function SchedulesManager({
                       <TableCell>
                         {canManage ? (
                           <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              disabled={
+                                !schedule.synchronized || runningId !== null
+                              }
+                              title={
+                                schedule.synchronized
+                                  ? t("servers:schedules.runNow")
+                                  : t("servers:schedules.runUnavailable")
+                              }
+                              aria-label={t("servers:schedules.runNow")}
+                              onClick={() => void runNow(schedule)}
+                            >
+                              {runningId === schedule.id ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <Play className="size-4" />
+                              )}
+                            </Button>
                             <Button
                               type="button"
                               size="icon"
