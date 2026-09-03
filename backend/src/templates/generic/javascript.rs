@@ -15,7 +15,9 @@ use crate::templates::generic::{
     version_cmp,
 };
 use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, VariablePayload};
-use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
+use crate::templates::{
+    STARTUP_COMMAND_ENVIRONMENT, Template, TemplateError, TemplatePortDefinition, ThinTemplateError,
+};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) enum PackageManager {
@@ -44,6 +46,16 @@ pub(crate) struct JavascriptExtra {
 pub(crate) struct JavascriptVersionCache(IndexSet<(u16, u16, u16)>, i64);
 
 pub(crate) struct JavascriptTemplate;
+
+impl PackageManager {
+    const fn default_startup_command(self) -> &'static str {
+        match self {
+            Self::Npm => "npm install && npm run $START_SCRIPT",
+            Self::Pnpm => "pnpm install && pnpm run $START_SCRIPT",
+            Self::Bun => "bun install && bun run $START_SCRIPT",
+        }
+    }
+}
 
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
 pub static START_SCRIPT_REGEX: lazy_regex::Lazy<Regex> =
@@ -80,9 +92,9 @@ impl Template for JavascriptTemplate {
             args: HashMap::new(),
             tag: None,
             default_tag: Some(match extra.package_manager {
-                PackageManager::Npm => format!("javascript-npm-{}-r1", extra.node_version),
-                PackageManager::Pnpm => format!("javascript-pnpm-{}-r1", extra.node_version),
-                PackageManager::Bun => format!("javascript-bun-{}-r1", extra.node_version),
+                PackageManager::Npm => format!("javascript-npm-{}-r2", extra.node_version),
+                PackageManager::Pnpm => format!("javascript-pnpm-{}-r2", extra.node_version),
+                PackageManager::Bun => format!("javascript-bun-{}-r2", extra.node_version),
             }),
         };
         Ok(ServerBuildPayload {
@@ -99,7 +111,13 @@ impl Template for JavascriptTemplate {
                 password: extra.repository_password,
             })
             .into_iter()
-            .chain([("START_SCRIPT".to_owned(), extra.start_script)])
+            .chain([
+                ("START_SCRIPT".to_owned(), extra.start_script),
+                (
+                    STARTUP_COMMAND_ENVIRONMENT.to_owned(),
+                    extra.package_manager.default_startup_command().to_owned(),
+                ),
+            ])
             .collect(),
             files_write: HashMap::new(),
             cap_add: Vec::new(),
@@ -251,6 +269,14 @@ impl Template for JavascriptTemplate {
     }
 
     fn default_internet_access(&self) -> bool {
+        true
+    }
+
+    fn supports_custom_startup(&self) -> bool {
+        true
+    }
+
+    fn supports_custom_environment(&self) -> bool {
         true
     }
 

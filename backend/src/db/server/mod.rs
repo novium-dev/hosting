@@ -1,8 +1,10 @@
 use crate::db::node::BackendNode;
 use crate::db::project::ProjectId;
 use crate::define_id;
-use crate::templates::TemplateInner;
+use crate::templates::{STARTUP_COMMAND_ENVIRONMENT, TemplateInner};
+use daemon_common::service::server::{ServerBuildImage, ServerBuildPayload};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 pub mod ports;
@@ -21,6 +23,8 @@ pub struct Server {
     pub template: Arc<dyn TemplateInner + Send + Sync>,
     pub template_extra: Value,
     pub custom_dockerfile: Option<String>,
+    pub custom_startup: Option<String>,
+    pub custom_environment: HashMap<String, String>,
     pub cpu: Option<f32>,
     pub ram: Option<u32>,
     pub swap: Option<u32>,
@@ -30,4 +34,61 @@ pub struct Server {
     pub internet_access: bool,
 
     pub backup_limit: Option<u32>,
+}
+
+pub struct ServerCustomization<'a> {
+    pub server: ServerId,
+    pub template: &'a (dyn TemplateInner + Send + Sync),
+    pub dockerfile: Option<&'a str>,
+    pub startup: Option<&'a str>,
+    pub environment: &'a HashMap<String, String>,
+}
+
+impl ServerCustomization<'_> {
+    #[must_use]
+    pub fn apply(&self, mut build: ServerBuildPayload) -> ServerBuildPayload {
+        if self.template.supports_custom_environment() {
+            for (key, value) in self.environment {
+                build
+                    .environment
+                    .entry(key.clone())
+                    .or_insert_with(|| value.clone());
+            }
+        }
+
+        if self.template.supports_custom_startup()
+            && let Some(startup) = self.startup
+        {
+            build
+                .environment
+                .insert(STARTUP_COMMAND_ENVIRONMENT.to_owned(), startup.to_owned());
+        }
+
+        if let Some(dockerfile) = self.dockerfile {
+            build.image = ServerBuildImage {
+                default_tag: None,
+                tag: None,
+                parents: vec![build.image],
+                args: HashMap::new(),
+                dockerfile: dockerfile.to_owned(),
+                base: Some(0),
+            };
+            build.image.tag = Some(format!("custom_{}_{}", self.server, build.image.id()));
+        }
+
+        build
+    }
+}
+
+impl Server {
+    #[must_use]
+    pub fn customization(&self) -> ServerCustomization<'_> {
+        ServerCustomization {
+            server: self.id,
+            template: &*self.template,
+            dockerfile: self.custom_dockerfile.as_deref(),
+            startup: self.custom_startup.as_deref(),
+            environment: &self.custom_environment,
+        }
+    }
 }

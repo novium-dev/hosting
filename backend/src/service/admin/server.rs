@@ -3,9 +3,9 @@ use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
 use crate::db::node::NodePortAllocation;
 use crate::db::project::ProjectId;
-use crate::db::server::ServerId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, merge_ports};
 use crate::db::server::resync::is_running_label;
+use crate::db::server::{ServerCustomization, ServerId};
 use crate::service::admin::server::server_admin_service_error::{
     AddPortError, ChangeServerTemplateError, CreateServerError, DeletePortError, DeleteServerError,
     UpdatePortError,
@@ -21,7 +21,7 @@ use daemon_common::service::backup::backup_service_error::{
 use daemon_common::service::files::files_service_error::WipeServerError;
 use daemon_common::service::server::server_service_error::CreateServerError as DaemonCreateServerError;
 use daemon_common::service::server::{
-    ServerBuildImage, ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
+    ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
@@ -377,6 +377,14 @@ pub(crate) impl ServerAdminService for Backend {
             .environment
             .extend(self.port_environment(&*self.database, server_id).await?);
 
+        let build = ServerCustomization {
+            template: &*template,
+            dockerfile: None,
+            startup: None,
+            ..server.customization()
+        }
+        .apply(build);
+
         if backup {
             create_backup_before_switch(&server, &auth).await?;
         }
@@ -411,7 +419,7 @@ pub(crate) impl ServerAdminService for Backend {
             })?;
 
         query!(
-            "UPDATE servers SET template = $1, template_extra = $2, custom_dockerfile = NULL WHERE id = $3",
+            "UPDATE servers SET template = $1, template_extra = $2, custom_dockerfile = NULL, custom_startup = NULL WHERE id = $3",
             template.id(),
             &extra,
             &server_id
@@ -466,22 +474,11 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(AddPortError::ServerNotFound)?;
 
-        let mut build = server
+        let build = server
             .template
             .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
             .await
             .map_err(TemplateError::into::<AddPortError>)?;
-        if let Some(custom_dockerfile) = &server.custom_dockerfile {
-            build.image = ServerBuildImage {
-                default_tag: None,
-                tag: None,
-                parents: vec![build.image],
-                args: HashMap::new(),
-                dockerfile: custom_dockerfile.clone(),
-                base: Some(0),
-            };
-            build.image.tag = Some(format!("custom_{}_{}", server.id, build.image.id()));
-        }
 
         let mut conn = self.database.acquire().await?;
 
@@ -567,17 +564,7 @@ pub(crate) impl ServerAdminService for Backend {
                     });
                 }
             }
-            if let Some(custom_dockerfile) = &server.custom_dockerfile {
-                build.image = ServerBuildImage {
-                    default_tag: None,
-                    tag: None,
-                    parents: vec![build.image],
-                    args: HashMap::new(),
-                    dockerfile: custom_dockerfile.clone(),
-                    base: Some(0),
-                };
-                build.image.tag = Some(format!("custom_{}_{}", server.id, build.image.id()));
-            }
+            let build = server.customization().apply(build);
 
             server
                 .node
@@ -656,22 +643,11 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(UpdatePortError::ServerNotFound)?;
 
-        let mut build = server
+        let build = server
             .template
             .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
             .await
             .map_err(TemplateError::into::<UpdatePortError>)?;
-        if let Some(custom_dockerfile) = &server.custom_dockerfile {
-            build.image = ServerBuildImage {
-                default_tag: None,
-                tag: None,
-                parents: vec![build.image],
-                args: HashMap::new(),
-                dockerfile: custom_dockerfile.clone(),
-                base: Some(0),
-            };
-            build.image.tag = Some(format!("custom_{}_{}", server.id, build.image.id()));
-        }
 
         let mut conn = self.database.acquire().await?;
 
@@ -860,6 +836,8 @@ pub(crate) impl ServerAdminService for Backend {
                 }
             }
 
+            let build = server.customization().apply(build);
+
             server
                 .node
                 .update_server(server.node_server_id, None, Some(build), Some(payload), None)
@@ -899,22 +877,11 @@ pub(crate) impl ServerAdminService for Backend {
             .await?
             .ok_or(DeletePortError::ServerNotFound)?;
 
-        let mut build = server
+        let build = server
             .template
             .extra_to_build_payload(self.cache.clone(), server.template_extra.clone())
             .await
             .map_err(TemplateError::into::<DeletePortError>)?;
-        if let Some(custom_dockerfile) = &server.custom_dockerfile {
-            build.image = ServerBuildImage {
-                default_tag: None,
-                tag: None,
-                parents: vec![build.image],
-                args: HashMap::new(),
-                dockerfile: custom_dockerfile.clone(),
-                base: Some(0),
-            };
-            build.image.tag = Some(format!("custom_{}_{}", server.id, build.image.id()));
-        }
 
         let routes = self.port_routes(port_id).await?;
 
@@ -961,6 +928,8 @@ pub(crate) impl ServerAdminService for Backend {
                         });
                     }
                 }
+
+                let build = server.customization().apply(build);
 
                 server
                     .node

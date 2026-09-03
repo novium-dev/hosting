@@ -398,6 +398,52 @@
       "saveFailed": "Startvariablen konnten nicht gespeichert werden"
     }
   },
+  "startupConfig": {
+    "loading": "Startkonfiguration wird geladen...",
+    "command": {
+      "title": "Startbefehl",
+      "customBadge": "Angepasst",
+      "description": "Der Befehl, den der Server ausführt, sobald seine Dateien bereitstehen. Umgebungsvariablen wie $MAIN_FILE werden beim Start eingesetzt.",
+      "defaultLabel": "Standard der Vorlage:",
+      "resetButton": "Auf Standard zurücksetzen"
+    },
+    "environment": {
+      "title": "Umgebungsvariablen",
+      "description": "Eigene Variablen für den Serverprozess. Namen, die zur Vorlage oder zu einem Port gehören, können nicht überschrieben werden.",
+      "empty": "Noch keine eigenen Umgebungsvariablen.",
+      "addButton": "Variable hinzufügen",
+      "namePlaceholder": "NAME",
+      "valuePlaceholder": "Wert",
+      "errors": {
+        "empty": "Der Name darf nicht leer sein",
+        "name": "Nur Buchstaben, Ziffern und Unterstriche, beginnend mit Buchstabe oder Unterstrich",
+        "reserved": "Dieser Name ist von der Vorlage belegt",
+        "duplicate": "Dieser Name wird mehrfach verwendet"
+      }
+    },
+    "import": {
+      "button": ".env importieren",
+      "dialogTitle": "Umgebungsvariablen importieren",
+      "dialogDescription": "Füge den Inhalt einer .env-Datei ein oder wähle eine Datei von deinem Computer.",
+      "contentLabel": ".env-Inhalt",
+      "chooseFileButton": "Datei auswählen",
+      "mergeButton": "Zusammenführen",
+      "replaceButton": "Alle ersetzen",
+      "toasts": {
+        "empty": "Im eingefügten Inhalt wurden keine Variablen gefunden",
+        "readFailed": "Die ausgewählte Datei konnte nicht gelesen werden",
+        "imported": "{{count}} Variable importiert",
+        "imported_other": "{{count}} Variablen importiert"
+      }
+    },
+    "toasts": {
+      "loadFailed": "Startkonfiguration konnte nicht geladen werden",
+      "commandSaved": "Startbefehl aktualisiert",
+      "environmentSaved": "Umgebungsvariablen aktualisiert",
+      "environmentInvalid": "Korrigiere die ungültigen Umgebungsvariablen vor dem Speichern",
+      "saveFailed": "Startkonfiguration konnte nicht gespeichert werden"
+    }
+  },
   "terminal": {
     "title": "Konsole",
     "connecting": "Terminal wird verbunden...",

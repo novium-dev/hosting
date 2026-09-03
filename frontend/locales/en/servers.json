@@ -398,6 +398,52 @@
       "saveFailed": "Failed to save startup variables"
     }
   },
+  "startupConfig": {
+    "loading": "Loading startup configuration...",
+    "command": {
+      "title": "Startup Command",
+      "customBadge": "Custom",
+      "description": "The command the server runs once its files are in place. Environment variables such as $MAIN_FILE are expanded at start.",
+      "defaultLabel": "Template default:",
+      "resetButton": "Reset to default"
+    },
+    "environment": {
+      "title": "Environment Variables",
+      "description": "Custom variables passed to the server process. Names owned by the template or by a port allocation cannot be overridden.",
+      "empty": "No custom environment variables yet.",
+      "addButton": "Add variable",
+      "namePlaceholder": "NAME",
+      "valuePlaceholder": "value",
+      "errors": {
+        "empty": "The name cannot be empty",
+        "name": "Use letters, digits and underscores, starting with a letter or underscore",
+        "reserved": "This name is reserved by the template",
+        "duplicate": "This name is used more than once"
+      }
+    },
+    "import": {
+      "button": "Import .env",
+      "dialogTitle": "Import environment variables",
+      "dialogDescription": "Paste the contents of a .env file or pick one from your computer.",
+      "contentLabel": ".env contents",
+      "chooseFileButton": "Choose file",
+      "mergeButton": "Merge",
+      "replaceButton": "Replace all",
+      "toasts": {
+        "empty": "No variables found in the pasted content",
+        "readFailed": "Failed to read the selected file",
+        "imported": "Imported {{count}} variable",
+        "imported_other": "Imported {{count}} variables"
+      }
+    },
+    "toasts": {
+      "loadFailed": "Failed to load the startup configuration",
+      "commandSaved": "Startup command updated",
+      "environmentSaved": "Environment variables updated",
+      "environmentInvalid": "Fix the invalid environment variables before saving",
+      "saveFailed": "Failed to save the startup configuration"
+    }
+  },
   "terminal": {
     "title": "Console",
     "connecting": "Connecting terminal...",

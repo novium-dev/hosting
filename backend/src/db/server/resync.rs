@@ -1,11 +1,12 @@
 use crate::Backend;
 use crate::db::project::ProjectId;
-use crate::db::server::ServerId;
+use crate::db::server::{ServerCustomization, ServerId};
 use crate::templates::TemplateError;
 use futures::StreamExt as _;
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::{query, types::JsonValue};
+use std::collections::HashMap;
 use tracing::{error, warn};
 
 const RUNNING_LABELS: [&str; 4] = ["running", "unhealthy", "starting", "restarting"];
@@ -53,6 +54,9 @@ struct ResyncTarget {
     node_server_id: i32,
     template: String,
     template_extra: Value,
+    custom_dockerfile: Option<String>,
+    custom_startup: Option<String>,
+    custom_environment: HashMap<String, String>,
 }
 
 impl Backend {
@@ -71,7 +75,10 @@ impl Backend {
                 node,
                 node_server_id,
                 template,
-                template_extra AS "template_extra: JsonValue"
+                template_extra AS "template_extra: JsonValue",
+                custom_dockerfile,
+                custom_startup,
+                custom_environment AS "custom_environment: JsonValue"
              FROM servers
              WHERE $1::varchar IS NULL OR template = $1
              ORDER BY id"#,
@@ -89,6 +96,17 @@ impl Backend {
             node_server_id: row.node_server_id,
             template: row.template,
             template_extra: row.template_extra,
+            custom_dockerfile: row.custom_dockerfile,
+            custom_startup: row.custom_startup,
+            custom_environment: serde_json::from_value(row.custom_environment).unwrap_or_else(
+                |err| {
+                    warn!(
+                        "Skipping the unreadable custom environment of server {}: {err:?}",
+                        row.id
+                    );
+                    HashMap::new()
+                },
+            ),
         });
 
         Ok(
@@ -175,6 +193,15 @@ impl Backend {
                 return result(ServerResyncStatus::Failure, false);
             }
         }
+
+        let build = ServerCustomization {
+            server: target.id,
+            template: &*template,
+            dockerfile: target.custom_dockerfile.as_deref(),
+            startup: target.custom_startup.as_deref(),
+            environment: &target.custom_environment,
+        }
+        .apply(build);
 
         if let Err(err) = node
             .update_server(node_server_id, None, Some(build), None, None)

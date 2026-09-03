@@ -13,7 +13,9 @@ use crate::templates::generic::{
     version_cmp,
 };
 use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, VariablePayload};
-use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
+use crate::templates::{
+    STARTUP_COMMAND_ENVIRONMENT, Template, TemplateError, TemplatePortDefinition, ThinTemplateError,
+};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct RustExtra {
@@ -30,6 +32,8 @@ pub(crate) struct RustExtra {
 pub(crate) struct RustVersionCache(IndexSet<(u16, u16, u16)>, i64);
 
 pub(crate) struct RustTemplate;
+
+const DEFAULT_STARTUP_COMMAND: &str = "cargo run --release --locked";
 
 impl Template for RustTemplate {
     const ID: &'static str = "rust";
@@ -48,7 +52,7 @@ impl Template for RustTemplate {
                 .replace("{RUST_VERSION}", &extra.rust_version),
             args: HashMap::new(),
             tag: None,
-            default_tag: Some(format!("rust-{}-r1", extra.rust_version)),
+            default_tag: Some(format!("rust-{}-r2", extra.rust_version)),
         };
         Ok(ServerBuildPayload {
             image,
@@ -57,12 +61,18 @@ impl Template for RustTemplate {
             uid: None,
             gid: None,
             backup_exclude: HashSet::from([".git/".to_owned(), "target/".to_owned()]),
-            environment: HashMap::from(git_environment(GitFields {
+            environment: git_environment(GitFields {
                 url: extra.repository_url,
                 branch: extra.repository_branch,
                 username: extra.repository_username,
                 password: extra.repository_password,
-            })),
+            })
+            .into_iter()
+            .chain([(
+                STARTUP_COMMAND_ENVIRONMENT.to_owned(),
+                DEFAULT_STARTUP_COMMAND.to_owned(),
+            )])
+            .collect(),
             files_write: HashMap::new(),
             cap_add: Vec::new(),
             cap_drop: Vec::new(),
@@ -174,6 +184,14 @@ impl Template for RustTemplate {
     }
 
     fn default_internet_access(&self) -> bool {
+        true
+    }
+
+    fn supports_custom_startup(&self) -> bool {
+        true
+    }
+
+    fn supports_custom_environment(&self) -> bool {
         true
     }
 

@@ -776,6 +776,13 @@ export type UpdateServerPayload = {
     suspension_reason?: string | null;
 };
 
+export type UpdateStartupPayload = {
+    command?: string | null;
+    environment?: {
+        [key: string]: string;
+    } | null;
+};
+
 export type UpdateUserPayload = {
     auth_id?: string | null;
     email?: string | null;
@@ -2071,6 +2078,269 @@ export type UpdateVariablesResponses = {
 };
 
 export type UpdateVariablesResponse = UpdateVariablesResponses[keyof UpdateVariablesResponses];
+
+export type ServerStartupData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/server/{server_id}/startup';
+};
+
+export type ServerStartupErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‪': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‌': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‍': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+};
+
+export type ServerStartupError = ServerStartupErrors[keyof ServerStartupErrors];
+
+export type ServerStartupResponses = {
+    /**
+     * Success
+     */
+    200: {
+        command: string;
+        customized: boolean;
+        default_command: string;
+        environment: {
+            [key: string]: string;
+        };
+        environment_supported: boolean;
+        reserved_environment: Array<string>;
+        supported: boolean;
+    };
+};
+
+export type ServerStartupResponse = ServerStartupResponses[keyof ServerStartupResponses];
+
+export type UpdateStartupData = {
+    body: UpdateStartupPayload;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/server/{server_id}/startup';
+};
+
+export type UpdateStartupErrors = {
+    /**
+     * The server's template does not support a custom startup command
+     */
+    '400‫': {
+        error?: {
+            id?: 'server/startup_unsupported';
+            msg?: 'The server\'s template does not support a custom startup command';
+        };
+    };
+    /**
+     * The startup command must be 1-4000 characters without control characters
+     */
+    '400‬': {
+        error?: {
+            id?: 'server/startup_invalid';
+            msg?: 'The startup command must be 1-4000 characters without control characters';
+        };
+    };
+    /**
+     * The server's template does not support custom environment variables
+     */
+    '400‭': {
+        error?: {
+            id?: 'server/environment_unsupported';
+            msg?: 'The server\'s template does not support custom environment variables';
+        };
+    };
+    /**
+     * An environment variable name or value is invalid, reserved or too long
+     */
+    '400‮': {
+        error?: {
+            id?: 'server/environment_invalid';
+            msg?: 'An environment variable name or value is invalid, reserved or too long';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‪': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‌': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502⁠': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‍': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+};
+
+export type UpdateStartupError = UpdateStartupErrors[keyof UpdateStartupErrors];
+
+export type UpdateStartupResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UpdateStartupResponse = UpdateStartupResponses[keyof UpdateStartupResponses];
 
 export type ServerLicensesData = {
     body?: never;
