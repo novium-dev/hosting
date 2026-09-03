@@ -353,10 +353,12 @@
     "serverNameLabel": "Server name",
     "saveNameButton": "Save name",
     "sftp": {
-      "title": "SFTP Access",
+      "title": "SFTP & SSH Access",
       "description": "Use your daemon password for SFTP password auth, or configure SSH public key auth from your profile.",
       "openLabel": "Open with SFTP",
       "openButton": "Open",
+      "sshLabel": "Open the console over SSH",
+      "sshHelpText": "The quoted argument is the server name, so rename the server and this command changes with it.",
       "helpText": "Your SFTP password is the daemon password shown in your settings. You can also add SSH public keys there."
     },
     "wipe": {
@@ -382,7 +384,9 @@
       "usernameCopySuccess": "SFTP username copied",
       "usernameCopyFailed": "Failed to copy SFTP username",
       "urlCopySuccess": "SFTP URL copied",
-      "urlCopyFailed": "Failed to copy SFTP URL"
+      "urlCopyFailed": "Failed to copy SFTP URL",
+      "commandCopySuccess": "SSH command copied",
+      "commandCopyFailed": "Failed to copy the SSH command"
     }
   },
   "startup": {

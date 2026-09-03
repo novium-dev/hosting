@@ -353,10 +353,12 @@
     "serverNameLabel": "Servername",
     "saveNameButton": "Namen speichern",
     "sftp": {
-      "title": "SFTP-Zugriff",
+      "title": "SFTP- & SSH-Zugriff",
       "description": "Verwende dein Daemon-Passwort für die SFTP-Passwortauthentifizierung oder richte SSH-Public-Key-Auth in deinem Profil ein.",
       "openLabel": "Mit SFTP öffnen",
       "openButton": "Öffnen",
+      "sshLabel": "Konsole über SSH öffnen",
+      "sshHelpText": "Das Argument in Anführungszeichen ist der Servername — wird der Server umbenannt, ändert sich auch dieser Befehl.",
       "helpText": "Dein SFTP-Passwort ist das Daemon-Passwort, das in deinen Einstellungen angezeigt wird. Du kannst dort auch SSH-Public-Keys hinzufügen."
     },
     "wipe": {
@@ -382,7 +384,9 @@
       "usernameCopySuccess": "SFTP-Benutzername kopiert",
       "usernameCopyFailed": "SFTP-Benutzername konnte nicht kopiert werden",
       "urlCopySuccess": "SFTP-URL kopiert",
-      "urlCopyFailed": "SFTP-URL konnte nicht kopiert werden"
+      "urlCopyFailed": "SFTP-URL konnte nicht kopiert werden",
+      "commandCopySuccess": "SSH-Befehl kopiert",
+      "commandCopyFailed": "SSH-Befehl konnte nicht kopiert werden"
     }
   },
   "startup": {

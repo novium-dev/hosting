@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSettingsDialog } from "@/hooks/use-settings-dialog";
 import {
   Copy,
@@ -115,6 +115,14 @@ export function ServerSettings({
     setSftpUrl(`sftp://${encodeURIComponent(username)}@${host}${portPart}`);
   }, [serverId, username, nodeHostname, sshPort, t]);
 
+  const sshCommand = useMemo(() => {
+    const host = nodeHostname || t("common:status.unknown");
+    const portPart = sshPort ? ` -p ${sshPort}` : "";
+    const target = initialName.replace(/[\\"$`]/g, (character) => `\\${character}`);
+
+    return `ssh -t${portPart} ${username}@${host} "${target}"`;
+  }, [initialName, nodeHostname, sshPort, t, username]);
+
   const refreshStatus = useCallback(async () => {
     const response = await serverInfo({ path: { server_id: serverId } });
 
@@ -226,6 +234,15 @@ export function ServerSettings({
       toast.success(t("servers:settings.toasts.urlCopySuccess"));
     } catch {
       toast.error(t("servers:settings.toasts.urlCopyFailed"));
+    }
+  };
+
+  const copySshCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(sshCommand);
+      toast.success(t("servers:settings.toasts.commandCopySuccess"));
+    } catch {
+      toast.error(t("servers:settings.toasts.commandCopyFailed"));
     }
   };
 
@@ -345,6 +362,28 @@ export function ServerSettings({
                   </a>
                 </Button>
               </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">
+                {t("servers:settings.sftp.sshLabel")}
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input readOnly value={sshCommand} className="font-mono" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    void copySshCommand();
+                  }}
+                  disabled={!initialName}
+                >
+                  <Copy className="size-4" />
+                  {t("common:actions.copy")}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("servers:settings.sftp.sshHelpText")}
+              </p>
             </div>
             <div className="flex flex-col gap-2 rounded-lg border bg-background/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
