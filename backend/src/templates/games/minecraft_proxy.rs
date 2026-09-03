@@ -16,11 +16,13 @@ use std::collections::{HashMap, HashSet};
 use tracing::{debug, error};
 
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
-use crate::templates::games::minecraft::VersionBuild;
+use crate::templates::games::minecraft::{JVM_FLAGS, VersionBuild};
 use crate::templates::variable::{
     VariableBuilder, VariableContent, VariableDataBuilder, VariableGroupBuilder, VariablePayload,
 };
-use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
+use crate::templates::{
+    STARTUP_COMMAND_ENVIRONMENT, Template, TemplateError, TemplatePortDefinition, ThinTemplateError,
+};
 use crate::utils::serde::SerdePrimitive;
 
 pub(crate) const VELOCITY_URL: &str = "https://fill.papermc.io/";
@@ -64,7 +66,7 @@ pub(crate) enum MinecraftProxyExtra {
 }
 
 impl MinecraftProxyExtra {
-    const REL: usize = 1;
+    const REL: usize = 2;
 
     pub(crate) const fn software(&self) -> MinecraftProxySoftware {
         match self {
@@ -126,6 +128,10 @@ impl MinecraftProxyExtra {
             Self::Velocity { .. } => "shutdown",
             Self::BungeeCord { .. } => "end",
         }
+    }
+
+    pub(crate) fn startup_command() -> String {
+        format!("java {JVM_FLAGS} -jar /server.jar")
     }
 
     pub(crate) fn identifier(&self) -> String {
@@ -289,7 +295,10 @@ impl Template for MinecraftProxyTemplate {
                 "DAC_OVERRIDE".to_owned(),
                 "NET_BIND_SERVICE".to_owned(),
             ],
-            environment: HashMap::new(),
+            environment: HashMap::from([(
+                STARTUP_COMMAND_ENVIRONMENT.to_owned(),
+                MinecraftProxyExtra::startup_command(),
+            )]),
             backup_exclude: extra.backup_exclude(),
             files_write: extra.files_write(),
 
@@ -536,6 +545,10 @@ impl Template for MinecraftProxyTemplate {
     }
 
     fn default_internet_access(&self) -> bool {
+        true
+    }
+
+    fn supports_custom_startup(&self) -> bool {
         true
     }
 
