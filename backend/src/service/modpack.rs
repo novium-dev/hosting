@@ -4,17 +4,21 @@ use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
 use crate::db::feature::ProjectFeature;
 use crate::db::server::resources::{
-    ModpackRecord, delete_installed_files, delete_modpack, upsert_modpack,
+    ModpackRecord, delete_installed_files, delete_modpack, get_modpack, upsert_modpack,
 };
+use crate::db::server::resync::is_running_label;
 use crate::db::server::{Server, ServerId};
 use crate::resources::modpack::{
     CURSEFORGE_MANIFEST, MODRINTH_INDEX, Modpack, ModpackFile, OVERRIDES_DIR, SERVER_OVERRIDES_DIR,
     parse_curseforge_manifest, parse_modrinth_index, safe_pack_path,
 };
 use crate::resources::{
-    ResourceError, ResourceKind, ResourceLoader, ResourceProvider, ResourceType, sanitize_file_name,
+    ResourceError, ResourceKind, ResourceLoader, ResourceProvider, ResourceType, ResourceVersion,
+    ResourceVersionType, sanitize_file_name,
 };
-use crate::service::modpack::modpack_service_error::{InstallModpackError, ModpackStatusError};
+use crate::service::modpack::modpack_service_error::{
+    InstallModpackError, ModpackStatusError, ModpackVersionsError,
+};
 use crate::templates::Template as _;
 use crate::templates::games::minecraft::MinecraftTemplate;
 use crate::utils::FileResponseExtension as _;
@@ -27,13 +31,16 @@ use serde::{Deserialize, Serialize};
 use tokio::io::AsyncReadExt as _;
 use tracing::{error, info, warn};
 use zelus::error::define_error;
-use zelus::service;
+use zelus::{define_query_variable, service};
+
+define_query_variable!(allow_prerelease "Whether beta/alpha pack releases count as an update");
 
 define_error!(modpack {
     not_confirmed("Installing a modpack rewrites server files and must be confirmed" BAD_REQUEST),
     already_running("A modpack installation is already running for this server" BAD_REQUEST),
     manifest_missing("The pack archive contains no usable manifest" BAD_GATEWAY),
     backup_unavailable("No backup could be created, so the install was not started" BAD_REQUEST),
+    server_running("The server must be stopped before a modpack can be installed" BAD_REQUEST),
 });
 
 const STAGING_DIR: &str = ".novium-modpack";
@@ -43,6 +50,20 @@ const MAX_MANIFEST_BYTES: u64 = 0x0080_0000;
 const MAX_PACK_TITLE: usize = 255;
 
 const CURSEFORGE_FILE_DIR: &str = "mods";
+
+const MAX_PACK_URL: usize = 512;
+
+fn safe_page_url(value: Option<String>) -> Option<String> {
+    let value = value?;
+    if value.len() > MAX_PACK_URL {
+        return None;
+    }
+
+    url::Url::parse(&value)
+        .ok()
+        .filter(|url| url.scheme() == "https")
+        .map(|_url| value)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -90,11 +111,29 @@ pub(crate) struct InstallModpackPayload {
     #[serde(default)]
     pub(crate) title: Option<String>,
     #[serde(default)]
+    pub(crate) version_number: Option<String>,
+    #[serde(default)]
+    pub(crate) icon_url: Option<String>,
+    #[serde(default)]
+    pub(crate) page_url: Option<String>,
+    #[serde(default)]
     pub(crate) backup: bool,
     #[serde(default)]
     pub(crate) wipe: bool,
     #[serde(default)]
     pub(crate) confirm: bool,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct ModpackVersions {
+    pub(crate) provider: ResourceProvider,
+    pub(crate) project: String,
+    pub(crate) loader: ResourceLoader,
+    pub(crate) title: String,
+    pub(crate) installed_version: String,
+    pub(crate) latest: Option<ResourceVersion>,
+    pub(crate) update_available: bool,
+    pub(crate) versions: Vec<ResourceVersion>,
 }
 
 impl Backend {
@@ -505,6 +544,12 @@ impl Backend {
             provider: payload.provider,
             project: payload.project.clone(),
             version: payload.version.clone(),
+            version_number: payload
+                .version_number
+                .clone()
+                .or_else(|| pack.version.clone())
+                .map(|number| number.chars().take(MAX_PACK_TITLE).collect()),
+            loader: Some(payload.loader),
             title: payload
                 .title
                 .clone()
@@ -513,6 +558,8 @@ impl Backend {
                 .chars()
                 .take(MAX_PACK_TITLE)
                 .collect(),
+            icon_url: safe_page_url(payload.icon_url.clone()),
+            page_url: safe_page_url(payload.page_url.clone()),
             files: installed_paths,
             installed_at: chrono::Utc::now().timestamp(),
         };
@@ -544,6 +591,9 @@ impl Backend {
 #[service(path = "/modpack/{server_id}", tag = "modpack", no_sdk)]
 pub(crate) impl ModpackService for Backend {
     /// Progress of this server's modpack install, if one has run.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_READ`].
     #[route("", method = GET)]
     #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn modpack_status(
@@ -568,8 +618,13 @@ pub(crate) impl ModpackService for Backend {
     ///
     /// Returns as soon as the job is accepted — a pack is one large archive plus
     /// hundreds of downloads, so progress is polled from `GET /modpack/{id}`.
+    /// The server has to be stopped: the install rewrites the mod jars and the
+    /// pack's configuration underneath a running process.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_WRITE`].
     #[route("/install", method = POST)]
-    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, wrong_template}, modpack::{not_confirmed, already_running})]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, wrong_template}, modpack::{not_confirmed, already_running, server_running})]
     async fn install_modpack(
         &self,
         #[special] auth: Authentication,
@@ -597,6 +652,15 @@ pub(crate) impl ModpackService for Backend {
 
         if server.template.id() != MinecraftTemplate::ID {
             return Err(InstallModpackError::ResourceWrongTemplate);
+        }
+
+        if server
+            .node
+            .server_status(server.node_server_id)
+            .await
+            .is_ok_and(|status| is_running_label(&status.state.label))
+        {
+            return Err(InstallModpackError::ModpackServerRunning);
         }
 
         if self
@@ -628,5 +692,74 @@ pub(crate) impl ModpackService for Backend {
         });
 
         Ok(job)
+    }
+
+    /// Lists the versions of the modpack this server is linked to.
+    ///
+    /// The link is what makes an installed pack updatable: the record carries
+    /// the provider, project and loader the pack came from, so the same call
+    /// answers both "which versions can I switch to" and "is there a newer
+    /// one". `latest` is the newest version the pack offers, and
+    /// `update_available` says whether it differs from the installed one;
+    /// beta/alpha releases only count when `allow_prerelease` is set. Returns
+    /// `null` when no pack is linked, or when the link predates the stored
+    /// loader and cannot be resolved upstream.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_READ`].
+    #[route("/versions", method = GET, query = [ allow_prerelease ])]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing})]
+    async fn modpack_versions(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        allow_prerelease: Option<bool>,
+    ) -> Result<Option<ModpackVersions>, _> {
+        auth.require::<_, _, ModpackVersionsError>(server_id, ServerPermissions::FILES_READ)?;
+        self.require_server_feature::<ModpackVersionsError>(
+            server_id,
+            ProjectFeature::ModInstaller,
+        )
+        .await?;
+
+        let Some(pack) = get_modpack(&self.database, server_id).await? else {
+            return Ok(None);
+        };
+        let Some(loader) = pack.loader else {
+            return Ok(None);
+        };
+
+        let versions = self
+            .resource_client()
+            .versions(
+                pack.provider,
+                &pack.project,
+                loader,
+                ResourceKind::Modpack,
+                None,
+            )
+            .await
+            .map_err(ResourceError::into::<ModpackVersionsError>)?;
+
+        let latest = versions
+            .iter()
+            .find(|version| {
+                allow_prerelease.unwrap_or_default()
+                    || version.version_type == ResourceVersionType::Release
+            })
+            .cloned();
+
+        Ok(Some(ModpackVersions {
+            provider: pack.provider,
+            project: pack.project,
+            loader,
+            title: pack.title,
+            update_available: latest
+                .as_ref()
+                .is_some_and(|version| version.id != pack.version),
+            installed_version: pack.version,
+            latest,
+            versions,
+        }))
     }
 }

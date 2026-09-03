@@ -218,111 +218,118 @@
       "commandSent": "{{name}}: Befehl {{action}} gesendet"
     }
   },
-  "modPluginBrowser": {
+  "mods": {
     "unavailable": {
       "title": "Mod-Browser nicht verfügbar",
-      "description": "Diese Servervorlage bietet keine unterstützte Minecraft-Mod- oder Plugin-Funktion."
-    },
-    "title": "Mods und Plugins",
-    "description": {
-      "modpacks": "Durchsuche Modrinth- und CurseForge-Modpacks, die mit diesem Server kompatibel sind.",
-      "resources": "Durchsuche Modrinth-, CurseForge-, Hangar- und SpigotMC-Ressourcen, die mit diesem Server kompatibel sind."
+      "description": "Dieses Server-Template bietet keine unterstützte Minecraft-Mod- oder Plugin-Funktion."
     },
     "tabs": {
-      "mods": "Mods",
-      "modpacks": "Modpacks"
+      "modpack": "Modpack",
+      "browse": "Durchsuchen",
+      "installed": "Installiert"
     },
-    "searchPlaceholderWithLoader": "{{loader}} durchsuchen",
-    "searchPlaceholder": "Suchen",
-    "compatibleOnlyLabel": "Nur Ressourcen für Minecraft {{gameVersion}} anzeigen",
-    "noResultsFound": "Keine kompatiblen Ressourcen gefunden.",
+    "versionLabel": "Version",
+    "loadingVersions": "Versionen werden geladen…",
+    "noVersions": "Keine kompatiblen Versionen",
+    "noResults": "Keine kompatiblen Ergebnisse gefunden.",
+    "installButton": "Installieren",
+    "switchVersionButton": "Version wechseln",
+    "compatibleOnly": "Nur Ergebnisse für Minecraft {{gameVersion}} anzeigen",
+    "includeBeta": "Beta-Versionen einbeziehen",
+    "downloadsLabel": "{{downloads}} Downloads",
+    "viewOnProvider": "Auf {{provider}} ansehen",
     "badges": {
       "installed": "Installiert",
       "manualDownload": "Manueller Download"
-    },
-    "downloadsLabel": "{{count}} Downloads",
-    "followsLabel": "{{count}} Follower",
-    "selectResourceFallback": "Ressource auswählen",
-    "chooseProjectHint": "Wähle ein Projekt aus, um dessen Versionen anzuzeigen.",
-    "viewOnProviderLink": "Auf {{provider}} ansehen",
-    "versionLabel": "Version",
-    "noCompatibleVersions": "Keine kompatiblen Versionen",
-    "minecraftVersionsPrefix": "Minecraft: ",
-    "fileLabelPrefix": "Datei: ",
-    "fileUnavailable": "Nicht verfügbar",
-    "installedFilePrefix": "Installiert: ",
-    "switchVersionButton": "Version wechseln",
-    "installButton": "Installieren",
-    "manualDownloadHints": {
-      "spigot": "SpigotMC erlaubt keine automatisierten Downloads. Lade die JAR-Datei von der Seite herunter und lade sie unter Dateien hoch.",
-      "generic": "Diese Version wird außerhalb des Anbieters gehostet und muss manuell heruntergeladen und hochgeladen werden."
-    },
-    "noWritePermissionHint": "Du benötigst Schreibrechte für Dateien, um Ressourcen zu installieren.",
-    "searchOrSelectHint": "Suche oder wähle eine Ressource aus der Liste.",
-    "installedModpack": {
-      "prefix": "Installiertes Modpack — ",
-      "modsCount_one": "{{count}} Mod",
-      "modsCount_other": "{{count}} Mods",
-      "noModsFound": "keine Mods auf der Festplatte gefunden",
-      "andConfigFiles_one": " und {{count}} Konfigurationsdatei",
-      "andConfigFiles_other": " und {{count}} Konfigurationsdateien",
-      "suffix": ". Diese stammen aus dem Pack und werden daher nicht als manuell hochgeladene Dateien aufgeführt."
     },
     "actions": {
       "disable": "Deaktivieren",
       "enable": "Aktivieren"
     },
-    "modpackJob": {
-      "fallbackTitle": "Modpack",
-      "runningBase": "Installation läuft im Hintergrund",
-      "runningProgress": " — {{done}} von {{total}} Dateien",
-      "runningSuffix": ". Du kannst diese Seite verlassen.",
-      "failedDefault": "Die Installation ist fehlgeschlagen. Es wurde nichts geändert, falls der Fehler vor dem Installationsschritt auftrat.",
-      "installedCount_one": "{{count}} Datei installiert.",
-      "installedCount_other": "{{count}} Dateien installiert.",
-      "failuresMessage_one": "{{count}} Datei konnte nicht abgerufen werden (meist weil ein CurseForge-Autor Downloads von Drittanbietern blockiert): {{list}}",
-      "failuresMessage_other": "{{count}} Dateien konnten nicht abgerufen werden (meist weil ein CurseForge-Autor Downloads von Drittanbietern blockiert): {{list}}"
+    "manualDownloadHint": "Diese Version wird außerhalb des Anbieters gehostet und muss manuell heruntergeladen und hochgeladen werden.",
+    "manualDownloadHints": {
+      "spigot": "SpigotMC erlaubt keine automatisierten Downloads. Lade die JAR-Datei von der Seite herunter und lade sie unter Dateien hoch.",
+      "generic": "Diese Version wird außerhalb des Anbieters gehostet und muss manuell heruntergeladen und hochgeladen werden."
     },
-    "modpackConfirm": {
-      "title": "{{title}} installieren?",
-      "fallbackTitle": "Modpack",
-      "description": "Dies schreibt die Mods und die Konfiguration des Packs auf den Server. Das Pack wird zuerst heruntergeladen und entpackt, sodass sich auf dem Server nichts ändert, bevor bekannt ist, dass es nutzbar ist.",
-      "backupLabel": "Zuerst sichern",
-      "backupAvailableHint": "Es wird ein Backup erstellt, bevor etwas geschrieben wird. Schlägt dies fehl, startet die Installation nicht.",
-      "backupUnavailableHint": "Nicht verfügbar: Für diesen Node ist kein Backup-Speicher für den Server konfiguriert.",
-      "wipeLabel": "Vorhandene Mods ersetzen",
-      "wipeHint": "Löscht die aktuellen Mod-JARs, damit das Ergebnis dem Pack entspricht. Deaktiviere dies, um das Pack mit dem bereits Installierten zusammenzuführen.",
-      "wipeWarning": "Vorhandene Mods werden gelöscht und es gibt kein Backup zum Wiederherstellen. Die im Pack enthaltene Mod-Konfiguration überschreibt außerdem, was auf dem Server vorhanden ist."
+    "filesLockedNotice": "Dateien sind gesperrt, solange ein Modpack installiert wird.",
+    "filesLockedToast": "Ein Modpack wird installiert. Warte, bis es fertig ist, bevor du Dateien änderst.",
+    "toasts": {
+      "installed": "{{title}} installiert.",
+      "enabled": "{{label}} aktiviert.",
+      "disabled": "{{label}} deaktiviert.",
+      "updated": "{{title}} aktualisiert.",
+      "updatedCount_one": "{{count}} Ressource aktualisiert.",
+      "updatedCount_other": "{{count}} Ressourcen aktualisiert.",
+      "updateFailed": "Die Ressourcen konnten nicht aktualisiert werden.",
+      "removed": "{{title}} entfernt."
     },
-    "installedSection": {
+    "browse": {
+      "title": "Mods und Plugins durchsuchen",
+      "description": "Durchsuche Modrinth, CurseForge, Hangar und SpigotMC nach Ressourcen, die zu diesem Server passen.",
+      "searchPlaceholder": "Mods und Plugins suchen"
+    },
+    "installed": {
       "title": "Installiert",
       "updatesBadge_one": "{{count}} Update",
       "updatesBadge_other": "{{count}} Updates",
-      "emptyState": "Bisher wurde nichts über den Browser installiert.",
-      "countDescription_one": "{{count}} Ressource auf diesem Server installiert.",
-      "countDescription_other": "{{count}} Ressourcen auf diesem Server installiert.",
-      "includeBetaLabel": "Beta-Versionen einbeziehen",
+      "empty": "Bisher wurde nichts über den Browser installiert.",
+      "count_one": "{{count}} Ressource auf diesem Server installiert.",
+      "count_other": "{{count}} Ressourcen auf diesem Server installiert.",
       "updateAllButton": "Alle aktualisieren"
     },
-    "unmanagedSection": {
-      "title": "Nicht über den Browser installiert",
-      "description_one": "{{count}} Datei auf diesem Server, auf die kein Eintrag verweist — per SFTP oder im Dateimanager hochgeladen oder manuell ersetzt. Du kannst sie hier weiterhin aktivieren oder deaktivieren; das Löschen erfolgt unter Dateien.",
-      "description_other": "{{count}} Dateien auf diesem Server, auf die kein Eintrag verweist — per SFTP oder im Dateimanager hochgeladen oder manuell ersetzt. Du kannst sie hier weiterhin aktivieren oder deaktivieren; das Löschen erfolgt unter Dateien."
+    "unmanaged": {
+      "title": "Manuell hochgeladen",
+      "description_one": "{{count}} Datei wurde außerhalb des Browsers hinzugefügt und hat daher keine nachverfolgbare Version.",
+      "description_other": "{{count}} Dateien wurden außerhalb des Browsers hinzugefügt und haben daher keine nachverfolgbare Version."
     },
-    "unreadableSection": {
-      "title": "Nicht jedes Verzeichnis konnte gelesen werden",
-      "description": "Das Verzeichnis {{types}} konnte nicht aufgelistet werden, daher sind die obigen Listen möglicherweise unvollständig. Es wurde nichts aus den Datensätzen entfernt."
+    "unreadable": {
+      "title": "Konnte nicht geprüft werden",
+      "description": "Der Node hat für {{types}} nicht geantwortet, daher konnte nicht überprüft werden, was dort installiert ist. Es wurde nichts geändert."
     },
-    "toasts": {
-      "installed": "{{title}} installiert",
-      "stateEnabled": "{{label}} aktiviert",
-      "stateDisabled": "{{label}} deaktiviert",
-      "installingInBackground": "{{title}} wird im Hintergrund installiert",
-      "updated": "{{title}} aktualisiert",
-      "updateAllFailed": "Aktualisierung der Ressourcen fehlgeschlagen",
-      "updatedCount_one": "{{count}} Ressource aktualisiert",
-      "updatedCount_other": "{{count}} Ressourcen aktualisiert",
-      "removed": "{{title}} entfernt"
+    "pack": {
+      "chooseTitle": "Modpack installieren",
+      "replaceTitle": "Modpack ersetzen",
+      "chooseDescription": "Ein Server läuft mit einem Pack. Beim Installieren wird es hier verknüpft, sodass später die Version gewechselt und auf Updates geprüft werden kann.",
+      "searchPlaceholder": "Modpacks suchen",
+      "installedSummary": "Version {{version}} · installiert am {{date}}",
+      "updateAvailable": "Eine neuere Version ist verfügbar: {{version}}",
+      "upToDate": "Dieses Pack ist auf der neuesten Version.",
+      "currentSuffix": "aktuell",
+      "reinstallButton": "Neu installieren",
+      "switchButton": "Version wechseln",
+      "checkUpdatesButton": "Auf Updates prüfen",
+      "replaceButton": "Pack ersetzen",
+      "stopRequired": "Der Server muss gestoppt sein, bevor ein Pack installiert oder gewechselt werden kann.",
+      "unlinkedLoader": "Dieses Pack wurde installiert, bevor Packs mit einem Loader verknüpft wurden, daher lassen sich seine Versionen nicht auflisten. Installiere es erneut, um es neu zu verknüpfen.",
+      "contents": "Pack-Inhalt — {{mods}} Mods, {{files}} Konfigurationsdateien",
+      "noModsOnDisk": "Keine der Mods des Packs liegt noch auf der Festplatte.",
+      "dialog": {
+        "title": "{{title}} installieren",
+        "description": "Das Pack wird heruntergeladen und entpackt, bevor etwas geschrieben wird — der Server wird also erst angefasst, wenn bekannt ist, dass das Pack nutzbar ist.",
+        "backupLabel": "Zuerst sichern",
+        "backupHint": "Es wird ein Backup erstellt, bevor etwas geschrieben wird. Schlägt dies fehl, startet die Installation nicht.",
+        "backupUnavailable": "Nicht verfügbar: Für diesen Node ist kein Backup-Speicher für den Server konfiguriert.",
+        "wipeLabel": "Vorhandene Mods ersetzen",
+        "wipeHint": "Löscht die aktuellen Mod-JARs, damit das Ergebnis dem Pack entspricht. Deaktiviere dies, um das Pack mit dem bereits Installierten zusammenzuführen.",
+        "wipeWarning": "Vorhandene Mods werden gelöscht und es gibt kein Backup zum Wiederherstellen. Die im Pack enthaltene Mod-Konfiguration überschreibt außerdem, was auf dem Server vorhanden ist."
+      },
+      "toasts": {
+        "started": "{{title}} wird im Hintergrund installiert."
+      }
     }
+  },
+  "modpackInstall": {
+    "fallbackPackName": "Modpack",
+    "runningTitle": "{{pack}} wird installiert",
+    "failedTitle": "{{pack}} konnte nicht installiert werden",
+    "doneTitle": "{{pack}} installiert",
+    "runningFiles": "{{done}} von {{total}} Dateien geschrieben",
+    "runningPreparing": "Pack wird vorbereitet…",
+    "failedDefault": "Die Installation ist fehlgeschlagen. Wenn sie vor dem Installationsschritt fehlschlug, wurde nichts geändert.",
+    "doneFiles_one": "{{count}} Datei geschrieben.",
+    "doneFiles_other": "{{count}} Dateien geschrieben.",
+    "filesLocked": "Das Bearbeiten von Dateien ist deaktiviert, bis dies abgeschlossen ist.",
+    "failures_one": "{{count}} Datei konnte nicht geladen werden (meist blockiert ein CurseForge-Autor Drittanbieter-Downloads): {{list}}",
+    "failures_other": "{{count}} Dateien konnten nicht geladen werden (meist blockiert ein CurseForge-Autor Drittanbieter-Downloads): {{list}}"
   }
 }

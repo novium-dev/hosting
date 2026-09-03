@@ -58,7 +58,8 @@
     "regenerate": "Neu generieren",
     "reload": "Neu laden",
     "goBack": "Zurückgehen",
-    "backToDashboard": "Zurück zum Dashboard"
+    "backToDashboard": "Zurück zum Dashboard",
+    "dismiss": "Ausblenden"
   },
   "labels": {
     "name": "Name",

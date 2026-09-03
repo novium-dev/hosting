@@ -114,6 +114,21 @@ impl ResourceLoader {
         }
     }
 
+    pub(crate) const ALL: [Self; 6] = [
+        Self::Paper,
+        Self::Fabric,
+        Self::Forge,
+        Self::Neoforge,
+        Self::Velocity,
+        Self::Bungeecord,
+    ];
+
+    pub(crate) fn parse_str(value: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|loader| loader.as_str() == value)
+    }
+
     pub(crate) const fn is_proxy(self) -> bool {
         matches!(self, Self::Velocity | Self::Bungeecord)
     }

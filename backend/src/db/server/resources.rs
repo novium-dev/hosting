@@ -2,7 +2,7 @@ use serde::Serialize;
 use sqlx::{PgPool, query, query_as};
 
 use crate::db::server::ServerId;
-use crate::resources::{ResourceProvider, ResourceType};
+use crate::resources::{ResourceLoader, ResourceProvider, ResourceType};
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub(crate) struct InstalledResource {
@@ -151,7 +151,11 @@ pub(crate) struct ModpackRecord {
     pub(crate) provider: ResourceProvider,
     pub(crate) project: String,
     pub(crate) version: String,
+    pub(crate) version_number: Option<String>,
+    pub(crate) loader: Option<ResourceLoader>,
     pub(crate) title: String,
+    pub(crate) icon_url: Option<String>,
+    pub(crate) page_url: Option<String>,
     pub(crate) files: Vec<String>,
     pub(crate) installed_at: i64,
 }
@@ -161,7 +165,8 @@ pub(crate) async fn get_modpack(
     server: ServerId,
 ) -> Result<Option<ModpackRecord>, sqlx::Error> {
     Ok(query!(
-        r#"SELECT provider, project, version, title, files, installed_at
+        r#"SELECT provider, project, version, version_number, loader, title,
+                  icon_url, page_url, files, installed_at
            FROM server_modpacks
            WHERE server = $1"#,
         server as ServerId
@@ -173,7 +178,11 @@ pub(crate) async fn get_modpack(
             provider: ResourceProvider::parse_str(&record.provider)?,
             project: record.project,
             version: record.version,
+            version_number: record.version_number,
+            loader: record.loader.as_deref().and_then(ResourceLoader::parse_str),
             title: record.title,
+            icon_url: record.icon_url,
+            page_url: record.page_url,
             files: record.files,
             installed_at: record.installed_at.timestamp(),
         })
@@ -186,20 +195,30 @@ pub(crate) async fn upsert_modpack(
     modpack: &ModpackRecord,
 ) -> Result<(), sqlx::Error> {
     query!(
-        r#"INSERT INTO server_modpacks (server, provider, project, version, title, files)
-           VALUES ($1, $2, $3, $4, $5, $6)
+        r#"INSERT INTO server_modpacks
+               (server, provider, project, version, version_number, loader, title,
+                icon_url, page_url, files)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
            ON CONFLICT (server) DO UPDATE SET
                provider = excluded.provider,
                project = excluded.project,
                version = excluded.version,
+               version_number = excluded.version_number,
+               loader = excluded.loader,
                title = excluded.title,
+               icon_url = excluded.icon_url,
+               page_url = excluded.page_url,
                files = excluded.files,
                installed_at = now()"#,
         server as ServerId,
         modpack.provider.as_str(),
         modpack.project,
         modpack.version,
+        modpack.version_number,
+        modpack.loader.map(ResourceLoader::as_str),
         modpack.title,
+        modpack.icon_url,
+        modpack.page_url,
         &modpack.files
     )
     .execute(database)

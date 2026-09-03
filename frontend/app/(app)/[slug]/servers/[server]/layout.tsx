@@ -23,6 +23,8 @@ import {
   mergePermissions,
   ServerPermission,
 } from "@/lib/permissions";
+import { ModpackInstallBanner } from "@/components/server/modpack-install-banner";
+import { hasResourceSupport } from "@/lib/mod-browser/types";
 import { ServerManagementBar } from "./components/server-management-bar";
 import { ServerLicenseNotice } from "./components/server-licenses";
 
@@ -192,6 +194,13 @@ export default function ServerLayout() {
           initialStartedAt={serverData.started_at ?? null}
           initialStats={serverData.stats ?? null}
         />
+
+        {blockReason ? null : (
+          <ModpackInstallBanner
+            serverId={serverData.id}
+            enabled={hasResourceSupport(serverData.features ?? [])}
+          />
+        )}
 
         {blockReason ? null : (
           <ServerLicenseNotice
