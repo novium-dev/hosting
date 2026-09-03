@@ -404,8 +404,13 @@
   },
   "startupConfig": {
     "loading": "Loading startup configuration...",
+    "warning": {
+      "title": "Advanced settings",
+      "description": "These settings control how the server process is launched. A wrong command or variable can stop the server from starting at all — only change them if you know what they do."
+    },
     "command": {
       "title": "Startup Command",
+      "dialogTitle": "Edit startup command",
       "customBadge": "Custom",
       "description": "The command the server runs once its files are in place. Environment variables such as $MAIN_FILE are expanded at start.",
       "defaultLabel": "Template default:",
@@ -413,6 +418,7 @@
     },
     "environment": {
       "title": "Environment Variables",
+      "dialogTitle": "Edit environment variables",
       "description": "Custom variables passed to the server process. Names owned by the template or by a port allocation cannot be overridden.",
       "empty": "No custom environment variables yet.",
       "addButton": "Add variable",

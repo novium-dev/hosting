@@ -1,10 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Plus, RotateCcw, Save, Trash2, Upload } from "lucide-react";
+import {
+  AlertTriangle,
+  Loader2,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Save,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +36,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { serverStartup, updateStartup } from "@/lib/api";
 import { parseEnvFile } from "@/lib/env-file";
 
@@ -62,16 +71,6 @@ function toRows(environment: Record<string, string>) {
     .map(([key, value]) => createRow(key, value));
 }
 
-function rowsEqual(left: EnvironmentRow[], right: EnvironmentRow[]) {
-  return (
-    left.length === right.length &&
-    left.every(
-      (row, index) =>
-        row.key === right[index]?.key && row.value === right[index]?.value,
-    )
-  );
-}
-
 export function StartupConfiguration({
   canEdit,
   serverId,
@@ -81,41 +80,37 @@ export function StartupConfiguration({
 
   const [payload, setPayload] = useState<StartupPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [command, setCommand] = useState("");
+
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandDraft, setCommandDraft] = useState("");
   const [isSavingCommand, setIsSavingCommand] = useState(false);
+
+  const [environmentOpen, setEnvironmentOpen] = useState(false);
   const [rows, setRows] = useState<EnvironmentRow[]>([]);
-  const [savedRows, setSavedRows] = useState<EnvironmentRow[]>([]);
   const [isSavingEnvironment, setIsSavingEnvironment] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importContent, setImportContent] = useState("");
 
-  const applyPayload = useCallback((next: StartupPayload) => {
-    const nextRows = toRows(next.environment);
+  const load = useCallback(async () => {
+    const response = await serverStartup({ path: { server_id: serverId } });
 
-    setPayload(next);
-    setCommand(next.command);
-    setRows(nextRows);
-    setSavedRows(nextRows);
-  }, []);
+    if (response.error || !response.data) {
+      throw new Error(t("servers:startupConfig.toasts.loadFailed"));
+    }
+
+    setPayload(response.data);
+
+    return response.data;
+  }, [serverId, t]);
 
   useEffect(() => {
     let mounted = true;
 
-    const load = async () => {
+    const initial = async () => {
       setIsLoading(true);
 
       try {
-        const response = await serverStartup({
-          path: { server_id: serverId },
-        });
-
-        if (response.error || !response.data) {
-          throw new Error(t("servers:startupConfig.toasts.loadFailed"));
-        }
-
-        if (mounted) {
-          applyPayload(response.data);
-        }
+        await load();
       } catch {
         if (mounted) {
           toast.error(t("servers:startupConfig.toasts.loadFailed"));
@@ -127,12 +122,12 @@ export function StartupConfiguration({
       }
     };
 
-    void load();
+    void initial();
 
     return () => {
       mounted = false;
     };
-  }, [applyPayload, serverId, t]);
+  }, [load, t]);
 
   const reserved = useMemo(
     () => new Set(payload?.reserved_environment ?? []),
@@ -140,12 +135,13 @@ export function StartupConfiguration({
   );
 
   const filledRows = useMemo(
-    () => rows.filter((row) => row.key.trim().length > 0 || row.value.length > 0),
+    () =>
+      rows.filter((row) => row.key.trim().length > 0 || row.value.length > 0),
     [rows],
   );
 
   const rowErrors = useMemo(() => {
-    const seen = new Map<string, number>();
+    const seen = new Set<string>();
     const errors: Record<string, string> = {};
 
     for (const row of filledRows) {
@@ -166,22 +162,30 @@ export function StartupConfiguration({
         continue;
       }
 
-      const previous = seen.get(key);
-
-      if (previous !== undefined) {
+      if (seen.has(key)) {
         errors[row.id] = t("servers:startupConfig.environment.errors.duplicate");
         continue;
       }
 
-      seen.set(key, 1);
+      seen.add(key);
     }
 
     return errors;
   }, [filledRows, reserved, t]);
 
-  const commandChanged = command !== (payload?.command ?? "");
-  const environmentChanged = !rowsEqual(filledRows, savedRows);
   const hasRowErrors = Object.keys(rowErrors).length > 0;
+
+  const openCommandDialog = () => {
+    setCommandDraft(payload?.command ?? "");
+    setCommandOpen(true);
+  };
+
+  const openEnvironmentDialog = () => {
+    setRows(toRows(payload?.environment ?? {}));
+    setImportOpen(false);
+    setImportContent("");
+    setEnvironmentOpen(true);
+  };
 
   const saveCommand = async () => {
     if (!payload) {
@@ -191,7 +195,7 @@ export function StartupConfiguration({
     setIsSavingCommand(true);
 
     try {
-      const trimmed = command.trim();
+      const trimmed = commandDraft.trim();
       const response = await updateStartup({
         path: { server_id: serverId },
         body: {
@@ -203,12 +207,8 @@ export function StartupConfiguration({
         throw new Error(t("servers:startupConfig.toasts.saveFailed"));
       }
 
-      const refreshed = await serverStartup({ path: { server_id: serverId } });
-
-      if (refreshed.data) {
-        applyPayload(refreshed.data);
-      }
-
+      await load();
+      setCommandOpen(false);
       toast.success(t("servers:startupConfig.toasts.commandSaved"));
     } catch {
       toast.error(t("servers:startupConfig.toasts.saveFailed"));
@@ -243,9 +243,8 @@ export function StartupConfiguration({
         throw new Error(t("servers:startupConfig.toasts.saveFailed"));
       }
 
-      setRows(filledRows);
-      setSavedRows(filledRows);
-      setPayload({ ...payload, environment });
+      await load();
+      setEnvironmentOpen(false);
       toast.success(t("servers:startupConfig.toasts.environmentSaved"));
     } catch {
       toast.error(t("servers:startupConfig.toasts.saveFailed"));
@@ -276,7 +275,10 @@ export function StartupConfiguration({
       for (const [key, value] of parsed) {
         const existing = merged.get(key);
 
-        merged.set(key, existing ? { ...existing, value } : createRow(key, value));
+        merged.set(
+          key,
+          existing ? { ...existing, value } : createRow(key, value),
+        );
       }
 
       return [...merged.values()];
@@ -314,58 +316,48 @@ export function StartupConfiguration({
     return null;
   }
 
+  const environmentEntries = Object.entries(payload.environment).sort(
+    ([left], [right]) => left.localeCompare(right),
+  );
+
   return (
     <>
-      <UnsavedChangesGuard when={commandChanged || environmentChanged} />
+      <Alert variant="destructive">
+        <AlertTriangle className="size-4" />
+        <AlertTitle>{t("servers:startupConfig.warning.title")}</AlertTitle>
+        <AlertDescription>
+          {t("servers:startupConfig.warning.description")}
+        </AlertDescription>
+      </Alert>
 
       {payload.supported ? (
         <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-3">
-            <div className="space-y-1.5">
-              <CardTitle className="flex items-center gap-2">
-                {t("servers:startupConfig.command.title")}
-                {payload.customized ? (
-                  <Badge variant="secondary">
-                    {t("servers:startupConfig.command.customBadge")}
-                  </Badge>
-                ) : null}
-              </CardTitle>
-              <CardDescription>
-                {t("servers:startupConfig.command.description")}
-              </CardDescription>
-            </div>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {t("servers:startupConfig.command.title")}
+              {payload.customized ? (
+                <Badge variant="secondary">
+                  {t("servers:startupConfig.command.customBadge")}
+                </Badge>
+              ) : null}
+            </CardTitle>
+            <CardDescription>
+              {t("servers:startupConfig.command.description")}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <Textarea
-              className="min-h-24 font-mono text-xs"
-              disabled={!canEdit}
-              onChange={(event) => setCommand(event.target.value)}
-              spellCheck={false}
-              value={command}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("servers:startupConfig.command.defaultLabel")}
-            </p>
-            <code className="block rounded-md bg-muted px-3 py-2 font-mono text-xs break-all">
-              {payload.default_command}
+          <CardContent>
+            <code className="block rounded-md bg-muted px-3 py-2 font-mono text-xs break-all whitespace-pre-wrap">
+              {payload.command}
             </code>
           </CardContent>
-          <CardFooter className="justify-end gap-2">
+          <CardFooter className="justify-end">
             <Button
-              disabled={!canEdit || command === payload.default_command}
-              onClick={() => setCommand(payload.default_command)}
+              disabled={!canEdit}
+              onClick={openCommandDialog}
               variant="outline"
             >
-              <RotateCcw className="size-4" />
-              {t("servers:startupConfig.command.resetButton")}
-            </Button>
-            <Button
-              disabled={!canEdit || !commandChanged}
-              loading={isSavingCommand}
-              onClick={saveCommand}
-            >
-              <Save className="size-4" />
-              {t("common:actions.save")}
+              <Pencil className="size-4" />
+              {t("common:actions.edit")}
             </Button>
           </CardFooter>
         </Card>
@@ -373,25 +365,182 @@ export function StartupConfiguration({
 
       {payload.environment_supported ? (
         <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-3">
-            <div className="space-y-1.5">
-              <CardTitle>
-                {t("servers:startupConfig.environment.title")}
-              </CardTitle>
-              <CardDescription>
-                {t("servers:startupConfig.environment.description")}
-              </CardDescription>
-            </div>
+          <CardHeader>
+            <CardTitle>
+              {t("servers:startupConfig.environment.title")}
+            </CardTitle>
+            <CardDescription>
+              {t("servers:startupConfig.environment.description")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {environmentEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t("servers:startupConfig.environment.empty")}
+              </p>
+            ) : (
+              <dl className="divide-y rounded-md border">
+                {environmentEntries.map(([key, value]) => (
+                  <div
+                    className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:gap-4"
+                    key={key}
+                  >
+                    <dt className="font-mono text-xs font-medium sm:w-64 sm:shrink-0">
+                      {key}
+                    </dt>
+                    <dd className="font-mono text-xs break-all text-muted-foreground">
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </CardContent>
+          <CardFooter className="justify-end">
             <Button
               disabled={!canEdit}
-              onClick={() => setImportOpen(true)}
+              onClick={openEnvironmentDialog}
               variant="outline"
             >
-              <Upload className="size-4" />
-              {t("servers:startupConfig.import.button")}
+              <Pencil className="size-4" />
+              {t("common:actions.edit")}
             </Button>
-          </CardHeader>
-          <CardContent className="space-y-2">
+          </CardFooter>
+        </Card>
+      ) : null}
+
+      <Dialog onOpenChange={setCommandOpen} open={commandOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {t("servers:startupConfig.command.dialogTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("servers:startupConfig.warning.description")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="startup-command">
+              {t("servers:startupConfig.command.title")}
+            </Label>
+            <Textarea
+              className="min-h-32 font-mono text-xs"
+              id="startup-command"
+              onChange={(event) => setCommandDraft(event.target.value)}
+              spellCheck={false}
+              value={commandDraft}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("servers:startupConfig.command.defaultLabel")}
+            </p>
+            <code className="block rounded-md bg-muted px-3 py-2 font-mono text-xs break-all whitespace-pre-wrap">
+              {payload.default_command}
+            </code>
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <Button
+              disabled={commandDraft === payload.default_command}
+              onClick={() => setCommandDraft(payload.default_command)}
+              variant="outline"
+            >
+              <RotateCcw className="size-4" />
+              {t("servers:startupConfig.command.resetButton")}
+            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button onClick={() => setCommandOpen(false)} variant="ghost">
+                {t("common:actions.cancel")}
+              </Button>
+              <Button
+                disabled={commandDraft.trim().length === 0}
+                loading={isSavingCommand}
+                onClick={saveCommand}
+              >
+                <Save className="size-4" />
+                {t("common:actions.save")}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={setEnvironmentOpen} open={environmentOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {t("servers:startupConfig.environment.dialogTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("servers:startupConfig.warning.description")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            {importOpen ? (
+              <div className="space-y-2 rounded-md border p-3">
+                <Label htmlFor="env-import-content">
+                  {t("servers:startupConfig.import.contentLabel")}
+                </Label>
+                <Textarea
+                  className="min-h-32 font-mono text-xs"
+                  id="env-import-content"
+                  onChange={(event) => setImportContent(event.target.value)}
+                  placeholder={"DATABASE_URL=postgres://…\nLOG_LEVEL=debug"}
+                  spellCheck={false}
+                  value={importContent}
+                />
+                <input
+                  accept=".env,text/plain"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+
+                    if (file) {
+                      void readFile(file);
+                    }
+
+                    event.target.value = "";
+                  }}
+                  ref={fileInputRef}
+                  type="file"
+                />
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    variant="outline"
+                  >
+                    <Upload className="size-4" />
+                    {t("servers:startupConfig.import.chooseFileButton")}
+                  </Button>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      onClick={() => setImportOpen(false)}
+                      variant="ghost"
+                    >
+                      {t("common:actions.cancel")}
+                    </Button>
+                    <Button
+                      disabled={importContent.trim().length === 0}
+                      onClick={() => importVariables(true)}
+                      variant="outline"
+                    >
+                      {t("servers:startupConfig.import.replaceButton")}
+                    </Button>
+                    <Button
+                      disabled={importContent.trim().length === 0}
+                      onClick={() => importVariables(false)}
+                    >
+                      {t("servers:startupConfig.import.mergeButton")}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Button onClick={() => setImportOpen(true)} variant="outline">
+                <Upload className="size-4" />
+                {t("servers:startupConfig.import.button")}
+              </Button>
+            )}
+
             {rows.length === 0 ? (
               <p className="py-4 text-sm text-muted-foreground">
                 {t("servers:startupConfig.environment.empty")}
@@ -402,8 +551,7 @@ export function StartupConfiguration({
                   <div className="flex items-start gap-2">
                     <Input
                       aria-invalid={Boolean(rowErrors[row.id])}
-                      className="font-mono text-xs sm:max-w-64"
-                      disabled={!canEdit}
+                      className="font-mono text-xs sm:max-w-56"
                       onChange={(event) =>
                         updateRow(row.id, { key: event.target.value })
                       }
@@ -415,7 +563,6 @@ export function StartupConfiguration({
                     />
                     <Input
                       className="font-mono text-xs"
-                      disabled={!canEdit}
                       onChange={(event) =>
                         updateRow(row.id, { value: event.target.value })
                       }
@@ -427,7 +574,6 @@ export function StartupConfiguration({
                     />
                     <Button
                       aria-label={t("common:actions.delete")}
-                      disabled={!canEdit}
                       onClick={() =>
                         setRows((current) =>
                           current.filter((entry) => entry.id !== row.id),
@@ -447,86 +593,28 @@ export function StartupConfiguration({
                 </div>
               ))
             )}
-          </CardContent>
-          <CardFooter className="justify-between gap-2">
+
             <Button
-              disabled={!canEdit || rows.length >= MAX_ENVIRONMENT_VARIABLES}
+              disabled={rows.length >= MAX_ENVIRONMENT_VARIABLES}
               onClick={() => setRows((current) => [...current, createRow()])}
               variant="outline"
             >
               <Plus className="size-4" />
               {t("servers:startupConfig.environment.addButton")}
             </Button>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setEnvironmentOpen(false)} variant="ghost">
+              {t("common:actions.cancel")}
+            </Button>
             <Button
-              disabled={!canEdit || !environmentChanged || hasRowErrors}
+              disabled={hasRowErrors}
               loading={isSavingEnvironment}
               onClick={saveEnvironment}
             >
               <Save className="size-4" />
               {t("common:actions.save")}
-            </Button>
-          </CardFooter>
-        </Card>
-      ) : null}
-
-      <Dialog onOpenChange={setImportOpen} open={importOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {t("servers:startupConfig.import.dialogTitle")}
-            </DialogTitle>
-            <DialogDescription>
-              {t("servers:startupConfig.import.dialogDescription")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="env-import-content">
-              {t("servers:startupConfig.import.contentLabel")}
-            </Label>
-            <Textarea
-              className="min-h-48 font-mono text-xs"
-              id="env-import-content"
-              onChange={(event) => setImportContent(event.target.value)}
-              placeholder={"DATABASE_URL=postgres://…\nLOG_LEVEL=debug"}
-              spellCheck={false}
-              value={importContent}
-            />
-            <input
-              accept=".env,text/plain"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-
-                if (file) {
-                  void readFile(file);
-                }
-
-                event.target.value = "";
-              }}
-              ref={fileInputRef}
-              type="file"
-            />
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              variant="outline"
-            >
-              <Upload className="size-4" />
-              {t("servers:startupConfig.import.chooseFileButton")}
-            </Button>
-          </div>
-          <DialogFooter>
-            <Button
-              disabled={importContent.trim().length === 0}
-              onClick={() => importVariables(true)}
-              variant="outline"
-            >
-              {t("servers:startupConfig.import.replaceButton")}
-            </Button>
-            <Button
-              disabled={importContent.trim().length === 0}
-              onClick={() => importVariables(false)}
-            >
-              {t("servers:startupConfig.import.mergeButton")}
             </Button>
           </DialogFooter>
         </DialogContent>

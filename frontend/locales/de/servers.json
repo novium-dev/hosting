@@ -404,8 +404,13 @@
   },
   "startupConfig": {
     "loading": "Startkonfiguration wird geladen...",
+    "warning": {
+      "title": "Erweiterte Einstellungen",
+      "description": "Diese Einstellungen bestimmen, wie der Serverprozess gestartet wird. Ein falscher Befehl oder eine falsche Variable kann verhindern, dass der Server überhaupt startet — ändere sie nur, wenn du weißt, was sie bewirken."
+    },
     "command": {
       "title": "Startbefehl",
+      "dialogTitle": "Startbefehl bearbeiten",
       "customBadge": "Angepasst",
       "description": "Der Befehl, den der Server ausführt, sobald seine Dateien bereitstehen. Umgebungsvariablen wie $MAIN_FILE werden beim Start eingesetzt.",
       "defaultLabel": "Standard der Vorlage:",
@@ -413,6 +418,7 @@
     },
     "environment": {
       "title": "Umgebungsvariablen",
+      "dialogTitle": "Umgebungsvariablen bearbeiten",
       "description": "Eigene Variablen für den Serverprozess. Namen, die zur Vorlage oder zu einem Port gehören, können nicht überschrieben werden.",
       "empty": "Noch keine eigenen Umgebungsvariablen.",
       "addButton": "Variable hinzufügen",
