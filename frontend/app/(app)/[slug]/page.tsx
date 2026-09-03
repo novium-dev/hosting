@@ -141,8 +141,7 @@ function ServerRow({
     return () => clearInterval(interval);
   }, [isRunning, startedAt]);
 
-  const uptime =
-    isRunning && startedAt !== null ? formatUptime(now - startedAt) : null;
+  const uptime = startedAt !== null ? formatUptime(now - startedAt) : null;
 
   return (
     <Link href={`/${slug}/servers/${server.id}`} className="group block">
@@ -164,10 +163,11 @@ function ServerRow({
             </div>
 
             <div className="min-w-0">
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-center gap-2">
                 <span className="truncate text-base font-semibold">
                   {server.name}
                 </span>
+
                 <span
                   className={cn(
                     "flex shrink-0 items-center gap-1.5 text-sm",
