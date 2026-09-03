@@ -36,7 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { listBackups, serverInfo, updateServer, wipeServer } from "@/lib/api";
-import { allowsWipe, statusFromLabel } from "@/lib/server-status";
+import { allowsOfflineWrite, statusFromLabel } from "@/lib/server-status";
 import { useServerStatus } from "@/stores/server-status";
 import { useServerTaskLock } from "@/stores/server-tasks";
 import { TaskLockNotice } from "@/components/server/task-lock-notice";
@@ -79,7 +79,7 @@ export function ServerSettings({
     liveStatus === "unknown" && infoState
       ? statusFromLabel(infoState)
       : liveStatus;
-  const canWipe = allowsWipe(status);
+  const canWipe = allowsOfflineWrite(status);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);

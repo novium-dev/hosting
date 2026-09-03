@@ -13,6 +13,8 @@ import {
   uninstallResource,
   installModpack,
   modpackStatus,
+  modpackVersions,
+  unlinkModpack,
 } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
@@ -126,6 +128,7 @@ export const installResourceVersionAction = authActionClient
       version: z.string().min(1),
       loader: loaderSchema,
       title: z.string().optional(),
+      pageUrl: z.string().optional(),
     }),
   )
   .action(async ({ parsedInput }) =>
@@ -138,6 +141,7 @@ export const installResourceVersionAction = authActionClient
           version: parsedInput.version,
           loader: parsedInput.loader,
           title: parsedInput.title,
+          page_url: parsedInput.pageUrl,
         },
       }),
       "Failed to install resource",
@@ -210,6 +214,9 @@ export const installModpackAction = authActionClient
       version: z.string().min(1),
       loader: loaderSchema,
       title: z.string().optional(),
+      versionNumber: z.string().optional(),
+      iconUrl: z.string().optional(),
+      pageUrl: z.string().optional(),
       backup: z.boolean(),
       wipe: z.boolean(),
     }),
@@ -224,6 +231,9 @@ export const installModpackAction = authActionClient
           version: parsedInput.version,
           loader: parsedInput.loader,
           title: parsedInput.title,
+          version_number: parsedInput.versionNumber,
+          icon_url: parsedInput.iconUrl,
+          page_url: parsedInput.pageUrl,
           backup: parsedInput.backup,
           wipe: parsedInput.wipe,
           // The dialog is the confirmation; the backend refuses without this.
@@ -242,6 +252,39 @@ export const modpackStatusAction = authActionClient
       "Failed to read the modpack status",
     ),
   );
+
+export const modpackVersionsAction = authActionClient
+  .inputSchema(
+    z.object({
+      serverId: serverSchema,
+      allowPrerelease: z.boolean().default(false),
+    }),
+  )
+  .action(async ({ parsedInput }) =>
+    unwrap(
+      await modpackVersions({
+        path: { server_id: parsedInput.serverId },
+        query: { allow_prerelease: parsedInput.allowPrerelease },
+      }),
+      "Failed to load the modpack versions",
+    ),
+  );
+
+export const unlinkModpackAction = authActionClient
+  .inputSchema(z.object({ serverId: serverSchema }))
+  .action(async ({ parsedInput }) => {
+    const response = await unlinkModpack({
+      path: { server_id: parsedInput.serverId },
+    });
+
+    if (response.error) {
+      throw new ActionError(
+        response.error.error?.msg ?? "Failed to unlink the modpack",
+      );
+    }
+
+    return { success: true };
+  });
 
 export const setResourceStateAction = authActionClient
   .inputSchema(

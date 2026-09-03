@@ -409,13 +409,16 @@ export function deriveInitialUsage(
 }
 
 /**
- * Whether a wipe may be started in this state. The backend refuses a wipe of a
- * running server, so anything but a stopped server is blocked; an unknown state
- * (no status seeded and no websocket yet) is left to the backend to decide.
+ * Whether an operation that rewrites the server's files from underneath it (a
+ * wipe, a modpack install) may be started in this state. The backend refuses
+ * one on a running server, so anything but a stopped server is blocked; an
+ * unknown state (no status seeded and no websocket yet) is left to the backend
+ * to decide.
  */
-export function allowsWipe(status: ServerLifecycleState): boolean {
+export function allowsOfflineWrite(status: ServerLifecycleState): boolean {
   return status === "stopped" || status === "unknown";
 }
+
 
 /**
  * Best-effort control availability derived from the lifecycle state, used

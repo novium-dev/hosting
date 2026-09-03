@@ -23,6 +23,15 @@ const LOADER_NAMES: [&str; 8] = [
     "Forge", "Fabric", "NeoForge", "Quilt", "Bukkit", "Spigot", "Paper", "Cauldron",
 ];
 
+const ENVIRONMENT_CLIENT: &str = "Client";
+const ENVIRONMENT_SERVER: &str = "Server";
+const ENVIRONMENT_NAMES: [&str; 2] = [ENVIRONMENT_CLIENT, ENVIRONMENT_SERVER];
+
+fn is_client_only(tags: &[String]) -> bool {
+    tags.iter().any(|tag| tag == ENVIRONMENT_CLIENT)
+        && !tags.iter().any(|tag| tag == ENVIRONMENT_SERVER)
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Paged<T> {
@@ -51,6 +60,25 @@ struct Mod {
     #[serde(default)]
     categories: Vec<Category>,
     allow_mod_distribution: Option<bool>,
+    #[serde(default)]
+    latest_files: Vec<ModFile>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ModFile {
+    #[serde(default)]
+    game_versions: Vec<String>,
+}
+
+impl Mod {
+    fn runs_on_a_server(&self) -> bool {
+        self.latest_files.is_empty()
+            || self
+                .latest_files
+                .iter()
+                .any(|file| !is_client_only(&file.game_versions))
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -170,6 +198,7 @@ fn to_version(file: File) -> ResourceVersion {
     let (loaders, game_versions): (Vec<String>, Vec<String>) = file
         .game_versions
         .into_iter()
+        .filter(|entry| !ENVIRONMENT_NAMES.contains(&entry.as_str()))
         .partition(|entry| LOADER_NAMES.contains(&entry.as_str()));
 
     ResourceVersion {
@@ -226,7 +255,12 @@ pub(super) async fn search(
     )
     .await?;
 
-    Ok(response.data.into_iter().map(to_project).collect())
+    Ok(response
+        .data
+        .into_iter()
+        .filter(Mod::runs_on_a_server)
+        .map(to_project)
+        .collect())
 }
 
 pub(super) async fn versions(
@@ -254,7 +288,12 @@ pub(super) async fn versions(
     )
     .await?;
 
-    Ok(response.data.into_iter().map(to_version).collect())
+    Ok(response
+        .data
+        .into_iter()
+        .filter(|file| !is_client_only(&file.game_versions))
+        .map(to_version)
+        .collect())
 }
 
 pub(super) async fn resolve(
@@ -285,4 +324,50 @@ pub(super) async fn resolve(
         url: url.parse().map_err(|_err| ResourceError::ProviderError)?,
         file_name: sanitize_file_name(&file.file_name, "curseforge-resource.jar"),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tags(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_owned()).collect()
+    }
+
+    #[test]
+    fn a_file_tagged_for_the_client_alone_is_client_only() {
+        assert!(is_client_only(&tags(&["1.21.1", "Fabric", "Client"])));
+    }
+
+    #[test]
+    fn a_file_tagged_for_both_sides_is_not_client_only() {
+        assert!(!is_client_only(&tags(&["1.21.1", "Client", "Server"])));
+    }
+
+    #[test]
+    fn an_untagged_file_is_not_client_only() {
+        assert!(!is_client_only(&tags(&["1.21.1", "Fabric"])));
+    }
+
+    #[test]
+    fn a_mod_whose_files_are_all_client_only_does_not_run_on_a_server() {
+        let entry = Mod {
+            id: 1,
+            name: "Client Mod".to_owned(),
+            slug: "client-mod".to_owned(),
+            summary: String::new(),
+            download_count: 0.0,
+            thumbs_up_count: None,
+            logo: None,
+            links: None,
+            authors: Vec::new(),
+            categories: Vec::new(),
+            allow_mod_distribution: None,
+            latest_files: vec![ModFile {
+                game_versions: tags(&["1.21.1", "Fabric", "Client"]),
+            }],
+        };
+
+        assert!(!entry.runs_on_a_server());
+    }
 }

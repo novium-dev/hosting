@@ -37,6 +37,7 @@ type FileEditorProps = {
   slug: string;
   path: string | null;
   canWriteFiles: boolean;
+  modpackInstalling?: boolean;
 };
 
 type EditorMode = "loading" | "empty" | "archive" | "directory" | "image" | "text";
@@ -174,9 +175,11 @@ export function FileEditor({
   slug,
   path,
   canWriteFiles,
+  modpackInstalling = false,
 }: FileEditorProps) {
   const { t } = useTranslation();
   const storageLock = useServerTaskLock(serverId, "storage", "read");
+  const writable = canWriteFiles && !modpackInstalling;
   const normalizedPath = useMemo(() => (path ? normalizePath(path) : ""), [path]);
   const fileName = useMemo(
     () =>
@@ -309,7 +312,7 @@ export function FileEditor({
   }, [fileName, normalizedPath, serverId, t]);
 
   const saveFile = async () => {
-    if (!canWriteFiles || !normalizedPath || mode !== "text") {
+    if (!writable || !normalizedPath || mode !== "text") {
       return;
     }
 
@@ -412,7 +415,7 @@ export function FileEditor({
                 void saveFile();
               }}
               disabled={
-                !canWriteFiles ||
+                !writable ||
                 mode !== "text" ||
                 !hasUnsavedChanges ||
                 isSaving ||
@@ -500,7 +503,7 @@ export function FileEditor({
               options={{
                 automaticLayout: true,
                 minimap: { enabled: false },
-                readOnly: !canWriteFiles,
+                readOnly: !writable,
                 scrollBeyondLastLine: false,
                 wordWrap: "on",
               }}
@@ -510,9 +513,11 @@ export function FileEditor({
         )}
       </CardContent>
 
-      {!canWriteFiles && mode === "text" ? (
+      {!writable && mode === "text" ? (
         <CardFooter className="border-t py-3 text-sm text-muted-foreground">
-          {t("servers:fileEditor.readOnlyNotice")}
+          {modpackInstalling
+            ? t("servers-management:mods.filesLockedNotice")
+            : t("servers:fileEditor.readOnlyNotice")}
         </CardFooter>
       ) : null}
     </Card>

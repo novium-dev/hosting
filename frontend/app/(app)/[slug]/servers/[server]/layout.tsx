@@ -23,6 +23,8 @@ import {
   mergePermissions,
   ServerPermission,
 } from "@/lib/permissions";
+import { ModpackInstallBanner } from "@/components/server/modpack-install-banner";
+import { hasResourceSupport } from "@/lib/mod-browser/types";
 import { ServerManagementBar } from "./components/server-management-bar";
 import { ServerLicenseNotice } from "./components/server-licenses";
 
@@ -68,10 +70,7 @@ export default function ServerLayout() {
   if (!project) {
     return (
       <MainLayout
-        breadcrumbs={[
-          { label: slug },
-          { label: t("common:nav.servers") },
-        ]}
+        breadcrumbs={[{ label: slug }, { label: t("common:nav.servers") }]}
       >
         <Card>
           <CardHeader>
@@ -107,7 +106,9 @@ export default function ServerLayout() {
           </CardHeader>
           <CardContent>
             <Button asChild variant="outline">
-              <Link href={`/${slug}`}>{t("servers:shared.backToServerList")}</Link>
+              <Link href={`/${slug}`}>
+                {t("servers:shared.backToServerList")}
+              </Link>
             </Button>
           </CardContent>
         </Card>
@@ -192,6 +193,13 @@ export default function ServerLayout() {
           initialStartedAt={serverData.started_at ?? null}
           initialStats={serverData.stats ?? null}
         />
+
+        {blockReason ? null : (
+          <ModpackInstallBanner
+            serverId={serverData.id}
+            enabled={hasResourceSupport(serverData.features ?? [])}
+          />
+        )}
 
         {blockReason ? null : (
           <ServerLicenseNotice

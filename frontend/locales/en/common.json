@@ -58,7 +58,8 @@
     "regenerate": "Regenerate",
     "reload": "Reload",
     "goBack": "Go back",
-    "backToDashboard": "Back to dashboard"
+    "backToDashboard": "Back to dashboard",
+    "dismiss": "Dismiss"
   },
   "labels": {
     "name": "Name",

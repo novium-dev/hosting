@@ -14,6 +14,7 @@ import { useRouter } from "@/lib/navigation";
 import {
   AlertTriangle,
   Archive,
+  Boxes,
   ChevronRight,
   Copy,
   Download,
@@ -124,6 +125,7 @@ type FilesManagerProps = {
   serverId: string;
   slug: string;
   canWriteFiles: boolean;
+  modpackInstalling?: boolean;
 };
 
 type FileRow = ListFilesResponses[200][number];
@@ -314,12 +316,18 @@ export function FilesManager({
   serverId,
   slug,
   canWriteFiles,
+  modpackInstalling = false,
 }: FilesManagerProps) {
   const { t } = useTranslation();
   const storageLock = useServerTaskLock(serverId, "storage", "read");
-  const filesBlocked = storageLock.locked;
+  const filesBlocked = storageLock.locked || modpackInstalling;
 
   const ensureStorageUnlocked = () => {
+    if (modpackInstalling) {
+      toast.error(t("servers-management:mods.filesLockedToast"));
+      return false;
+    }
+
     if (!storageLock.locked || !storageLock.blocking) {
       return true;
     }
@@ -2054,6 +2062,12 @@ export function FilesManager({
             {t("servers-management:filesManager.newFolderButton")}
           </Button>
           <TaskLockNotice lock={storageLock} />
+          {modpackInstalling ? (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Boxes className="size-3.5 shrink-0" />
+              {t("servers-management:mods.filesLockedNotice")}
+            </p>
+          ) : null}
         </div>
       </CardHeader>
 

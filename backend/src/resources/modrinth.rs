@@ -13,6 +13,29 @@ const PROVIDER: ResourceProvider = ResourceProvider::Modrinth;
 
 const SITE: &str = "https://modrinth.com";
 
+const SERVER_ENVIRONMENTS: [&str; 7] = [
+    "client_and_server",
+    "client_only_server_optional",
+    "server_only",
+    "server_only_client_optional",
+    "dedicated_server_only",
+    "client_or_server",
+    "client_or_server_prefers_both",
+];
+
+const UNKNOWN_ENVIRONMENT: &str = "unknown";
+
+const CLIENT_ONLY_ENVIRONMENTS: [&str; 2] = ["client_only", "singleplayer_only"];
+
+fn runs_on_a_server(environment: &[String]) -> bool {
+    environment
+        .iter()
+        .any(|entry| SERVER_ENVIRONMENTS.contains(&entry.as_str()))
+        || !environment
+            .iter()
+            .any(|entry| CLIENT_ONLY_ENVIRONMENTS.contains(&entry.as_str()))
+}
+
 #[derive(Debug, Deserialize)]
 struct SearchResponse {
     hits: Vec<SearchHit>,
@@ -32,6 +55,8 @@ struct SearchHit {
     display_categories: Vec<String>,
     #[serde(default)]
     categories: Vec<String>,
+    #[serde(default)]
+    environment: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -142,10 +167,11 @@ pub(super) async fn search(
     let mut facets = vec![
         vec![format!("project_type:{project_type}")],
         vec![format!("categories:{}", query.loader.as_str())],
-        vec![
-            "server_side:required".to_owned(),
-            "server_side:optional".to_owned(),
-        ],
+        SERVER_ENVIRONMENTS
+            .into_iter()
+            .chain([UNKNOWN_ENVIRONMENT])
+            .map(|environment| format!("environment:{environment}"))
+            .collect(),
     ];
     if let Some(game_version) = query.game_version.as_deref() {
         facets.push(vec![format!("versions:{game_version}")]);
@@ -175,6 +201,7 @@ pub(super) async fn search(
     Ok(response
         .hits
         .into_iter()
+        .filter(|hit| runs_on_a_server(&hit.environment))
         .map(|hit| to_project(hit, project_type))
         .collect())
 }
@@ -228,4 +255,47 @@ pub(super) async fn resolve(
             .map_err(|_err| ResourceError::ProviderError)?,
         file_name: sanitize_file_name(&file.filename, "modrinth-resource.jar"),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn environment(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_owned()).collect()
+    }
+
+    #[test]
+    fn a_project_that_names_a_server_environment_is_kept() {
+        assert!(runs_on_a_server(&environment(&["server_only"])));
+        assert!(runs_on_a_server(&environment(&["client_and_server"])));
+        assert!(runs_on_a_server(&environment(&[
+            "client_only_server_optional"
+        ])));
+    }
+
+    #[test]
+    fn a_client_only_project_is_dropped() {
+        assert!(!runs_on_a_server(&environment(&["client_only"])));
+        assert!(!runs_on_a_server(&environment(&["singleplayer_only"])));
+    }
+
+    #[test]
+    fn a_project_that_never_filled_the_field_in_is_kept() {
+        assert!(runs_on_a_server(&environment(&["unknown"])));
+        assert!(runs_on_a_server(&[]));
+    }
+
+    #[test]
+    fn unknown_next_to_client_only_does_not_rescue_a_client_mod() {
+        assert!(!runs_on_a_server(&environment(&["unknown", "client_only"])));
+    }
+
+    #[test]
+    fn one_server_environment_outweighs_the_client_only_ones() {
+        assert!(runs_on_a_server(&environment(&[
+            "singleplayer_only",
+            "client_and_server"
+        ])));
+    }
 }

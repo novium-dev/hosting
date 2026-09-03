@@ -4,6 +4,7 @@ import type {
   ListInstalledResourcesResponse,
   ListResourceUpdatesResponse,
   ModpackStatusResponse,
+  ModpackVersionsResponse,
   ResourceKind,
   UpdateAllResourcesResponse,
   ListResourceVersionsResponse,
@@ -27,6 +28,7 @@ export type InstalledModpack = NonNullable<InstalledResources["modpack"]>;
 export type ModpackMod = InstalledModpack["mods"][number];
 export type ResourceContext = ResourceContextResponse;
 export type ModpackJob = NonNullable<ModpackStatusResponse>;
+export type ModpackVersions = NonNullable<ModpackVersionsResponse>;
 export type ResourceUpdate = ListResourceUpdatesResponse[number];
 export type ResourceUpdateResult = UpdateAllResourcesResponse[number];
 

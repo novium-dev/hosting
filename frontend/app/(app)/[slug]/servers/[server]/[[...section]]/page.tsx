@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/card";
 import { serverInfo } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
+import { useModpackJob } from "@/hooks/use-modpack-job";
 import { useProject } from "@/hooks/use-project";
+import { hasResourceSupport } from "@/lib/mod-browser/types";
 import { useSearchParams } from "@/lib/navigation";
 import {
   hasManagementPermission,
@@ -35,7 +37,7 @@ import { RoutesManager } from "../components/routes-manager";
 import { SchedulesManager } from "../components/schedules-manager";
 import { ServerSettings } from "../components/server-settings";
 import { StartupVariables } from "../components/startup-variables";
-import { ModPluginBrowser } from "../components/mod-plugin-browser";
+import { ModPluginBrowser } from "../components/mods/mod-plugin-browser";
 import { MinecraftPlayerManager } from "../components/minecraft-player-manager";
 
 export default function ClientServerSectionPage() {
@@ -56,6 +58,10 @@ export default function ClientServerSectionPage() {
 
   const serverData =
     infoResponse && !infoResponse.error ? infoResponse.data : null;
+  const { installing: modpackInstalling } = useModpackJob(
+    server,
+    hasResourceSupport(serverData?.features ?? []),
+  );
   const effectivePermissions = mergePermissions(
     session?.user.permissions ?? 0,
     project?.permissions ?? 0,
@@ -150,7 +156,9 @@ export default function ClientServerSectionPage() {
           </CardHeader>
           <CardContent>
             <Button asChild variant="outline">
-              <Link href={`/${slug}`}>{t("servers:shared.backToServerList")}</Link>
+              <Link href={`/${slug}`}>
+                {t("servers:shared.backToServerList")}
+              </Link>
             </Button>
           </CardContent>
         </Card>
@@ -161,6 +169,7 @@ export default function ClientServerSectionPage() {
             slug={slug}
             path={editPath ?? null}
             canWriteFiles={canWriteFiles}
+            modpackInstalling={modpackInstalling}
           />
         ) : (
           <Card className="border-dashed">
@@ -179,6 +188,7 @@ export default function ClientServerSectionPage() {
           serverId={server}
           slug={slug}
           canWriteFiles={canWriteFiles}
+          modpackInstalling={modpackInstalling}
         />
       ) : activeSection.key === "mods" ? (
         <ModPluginBrowser serverId={server} canWriteFiles={canWriteFiles} />

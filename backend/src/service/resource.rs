@@ -11,7 +11,7 @@ use crate::db::server::{Server, ServerId};
 use crate::resources::{
     MAX_QUERY_LENGTH, MAX_SEARCH_LIMIT, ResourceClient, ResourceError, ResourceKind,
     ResourceLoader, ResourceProject, ResourceProvider, ResourceQuery, ResourceType,
-    ResourceVersion, ResourceVersionType,
+    ResourceVersion, ResourceVersionType, safe_page_url,
 };
 use crate::service::resource::resource_service_error::{
     InstallResourceError, ListInstalledResourcesError, ListResourceUpdatesError,
@@ -113,6 +113,17 @@ pub(crate) struct InstallResourcePayload {
     pub(crate) loader: ResourceLoader,
     #[serde(default)]
     pub(crate) title: Option<String>,
+    #[serde(default)]
+    pub(crate) page_url: Option<String>,
+}
+
+struct InstallRequest<'a> {
+    provider: ResourceProvider,
+    project: &'a str,
+    version: &'a str,
+    loader: ResourceLoader,
+    title: Option<String>,
+    page_url: Option<String>,
 }
 
 const FEATURE_LOADERS: [(&str, ResourceLoader); 6] = [
@@ -140,7 +151,11 @@ pub(crate) struct InstalledModpack {
     pub(crate) provider: ResourceProvider,
     pub(crate) project: String,
     pub(crate) version: String,
+    pub(crate) version_number: Option<String>,
+    pub(crate) loader: Option<ResourceLoader>,
     pub(crate) title: String,
+    pub(crate) icon_url: Option<String>,
+    pub(crate) page_url: Option<String>,
     pub(crate) installed_at: i64,
     pub(crate) mods: Vec<ModpackMod>,
     pub(crate) other_files: u32,
@@ -511,12 +526,17 @@ impl Backend {
     async fn install_version(
         &self,
         server: &Server,
-        provider: ResourceProvider,
-        project: &str,
-        version: &str,
-        loader: ResourceLoader,
-        title: Option<String>,
+        request: InstallRequest<'_>,
     ) -> Result<InstalledResource, InstallError> {
+        let InstallRequest {
+            provider,
+            project,
+            version,
+            loader,
+            title,
+            page_url,
+        } = request;
+
         if !provider.supports(loader, ResourceKind::Resource) {
             return Err(InstallError::Resource(ResourceError::InvalidPayload));
         }
@@ -627,6 +647,7 @@ impl Backend {
             version: version.to_owned(),
             resource_type,
             file_name: resolved.file_name,
+            page_url: safe_page_url(page_url),
             enabled: true,
             installed_at: chrono::Utc::now().timestamp(),
         };
@@ -939,7 +960,11 @@ pub(crate) impl ResourceService for Backend {
                 provider: pack.provider,
                 project: pack.project,
                 version: pack.version,
+                version_number: pack.version_number,
+                loader: pack.loader,
                 title: pack.title,
+                icon_url: pack.icon_url,
+                page_url: pack.page_url,
                 installed_at: pack.installed_at,
                 mods,
                 other_files,
@@ -985,11 +1010,14 @@ pub(crate) impl ResourceService for Backend {
 
         self.install_version(
             &server,
-            payload.provider,
-            &payload.project,
-            &payload.version,
-            payload.loader,
-            payload.title,
+            InstallRequest {
+                provider: payload.provider,
+                project: &payload.project,
+                version: &payload.version,
+                loader: payload.loader,
+                title: payload.title,
+                page_url: payload.page_url,
+            },
         )
         .await
         .map_err(InstallError::into::<InstallResourceError>)
@@ -1111,11 +1139,14 @@ pub(crate) impl ResourceService for Backend {
 
         self.install_version(
             &server,
-            provider,
-            &project,
-            &latest.id,
-            loader,
-            Some(resource.title),
+            InstallRequest {
+                provider,
+                project: &project,
+                version: &latest.id,
+                loader,
+                title: Some(resource.title),
+                page_url: resource.page_url,
+            },
         )
         .await
         .map_err(InstallError::into::<UpdateResourceError>)
@@ -1176,11 +1207,14 @@ pub(crate) impl ResourceService for Backend {
             let outcome = self
                 .install_version(
                     &server,
-                    resource.provider,
-                    &resource.project,
-                    &latest.id,
-                    loader,
-                    Some(resource.title.clone()),
+                    InstallRequest {
+                        provider: resource.provider,
+                        project: &resource.project,
+                        version: &latest.id,
+                        loader,
+                        title: Some(resource.title.clone()),
+                        page_url: resource.page_url.clone(),
+                    },
                 )
                 .await;
 
