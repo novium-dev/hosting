@@ -265,7 +265,7 @@
     },
     "browse": {
       "title": "Mods und Plugins durchsuchen",
-      "description": "Durchsuche Modrinth, CurseForge, Hangar und SpigotMC nach Ressourcen, die zu diesem Server passen.",
+      "description": "Durchsuche Modrinth, CurseForge, Hangar und SpigotMC nach Ressourcen, die zu diesem Server passen. Reine Client-Mods werden ausgelassen.",
       "searchPlaceholder": "Mods und Plugins suchen"
     },
     "installed": {
@@ -289,7 +289,7 @@
     "pack": {
       "chooseTitle": "Modpack installieren",
       "replaceTitle": "Modpack ersetzen",
-      "chooseDescription": "Ein Server läuft mit einem Pack. Beim Installieren wird es hier verknüpft, sodass später die Version gewechselt und auf Updates geprüft werden kann.",
+      "chooseDescription": "Ein Server läuft mit einem Pack. Beim Installieren wird es hier verknüpft, sodass später die Version gewechselt und auf Updates geprüft werden kann. Es werden nur Packs mit Serverseite aufgeführt.",
       "searchPlaceholder": "Modpacks suchen",
       "installedSummary": "Version {{version}} · installiert am {{date}}",
       "updateAvailable": "Eine neuere Version ist verfügbar: {{version}}",

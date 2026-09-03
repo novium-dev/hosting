@@ -265,7 +265,7 @@
     },
     "browse": {
       "title": "Browse mods and plugins",
-      "description": "Search Modrinth, CurseForge, Hangar and SpigotMC for resources that fit this server.",
+      "description": "Search Modrinth, CurseForge, Hangar and SpigotMC for resources that fit this server. Client-only mods are left out.",
       "searchPlaceholder": "Search mods and plugins"
     },
     "installed": {
@@ -289,7 +289,7 @@
     "pack": {
       "chooseTitle": "Install a modpack",
       "replaceTitle": "Replace the modpack",
-      "chooseDescription": "A server runs one pack. Installing one links it here, so its version can be switched and checked for updates later.",
+      "chooseDescription": "A server runs one pack. Installing one links it here, so its version can be switched and checked for updates later. Only packs with a server side are listed.",
       "searchPlaceholder": "Search modpacks",
       "installedSummary": "Version {{version}} · installed on {{date}}",
       "updateAvailable": "A newer version is available: {{version}}",
