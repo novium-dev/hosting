@@ -49,6 +49,8 @@ const MAX_MANIFEST_BYTES: u64 = 0x0080_0000;
 
 const MAX_PACK_TITLE: usize = 255;
 
+const MAX_PACK_VERSION_NUMBER: usize = 128;
+
 const CURSEFORGE_FILE_DIR: &str = "mods";
 
 const MAX_PACK_URL: usize = 512;
@@ -548,7 +550,7 @@ impl Backend {
                 .version_number
                 .clone()
                 .or_else(|| pack.version.clone())
-                .map(|number| number.chars().take(MAX_PACK_TITLE).collect()),
+                .map(|number| number.chars().take(MAX_PACK_VERSION_NUMBER).collect()),
             loader: Some(payload.loader),
             title: payload
                 .title

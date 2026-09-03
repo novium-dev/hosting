@@ -152,7 +152,10 @@ export function ModPluginBrowser({
   };
 
   const handleUpdateAll = async () => {
-    const result = await updateAllResourcesAction({ serverId, allowPrerelease });
+    const result = await updateAllResourcesAction({
+      serverId,
+      allowPrerelease,
+    });
 
     if (result.serverError || !result.data) {
       toast.error(

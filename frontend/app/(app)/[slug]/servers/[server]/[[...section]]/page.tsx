@@ -156,7 +156,9 @@ export default function ClientServerSectionPage() {
           </CardHeader>
           <CardContent>
             <Button asChild variant="outline">
-              <Link href={`/${slug}`}>{t("servers:shared.backToServerList")}</Link>
+              <Link href={`/${slug}`}>
+                {t("servers:shared.backToServerList")}
+              </Link>
             </Button>
           </CardContent>
         </Card>

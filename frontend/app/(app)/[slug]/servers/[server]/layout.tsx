@@ -70,10 +70,7 @@ export default function ServerLayout() {
   if (!project) {
     return (
       <MainLayout
-        breadcrumbs={[
-          { label: slug },
-          { label: t("common:nav.servers") },
-        ]}
+        breadcrumbs={[{ label: slug }, { label: t("common:nav.servers") }]}
       >
         <Card>
           <CardHeader>
@@ -109,7 +106,9 @@ export default function ServerLayout() {
           </CardHeader>
           <CardContent>
             <Button asChild variant="outline">
-              <Link href={`/${slug}`}>{t("servers:shared.backToServerList")}</Link>
+              <Link href={`/${slug}`}>
+                {t("servers:shared.backToServerList")}
+              </Link>
             </Button>
           </CardContent>
         </Card>
