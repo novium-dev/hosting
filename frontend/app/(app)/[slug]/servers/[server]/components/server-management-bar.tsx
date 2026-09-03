@@ -520,7 +520,7 @@ export function ServerManagementBar({
   const displayAddress =
     address ?? t("servers:managementBar.addressUnavailable");
   const uptimeMs =
-    status === "running" && startedAt !== null ? now - startedAt : null;
+    startedAt !== null ? now - startedAt : null;
   const playerCount = players
     ? players.max !== null
       ? `${players.online}/${players.max}`
