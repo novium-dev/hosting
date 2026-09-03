@@ -168,6 +168,7 @@ export type InstallModpackPayload = {
 
 export type InstallResourcePayload = {
     loader: ResourceLoader;
+    page_url?: string | null;
     project: string;
     provider: ResourceProvider;
     title?: string | null;
@@ -192,6 +193,7 @@ export type InstalledResource = {
     enabled: boolean;
     file_name: string;
     installed_at: number;
+    page_url?: string | null;
     project: string;
     provider: ResourceProvider;
     resource_type: ResourceType;
@@ -10834,6 +10836,7 @@ export type InstallResourceResponses = {
         enabled: boolean;
         file_name: string;
         installed_at: number;
+        page_url?: string | null;
         project: string;
         provider: ResourceProvider;
         resource_type: ResourceType;
@@ -11232,6 +11235,7 @@ export type UpdateResourceResponses = {
         enabled: boolean;
         file_name: string;
         installed_at: number;
+        page_url?: string | null;
         project: string;
         provider: ResourceProvider;
         resource_type: ResourceType;
@@ -11540,6 +11544,92 @@ export type SetResourceStateResponses = {
 };
 
 export type SetResourceStateResponse = SetResourceStateResponses[keyof SetResourceStateResponses];
+
+export type UnlinkModpackData = {
+    body?: never;
+    headers?: {
+        /**
+         * The session token or api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/modpack/{server_id}';
+};
+
+export type UnlinkModpackErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * This feature is not enabled for the project
+     */
+    '403᠎': {
+        error?: {
+            id?: 'feature/disabled';
+            msg?: 'This feature is not enabled for the project';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403​': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‌': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type UnlinkModpackError = UnlinkModpackErrors[keyof UnlinkModpackErrors];
+
+export type UnlinkModpackResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UnlinkModpackResponse = UnlinkModpackResponses[keyof UnlinkModpackResponses];
 
 export type ModpackStatusData = {
     body?: never;

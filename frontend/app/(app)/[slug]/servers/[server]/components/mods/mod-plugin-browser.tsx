@@ -270,6 +270,7 @@ export function ModPluginBrowser({
             void refreshJob();
             void refreshAll();
           }}
+          onUnlinked={() => void refreshAll()}
           onToggleMod={handlePackMod}
         />
       ) : null}

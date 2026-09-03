@@ -314,7 +314,13 @@
         "wipeWarning": "Vorhandene Mods werden gelöscht und es gibt kein Backup zum Wiederherstellen. Die im Pack enthaltene Mod-Konfiguration überschreibt außerdem, was auf dem Server vorhanden ist."
       },
       "toasts": {
-        "started": "{{title}} wird im Hintergrund installiert."
+        "started": "{{title}} wird im Hintergrund installiert.",
+        "unlinked": "Modpack entkoppelt."
+      },
+      "unlinkButton": "Entkoppeln",
+      "unlinkConfirm": {
+        "title": "{{title}} entkoppeln?",
+        "description": "Nur die Verknüpfung wird gelöst. Die Mods und die Konfiguration des Packs bleiben auf dem Server und er läuft weiter wie bisher — aber die Version lässt sich von hier aus nicht mehr wechseln oder auf Updates prüfen, und die JAR-Dateien erscheinen als manuell hochgeladene Dateien."
       }
     }
   },

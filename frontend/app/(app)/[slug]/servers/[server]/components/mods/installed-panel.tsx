@@ -29,7 +29,13 @@ import {
   type UnmanagedResource,
 } from "@/lib/mod-browser/types";
 import { cn } from "@/lib/utils";
-import { canMutate, formatSize, installKey, type ModsContext } from "./shared";
+import {
+  ProjectTitleLink,
+  canMutate,
+  formatSize,
+  installKey,
+  type ModsContext,
+} from "./shared";
 
 type InstalledPanelProps = {
   ctx: ModsContext;
@@ -143,11 +149,11 @@ export function InstalledPanel({
                 >
                   <div className="flex min-w-0 flex-col">
                     <span className="flex flex-wrap items-center gap-2 font-medium">
-                      <span
+                      <ProjectTitleLink
+                        href={entry.page_url}
+                        title={entry.title}
                         className={cn(entry.enabled || "text-muted-foreground")}
-                      >
-                        {entry.title}
-                      </span>
+                      />
                       <Badge variant="secondary">
                         {PROVIDER_LABELS[entry.provider]}
                       </Badge>

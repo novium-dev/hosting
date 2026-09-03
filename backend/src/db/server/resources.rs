@@ -12,6 +12,7 @@ pub(crate) struct InstalledResource {
     pub(crate) resource_type: ResourceType,
     pub(crate) file_name: String,
     pub(crate) title: String,
+    pub(crate) page_url: Option<String>,
     pub(crate) enabled: bool,
     pub(crate) installed_at: i64,
 }
@@ -23,6 +24,7 @@ struct InstalledRecord {
     resource_type: String,
     file_name: String,
     title: String,
+    page_url: Option<String>,
     installed_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -35,6 +37,7 @@ impl InstalledRecord {
             resource_type: ResourceType::parse_str(&self.resource_type)?,
             file_name: self.file_name,
             title: self.title,
+            page_url: self.page_url,
             enabled: true,
             installed_at: self.installed_at.timestamp(),
         })
@@ -47,7 +50,8 @@ pub(crate) async fn list_installed(
 ) -> Result<Vec<InstalledResource>, sqlx::Error> {
     Ok(query_as!(
         InstalledRecord,
-        r#"SELECT provider, project, version, resource_type, file_name, title, installed_at
+        r#"SELECT provider, project, version, resource_type, file_name, title, page_url,
+                  installed_at
            FROM server_resources
            WHERE server = $1
            ORDER BY title"#,
@@ -89,13 +93,14 @@ pub(crate) async fn upsert_installed(
 ) -> Result<(), sqlx::Error> {
     query!(
         r#"INSERT INTO server_resources
-               (server, provider, project, version, resource_type, file_name, title)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+               (server, provider, project, version, resource_type, file_name, title, page_url)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            ON CONFLICT (server, provider, project) DO UPDATE SET
                version = excluded.version,
                resource_type = excluded.resource_type,
                file_name = excluded.file_name,
                title = excluded.title,
+               page_url = excluded.page_url,
                installed_at = now()"#,
         server as ServerId,
         resource.provider.as_str(),
@@ -103,7 +108,8 @@ pub(crate) async fn upsert_installed(
         resource.version,
         resource.resource_type.as_str(),
         resource.file_name,
-        resource.title
+        resource.title,
+        resource.page_url
     )
     .execute(database)
     .await?;

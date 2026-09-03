@@ -106,6 +106,7 @@ export function ResourceInstallDialog({
       version: version.id,
       loader,
       title: project.title,
+      pageUrl: project.page_url ?? undefined,
     });
     setIsInstalling(false);
 

@@ -314,7 +314,13 @@
         "wipeWarning": "Existing mods will be deleted and there is no backup to restore from. Mod configuration shipped with the pack will also overwrite what is on the server."
       },
       "toasts": {
-        "started": "Installing {{title}} in the background."
+        "started": "Installing {{title}} in the background.",
+        "unlinked": "Modpack unlinked."
+      },
+      "unlinkButton": "Unlink",
+      "unlinkConfirm": {
+        "title": "Unlink {{title}}?",
+        "description": "Only the link is dropped. The pack's mods and configuration stay on the server and it keeps running as it does now — but its version can no longer be switched or checked for updates from here, and its jars are listed as hand-uploaded files."
       }
     }
   },

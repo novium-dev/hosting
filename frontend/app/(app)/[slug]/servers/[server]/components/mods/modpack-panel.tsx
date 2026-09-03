@@ -7,15 +7,29 @@ import {
   CheckCircle2,
   ChevronDown,
   Download,
-  ExternalLink,
   Power,
   PowerOff,
   RefreshCw,
   Repeat,
   TriangleAlert,
+  Unlink,
 } from "lucide-react";
+import { toast } from "sonner";
 
-import { modpackVersionsAction } from "@/actions/mod-browser";
+import {
+  modpackVersionsAction,
+  unlinkModpackAction,
+} from "@/actions/mod-browser";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +73,7 @@ import { ProjectList } from "./project-list";
 import { SearchBar } from "./search-bar";
 import {
   ProjectIcon,
+  ProjectTitleLink,
   canMutate,
   formatTimestamp,
   versionLabel,
@@ -70,6 +85,7 @@ type ModpackPanelProps = {
   ctx: ModsContext;
   pack: InstalledModpack | null;
   onInstallStarted: () => void;
+  onUnlinked: () => void;
   onToggleMod: (entry: ModpackMod) => void;
 };
 
@@ -77,8 +93,10 @@ export function ModpackPanel({
   ctx,
   pack,
   onInstallStarted,
+  onUnlinked,
   onToggleMod,
 }: ModpackPanelProps) {
+  const { t } = useTranslation();
   const [target, setTarget] = useState<ModpackTarget | null>(null);
   const [initialVersion, setInitialVersion] = useState<string | undefined>();
   const [browsing, setBrowsing] = useState(false);
@@ -111,6 +129,18 @@ export function ModpackPanel({
     onInstallStarted();
   };
 
+  const unlink = async () => {
+    const result = await unlinkModpackAction({ serverId: ctx.serverId });
+
+    if (result.serverError) {
+      toast.error(result.serverError);
+      return;
+    }
+
+    toast.success(t("servers-management:mods.pack.toasts.unlinked"));
+    onUnlinked();
+  };
+
   return (
     <>
       {pack && !browsing ? (
@@ -124,6 +154,7 @@ export function ModpackPanel({
           onCheck={() => void refreshVersions()}
           onInstall={openInstall}
           onReplace={() => setBrowsing(true)}
+          onUnlink={unlink}
           onToggleMod={onToggleMod}
         />
       ) : (
@@ -161,6 +192,7 @@ type LinkedPackProps = {
   onCheck: () => void;
   onInstall: (target: ModpackTarget, version?: string) => void;
   onReplace: () => void;
+  onUnlink: () => Promise<void>;
   onToggleMod: (entry: ModpackMod) => void;
 };
 
@@ -174,11 +206,13 @@ function LinkedPack({
   onCheck,
   onInstall,
   onReplace,
+  onUnlink,
   onToggleMod,
 }: LinkedPackProps) {
   const { t } = useTranslation();
   const [selected, setSelected] = useState("");
   const [contentsOpen, setContentsOpen] = useState(false);
+  const [unlinkOpen, setUnlinkOpen] = useState(false);
 
   const loader = pack.loader ?? null;
   const target: ModpackTarget | null = loader
@@ -208,7 +242,7 @@ function LinkedPack({
 
         <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1">
           <CardTitle className="flex flex-wrap items-center gap-2">
-            <span className="truncate">{pack.title}</span>
+            <ProjectTitleLink href={pack.page_url} title={pack.title} />
             <Badge variant="secondary">{PROVIDER_LABELS[pack.provider]}</Badge>
             {loader ? (
               <Badge variant="outline">{LOADER_LABELS[loader]}</Badge>
@@ -223,19 +257,18 @@ function LinkedPack({
         </div>
 
         <div className="flex items-center gap-2">
-          {pack.page_url ? (
-            <Button asChild variant="outline" size="sm">
-              <a href={pack.page_url} target="_blank" rel="noreferrer noopener">
-                <ExternalLink data-icon="inline-start" />
-                {t("servers-management:mods.viewOnProvider", {
-                  provider: PROVIDER_LABELS[pack.provider],
-                })}
-              </a>
-            </Button>
-          ) : null}
           <Button variant="outline" size="sm" onClick={onReplace}>
             <Repeat data-icon="inline-start" />
             {t("servers-management:mods.pack.replaceButton")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!canMutate(ctx)}
+            onClick={() => setUnlinkOpen(true)}
+          >
+            <Unlink data-icon="inline-start" />
+            {t("servers-management:mods.pack.unlinkButton")}
           </Button>
         </div>
       </CardHeader>
@@ -412,6 +445,27 @@ function LinkedPack({
           </CollapsibleContent>
         </Collapsible>
       </CardContent>
+
+      <AlertDialog open={unlinkOpen} onOpenChange={setUnlinkOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("servers-management:mods.pack.unlinkConfirm.title", {
+                title: pack.title,
+              })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("servers-management:mods.pack.unlinkConfirm.description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void onUnlink()}>
+              {t("servers-management:mods.pack.unlinkButton")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

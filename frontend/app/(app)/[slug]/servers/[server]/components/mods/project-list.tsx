@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ResourceProject } from "@/lib/mod-browser/types";
-import { ProjectIcon, formatCount } from "./shared";
+import { ProjectIcon, ProjectTitleLink, formatCount } from "./shared";
 
 type ProjectListProps = {
   projects: ResourceProject[];
@@ -56,7 +56,11 @@ export function ProjectList({
 
           <div className="flex min-w-0 flex-1 basis-64 flex-col gap-0.5">
             <span className="flex flex-wrap items-center gap-2">
-              <span className="truncate font-medium">{project.title}</span>
+              <ProjectTitleLink
+                href={project.page_url}
+                title={project.title}
+                className="font-medium"
+              />
               {status?.(project)}
               {project.downloadable ? null : (
                 <Badge variant="outline">

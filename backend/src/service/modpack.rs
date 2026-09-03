@@ -14,10 +14,10 @@ use crate::resources::modpack::{
 };
 use crate::resources::{
     ResourceError, ResourceKind, ResourceLoader, ResourceProvider, ResourceType, ResourceVersion,
-    ResourceVersionType, sanitize_file_name,
+    ResourceVersionType, safe_page_url, sanitize_file_name,
 };
 use crate::service::modpack::modpack_service_error::{
-    InstallModpackError, ModpackStatusError, ModpackVersionsError,
+    InstallModpackError, ModpackStatusError, ModpackVersionsError, UnlinkModpackError,
 };
 use crate::templates::Template as _;
 use crate::templates::games::minecraft::MinecraftTemplate;
@@ -52,20 +52,6 @@ const MAX_PACK_TITLE: usize = 255;
 const MAX_PACK_VERSION_NUMBER: usize = 128;
 
 const CURSEFORGE_FILE_DIR: &str = "mods";
-
-const MAX_PACK_URL: usize = 512;
-
-fn safe_page_url(value: Option<String>) -> Option<String> {
-    let value = value?;
-    if value.len() > MAX_PACK_URL {
-        return None;
-    }
-
-    url::Url::parse(&value)
-        .ok()
-        .filter(|url| url.scheme() == "https")
-        .map(|_url| value)
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -694,6 +680,30 @@ pub(crate) impl ModpackService for Backend {
         });
 
         Ok(job)
+    }
+
+    /// Forgets the modpack this server is linked to.
+    ///
+    /// Only the link is dropped — the pack's mods and configuration stay on
+    /// disk, so the server keeps running exactly as it did. Its jars stop being
+    /// reported as pack contents and show up as hand-uploaded files instead.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_WRITE`].
+    #[route("", method = DELETE)]
+    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
+    async fn unlink_modpack(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+    ) -> Result<(), _> {
+        auth.require::<_, _, UnlinkModpackError>(server_id, ServerPermissions::FILES_WRITE)?;
+        self.require_server_feature::<UnlinkModpackError>(server_id, ProjectFeature::ModInstaller)
+            .await?;
+
+        delete_modpack(&self.database, server_id).await?;
+
+        Ok(())
     }
 
     /// Lists the versions of the modpack this server is linked to.

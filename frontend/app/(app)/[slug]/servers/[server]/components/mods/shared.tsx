@@ -1,3 +1,5 @@
+import { ExternalLink } from "lucide-react";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { TaskLock } from "@/lib/server-tasks";
 import { cn } from "@/lib/utils";
@@ -72,6 +74,37 @@ export function versionLabel(version: ResourceVersion) {
   return version.version_number === version.name
     ? version.name
     : `${version.version_number} · ${version.name}`;
+}
+
+type ProjectTitleLinkProps = {
+  href?: string | null;
+  title: string;
+  className?: string;
+};
+
+export function ProjectTitleLink({
+  href,
+  title,
+  className,
+}: ProjectTitleLinkProps) {
+  if (!href) {
+    return <span className={cn("truncate", className)}>{title}</span>;
+  }
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className={cn(
+        "inline-flex min-w-0 items-center gap-1 truncate underline-offset-4 hover:underline",
+        className,
+      )}
+    >
+      <span className="truncate">{title}</span>
+      <ExternalLink className="size-3 shrink-0 opacity-60" />
+    </a>
+  );
 }
 
 type ProjectIconProps = {

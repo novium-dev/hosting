@@ -354,6 +354,20 @@ pub(crate) fn encode_segment(segment: &str) -> String {
     encoded
 }
 
+const MAX_PAGE_URL: usize = 512;
+
+pub(crate) fn safe_page_url(value: Option<String>) -> Option<String> {
+    let value = value?;
+    if value.len() > MAX_PAGE_URL {
+        return None;
+    }
+
+    Url::parse(&value)
+        .ok()
+        .filter(|url| url.scheme() == "https")
+        .map(|_url| value)
+}
+
 pub(crate) fn validate_id(id: &str, max_len: usize) -> Result<(), ResourceError> {
     if id.is_empty()
         || id.len() > max_len

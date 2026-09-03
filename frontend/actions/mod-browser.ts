@@ -14,6 +14,7 @@ import {
   installModpack,
   modpackStatus,
   modpackVersions,
+  unlinkModpack,
 } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
@@ -127,6 +128,7 @@ export const installResourceVersionAction = authActionClient
       version: z.string().min(1),
       loader: loaderSchema,
       title: z.string().optional(),
+      pageUrl: z.string().optional(),
     }),
   )
   .action(async ({ parsedInput }) =>
@@ -139,6 +141,7 @@ export const installResourceVersionAction = authActionClient
           version: parsedInput.version,
           loader: parsedInput.loader,
           title: parsedInput.title,
+          page_url: parsedInput.pageUrl,
         },
       }),
       "Failed to install resource",
@@ -266,6 +269,22 @@ export const modpackVersionsAction = authActionClient
       "Failed to load the modpack versions",
     ),
   );
+
+export const unlinkModpackAction = authActionClient
+  .inputSchema(z.object({ serverId: serverSchema }))
+  .action(async ({ parsedInput }) => {
+    const response = await unlinkModpack({
+      path: { server_id: parsedInput.serverId },
+    });
+
+    if (response.error) {
+      throw new ActionError(
+        response.error.error?.msg ?? "Failed to unlink the modpack",
+      );
+    }
+
+    return { success: true };
+  });
 
 export const setResourceStateAction = authActionClient
   .inputSchema(
