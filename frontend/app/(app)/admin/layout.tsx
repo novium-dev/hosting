@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AdminSidebar } from "@/components/navigation/admin-sidebar";
+import { AppFooter } from "@/components/app-footer";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -60,6 +61,7 @@ export default function AdminLayout() {
         <main className="w-full max-w-400">
           <Outlet />
         </main>
+        <AppFooter className="mt-auto border-t" />
       </SidebarInset>
     </SidebarProvider>
   );

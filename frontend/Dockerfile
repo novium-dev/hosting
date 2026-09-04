@@ -31,6 +31,9 @@ ENV VITE_TERMS_URL=$VITE_TERMS_URL
 ARG VITE_PRIVACY_URL=""
 ENV VITE_PRIVACY_URL=$VITE_PRIVACY_URL
 
+ARG VITE_IMPRINT_URL=""
+ENV VITE_IMPRINT_URL=$VITE_IMPRINT_URL
+
 # Cloudflare's proxy caps request bodies at 100 MB; when set, the SPA rejects
 # larger uploads itself. Overridable at container runtime like VITE_APP_NAME.
 ARG VITE_BEHIND_CLOUDFLARE=""

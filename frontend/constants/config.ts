@@ -13,6 +13,7 @@ type AppConfig = {
   legalLinks: {
     terms: string | null;
     privacy: string | null;
+    imprint: string | null;
   };
   uploads: {
     behindCloudflare: boolean;
@@ -67,6 +68,10 @@ export const appConfig: AppConfig = {
     privacy: optionalUrl(
       window.__RUNTIME_CONFIG__?.PRIVACY_URL ||
         import.meta.env.VITE_PRIVACY_URL,
+    ),
+    imprint: optionalUrl(
+      window.__RUNTIME_CONFIG__?.IMPRINT_URL ||
+        import.meta.env.VITE_IMPRINT_URL,
     ),
   },
   uploads: {

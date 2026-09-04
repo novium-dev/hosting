@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Navigate, Outlet, useParams } from "react-router-dom";
 import { ProjectHeaderTitle } from "@/components/navigation/project-header-title";
 import { ProjectSidebar } from "@/components/navigation/project-sidebar";
+import { AppFooter } from "@/components/app-footer";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -35,6 +36,7 @@ export default function SlugLayout() {
         <main className="w-full max-w-400 pb-6">
           <Outlet />
         </main>
+        <AppFooter className="mt-auto border-t" />
       </SidebarInset>
     </SidebarProvider>
   );

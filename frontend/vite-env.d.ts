@@ -8,6 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_LOGO_URL?: string;
   readonly VITE_TERMS_URL?: string;
   readonly VITE_PRIVACY_URL?: string;
+  readonly VITE_IMPRINT_URL?: string;
   readonly VITE_BEHIND_CLOUDFLARE?: string;
 }
 
@@ -21,6 +22,7 @@ interface Window {
     LOGO_URL?: string;
     TERMS_URL?: string;
     PRIVACY_URL?: string;
+    IMPRINT_URL?: string;
     BEHIND_CLOUDFLARE?: string;
   };
 }

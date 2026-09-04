@@ -14,7 +14,7 @@ use oauth2::{
 use reqwest::redirect::Policy;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
-use tracing::error;
+use tracing::{debug, error};
 use url::Url;
 
 type OAuthClient =
@@ -129,11 +129,17 @@ impl AuthService {
         } else if !response.status().is_success() {
             error!("Permission denied when fetching user info: {response:?}");
             Err(<E as FromAuthInvalid>::from())
-        } else {
-            let user: AuthUser = response.json().await.map_err(|err| {
+        } else {let body = response.text().await.map_err(|err| {
+            error!("Failed to read user info response: {err:?}");
+            <E as FromAuthFailure>::from()
+        })?;
+            debug!("User info response: {}", body);
+
+            let user: AuthUser = serde_json::from_str(&body).map_err(|err| {
                 error!("Failed to parse user info response: {err:?}");
                 <E as FromAuthFailure>::from()
             })?;
+
             Ok(user)
         }
     }

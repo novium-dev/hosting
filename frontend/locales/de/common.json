@@ -17,6 +17,12 @@
       "team": "Team"
     }
   },
+  "footer": {
+    "privacy": "Datenschutz",
+    "terms": "AGB",
+    "imprint": "Impressum",
+    "credit": "Erstellt von <author>InvalidJoker</author>"
+  },
   "language": {
     "label": "Sprache",
     "en": "Englisch",
