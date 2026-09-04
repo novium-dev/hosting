@@ -7,12 +7,13 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  FileCode,
   Save,
   Trash2,
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { serverStartup, updateStartup } from "@/lib/api";
 import { parseEnvFile } from "@/lib/env-file";
@@ -90,6 +92,8 @@ export function StartupConfiguration({
   const [isSavingEnvironment, setIsSavingEnvironment] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importContent, setImportContent] = useState("");
+  const [fileEnabled, setFileEnabled] = useState(false);
+  const [filePath, setFilePath] = useState(".env");
 
   const load = useCallback(async () => {
     const response = await serverStartup({ path: { server_id: serverId } });
@@ -130,7 +134,7 @@ export function StartupConfiguration({
   }, [load, t]);
 
   const reserved = useMemo(
-    () => new Set(payload?.reserved_environment ?? []),
+    () => new Set(payload?.environment.reserved ?? []),
     [payload],
   );
 
@@ -175,13 +179,38 @@ export function StartupConfiguration({
 
   const hasRowErrors = Object.keys(rowErrors).length > 0;
 
+  const filePathError = useMemo(() => {
+    if (!fileEnabled) {
+      return null;
+    }
+
+    const trimmed = filePath.trim();
+
+    if (trimmed.length === 0) {
+      return t("servers:startupConfig.envFile.errors.empty");
+    }
+
+    const segments = trimmed.split("/");
+    const valid = segments.every(
+      (segment) =>
+        segment.length > 0 &&
+        segment !== "." &&
+        segment !== ".." &&
+        /^[A-Za-z0-9._-]+$/.test(segment),
+    );
+
+    return valid ? null : t("servers:startupConfig.envFile.errors.path");
+  }, [fileEnabled, filePath, t]);
+
   const openCommandDialog = () => {
-    setCommandDraft(payload?.command ?? "");
+    setCommandDraft(payload?.command.current ?? "");
     setCommandOpen(true);
   };
 
   const openEnvironmentDialog = () => {
-    setRows(toRows(payload?.environment ?? {}));
+    setRows(toRows(payload?.environment.variables ?? {}));
+    setFileEnabled(payload?.environment.file_enabled ?? false);
+    setFilePath(payload?.environment.file_path ?? ".env");
     setImportOpen(false);
     setImportContent("");
     setEnvironmentOpen(true);
@@ -199,7 +228,7 @@ export function StartupConfiguration({
       const response = await updateStartup({
         path: { server_id: serverId },
         body: {
-          command: trimmed === payload.default_command.trim() ? "" : trimmed,
+          command: trimmed === payload.command.default.trim() ? "" : trimmed,
         },
       });
 
@@ -222,7 +251,7 @@ export function StartupConfiguration({
       return;
     }
 
-    if (hasRowErrors) {
+    if (hasRowErrors || filePathError) {
       toast.error(t("servers:startupConfig.toasts.environmentInvalid"));
       return;
     }
@@ -236,7 +265,11 @@ export function StartupConfiguration({
 
       const response = await updateStartup({
         path: { server_id: serverId },
-        body: { environment },
+        body: {
+          environment,
+          env_file_enabled: fileEnabled,
+          env_file_path: filePath.trim(),
+        },
       });
 
       if (response.error) {
@@ -312,11 +345,11 @@ export function StartupConfiguration({
     );
   }
 
-  if (!payload || (!payload.supported && !payload.environment_supported)) {
+  if (!payload || (!payload.command.supported && !payload.environment.supported)) {
     return null;
   }
 
-  const environmentEntries = Object.entries(payload.environment).sort(
+  const environmentEntries = Object.entries(payload.environment.variables).sort(
     ([left], [right]) => left.localeCompare(right),
   );
 
@@ -330,12 +363,12 @@ export function StartupConfiguration({
         </AlertDescription>
       </Alert>
 
-      {payload.supported ? (
+      {payload.command.supported ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {t("servers:startupConfig.command.title")}
-              {payload.customized ? (
+              {payload.command.customized ? (
                 <Badge variant="secondary">
                   {t("servers:startupConfig.command.customBadge")}
                 </Badge>
@@ -347,7 +380,7 @@ export function StartupConfiguration({
           </CardHeader>
           <CardContent>
             <code className="block rounded-md bg-muted px-3 py-2 font-mono text-xs break-all whitespace-pre-wrap">
-              {payload.command}
+              {payload.command.current}
             </code>
           </CardContent>
           <CardFooter className="justify-end">
@@ -363,7 +396,7 @@ export function StartupConfiguration({
         </Card>
       ) : null}
 
-      {payload.environment_supported ? (
+      {payload.environment.supported ? (
         <Card>
           <CardHeader>
             <CardTitle>
@@ -373,7 +406,23 @@ export function StartupConfiguration({
               {t("servers:startupConfig.environment.description")}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <div className="flex items-start gap-2 rounded-md border px-3 py-2">
+              <FileCode className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                {payload.environment.file_enabled ? (
+                  <Trans
+                    components={{
+                      path: <code className="font-mono text-foreground" />,
+                    }}
+                    i18nKey="servers:startupConfig.envFile.cardEnabled"
+                    values={{ path: payload.environment.file_path }}
+                  />
+                ) : (
+                  t("servers:startupConfig.envFile.cardDisabled")
+                )}
+              </p>
+            </div>
             {environmentEntries.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {t("servers:startupConfig.environment.empty")}
@@ -434,13 +483,13 @@ export function StartupConfiguration({
               {t("servers:startupConfig.command.defaultLabel")}
             </p>
             <code className="block rounded-md bg-muted px-3 py-2 font-mono text-xs break-all whitespace-pre-wrap">
-              {payload.default_command}
+              {payload.command.default}
             </code>
           </div>
           <DialogFooter className="sm:justify-between">
             <Button
-              disabled={commandDraft === payload.default_command}
-              onClick={() => setCommandDraft(payload.default_command)}
+              disabled={commandDraft === payload.command.default}
+              onClick={() => setCommandDraft(payload.command.default)}
               variant="outline"
             >
               <RotateCcw className="size-4" />
@@ -473,6 +522,47 @@ export function StartupConfiguration({
               {t("servers:startupConfig.warning.description")}
             </DialogDescription>
           </DialogHeader>
+
+          <div className="space-y-3 rounded-md border p-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="env-file-enabled">
+                  {t("servers:startupConfig.envFile.toggleLabel")}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t("servers:startupConfig.envFile.toggleDescription")}
+                </p>
+              </div>
+              <Switch
+                checked={fileEnabled}
+                id="env-file-enabled"
+                onCheckedChange={setFileEnabled}
+              />
+            </div>
+            {fileEnabled ? (
+              <div className="space-y-1">
+                <Label htmlFor="env-file-path">
+                  {t("servers:startupConfig.envFile.pathLabel")}
+                </Label>
+                <Input
+                  aria-invalid={Boolean(filePathError)}
+                  className="font-mono text-xs"
+                  id="env-file-path"
+                  onChange={(event) => setFilePath(event.target.value)}
+                  placeholder=".env"
+                  spellCheck={false}
+                  value={filePath}
+                />
+                {filePathError ? (
+                  <p className="text-xs text-destructive">{filePathError}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {t("servers:startupConfig.envFile.pathHelp")}
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
 
           <div className="space-y-2">
             {importOpen ? (
@@ -609,7 +699,7 @@ export function StartupConfiguration({
               {t("common:actions.cancel")}
             </Button>
             <Button
-              disabled={hasRowErrors}
+              disabled={hasRowErrors || Boolean(filePathError)}
               loading={isSavingEnvironment}
               onClick={saveEnvironment}
             >

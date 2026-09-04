@@ -178,7 +178,8 @@ export const updateVariables = <ThrowOnError extends boolean = false>(options: O
  * <br/>
  * `command` is what the server runs today, `default_command` what its template defines.<br/>
  * `reserved_environment` lists the names the template and the port allocation own, which<br/>
- * a custom variable cannot take over.<br/>
+ * a custom variable cannot take over. When `env_file_enabled` is set, the server sources<br/>
+ * `env_file_path` from its working directory right before the startup command runs.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::BUILD_VIEW`.
@@ -193,6 +194,8 @@ export const serverStartup = <ThrowOnError extends boolean = false>(options: Opt
  * <br/>
  * An empty `command` resets the server to the startup command of its template. Omitting a<br/>
  * field leaves it untouched, while `environment` replaces the whole set of custom variables.<br/>
+ * `env_file_path` must be a relative path inside the server directory; it is only sourced<br/>
+ * while `env_file_enabled` is set, and a missing file is skipped rather than failing the start.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::BUILD_EDIT`.

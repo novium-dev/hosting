@@ -57,6 +57,8 @@ struct ResyncTarget {
     custom_dockerfile: Option<String>,
     custom_startup: Option<String>,
     custom_environment: HashMap<String, String>,
+    env_file_enabled: bool,
+    env_file_path: String,
 }
 
 impl Backend {
@@ -78,7 +80,9 @@ impl Backend {
                 template_extra AS "template_extra: JsonValue",
                 custom_dockerfile,
                 custom_startup,
-                custom_environment AS "custom_environment: JsonValue"
+                custom_environment AS "custom_environment: JsonValue",
+                env_file_enabled AS "env_file_enabled: bool",
+                env_file_path
              FROM servers
              WHERE $1::varchar IS NULL OR template = $1
              ORDER BY id"#,
@@ -98,6 +102,8 @@ impl Backend {
             template_extra: row.template_extra,
             custom_dockerfile: row.custom_dockerfile,
             custom_startup: row.custom_startup,
+            env_file_enabled: row.env_file_enabled,
+            env_file_path: row.env_file_path,
             custom_environment: serde_json::from_value(row.custom_environment).unwrap_or_else(
                 |err| {
                     warn!(
@@ -200,6 +206,9 @@ impl Backend {
             dockerfile: target.custom_dockerfile.as_deref(),
             startup: target.custom_startup.as_deref(),
             environment: &target.custom_environment,
+            env_file: target
+                .env_file_enabled
+                .then_some(target.env_file_path.as_str()),
         }
         .apply(build);
 

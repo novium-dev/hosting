@@ -106,8 +106,8 @@ impl Template for JavaTemplate {
             args: HashMap::new(),
             tag: None,
             default_tag: Some(match extra.build {
-                JavaBuild::Prebuilt => format!("java-prebuilt-{}-r2", extra.java_version),
-                JavaBuild::Gradle => format!("java-gradle-{}-r2", extra.java_version),
+                JavaBuild::Prebuilt => format!("java-prebuilt-{}-r3", extra.java_version),
+                JavaBuild::Gradle => format!("java-gradle-{}-r3", extra.java_version),
             }),
         };
         let mut backup_exclude = HashSet::from([".git/".to_owned()]);

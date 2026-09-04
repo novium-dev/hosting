@@ -2,4 +2,4 @@ RUN npm install -g pnpm
 
 ENV PNPM_HOME=/work/.pnpm
 
-ENTRYPOINT ["/bin/bash", "-c", "(test -z \"$REPOSITORY_URL\" || (git init -q && GIT_TERMINAL_PROMPT=0 git -c credential.helper='!f() { test -n \"$REPOSITORY_PASSWORD\" && { echo \"username=${REPOSITORY_USERNAME:-oauth2}\"; echo \"password=$REPOSITORY_PASSWORD\"; }; }; f' fetch $REPOSITORY_URL $REPOSITORY_BRANCH && git checkout -q FETCH_HEAD)) && eval \"$STARTUP_COMMAND\""]
+ENTRYPOINT ["/bin/bash", "-c", "(test -z \"$REPOSITORY_URL\" || (git init -q && GIT_TERMINAL_PROMPT=0 git -c credential.helper='!f() { test -n \"$REPOSITORY_PASSWORD\" && { echo \"username=${REPOSITORY_USERNAME:-oauth2}\"; echo \"password=$REPOSITORY_PASSWORD\"; }; }; f' fetch $REPOSITORY_URL $REPOSITORY_BRANCH && git checkout -q FETCH_HEAD)) && { test -z \"$ENV_FILE\" || test ! -f \"./$ENV_FILE\" || { set -a; . \"./$ENV_FILE\"; set +a; }; } && eval \"$STARTUP_COMMAND\""]

@@ -80,6 +80,8 @@ impl Backend {
                         custom_dockerfile,
                         custom_startup,
                         custom_environment AS "custom_environment: JsonValue",
+                        env_file_enabled AS "env_file_enabled: bool",
+                        env_file_path,
                         internet_access AS "internet_access: bool",
                         cpu,
                         ram,
@@ -129,6 +131,8 @@ impl Backend {
                             );
                             HashMap::new()
                         }),
+                    env_file_enabled: server.env_file_enabled,
+                    env_file_path: server.env_file_path,
                     internet_access: server.internet_access,
 
                     project: server.project,

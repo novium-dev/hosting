@@ -22,6 +22,7 @@ use tracing::{debug, error, info};
 use variable::VariablePayload;
 
 pub const STARTUP_COMMAND_ENVIRONMENT: &str = "STARTUP_COMMAND";
+pub const ENV_FILE_ENVIRONMENT: &str = "ENV_FILE";
 
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct TemplatePortDefinition {

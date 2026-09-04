@@ -52,7 +52,7 @@ impl Template for RustTemplate {
                 .replace("{RUST_VERSION}", &extra.rust_version),
             args: HashMap::new(),
             tag: None,
-            default_tag: Some(format!("rust-{}-r2", extra.rust_version)),
+            default_tag: Some(format!("rust-{}-r3", extra.rust_version)),
         };
         Ok(ServerBuildPayload {
             image,

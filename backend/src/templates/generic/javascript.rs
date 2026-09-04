@@ -92,9 +92,9 @@ impl Template for JavascriptTemplate {
             args: HashMap::new(),
             tag: None,
             default_tag: Some(match extra.package_manager {
-                PackageManager::Npm => format!("javascript-npm-{}-r2", extra.node_version),
-                PackageManager::Pnpm => format!("javascript-pnpm-{}-r2", extra.node_version),
-                PackageManager::Bun => format!("javascript-bun-{}-r2", extra.node_version),
+                PackageManager::Npm => format!("javascript-npm-{}-r3", extra.node_version),
+                PackageManager::Pnpm => format!("javascript-pnpm-{}-r3", extra.node_version),
+                PackageManager::Bun => format!("javascript-bun-{}-r3", extra.node_version),
             }),
         };
         Ok(ServerBuildPayload {

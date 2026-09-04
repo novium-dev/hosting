@@ -431,6 +431,18 @@
         "duplicate": "This name is used more than once"
       }
     },
+    "envFile": {
+      "toggleLabel": "Load a .env file at startup",
+      "toggleDescription": "Sources the file from the server directory right before the startup command runs. Values containing spaces have to be quoted in the file.",
+      "pathLabel": "File",
+      "pathHelp": "Relative to the server directory, for example .env or config/production.env. A missing file is skipped.",
+      "cardEnabled": "<path>{{path}}</path> is loaded at startup.",
+      "cardDisabled": "No .env file is loaded at startup.",
+      "errors": {
+        "empty": "Enter a file path.",
+        "path": "Use a relative path inside the server directory."
+      }
+    },
     "import": {
       "button": "Import .env",
       "dialogTitle": "Import environment variables",

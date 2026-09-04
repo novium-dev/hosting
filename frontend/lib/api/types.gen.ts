@@ -614,6 +614,23 @@ export const ServerResyncStatus = {
 
 export type ServerResyncStatus = typeof ServerResyncStatus[keyof typeof ServerResyncStatus];
 
+export type ServerStartupCommandInfo = {
+    current: string;
+    customized: boolean;
+    default: string;
+    supported: boolean;
+};
+
+export type ServerStartupEnvironmentInfo = {
+    file_enabled: boolean;
+    file_path: string;
+    reserved: Array<string>;
+    supported: boolean;
+    variables: {
+        [key: string]: string;
+    };
+};
+
 export type ServerStats = {
     cpu?: number | null;
     cpu_max?: number | null;
@@ -778,6 +795,8 @@ export type UpdateServerPayload = {
 
 export type UpdateStartupPayload = {
     command?: string | null;
+    env_file_enabled?: boolean | null;
+    env_file_path?: string | null;
     environment?: {
         [key: string]: string;
     } | null;
@@ -2179,15 +2198,8 @@ export type ServerStartupResponses = {
      * Success
      */
     200: {
-        command: string;
-        customized: boolean;
-        default_command: string;
-        environment: {
-            [key: string]: string;
-        };
-        environment_supported: boolean;
-        reserved_environment: Array<string>;
-        supported: boolean;
+        command: ServerStartupCommandInfo;
+        environment: ServerStartupEnvironmentInfo;
     };
 };
 
@@ -2246,6 +2258,15 @@ export type UpdateStartupErrors = {
         error?: {
             id?: 'server/environment_invalid';
             msg?: 'An environment variable name or value is invalid, reserved or too long';
+        };
+    };
+    /**
+     * The environment file must be a relative path inside the server directory
+     */
+    '400⁠': {
+        error?: {
+            id?: 'server/env_file_invalid';
+            msg?: 'The environment file must be a relative path inside the server directory';
         };
     };
     /**
@@ -2314,7 +2335,7 @@ export type UpdateStartupErrors = {
     /**
      * Node operation failed
      */
-    '502⁠': {
+    '502⁡': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';

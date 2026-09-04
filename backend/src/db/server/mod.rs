@@ -1,7 +1,7 @@
 use crate::db::node::BackendNode;
 use crate::db::project::ProjectId;
 use crate::define_id;
-use crate::templates::{STARTUP_COMMAND_ENVIRONMENT, TemplateInner};
+use crate::templates::{ENV_FILE_ENVIRONMENT, STARTUP_COMMAND_ENVIRONMENT, TemplateInner};
 use daemon_common::service::server::{ServerBuildImage, ServerBuildPayload};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -25,6 +25,8 @@ pub struct Server {
     pub custom_dockerfile: Option<String>,
     pub custom_startup: Option<String>,
     pub custom_environment: HashMap<String, String>,
+    pub env_file_enabled: bool,
+    pub env_file_path: String,
     pub cpu: Option<f32>,
     pub ram: Option<u32>,
     pub swap: Option<u32>,
@@ -42,6 +44,7 @@ pub struct ServerCustomization<'a> {
     pub dockerfile: Option<&'a str>,
     pub startup: Option<&'a str>,
     pub environment: &'a HashMap<String, String>,
+    pub env_file: Option<&'a str>,
 }
 
 impl ServerCustomization<'_> {
@@ -53,6 +56,12 @@ impl ServerCustomization<'_> {
                     .environment
                     .entry(key.clone())
                     .or_insert_with(|| value.clone());
+            }
+
+            if let Some(env_file) = self.env_file {
+                build
+                    .environment
+                    .insert(ENV_FILE_ENVIRONMENT.to_owned(), env_file.to_owned());
             }
         }
 
@@ -89,6 +98,7 @@ impl Server {
             dockerfile: self.custom_dockerfile.as_deref(),
             startup: self.custom_startup.as_deref(),
             environment: &self.custom_environment,
+            env_file: self.env_file_enabled.then_some(self.env_file_path.as_str()),
         }
     }
 }

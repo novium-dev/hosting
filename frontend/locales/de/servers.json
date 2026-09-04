@@ -431,6 +431,18 @@
         "duplicate": "Dieser Name wird mehrfach verwendet"
       }
     },
+    "envFile": {
+      "toggleLabel": ".env-Datei beim Start laden",
+      "toggleDescription": "Lädt die Datei aus dem Serververzeichnis, direkt bevor der Startbefehl ausgeführt wird. Werte mit Leerzeichen müssen in der Datei in Anführungszeichen stehen.",
+      "pathLabel": "Datei",
+      "pathHelp": "Relativ zum Serververzeichnis, zum Beispiel .env oder config/production.env. Eine fehlende Datei wird übersprungen.",
+      "cardEnabled": "<path>{{path}}</path> wird beim Start geladen.",
+      "cardDisabled": "Beim Start wird keine .env-Datei geladen.",
+      "errors": {
+        "empty": "Gib einen Dateipfad an.",
+        "path": "Verwende einen relativen Pfad innerhalb des Serververzeichnisses."
+      }
+    },
     "import": {
       "button": ".env importieren",
       "dialogTitle": "Umgebungsvariablen importieren",
