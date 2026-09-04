@@ -27,6 +27,7 @@ use crate::service::server::ServerService;
 use crate::service::template::TemplateService;
 use axum::{Extension, Router};
 use axum_server::{Handle, Server};
+use core::net::SocketAddr;
 use core::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
 use tower_http::cors::Any;
@@ -100,7 +101,7 @@ impl Backend {
             server_task.spawn(async move {
                 let _ = Server::bind(listener)
                     .handle(handle)
-                    .serve(router.into_make_service())
+                    .serve(router.into_make_service_with_connect_info::<SocketAddr>())
                     .await
                     .inspect_err(|_err| error!("Failed to serve http server!"));
             });

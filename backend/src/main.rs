@@ -335,6 +335,8 @@ async fn main0() {
 
     load_templates(&backend).await;
 
+    backend.spawn_session_cleanup();
+
     info!("Starting Webserver...");
 
     backend

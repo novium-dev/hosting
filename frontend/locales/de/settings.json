@@ -57,6 +57,26 @@
     "deleteKeyError": "SSH-Schlüssel konnte nicht gelöscht werden",
     "keyDeleted": "SSH-Schlüssel gelöscht"
   },
+  "sessions": {
+    "title": "Aktive Sitzungen",
+    "description": "Alle Browser, in denen du angemeldet bist. Widerrufe eine Sitzung, um das Gerät sofort abzumelden.",
+    "loading": "Sitzungen werden geladen...",
+    "loadError": "Sitzungen konnten nicht geladen werden.",
+    "empty": "Keine aktiven Sitzungen.",
+    "current": "Dieses Gerät",
+    "unknownDevice": "Unbekanntes Gerät",
+    "unknownAddress": "Adresse unbekannt",
+    "lastUsed": "Zuletzt verwendet {{time}}",
+    "expires": "Läuft ab {{time}}",
+    "revoke": "Sitzung widerrufen",
+    "revokeAriaLabel": "{{name}} widerrufen",
+    "revoked": "Sitzung widerrufen",
+    "revokeError": "Sitzung konnte nicht widerrufen werden",
+    "revokeOthers": "Andere Geräte abmelden",
+    "revokedOthers": "Alle anderen Sitzungen widerrufen",
+    "revokeOthersError": "Die anderen Sitzungen konnten nicht widerrufen werden",
+    "hint": "Sitzungen laufen nach einer Zeit ohne Aktivität von selbst ab, spätestens aber nach ihrer maximalen Lebensdauer."
+  },
   "profile": {
     "usernameHint": "Dein Benutzername kann nicht geändert werden.",
     "emailHint": "Kontodetails stammen von deinem Identitätsanbieter und sind hier nur lesbar.",
@@ -69,6 +89,10 @@
       "profile": {
         "label": "Profil",
         "description": "Deine Kontodetails."
+      },
+      "sessions": {
+        "label": "Sitzungen",
+        "description": "Sieh nach, wo du angemeldet bist, und widerrufe Sitzungen, die du nicht mehr nutzt."
       },
       "daemon": {
         "description": "Verwalte das Daemon-Passwort und die öffentlichen SSH-Schlüssel für den SFTP-Zugriff."

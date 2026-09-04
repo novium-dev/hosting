@@ -1,5 +1,5 @@
 use crate::Backend;
-use crate::auth::user::SESSION_COOKIE_NAME;
+use crate::auth::session::SESSION_COOKIE_NAME;
 use axum::extract::{Extension, Request};
 use axum::http::{Method, StatusCode, header};
 use axum::middleware::Next;

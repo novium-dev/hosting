@@ -9,6 +9,7 @@ use std::env;
 use url::Url;
 
 const DEFAULT_SESSION_LIFETIME: u64 = 43200;
+const DEFAULT_SESSION_ABSOLUTE_LIFETIME: u64 = 2_592_000;
 const DEFAULT_AUTH_PROVIDER: &str = "user";
 
 fn var(key: &str) -> Option<String> {
@@ -90,6 +91,7 @@ pub struct BackendConfig {
     pub public_url: Url,
     pub trusted_urls: Vec<Url>,
     pub session_lifetime: u64,
+    pub session_absolute_lifetime: u64,
     pub auth: AuthConfig,
     pub database_url: String,
     pub cache_url: String,
@@ -111,12 +113,17 @@ impl BackendConfig {
             ));
         }
 
+        let session_lifetime =
+            parse_var::<u64>("BACKEND_SESSION_LIFETIME")?.unwrap_or(DEFAULT_SESSION_LIFETIME);
+
         Ok(Self {
             listeners,
             public_url: required_url_var("BACKEND_PUBLIC_URL")?,
             trusted_urls: parse_list_var::<Url>("BACKEND_TRUSTED_URLS")?,
-            session_lifetime: parse_var::<u64>("BACKEND_SESSION_LIFETIME")?
-                .unwrap_or(DEFAULT_SESSION_LIFETIME),
+            session_lifetime,
+            session_absolute_lifetime: parse_var::<u64>("BACKEND_SESSION_MAX_LIFETIME")?
+                .unwrap_or(DEFAULT_SESSION_ABSOLUTE_LIFETIME)
+                .max(session_lifetime),
             auth: AuthConfig::from_env()?,
             database_url: required_var("BACKEND_DATABASE_URL")?,
             cache_url: required_var("BACKEND_CACHE_URL")?,
