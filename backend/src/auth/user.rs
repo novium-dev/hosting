@@ -29,8 +29,6 @@ use zelus::types::DocumentedType;
 
 const DAEMON_PASSWORD_LENGTH: usize = 32;
 
-const AVATAR_BASE_URL: &str = "https://avatar.novium.world/";
-
 #[derive(Debug)]
 pub struct UserAuthentication {
     pub id: i32,
@@ -129,7 +127,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .inspect_err(|err| error!("Unable to acquire database connection: {err:?}"))?;
 
         let Some(user) = query!(
-            r#"SELECT username, auth_id, role AS "role: i32", email, first_name, last_name
+            r#"SELECT username, role AS "role: i32", email, first_name, last_name
              FROM users
              WHERE id = $1"#,
             &id
@@ -157,7 +155,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             permissions: effective.permissions,
             role: role.unwrap_or(Role::User),
             email: user.email,
-            avatar_url: avatar_url(&user.auth_id),
+            avatar_url: backend.avatar_url(),
             first_name: user.first_name,
             last_name: user.last_name,
             projects: effective.projects,
@@ -213,14 +211,15 @@ impl DocumentedType for UserAuthentication {
     }
 }
 
-pub fn avatar_url(auth_id: &str) -> String {
-    let uuid = auth_id.split_once(':').map_or(auth_id, |(_, sub)| sub);
-
-    Url::parse_with_params(AVATAR_BASE_URL, [("uuid", uuid)])
-        .map_or_else(|_err| AVATAR_BASE_URL.to_owned(), String::from)
-}
-
 impl Backend {
+    pub fn avatar_url(&self) -> String {
+        self.config
+            .logo_url
+            .as_ref()
+            .map(Url::to_string)
+            .unwrap_or_default()
+    }
+
     pub async fn get_or_create_user(
         &self,
         auth_user: AuthUser,
@@ -267,21 +266,4 @@ pub(crate) fn generate_daemon_password() -> String {
         &nanoid::alphabet::SAFE,
         DAEMON_PASSWORD_LENGTH,
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::avatar_url;
-
-    #[test]
-    fn builds_the_avatar_url_from_the_provider_subject() {
-        assert_eq!(
-            avatar_url("user:6a7b8c"),
-            "https://avatar.novium.world/?uuid=6a7b8c"
-        );
-        assert_eq!(
-            avatar_url("6a7b8c"),
-            "https://avatar.novium.world/?uuid=6a7b8c"
-        );
-    }
 }

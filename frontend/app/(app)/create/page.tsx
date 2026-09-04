@@ -1,6 +1,6 @@
 "use client";
 
-import { NoviumLogo } from "@/components/brand/novium-logo";
+import { AppLogo } from "@/components/brand/app-logo";
 import { CreateProjectForm } from "@/components/create-project-form";
 import {
   Card,
@@ -25,7 +25,7 @@ export default function CreateProjectPage() {
     <div className="flex h-svh items-center justify-center px-4">
       <Card className="w-full max-w-xs sm:max-w-sm">
         <CardHeader className="flex flex-col items-center gap-2">
-          <NoviumLogo className="size-8" />
+          <AppLogo className="size-8" />
           <CardTitle>{t("app:createProjectPage.title")}</CardTitle>
           <CardDescription>
             {t("app:createProjectPage.description")}

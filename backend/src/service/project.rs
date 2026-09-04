@@ -2,7 +2,6 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
-use crate::auth::user::avatar_url;
 use crate::db::feature::ProjectFeature;
 use crate::db::project::ProjectId;
 use crate::service::error_project_not_found::FromProjectNotFound;
@@ -345,8 +344,7 @@ pub(crate) impl ProjectService for Backend {
             "SELECT
                 users.id,
                 users.username,
-                users.email,
-                users.auth_id
+                users.email
              FROM projects
              JOIN users ON users.id = projects.owner
              WHERE projects.id = $1",
@@ -360,7 +358,6 @@ pub(crate) impl ProjectService for Backend {
                 users.id,
                 users.username,
                 users.email,
-                users.auth_id,
                 project_users.permissions,
                 project_users.expires_at
              FROM project_users
@@ -374,11 +371,13 @@ pub(crate) impl ProjectService for Backend {
         .fetch_all(&*self.database)
         .await?;
 
+        let avatar_url = self.avatar_url();
+
         Ok(core::iter::once(ProjectUserInfo {
             id: owner.id,
             username: owner.username,
             email: owner.email,
-            avatar_url: avatar_url(&owner.auth_id),
+            avatar_url: avatar_url.clone(),
             permissions: ProjectPermissions::all().bits() | ServerPermissions::all().bits(),
             expires_at: None,
         })
@@ -386,7 +385,7 @@ pub(crate) impl ProjectService for Backend {
             id: user.id,
             username: user.username,
             email: user.email,
-            avatar_url: avatar_url(&user.auth_id),
+            avatar_url: avatar_url.clone(),
             permissions: user.permissions,
             expires_at: user.expires_at,
         }))

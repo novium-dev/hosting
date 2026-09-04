@@ -89,6 +89,7 @@ fn required_url_var(key: &str) -> Result<Url, anyhow::Error> {
 pub struct BackendConfig {
     pub listeners: HashSet<SocketAddr>,
     pub public_url: Url,
+    pub logo_url: Option<Url>,
     pub trusted_urls: Vec<Url>,
     pub session_lifetime: u64,
     pub session_absolute_lifetime: u64,
@@ -119,6 +120,7 @@ impl BackendConfig {
         Ok(Self {
             listeners,
             public_url: required_url_var("BACKEND_PUBLIC_URL")?,
+            logo_url: url_var("BACKEND_LOGO_URL")?,
             trusted_urls: parse_list_var::<Url>("BACKEND_TRUSTED_URLS")?,
             session_lifetime,
             session_absolute_lifetime: parse_var::<u64>("BACKEND_SESSION_MAX_LIFETIME")?

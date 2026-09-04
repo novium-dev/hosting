@@ -9,7 +9,7 @@ import { Navigate } from "react-router-dom";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { appConfig } from "@/constants/config";
-import { NoviumLogo } from "@/components/brand/novium-logo";
+import { AppLogo } from "@/components/brand/app-logo";
 import { auth } from "@/lib/auth";
 import { authClient } from "@/lib/auth-client";
 import { useProjectStore } from "@/stores/projects";
@@ -40,7 +40,7 @@ export default function OnboardingPage() {
       <Card className="w-full max-w-xs sm:max-w-sm relative">
         <CardHeader className="shadow-xs border-none bg-transparent">
           <div className="flex flex-col items-center text-center">
-            <NoviumLogo className="size-10" />
+            <AppLogo className="size-10" />
             <div className="flex flex-col">
               <CardTitle className="text-xl font-semibold">
                 {t("onboarding.title")}

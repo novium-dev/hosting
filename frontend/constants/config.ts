@@ -1,5 +1,6 @@
 type AppConfig = {
   appName: string;
+  logoUrl: string | null;
   authRoutes: {
     default: string;
     signin: string;
@@ -10,8 +11,8 @@ type AppConfig = {
     userProfile: string;
   };
   legalLinks: {
-    terms: string;
-    privacy: string;
+    terms: string | null;
+    privacy: string | null;
   };
   uploads: {
     behindCloudflare: boolean;
@@ -31,6 +32,12 @@ function parseBoolean(value: string | undefined) {
   return normalized === "true" || normalized === "1" || normalized === "yes";
 }
 
+function optionalUrl(value: string | undefined) {
+  const trimmed = value?.trim();
+
+  return trimmed ? trimmed : null;
+}
+
 const behindCloudflare = parseBoolean(
   window.__RUNTIME_CONFIG__?.BEHIND_CLOUDFLARE ||
     import.meta.env.VITE_BEHIND_CLOUDFLARE,
@@ -41,6 +48,9 @@ export const appConfig: AppConfig = {
     window.__RUNTIME_CONFIG__?.APP_NAME ||
     import.meta.env.VITE_APP_NAME ||
     "Hephaestus",
+  logoUrl: optionalUrl(
+    window.__RUNTIME_CONFIG__?.LOGO_URL || import.meta.env.VITE_LOGO_URL,
+  ),
   authRoutes: {
     default: "/",
     signin: "/signin",
@@ -51,8 +61,13 @@ export const appConfig: AppConfig = {
     userProfile: "/profile",
   },
   legalLinks: {
-    terms: "https://novium.world/agb",
-    privacy: "https://novium.world/privacy",
+    terms: optionalUrl(
+      window.__RUNTIME_CONFIG__?.TERMS_URL || import.meta.env.VITE_TERMS_URL,
+    ),
+    privacy: optionalUrl(
+      window.__RUNTIME_CONFIG__?.PRIVACY_URL ||
+        import.meta.env.VITE_PRIVACY_URL,
+    ),
   },
   uploads: {
     behindCloudflare,
