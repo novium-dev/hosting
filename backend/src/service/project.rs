@@ -344,7 +344,8 @@ pub(crate) impl ProjectService for Backend {
             "SELECT
                 users.id,
                 users.username,
-                users.email
+                users.email,
+                users.avatar_url
              FROM projects
              JOIN users ON users.id = projects.owner
              WHERE projects.id = $1",
@@ -358,6 +359,7 @@ pub(crate) impl ProjectService for Backend {
                 users.id,
                 users.username,
                 users.email,
+                users.avatar_url,
                 project_users.permissions,
                 project_users.expires_at
              FROM project_users
@@ -371,13 +373,11 @@ pub(crate) impl ProjectService for Backend {
         .fetch_all(&*self.database)
         .await?;
 
-        let avatar_url = self.avatar_url();
-
         Ok(core::iter::once(ProjectUserInfo {
             id: owner.id,
             username: owner.username,
             email: owner.email,
-            avatar_url: avatar_url.clone(),
+            avatar_url: owner.avatar_url.unwrap_or_default(),
             permissions: ProjectPermissions::all().bits() | ServerPermissions::all().bits(),
             expires_at: None,
         })
@@ -385,7 +385,7 @@ pub(crate) impl ProjectService for Backend {
             id: user.id,
             username: user.username,
             email: user.email,
-            avatar_url: avatar_url.clone(),
+            avatar_url: user.avatar_url.unwrap_or_default(),
             permissions: user.permissions,
             expires_at: user.expires_at,
         }))

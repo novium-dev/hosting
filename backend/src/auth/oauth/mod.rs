@@ -100,6 +100,8 @@ pub struct AuthUser {
     #[serde(default)]
     pub(crate) preferred_username: Option<String>,
     #[serde(default)]
+    pub(crate) picture: Option<String>,
+    #[serde(default)]
     pub(crate) username: Option<String>,
     #[serde(default)]
     pub(crate) roles: Option<Vec<String>>,
@@ -197,13 +199,14 @@ mod tests {
     #[test]
     fn ignores_null_claims_the_backend_does_not_use() {
         let user: AuthUser = serde_json::from_str(
-            r#"{"sub":"abc","email_verified":true,"name":null,"email":"user@example.com","given_name":null}"#,
+            r#"{"sub":"abc","email_verified":true,"name":null,"email":"user@example.com","given_name":null,"picture":null}"#,
         )
         .expect("user info should deserialize");
 
         assert_eq!(user.sub, "abc");
         assert_eq!(user.email, "user@example.com");
         assert_eq!(user.given_name, None);
+        assert_eq!(user.picture, None);
         assert_eq!(user.roles, None);
     }
 

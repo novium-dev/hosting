@@ -20,7 +20,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::query;
 use std::collections::HashMap;
 use tracing::error;
-use url::Url;
 use utoipa::openapi::path::OperationBuilder;
 use utoipa::openapi::{RefOr, ResponsesBuilder, Schema};
 use zelus::responses::DocumentedResultResponse;
@@ -127,7 +126,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .inspect_err(|err| error!("Unable to acquire database connection: {err:?}"))?;
 
         let Some(user) = query!(
-            r#"SELECT username, role AS "role: i32", email, first_name, last_name
+            r#"SELECT username, role AS "role: i32", email, avatar_url, first_name, last_name
              FROM users
              WHERE id = $1"#,
             &id
@@ -155,7 +154,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             permissions: effective.permissions,
             role: role.unwrap_or(Role::User),
             email: user.email,
-            avatar_url: backend.avatar_url(),
+            avatar_url: user.avatar_url.unwrap_or_default(),
             first_name: user.first_name,
             last_name: user.last_name,
             projects: effective.projects,
@@ -212,14 +211,6 @@ impl DocumentedType for UserAuthentication {
 }
 
 impl Backend {
-    pub fn avatar_url(&self) -> String {
-        self.config
-            .logo_url
-            .as_ref()
-            .map(Url::to_string)
-            .unwrap_or_default()
-    }
-
     pub async fn get_or_create_user(
         &self,
         auth_user: AuthUser,
@@ -230,15 +221,16 @@ impl Backend {
         let record = query!(
             r#"
     INSERT INTO users
-        (username, auth_id, role, email, first_name, last_name, daemon_password)
+        (username, auth_id, role, email, avatar_url, first_name, last_name, daemon_password)
     VALUES
-        ($1, $2, $3, $4, $5, $6, $7)
+        ($1, $2, $3, $4, $5, $6, $7, $8)
     ON CONFLICT (auth_id) DO UPDATE SET
         username = EXCLUDED.username,
         email = EXCLUDED.email,
+        avatar_url = EXCLUDED.avatar_url,
         first_name = EXCLUDED.first_name,
         last_name = EXCLUDED.last_name,
-        role = COALESCE($8, users.role)
+        role = COALESCE($9, users.role)
     RETURNING id
     "#,
             auth_user
@@ -248,6 +240,7 @@ impl Backend {
             auth_user.sub,
             mapped_role.unwrap_or(Role::User as i32),
             auth_user.email,
+            auth_user.picture,
             auth_user.given_name,
             auth_user.family_name,
             daemon_password,

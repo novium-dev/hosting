@@ -47,10 +47,8 @@ pub(crate) impl UserAdminService for Backend {
     ) -> Result<Paged<AdminUserInfo>, _> {
         auth.require::<_, _, ListUsersError>((), ManagementPermissions::USER_VIEW)?;
 
-        let avatar_url = self.avatar_url();
-
         Ok(query!(
-            r#"SELECT id, username, auth_id, role AS "role: i32", email, first_name, last_name
+            r#"SELECT id, username, auth_id, role AS "role: i32", email, avatar_url, first_name, last_name
              FROM users
              ORDER BY id"#
         )
@@ -60,7 +58,7 @@ pub(crate) impl UserAdminService for Backend {
         .map(|user| AdminUserInfo {
             id: user.id,
             username: user.username,
-            avatar_url: avatar_url.clone(),
+            avatar_url: user.avatar_url.unwrap_or_default(),
             auth_id: user.auth_id,
             role: user.role,
             email: user.email,
@@ -82,7 +80,7 @@ pub(crate) impl UserAdminService for Backend {
         auth.require::<_, _, GetUserError>((), ManagementPermissions::USER_VIEW)?;
 
         let user = query!(
-            r#"SELECT id, username, auth_id, role AS "role: i32", email, first_name, last_name
+            r#"SELECT id, username, auth_id, role AS "role: i32", email, avatar_url, first_name, last_name
              FROM users
              WHERE id = $1"#,
             user_id
@@ -93,7 +91,7 @@ pub(crate) impl UserAdminService for Backend {
         Ok(AdminUserInfo {
             id: user.id,
             username: user.username,
-            avatar_url: self.avatar_url(),
+            avatar_url: user.avatar_url.unwrap_or_default(),
             auth_id: user.auth_id,
             role: user.role,
             email: user.email,
