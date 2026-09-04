@@ -10,4 +10,4 @@ ENV GOCACHE=/work/.gocache
 
 STOPSIGNAL SIGINT
 
-ENTRYPOINT ["/bin/sh", "-c", "(test -z \"$REPOSITORY_URL\" || (git init -q && GIT_TERMINAL_PROMPT=0 git -c credential.helper='!f() { test -n \"$REPOSITORY_PASSWORD\" && { echo \"username=${REPOSITORY_USERNAME:-oauth2}\"; echo \"password=$REPOSITORY_PASSWORD\"; }; }; f' fetch $REPOSITORY_URL $REPOSITORY_BRANCH && git checkout -q FETCH_HEAD)) && { test -z \"$ENV_FILE\" || test ! -f \"./$ENV_FILE\" || { set -a; . \"./$ENV_FILE\"; set +a; }; } && eval \"$STARTUP_COMMAND\""]
+ENTRYPOINT ["/bin/sh", "-c", "(test -z \"$REPOSITORY_URL\" || (git init -q && GIT_TERMINAL_PROMPT=0 git -c credential.helper='!f() { test -n \"$REPOSITORY_PASSWORD\" && { echo \"username=${REPOSITORY_USERNAME:-oauth2}\"; echo \"password=$REPOSITORY_PASSWORD\"; }; }; f' fetch $REPOSITORY_URL $REPOSITORY_BRANCH && git checkout -q FETCH_HEAD)) && { test -z \"$ENV_FILE\" || test ! -f \"./$ENV_FILE\" || { _novium_env=$(export -p); set -a; . \"./$ENV_FILE\"; set +a; eval \"$_novium_env\" > /dev/null 2>&1; unset _novium_env; }; } && eval \"$STARTUP_COMMAND\""]

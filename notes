@@ -1,5 +1,7 @@
-- Check whats left over from better auth and remove things that dont work anymore
-- Add user managament pages
-- move slug check to backend
-- check if we do other stuff only in frontend which is insecure
-- implement deleting orgs 
+- do not allow overriding our backend env variables via env editor
+- /admin overview page instead of redirecting to /admin/users
+
+no novium apis:
+- avatar logo url via env variable (not hardcoded)
+- use logot avatar url instead of avatars.novium
+- legal links (now optional) via env variable (not hardcoded)

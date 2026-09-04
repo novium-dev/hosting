@@ -1060,7 +1060,8 @@ pub(crate) impl ServerService for Backend {
     /// `command` is what the server runs today, `default_command` what its template defines.
     /// `reserved_environment` lists the names the template and the port allocation own, which
     /// a custom variable cannot take over. When `env_file_enabled` is set, the server sources
-    /// `env_file_path` from its working directory right before the startup command runs.
+    /// `env_file_path` from its working directory right before the startup command runs; the file
+    /// can only introduce new names, entries for variables that are already set are ignored.
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::BUILD_VIEW`].
@@ -1125,6 +1126,8 @@ pub(crate) impl ServerService for Backend {
     /// field leaves it untouched, while `environment` replaces the whole set of custom variables.
     /// `env_file_path` must be a relative path inside the server directory; it is only sourced
     /// while `env_file_enabled` is set, and a missing file is skipped rather than failing the start.
+    /// The variables the build already defines are restored after the file is sourced, so the file
+    /// cannot override the template's, the ports' or the custom variables.
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::BUILD_EDIT`].
