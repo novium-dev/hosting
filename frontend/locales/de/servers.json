@@ -353,10 +353,12 @@
     "serverNameLabel": "Servername",
     "saveNameButton": "Namen speichern",
     "sftp": {
-      "title": "SFTP-Zugriff",
+      "title": "SFTP- & SSH-Zugriff",
       "description": "Verwende dein Daemon-Passwort für die SFTP-Passwortauthentifizierung oder richte SSH-Public-Key-Auth in deinem Profil ein.",
       "openLabel": "Mit SFTP öffnen",
       "openButton": "Öffnen",
+      "sshLabel": "Konsole über SSH öffnen",
+      "sshHelpText": "Das Argument in Anführungszeichen ist der Servername — wird der Server umbenannt, ändert sich auch dieser Befehl.",
       "helpText": "Dein SFTP-Passwort ist das Daemon-Passwort, das in deinen Einstellungen angezeigt wird. Du kannst dort auch SSH-Public-Keys hinzufügen."
     },
     "wipe": {
@@ -382,7 +384,9 @@
       "usernameCopySuccess": "SFTP-Benutzername kopiert",
       "usernameCopyFailed": "SFTP-Benutzername konnte nicht kopiert werden",
       "urlCopySuccess": "SFTP-URL kopiert",
-      "urlCopyFailed": "SFTP-URL konnte nicht kopiert werden"
+      "urlCopyFailed": "SFTP-URL konnte nicht kopiert werden",
+      "commandCopySuccess": "SSH-Befehl kopiert",
+      "commandCopyFailed": "SSH-Befehl konnte nicht kopiert werden"
     }
   },
   "startup": {
@@ -396,6 +400,70 @@
       "invalidVariables": "Behebe ungültige Startvariablen, bevor du speicherst",
       "saveSuccess": "Startvariablen aktualisiert",
       "saveFailed": "Startvariablen konnten nicht gespeichert werden"
+    }
+  },
+  "startupConfig": {
+    "loading": "Startkonfiguration wird geladen...",
+    "warning": {
+      "title": "Erweiterte Einstellungen",
+      "description": "Diese Einstellungen bestimmen, wie der Serverprozess gestartet wird. Ein falscher Befehl oder eine falsche Variable kann verhindern, dass der Server überhaupt startet — ändere sie nur, wenn du weißt, was sie bewirken."
+    },
+    "command": {
+      "title": "Startbefehl",
+      "dialogTitle": "Startbefehl bearbeiten",
+      "customBadge": "Angepasst",
+      "description": "Der Befehl, den der Server ausführt, sobald seine Dateien bereitstehen. Umgebungsvariablen wie $MAIN_FILE werden beim Start eingesetzt.",
+      "defaultLabel": "Standard der Vorlage:",
+      "resetButton": "Auf Standard zurücksetzen"
+    },
+    "environment": {
+      "title": "Umgebungsvariablen",
+      "dialogTitle": "Umgebungsvariablen bearbeiten",
+      "description": "Eigene Variablen für den Serverprozess. Namen, die zur Vorlage oder zu einem Port gehören, können nicht überschrieben werden.",
+      "empty": "Noch keine eigenen Umgebungsvariablen.",
+      "addButton": "Variable hinzufügen",
+      "namePlaceholder": "NAME",
+      "valuePlaceholder": "Wert",
+      "errors": {
+        "empty": "Der Name darf nicht leer sein",
+        "name": "Nur Buchstaben, Ziffern und Unterstriche, beginnend mit Buchstabe oder Unterstrich",
+        "reserved": "Dieser Name ist von der Vorlage belegt",
+        "duplicate": "Dieser Name wird mehrfach verwendet"
+      }
+    },
+    "envFile": {
+      "toggleLabel": ".env-Datei beim Start laden",
+      "toggleDescription": "Lädt die Datei aus dem Serververzeichnis, direkt bevor der Startbefehl ausgeführt wird. Werte mit Leerzeichen müssen in der Datei in Anführungszeichen stehen.",
+      "pathLabel": "Datei",
+      "pathHelp": "Relativ zum Serververzeichnis, zum Beispiel .env oder config/production.env. Eine fehlende Datei wird übersprungen.",
+      "cardEnabled": "<path>{{path}}</path> wird beim Start geladen.",
+      "cardDisabled": "Beim Start wird keine .env-Datei geladen.",
+      "errors": {
+        "empty": "Gib einen Dateipfad an.",
+        "path": "Verwende einen relativen Pfad innerhalb des Serververzeichnisses."
+      }
+    },
+    "import": {
+      "button": ".env importieren",
+      "dialogTitle": "Umgebungsvariablen importieren",
+      "dialogDescription": "Füge den Inhalt einer .env-Datei ein oder wähle eine Datei von deinem Computer.",
+      "contentLabel": ".env-Inhalt",
+      "chooseFileButton": "Datei auswählen",
+      "mergeButton": "Zusammenführen",
+      "replaceButton": "Alle ersetzen",
+      "toasts": {
+        "empty": "Im eingefügten Inhalt wurden keine Variablen gefunden",
+        "readFailed": "Die ausgewählte Datei konnte nicht gelesen werden",
+        "imported": "{{count}} Variable importiert",
+        "imported_other": "{{count}} Variablen importiert"
+      }
+    },
+    "toasts": {
+      "loadFailed": "Startkonfiguration konnte nicht geladen werden",
+      "commandSaved": "Startbefehl aktualisiert",
+      "environmentSaved": "Umgebungsvariablen aktualisiert",
+      "environmentInvalid": "Korrigiere die ungültigen Umgebungsvariablen vor dem Speichern",
+      "saveFailed": "Startkonfiguration konnte nicht gespeichert werden"
     }
   },
   "terminal": {

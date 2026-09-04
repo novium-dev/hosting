@@ -36,6 +36,7 @@ import { NetworkPorts } from "../components/network-ports";
 import { RoutesManager } from "../components/routes-manager";
 import { SchedulesManager } from "../components/schedules-manager";
 import { ServerSettings } from "../components/server-settings";
+import { StartupConfiguration } from "../components/startup-configuration";
 import { StartupVariables } from "../components/startup-variables";
 import { ModPluginBrowser } from "../components/mods/mod-plugin-browser";
 import { MinecraftPlayerManager } from "../components/minecraft-player-manager";
@@ -118,6 +119,10 @@ export default function ClientServerSectionPage() {
   const canCreateBackup = hasServerPermission(
     effectivePermissions,
     ServerPermission.BACKUP_CREATE,
+  );
+  const canEditBuild = hasServerPermission(
+    effectivePermissions,
+    ServerPermission.BUILD_EDIT,
   );
   const canManagePlayers = hasServerPermission(
     effectivePermissions,
@@ -236,10 +241,13 @@ export default function ClientServerSectionPage() {
           canCreateBackup={canCreateBackup}
         />
       ) : activeSection.key === "startup" ? (
-        <StartupVariables
-          canViewSecrets={canViewSecretVariables}
-          serverId={server}
-        />
+        <div className="space-y-4">
+          <StartupVariables
+            canViewSecrets={canViewSecretVariables}
+            serverId={server}
+          />
+          <StartupConfiguration canEdit={canEditBuild} serverId={server} />
+        </div>
       ) : (
         <Card className="border-dashed">
           <CardHeader>

@@ -24,9 +24,14 @@ use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use crate::templates::variable::{
     VariableBuilder, VariableContent, VariableDataBuilder, VariableGroupBuilder, VariablePayload,
 };
-use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
+use crate::templates::{
+    STARTUP_COMMAND_ENVIRONMENT, Template, TemplateError, TemplatePortDefinition, ThinTemplateError,
+};
+
 use crate::utils::serde::SerdePrimitive;
 
+pub(crate) const JVM_FLAGS: &str =
+    "-Dterminal.ansi=true -Djava.net.preferIPv6Addresses=system -XX:MaxRAMPercentage=95.0";
 pub(crate) const PAPER_URL: &str = "https://fill.papermc.io/";
 pub(crate) const PURPUR_URL: &str = "https://api.purpurmc.org/";
 pub(crate) const FABRIC_URL: &str = "https://meta.fabricmc.net/v2";
@@ -147,7 +152,7 @@ impl MinecraftServerModification {
 }
 
 impl MinecraftServerExtra {
-    const REL: usize = 1;
+    const REL: usize = 2;
 
     pub(crate) const fn modification(&self) -> MinecraftServerModification {
         match self {
@@ -158,6 +163,25 @@ impl MinecraftServerExtra {
             Self::Quilt { .. } => MinecraftServerModification::Quilt,
             Self::NeoForge { .. } => MinecraftServerModification::NeoForge,
         }
+    }
+
+    pub(crate) fn startup_command(&self) -> String {
+        let modules = match self.modification() {
+            MinecraftServerModification::Purpur => "--add-modules=jdk.incubator.vector ",
+            _ => "",
+        };
+        let launch = match self.modification() {
+            MinecraftServerModification::Fabric => {
+                "-Dfabric.gameJarPath=/server.jar -jar /fabric-server-launch.jar"
+            }
+            MinecraftServerModification::Quilt => {
+                "-Dloader.gameJarPath=/server.jar -jar /quilt-server-launch.jar"
+            }
+            MinecraftServerModification::NeoForge => "$(cat /args.txt)",
+            _ => "-jar /server.jar",
+        };
+
+        format!("java {modules}{JVM_FLAGS} {launch}")
     }
 
     pub(crate) fn image(&self) -> ServerBuildImage {
@@ -433,7 +457,10 @@ impl Template for MinecraftTemplate {
                 "DAC_OVERRIDE".to_owned(),
                 "NET_BIND_SERVICE".to_owned(),
             ],
-            environment: HashMap::new(),
+            environment: HashMap::from([(
+                STARTUP_COMMAND_ENVIRONMENT.to_owned(),
+                extra.startup_command(),
+            )]),
             backup_exclude,
             files_write: extra.files_write(),
 
@@ -756,6 +783,10 @@ impl Template for MinecraftTemplate {
     }
 
     fn default_internet_access(&self) -> bool {
+        true
+    }
+
+    fn supports_custom_startup(&self) -> bool {
         true
     }
 

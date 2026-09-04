@@ -78,6 +78,10 @@ impl Backend {
                         suspended AS "suspended: bool",
                         suspension_reason,
                         custom_dockerfile,
+                        custom_startup,
+                        custom_environment AS "custom_environment: JsonValue",
+                        env_file_enabled AS "env_file_enabled: bool",
+                        env_file_path,
                         internet_access AS "internet_access: bool",
                         cpu,
                         ram,
@@ -118,6 +122,17 @@ impl Backend {
                     suspended: server.suspended,
                     suspension_reason: server.suspension_reason,
                     custom_dockerfile: server.custom_dockerfile,
+                    custom_startup: server.custom_startup,
+                    custom_environment: serde_json::from_value(server.custom_environment)
+                        .unwrap_or_else(|err| {
+                            warn!(
+                                "Found server whose custom environment is unreadable: {}: {err:?}",
+                                server.id
+                            );
+                            HashMap::new()
+                        }),
+                    env_file_enabled: server.env_file_enabled,
+                    env_file_path: server.env_file_path,
                     internet_access: server.internet_access,
 
                     project: server.project,

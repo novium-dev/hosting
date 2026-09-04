@@ -15,7 +15,9 @@ use crate::templates::generic::{
     version_cmp,
 };
 use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, VariablePayload};
-use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
+use crate::templates::{
+    STARTUP_COMMAND_ENVIRONMENT, Template, TemplateError, TemplatePortDefinition, ThinTemplateError,
+};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct PythonExtra {
@@ -33,6 +35,8 @@ pub(crate) struct PythonExtra {
 pub(crate) struct PythonVersionCache(IndexSet<(u16, u16, u16)>, i64);
 
 pub(crate) struct PythonTemplate;
+
+const DEFAULT_STARTUP_COMMAND: &str = "((test ! -f requirements.txt) || pip --cache-dir=.pip install -r requirements.txt) && python $MAIN_FILE";
 
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
 pub static PYTHON_FILE_REGEX: lazy_regex::Lazy<Regex> =
@@ -55,7 +59,7 @@ impl Template for PythonTemplate {
                 .replace("{PYTHON_VERSION}", &extra.python_version),
             args: HashMap::new(),
             tag: None,
-            default_tag: Some(format!("python-{}-r1", extra.python_version)),
+            default_tag: Some(format!("python-{}-r3", extra.python_version)),
         };
         Ok(ServerBuildPayload {
             image,
@@ -76,7 +80,13 @@ impl Template for PythonTemplate {
                 password: extra.repository_password,
             })
             .into_iter()
-            .chain([("MAIN_FILE".to_owned(), extra.start_file)])
+            .chain([
+                ("MAIN_FILE".to_owned(), extra.start_file),
+                (
+                    STARTUP_COMMAND_ENVIRONMENT.to_owned(),
+                    DEFAULT_STARTUP_COMMAND.to_owned(),
+                ),
+            ])
             .collect(),
             files_write: HashMap::new(),
             cap_add: Vec::new(),
@@ -210,6 +220,14 @@ impl Template for PythonTemplate {
     }
 
     fn default_internet_access(&self) -> bool {
+        true
+    }
+
+    fn supports_custom_startup(&self) -> bool {
+        true
+    }
+
+    fn supports_custom_environment(&self) -> bool {
         true
     }
 

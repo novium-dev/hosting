@@ -21,6 +21,9 @@ use std::io;
 use tracing::{debug, error, info};
 use variable::VariablePayload;
 
+pub const STARTUP_COMMAND_ENVIRONMENT: &str = "STARTUP_COMMAND";
+pub const ENV_FILE_ENVIRONMENT: &str = "ENV_FILE";
+
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct TemplatePortDefinition {
     pub protocol: NetworkProtocol,
@@ -72,6 +75,14 @@ pub trait Template {
     ) -> impl Future<Output = Result<HashSet<&'static str>, TemplateError>> + Send + Sync;
 
     fn default_internet_access(&self) -> bool;
+
+    fn supports_custom_startup(&self) -> bool {
+        false
+    }
+
+    fn supports_custom_environment(&self) -> bool {
+        false
+    }
 
     fn licenses(&self) -> &'static [&'static License] {
         &[]
@@ -191,6 +202,10 @@ pub trait TemplateInner {
     ) -> Result<(), RedisError>;
 
     fn default_internet_access(&self) -> bool;
+
+    fn supports_custom_startup(&self) -> bool;
+
+    fn supports_custom_environment(&self) -> bool;
 
     fn licenses(&self) -> &'static [&'static License];
 }
@@ -487,6 +502,14 @@ impl<T: Template + Send + Sync> TemplateInner for T {
 
     fn default_internet_access(&self) -> bool {
         <Self as Template>::default_internet_access(self)
+    }
+
+    fn supports_custom_startup(&self) -> bool {
+        <Self as Template>::supports_custom_startup(self)
+    }
+
+    fn supports_custom_environment(&self) -> bool {
+        <Self as Template>::supports_custom_environment(self)
     }
 
     fn licenses(&self) -> &'static [&'static License] {

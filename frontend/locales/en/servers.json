@@ -353,10 +353,12 @@
     "serverNameLabel": "Server name",
     "saveNameButton": "Save name",
     "sftp": {
-      "title": "SFTP Access",
+      "title": "SFTP & SSH Access",
       "description": "Use your daemon password for SFTP password auth, or configure SSH public key auth from your profile.",
       "openLabel": "Open with SFTP",
       "openButton": "Open",
+      "sshLabel": "Open the console over SSH",
+      "sshHelpText": "The quoted argument is the server name, so rename the server and this command changes with it.",
       "helpText": "Your SFTP password is the daemon password shown in your settings. You can also add SSH public keys there."
     },
     "wipe": {
@@ -382,7 +384,9 @@
       "usernameCopySuccess": "SFTP username copied",
       "usernameCopyFailed": "Failed to copy SFTP username",
       "urlCopySuccess": "SFTP URL copied",
-      "urlCopyFailed": "Failed to copy SFTP URL"
+      "urlCopyFailed": "Failed to copy SFTP URL",
+      "commandCopySuccess": "SSH command copied",
+      "commandCopyFailed": "Failed to copy the SSH command"
     }
   },
   "startup": {
@@ -396,6 +400,70 @@
       "invalidVariables": "Fix invalid startup variables before saving",
       "saveSuccess": "Startup variables updated",
       "saveFailed": "Failed to save startup variables"
+    }
+  },
+  "startupConfig": {
+    "loading": "Loading startup configuration...",
+    "warning": {
+      "title": "Advanced settings",
+      "description": "These settings control how the server process is launched. A wrong command or variable can stop the server from starting at all — only change them if you know what they do."
+    },
+    "command": {
+      "title": "Startup Command",
+      "dialogTitle": "Edit startup command",
+      "customBadge": "Custom",
+      "description": "The command the server runs once its files are in place. Environment variables such as $MAIN_FILE are expanded at start.",
+      "defaultLabel": "Template default:",
+      "resetButton": "Reset to default"
+    },
+    "environment": {
+      "title": "Environment Variables",
+      "dialogTitle": "Edit environment variables",
+      "description": "Custom variables passed to the server process. Names owned by the template or by a port allocation cannot be overridden.",
+      "empty": "No custom environment variables yet.",
+      "addButton": "Add variable",
+      "namePlaceholder": "NAME",
+      "valuePlaceholder": "value",
+      "errors": {
+        "empty": "The name cannot be empty",
+        "name": "Use letters, digits and underscores, starting with a letter or underscore",
+        "reserved": "This name is reserved by the template",
+        "duplicate": "This name is used more than once"
+      }
+    },
+    "envFile": {
+      "toggleLabel": "Load a .env file at startup",
+      "toggleDescription": "Sources the file from the server directory right before the startup command runs. Values containing spaces have to be quoted in the file.",
+      "pathLabel": "File",
+      "pathHelp": "Relative to the server directory, for example .env or config/production.env. A missing file is skipped.",
+      "cardEnabled": "<path>{{path}}</path> is loaded at startup.",
+      "cardDisabled": "No .env file is loaded at startup.",
+      "errors": {
+        "empty": "Enter a file path.",
+        "path": "Use a relative path inside the server directory."
+      }
+    },
+    "import": {
+      "button": "Import .env",
+      "dialogTitle": "Import environment variables",
+      "dialogDescription": "Paste the contents of a .env file or pick one from your computer.",
+      "contentLabel": ".env contents",
+      "chooseFileButton": "Choose file",
+      "mergeButton": "Merge",
+      "replaceButton": "Replace all",
+      "toasts": {
+        "empty": "No variables found in the pasted content",
+        "readFailed": "Failed to read the selected file",
+        "imported": "Imported {{count}} variable",
+        "imported_other": "Imported {{count}} variables"
+      }
+    },
+    "toasts": {
+      "loadFailed": "Failed to load the startup configuration",
+      "commandSaved": "Startup command updated",
+      "environmentSaved": "Environment variables updated",
+      "environmentInvalid": "Fix the invalid environment variables before saving",
+      "saveFailed": "Failed to save the startup configuration"
     }
   },
   "terminal": {

@@ -32,7 +32,12 @@ define_error!(server {
     unavailable("Server is currently in use" SERVICE_UNAVAILABLE),
     suspension_reason_required("Suspending a server requires a reason" BAD_REQUEST),
     not_suspended("The server is not suspended" BAD_REQUEST),
-    config_invalid("The server config file is invalid" BAD_REQUEST)
+    config_invalid("The server config file is invalid" BAD_REQUEST),
+    startup_unsupported("The server's template does not support a custom startup command" BAD_REQUEST),
+    startup_invalid("The startup command must be 1-4000 characters without control characters" BAD_REQUEST),
+    environment_unsupported("The server's template does not support custom environment variables" BAD_REQUEST),
+    environment_invalid("An environment variable name or value is invalid, reserved or too long" BAD_REQUEST),
+    env_file_invalid("The environment file must be a relative path inside the server directory" BAD_REQUEST)
 });
 
 define_error!(project {

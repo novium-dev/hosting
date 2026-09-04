@@ -18,7 +18,9 @@ use crate::templates::generic::{
 use crate::templates::variable::{
     VariableBuilder, VariableContent, VariableDataBuilder, VariableGroupBuilder, VariablePayload,
 };
-use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
+use crate::templates::{
+    STARTUP_COMMAND_ENVIRONMENT, Template, TemplateError, TemplatePortDefinition, ThinTemplateError,
+};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct JavaExtra {
@@ -61,6 +63,19 @@ enum JavaVersion {
 
 pub(crate) struct JavaTemplate;
 
+const PREBUILT_STARTUP_COMMAND: &str =
+    "java -Djava.net.preferIPv6Addresses=system -XX:MaxRAMPercentage=95.0 -jar server.jar";
+const GRADLE_STARTUP_COMMAND: &str = "/bin/sh ./gradlew run";
+
+impl JavaBuild {
+    const fn default_startup_command(self) -> &'static str {
+        match self {
+            Self::Prebuilt => PREBUILT_STARTUP_COMMAND,
+            Self::Gradle => GRADLE_STARTUP_COMMAND,
+        }
+    }
+}
+
 impl Template for JavaTemplate {
     const ID: &'static str = "java";
     type Extra = JavaExtra;
@@ -91,8 +106,8 @@ impl Template for JavaTemplate {
             args: HashMap::new(),
             tag: None,
             default_tag: Some(match extra.build {
-                JavaBuild::Prebuilt => format!("java-prebuilt-{}-r1", extra.java_version),
-                JavaBuild::Gradle => format!("java-gradle-{}-r1", extra.java_version),
+                JavaBuild::Prebuilt => format!("java-prebuilt-{}-r3", extra.java_version),
+                JavaBuild::Gradle => format!("java-gradle-{}-r3", extra.java_version),
             }),
         };
         let mut backup_exclude = HashSet::from([".git/".to_owned()]);
@@ -106,12 +121,18 @@ impl Template for JavaTemplate {
             uid: None,
             gid: None,
             backup_exclude,
-            environment: HashMap::from(git_environment(GitFields {
+            environment: git_environment(GitFields {
                 url: extra.repository_url,
                 branch: extra.repository_branch,
                 username: extra.repository_username,
                 password: extra.repository_password,
-            })),
+            })
+            .into_iter()
+            .chain([(
+                STARTUP_COMMAND_ENVIRONMENT.to_owned(),
+                extra.build.default_startup_command().to_owned(),
+            )])
+            .collect(),
             files_write: HashMap::new(),
             cap_add: Vec::new(),
             cap_drop: Vec::new(),
@@ -260,6 +281,14 @@ impl Template for JavaTemplate {
     }
 
     fn default_internet_access(&self) -> bool {
+        true
+    }
+
+    fn supports_custom_startup(&self) -> bool {
+        true
+    }
+
+    fn supports_custom_environment(&self) -> bool {
         true
     }
 
