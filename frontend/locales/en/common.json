@@ -6,6 +6,8 @@
       "description": "Continue with Novium Auth to access your account.",
       "submit": "Sign in",
       "terms": "By signing in, you agree to our <termsLink>Terms of Use</termsLink> and <privacyLink>Privacy Policy</privacyLink>.",
+      "termsOnly": "By signing in, you agree to our <termsLink>Terms of Use</termsLink>.",
+      "privacyOnly": "By signing in, you agree to our <privacyLink>Privacy Policy</privacyLink>.",
       "devSubmit": "Sign in as dev admin",
       "devHint": "Local development only. Requires the backend built with --features auth_dev.",
       "devUnavailable": "Dev sign-in is unavailable — start the backend with --features auth_dev."
@@ -14,6 +16,11 @@
       "user": "User",
       "team": "Team"
     }
+  },
+  "footer": {
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Use",
+    "imprint": "Imprint"
   },
   "language": {
     "label": "Language",

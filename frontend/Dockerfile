@@ -19,6 +19,21 @@ ENV VITE_API_URL=$VITE_API_URL
 ARG VITE_APP_NAME=""
 ENV VITE_APP_NAME=$VITE_APP_NAME
 
+# Branding and legal links; both empty by default. Without a logo URL the SPA
+# renders no logo, without the legal URLs it renders no sign-in legal notice.
+# Overridable at container runtime like VITE_APP_NAME.
+ARG VITE_LOGO_URL=""
+ENV VITE_LOGO_URL=$VITE_LOGO_URL
+
+ARG VITE_TERMS_URL=""
+ENV VITE_TERMS_URL=$VITE_TERMS_URL
+
+ARG VITE_PRIVACY_URL=""
+ENV VITE_PRIVACY_URL=$VITE_PRIVACY_URL
+
+ARG VITE_IMPRINT_URL=""
+ENV VITE_IMPRINT_URL=$VITE_IMPRINT_URL
+
 # Cloudflare's proxy caps request bodies at 100 MB; when set, the SPA rejects
 # larger uploads itself. Overridable at container runtime like VITE_APP_NAME.
 ARG VITE_BEHIND_CLOUDFLARE=""

@@ -3,7 +3,6 @@ use crate::auth::Authentication;
 use crate::auth::permissions::{
     ManagementPermissions, ProjectPermissions, Role, ServerPermissions,
 };
-use crate::auth::user::avatar_url;
 use crate::db::project::ProjectId;
 use crate::service::admin::user::user_admin_service_error::{
     DeleteUserError, GetUserError, ListUserProjectsError, ListUsersError, UpdateUserError,
@@ -49,7 +48,7 @@ pub(crate) impl UserAdminService for Backend {
         auth.require::<_, _, ListUsersError>((), ManagementPermissions::USER_VIEW)?;
 
         Ok(query!(
-            r#"SELECT id, username, auth_id, role AS "role: i32", email, first_name, last_name
+            r#"SELECT id, username, auth_id, role AS "role: i32", email, avatar_url, first_name, last_name
              FROM users
              ORDER BY id"#
         )
@@ -59,7 +58,7 @@ pub(crate) impl UserAdminService for Backend {
         .map(|user| AdminUserInfo {
             id: user.id,
             username: user.username,
-            avatar_url: avatar_url(&user.auth_id),
+            avatar_url: user.avatar_url.unwrap_or_default(),
             auth_id: user.auth_id,
             role: user.role,
             email: user.email,
@@ -81,7 +80,7 @@ pub(crate) impl UserAdminService for Backend {
         auth.require::<_, _, GetUserError>((), ManagementPermissions::USER_VIEW)?;
 
         let user = query!(
-            r#"SELECT id, username, auth_id, role AS "role: i32", email, first_name, last_name
+            r#"SELECT id, username, auth_id, role AS "role: i32", email, avatar_url, first_name, last_name
              FROM users
              WHERE id = $1"#,
             user_id
@@ -92,7 +91,7 @@ pub(crate) impl UserAdminService for Backend {
         Ok(AdminUserInfo {
             id: user.id,
             username: user.username,
-            avatar_url: avatar_url(&user.auth_id),
+            avatar_url: user.avatar_url.unwrap_or_default(),
             auth_id: user.auth_id,
             role: user.role,
             email: user.email,

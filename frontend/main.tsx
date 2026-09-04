@@ -11,6 +11,13 @@ document
   .querySelector('meta[name="description"]')
   ?.setAttribute("content", `${appConfig.appName} game panel for managing your servers.`);
 
+if (appConfig.logoUrl) {
+  const icon = document.createElement("link");
+  icon.rel = "icon";
+  icon.href = appConfig.logoUrl;
+  document.head.append(icon);
+}
+
 const container = document.getElementById("root");
 if (!container) throw new Error("Root container #root not found");
 

@@ -20,7 +20,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::query;
 use std::collections::HashMap;
 use tracing::error;
-use url::Url;
 use utoipa::openapi::path::OperationBuilder;
 use utoipa::openapi::{RefOr, ResponsesBuilder, Schema};
 use zelus::responses::DocumentedResultResponse;
@@ -28,8 +27,6 @@ use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
 const DAEMON_PASSWORD_LENGTH: usize = 32;
-
-const AVATAR_BASE_URL: &str = "https://avatar.novium.world/";
 
 #[derive(Debug)]
 pub struct UserAuthentication {
@@ -129,7 +126,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .inspect_err(|err| error!("Unable to acquire database connection: {err:?}"))?;
 
         let Some(user) = query!(
-            r#"SELECT username, auth_id, role AS "role: i32", email, first_name, last_name
+            r#"SELECT username, role AS "role: i32", email, avatar_url, first_name, last_name
              FROM users
              WHERE id = $1"#,
             &id
@@ -157,7 +154,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             permissions: effective.permissions,
             role: role.unwrap_or(Role::User),
             email: user.email,
-            avatar_url: avatar_url(&user.auth_id),
+            avatar_url: user.avatar_url.unwrap_or_default(),
             first_name: user.first_name,
             last_name: user.last_name,
             projects: effective.projects,
@@ -213,13 +210,6 @@ impl DocumentedType for UserAuthentication {
     }
 }
 
-pub fn avatar_url(auth_id: &str) -> String {
-    let uuid = auth_id.split_once(':').map_or(auth_id, |(_, sub)| sub);
-
-    Url::parse_with_params(AVATAR_BASE_URL, [("uuid", uuid)])
-        .map_or_else(|_err| AVATAR_BASE_URL.to_owned(), String::from)
-}
-
 impl Backend {
     pub async fn get_or_create_user(
         &self,
@@ -231,15 +221,16 @@ impl Backend {
         let record = query!(
             r#"
     INSERT INTO users
-        (username, auth_id, role, email, first_name, last_name, daemon_password)
+        (username, auth_id, role, email, avatar_url, first_name, last_name, daemon_password)
     VALUES
-        ($1, $2, $3, $4, $5, $6, $7)
+        ($1, $2, $3, $4, $5, $6, $7, $8)
     ON CONFLICT (auth_id) DO UPDATE SET
         username = EXCLUDED.username,
         email = EXCLUDED.email,
+        avatar_url = EXCLUDED.avatar_url,
         first_name = EXCLUDED.first_name,
         last_name = EXCLUDED.last_name,
-        role = COALESCE($8, users.role)
+        role = COALESCE($9, users.role)
     RETURNING id
     "#,
             auth_user
@@ -249,6 +240,7 @@ impl Backend {
             auth_user.sub,
             mapped_role.unwrap_or(Role::User as i32),
             auth_user.email,
+            auth_user.picture,
             auth_user.given_name,
             auth_user.family_name,
             daemon_password,
@@ -267,21 +259,4 @@ pub(crate) fn generate_daemon_password() -> String {
         &nanoid::alphabet::SAFE,
         DAEMON_PASSWORD_LENGTH,
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::avatar_url;
-
-    #[test]
-    fn builds_the_avatar_url_from_the_provider_subject() {
-        assert_eq!(
-            avatar_url("user:6a7b8c"),
-            "https://avatar.novium.world/?uuid=6a7b8c"
-        );
-        assert_eq!(
-            avatar_url("6a7b8c"),
-            "https://avatar.novium.world/?uuid=6a7b8c"
-        );
-    }
 }

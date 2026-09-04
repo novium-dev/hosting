@@ -4,14 +4,14 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { NoviumLogo } from "@/components/brand/novium-logo";
+import { LegalFooter, hasLegalLinks } from "@/components/auth/legal-footer";
+import { AppLogo, hasLogo } from "@/components/brand/app-logo";
 import Link from "@/components/link";
-import { Trans, useTranslation } from "react-i18next";
-import { appConfig } from "../../constants/config";
+import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 import { ProviderSignInButton } from "./provider-sign-in-button";
 import type { AuthProvider } from "./provider-sign-in-button";
 
@@ -29,12 +29,19 @@ export default function AuthWrapper({
   const { t } = useTranslation();
 
   return (
-    <Card className="w-full max-w-xs sm:max-w-sm pb-0 relative">
+    <Card
+      className={cn(
+        "w-full max-w-xs sm:max-w-sm relative",
+        hasLegalLinks && "pb-0",
+      )}
+    >
       <CardHeader className="shadow-xs border-none bg-transparent">
         <div className="flex flex-col items-center text-center gap-2">
-          <Link href="/" aria-label={t("auth.signIn.goHome")}>
-            <NoviumLogo className="size-10 cursor-pointer" />
-          </Link>
+          {hasLogo ? (
+            <Link href="/" aria-label={t("auth.signIn.goHome")}>
+              <AppLogo className="size-10 cursor-pointer" />
+            </Link>
+          ) : null}
           <CardTitle className="text-xl font-semibold">{title}</CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
             {description}
@@ -46,31 +53,7 @@ export default function AuthWrapper({
           <ProviderSignInButton key={provider} provider={provider} />
         ))}
       </CardContent>
-      <CardFooter className="bg-muted rounded-b-lg p-4">
-        <div className="text-xs text-center text-muted-foreground">
-          <Trans
-            i18nKey="auth.signIn.terms"
-            components={{
-              termsLink: (
-                <a
-                  href={appConfig.legalLinks.terms}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline underline-offset-2"
-                />
-              ),
-              privacyLink: (
-                <a
-                  href={appConfig.legalLinks.privacy}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline underline-offset-2"
-                />
-              ),
-            }}
-          />
-        </div>
-      </CardFooter>
+      <LegalFooter />
     </Card>
   );
 }

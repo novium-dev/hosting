@@ -1,5 +1,3 @@
-- do not allow overriding our backend env variables via env editor
-- /admin overview page instead of redirecting to /admin/users
 
 no novium apis:
 - avatar logo url via env variable (not hardcoded)

@@ -6,6 +6,8 @@
       "description": "Fahre mit Novium Auth fort, um auf dein Konto zuzugreifen.",
       "submit": "Anmelden",
       "terms": "Mit der Anmeldung stimmst du unseren <termsLink>Nutzungsbedingungen</termsLink> und unserer <privacyLink>Datenschutzerklärung</privacyLink> zu.",
+      "termsOnly": "Mit der Anmeldung stimmst du unseren <termsLink>Nutzungsbedingungen</termsLink> zu.",
+      "privacyOnly": "Mit der Anmeldung stimmst du unserer <privacyLink>Datenschutzerklärung</privacyLink> zu.",
       "devSubmit": "Als Dev-Admin anmelden",
       "devHint": "Nur für lokale Entwicklung. Erfordert ein Backend mit --features auth_dev.",
       "devUnavailable": "Dev-Anmeldung nicht verfügbar — das Backend mit --features auth_dev starten."
@@ -14,6 +16,11 @@
       "user": "Benutzer",
       "team": "Team"
     }
+  },
+  "footer": {
+    "privacy": "Datenschutz",
+    "terms": "AGB",
+    "imprint": "Impressum"
   },
   "language": {
     "label": "Sprache",

@@ -14,7 +14,7 @@ use oauth2::{
 use reqwest::redirect::Policy;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
-use tracing::error;
+use tracing::{debug, error};
 use url::Url;
 
 type OAuthClient =
@@ -100,6 +100,8 @@ pub struct AuthUser {
     #[serde(default)]
     pub(crate) preferred_username: Option<String>,
     #[serde(default)]
+    pub(crate) picture: Option<String>,
+    #[serde(default)]
     pub(crate) username: Option<String>,
     #[serde(default)]
     pub(crate) roles: Option<Vec<String>>,
@@ -127,11 +129,17 @@ impl AuthService {
         } else if !response.status().is_success() {
             error!("Permission denied when fetching user info: {response:?}");
             Err(<E as FromAuthInvalid>::from())
-        } else {
-            let user: AuthUser = response.json().await.map_err(|err| {
+        } else {let body = response.text().await.map_err(|err| {
+            error!("Failed to read user info response: {err:?}");
+            <E as FromAuthFailure>::from()
+        })?;
+            debug!("User info response: {}", body);
+
+            let user: AuthUser = serde_json::from_str(&body).map_err(|err| {
                 error!("Failed to parse user info response: {err:?}");
                 <E as FromAuthFailure>::from()
             })?;
+
             Ok(user)
         }
     }
@@ -197,13 +205,14 @@ mod tests {
     #[test]
     fn ignores_null_claims_the_backend_does_not_use() {
         let user: AuthUser = serde_json::from_str(
-            r#"{"sub":"abc","email_verified":true,"name":null,"email":"user@example.com","given_name":null}"#,
+            r#"{"sub":"abc","email_verified":true,"name":null,"email":"user@example.com","given_name":null,"picture":null}"#,
         )
         .expect("user info should deserialize");
 
         assert_eq!(user.sub, "abc");
         assert_eq!(user.email, "user@example.com");
         assert_eq!(user.given_name, None);
+        assert_eq!(user.picture, None);
         assert_eq!(user.roles, None);
     }
 
