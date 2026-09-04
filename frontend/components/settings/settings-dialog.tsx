@@ -1,12 +1,13 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { KeyRound, Palette, User, X } from "lucide-react";
+import { KeyRound, MonitorSmartphone, Palette, User, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AppearanceSection } from "@/components/settings/appearance-section";
 import { DaemonAuthSection } from "@/components/settings/daemon-auth-section";
 import { ProfileSection } from "@/components/settings/profile-section";
+import { SessionsSection } from "@/components/settings/sessions-section";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,6 +36,11 @@ export function SettingsDialog() {
       icon: User,
       label: t("settings:dialog.sections.profile.label"),
       description: t("settings:dialog.sections.profile.description"),
+    },
+    sessions: {
+      icon: MonitorSmartphone,
+      label: t("settings:dialog.sections.sessions.label"),
+      description: t("settings:dialog.sections.sessions.description"),
     },
     daemon: {
       icon: KeyRound,
@@ -110,6 +116,7 @@ export function SettingsDialog() {
             <ScrollArea className="min-h-0 flex-1">
               <div className="px-5 py-5 sm:px-6">
                 {active === "profile" && <ProfileSection />}
+                {active === "sessions" && <SessionsSection />}
                 {active === "daemon" && <DaemonAuthSection />}
                 {active === "appearance" && <AppearanceSection />}
               </div>

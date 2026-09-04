@@ -854,7 +854,7 @@ export type ListServersData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -943,7 +943,7 @@ export type ServerInfoData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -1077,7 +1077,7 @@ export type UpdateServerData = {
     body: UpdateServerPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -1208,7 +1208,7 @@ export type ServerTerminalData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -1294,7 +1294,7 @@ export type ServerStatsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -1371,7 +1371,7 @@ export type StartServerData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -1466,7 +1466,7 @@ export type StopServerData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -1552,7 +1552,7 @@ export type RestartServerData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -1647,7 +1647,7 @@ export type KillServerData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -1733,7 +1733,7 @@ export type WipeServerData = {
     body: Option;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -1864,7 +1864,7 @@ export type ServerVariablesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -1980,7 +1980,7 @@ export type UpdateVariablesData = {
     body: HashMap;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -2102,7 +2102,7 @@ export type ServerStartupData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -2209,7 +2209,7 @@ export type UpdateStartupData = {
     body: UpdateStartupPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -2367,7 +2367,7 @@ export type ServerLicensesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -2452,7 +2452,7 @@ export type AcceptServerLicenseData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -2542,7 +2542,7 @@ export type ListFilesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -2686,7 +2686,7 @@ export type StatFileData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -2813,7 +2813,7 @@ export type RenameFileData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -2944,7 +2944,7 @@ export type CopyFileData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -3093,7 +3093,7 @@ export type DeleteFileData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -3233,7 +3233,7 @@ export type CreateDirectoryData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -3373,7 +3373,7 @@ export type SymlinkFileData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -3513,7 +3513,7 @@ export type ChmodFileData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -3644,7 +3644,7 @@ export type ChownFileData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -3779,7 +3779,7 @@ export type DownloadUserData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -3867,7 +3867,7 @@ export type UploadUserData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -3951,7 +3951,7 @@ export type ArchiveFileData = {
     body: ArchiveFilePayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -4118,7 +4118,7 @@ export type UnarchiveFileData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -4267,7 +4267,7 @@ export type GetConfigData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -4410,7 +4410,7 @@ export type SetConfigData = {
     body: Value;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -4573,7 +4573,7 @@ export type ListBackupsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -4682,7 +4682,7 @@ export type CreateBackupData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -4795,7 +4795,7 @@ export type CreateBackupWithStorageData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -4921,7 +4921,7 @@ export type DeleteBackupData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -5042,7 +5042,7 @@ export type DownloadBackupData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -5127,7 +5127,7 @@ export type UpdateBackupData = {
     body: Option;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -5248,7 +5248,7 @@ export type RestoreBackupData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -5378,7 +5378,7 @@ export type RealtimeDownloadBackupData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -5469,7 +5469,7 @@ export type CreateServerData = {
     body: CreateServerPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -5649,7 +5649,7 @@ export type DeleteServerData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -5744,7 +5744,7 @@ export type ChangeServerTemplateData = {
     body: ChangeServerTemplatePayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -5920,7 +5920,7 @@ export type AddPortData = {
     body: AddPortPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -6060,7 +6060,7 @@ export type DeletePortData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -6177,7 +6177,7 @@ export type UpdatePortData = {
     body: UpdatePortPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -6321,7 +6321,7 @@ export type ListNodesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -6406,7 +6406,7 @@ export type CreateNodeData = {
     body: CreateNodePayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -6496,7 +6496,7 @@ export type DeleteNodeData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -6582,7 +6582,7 @@ export type UpdateNodeData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -6668,7 +6668,7 @@ export type ListNodeRegistrationsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -6745,7 +6745,7 @@ export type UpdateNodeRegistrationData = {
     body: UpdateNodeRegistrationPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -6840,7 +6840,7 @@ export type ExtendNodeRegistrationData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -6917,7 +6917,7 @@ export type UpdateMaintenanceData = {
     body: Bool;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -6994,7 +6994,7 @@ export type UpdateNodeRegionData = {
     body: NanoId;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -7080,7 +7080,7 @@ export type MetricsNodeData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -7176,7 +7176,7 @@ export type AvailablePortsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -7259,7 +7259,7 @@ export type AddNodePortData = {
     body: AddNodePortPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -7345,7 +7345,7 @@ export type DeleteNodePortData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -7435,7 +7435,7 @@ export type ListUsersData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -7516,7 +7516,7 @@ export type DeleteUserData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -7602,7 +7602,7 @@ export type GetUserData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -7688,7 +7688,7 @@ export type UpdateUserData = {
     body: UpdateUserPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -7765,7 +7765,7 @@ export type ListUserProjectsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -7838,12 +7838,6 @@ export type ListUserProjectsResponse = ListUserProjectsResponses[keyof ListUserP
 
 export type LogoutData = {
     body?: never;
-    headers?: {
-        /**
-         * The session token
-         */
-        Authorization?: string;
-    };
     path?: never;
     query?: never;
     url: '/auth/logout';
@@ -7869,18 +7863,9 @@ export type LogoutErrors = {
         };
     };
     /**
-     * Cache operation failed
-     */
-    '500​': {
-        error?: {
-            id?: 'cache/failure';
-            msg?: 'Cache operation failed';
-        };
-    };
-    /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -7899,14 +7884,174 @@ export type LogoutResponses = {
 
 export type LogoutResponse = LogoutResponses[keyof LogoutResponses];
 
+export type DeleteOtherSessionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/auth/sessions';
+};
+
+export type DeleteOtherSessionsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+};
+
+export type DeleteOtherSessionsError = DeleteOtherSessionsErrors[keyof DeleteOtherSessionsErrors];
+
+export type DeleteOtherSessionsResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteOtherSessionsResponse = DeleteOtherSessionsResponses[keyof DeleteOtherSessionsResponses];
+
+export type ListSessionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/auth/sessions';
+};
+
+export type ListSessionsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+};
+
+export type ListSessionsError = ListSessionsErrors[keyof ListSessionsErrors];
+
+export type ListSessionsResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        created_at: number;
+        current: boolean;
+        expires_at: number;
+        id: string;
+        ip_address?: string | null;
+        last_used: number;
+        user_agent?: string | null;
+    }>;
+};
+
+export type ListSessionsResponse = ListSessionsResponses[keyof ListSessionsResponses];
+
+export type DeleteSessionData = {
+    body?: never;
+    path: {
+        /**
+         * The session ID
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/auth/sessions/{session_id}';
+};
+
+export type DeleteSessionErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * Session not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'session/not_found';
+            msg?: 'Session not found';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+};
+
+export type DeleteSessionError = DeleteSessionErrors[keyof DeleteSessionErrors];
+
+export type DeleteSessionResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteSessionResponse = DeleteSessionResponses[keyof DeleteSessionResponses];
+
 export type MeData = {
     body?: never;
-    headers?: {
-        /**
-         * The session token
-         */
-        Authorization?: string;
-    };
     path?: never;
     query?: never;
     url: '/auth/me';
@@ -8088,12 +8233,6 @@ export type CallbackError = CallbackErrors[keyof CallbackErrors];
 
 export type ListSshKeysData = {
     body?: never;
-    headers?: {
-        /**
-         * The session token
-         */
-        Authorization?: string;
-    };
     path?: never;
     query?: never;
     url: '/profile/ssh-keys';
@@ -8146,12 +8285,6 @@ export type ListSshKeysResponse = ListSshKeysResponses[keyof ListSshKeysResponse
 
 export type AddSshKeyData = {
     body: AddSshKeyPayload;
-    headers?: {
-        /**
-         * The session token
-         */
-        Authorization?: string;
-    };
     path?: never;
     query?: never;
     url: '/profile/ssh-keys';
@@ -8209,12 +8342,6 @@ export type AddSshKeyResponse = AddSshKeyResponses[keyof AddSshKeyResponses];
 
 export type DeleteSshKeyData = {
     body?: never;
-    headers?: {
-        /**
-         * The session token
-         */
-        Authorization?: string;
-    };
     path: {
         /**
          * The SSH key ID
@@ -8277,12 +8404,6 @@ export type DeleteSshKeyResponse = DeleteSshKeyResponses[keyof DeleteSshKeyRespo
 
 export type DaemonPasswordData = {
     body?: never;
-    headers?: {
-        /**
-         * The session token
-         */
-        Authorization?: string;
-    };
     path?: never;
     query?: never;
     url: '/profile/daemon-password';
@@ -8331,12 +8452,6 @@ export type DaemonPasswordResponse = DaemonPasswordResponses[keyof DaemonPasswor
 
 export type RerollDaemonPasswordData = {
     body?: never;
-    headers?: {
-        /**
-         * The session token
-         */
-        Authorization?: string;
-    };
     path?: never;
     query?: never;
     url: '/profile/daemon-password/reroll';
@@ -8387,7 +8502,7 @@ export type ListProjectsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -8481,7 +8596,7 @@ export type CreateProjectData = {
     body: CreateProjectPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -8562,7 +8677,7 @@ export type CheckProjectSlugData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -8621,7 +8736,7 @@ export type DeleteProjectData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -8707,7 +8822,7 @@ export type GetProjectData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -8793,7 +8908,7 @@ export type UpdateProjectData = {
     body: UpdateProjectPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -8888,7 +9003,7 @@ export type ListProjectUsersData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -8981,7 +9096,7 @@ export type SetProjectUserData = {
     body: SetProjectUserPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -9085,7 +9200,7 @@ export type RemoveProjectUserData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -9699,7 +9814,7 @@ export type BanUserData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -9808,7 +9923,7 @@ export type PardonUserData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -9917,7 +10032,7 @@ export type OpUserData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -10026,7 +10141,7 @@ export type DeopUserData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -10135,7 +10250,7 @@ export type ResourceContextData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -10261,7 +10376,7 @@ export type SearchResourcesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -10452,7 +10567,7 @@ export type ListResourceVersionsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -10635,7 +10750,7 @@ export type UninstallResourceData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -10793,7 +10908,7 @@ export type ListInstalledResourcesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -10911,7 +11026,7 @@ export type InstallResourceData = {
     body: InstallResourcePayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -11142,7 +11257,7 @@ export type ListResourceUpdatesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -11270,7 +11385,7 @@ export type UpdateResourceData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -11541,7 +11656,7 @@ export type UpdateAllResourcesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -11674,7 +11789,7 @@ export type SetResourceStateData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -11840,7 +11955,7 @@ export type UnlinkModpackData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -11926,7 +12041,7 @@ export type ModpackStatusData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -12022,7 +12137,7 @@ export type InstallModpackData = {
     body: InstallModpackPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -12217,7 +12332,7 @@ export type ModpackVersionsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -12378,12 +12493,6 @@ export type ModpackVersionsResponse = ModpackVersionsResponses[keyof ModpackVers
 
 export type ListApiKeysData = {
     body?: never;
-    headers?: {
-        /**
-         * The session token
-         */
-        Authorization?: string;
-    };
     path?: never;
     query?: never;
     url: '/api-key';
@@ -12443,12 +12552,6 @@ export type ListApiKeysResponse = ListApiKeysResponses[keyof ListApiKeysResponse
 
 export type CreateApiKeyData = {
     body: CreateApiKeyPayload;
-    headers?: {
-        /**
-         * The session token
-         */
-        Authorization?: string;
-    };
     path?: never;
     query?: never;
     url: '/api-key';
@@ -12527,12 +12630,6 @@ export type CreateApiKeyResponse = CreateApiKeyResponses[keyof CreateApiKeyRespo
 
 export type ListProjectApiKeysData = {
     body?: never;
-    headers?: {
-        /**
-         * The session token
-         */
-        Authorization?: string;
-    };
     path: {
         /**
          * The project ID
@@ -12615,12 +12712,6 @@ export type ListProjectApiKeysResponse = ListProjectApiKeysResponses[keyof ListP
 
 export type DeleteApiKeyData = {
     body?: never;
-    headers?: {
-        /**
-         * The session token
-         */
-        Authorization?: string;
-    };
     path: {
         /**
          * The API key ID
@@ -12701,12 +12792,6 @@ export type DeleteApiKeyResponse = DeleteApiKeyResponses[keyof DeleteApiKeyRespo
 
 export type UpdateApiKeyData = {
     body: UpdateApiKeyPayload;
-    headers?: {
-        /**
-         * The session token
-         */
-        Authorization?: string;
-    };
     path: {
         /**
          * The API key ID
@@ -12798,7 +12883,7 @@ export type ListAllApiKeysData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -12881,7 +12966,7 @@ export type DeleteAnyApiKeyData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -12958,7 +13043,7 @@ export type ListTemplateUsageData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -13024,7 +13109,7 @@ export type ResyncTemplateData = {
     body: ResyncTemplatePayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -13103,7 +13188,7 @@ export type ListRegionsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -13171,7 +13256,7 @@ export type CreateRegionData = {
     body: CreateRegionPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -13252,7 +13337,7 @@ export type DeleteRegionData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -13338,7 +13423,7 @@ export type UpdateRegionData = {
     body: UpdateRegionPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -13433,7 +13518,7 @@ export type ListProjectFeaturesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -13500,7 +13585,7 @@ export type SetProjectFeaturesData = {
     body: ProjectFeaturesRequest;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -13577,7 +13662,7 @@ export type ListRouteDomainsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -13661,7 +13746,7 @@ export type ListRoutesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -13752,7 +13837,7 @@ export type CreateRouteData = {
     body: RoutePayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -13942,7 +14027,7 @@ export type DeleteRouteData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -14050,7 +14135,7 @@ export type RouteBackendsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -14116,7 +14201,7 @@ export type ListRouteDomainsAdminData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -14190,7 +14275,7 @@ export type CreateRouteDomainData = {
     body: RouteDomainPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -14271,7 +14356,7 @@ export type ResolveDomainZoneData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -14384,7 +14469,7 @@ export type DeleteRouteDomainData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -14470,7 +14555,7 @@ export type UpdateRouteDomainData = {
     body: RouteDomainUpdatePayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -14547,7 +14632,7 @@ export type DenyDomainProjectData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -14619,7 +14704,7 @@ export type AllowDomainProjectData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -14709,7 +14794,7 @@ export type ListSchedulesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -14796,7 +14881,7 @@ export type CreateScheduleData = {
     body: SchedulePayloadRequest;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -14936,7 +15021,7 @@ export type DeleteScheduleData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -15035,7 +15120,7 @@ export type UpdateScheduleData = {
     body: SchedulePayloadRequest;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -15179,7 +15264,7 @@ export type RunScheduleData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -15287,7 +15372,7 @@ export type ListProjectInstancesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -15376,7 +15461,7 @@ export type CreateProjectInstanceData = {
     body: CreateProjectInstance;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -15492,7 +15577,7 @@ export type DeleteProjectInstanceData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -15591,7 +15676,7 @@ export type PowerProjectInstanceData = {
     body: PowerAction;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -15690,7 +15775,7 @@ export type ListInstanceDatabasesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -15789,7 +15874,7 @@ export type CreateInstanceDatabaseData = {
     body: CreateInstanceDatabase;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -15897,7 +15982,7 @@ export type DeleteInstanceDatabaseData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -16000,7 +16085,7 @@ export type ListInstanceUsersData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -16107,7 +16192,7 @@ export type CreateInstanceUserData = {
     body: CreateInstanceUser;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -16223,7 +16308,7 @@ export type SetInstanceUserGrantsData = {
     body: SetInstanceUserGrants;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -16343,7 +16428,7 @@ export type DeleteInstanceUserData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -16446,7 +16531,7 @@ export type RotateInstanceUserPasswordData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -16557,7 +16642,7 @@ export type ListDatabaseHostsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -16631,7 +16716,7 @@ export type CreateDatabaseHostData = {
     body: CreateDatabaseHost;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -16712,7 +16797,7 @@ export type ListDatabaseHostRegistrationsData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -16785,7 +16870,7 @@ export type UpdateDatabaseHostRegistrationData = {
     body: CreateDatabaseHost;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -16871,7 +16956,7 @@ export type ExtendDatabaseHostRegistrationData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -16948,7 +17033,7 @@ export type DeleteDatabaseHostData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -17034,7 +17119,7 @@ export type UpdateDatabaseHostData = {
     body: UpdateDatabaseHost;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -17111,7 +17196,7 @@ export type ListDatabaseInstancesData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -17197,7 +17282,7 @@ export type DeleteDatabaseInstanceData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -17296,7 +17381,7 @@ export type UpdateDatabaseInstanceData = {
     body: UpdateDatabaseInstance;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -17395,7 +17480,7 @@ export type ListIntegrityChecksData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -17462,7 +17547,7 @@ export type IntegrityReportData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -17536,7 +17621,7 @@ export type RunIntegrityChecksData = {
     body: RunIntegrityChecksPayload;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -17608,7 +17693,7 @@ export type IntegritySchemaData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -17675,7 +17760,7 @@ export type InstancePolicyData = {
     body?: never;
     headers?: {
         /**
-         * The session token or api key
+         * The api key
          */
         Authorization?: string;
     };
@@ -17760,18 +17845,9 @@ export type LoginDevErrors = {
         };
     };
     /**
-     * Cache operation failed
-     */
-    '500​': {
-        error?: {
-            id?: 'cache/failure';
-            msg?: 'Cache operation failed';
-        };
-    };
-    /**
      * OS operation failed
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'os/failure';
             msg?: 'OS operation failed';
@@ -17780,7 +17856,7 @@ export type LoginDevErrors = {
     /**
      * Authentication is failure
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'auth/failure';
             msg?: 'Authentication is failure';

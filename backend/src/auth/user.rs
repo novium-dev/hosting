@@ -3,37 +3,26 @@ use crate::auth::api_key::is_api_key_request;
 use crate::auth::effective::EffectivePermissions;
 use crate::auth::oauth::AuthUser;
 use crate::auth::permissions::{HasPermission, Permission, Role};
+use crate::auth::session::{SESSION_COOKIE_NAME, Session, SessionToken, session_cookie_parameter};
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_unreachable::FromAuthUnreachable;
 use axum::Extension;
-use axum::extract::FromRequestParts as _;
 use axum::response::{IntoResponse, Response};
-use axum_extra::TypedHeader;
 use axum_extra::extract::cookie::CookieJar;
-use axum_extra::headers::Authorization;
-use axum_extra::headers::authorization::Credentials;
-use base64::Engine as _;
-use base64::prelude::BASE64_STANDARD;
 use core::fmt::Debug;
-use core::fmt::{Display, Formatter};
-use core::str::FromStr;
+use core::str::FromStr as _;
 use http::HeaderValue;
 use http::header::SET_COOKIE;
 use http::request::Parts;
-use lazy_regex::lazy_regex;
-use rand::TryRng as _;
-use redis::{AsyncCommands as _, RedisError};
-use regex::Regex;
-use serde::{Deserialize, Serialize, Serializer as _};
+use serde::{Deserialize, Serialize};
 use sqlx::query;
 use std::collections::HashMap;
 use tracing::error;
 use url::Url;
-use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
-use utoipa::openapi::schema::SchemaType;
-use utoipa::openapi::{Object, RefOr, Required, ResponsesBuilder, Schema, Type};
+use utoipa::openapi::path::OperationBuilder;
+use utoipa::openapi::{RefOr, ResponsesBuilder, Schema};
 use zelus::responses::DocumentedResultResponse;
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
@@ -41,8 +30,6 @@ use zelus::types::DocumentedType;
 const DAEMON_PASSWORD_LENGTH: usize = 32;
 
 const AVATAR_BASE_URL: &str = "https://avatar.novium.world/";
-
-pub const SESSION_COOKIE_NAME: &str = "session";
 
 #[derive(Debug)]
 pub struct UserAuthentication {
@@ -118,29 +105,22 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .await
             .expect("Extension not registered");
 
-        let header = if is_api_key_request(&parts.headers) {
-            None
-        } else {
-            <Option<TypedHeader<Authorization<Session>>>>::from_request_parts(parts, &())
-                .await
-                .map_err(|_err| <E as FromAuthInvalid>::from())?
-        };
+        if is_api_key_request(&parts.headers) {
+            return Ok(None);
+        }
 
-        let session = if let Some(TypedHeader(Authorization(session))) = header {
-            session
-        } else {
-            let Some(session) = CookieJar::from_headers(&parts.headers)
-                .get(SESSION_COOKIE_NAME)
-                .and_then(|cookie| Session::from_str(cookie.value()).ok())
-            else {
-                return Ok(None);
-            };
-            session
-        };
-
-        let Some(id) = session.authenticate::<E>(&backend).await? else {
+        let Some(token) = CookieJar::from_headers(&parts.headers)
+            .get(SESSION_COOKIE_NAME)
+            .and_then(|cookie| SessionToken::from_str(cookie.value()).ok())
+        else {
             return Ok(None);
         };
+
+        let Some(session) = Session::authenticate::<E>(&token, &backend).await? else {
+            return Ok(None);
+        };
+
+        let id = session.user;
 
         let mut conn = backend
             .database
@@ -160,10 +140,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             error!("Unable to fetch permissions for user {id}: {err:?}");
         })?
         else {
-            session.invalidate(&backend).await.map_err(|err| {
-                error!("Unable to invalidate missing user session: {err:?}");
-                <E as FromAuthUnreachable>::from()
-            })?;
+            session.revoke::<E>(&backend).await?;
             return Ok(None);
         };
 
@@ -199,93 +176,6 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
     }
 }
 
-#[expect(clippy::non_std_lazy_statics, reason = "external crate")]
-pub static SESSION_REGEX: lazy_regex::Lazy<Regex> =
-    lazy_regex!("Session\\s{1,}(?:[A-Za-z0-9+\\/]{171})=");
-const SESSION_SIZE: usize = 128;
-
-#[repr(transparent)]
-#[derive(Copy, Clone)]
-pub struct Session([u8; SESSION_SIZE]);
-
-impl Session {
-    pub fn generate() -> Result<Self, core::convert::Infallible> {
-        let mut slice = [0; SESSION_SIZE];
-        rand::rng().try_fill_bytes(&mut slice)?;
-        Ok(Self(slice))
-    }
-
-    fn key(&self) -> String {
-        format!("{}session:{self}", crate::CACHE_PREFIX)
-    }
-
-    pub async fn invalidate(&self, backend: &Backend) -> Result<(), RedisError> {
-        let _: () = backend
-            .cache
-            .clone()
-            .del(self.key())
-            .await
-            .inspect_err(|err| error!("Unable to invalidate session: {err:?}"))?;
-        Ok(())
-    }
-
-    pub async fn apply(&self, backend: &Backend, user: i32) -> Result<(), RedisError> {
-        let _: () = backend
-            .cache
-            .clone()
-            .set_ex(self.key(), user, backend.config.session_lifetime)
-            .await
-            .inspect_err(|err| error!("Unable to apply session: {err:?}"))?;
-        Ok(())
-    }
-
-    pub async fn authenticate<E: FromAuthUnreachable>(
-        &self,
-        backend: &Backend,
-    ) -> Result<Option<i32>, E> {
-        let Some(user) = backend
-            .cache
-            .clone()
-            .get::<_, Option<i32>>(self.key())
-            .await
-            .inspect_err(|err| error!("Unable to retrieve session: {err:?}"))
-            .map_err(|_err| <E as FromAuthUnreachable>::from())?
-        else {
-            return Ok(None);
-        };
-
-        self.apply(backend, user).await.map_err(|err| {
-            error!("Unable to refresh session: {err:?}");
-            <E as FromAuthUnreachable>::from()
-        })?;
-        Ok(Some(user))
-    }
-}
-
-fn session_cookie_header(backend: &Backend, session: &str, max_age: u64) -> HeaderValue {
-    let secure = if backend.config.cookie_secure() {
-        "; Secure"
-    } else {
-        ""
-    };
-    HeaderValue::try_from(format!(
-        "{SESSION_COOKIE_NAME}={session}; HttpOnly; SameSite=Lax; Path=/; Max-Age={max_age}{secure}"
-    ))
-    .expect("session cookie is a valid header value")
-}
-
-pub fn set_session_cookie(backend: &Backend, session: &Session) -> HeaderValue {
-    session_cookie_header(
-        backend,
-        &session.to_string(),
-        backend.config.session_lifetime,
-    )
-}
-
-pub fn clear_session_cookie(backend: &Backend) -> HeaderValue {
-    session_cookie_header(backend, "", 0)
-}
-
 pub struct WithCookies<T> {
     inner: T,
     cookies: Vec<HeaderValue>,
@@ -317,78 +207,9 @@ impl<T: DocumentedResultResponse> DocumentedResultResponse for WithCookies<T> {
     }
 }
 
-impl Credentials for Session {
-    const SCHEME: &'static str = "Session";
-
-    #[expect(
-        clippy::indexing_slicing,
-        reason = "validated before by `Authorization`"
-    )]
-    fn decode(value: &HeaderValue) -> Option<Self> {
-        let bytes = &value.as_bytes()["Session ".len()..];
-        let non_space_pos = bytes.iter().position(|byte| *byte != b' ')?;
-        let bytes = &bytes[non_space_pos..];
-        Self::try_from(bytes).ok()
-    }
-
-    fn encode(&self) -> HeaderValue {
-        HeaderValue::try_from(self.to_string()).expect("Unable to encode session")
-    }
-}
-
-impl Display for Session {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
-        formatter.serialize_str(&BASE64_STANDARD.encode(self.0))
-    }
-}
-
-impl Debug for Session {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
-        formatter
-            .debug_tuple("Session")
-            .field(&BASE64_STANDARD.encode(self.0))
-            .finish()
-    }
-}
-
-impl FromStr for Session {
-    type Err = ();
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Self::try_from(value.as_bytes())
-    }
-}
-
-impl<'a> TryFrom<&'a [u8]> for Session {
-    type Error = ();
-
-    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-        let slice = BASE64_STANDARD.decode(value).map_err(|_err| ())?;
-        let mut session = [0u8; SESSION_SIZE];
-        if slice.len() != SESSION_SIZE {
-            return Err(());
-        }
-        session.copy_from_slice(&slice);
-        Ok(Self(session))
-    }
-}
-
 impl DocumentedType for UserAuthentication {
     fn openapi(operations: OperationBuilder) -> OperationBuilder {
-        operations.parameter(
-            ParameterBuilder::new()
-                .name("Authorization")
-                .parameter_in(ParameterIn::Header)
-                .description(Some("The session token"))
-                .schema(Some(RefOr::T(Schema::Object(
-                    Object::builder()
-                        .schema_type(SchemaType::Type(Type::String))
-                        .min_length(Some(180))
-                        .pattern(Some(SESSION_REGEX.as_str()))
-                        .build(),
-                ))))
-                .required(Required::False),
-        )
+        operations.parameter(session_cookie_parameter())
     }
 }
 

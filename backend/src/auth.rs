@@ -12,17 +12,15 @@ use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
 pub mod api_key;
+pub mod client;
 pub mod csrf;
 pub mod effective;
 pub mod oauth;
 pub mod permissions;
+pub mod session;
 pub mod user;
 
 #[derive(Debug)]
-#[expect(
-    clippy::large_enum_variant,
-    reason = "Authentication is only used as a request guard, so the larger size of the User variant is not a concern"
-)]
 pub enum Authentication {
     User(UserAuthentication),
     ApiKey(ApiKeyAuthentication),
@@ -95,22 +93,20 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
 
 impl DocumentedType for Authentication {
     fn openapi(operations: OperationBuilder) -> OperationBuilder {
-        operations.parameter(
-            ParameterBuilder::new()
-                .name("Authorization")
-                .parameter_in(ParameterIn::Header)
-                .description(Some("The session token or api key"))
-                .schema(Some(RefOr::T(Schema::Object(
-                    Object::builder()
-                        .schema_type(SchemaType::Type(Type::String))
-                        .pattern(Some(format!(
-                            "(?:{}|{})",
-                            user::SESSION_REGEX.as_str(),
-                            api_key::API_KEY_REGEX.as_str()
-                        )))
-                        .build(),
-                ))))
-                .required(Required::False),
-        )
+        operations
+            .parameter(session::session_cookie_parameter())
+            .parameter(
+                ParameterBuilder::new()
+                    .name("Authorization")
+                    .parameter_in(ParameterIn::Header)
+                    .description(Some("The api key"))
+                    .schema(Some(RefOr::T(Schema::Object(
+                        Object::builder()
+                            .schema_type(SchemaType::Type(Type::String))
+                            .pattern(Some(api_key::API_KEY_REGEX.as_str()))
+                            .build(),
+                    ))))
+                    .required(Required::False),
+            )
     }
 }

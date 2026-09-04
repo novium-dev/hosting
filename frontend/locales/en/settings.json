@@ -57,6 +57,26 @@
     "deleteKeyError": "Failed to delete SSH key",
     "keyDeleted": "SSH key deleted"
   },
+  "sessions": {
+    "title": "Active sessions",
+    "description": "Every browser you are signed in with. Revoke a session to sign that device out immediately.",
+    "loading": "Loading sessions...",
+    "loadError": "Failed to load sessions.",
+    "empty": "No active sessions.",
+    "current": "This device",
+    "unknownDevice": "Unknown device",
+    "unknownAddress": "Address unknown",
+    "lastUsed": "Last used {{time}}",
+    "expires": "Expires {{time}}",
+    "revoke": "Revoke session",
+    "revokeAriaLabel": "Revoke {{name}}",
+    "revoked": "Session revoked",
+    "revokeError": "Failed to revoke session",
+    "revokeOthers": "Sign out other devices",
+    "revokedOthers": "All other sessions revoked",
+    "revokeOthersError": "Failed to revoke the other sessions",
+    "hint": "Sessions expire on their own after a period of inactivity, and always after their maximum lifetime."
+  },
   "profile": {
     "usernameHint": "Your username cannot be changed.",
     "emailHint": "Account details come from your identity provider and are read-only here.",
@@ -69,6 +89,10 @@
       "profile": {
         "label": "Profile",
         "description": "Your account details."
+      },
+      "sessions": {
+        "label": "Sessions",
+        "description": "Review where you are signed in and revoke sessions you no longer use."
       },
       "daemon": {
         "description": "Manage the daemon password and SSH public keys used for SFTP access."

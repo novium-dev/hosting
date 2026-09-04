@@ -1,4 +1,9 @@
-export const settingsSections = ["profile", "daemon", "appearance"] as const;
+export const settingsSections = [
+  "profile",
+  "sessions",
+  "daemon",
+  "appearance",
+] as const;
 
 export type SettingsSection = (typeof settingsSections)[number];
 
