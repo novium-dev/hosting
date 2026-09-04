@@ -2,9 +2,10 @@
 
 import { appConfig } from "@/constants/config";
 import { cn } from "@/lib/utils";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 
 const AUTHOR_URL = "https://github.com/InvalidJoker";
+const AUTHOR_NAME = "InvalidJoker";
 
 const linkClassName =
   "underline-offset-2 transition-colors hover:text-foreground hover:underline";
@@ -55,19 +56,15 @@ export function AppFooter({ className }: AppFooterProps) {
         </a>
       ) : null}
       <span>
-        <Trans
-          i18nKey="common:footer.credit"
-          components={{
-            author: (
-              <a
-                href={AUTHOR_URL}
-                target="_blank"
-                rel="noreferrer"
-                className={linkClassName}
-              />
-            ),
-          }}
-        />
+        &copy; {new Date().getFullYear()}{" "}
+        <a
+          href={AUTHOR_URL}
+          target="_blank"
+          rel="noreferrer"
+          className={linkClassName}
+        >
+          {AUTHOR_NAME}
+        </a>
       </span>
     </footer>
   );
