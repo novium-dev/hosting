@@ -129,10 +129,11 @@ impl AuthService {
         } else if !response.status().is_success() {
             error!("Permission denied when fetching user info: {response:?}");
             Err(<E as FromAuthInvalid>::from())
-        } else {let body = response.text().await.map_err(|err| {
-            error!("Failed to read user info response: {err:?}");
-            <E as FromAuthFailure>::from()
-        })?;
+        } else {
+            let body = response.text().await.map_err(|err| {
+                error!("Failed to read user info response: {err:?}");
+                <E as FromAuthFailure>::from()
+            })?;
             debug!("User info response: {}", body);
 
             let user: AuthUser = serde_json::from_str(&body).map_err(|err| {
