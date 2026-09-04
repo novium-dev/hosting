@@ -58,6 +58,44 @@
       "description": "Diese Seite existiert nicht oder du hast keinen Zugriff darauf."
     }
   },
+  "overview": {
+    "title": "Übersicht",
+    "description": "Der Zustand dieser Instanz auf einen Blick. Es werden nur die Bereiche gezeigt, die deine Berechtigungen abdecken.",
+    "hints": {
+      "owners_one": "{{count}} Besitzer",
+      "owners_other": "{{count}} Besitzer",
+      "serverNodes_one": "auf {{count}} Node",
+      "serverNodes_other": "auf {{count}} Nodes",
+      "admins_one": "{{count}} Admin",
+      "admins_other": "{{count}} Admins",
+      "instanceKeys_one": "{{count}} instanzweit",
+      "instanceKeys_other": "{{count}} instanzweit",
+      "maintenance_one": "{{count}} in Wartung",
+      "maintenance_other": "{{count}} in Wartung",
+      "instances_one": "{{count}} Instanz",
+      "instances_other": "{{count}} Instanzen",
+      "routes_one": "{{count}} Route",
+      "routes_other": "{{count}} Routen",
+      "usedTemplates_one": "{{count}} in Benutzung",
+      "usedTemplates_other": "{{count}} in Benutzung"
+    },
+    "attention": {
+      "title": "Braucht Aufmerksamkeit",
+      "empty": "Im Moment braucht nichts deine Aufmerksamkeit.",
+      "nodeRegistrations_one": "{{count}} Node wartet auf die Registrierung",
+      "nodeRegistrations_other": "{{count}} Nodes warten auf die Registrierung",
+      "hostRegistrations_one": "{{count}} Datenbank-Host wartet auf die Registrierung",
+      "hostRegistrations_other": "{{count}} Datenbank-Hosts warten auf die Registrierung",
+      "maintenanceNodes_one": "{{count}} Node ist in Wartung",
+      "maintenanceNodes_other": "{{count}} Nodes sind in Wartung",
+      "maintenanceHosts_one": "{{count}} Datenbank-Host ist in Wartung",
+      "maintenanceHosts_other": "{{count}} Datenbank-Hosts sind in Wartung",
+      "integrity": {
+        "error": "Der letzte Integritätslauf hat Fehler gemeldet",
+        "warning": "Der letzte Integritätslauf hat Warnungen gemeldet"
+      }
+    }
+  },
   "projects": {
     "description": "Projekte durchsuchen, auf die die aktuelle Admin-Sitzung zugreifen kann.",
     "createButton": "Projekt erstellen",

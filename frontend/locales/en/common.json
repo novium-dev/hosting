@@ -163,6 +163,7 @@
     "user": "User"
   },
   "nav": {
+    "overview": "Overview",
     "servers": "Servers",
     "settings": "Settings",
     "databases": "Databases",

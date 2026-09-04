@@ -16,6 +16,7 @@ import AppLayout from "@/app/(app)/layout";
 import CreateProjectPage from "@/app/(app)/create/page";
 
 import AdminLayout from "@/app/(app)/admin/layout";
+import AdminOverviewPage from "@/app/(app)/admin/page";
 import AdminApiKeysPage from "@/app/(app)/admin/api-keys/page";
 import AdminTemplatesPage from "@/app/(app)/admin/templates/page";
 import AdminIntegrityPage from "@/app/(app)/admin/integrity/page";
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
             path: "/admin",
             element: <AdminLayout />,
             children: [
+              { index: true, element: <AdminOverviewPage /> },
               { path: "nodes", element: <AdminNodesPage /> },
               { path: "nodes/:node", element: <AdminNodePage /> },
               { path: "regions", element: <AdminRegionsPage /> },

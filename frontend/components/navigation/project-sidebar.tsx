@@ -243,7 +243,7 @@ export function ProjectSidebar() {
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip={t("common:nav.admin")}>
-                <Link href="/admin/users">
+                <Link href="/admin">
                   <Shield />
                   <span>{t("common:nav.admin")}</span>
                 </Link>

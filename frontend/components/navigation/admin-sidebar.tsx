@@ -2,6 +2,7 @@ import Link from "@/components/link";
 import {
   Boxes,
   Database,
+  LayoutDashboard,
   ShieldCheck,
   FolderKanban,
   Globe,
@@ -138,7 +139,7 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/admin/users">
+              <Link href="/admin">
                 <NoviumLogo className="size-7 shrink-0" />
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">
@@ -155,6 +156,25 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
       </SidebarHeader>
 
       <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip={t("common:nav.overview")}
+                  isActive={pathname === "/admin"}
+                >
+                  <Link href="/admin">
+                    <LayoutDashboard />
+                    <span>{t("common:nav.overview")}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         {visibleGroups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>

@@ -12,6 +12,7 @@ import { usePathname } from "@/lib/navigation";
 import { hasAnyManagementPermission } from "@/lib/permissions";
 
 const sectionTitleKeys: Record<string, string> = {
+  "": "common:nav.overview",
   users: "common:nav.users",
   "api-keys": "common:nav.apiKeys",
   projects: "common:nav.projects",

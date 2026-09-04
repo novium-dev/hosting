@@ -58,6 +58,44 @@
       "description": "This page doesn't exist or you don't have access to it."
     }
   },
+  "overview": {
+    "title": "Overview",
+    "description": "The state of this instance at a glance. Only the sections your permissions cover are shown.",
+    "hints": {
+      "owners_one": "{{count}} owner",
+      "owners_other": "{{count}} owners",
+      "serverNodes_one": "on {{count}} node",
+      "serverNodes_other": "on {{count}} nodes",
+      "admins_one": "{{count}} admin",
+      "admins_other": "{{count}} admins",
+      "instanceKeys_one": "{{count}} instance-wide",
+      "instanceKeys_other": "{{count}} instance-wide",
+      "maintenance_one": "{{count}} in maintenance",
+      "maintenance_other": "{{count}} in maintenance",
+      "instances_one": "{{count}} instance",
+      "instances_other": "{{count}} instances",
+      "routes_one": "{{count}} route",
+      "routes_other": "{{count}} routes",
+      "usedTemplates_one": "{{count}} in use",
+      "usedTemplates_other": "{{count}} in use"
+    },
+    "attention": {
+      "title": "Needs attention",
+      "empty": "Nothing needs your attention right now.",
+      "nodeRegistrations_one": "{{count}} node is waiting to be registered",
+      "nodeRegistrations_other": "{{count}} nodes are waiting to be registered",
+      "hostRegistrations_one": "{{count}} database host is waiting to be registered",
+      "hostRegistrations_other": "{{count}} database hosts are waiting to be registered",
+      "maintenanceNodes_one": "{{count}} node is in maintenance",
+      "maintenanceNodes_other": "{{count}} nodes are in maintenance",
+      "maintenanceHosts_one": "{{count}} database host is in maintenance",
+      "maintenanceHosts_other": "{{count}} database hosts are in maintenance",
+      "integrity": {
+        "error": "The last integrity run reported errors",
+        "warning": "The last integrity run reported warnings"
+      }
+    }
+  },
   "projects": {
     "description": "Browse projects available to the current admin session.",
     "createButton": "Create project",
