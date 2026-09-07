@@ -237,12 +237,9 @@ export function InstanceManagementBar({
 
       <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">{t("common:resources.disk")}</p>
+          <p className="text-xs text-muted-foreground">{t("common:resources.cpu")}</p>
           <p className="mt-1 text-sm font-medium">
-            {formatUsageCompact(
-              toMib(utilization?.disk_bytes),
-              instance.disk_limit,
-            )}
+            {formatCpuPercent(utilization?.cpu_absolute)}
           </p>
         </div>
         <div className="rounded-md border bg-muted/30 p-3">
@@ -255,9 +252,12 @@ export function InstanceManagementBar({
           </p>
         </div>
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">{t("common:resources.cpu")}</p>
+          <p className="text-xs text-muted-foreground">{t("common:resources.disk")}</p>
           <p className="mt-1 text-sm font-medium">
-            {formatCpuPercent(utilization?.cpu_absolute)}
+            {formatUsageCompact(
+              toMib(utilization?.disk_bytes),
+              instance.disk_limit,
+            )}
           </p>
         </div>
       </CardContent>

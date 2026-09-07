@@ -370,6 +370,72 @@ export function statusTone(status: ServerLifecycleState): {
   }
 }
 
+/** Limits the running container was created with, as reported by the daemon. */
+export type RunningLimits = {
+  cpu: number | null;
+  ram: number | null;
+  swap: number | null;
+};
+
+/**
+ * Reads the limits a stats payload was produced with, but only from a snapshot
+ * that carries live cpu/ram usage — those come from the container watcher and
+ * therefore describe the *running* container. The daemon also emits stats from
+ * its storage worker (disk only), whose maxima are the currently configured
+ * limits and would hide a pending change.
+ */
+export function readRunningLimits(
+  stats: StatsSnapshot | null | undefined,
+): RunningLimits | null {
+  if (!stats || (stats.cpu == null && stats.ram == null)) {
+    return null;
+  }
+
+  return {
+    cpu: stats.cpu_max ?? null,
+    ram: stats.ram_max ?? null,
+    swap: stats.swap_max ?? null,
+  };
+}
+
+const CPU_LIMIT_EPSILON = 0.001;
+
+function limitDiffers(
+  running: number | null,
+  configured: number | null,
+  epsilon: number,
+): boolean {
+  if (running === null || configured === null) {
+    return running !== configured;
+  }
+
+  return Math.abs(running - configured) > epsilon;
+}
+
+/**
+ * Whether the running container still uses older limits than the configured
+ * ones, i.e. a restart is needed to pick the new ones up. Disk is left out: its
+ * quota is applied live, while cpu/ram/swap are fixed at container creation.
+ */
+export function limitsOutOfDate(
+  running: RunningLimits | null,
+  configured: {
+    cpuLimit: number | null;
+    ramLimit: number | null;
+    swapLimit: number | null;
+  },
+): boolean {
+  if (!running) {
+    return false;
+  }
+
+  return (
+    limitDiffers(running.cpu, configured.cpuLimit, CPU_LIMIT_EPSILON) ||
+    limitDiffers(running.ram, configured.ramLimit, 0) ||
+    limitDiffers(running.swap, configured.swapLimit, 0)
+  );
+}
+
 /**
  * Derives the usage display + percentages from a stats snapshot, falling back
  * to the limit-only base usage when no snapshot is available.

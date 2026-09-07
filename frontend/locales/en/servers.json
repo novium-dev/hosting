@@ -97,6 +97,10 @@
       "ramAtLimit": "Memory is at {{percent}}% of its limit. ",
       "resourceWarning": "The server may become unresponsive or be killed if it runs out of resources."
     },
+    "staleLimits": {
+      "title": "New resource limits are pending",
+      "description": "The server is still running with its previous resource limits. Restart it to use the new ones."
+    },
     "stats": {
       "ram": "RAM",
       "swap": "Swap"

@@ -68,12 +68,15 @@ import {
   formatCpuUsage,
   formatUptime,
   formatUsage,
+  limitsOutOfDate,
+  readRunningLimits,
   statusFromLabel,
   statusLabel,
   statusVariant,
   toFiniteNumber,
   usagePercentValue,
   type ControlState,
+  type RunningLimits,
   type ServerLifecycleState,
   type StatsSnapshot,
   type UsagePercents,
@@ -199,6 +202,9 @@ export function ServerManagementBar({
   const [players, setPlayers] = useState<ServerPlayers | null>(null);
   const [controls, setControls] = useState<ControlState>(() =>
     controlsFromState(seededStatus),
+  );
+  const [runningLimits, setRunningLimits] = useState<RunningLimits | null>(() =>
+    readRunningLimits(initialStats),
   );
   const [highUsageVisible, setHighUsageVisible] = useState(false);
   const [highUsageAlert, setHighUsageAlert] = useState<{
@@ -350,6 +356,13 @@ export function ServerManagementBar({
                 unknown
               >;
 
+              const nextRunningLimits = readRunningLimits(
+                payload as StatsSnapshot,
+              );
+              if (nextRunningLimits) {
+                setRunningLimits(nextRunningLimits);
+              }
+
               const limits = limitsRef.current;
               const ramCurrent = payload.ram ?? payload.mem;
               const ramMax =
@@ -441,6 +454,12 @@ export function ServerManagementBar({
   useEffect(() => {
     if (status !== "running") {
       setPlayers(null);
+    }
+  }, [status]);
+
+  useEffect(() => {
+    if (status !== "running" && status !== "unhealthy") {
+      setRunningLimits(null);
     }
   }, [status]);
 
@@ -542,6 +561,10 @@ export function ServerManagementBar({
     }
   };
 
+  const staleLimits =
+    (status === "running" || status === "unhealthy") &&
+    limitsOutOfDate(runningLimits, { cpuLimit, ramLimit, swapLimit });
+
   const cpuHigh =
     usagePercents.cpu !== null && usagePercents.cpu >= HIGH_USAGE_THRESHOLD;
   const ramHigh =
@@ -575,6 +598,27 @@ export function ServerManagementBar({
 
   return (
     <div className="space-y-4">
+      {staleLimits && (
+        <Alert className="border-amber-500/40 bg-amber-500/10">
+          <RotateCcw className="size-4 text-amber-600 dark:text-amber-400" />
+          <AlertTitle>{t("servers:managementBar.staleLimits.title")}</AlertTitle>
+          <AlertDescription className="flex flex-col items-start gap-3">
+            <span>{t("servers:managementBar.staleLimits.description")}</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => executePowerAction("restart")}
+              loading={pendingAction === "restart"}
+              disabled={disableAllButtons || !canRestart || powerLock.locked}
+            >
+              <RotateCcw className="size-4" />
+              {t("servers:managementBar.actions.restart")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {highUsageVisible && (
         <Alert
           variant="destructive"
@@ -774,15 +818,15 @@ export function ServerManagementBar({
         >
           <div className="rounded-md border bg-muted/30 p-3">
             <p className="text-xs text-muted-foreground">
-              {t("common:resources.disk")}
+              {t("common:resources.cpu")}
             </p>
             <p
               className={cn(
                 "mt-1 text-sm font-medium",
-                diskHigh && "text-destructive",
+                cpuHigh && "text-destructive",
               )}
             >
-              {usage.disk}
+              {usage.cpu}
             </p>
           </div>
           <div className="rounded-md border bg-muted/30 p-3">
@@ -808,15 +852,15 @@ export function ServerManagementBar({
           )}
           <div className="rounded-md border bg-muted/30 p-3">
             <p className="text-xs text-muted-foreground">
-              {t("common:resources.cpu")}
+              {t("common:resources.disk")}
             </p>
             <p
               className={cn(
                 "mt-1 text-sm font-medium",
-                cpuHigh && "text-destructive",
+                diskHigh && "text-destructive",
               )}
             >
-              {usage.cpu}
+              {usage.disk}
             </p>
           </div>
         </CardContent>

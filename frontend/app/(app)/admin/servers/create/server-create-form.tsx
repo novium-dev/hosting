@@ -809,34 +809,6 @@ export function ServerCreateForm({
           </p>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="space-y-2">
-              <Label htmlFor="ram">
-                {t("admin-infra:servers.createForm.ramLabel")}
-              </Label>
-              <Input
-                id="ram"
-                type="number"
-                min={0}
-                value={ram}
-                onChange={(event) => setRam(event.target.value)}
-                placeholder={t("admin-infra:servers.createForm.ramPlaceholder")}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="disk">
-                {t("admin-infra:servers.createForm.diskLabel")}
-              </Label>
-              <Input
-                id="disk"
-                type="number"
-                min={0}
-                value={disk}
-                onChange={(event) => setDisk(event.target.value)}
-                placeholder={t(
-                  "admin-infra:servers.createForm.diskPlaceholder",
-                )}
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="cpu">
                 {t("admin-infra:servers.createForm.cpuLabel")}
               </Label>
@@ -851,6 +823,19 @@ export function ServerCreateForm({
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="ram">
+                {t("admin-infra:servers.createForm.ramLabel")}
+              </Label>
+              <Input
+                id="ram"
+                type="number"
+                min={0}
+                value={ram}
+                onChange={(event) => setRam(event.target.value)}
+                placeholder={t("admin-infra:servers.createForm.ramPlaceholder")}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="swap">
                 {t("admin-infra:servers.createForm.swapLabel")}
               </Label>
@@ -862,6 +847,21 @@ export function ServerCreateForm({
                 onChange={(event) => setSwap(event.target.value)}
                 placeholder={t(
                   "admin-infra:servers.createForm.swapPlaceholder",
+                )}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="disk">
+                {t("admin-infra:servers.createForm.diskLabel")}
+              </Label>
+              <Input
+                id="disk"
+                type="number"
+                min={0}
+                value={disk}
+                onChange={(event) => setDisk(event.target.value)}
+                placeholder={t(
+                  "admin-infra:servers.createForm.diskPlaceholder",
                 )}
               />
             </div>

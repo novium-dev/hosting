@@ -117,6 +117,17 @@ export function EditInstanceDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
+              <Label htmlFor="cpu">
+                {t("admin-infra:databases.editInstanceDialog.cpuLabel")}
+              </Label>
+              <Input
+                id="cpu"
+                inputMode="decimal"
+                value={cpu}
+                onChange={(event) => setCpu(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="memory">
                 {t("admin-infra:databases.editInstanceDialog.memoryLabel")}
               </Label>
@@ -147,17 +158,6 @@ export function EditInstanceDialog({
                 inputMode="numeric"
                 value={disk}
                 onChange={(event) => setDisk(event.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cpu">
-                {t("admin-infra:databases.editInstanceDialog.cpuLabel")}
-              </Label>
-              <Input
-                id="cpu"
-                inputMode="decimal"
-                value={cpu}
-                onChange={(event) => setCpu(event.target.value)}
               />
             </div>
           </div>

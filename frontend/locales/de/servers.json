@@ -97,6 +97,10 @@
       "ramAtLimit": "Arbeitsspeicher liegt bei {{percent}}% des Limits. ",
       "resourceWarning": "Der Server kann nicht mehr reagieren oder beendet werden, wenn ihm die Ressourcen ausgehen."
     },
+    "staleLimits": {
+      "title": "Neue Ressourcenlimits stehen aus",
+      "description": "Der Server läuft noch mit den vorherigen Ressourcenlimits. Starte ihn neu, um die neuen Ressourcen zu nutzen."
+    },
     "stats": {
       "ram": "RAM",
       "swap": "Swap"
