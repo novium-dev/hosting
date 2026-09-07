@@ -94,6 +94,7 @@ pub(crate) struct ServerInfo {
     pub(crate) name: String,
     pub(crate) project: ProjectId,
     pub(crate) node: LightNodeInfo,
+    pub(crate) node_server_id: Option<u32>,
     pub(crate) template: String,
     pub(crate) limits: ServerLimits,
     pub(crate) cpu: Option<f32>,
@@ -401,6 +402,9 @@ pub(crate) impl ServerService for Backend {
             },
             internet_access: server.internet_access,
             primary_port,
+            node_server_id: auth
+                .has((), ManagementPermissions::SERVER_MANAGE)
+                .then_some(server.node_server_id),
             node: LightNodeInfo {
                 id: server.node.id,
                 display: server.node.display.clone(),

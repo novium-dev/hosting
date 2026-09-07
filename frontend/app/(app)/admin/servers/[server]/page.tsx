@@ -174,6 +174,12 @@ export default function AdminServerManagementPage() {
               label={t("admin-infra:servers.shared.nodeLabel")}
               value={data.node.display}
             />
+            {typeof data.node_server_id === "number" ? (
+              <InfoItem
+                label={t("admin-infra:servers.detailPage.daemonIdLabel")}
+                value={`#${data.node_server_id}`}
+              />
+            ) : null}
             <InfoItem
               label={t("common:labels.address")}
               value={getServerAddress(data, t)}

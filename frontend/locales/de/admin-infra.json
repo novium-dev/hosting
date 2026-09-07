@@ -218,6 +218,7 @@
     "detailPage": {
       "addressUnavailable": "Adresse nicht verfügbar",
       "idProjectDescription": "ID: {{id}} | Projekt: {{project}}",
+      "daemonIdLabel": "Daemon-ID",
       "suspendedReason": "Gesperrt: {{reason}}",
       "viewInHephaestus": "In {{appName}} anzeigen",
       "viewInHephaestusProjectMissing": "In {{appName}} anzeigen (Projekt nicht gefunden)",

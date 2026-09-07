@@ -1106,6 +1106,7 @@ export type ServerInfoResponses = {
         name: string;
         network?: null | ServerNetworkInfo;
         node: LightNodeInfo;
+        node_server_id?: number | null;
         primary_port?: null | PrimaryPortInfo;
         project: NanoId;
         ram?: number | null;
