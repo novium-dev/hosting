@@ -114,6 +114,12 @@
     "restoreButton": "Wiederherstellen",
     "loading": "Backups werden geladen...",
     "empty": "Keine Backups gefunden.",
+    "limit": {
+      "label": "{{used}} von {{limit}} Backups belegt",
+      "bypassBadge": "Limit umgangen",
+      "bypassTooltip": "Deine Berechtigungen erlauben dir Backups über das Limit dieses Servers hinaus.",
+      "reached": "Das Backup-Limit ist erreicht. Lösche ein Backup, bevor du ein weiteres erstellst."
+    },
     "unnamedBackup": "Backup {{id}}",
     "unnamedFallback": "das ausgewählte Backup",
     "table": {

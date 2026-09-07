@@ -7,6 +7,7 @@ import {
   Loader2,
   RefreshCcw,
   RotateCcw,
+  ShieldCheck,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -40,6 +41,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -61,6 +69,9 @@ import { useServerTaskLock } from "@/stores/server-tasks";
 
 type BackupsManagerProps = {
   serverId: string;
+  /** How many backups the server may hold, `null` when it is unlimited. */
+  backupLimit: number | null;
+  canBypassLimits: boolean;
 };
 
 type BackupRow = ListBackupsResponses[200][number];
@@ -104,7 +115,11 @@ function backupIdFromRow(backup: BackupRow) {
   return Number(backup.time);
 }
 
-export function BackupsManager({ serverId }: BackupsManagerProps) {
+export function BackupsManager({
+  serverId,
+  backupLimit,
+  canBypassLimits,
+}: BackupsManagerProps) {
   const { t } = useTranslation();
   const storageLock = useServerTaskLock(serverId, "storage", "read");
   const restoreLock = useServerTaskLock(serverId, "storage", "write");
@@ -116,6 +131,12 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<BackupRow | null>(null);
+
+  const atBackupLimit = backupLimit !== null && backups.length >= backupLimit;
+  const backupLimitPercent =
+    backupLimit === null || backupLimit === 0
+      ? 100
+      : Math.min(100, (backups.length / backupLimit) * 100);
 
   const selectedBackupId = useMemo(
     () => (selectedBackup ? backupIdFromRow(selectedBackup) : null),
@@ -314,6 +335,48 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
           </Button>
           <TaskLockNotice lock={restoreLock} />
         </div>
+
+        {backupLimit === null ? null : (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm text-muted-foreground">
+                {t("servers:backups.limit.label", {
+                  used: backups.length,
+                  limit: backupLimit,
+                })}
+              </span>
+
+              {canBypassLimits ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="secondary" className="gap-1.5">
+                      <ShieldCheck className="size-3.5" />
+                      {t("servers:backups.limit.bypassBadge")}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("servers:backups.limit.bypassTooltip")}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+            </div>
+
+            <Progress
+              value={backupLimitPercent}
+              className={
+                atBackupLimit
+                  ? "bg-destructive/20 [&_[data-slot=progress-indicator]]:bg-destructive"
+                  : undefined
+              }
+            />
+
+            {atBackupLimit && !canBypassLimits ? (
+              <p className="text-xs text-destructive">
+                {t("servers:backups.limit.reached")}
+              </p>
+            ) : null}
+          </div>
+        )}
       </CardHeader>
 
       <CardContent>

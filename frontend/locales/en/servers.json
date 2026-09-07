@@ -114,6 +114,12 @@
     "restoreButton": "Restore",
     "loading": "Loading backups...",
     "empty": "No backups found.",
+    "limit": {
+      "label": "{{used}} of {{limit}} backups used",
+      "bypassBadge": "Limit bypassed",
+      "bypassTooltip": "Your permissions let you create backups beyond this server's limit.",
+      "reached": "The backup limit is reached. Delete a backup before creating another one."
+    },
     "unnamedBackup": "Backup {{id}}",
     "unnamedFallback": "the selected backup",
     "table": {

@@ -203,7 +203,14 @@ export default function ClientServerSectionPage() {
           canManagePlayers={canManagePlayers}
         />
       ) : activeSection.key === "backups" ? (
-        <BackupsManager serverId={server} />
+        <BackupsManager
+          serverId={server}
+          backupLimit={serverData?.limits.backup ?? null}
+          canBypassLimits={hasManagementPermission(
+            effectivePermissions,
+            ManagementPermission.LIMITS_BYPASS,
+          )}
+        />
       ) : activeSection.key === "network" ? (
         <div className="space-y-4">
           <NetworkPorts serverId={server} />
