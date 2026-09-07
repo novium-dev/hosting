@@ -172,6 +172,60 @@ function formatWallClock(run: Date, language: string) {
   }).format(run);
 }
 
+const SLEEP_HINT_UNITS = [
+  { unit: "day", seconds: 86400 },
+  { unit: "hour", seconds: 3600 },
+  { unit: "minute", seconds: 60 },
+] as const;
+
+function formatSleepHint(seconds: number, language: string) {
+  const match = SLEEP_HINT_UNITS.find((entry) => seconds >= entry.seconds);
+  if (!match) return null;
+
+  return new Intl.NumberFormat(language, {
+    style: "unit",
+    unit: match.unit,
+    unitDisplay: "long",
+    maximumFractionDigits: 1,
+  }).format(seconds / match.seconds);
+}
+
+function SleepTaskField({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (seconds: number) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const hint = formatSleepHint(value, i18n.language);
+
+  return (
+    <div className="flex w-full items-center gap-3 sm:flex-1">
+      <div className="relative w-full sm:w-48">
+        <Input
+          type="number"
+          min={1}
+          className="w-full pr-24 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          value={value}
+          aria-label={t("servers:schedules.dialog.sleepSeconds")}
+          onChange={(event) =>
+            onChange(Math.max(1, Number(event.target.value) || 1))
+          }
+        />
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+          {t("servers:schedules.dialog.sleepUnit", { count: value })}
+        </span>
+      </div>
+      {hint ? (
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {t("servers:schedules.dialog.sleepHint", { duration: hint })}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function emptyTask(type: TaskType): ScheduleTask {
   switch (type) {
     case "sleep":
@@ -1052,17 +1106,10 @@ export function SchedulesManager({
                     </Select>
 
                     {task.type === "sleep" ? (
-                      <Input
-                        type="number"
-                        min={1}
-                        className="w-full sm:flex-1"
+                      <SleepTaskField
                         value={task.time}
-                        aria-label={t("servers:schedules.dialog.sleepSeconds")}
-                        onChange={(event) =>
-                          setTask(index, {
-                            type: "sleep",
-                            time: Math.max(1, Number(event.target.value) || 1),
-                          })
+                        onChange={(time) =>
+                          setTask(index, { type: "sleep", time })
                         }
                       />
                     ) : task.type === "terminal" || task.type === "minecraft" ? (
