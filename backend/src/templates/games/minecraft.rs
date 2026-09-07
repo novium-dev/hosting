@@ -32,6 +32,8 @@ use crate::utils::serde::SerdePrimitive;
 
 pub(crate) const JVM_FLAGS: &str =
     "-Dterminal.ansi=true -Djava.net.preferIPv6Addresses=system -XX:MaxRAMPercentage=95.0";
+pub(crate) const SERVER_PORT: u16 = 25565;
+pub(crate) const SERVER_PORT_NAME: &str = "minecraft";
 pub(crate) const PAPER_URL: &str = "https://fill.papermc.io/";
 pub(crate) const PURPUR_URL: &str = "https://api.purpurmc.org/";
 pub(crate) const FABRIC_URL: &str = "https://meta.fabricmc.net/v2";
@@ -263,6 +265,7 @@ impl MinecraftServerExtra {
                 "server.properties".to_owned(),
                 ServerFileWrite::JavaProperties {
                     content: HashMap::from([
+                        ("server-port".to_owned(), SERVER_PORT.to_string()),
                         ("enable-rcon".to_owned(), "true".to_owned()),
                         ("rcon.port".to_owned(), "25575".to_owned()),
                         ("rcon.password".to_owned(), "_".to_owned()),
@@ -500,10 +503,10 @@ impl Template for MinecraftTemplate {
         &self,
     ) -> Result<HashMap<String, TemplatePortDefinition>, ThinTemplateError> {
         Ok(HashMap::from([(
-            "minecraft".to_owned(),
+            SERVER_PORT_NAME.to_owned(),
             TemplatePortDefinition {
                 protocol: NetworkProtocol::Tcp,
-                internal_port: 25565,
+                internal_port: SERVER_PORT,
                 placeholder: "Minecraft".to_owned(),
                 remappable: true,
                 http: false,
@@ -779,7 +782,8 @@ impl Template for MinecraftTemplate {
         _extra: Self::Extra,
         ports: &HashMap<u32, ServerPort>,
     ) -> Option<(u32, ServerPort, u16)> {
-        self.primary_port0(ports, 25565, NetworkProtocol::Tcp).await
+        self.primary_port0(ports, SERVER_PORT, NetworkProtocol::Tcp)
+            .await
     }
 
     fn default_internet_access(&self) -> bool {
