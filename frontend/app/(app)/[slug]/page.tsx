@@ -16,6 +16,7 @@ import { MainLayout } from "@/components/sidebar/main-layout";
 import { useProject } from "@/hooks/use-project";
 import { listServers } from "@/lib/api";
 
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, titleCase } from "@/lib/utils";
 import { templateBanner } from "@/lib/template-banner";
@@ -42,6 +43,7 @@ type ServerListItem = {
   name: string;
   template: string;
   node: string;
+  suspended: boolean;
   status?: ServerStatus | null;
 };
 
@@ -177,6 +179,12 @@ function ServerRow({
                   <span className={cn("size-1.5 rounded-full", tone.dot)} />
                   {statusLabel(state)}
                 </span>
+
+                {server.suspended && (
+                  <Badge variant="destructive" className="shrink-0">
+                    {t("common:status.suspended")}
+                  </Badge>
+                )}
               </div>
               <div className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
                 <span className="truncate">{titleCase(server.template)}</span>

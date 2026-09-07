@@ -147,12 +147,19 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
               rows.map((server) => (
                 <TableRow key={server.id}>
                   <TableCell>
-                    <Link
-                      href={`/admin/servers/${server.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {server.name}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/admin/servers/${server.id}`}
+                        className="font-medium hover:underline"
+                      >
+                        {server.name}
+                      </Link>
+                      {server.suspended && (
+                        <Badge variant="destructive">
+                          {t("common:status.suspended")}
+                        </Badge>
+                      )}
+                    </div>
                     <div className="font-mono text-xs text-muted-foreground">
                       {server.id}
                     </div>

@@ -48,6 +48,7 @@ pub(crate) struct ServerListInfo {
     template: String,
     node: String,
     node_id: Uuid,
+    suspended: bool,
 
     status: Option<ServerListStatus>,
 }
@@ -68,6 +69,7 @@ struct ServerListRecord {
     template: String,
     node: Uuid,
     node_server_id: i32,
+    suspended: bool,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -171,7 +173,7 @@ pub(crate) impl ServerService for Backend {
                 ServerListRecord,
                 r#"SELECT servers.id AS "id: ServerId", servers.name, servers.project AS "project: ProjectId",
                           projects.name AS project_name, projects.slug AS project_slug,
-                          servers.node, servers.node_server_id, servers.template
+                          servers.node, servers.node_server_id, servers.template, servers.suspended
                    FROM servers
                    JOIN projects ON projects.id = servers.project
                    WHERE servers.project = $1"#,
@@ -184,7 +186,7 @@ pub(crate) impl ServerService for Backend {
                 ServerListRecord,
                 r#"SELECT servers.id AS "id: ServerId", servers.name, servers.project AS "project: ProjectId",
                           projects.name AS project_name, projects.slug AS project_slug,
-                          servers.node, servers.node_server_id, servers.template
+                          servers.node, servers.node_server_id, servers.template, servers.suspended
                    FROM servers
                    JOIN projects ON projects.id = servers.project"#
             )
@@ -245,6 +247,7 @@ pub(crate) impl ServerService for Backend {
                 project_name: server.project_name,
                 project_slug: server.project_slug,
                 node_id: server.node,
+                suspended: server.suspended,
                 status: statuses.remove(&server.id),
                 template: templates
                   .get(&server.template).map_or_else(|| {

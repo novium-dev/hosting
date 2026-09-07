@@ -933,6 +933,7 @@ export type ListServersResponses = {
         project_name: string;
         project_slug: string;
         status?: null | ServerListStatus;
+        suspended: boolean;
         template: string;
     }>;
 };
