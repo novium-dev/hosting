@@ -85,6 +85,7 @@ import {
 type SchedulesManagerProps = {
   serverId: string;
   canManage: boolean;
+  canUseContainerCommands: boolean;
   isMinecraftServer: boolean;
 };
 
@@ -206,6 +207,7 @@ function errorMessage(
 export function SchedulesManager({
   serverId,
   canManage,
+  canUseContainerCommands,
   isMinecraftServer,
 }: SchedulesManagerProps) {
   const { t, i18n } = useTranslation();
@@ -229,10 +231,19 @@ export function SchedulesManager({
   const [draggableIndex, setDraggableIndex] = useState<number | null>(null);
 
   const zones = useMemo(timezones, []);
-  const taskTypes = useMemo(
-    () =>
-      TASK_TYPES.filter((type) => type !== "minecraft" || isMinecraftServer),
-    [isMinecraftServer],
+  const isTaskTypeAvailable = useCallback(
+    (type: TaskType) => {
+      if (type === "minecraft") return isMinecraftServer;
+      if (type === "container") return canUseContainerCommands;
+      return true;
+    },
+    [canUseContainerCommands, isMinecraftServer],
+  );
+
+  const taskTypesFor = useCallback(
+    (current: TaskType) =>
+      TASK_TYPES.filter((type) => type === current || isTaskTypeAvailable(type)),
+    [isTaskTypeAvailable],
   );
 
   const refresh = useCallback(async () => {
@@ -1032,7 +1043,7 @@ export function SchedulesManager({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {taskTypes.map((type) => (
+                        {taskTypesFor(task.type).map((type) => (
                           <SelectItem key={type} value={type}>
                             {t(`servers:schedules.taskTypes.${type}`)}
                           </SelectItem>

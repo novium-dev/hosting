@@ -85,6 +85,10 @@ impl ScheduleTask {
         matches!(self, Self::MinecraftCommand { .. })
     }
 
+    pub const fn requires_container_access(&self) -> bool {
+        matches!(self, Self::ContainerCommand { .. })
+    }
+
     pub fn is_complete(&self) -> bool {
         match self {
             Self::TerminalCommand { command } | Self::MinecraftCommand { command } => {

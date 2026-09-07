@@ -227,6 +227,10 @@ export default function ClientServerSectionPage() {
             effectivePermissions,
             ServerPermission.SCHEDULE_MANAGE,
           )}
+          canUseContainerCommands={hasManagementPermission(
+            effectivePermissions,
+            ManagementPermission.SERVER_MANAGE,
+          )}
           isMinecraftServer={(serverData?.features ?? []).includes(
             "minecraft_commands",
           )}

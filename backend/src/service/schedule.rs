@@ -260,7 +260,8 @@ pub(crate) impl ScheduleService for Backend {
     /// first); a five-field expression is stored as running at second zero.
     ///
     /// # Permissions
-    /// Requires [`ServerPermissions::SCHEDULE_MANAGE`].
+    /// Requires [`ServerPermissions::SCHEDULE_MANAGE`], and
+    /// [`ManagementPermissions::SERVER_MANAGE`] for a container command task.
     #[route("/{server_id}", method = PUT)]
     #[error(
         auth::{permission_denied, unreachable},
@@ -277,6 +278,14 @@ pub(crate) impl ScheduleService for Backend {
         payload: SchedulePayloadRequest,
     ) -> Result<i32, _> {
         auth.require::<_, _, CreateScheduleError>(server_id, ServerPermissions::SCHEDULE_MANAGE)?;
+
+        if payload
+            .tasks
+            .iter()
+            .any(ScheduleTask::requires_container_access)
+        {
+            auth.require::<_, _, CreateScheduleError>((), ManagementPermissions::SERVER_MANAGE)?;
+        }
 
         let server = self
             .resolve_server(&*self.database, server_id)
@@ -346,7 +355,8 @@ pub(crate) impl ScheduleService for Backend {
     /// Replaces a schedule's configuration and steps.
     ///
     /// # Permissions
-    /// Requires [`ServerPermissions::SCHEDULE_MANAGE`].
+    /// Requires [`ServerPermissions::SCHEDULE_MANAGE`], and
+    /// [`ManagementPermissions::SERVER_MANAGE`] for a container command task.
     #[route("/{server_id}/{schedule_id}", method = PATCH)]
     #[error(
         auth::{permission_denied, unreachable},
@@ -364,6 +374,14 @@ pub(crate) impl ScheduleService for Backend {
         payload: SchedulePayloadRequest,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateScheduleError>(server_id, ServerPermissions::SCHEDULE_MANAGE)?;
+
+        if payload
+            .tasks
+            .iter()
+            .any(ScheduleTask::requires_container_access)
+        {
+            auth.require::<_, _, UpdateScheduleError>((), ManagementPermissions::SERVER_MANAGE)?;
+        }
 
         let server = self
             .resolve_server(&*self.database, server_id)
