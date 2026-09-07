@@ -125,6 +125,7 @@ define_error!(schedule {
     minecraft_unsupported("The server does not accept Minecraft commands" BAD_REQUEST),
     not_synchronized("The schedule is disabled and therefore not on the node" BAD_REQUEST),
     limit_exceeded("The server schedule limit has been reached" BAD_REQUEST),
+    retention_invalid("A scheduled backup needs a retention policy that keeps within the server's backup limit" BAD_REQUEST),
 });
 
 define_error!(node {

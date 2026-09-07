@@ -79,6 +79,7 @@ trait FromScheduleValidation: Sized {
     fn timezone_invalid() -> Self;
     fn tasks_invalid() -> Self;
     fn minecraft_unsupported() -> Self;
+    fn retention_invalid() -> Self;
     fn node_failure() -> Self;
 }
 
@@ -87,6 +88,7 @@ impl Backend {
         &self,
         server: &Server,
         payload: &SchedulePayloadRequest,
+        bypasses_limits: bool,
     ) -> Result<ValidSchedule, E> {
         let name = payload.name.trim().to_owned();
         if name.is_empty() || name.chars().count() > MAX_SCHEDULE_NAME {
@@ -124,6 +126,16 @@ impl Backend {
                 .contains(MINECRAFT_FEATURE)
         {
             return Err(E::minecraft_unsupported());
+        }
+
+        if !bypasses_limits
+            && let Some(limit) = server.backup_limit
+            && payload
+                .tasks
+                .iter()
+                .any(|task| task.exceeds_backup_limit(limit))
+        {
+            return Err(E::retention_invalid());
         }
 
         Ok(ValidSchedule {
@@ -260,14 +272,18 @@ pub(crate) impl ScheduleService for Backend {
     /// first); a five-field expression is stored as running at second zero.
     ///
     /// # Permissions
-    /// Requires [`ServerPermissions::SCHEDULE_MANAGE`], and
-    /// [`ManagementPermissions::SERVER_MANAGE`] for a container command task.
+    /// Requires [`ServerPermissions::SCHEDULE_MANAGE`],
+    /// [`ManagementPermissions::SERVER_MANAGE`] for a container command task,
+    /// [`ServerPermissions::BACKUP_CREATE`] for a backup task,
+    /// [`ServerPermissions::BACKUP_DELETE`] for a task with a retention policy
+    /// and [`ManagementPermissions::BACKUP_STORAGE_SELECT`] for a task that
+    /// names a backup storage.
     #[route("/{server_id}", method = PUT)]
     #[error(
         auth::{permission_denied, unreachable},
         server::not_found,
         schedule::{name_invalid, cron_invalid, timezone_invalid, tasks_invalid,
-            minecraft_unsupported, limit_exceeded},
+            minecraft_unsupported, retention_invalid, limit_exceeded},
         node::failure,
         db::failure <- [sql:*]
     )]
@@ -287,16 +303,37 @@ pub(crate) impl ScheduleService for Backend {
             auth.require::<_, _, CreateScheduleError>((), ManagementPermissions::SERVER_MANAGE)?;
         }
 
+        if payload.tasks.iter().any(ScheduleTask::creates_backups) {
+            auth.require::<_, _, CreateScheduleError>(server_id, ServerPermissions::BACKUP_CREATE)?;
+        }
+
+        if payload.tasks.iter().any(ScheduleTask::removes_backups) {
+            auth.require::<_, _, CreateScheduleError>(server_id, ServerPermissions::BACKUP_DELETE)?;
+        }
+
+        if payload
+            .tasks
+            .iter()
+            .any(ScheduleTask::selects_backup_storage)
+        {
+            auth.require::<_, _, CreateScheduleError>(
+                (),
+                ManagementPermissions::BACKUP_STORAGE_SELECT,
+            )?;
+        }
+
+        let bypasses_limits = auth.has((), ManagementPermissions::LIMITS_BYPASS);
+
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(CreateScheduleError::ServerNotFound)?;
 
         let valid = self
-            .validate_schedule::<CreateScheduleError>(&server, &payload)
+            .validate_schedule::<CreateScheduleError>(&server, &payload, bypasses_limits)
             .await?;
 
-        if !auth.has((), ManagementPermissions::LIMITS_BYPASS) {
+        if !bypasses_limits {
             let current = query!(
                 r#"SELECT count(*) AS "count!" FROM server_schedules WHERE server = $1"#,
                 &server_id
@@ -355,14 +392,18 @@ pub(crate) impl ScheduleService for Backend {
     /// Replaces a schedule's configuration and steps.
     ///
     /// # Permissions
-    /// Requires [`ServerPermissions::SCHEDULE_MANAGE`], and
-    /// [`ManagementPermissions::SERVER_MANAGE`] for a container command task.
+    /// Requires [`ServerPermissions::SCHEDULE_MANAGE`],
+    /// [`ManagementPermissions::SERVER_MANAGE`] for a container command task,
+    /// [`ServerPermissions::BACKUP_CREATE`] for a backup task,
+    /// [`ServerPermissions::BACKUP_DELETE`] for a task with a retention policy
+    /// and [`ManagementPermissions::BACKUP_STORAGE_SELECT`] for a task that
+    /// names a backup storage.
     #[route("/{server_id}/{schedule_id}", method = PATCH)]
     #[error(
         auth::{permission_denied, unreachable},
         server::not_found,
         schedule::{not_found, name_invalid, cron_invalid, timezone_invalid, tasks_invalid,
-            minecraft_unsupported},
+            minecraft_unsupported, retention_invalid},
         node::failure,
         db::failure <- [sql:*]
     )]
@@ -383,6 +424,27 @@ pub(crate) impl ScheduleService for Backend {
             auth.require::<_, _, UpdateScheduleError>((), ManagementPermissions::SERVER_MANAGE)?;
         }
 
+        if payload.tasks.iter().any(ScheduleTask::creates_backups) {
+            auth.require::<_, _, UpdateScheduleError>(server_id, ServerPermissions::BACKUP_CREATE)?;
+        }
+
+        if payload.tasks.iter().any(ScheduleTask::removes_backups) {
+            auth.require::<_, _, UpdateScheduleError>(server_id, ServerPermissions::BACKUP_DELETE)?;
+        }
+
+        if payload
+            .tasks
+            .iter()
+            .any(ScheduleTask::selects_backup_storage)
+        {
+            auth.require::<_, _, UpdateScheduleError>(
+                (),
+                ManagementPermissions::BACKUP_STORAGE_SELECT,
+            )?;
+        }
+
+        let bypasses_limits = auth.has((), ManagementPermissions::LIMITS_BYPASS);
+
         let server = self
             .resolve_server(&*self.database, server_id)
             .await?
@@ -398,7 +460,7 @@ pub(crate) impl ScheduleService for Backend {
         .ok_or(UpdateScheduleError::ScheduleNotFound)?;
 
         let valid = self
-            .validate_schedule::<UpdateScheduleError>(&server, &payload)
+            .validate_schedule::<UpdateScheduleError>(&server, &payload, bypasses_limits)
             .await?;
 
         let node_payload = valid
@@ -567,6 +629,9 @@ impl FromScheduleValidation for CreateScheduleError {
     fn minecraft_unsupported() -> Self {
         Self::ScheduleMinecraftUnsupported
     }
+    fn retention_invalid() -> Self {
+        Self::ScheduleRetentionInvalid
+    }
     fn node_failure() -> Self {
         Self::NodeFailure
     }
@@ -587,6 +652,9 @@ impl FromScheduleValidation for UpdateScheduleError {
     }
     fn minecraft_unsupported() -> Self {
         Self::ScheduleMinecraftUnsupported
+    }
+    fn retention_invalid() -> Self {
+        Self::ScheduleRetentionInvalid
     }
     fn node_failure() -> Self {
         Self::NodeFailure

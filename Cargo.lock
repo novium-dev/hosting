@@ -1088,7 +1088,7 @@ dependencies = [
 [[package]]
 name = "daemon_common"
 version = "0.1.0"
-source = "git+ssh://git@github.com/novium-dev/daemon.git#e828c5c8f96c4c5025c1d95fada01ca2bb747d69"
+source = "git+ssh://git@github.com/novium-dev/daemon.git#84eb5ece5ba1189954668c8a5aee08006c434527"
 dependencies = [
  "asn1-rs",
  "axum",

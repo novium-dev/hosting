@@ -927,7 +927,7 @@ pub(crate) impl ServerService for Backend {
 
             server
                 .node
-                .server_create_backup_order(server.node_server_id)
+                .server_create_backup_order(server.node_server_id, None)
                 .await
                 .map_err(|err| match err {
                     ServerCreateBackupOrderError::StorageMutexLocked => {

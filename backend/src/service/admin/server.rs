@@ -986,7 +986,7 @@ async fn create_backup_before_switch(
 
     server
         .node
-        .server_create_backup_order(server.node_server_id)
+        .server_create_backup_order(server.node_server_id, None)
         .await
         .map(|_id| ())
         .map_err(|err| match err {

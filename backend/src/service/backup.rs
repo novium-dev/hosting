@@ -11,7 +11,7 @@ use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use daemon_common::service::backup::BackupResponseEntry;
 use daemon_common::service::backup::backup_service_error::{
     ServerCreateBackupError, ServerCreateBackupOrderError, ServerDeleteBackupError,
-    ServerListBackupsError, ServerRestoreBackupError, ServerSetBackupNameError,
+    ServerListBackupsError, ServerRestoreBackupError, ServerUpdateBackupError,
 };
 use tracing::error;
 use zelus::service;
@@ -112,7 +112,7 @@ pub(crate) impl BackupService for Backend {
 
         server
             .node
-            .server_create_backup_order(server.node_server_id)
+            .server_create_backup_order(server.node_server_id, None)
             .await
             .map_err(|err| match err {
                 ServerCreateBackupOrderError::Communication(_) => {
@@ -193,7 +193,7 @@ pub(crate) impl BackupService for Backend {
 
         server
             .node
-            .server_create_backup(server.node_server_id, backup_storage)
+            .server_create_backup(server.node_server_id, backup_storage, None)
             .await
             .map_err(|err| match err {
                 ServerCreateBackupError::Communication(_) => {
@@ -400,25 +400,25 @@ pub(crate) impl BackupService for Backend {
 
         server
             .node
-            .server_set_backup_name(server.node_server_id, backup_storage, backup_id, name)
+            .server_update_backup(server.node_server_id, backup_storage, backup_id, name, None)
             .await
             .map_err(|err| match err {
-                ServerSetBackupNameError::Communication(_) => {
+                ServerUpdateBackupError::Communication(_) => {
                     error!("Failed to request backup update: {:?}", err);
                     UpdateBackupError::NodeFailure
                 }
-                ServerSetBackupNameError::AuthInvalid
-                | ServerSetBackupNameError::SqlFailure
-                | ServerSetBackupNameError::StorageFailure => {
+                ServerUpdateBackupError::AuthInvalid
+                | ServerUpdateBackupError::SqlFailure
+                | ServerUpdateBackupError::StorageFailure => {
                     error!("Failed to update backup: {:?}", err);
                     UpdateBackupError::NodeFailure
                 }
-                ServerSetBackupNameError::StorageNotFound => UpdateBackupError::ServerNotFound,
-                ServerSetBackupNameError::StorageMutexLocked => {
+                ServerUpdateBackupError::StorageNotFound => UpdateBackupError::ServerNotFound,
+                ServerUpdateBackupError::StorageMutexLocked => {
                     UpdateBackupError::BackupStorageUnavailable
                 }
-                ServerSetBackupNameError::BackupNotFound => UpdateBackupError::BackupNotFound,
-                ServerSetBackupNameError::BackupStorageLocationNotFound => {
+                ServerUpdateBackupError::BackupNotFound => UpdateBackupError::BackupNotFound,
+                ServerUpdateBackupError::BackupStorageLocationNotFound => {
                     UpdateBackupError::BackupStorageNotFound
                 }
             })

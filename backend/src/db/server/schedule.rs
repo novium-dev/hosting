@@ -3,6 +3,7 @@ use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use core::str::FromStr as _;
 use cron::Schedule;
+use daemon_common::service::backup::BackupRetention;
 use daemon_common::service::schedule::{ScheduleRunPolicy, ScheduleStep};
 use serde::{Deserialize, Serialize};
 
@@ -57,6 +58,19 @@ pub enum ScheduleTask {
     ContainerCommand { command: Vec<String> },
     #[serde(rename = "minecraft")]
     MinecraftCommand { command: String },
+    #[serde(rename = "backup")]
+    Backup {
+        #[serde(default)]
+        storage: Option<String>,
+        #[serde(default)]
+        retention: Option<BackupRetention>,
+    },
+    #[serde(rename = "prune")]
+    Prune {
+        #[serde(default)]
+        storage: Option<String>,
+        retention: BackupRetention,
+    },
 }
 
 impl ScheduleTask {
@@ -78,6 +92,8 @@ impl ScheduleTask {
                         .map(str::to_owned),
                 ),
             },
+            Self::Backup { storage, retention } => ScheduleStep::Backup { storage, retention },
+            Self::Prune { storage, retention } => ScheduleStep::Prune { storage, retention },
         }
     }
 
@@ -89,6 +105,57 @@ impl ScheduleTask {
         matches!(self, Self::ContainerCommand { .. })
     }
 
+    pub const fn creates_backups(&self) -> bool {
+        matches!(self, Self::Backup { .. })
+    }
+
+    pub const fn selects_backup_storage(&self) -> bool {
+        matches!(
+            self,
+            Self::Backup {
+                storage: Some(_),
+                ..
+            } | Self::Prune {
+                storage: Some(_),
+                ..
+            }
+        )
+    }
+
+    pub const fn removes_backups(&self) -> bool {
+        match self {
+            Self::Backup { retention, .. } => match retention {
+                Some(retention) => !retention.is_noop(),
+                None => false,
+            },
+            Self::Prune { retention, .. } => !retention.is_noop(),
+            Self::Start
+            | Self::Stop
+            | Self::Restart
+            | Self::Kill
+            | Self::Sleep { .. }
+            | Self::TerminalCommand { .. }
+            | Self::ContainerCommand { .. }
+            | Self::MinecraftCommand { .. } => false,
+        }
+    }
+
+    /// Whether the step keeps more backups than `limit` allows, which a step
+    /// without a retention policy always does: it never removes anything.
+    pub const fn exceeds_backup_limit(&self, limit: u32) -> bool {
+        let Self::Backup { retention, .. } = self else {
+            return false;
+        };
+
+        match retention {
+            Some(retention) => match retention.max_kept() {
+                Some(kept) => kept > limit as u64,
+                None => true,
+            },
+            None => true,
+        }
+    }
+
     pub fn is_complete(&self) -> bool {
         match self {
             Self::TerminalCommand { command } | Self::MinecraftCommand { command } => {
@@ -97,7 +164,13 @@ impl ScheduleTask {
             Self::ContainerCommand { command } => {
                 command.iter().any(|part| !part.trim().is_empty())
             }
-            Self::Start | Self::Stop | Self::Restart | Self::Kill | Self::Sleep { .. } => true,
+            Self::Prune { retention, .. } => !retention.is_noop(),
+            Self::Start
+            | Self::Stop
+            | Self::Restart
+            | Self::Kill
+            | Self::Sleep { .. }
+            | Self::Backup { .. } => true,
         }
     }
 }
@@ -130,8 +203,15 @@ pub fn next_run(expression: &str, timezone: &str) -> Option<DateTime<Utc>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ScheduleTask, normalize_cron, parse_cron};
+    use super::{BackupRetention, ScheduleTask, normalize_cron, parse_cron};
     use daemon_common::service::schedule::ScheduleStep;
+
+    fn retention(keep_last: u32) -> BackupRetention {
+        BackupRetention {
+            keep_last,
+            ..BackupRetention::default()
+        }
+    }
 
     fn owned(parts: &[&str]) -> Vec<String> {
         parts.iter().copied().map(str::to_owned).collect()
@@ -191,6 +271,93 @@ mod tests {
     }
 
     #[test]
+    fn passes_a_backup_through_with_its_retention_policy() {
+        let step = ScheduleTask::Backup {
+            storage: Some("local".to_owned()),
+            retention: Some(retention(3)),
+        }
+        .compile();
+
+        assert!(
+            matches!(
+                &step,
+                ScheduleStep::Backup {
+                    storage: Some(storage),
+                    retention: Some(retention)
+                } if storage == "local" && retention.keep_last == 3
+            ),
+            "a backup must keep its storage and policy, got {step:?}"
+        );
+    }
+
+    #[test]
+    fn only_a_policy_that_fits_the_backup_limit_is_accepted() {
+        let unbounded = ScheduleTask::Backup {
+            storage: None,
+            retention: None,
+        };
+        assert!(
+            unbounded.exceeds_backup_limit(5),
+            "a backup without a policy keeps growing past any limit"
+        );
+
+        let noop = ScheduleTask::Backup {
+            storage: None,
+            retention: Some(BackupRetention::default()),
+        };
+        assert!(
+            noop.exceeds_backup_limit(5),
+            "a policy whose counters are all zero keeps everything"
+        );
+
+        let fitting = ScheduleTask::Backup {
+            storage: None,
+            retention: Some(retention(5)),
+        };
+        assert!(
+            !fitting.exceeds_backup_limit(5),
+            "a policy that keeps exactly the limit fits"
+        );
+        assert!(
+            fitting.exceeds_backup_limit(4),
+            "a policy that keeps more than the limit does not fit"
+        );
+
+        assert!(
+            !ScheduleTask::Restart.exceeds_backup_limit(1),
+            "a step that creates no backup is never over the limit"
+        );
+    }
+
+    #[test]
+    fn recognises_which_backup_steps_delete() {
+        assert!(
+            !ScheduleTask::Backup {
+                storage: None,
+                retention: None
+            }
+            .removes_backups(),
+            "a backup without a policy deletes nothing"
+        );
+        assert!(
+            ScheduleTask::Backup {
+                storage: None,
+                retention: Some(retention(3))
+            }
+            .removes_backups(),
+            "a backup with a policy deletes what the policy drops"
+        );
+        assert!(
+            ScheduleTask::Prune {
+                storage: None,
+                retention: retention(3)
+            }
+            .removes_backups(),
+            "a prune deletes"
+        );
+    }
+
+    #[test]
     fn reads_a_five_field_expression_as_running_at_second_zero() {
         assert_eq!(
             normalize_cron("  30 4 * * *  "),
@@ -237,6 +404,14 @@ mod tests {
         assert!(
             ScheduleTask::Kill.is_complete(),
             "a kill needs no arguments"
+        );
+        assert!(
+            !ScheduleTask::Prune {
+                storage: None,
+                retention: BackupRetention::default()
+            }
+            .is_complete(),
+            "a prune that keeps everything would never do anything"
         );
     }
 }
