@@ -3,6 +3,7 @@
 import type { DragEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Archive,
   CalendarClock,
   GripVertical,
   Loader2,
@@ -44,6 +45,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -67,6 +73,7 @@ import {
   runSchedule,
   updateSchedule,
   SchedulePolicy,
+  type BackupRetention,
   type ListSchedulesResponse,
   type ScheduleTask,
 } from "@/lib/api";
@@ -86,8 +93,13 @@ type SchedulesManagerProps = {
   serverId: string;
   canManage: boolean;
   canUseContainerCommands: boolean;
+  canCreateBackups: boolean;
+  canDeleteBackups: boolean;
+  backupLimit: number | null;
   isMinecraftServer: boolean;
 };
+
+type RetentionTask = Extract<ScheduleTask, { type: "backup" | "prune" }>;
 
 type Schedule = ListSchedulesResponse[number];
 type TaskType = ScheduleTask["type"];
@@ -101,7 +113,29 @@ const TASK_TYPES: TaskType[] = [
   "terminal",
   "container",
   "minecraft",
+  "backup",
+  "prune",
 ];
+
+const RETENTION_FIELDS = [
+  "keep_last",
+  "keep_hourly",
+  "keep_daily",
+  "keep_weekly",
+  "keep_monthly",
+  "keep_yearly",
+] as const;
+
+const EMPTY_RETENTION: BackupRetention = {
+  keep_last: 0,
+  keep_hourly: 0,
+  keep_daily: 0,
+  keep_weekly: 0,
+  keep_monthly: 0,
+  keep_yearly: 0,
+};
+
+const DEFAULT_RETENTION: BackupRetention = { ...EMPTY_RETENTION, keep_last: 5 };
 
 const DEFAULT_CRON = ["0", "0", "4", "*", "*", "*"];
 
@@ -190,6 +224,152 @@ function formatSleepHint(seconds: number, language: string) {
   }).format(seconds / match.seconds);
 }
 
+/**
+ * The most backups a policy can ever keep, mirroring `BackupRetention::max_kept`
+ * on the backend: counters are a union, so their sum is the ceiling, and a
+ * policy without a single counter keeps everything and has no ceiling at all.
+ */
+function retentionCeiling(retention: BackupRetention | null | undefined) {
+  if (!retention) return null;
+
+  const total = RETENTION_FIELDS.reduce(
+    (sum, field) => sum + (retention[field] || 0),
+    0,
+  );
+
+  return total === 0 ? null : total;
+}
+
+function retentionOf(task: RetentionTask) {
+  return task.type === "prune" ? task.retention : (task.retention ?? null);
+}
+
+function RetentionTaskField({
+  task,
+  backupLimit,
+  canDeleteBackups,
+  onChange,
+}: {
+  task: RetentionTask;
+  backupLimit: number | null;
+  canDeleteBackups: boolean;
+  onChange: (task: RetentionTask) => void;
+}) {
+  const { t } = useTranslation();
+  const retention = retentionOf(task);
+  const ceiling = retentionCeiling(retention);
+  const overLimit =
+    task.type === "backup" &&
+    backupLimit !== null &&
+    (ceiling === null || ceiling > backupLimit);
+
+  const setRetention = (next: BackupRetention | null) => {
+    onChange(
+      task.type === "prune"
+        ? { ...task, retention: next ?? EMPTY_RETENTION }
+        : { ...task, retention: next },
+    );
+  };
+
+  const summary = retention
+    ? RETENTION_FIELDS.filter((field) => (retention[field] || 0) > 0)
+        .map(
+          (field) =>
+            `${retention[field]} ${t(`servers:schedules.retention.fields.${field}`)}`,
+        )
+        .join(" · ")
+    : "";
+
+  return (
+    <div className="flex w-full min-w-0 items-center gap-2 sm:flex-1">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-w-0 flex-1 justify-start font-normal"
+          >
+            <Archive className="size-4 shrink-0" />
+            <span className="truncate">
+              {summary.length > 0
+                ? summary
+                : t("servers:schedules.retention.keepEverything")}
+            </span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-88 space-y-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">
+              {t("servers:schedules.retention.title")}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("servers:schedules.retention.description")}
+            </p>
+          </div>
+
+          {task.type === "backup" ? (
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor={`retention-${task.type}`} className="text-sm">
+                {t("servers:schedules.retention.enable")}
+              </Label>
+              <Switch
+                id={`retention-${task.type}`}
+                checked={retention !== null}
+                disabled={!canDeleteBackups}
+                onCheckedChange={(checked) =>
+                  setRetention(checked ? DEFAULT_RETENTION : null)
+                }
+              />
+            </div>
+          ) : null}
+
+          {retention ? (
+            <div className="grid grid-cols-2 gap-2">
+              {RETENTION_FIELDS.map((field) => (
+                <div key={field} className="space-y-1">
+                  <Label
+                    htmlFor={`${field}-${task.type}`}
+                    className="text-xs text-muted-foreground"
+                  >
+                    {t(`servers:schedules.retention.fields.${field}`)}
+                  </Label>
+                  <Input
+                    id={`${field}-${task.type}`}
+                    type="number"
+                    min={0}
+                    className="h-8 tabular-nums"
+                    value={retention[field]}
+                    onChange={(event) =>
+                      setRetention({
+                        ...retention,
+                        [field]: Math.max(0, Number(event.target.value) || 0),
+                      })
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {backupLimit === null ? null : (
+            <p className="text-xs text-muted-foreground">
+              {t("servers:schedules.retention.limitHint", {
+                limit: backupLimit,
+              })}
+            </p>
+          )}
+        </PopoverContent>
+      </Popover>
+
+      {overLimit ? (
+        <span className="shrink-0 text-xs text-destructive">
+          {t("servers:schedules.retention.limitExceeded")}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function SleepTaskField({
   value,
   onChange,
@@ -235,6 +415,10 @@ function emptyTask(type: TaskType): ScheduleTask {
       return { type, command: "" };
     case "container":
       return { type, command: [] };
+    case "backup":
+      return { type, storage: null, retention: null };
+    case "prune":
+      return { type, storage: null, retention: DEFAULT_RETENTION };
     default:
       return { type } as ScheduleTask;
   }
@@ -247,8 +431,23 @@ function taskIsComplete(task: ScheduleTask) {
   if (task.type === "container") {
     return task.command.some((part) => part.trim().length > 0);
   }
+  if (task.type === "prune") {
+    return retentionCeiling(task.retention) !== null;
+  }
 
   return true;
+}
+
+/**
+ * A scheduled backup on a server with a backup limit has to remove as much as
+ * it creates, so its policy must keep within that limit. The backend rejects
+ * anything else.
+ */
+function taskFitsBackupLimit(task: ScheduleTask, backupLimit: number | null) {
+  if (backupLimit === null || task.type !== "backup") return true;
+
+  const ceiling = retentionCeiling(task.retention);
+  return ceiling !== null && ceiling <= backupLimit;
 }
 
 function errorMessage(
@@ -262,6 +461,9 @@ export function SchedulesManager({
   serverId,
   canManage,
   canUseContainerCommands,
+  canCreateBackups,
+  canDeleteBackups,
+  backupLimit,
   isMinecraftServer,
 }: SchedulesManagerProps) {
   const { t, i18n } = useTranslation();
@@ -289,9 +491,16 @@ export function SchedulesManager({
     (type: TaskType) => {
       if (type === "minecraft") return isMinecraftServer;
       if (type === "container") return canUseContainerCommands;
+      if (type === "backup") return canCreateBackups;
+      if (type === "prune") return canDeleteBackups;
       return true;
     },
-    [canUseContainerCommands, isMinecraftServer],
+    [
+      canCreateBackups,
+      canDeleteBackups,
+      canUseContainerCommands,
+      isMinecraftServer,
+    ],
   );
 
   const taskTypesFor = useCallback(
@@ -439,7 +648,11 @@ export function SchedulesManager({
 
   const nameValid = name.trim().length > 0 && name.trim().length <= 64;
   const cronValid = parseCron(expression) !== null;
-  const tasksValid = tasks.length > 0 && tasks.every(taskIsComplete);
+  const tasksValid =
+    tasks.length > 0 &&
+    tasks.every(
+      (task) => taskIsComplete(task) && taskFitsBackupLimit(task, backupLimit),
+    );
   const canSubmit = nameValid && cronValid && tasksValid && timezone.length > 0;
 
   const submit = async () => {
@@ -1126,6 +1339,13 @@ export function SchedulesManager({
                             command: event.target.value,
                           })
                         }
+                      />
+                    ) : task.type === "backup" || task.type === "prune" ? (
+                      <RetentionTaskField
+                        task={task}
+                        backupLimit={backupLimit}
+                        canDeleteBackups={canDeleteBackups}
+                        onChange={(next) => setTask(index, next)}
                       />
                     ) : task.type === "container" ? (
                       <Input

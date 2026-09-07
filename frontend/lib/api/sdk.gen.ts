@@ -179,7 +179,8 @@ export const updateVariables = <ThrowOnError extends boolean = false>(options: O
  * `command` is what the server runs today, `default_command` what its template defines.<br/>
  * `reserved_environment` lists the names the template and the port allocation own, which<br/>
  * a custom variable cannot take over. When `env_file_enabled` is set, the server sources<br/>
- * `env_file_path` from its working directory right before the startup command runs.<br/>
+ * `env_file_path` from its working directory right before the startup command runs; the file<br/>
+ * can only introduce new names, entries for variables that are already set are ignored.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::BUILD_VIEW`.
@@ -196,6 +197,8 @@ export const serverStartup = <ThrowOnError extends boolean = false>(options: Opt
  * field leaves it untouched, while `environment` replaces the whole set of custom variables.<br/>
  * `env_file_path` must be a relative path inside the server directory; it is only sourced<br/>
  * while `env_file_enabled` is set, and a missing file is skipped rather than failing the start.<br/>
+ * The variables the build already defines are restored after the file is sourced, so the file<br/>
+ * cannot override the template's, the ports' or the custom variables.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::BUILD_EDIT`.
@@ -1745,7 +1748,12 @@ export const listSchedules = <ThrowOnError extends boolean = false>(options: Opt
  * first); a five-field expression is stored as running at second zero.<br/>
  * <br/>
  * # Permissions<br/>
- * Requires `ServerPermissions::SCHEDULE_MANAGE`.
+ * Requires `ServerPermissions::SCHEDULE_MANAGE`,<br/>
+ * `ManagementPermissions::SERVER_MANAGE` for a container command task,<br/>
+ * `ServerPermissions::BACKUP_CREATE` for a backup task,<br/>
+ * `ServerPermissions::BACKUP_DELETE` for a task with a retention policy<br/>
+ * and `ManagementPermissions::BACKUP_STORAGE_SELECT` for a task that<br/>
+ * names a backup storage.
  */
 export const createSchedule = <ThrowOnError extends boolean = false>(options: Options<CreateScheduleData, ThrowOnError>) => (options.client ?? client).put<CreateScheduleResponses, CreateScheduleErrors, ThrowOnError>({
     url: '/schedule/{server_id}',
@@ -1772,7 +1780,12 @@ export const deleteSchedule = <ThrowOnError extends boolean = false>(options: Op
  *  Replaces a schedule's configuration and steps.<br/>
  * <br/>
  * # Permissions<br/>
- * Requires `ServerPermissions::SCHEDULE_MANAGE`.
+ * Requires `ServerPermissions::SCHEDULE_MANAGE`,<br/>
+ * `ManagementPermissions::SERVER_MANAGE` for a container command task,<br/>
+ * `ServerPermissions::BACKUP_CREATE` for a backup task,<br/>
+ * `ServerPermissions::BACKUP_DELETE` for a task with a retention policy<br/>
+ * and `ManagementPermissions::BACKUP_STORAGE_SELECT` for a task that<br/>
+ * names a backup storage.
  */
 export const updateSchedule = <ThrowOnError extends boolean = false>(options: Options<UpdateScheduleData, ThrowOnError>) => (options.client ?? client).patch<UpdateScheduleResponses, UpdateScheduleErrors, ThrowOnError>({
     url: '/schedule/{server_id}/{schedule_id}',

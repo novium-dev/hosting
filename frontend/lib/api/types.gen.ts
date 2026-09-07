@@ -39,6 +39,45 @@ export type ArchiveFilePayload = {
     sources: Array<string>;
 };
 
+/**
+ * How many backups a policy keeps per time period.
+ *
+ * Each counter makes its selection on its own and the results are unioned, so
+ * a backup survives as soon as a single counter keeps it and the order the
+ * counters are applied in does not change the outcome. A counter of `0` keeps
+ * nothing by itself; a policy whose counters are all `0` keeps everything, so
+ * that an empty policy never deletes data.
+ *
+ * Periods are always counted in UTC. In local time a daylight saving change
+ * drops or duplicates an hourly period once a year.
+ */
+export type BackupRetention = {
+    /**
+     * Keep the newest backup of each of the last `n` days that have backups.
+     */
+    keep_daily: number;
+    /**
+     * Keep the newest backup of each of the last `n` hours that have backups.
+     */
+    keep_hourly: number;
+    /**
+     * Keep the last `n` backups, regardless of when they were taken.
+     */
+    keep_last: number;
+    /**
+     * Keep the newest backup of each of the last `n` months that have backups.
+     */
+    keep_monthly: number;
+    /**
+     * Keep the newest backup of each of the last `n` ISO weeks that have backups.
+     */
+    keep_weekly: number;
+    /**
+     * Keep the newest backup of each of the last `n` years that have backups.
+     */
+    keep_yearly: number;
+};
+
 export type BackupStorage = {
     btrfs: string;
 } | 'archive';
@@ -569,6 +608,14 @@ export type ScheduleTask = {
 } | {
     command: string;
     type: 'minecraft';
+} | {
+    retention?: null | BackupRetention;
+    storage?: string | null;
+    type: 'backup';
+} | {
+    retention: BackupRetention;
+    storage?: string | null;
+    type: 'prune';
 };
 
 export type ServerLimits = {
@@ -4671,6 +4718,10 @@ export type ListBackupsResponses = {
      */
     200: Array<{
         name?: string | null;
+        /**
+         * Whether the backup is exempt from retention policies.
+         */
+        protected: boolean;
         size?: number | null;
         storage: string;
         time: number;
@@ -14943,9 +14994,18 @@ export type CreateScheduleErrors = {
         };
     };
     /**
-     * The server schedule limit has been reached
+     * A scheduled backup needs a retention policy that keeps within the server's backup limit
      */
     '400‬': {
+        error?: {
+            id?: 'schedule/retention_invalid';
+            msg?: 'A scheduled backup needs a retention policy that keeps within the server\'s backup limit';
+        };
+    };
+    /**
+     * The server schedule limit has been reached
+     */
+    '400‭': {
         error?: {
             id?: 'schedule/limit_exceeded';
             msg?: 'The server schedule limit has been reached';
@@ -14990,7 +15050,7 @@ export type CreateScheduleErrors = {
     /**
      * Database operation failed
      */
-    '500‮': {
+    '500⁠': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -14999,7 +15059,7 @@ export type CreateScheduleErrors = {
     /**
      * Node operation failed
      */
-    '502‭': {
+    '502‮': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -15186,6 +15246,15 @@ export type UpdateScheduleErrors = {
         };
     };
     /**
+     * A scheduled backup needs a retention policy that keeps within the server's backup limit
+     */
+    '400‭': {
+        error?: {
+            id?: 'schedule/retention_invalid';
+            msg?: 'A scheduled backup needs a retention policy that keeps within the server\'s backup limit';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -15233,7 +15302,7 @@ export type UpdateScheduleErrors = {
     /**
      * Database operation failed
      */
-    '500‮': {
+    '500⁠': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -15242,7 +15311,7 @@ export type UpdateScheduleErrors = {
     /**
      * Node operation failed
      */
-    '502‭': {
+    '502‮': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';

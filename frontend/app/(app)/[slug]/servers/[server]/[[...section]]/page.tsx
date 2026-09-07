@@ -231,6 +231,15 @@ export default function ClientServerSectionPage() {
             effectivePermissions,
             ManagementPermission.SERVER_MANAGE,
           )}
+          canCreateBackups={hasServerPermission(
+            effectivePermissions,
+            ServerPermission.BACKUP_CREATE,
+          )}
+          canDeleteBackups={hasServerPermission(
+            effectivePermissions,
+            ServerPermission.BACKUP_DELETE,
+          )}
+          backupLimit={serverData?.limits.backup ?? null}
           isMinecraftServer={(serverData?.features ?? []).includes(
             "minecraft_commands",
           )}

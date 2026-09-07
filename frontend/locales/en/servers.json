@@ -279,13 +279,31 @@
       "sleep": "Wait",
       "terminal": "Console command",
       "container": "Container command",
-      "minecraft": "Minecraft command"
+      "minecraft": "Minecraft command",
+      "backup": "Backup",
+      "prune": "Prune backups"
     },
     "taskHelp": {
       "start": "Starts the server and waits for it to come up.",
       "stop": "Stops the server gracefully.",
       "restart": "Restarts the server.",
       "kill": "Kills the server immediately."
+    },
+    "retention": {
+      "title": "Retention policy",
+      "description": "Each counter keeps the newest backup of each of the last n periods. A backup survives as soon as one counter keeps it.",
+      "enable": "Delete older backups",
+      "keepEverything": "Keep every backup",
+      "limitHint": "This server keeps at most {{limit}} backups.",
+      "limitExceeded": "Over the backup limit",
+      "fields": {
+        "keep_last": "Last",
+        "keep_hourly": "Hourly",
+        "keep_daily": "Daily",
+        "keep_weekly": "Weekly",
+        "keep_monthly": "Monthly",
+        "keep_yearly": "Yearly"
+      }
     },
     "dialog": {
       "createTitle": "New schedule",

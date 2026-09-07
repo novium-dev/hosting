@@ -279,13 +279,31 @@
       "sleep": "Warten",
       "terminal": "Konsolenbefehl",
       "container": "Container-Befehl",
-      "minecraft": "Minecraft-Befehl"
+      "minecraft": "Minecraft-Befehl",
+      "backup": "Backup",
+      "prune": "Backups aufräumen"
     },
     "taskHelp": {
       "start": "Startet den Server und wartet, bis er läuft.",
       "stop": "Stoppt den Server regulär.",
       "restart": "Startet den Server neu.",
       "kill": "Beendet den Server sofort."
+    },
+    "retention": {
+      "title": "Aufbewahrung",
+      "description": "Jeder Zähler behält das neueste Backup der letzten n Zeiträume. Ein Backup bleibt erhalten, sobald ein Zähler es behält.",
+      "enable": "Ältere Backups löschen",
+      "keepEverything": "Alle Backups behalten",
+      "limitHint": "Dieser Server behält höchstens {{limit}} Backups.",
+      "limitExceeded": "Über dem Backup-Limit",
+      "fields": {
+        "keep_last": "Letzte",
+        "keep_hourly": "Stündlich",
+        "keep_daily": "Täglich",
+        "keep_weekly": "Wöchentlich",
+        "keep_monthly": "Monatlich",
+        "keep_yearly": "Jährlich"
+      }
     },
     "dialog": {
       "createTitle": "Neuer Zeitplan",
