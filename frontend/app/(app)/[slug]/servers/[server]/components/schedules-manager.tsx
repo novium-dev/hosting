@@ -50,6 +50,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -136,6 +141,9 @@ const EMPTY_RETENTION: BackupRetention = {
 };
 
 const DEFAULT_RETENTION: BackupRetention = { ...EMPTY_RETENTION, keep_last: 5 };
+
+/** How many steps the table lists before the rest are folded into a tooltip. */
+const LISTED_TASKS = 3;
 
 const DEFAULT_CRON = ["0", "0", "4", "*", "*", "*"];
 
@@ -367,6 +375,33 @@ function RetentionTaskField({
         </span>
       ) : null}
     </div>
+  );
+}
+
+function ScheduleTaskSummary({ tasks }: { tasks: ScheduleTask[] }) {
+  const { t } = useTranslation();
+
+  const labels = tasks.map((task) =>
+    t(`servers:schedules.taskTypes.${task.type}`),
+  );
+  const listed = labels.slice(0, LISTED_TASKS).join(" → ");
+  const hidden = labels.length - LISTED_TASKS;
+
+  if (hidden <= 0) {
+    return <span>{listed}</span>;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="cursor-default underline decoration-dotted underline-offset-4">
+          {listed} → {t("servers:schedules.table.moreTasks", { count: hidden })}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">
+        {labels.join(" → ")}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -831,11 +866,7 @@ export function SchedulesManager({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {schedule.tasks
-                          .map((task) =>
-                            t(`servers:schedules.taskTypes.${task.type}`),
-                          )
-                          .join(" → ")}
+                        <ScheduleTaskSummary tasks={schedule.tasks} />
                       </TableCell>
                       <TableCell className="text-sm">
                         {schedule.enabled

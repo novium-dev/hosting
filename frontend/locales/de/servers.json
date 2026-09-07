@@ -264,7 +264,9 @@
       "cron": "Cron",
       "policy": "Läuft",
       "nextRun": "Nächste Ausführung",
-      "tasks": "Schritte"
+      "tasks": "Schritte",
+      "moreTasks_one": "+{{count}} weiterer Schritt",
+      "moreTasks_other": "+{{count}} weitere Schritte"
     },
     "policies": {
       "always": "Immer",
