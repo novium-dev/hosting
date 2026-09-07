@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import { InstanceDatabases } from "@/components/databases/instance-databases";
+import { InstanceDeleteCard } from "@/components/databases/instance-delete-card";
 import { InstanceManagementBar } from "@/components/databases/instance-management-bar";
 import { InstanceUsers } from "@/components/databases/instance-users";
 import { NotFoundView } from "@/components/not-found-view";
@@ -15,11 +16,13 @@ import { ServerPermission, hasServerPermission } from "@/lib/permissions";
 
 export function InstanceView({
   projectId,
+  slug,
   instanceId,
   section,
   permissions,
 }: {
   projectId: string;
+  slug: string;
   instanceId: string;
   section: string;
   permissions: number;
@@ -90,6 +93,14 @@ export function InstanceView({
           canManage={canManage}
         />
       )}
+
+      {canManage ? (
+        <InstanceDeleteCard
+          projectId={projectId}
+          slug={slug}
+          instance={instance}
+        />
+      ) : null}
     </div>
   );
 }

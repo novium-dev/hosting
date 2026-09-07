@@ -34,6 +34,7 @@ export default function DatabaseInstancePage() {
     >
       <InstanceView
         projectId={project.id}
+        slug={slug ?? ""}
         instanceId={instance}
         section={section ?? "databases"}
         permissions={project.permissions}

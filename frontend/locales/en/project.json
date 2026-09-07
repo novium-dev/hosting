@@ -59,6 +59,14 @@
       "notRunningTitle": "The instance is not running",
       "notRunningDescription": "Start it before creating databases or users — the engine has to be up for those to take effect."
     },
+    "deleteCard": {
+      "title": "Delete instance",
+      "description": "Removing this instance also removes every database and user on it.",
+      "deleteButton": "Delete instance",
+      "confirmDescription": "Every database and user on this instance is deleted with it, along with all of their data. This cannot be undone.",
+      "deleted": "Instance deleted",
+      "deleteError": "Failed to delete the instance"
+    },
     "createDialog": {
       "trigger": "New instance",
       "title": "Create database instance",
@@ -142,11 +150,7 @@
       "stateColumn": "State",
       "loadError": "Failed to load the instances.",
       "emptyTitle": "No database instances yet",
-      "emptyDescription": "Create one, then add as many databases and users to it as you need.",
-      "powerChanged": "Power state changed",
-      "deleted": "Instance deleted",
-      "deleteError": "Failed to delete the instance",
-      "deleteDescription": "Every database and user on this instance is deleted with it, along with all of their data. This cannot be undone."
+      "emptyDescription": "Create one, then add as many databases and users to it as you need."
     }
   },
   "members": {

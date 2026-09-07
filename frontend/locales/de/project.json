@@ -59,6 +59,14 @@
       "notRunningTitle": "Die Instanz läuft nicht",
       "notRunningDescription": "Starte sie, bevor du Datenbanken oder Benutzer erstellst — die Engine muss laufen, damit diese wirksam werden."
     },
+    "deleteCard": {
+      "title": "Instanz löschen",
+      "description": "Mit dieser Instanz werden auch alle Datenbanken und Benutzer darauf entfernt.",
+      "deleteButton": "Instanz löschen",
+      "confirmDescription": "Jede Datenbank und jeder Benutzer auf dieser Instanz wird mit ihr gelöscht, zusammen mit all ihren Daten. Dies kann nicht rückgängig gemacht werden.",
+      "deleted": "Instanz gelöscht",
+      "deleteError": "Instanz konnte nicht gelöscht werden"
+    },
     "createDialog": {
       "trigger": "Neue Instanz",
       "title": "Datenbankinstanz erstellen",
@@ -142,11 +150,7 @@
       "stateColumn": "Zustand",
       "loadError": "Die Instanzen konnten nicht geladen werden.",
       "emptyTitle": "Noch keine Datenbankinstanzen",
-      "emptyDescription": "Erstelle eine und füge ihr so viele Datenbanken und Benutzer hinzu, wie du brauchst.",
-      "powerChanged": "Betriebszustand geändert",
-      "deleted": "Instanz gelöscht",
-      "deleteError": "Instanz konnte nicht gelöscht werden",
-      "deleteDescription": "Jede Datenbank und jeder Benutzer auf dieser Instanz wird mit ihr gelöscht, zusammen mit all ihren Daten. Dies kann nicht rückgängig gemacht werden."
+      "emptyDescription": "Erstelle eine und füge ihr so viele Datenbanken und Benutzer hinzu, wie du brauchst."
     }
   },
   "members": {

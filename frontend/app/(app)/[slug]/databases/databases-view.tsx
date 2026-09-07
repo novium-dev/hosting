@@ -78,13 +78,10 @@ export function DatabasesView({
         ) : null}
       </div>
       <InstancesTable
-        projectId={projectId}
         slug={slug}
         instances={instances}
         isLoading={isLoading}
         error={Boolean(error)}
-        canManage={canManage}
-        onChanged={() => void mutate()}
       />
     </div>
   );
