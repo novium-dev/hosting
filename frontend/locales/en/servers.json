@@ -121,7 +121,10 @@
     },
     "createDialog": {
       "title": "Create Backup",
-      "description": "This will start creating a new backup using the default storage."
+      "description": "This will start creating a new backup using the default storage.",
+      "nameLabel": "Name (optional)",
+      "namePlaceholder": "Before the update",
+      "nameHelp": "A named backup is easier to find later. Without one it is listed by its time."
     },
     "restoreDialog": {
       "title": "Restore backup?",

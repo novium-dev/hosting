@@ -1749,6 +1749,7 @@ export const listSchedules = <ThrowOnError extends boolean = false>(options: Opt
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::SCHEDULE_MANAGE`,<br/>
+ * `ServerPermissions::TERMINAL_WRITE` for a console command task,<br/>
  * `ManagementPermissions::SERVER_MANAGE` for a container command task,<br/>
  * `ServerPermissions::BACKUP_CREATE` for a backup task,<br/>
  * `ServerPermissions::BACKUP_DELETE` for a task with a retention policy<br/>
@@ -1781,6 +1782,7 @@ export const deleteSchedule = <ThrowOnError extends boolean = false>(options: Op
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::SCHEDULE_MANAGE`,<br/>
+ * `ServerPermissions::TERMINAL_WRITE` for a console command task,<br/>
  * `ManagementPermissions::SERVER_MANAGE` for a container command task,<br/>
  * `ServerPermissions::BACKUP_CREATE` for a backup task,<br/>
  * `ServerPermissions::BACKUP_DELETE` for a task with a retention policy<br/>

@@ -273,6 +273,7 @@ pub(crate) impl ScheduleService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::SCHEDULE_MANAGE`],
+    /// [`ServerPermissions::TERMINAL_WRITE`] for a console command task,
     /// [`ManagementPermissions::SERVER_MANAGE`] for a container command task,
     /// [`ServerPermissions::BACKUP_CREATE`] for a backup task,
     /// [`ServerPermissions::BACKUP_DELETE`] for a task with a retention policy
@@ -301,6 +302,17 @@ pub(crate) impl ScheduleService for Backend {
             .any(ScheduleTask::requires_container_access)
         {
             auth.require::<_, _, CreateScheduleError>((), ManagementPermissions::SERVER_MANAGE)?;
+        }
+
+        if payload
+            .tasks
+            .iter()
+            .any(ScheduleTask::runs_console_commands)
+        {
+            auth.require::<_, _, CreateScheduleError>(
+                server_id,
+                ServerPermissions::TERMINAL_WRITE,
+            )?;
         }
 
         if payload.tasks.iter().any(ScheduleTask::creates_backups) {
@@ -393,6 +405,7 @@ pub(crate) impl ScheduleService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::SCHEDULE_MANAGE`],
+    /// [`ServerPermissions::TERMINAL_WRITE`] for a console command task,
     /// [`ManagementPermissions::SERVER_MANAGE`] for a container command task,
     /// [`ServerPermissions::BACKUP_CREATE`] for a backup task,
     /// [`ServerPermissions::BACKUP_DELETE`] for a task with a retention policy
@@ -422,6 +435,17 @@ pub(crate) impl ScheduleService for Backend {
             .any(ScheduleTask::requires_container_access)
         {
             auth.require::<_, _, UpdateScheduleError>((), ManagementPermissions::SERVER_MANAGE)?;
+        }
+
+        if payload
+            .tasks
+            .iter()
+            .any(ScheduleTask::runs_console_commands)
+        {
+            auth.require::<_, _, UpdateScheduleError>(
+                server_id,
+                ServerPermissions::TERMINAL_WRITE,
+            )?;
         }
 
         if payload.tasks.iter().any(ScheduleTask::creates_backups) {

@@ -12,6 +12,7 @@ use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
 pub mod api_key;
+pub mod backfill;
 pub mod client;
 pub mod csrf;
 pub mod effective;

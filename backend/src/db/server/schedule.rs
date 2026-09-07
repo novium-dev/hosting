@@ -105,6 +105,13 @@ impl ScheduleTask {
         matches!(self, Self::ContainerCommand { .. })
     }
 
+    pub const fn runs_console_commands(&self) -> bool {
+        matches!(
+            self,
+            Self::TerminalCommand { .. } | Self::MinecraftCommand { .. }
+        )
+    }
+
     pub const fn creates_backups(&self) -> bool {
         matches!(self, Self::Backup { .. })
     }

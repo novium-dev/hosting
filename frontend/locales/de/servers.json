@@ -121,7 +121,10 @@
     },
     "createDialog": {
       "title": "Backup erstellen",
-      "description": "Dadurch wird die Erstellung eines neuen Backups im Standardspeicher gestartet."
+      "description": "Dadurch wird die Erstellung eines neuen Backups im Standardspeicher gestartet.",
+      "nameLabel": "Name (optional)",
+      "namePlaceholder": "Vor dem Update",
+      "nameHelp": "Ein benanntes Backup findest du später leichter wieder. Ohne Namen wird es mit seiner Uhrzeit gelistet."
     },
     "restoreDialog": {
       "title": "Backup wiederherstellen?",

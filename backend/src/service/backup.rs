@@ -14,7 +14,16 @@ use daemon_common::service::backup::backup_service_error::{
     ServerListBackupsError, ServerRestoreBackupError, ServerUpdateBackupError,
 };
 use tracing::error;
-use zelus::service;
+use zelus::{define_query_variable, service};
+
+define_query_variable!(name "The name to give the backup");
+
+/// Backup names are optional, so a name of only whitespace is the same as
+/// having sent none at all.
+fn backup_name(name: Option<String>) -> Option<String> {
+    name.map(|name| name.trim().to_owned())
+        .filter(|name| !name.is_empty())
+}
 
 #[service(path = "/backup/{server_id}", tag = "backup", no_sdk)]
 pub(crate) impl BackupService for Backend {
@@ -66,12 +75,13 @@ pub(crate) impl BackupService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::BACKUP_CREATE`].
-    #[route("", method = PUT)]
+    #[route("", method = PUT, query = [name])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, no_suitable_storage_found, limit_exceeded})]
     async fn create_backup(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
+        name: Option<String>,
     ) -> Result<i64, _> {
         auth.require::<_, _, CreateBackupError>(server_id, ServerPermissions::BACKUP_CREATE)?;
 
@@ -112,7 +122,7 @@ pub(crate) impl BackupService for Backend {
 
         server
             .node
-            .server_create_backup_order(server.node_server_id, None)
+            .server_create_backup_order(server.node_server_id, backup_name(name))
             .await
             .map_err(|err| match err {
                 ServerCreateBackupOrderError::Communication(_) => {
@@ -139,13 +149,14 @@ pub(crate) impl BackupService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::BACKUP_CREATE`] and [`ManagementPermissions::BACKUP_STORAGE_SELECT`].
-    #[route("/{backup_storage}", method = PUT)]
+    #[route("/{backup_storage}", method = PUT, query = [name])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, storage_not_found, storage_incompatible, limit_exceeded})]
     async fn create_backup_with_storage(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
         backup_storage: String,
+        name: Option<String>,
     ) -> Result<i64, _> {
         auth.require::<_, _, CreateBackupWithStorageError>(
             server_id,
@@ -193,7 +204,7 @@ pub(crate) impl BackupService for Backend {
 
         server
             .node
-            .server_create_backup(server.node_server_id, backup_storage, None)
+            .server_create_backup(server.node_server_id, backup_storage, backup_name(name))
             .await
             .map_err(|err| match err {
                 ServerCreateBackupError::Communication(_) => {

@@ -38,6 +38,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -110,6 +112,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<BackupRow | null>(null);
@@ -148,10 +151,12 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
     setIsActionLoading(true);
 
     try {
+      const name = createName.trim();
       const response = await createBackup({
         path: {
           server_id: serverId,
         },
+        query: name.length > 0 ? { name } : undefined,
       });
 
       if (response.error) {
@@ -163,6 +168,7 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
 
       toast.success(t("servers:backups.toasts.createSuccess"));
       setCreateOpen(false);
+      setCreateName("");
       await refresh();
     } finally {
       setIsActionLoading(false);
@@ -410,6 +416,9 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
         open={createOpen}
         onOpenChange={(open) => {
           setCreateOpen(open);
+          if (!open) {
+            setCreateName("");
+          }
         }}
       >
         <DialogContent>
@@ -419,6 +428,24 @@ export function BackupsManager({ serverId }: BackupsManagerProps) {
               {t("servers:backups.createDialog.description")}
             </DialogDescription>
           </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="backup-name">
+              {t("servers:backups.createDialog.nameLabel")}
+            </Label>
+            <Input
+              id="backup-name"
+              value={createName}
+              maxLength={64}
+              autoComplete="off"
+              placeholder={t("servers:backups.createDialog.namePlaceholder")}
+              onChange={(event) => setCreateName(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("servers:backups.createDialog.nameHelp")}
+            </p>
+          </div>
+
           <DialogFooter>
             <Button
               type="button"

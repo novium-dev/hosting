@@ -4744,7 +4744,12 @@ export type CreateBackupData = {
          */
         server_id: NanoId;
     };
-    query?: never;
+    query?: {
+        /**
+         * The name to give the backup
+         */
+        name?: string | null;
+    };
     url: '/backup/{server_id}';
 };
 
@@ -4861,7 +4866,12 @@ export type CreateBackupWithStorageData = {
          */
         backup_storage: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * The name to give the backup
+         */
+        name?: string | null;
+    };
     url: '/backup/{server_id}/{backup_storage}';
 };
 
