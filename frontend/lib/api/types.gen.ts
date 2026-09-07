@@ -14414,6 +14414,99 @@ export type CreateRouteDomainResponses = {
 
 export type CreateRouteDomainResponse = CreateRouteDomainResponses[keyof CreateRouteDomainResponses];
 
+export type ListDomainRoutesData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The route domain ID
+         */
+        domain_id: number;
+    };
+    query?: never;
+    url: '/admin/route/domains/{domain_id}/routes';
+};
+
+export type ListDomainRoutesErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified route domain was not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'route/domain_not_found';
+            msg?: 'The specified route domain was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListDomainRoutesError = ListDomainRoutesErrors[keyof ListDomainRoutesErrors];
+
+export type ListDomainRoutesResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        address: string;
+        external_port: number;
+        fqdn: string;
+        https: boolean;
+        id: number;
+        kind: RouteKind;
+        port: number;
+        project: NanoId;
+        project_name: string;
+        project_slug: string;
+        server: NanoId;
+        server_name: string;
+        service?: string | null;
+        status: RouteStatus;
+        subdomain: string;
+    }>;
+};
+
+export type ListDomainRoutesResponse = ListDomainRoutesResponses[keyof ListDomainRoutesResponses];
+
 export type ResolveDomainZoneData = {
     body?: never;
     headers?: {

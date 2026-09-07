@@ -24,6 +24,7 @@ import AdminNodesPage from "@/app/(app)/admin/nodes/page";
 import AdminNodePage from "@/app/(app)/admin/nodes/[node]/page";
 import AdminRegionsPage from "@/app/(app)/admin/regions/page";
 import AdminDomainsPage from "@/app/(app)/admin/domains/page";
+import AdminDomainPage from "@/app/(app)/admin/domains/[domain]/page";
 import AdminDatabasesPage from "@/app/(app)/admin/databases/page";
 import AdminDatabaseHostPage from "@/app/(app)/admin/databases/[host]/page";
 import AdminProjectsPage from "@/app/(app)/admin/projects/page";
@@ -74,6 +75,7 @@ export const router = createBrowserRouter([
               { path: "nodes/:node", element: <AdminNodePage /> },
               { path: "regions", element: <AdminRegionsPage /> },
               { path: "domains", element: <AdminDomainsPage /> },
+              { path: "domains/:domain", element: <AdminDomainPage /> },
               { path: "databases", element: <AdminDatabasesPage /> },
               { path: "databases/:host", element: <AdminDatabaseHostPage /> },
               { path: "projects", element: <AdminProjectsPage /> },

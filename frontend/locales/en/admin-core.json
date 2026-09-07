@@ -19,6 +19,12 @@
       "nothingYet": "nothing yet",
       "tcpBadge": "TCP"
     },
+    "routes": {
+      "breadcrumb": "Domains",
+      "description": "Every route created under this domain, across all projects.",
+      "empty": "No routes on this domain yet.",
+      "server": "Server"
+    },
     "createDialog": {
       "title": "New domain",
       "description": "Routes are created as subdomains of this domain.",

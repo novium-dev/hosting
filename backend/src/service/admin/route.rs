@@ -2,11 +2,13 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::project::ProjectId;
+use crate::db::route::RouteStatus;
+use crate::db::server::ServerId;
 use crate::routes::{RouteError, RouteKind, is_valid_domain};
 use crate::service::admin::route::route_admin_service_error::{
     AllowDomainProjectError, CreateRouteDomainError, DeleteRouteDomainError,
-    DenyDomainProjectError, ListRouteDomainsAdminError, ResolveDomainZoneError, RouteBackendsError,
-    UpdateRouteDomainError,
+    DenyDomainProjectError, ListDomainRoutesError, ListRouteDomainsAdminError,
+    ResolveDomainZoneError, RouteBackendsError, UpdateRouteDomainError,
 };
 use crate::service::*;
 use serde::{Deserialize, Serialize};
@@ -36,6 +38,25 @@ pub(crate) struct RouteDomainAdminInfo {
     pub(crate) routes: i64,
     pub(crate) http_available: bool,
     pub(crate) tcp_available: bool,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct DomainRouteInfo {
+    pub(crate) id: i32,
+    pub(crate) subdomain: String,
+    pub(crate) fqdn: String,
+    pub(crate) address: String,
+    pub(crate) kind: RouteKind,
+    pub(crate) service: Option<String>,
+    pub(crate) https: bool,
+    pub(crate) status: RouteStatus,
+    pub(crate) port: i32,
+    pub(crate) external_port: u16,
+    pub(crate) server: ServerId,
+    pub(crate) server_name: String,
+    pub(crate) project: ProjectId,
+    pub(crate) project_slug: String,
+    pub(crate) project_name: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToSchema)]
@@ -112,6 +133,83 @@ pub(crate) impl RouteAdminService for Backend {
         }
 
         Ok(domains)
+    }
+
+    /// Lists every route pointing at the domain, across all projects.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::DOMAINS_VIEW`].
+    #[route("/domains/{domain_id}/routes", method = GET)]
+    #[error(auth::{permission_denied, unreachable}, route::domain_not_found, db::failure <- [sql:*])]
+    async fn list_domain_routes(
+        &self,
+        #[special] auth: Authentication,
+        domain_id: i32,
+    ) -> Result<Vec<DomainRouteInfo>, _> {
+        auth.require::<_, _, ListDomainRoutesError>((), ManagementPermissions::DOMAINS_VIEW)?;
+
+        let domain = self
+            .route_domain(&*self.database, domain_id)
+            .await?
+            .ok_or(ListDomainRoutesError::RouteDomainNotFound)?;
+
+        let rows = query!(
+            r#"SELECT
+                routes.id,
+                routes.subdomain,
+                routes.port,
+                routes.kind AS "kind: RouteKind",
+                routes.service,
+                routes.https,
+                routes.status AS "status: RouteStatus",
+                lower(server_ports.external_port) AS "external_port!",
+                servers.id AS "server: ServerId",
+                servers.name AS server_name,
+                projects.id AS "project: ProjectId",
+                projects.slug AS project_slug,
+                projects.name AS project_name
+               FROM routes
+               JOIN servers ON servers.id = routes.server
+               JOIN projects ON projects.id = servers.project
+               JOIN server_ports ON server_ports.id = routes.port
+               WHERE routes.domain = $1
+               ORDER BY routes.subdomain"#,
+            domain_id
+        )
+        .fetch_all(&*self.database)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                let fqdn = format!("{}.{}", row.subdomain, domain.domain);
+                let address = match row.kind {
+                    RouteKind::Http => {
+                        let scheme = if row.https { "https" } else { "http" };
+                        format!("{scheme}://{fqdn}")
+                    }
+                    RouteKind::Tcp | RouteKind::Udp => fqdn.clone(),
+                };
+
+                DomainRouteInfo {
+                    id: row.id,
+                    subdomain: row.subdomain,
+                    fqdn,
+                    address,
+                    kind: row.kind,
+                    service: row.service,
+                    https: row.https,
+                    status: row.status,
+                    port: row.port,
+                    external_port: u16::try_from(row.external_port).unwrap_or_default(),
+                    server: row.server,
+                    server_name: row.server_name,
+                    project: row.project,
+                    project_slug: row.project_slug,
+                    project_name: row.project_name,
+                }
+            })
+            .collect())
     }
 
     /// Registers a new route domain users can create routes under.

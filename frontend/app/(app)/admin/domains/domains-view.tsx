@@ -6,6 +6,7 @@ import { Loader2, Plus, RefreshCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Trans, useTranslation } from "react-i18next";
 
+import Link from "@/components/link";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -368,7 +369,14 @@ export function AdminDomainsView() {
             <TableBody>
               {domains?.map((entry) => (
                 <TableRow key={entry.id}>
-                  <TableCell className="font-medium">{entry.domain}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link
+                      href={`/admin/domains/${entry.id}`}
+                      className="hover:underline"
+                    >
+                      {entry.domain}
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-1">
                       {entry.http_available ? (
@@ -462,7 +470,12 @@ export function AdminDomainsView() {
                     }
                   </TableCell>
                   <TableCell className="font-mono text-sm">
-                    {entry.routes}
+                    <Link
+                      href={`/admin/domains/${entry.id}`}
+                      className="hover:underline"
+                    >
+                      {entry.routes}
+                    </Link>
                   </TableCell>
                   <TableCell>
                     {canManage ? (

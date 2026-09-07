@@ -19,6 +19,12 @@
       "nothingYet": "noch nichts",
       "tcpBadge": "TCP"
     },
+    "routes": {
+      "breadcrumb": "Domains",
+      "description": "Alle Routen unter dieser Domain, über alle Projekte hinweg.",
+      "empty": "Noch keine Routen auf dieser Domain.",
+      "server": "Server"
+    },
     "createDialog": {
       "title": "Neue Domain",
       "description": "Routen werden als Subdomains dieser Domain angelegt.",
