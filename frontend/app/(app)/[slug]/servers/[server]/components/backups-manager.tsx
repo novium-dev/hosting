@@ -5,6 +5,9 @@ import {
   Download,
   HardDrive,
   Loader2,
+  Lock,
+  LockOpen,
+  Pencil,
   RefreshCcw,
   RotateCcw,
   ShieldCheck,
@@ -62,6 +65,7 @@ import {
   downloadBackup,
   listBackups,
   restoreBackup,
+  updateBackup,
   type ListBackupsResponses,
 } from "@/lib/api";
 import { TaskLockNotice } from "@/components/server/task-lock-notice";
@@ -76,7 +80,7 @@ type BackupsManagerProps = {
 
 type BackupRow = ListBackupsResponses[200][number];
 
-type BackupAction = "download" | "restore" | "delete";
+type BackupAction = "download" | "restore" | "delete" | "rename";
 
 function formatBytes(bytes: number | null | undefined, unknownLabel: string) {
   if (typeof bytes !== "number" || !Number.isFinite(bytes) || bytes < 0) {
@@ -115,6 +119,10 @@ function backupIdFromRow(backup: BackupRow) {
   return Number(backup.time);
 }
 
+function backupRowKey(backup: BackupRow) {
+  return `${backup.storage}-${backup.time}`;
+}
+
 export function BackupsManager({
   serverId,
   backupLimit,
@@ -130,6 +138,9 @@ export function BackupsManager({
   const [createName, setCreateName] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameName, setRenameName] = useState("");
+  const [protectingKey, setProtectingKey] = useState<string | null>(null);
   const [selectedBackup, setSelectedBackup] = useState<BackupRow | null>(null);
 
   const atBackupLimit = backupLimit !== null && backups.length >= backupLimit;
@@ -222,6 +233,10 @@ export function BackupsManager({
         setRestoreOpen(false);
       }
 
+      if (action === "rename") {
+        setRenameOpen(false);
+      }
+
       await refresh();
     } finally {
       setIsActionLoading(false);
@@ -258,6 +273,71 @@ export function BackupsManager({
       window.open(response.data, "_blank", "noopener,noreferrer");
     } finally {
       setIsActionLoading(false);
+    }
+  };
+
+  const handleRename = async () => {
+    await withSelectedBackup("rename", async (backup, backupId) => {
+      const response = await updateBackup({
+        path: {
+          server_id: serverId,
+          backup_storage: backup.storage,
+          backup_id: backupId,
+        },
+        query: { name: renameName.trim() },
+      });
+
+      if (response.error) {
+        toast.error(
+          response.error.error?.msg ?? t("servers:backups.toasts.renameFailed"),
+        );
+        return;
+      }
+
+      toast.success(t("servers:backups.toasts.renameSuccess"));
+    });
+  };
+
+  const handleToggleProtected = async (backup: BackupRow) => {
+    const backupId = backupIdFromRow(backup);
+
+    if (Number.isNaN(backupId)) {
+      toast.error(t("servers:backups.toasts.invalidId"));
+      return;
+    }
+
+    const next = !backup.protected;
+
+    setProtectingKey(backupRowKey(backup));
+    setIsActionLoading(true);
+
+    try {
+      const response = await updateBackup({
+        path: {
+          server_id: serverId,
+          backup_storage: backup.storage,
+          backup_id: backupId,
+        },
+        query: { protected: next },
+      });
+
+      if (response.error) {
+        toast.error(
+          response.error.error?.msg ??
+            t("servers:backups.toasts.protectFailed"),
+        );
+        return;
+      }
+
+      toast.success(
+        next
+          ? t("servers:backups.toasts.protectSuccess")
+          : t("servers:backups.toasts.unprotectSuccess"),
+      );
+      await refresh();
+    } finally {
+      setIsActionLoading(false);
+      setProtectingKey(null);
     }
   };
 
@@ -408,12 +488,24 @@ export function BackupsManager({
                   const backupId = backupIdFromRow(backup);
 
                   return (
-                    <TableRow key={`${backup.storage}-${backup.time}`}>
+                    <TableRow key={backupRowKey(backup)}>
                       <TableCell className="font-medium">
-                        {backup.name?.trim() ||
-                          t("servers:backups.unnamedBackup", {
-                            id: backupId,
-                          })}
+                        <span className="inline-flex items-center gap-1.5">
+                          {backup.protected ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Lock className="size-3.5 shrink-0 text-muted-foreground" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {t("servers:backups.protectedTooltip")}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : null}
+                          {backup.name?.trim() ||
+                            t("servers:backups.unnamedBackup", {
+                              id: backupId,
+                            })}
+                        </span>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {backup.storage}
@@ -426,6 +518,57 @@ export function BackupsManager({
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="inline-flex items-center gap-2">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedBackup(backup);
+                                  setRenameName(backup.name?.trim() ?? "");
+                                  setRenameOpen(true);
+                                }}
+                                disabled={isActionLoading || storageLock.locked}
+                                aria-label={t("common:actions.rename")}
+                              >
+                                <Pencil className="size-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {t("common:actions.rename")}
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                loading={protectingKey === backupRowKey(backup)}
+                                onClick={() => {
+                                  void handleToggleProtected(backup);
+                                }}
+                                disabled={isActionLoading || storageLock.locked}
+                                aria-label={
+                                  backup.protected
+                                    ? t("servers:backups.unprotectAction")
+                                    : t("servers:backups.protectAction")
+                                }
+                              >
+                                {backup.protected ? (
+                                  <Lock className="size-4" />
+                                ) : (
+                                  <LockOpen className="size-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {backup.protected
+                                ? t("servers:backups.unprotectAction")
+                                : t("servers:backups.protectAction")}
+                            </TooltipContent>
+                          </Tooltip>
                           <Button
                             type="button"
                             size="sm"
@@ -527,6 +670,66 @@ export function BackupsManager({
               disabled={storageLock.locked}
             >
               {t("common:actions.create")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={renameOpen}
+        onOpenChange={(open) => {
+          setRenameOpen(open);
+          if (!open) {
+            setRenameName("");
+            setSelectedBackup(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("servers:backups.renameDialog.title")}</DialogTitle>
+            <DialogDescription>
+              {t("servers:backups.renameDialog.description", {
+                name:
+                  selectedBackup?.name?.trim() ||
+                  t("servers:backups.unnamedFallback"),
+              })}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="backup-rename">{t("common:labels.name")}</Label>
+            <Input
+              id="backup-rename"
+              value={renameName}
+              maxLength={64}
+              autoComplete="off"
+              placeholder={t("servers:backups.createDialog.namePlaceholder")}
+              onChange={(event) => setRenameName(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("servers:backups.renameDialog.nameHelp")}
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRenameOpen(false)}
+              disabled={isActionLoading}
+            >
+              {t("common:actions.cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                void handleRename();
+              }}
+              loading={isActionLoading}
+              disabled={storageLock.locked}
+            >
+              {t("common:actions.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

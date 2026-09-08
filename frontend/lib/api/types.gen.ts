@@ -5187,7 +5187,7 @@ export type DownloadBackupResponses = {
 export type DownloadBackupResponse = DownloadBackupResponses[keyof DownloadBackupResponses];
 
 export type UpdateBackupData = {
-    body: Option;
+    body?: never;
     headers?: {
         /**
          * The api key
@@ -5208,7 +5208,16 @@ export type UpdateBackupData = {
          */
         backup_id: number;
     };
-    query?: never;
+    query?: {
+        /**
+         * The name to give the backup
+         */
+        name?: string | null;
+        /**
+         * Whether the backup is exempt from retention policies
+         */
+        protected?: boolean | null;
+    };
     url: '/backup/{server_id}/{backup_storage}/{backup_id}';
 };
 

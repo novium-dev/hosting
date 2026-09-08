@@ -126,6 +126,9 @@
     },
     "unnamedBackup": "Backup {{id}}",
     "unnamedFallback": "the selected backup",
+    "protectAction": "Lock backup",
+    "unprotectAction": "Unlock backup",
+    "protectedTooltip": "Locked — retention policies skip this backup",
     "table": {
       "storage": "Storage"
     },
@@ -135,6 +138,11 @@
       "nameLabel": "Name (optional)",
       "namePlaceholder": "Before the update",
       "nameHelp": "A named backup is easier to find later. Without one it is listed by its time."
+    },
+    "renameDialog": {
+      "title": "Rename backup",
+      "description": "Change the name of {{name}}.",
+      "nameHelp": "Leave this empty to remove the name again."
     },
     "restoreDialog": {
       "title": "Restore backup?",
@@ -154,7 +162,12 @@
       "restoreFailed": "Failed to restore backup",
       "restoreSuccess": "Restore command sent",
       "deleteFailed": "Failed to delete backup",
-      "deleteSuccess": "Backup deleted"
+      "deleteSuccess": "Backup deleted",
+      "renameFailed": "Failed to rename backup",
+      "renameSuccess": "Backup renamed",
+      "protectFailed": "Failed to change the backup lock",
+      "protectSuccess": "Backup locked",
+      "unprotectSuccess": "Backup unlocked"
     }
   },
   "fileEditor": {

@@ -449,21 +449,15 @@ export const deleteBackup = <ThrowOnError extends boolean = false>(options: Opti
 export const downloadBackup = <ThrowOnError extends boolean = false>(options: Options<DownloadBackupData, ThrowOnError>) => (options.client ?? client).get<DownloadBackupResponses, DownloadBackupErrors, ThrowOnError>({ url: '/backup/{server_id}/{backup_storage}/{backup_id}', ...options });
 
 /**
- *  Renames a backup.
+ *  Updates a backup's metadata. Every parameter left out stays untouched; an empty name removes the backup's name again.
  *
- *  Renames a backup.<br/>
+ *  Updates a backup's metadata. Every parameter left out stays untouched;<br/>
+ *  an empty name removes the backup's name again.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::BACKUP_RESTORE`.
  */
-export const updateBackup = <ThrowOnError extends boolean = false>(options: Options<UpdateBackupData, ThrowOnError>) => (options.client ?? client).patch<UpdateBackupResponses, UpdateBackupErrors, ThrowOnError>({
-    url: '/backup/{server_id}/{backup_storage}/{backup_id}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
+export const updateBackup = <ThrowOnError extends boolean = false>(options: Options<UpdateBackupData, ThrowOnError>) => (options.client ?? client).patch<UpdateBackupResponses, UpdateBackupErrors, ThrowOnError>({ url: '/backup/{server_id}/{backup_storage}/{backup_id}', ...options });
 
 /**
  *  Restores the server from a backup.

@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type WheelEvent,
 } from "react";
 import {
   ArrowDown,
@@ -65,6 +66,7 @@ const ROW_ESTIMATE = 22;
 const OVERSCAN = 24;
 const FLUSH_INTERVAL = 60;
 const BOTTOM_THRESHOLD = 32;
+const USER_SCROLL_WINDOW = 400;
 const COMMAND_HISTORY_STORAGE_KEY = "console-command-history-v1";
 const COMMAND_HISTORY_LIMIT = 25;
 const COLLAPSIBLE_LINES = 2;
@@ -244,7 +246,8 @@ export default function LogConsole({ serverId }: { serverId: string }) {
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pinnedRef = useRef(true);
   const anySourceRef = useRef(false);
-  const countRef = useRef(0);
+  const userScrollAtRef = useRef(0);
+  const pointerDownRef = useRef(false);
 
   pinnedRef.current = pinnedToBottom;
 
@@ -427,8 +430,6 @@ export default function LogConsole({ serverId }: { serverId: string }) {
   // server's clock instead of mixing it with the browser's.
   const clockOffset = lines[lines.length - 1]?.clockOffset ?? 0;
 
-  countRef.current = rows.length;
-
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => viewportRef.current,
@@ -437,12 +438,14 @@ export default function LogConsole({ serverId }: { serverId: string }) {
     getItemKey: (index) => rows[index]?.line.id ?? index,
   });
 
-  const scrollToBottom = useCallback(() => {
-    const count = countRef.current;
-    if (count === 0) return;
+  const totalSize = virtualizer.getTotalSize();
 
-    virtualizer.scrollToIndex(count - 1, { align: "end" });
-  }, [virtualizer]);
+  const scrollToBottom = useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    viewport.scrollTop = viewport.scrollHeight;
+  }, []);
 
   // Row heights change when the columns or wrapping change, so the cached
   // measurements have to be thrown away before the next paint.
@@ -450,18 +453,73 @@ export default function LogConsole({ serverId }: { serverId: string }) {
     virtualizer.measure();
   }, [virtualizer, wrapLines, showTimestamps, sourceColumn]);
 
+  // Rows are measured after they render, so the total size keeps moving while
+  // output streams in; sticking to it rather than to the row count is what
+  // keeps the viewport at the bottom.
   useEffect(() => {
     if (!pinnedRef.current) return;
     scrollToBottom();
-  }, [rows, wrapLines, showTimestamps, sourceColumn, scrollToBottom]);
+  }, [
+    rows,
+    totalSize,
+    wrapLines,
+    showTimestamps,
+    sourceColumn,
+    scrollToBottom,
+  ]);
 
+  useEffect(() => {
+    const release = () => {
+      pointerDownRef.current = false;
+    };
+
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+
+    return () => {
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+    };
+  }, []);
+
+  // Only a deliberate scroll may detach the console. Content that grows faster
+  // than the programmatic scroll can follow also fires scroll events, and
+  // treating those as intent would leave the console stranded mid-stream.
   const handleScroll = useCallback(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
 
     const distance =
       viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-    setPinnedToBottom(distance <= BOTTOM_THRESHOLD);
+
+    if (distance <= BOTTOM_THRESHOLD) {
+      setPinnedToBottom(true);
+      return;
+    }
+
+    if (
+      pointerDownRef.current ||
+      Date.now() - userScrollAtRef.current < USER_SCROLL_WINDOW
+    ) {
+      setPinnedToBottom(false);
+    }
+  }, []);
+
+  const handleWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
+    userScrollAtRef.current = Date.now();
+
+    if (event.deltaY < 0) {
+      setPinnedToBottom(false);
+    }
+  }, []);
+
+  const handleTouchMove = useCallback(() => {
+    userScrollAtRef.current = Date.now();
+  }, []);
+
+  const handlePointerDown = useCallback(() => {
+    pointerDownRef.current = true;
+    userScrollAtRef.current = Date.now();
   }, []);
 
   const clear = useCallback(() => {
@@ -704,6 +762,9 @@ export default function LogConsole({ serverId }: { serverId: string }) {
         <div
           ref={viewportRef}
           onScroll={handleScroll}
+          onWheel={handleWheel}
+          onTouchMove={handleTouchMove}
+          onPointerDown={handlePointerDown}
           className={cn(
             "h-[26rem] overflow-y-auto bg-muted/30 py-2 text-[13px] leading-relaxed sm:h-[32rem] dark:bg-black/30",
             wrapLines ? "overflow-x-hidden" : "overflow-x-auto",
@@ -722,7 +783,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
             <div
               className="relative w-full"
               style={{
-                height: virtualizer.getTotalSize(),
+                height: totalSize,
                 overflowAnchor: "none",
               }}
             >

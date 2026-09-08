@@ -17,6 +17,7 @@ use tracing::error;
 use zelus::{define_query_variable, service};
 
 define_query_variable!(name "The name to give the backup");
+define_query_variable!(protected "Whether the backup is exempt from retention policies");
 
 /// Backup names are optional, so a name of only whitespace is the same as
 /// having sent none at all.
@@ -388,11 +389,12 @@ pub(crate) impl BackupService for Backend {
             .to_string())
     }
 
-    /// Renames a backup.
+    /// Updates a backup's metadata. Every parameter left out stays untouched;
+    /// an empty name removes the backup's name again.
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::BACKUP_RESTORE`].
-    #[route("/{backup_storage}/{backup_id}", method = PATCH)]
+    #[route("/{backup_storage}/{backup_id}", method = PATCH, query = [name, protected])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, not_found, storage_not_found})]
     async fn update_backup(
         &self,
@@ -401,6 +403,7 @@ pub(crate) impl BackupService for Backend {
         backup_storage: String,
         backup_id: i64,
         name: Option<String>,
+        protected: Option<bool>,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateBackupError>(server_id, ServerPermissions::BACKUP_RESTORE)?;
 
@@ -411,7 +414,13 @@ pub(crate) impl BackupService for Backend {
 
         server
             .node
-            .server_update_backup(server.node_server_id, backup_storage, backup_id, name, None)
+            .server_update_backup(
+                server.node_server_id,
+                backup_storage,
+                backup_id,
+                name.map(|name| name.trim().to_owned()),
+                protected,
+            )
             .await
             .map_err(|err| match err {
                 ServerUpdateBackupError::Communication(_) => {

@@ -126,6 +126,9 @@
     },
     "unnamedBackup": "Backup {{id}}",
     "unnamedFallback": "das ausgewählte Backup",
+    "protectAction": "Backup sperren",
+    "unprotectAction": "Backup entsperren",
+    "protectedTooltip": "Gesperrt – Aufbewahrungsregeln überspringen dieses Backup",
     "table": {
       "storage": "Speicher"
     },
@@ -135,6 +138,11 @@
       "nameLabel": "Name (optional)",
       "namePlaceholder": "Vor dem Update",
       "nameHelp": "Ein benanntes Backup findest du später leichter wieder. Ohne Namen wird es mit seiner Uhrzeit gelistet."
+    },
+    "renameDialog": {
+      "title": "Backup umbenennen",
+      "description": "Ändere den Namen von {{name}}.",
+      "nameHelp": "Leer lassen, um den Namen wieder zu entfernen."
     },
     "restoreDialog": {
       "title": "Backup wiederherstellen?",
@@ -154,7 +162,12 @@
       "restoreFailed": "Backup konnte nicht wiederhergestellt werden",
       "restoreSuccess": "Wiederherstellungsbefehl gesendet",
       "deleteFailed": "Backup konnte nicht gelöscht werden",
-      "deleteSuccess": "Backup gelöscht"
+      "deleteSuccess": "Backup gelöscht",
+      "renameFailed": "Backup konnte nicht umbenannt werden",
+      "renameSuccess": "Backup umbenannt",
+      "protectFailed": "Backup-Sperre konnte nicht geändert werden",
+      "protectSuccess": "Backup gesperrt",
+      "unprotectSuccess": "Backup entsperrt"
     }
   },
   "fileEditor": {
