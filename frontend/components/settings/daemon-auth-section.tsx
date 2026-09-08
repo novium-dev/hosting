@@ -77,27 +77,34 @@ export function DaemonAuthSection() {
     null,
   );
   const [daemonLoading, setDaemonLoading] = useState(false);
+  const [copyLoading, setCopyLoading] = useState(false);
   const [rerollLoading, setRerollLoading] = useState(false);
   const [deletingKeyId, setDeletingKeyId] = useState<number | null>(null);
   const [addingKey, setAddingKey] = useState(false);
   const [keyName, setKeyName] = useState("");
   const [publicKey, setPublicKey] = useState("");
 
-  const loadDaemonPassword = async () => {
-    setDaemonLoading(true);
+  const loadDaemonPassword = async (
+    setLoading: (loading: boolean) => void,
+  ) => {
+    if (daemonPasswordValue) {
+      return daemonPasswordValue;
+    }
+
+    setLoading(true);
     const response = await daemonPassword().finally(() => {
-      setDaemonLoading(false);
+      setLoading(false);
     });
 
     if (response.error || !response.data) {
       toast.error(
         errorMessage(response.error, t("settings:daemonAuth.loadError")),
       );
-      return false;
+      return null;
     }
 
     setDaemonPasswordValue(response.data);
-    return true;
+    return response.data;
   };
 
   const toggleDaemonPassword = async () => {
@@ -106,10 +113,8 @@ export function DaemonAuthSection() {
       return;
     }
 
-    if (!daemonPasswordValue) {
-      const loaded = await loadDaemonPassword();
-      if (!loaded) return;
-    }
+    const password = await loadDaemonPassword(setDaemonLoading);
+    if (!password) return;
 
     setShowDaemonPassword(true);
   };
@@ -121,6 +126,13 @@ export function DaemonAuthSection() {
     } catch {
       toast.error(t("settings:daemonAuth.copyFailedToast", { label }));
     }
+  };
+
+  const handleCopyDaemonPassword = async () => {
+    const password = await loadDaemonPassword(setCopyLoading);
+    if (!password) return;
+
+    await handleCopy(password, t("settings:daemonAuth.passwordLabel"));
   };
 
   const handleRerollDaemonPassword = async () => {
@@ -263,13 +275,9 @@ export function DaemonAuthSection() {
                   variant="outline"
                   size="icon"
                   onClick={() => {
-                    if (daemonPasswordValue) {
-                      void handleCopy(
-                        daemonPasswordValue,
-                        t("settings:daemonAuth.passwordLabel"),
-                      );
-                    }
+                    void handleCopyDaemonPassword();
                   }}
+                  loading={copyLoading}
                   aria-label={t("settings:daemonAuth.copyPasswordAriaLabel")}
                 >
                   <Copy className="size-4" />
