@@ -16,7 +16,7 @@ use std::collections::{HashMap, HashSet};
 use tracing::{debug, error};
 
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
-use crate::templates::games::minecraft::{JVM_FLAGS, VersionBuild};
+use crate::templates::games::minecraft::{JAVA_PREFIX, JAVA_RECOMMENDED, JVM_FLAGS, VersionBuild};
 use crate::templates::variable::{
     VariableBuilder, VariableContent, VariableDataBuilder, VariableGroupBuilder, VariablePayload,
 };
@@ -32,8 +32,6 @@ const DEFAULT_JAVA: u8 = 21;
 const BUNGEECORD_JAVA: u8 = 21;
 const PROXY_PORT: u16 = 25577;
 const PROXY_PORT_NAME: &str = "minecraft";
-const JAVA_RECOMMENDED: &str = "Recommended";
-const JAVA_PREFIX: &str = "Java ";
 
 #[derive(Debug, Readable, Writable, Hash, Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
 pub(crate) enum MinecraftProxySoftware {
@@ -58,11 +56,18 @@ pub(crate) enum MinecraftProxyExtra {
     #[serde(rename = "velocity")]
     Velocity {
         java: u8,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        java_pinned: Option<bool>,
         velocity_version: String,
         velocity_build: u16,
     },
     #[serde(rename = "bungeecord")]
-    BungeeCord { java: u8, bungeecord_build: u16 },
+    BungeeCord {
+        java: u8,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        java_pinned: Option<bool>,
+        bungeecord_build: u16,
+    },
 }
 
 impl MinecraftProxyExtra {
@@ -78,6 +83,14 @@ impl MinecraftProxyExtra {
     pub(crate) const fn java(&self) -> u8 {
         match self {
             Self::Velocity { java, .. } | Self::BungeeCord { java, .. } => *java,
+        }
+    }
+
+    pub(crate) const fn java_pinned(&self) -> Option<bool> {
+        match self {
+            Self::Velocity { java_pinned, .. } | Self::BungeeCord { java_pinned, .. } => {
+                *java_pinned
+            }
         }
     }
 
@@ -140,6 +153,7 @@ impl MinecraftProxyExtra {
                 java,
                 velocity_version,
                 velocity_build,
+                ..
             } => format!(
                 "minecraft_proxy_velocity-{}-{}-jre{}-r{}",
                 velocity_version,
@@ -150,6 +164,7 @@ impl MinecraftProxyExtra {
             Self::BungeeCord {
                 java,
                 bungeecord_build,
+                ..
             } => format!(
                 "minecraft_proxy_bungeecord-{}-jre{}-r{}",
                 bungeecord_build,
@@ -197,7 +212,7 @@ impl MinecraftProxyExtra {
         let args: HashMap<String, String> = args
             .into_iter()
             .map(|(key, val)| (key.to_uppercase(), val.to_string()))
-            .filter(|(key, _)| !matches!(&**key, "JAVA" | "SOFTWARE"))
+            .filter(|(key, _)| !matches!(&**key, "JAVA" | "JAVA_PINNED" | "SOFTWARE"))
             .collect();
 
         ServerBuildImage {
@@ -321,6 +336,7 @@ impl Template for MinecraftProxyTemplate {
 
         Ok(MinecraftProxyExtra::Velocity {
             java: version.java,
+            java_pinned: Some(false),
             velocity_version: version.id.clone(),
             velocity_build: range_end,
         })
@@ -397,12 +413,14 @@ impl Template for MinecraftProxyTemplate {
                     "java",
                     "Java",
                     Some(
-                        if recommended_java == extra.java()
-                            || !java_versions.contains(&extra.java())
+                        if extra
+                            .java_pinned()
+                            .unwrap_or_else(|| recommended_java != extra.java())
+                            && java_versions.contains(&extra.java())
                         {
-                            JAVA_RECOMMENDED.to_owned()
-                        } else {
                             format!("{JAVA_PREFIX}{}", extra.java())
+                        } else {
+                            JAVA_RECOMMENDED.to_owned()
                         },
                     ),
                     java_set,
@@ -438,6 +456,20 @@ impl Template for MinecraftProxyTemplate {
             return Ok(None);
         };
 
+        let (java_override, java_pinned) = if java_raw.eq(JAVA_RECOMMENDED) {
+            (None, Some(false))
+        } else {
+            let Some(java) = java_raw
+                .strip_prefix(JAVA_PREFIX)
+                .and_then(|java| java.parse::<u8>().ok())
+                .filter(|java| cache.java_versions().contains(java))
+            else {
+                debug!("Variables rejected: invalid java: {java_raw:?}");
+                return Ok(None);
+            };
+            (Some(java), Some(true))
+        };
+
         let extra = match *software {
             MinecraftProxySoftware::Velocity => {
                 let Some(version) = cache
@@ -467,7 +499,8 @@ impl Template for MinecraftProxyTemplate {
                 }
 
                 MinecraftProxyExtra::Velocity {
-                    java: version.java,
+                    java: java_override.unwrap_or(version.java),
+                    java_pinned,
                     velocity_version: version.id.clone(),
                     velocity_build: build,
                 }
@@ -483,41 +516,14 @@ impl Template for MinecraftProxyTemplate {
                 }
 
                 MinecraftProxyExtra::BungeeCord {
-                    java: BUNGEECORD_JAVA,
+                    java: java_override.unwrap_or(BUNGEECORD_JAVA),
+                    java_pinned,
                     bungeecord_build: build,
                 }
             }
         };
 
-        if java_raw.eq(JAVA_RECOMMENDED) {
-            return Ok(Some(extra));
-        }
-        let Some(java) = java_raw
-            .strip_prefix(JAVA_PREFIX)
-            .and_then(|java| java.parse::<u8>().ok())
-            .filter(|java| cache.java_versions().contains(java))
-        else {
-            debug!("Variables rejected: invalid java: {java_raw:?}");
-            return Ok(None);
-        };
-
-        Ok(Some(match extra {
-            MinecraftProxyExtra::Velocity {
-                velocity_version,
-                velocity_build,
-                ..
-            } => MinecraftProxyExtra::Velocity {
-                java,
-                velocity_version,
-                velocity_build,
-            },
-            MinecraftProxyExtra::BungeeCord {
-                bungeecord_build, ..
-            } => MinecraftProxyExtra::BungeeCord {
-                java,
-                bungeecord_build,
-            },
-        }))
+        Ok(Some(extra))
     }
 
     async fn enabled_features(

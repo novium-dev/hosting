@@ -30,6 +30,8 @@ use crate::templates::{
 
 use crate::utils::serde::SerdePrimitive;
 
+pub(crate) const JAVA_RECOMMENDED: &str = "Recommended";
+pub(crate) const JAVA_PREFIX: &str = "Java ";
 pub(crate) const JVM_FLAGS: &str =
     "-Dterminal.ansi=true -Djava.net.preferIPv6Addresses=system -XX:MaxRAMPercentage=95.0";
 pub(crate) const SERVER_PORT: u16 = 25565;
@@ -72,12 +74,16 @@ pub(crate) enum MinecraftServerExtra {
     #[serde(rename = "vanilla")]
     Vanilla {
         java: u8,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        java_pinned: Option<bool>,
         minecraft_version: String,
         data_pack: bool,
     },
     #[serde(rename = "paper")]
     Paper {
         java: u8,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        java_pinned: Option<bool>,
         minecraft_version: String,
         paper_build: u16,
         data_pack: bool,
@@ -85,6 +91,8 @@ pub(crate) enum MinecraftServerExtra {
     #[serde(rename = "purpur")]
     Purpur {
         java: u8,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        java_pinned: Option<bool>,
         minecraft_version: String,
         purpur_build: u16,
         data_pack: bool,
@@ -92,6 +100,8 @@ pub(crate) enum MinecraftServerExtra {
     #[serde(rename = "fabric")]
     Fabric {
         java: u8,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        java_pinned: Option<bool>,
         minecraft_version: String,
         loader_version: String,
         data_pack: bool,
@@ -99,6 +109,8 @@ pub(crate) enum MinecraftServerExtra {
     #[serde(rename = "quilt")]
     Quilt {
         java: u8,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        java_pinned: Option<bool>,
         minecraft_version: String,
         loader_version: String,
         data_pack: bool,
@@ -106,6 +118,8 @@ pub(crate) enum MinecraftServerExtra {
     #[serde(rename = "neoforge")]
     NeoForge {
         java: u8,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        java_pinned: Option<bool>,
         minecraft_version: String,
         loader_version: String,
         data_pack: bool,
@@ -235,7 +249,7 @@ impl MinecraftServerExtra {
         let args: HashMap<String, String> = args
             .into_iter()
             .map(|(key, val)| (key.to_uppercase(), val.to_string()))
-            .filter(|(key, _)| !matches!(&**key, "JAVA" | "DATA_PACK" | "SOFTWARE"))
+            .filter(|(key, _)| !matches!(&**key, "JAVA" | "JAVA_PINNED" | "DATA_PACK" | "SOFTWARE"))
             .collect();
 
         ServerBuildImage {
@@ -332,6 +346,17 @@ impl MinecraftServerExtra {
             | Self::Fabric { java, .. }
             | Self::Quilt { java, .. }
             | Self::NeoForge { java, .. } => *java,
+        }
+    }
+
+    pub(crate) const fn java_pinned(&self) -> Option<bool> {
+        match self {
+            Self::Vanilla { java_pinned, .. }
+            | Self::Paper { java_pinned, .. }
+            | Self::Purpur { java_pinned, .. }
+            | Self::Fabric { java_pinned, .. }
+            | Self::Quilt { java_pinned, .. }
+            | Self::NeoForge { java_pinned, .. } => *java_pinned,
         }
     }
 
@@ -494,6 +519,7 @@ impl Template for MinecraftTemplate {
             .ok_or(ThinTemplateError::Unavailable)?;
         Ok(MinecraftServerExtra::Vanilla {
             java: *current.2,
+            java_pinned: Some(false),
             minecraft_version: current.1.clone(),
             data_pack: *current.3,
         })
@@ -527,16 +553,16 @@ impl Template for MinecraftTemplate {
             })
             .collect::<Vec<_>>();
         current.sort_by_key(|key| key.0);
-        let java_versions: IndexSet<_> = current.iter().map(|(_, _, java, _)| **java).collect();
+        let java_versions = cache.java_versions();
         let recommended_java = cache
             .0
             .get(&extra.minecraft_version())
             .map(|(_, java, _, _)| *java);
         let mut java_set: IndexSet<String> = java_versions
             .iter()
-            .map(|version| format!("Java {version}"))
+            .map(|version| format!("{JAVA_PREFIX}{version}"))
             .collect();
-        java_set.insert_before(0, "Recommended".to_owned());
+        java_set.insert_before(0, JAVA_RECOMMENDED.to_owned());
 
         Ok(VariableBuilder::default()
             .data(
@@ -601,12 +627,17 @@ impl Template for MinecraftTemplate {
                 VariableGroupBuilder::new(Some("Java Runtime Environment")).static_variable(
                     "java",
                     "Java",
-                    Some(match recommended_java {
-                        Some(java) if java_versions.contains(&java) && java != extra.java() => {
-                            format!("Java {}", extra.java())
-                        }
-                        _ => "Recommended".to_owned(),
-                    }),
+                    Some(
+                        if extra
+                            .java_pinned()
+                            .unwrap_or_else(|| recommended_java != Some(extra.java()))
+                            && java_versions.contains(&extra.java())
+                        {
+                            format!("{JAVA_PREFIX}{}", extra.java())
+                        } else {
+                            JAVA_RECOMMENDED.to_owned()
+                        },
+                    ),
                     java_set,
                 ),
             )
@@ -645,21 +676,23 @@ impl Template for MinecraftTemplate {
             debug!("Variables rejected: invalid minecraft version: {minecraft_version:?}");
             return Ok(None);
         };
-        let java = match java_raw.as_str() {
-            "Recommended" => *recommended_java,
-            "Java 25" => 25,
-            "Java 21" => 21,
-            "Java 17" => 17,
-            "Java 11" => 11,
-            "Java 8" => 8,
-            _ => {
+        let (java, java_pinned) = if java_raw.eq(JAVA_RECOMMENDED) {
+            (*recommended_java, Some(false))
+        } else {
+            let Some(java) = java_raw
+                .strip_prefix(JAVA_PREFIX)
+                .and_then(|java| java.parse::<u8>().ok())
+                .filter(|java| cache.java_versions().contains(java))
+            else {
                 debug!("Variables rejected: invalid java: {java_raw:?}");
                 return Ok(None);
-            }
+            };
+            (java, Some(true))
         };
         if *software == MinecraftServerModification::Vanilla {
             Ok(Some(MinecraftServerExtra::Vanilla {
                 java,
+                java_pinned,
                 minecraft_version: minecraft_version.clone(),
                 data_pack: *data_pack,
             }))
@@ -702,12 +735,14 @@ impl Template for MinecraftTemplate {
                         MinecraftServerModification::Vanilla => unreachable!(),
                         MinecraftServerModification::Paper => Some(MinecraftServerExtra::Paper {
                             java,
+                            java_pinned,
                             minecraft_version: minecraft_version.clone(),
                             paper_build: mod_build,
                             data_pack: *data_pack,
                         }),
                         MinecraftServerModification::Purpur => Some(MinecraftServerExtra::Purpur {
                             java,
+                            java_pinned,
                             minecraft_version: minecraft_version.clone(),
                             purpur_build: mod_build,
                             data_pack: *data_pack,
@@ -715,6 +750,7 @@ impl Template for MinecraftTemplate {
                         MinecraftServerModification::NeoForge => {
                             Some(MinecraftServerExtra::NeoForge {
                                 java,
+                                java_pinned,
                                 minecraft_version: minecraft_version.clone(),
                                 loader_version: mod_build_full,
                                 data_pack: *data_pack,
@@ -731,12 +767,14 @@ impl Template for MinecraftTemplate {
                     Ok(match software {
                         MinecraftServerModification::Fabric => Some(MinecraftServerExtra::Fabric {
                             java,
+                            java_pinned,
                             minecraft_version: minecraft_version.clone(),
                             loader_version: mod_build.to_owned(),
                             data_pack: *data_pack,
                         }),
                         MinecraftServerModification::Quilt => Some(MinecraftServerExtra::Quilt {
                             java,
+                            java_pinned,
                             minecraft_version: minecraft_version.clone(),
                             loader_version: mod_build.to_owned(),
                             data_pack: *data_pack,
@@ -824,6 +862,18 @@ pub(crate) struct VersionCache(
     >,
     i64,
 );
+
+impl VersionCache {
+    fn java_versions(&self) -> IndexSet<u8> {
+        let mut versions: Vec<_> = self
+            .0
+            .values()
+            .map(|(index, java, _, _)| (*index, *java))
+            .collect();
+        versions.sort_unstable_by_key(|(index, _)| *index);
+        versions.into_iter().map(|(_, java)| java).collect()
+    }
+}
 
 #[derive(Readable, Writable, Clone)]
 pub(crate) enum VersionBuild {
