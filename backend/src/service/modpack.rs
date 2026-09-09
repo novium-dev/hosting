@@ -2,7 +2,6 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
-use crate::db::feature::ProjectFeature;
 use crate::db::server::resources::{
     ModpackRecord, delete_installed_files, delete_modpack, get_modpack, upsert_modpack,
 };
@@ -583,15 +582,13 @@ pub(crate) impl ModpackService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::FILES_READ`].
     #[route("", method = GET)]
-    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn modpack_status(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<Option<ModpackJob>, _> {
         auth.require::<_, _, ModpackStatusError>(server_id, ServerPermissions::FILES_READ)?;
-        self.require_server_feature::<ModpackStatusError>(server_id, ProjectFeature::ModInstaller)
-            .await?;
 
         Ok(self.modpack_jobs.read().await.get(&server_id).cloned())
     }
@@ -612,7 +609,7 @@ pub(crate) impl ModpackService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::FILES_WRITE`].
     #[route("/install", method = POST)]
-    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, wrong_template}, modpack::{not_confirmed, already_running, server_running})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, wrong_template}, modpack::{not_confirmed, already_running, server_running})]
     async fn install_modpack(
         &self,
         #[special] auth: Authentication,
@@ -620,8 +617,6 @@ pub(crate) impl ModpackService for Backend {
         payload: InstallModpackPayload,
     ) -> Result<ModpackJob, _> {
         auth.require::<_, _, InstallModpackError>(server_id, ServerPermissions::FILES_WRITE)?;
-        self.require_server_feature::<InstallModpackError>(server_id, ProjectFeature::ModInstaller)
-            .await?;
 
         if !payload.confirm {
             return Err(InstallModpackError::ModpackNotConfirmed);
@@ -691,15 +686,13 @@ pub(crate) impl ModpackService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::FILES_WRITE`].
     #[route("", method = DELETE)]
-    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
     async fn unlink_modpack(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
     ) -> Result<(), _> {
         auth.require::<_, _, UnlinkModpackError>(server_id, ServerPermissions::FILES_WRITE)?;
-        self.require_server_feature::<UnlinkModpackError>(server_id, ProjectFeature::ModInstaller)
-            .await?;
 
         delete_modpack(&self.database, server_id).await?;
 
@@ -720,7 +713,7 @@ pub(crate) impl ModpackService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::FILES_READ`].
     #[route("/versions", method = GET, query = [ allow_prerelease ])]
-    #[error(feature::disabled, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing})]
     async fn modpack_versions(
         &self,
         #[special] auth: Authentication,
@@ -728,11 +721,6 @@ pub(crate) impl ModpackService for Backend {
         allow_prerelease: Option<bool>,
     ) -> Result<Option<ModpackVersions>, _> {
         auth.require::<_, _, ModpackVersionsError>(server_id, ServerPermissions::FILES_READ)?;
-        self.require_server_feature::<ModpackVersionsError>(
-            server_id,
-            ProjectFeature::ModInstaller,
-        )
-        .await?;
 
         let Some(pack) = get_modpack(&self.database, server_id).await? else {
             return Ok(None);

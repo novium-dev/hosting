@@ -110,22 +110,9 @@
       "description": "Create a project on behalf of another user."
     },
     "searchPlaceholder": "Search by project, slug, or owner...",
-    "featuresButton": "Features",
-    "table": {
-      "features": "Features"
-    },
     "emptyState": {
       "title": "No projects found",
       "description": "Adjust your search query."
-    },
-    "featuresDialog": {
-      "title": "Feature flags",
-      "description": "Enable early-stage features for \"{{name}}\".",
-      "noFeatures": "This instance has no feature flags."
-    },
-    "toast": {
-      "featuresSaved": "Feature flags updated",
-      "featuresSaveFailed": "Failed to save features"
     }
   },
   "regions": {

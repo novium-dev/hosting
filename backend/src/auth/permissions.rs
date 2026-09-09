@@ -220,10 +220,6 @@ bitflags! {
         ///
         const LIMITS_BYPASS = 1 << 46;
 
-        /// Allows the user to enable and disable feature flags on any project.
-        ///
-        const FEATURES_MANAGE = 1 << 47;
-
         /// Allows the user to view all route domains on this instance, including private ones.
         ///
         const DOMAINS_VIEW = 1 << 48;

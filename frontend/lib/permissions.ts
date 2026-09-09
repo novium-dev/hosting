@@ -38,7 +38,6 @@ export const ManagementPermission = {
   NETWORK_CREATE: 2 ** 42,
   NETWORK_DELETE: 2 ** 43,
   LIMITS_BYPASS: 2 ** 46,
-  FEATURES_MANAGE: 2 ** 47,
   DOMAINS_VIEW: 2 ** 48,
   DOMAINS_MANAGE: 2 ** 49,
   DATABASE_HOSTS_VIEW: 2 ** 50,

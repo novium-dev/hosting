@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useConsoleSocket } from "@/hooks/use-console-socket";
 import {
+  commandConsoleLine,
   consoleLevels,
   consoleLineToText,
   formatLineTime,
@@ -269,6 +270,20 @@ export default function LogConsole({ serverId }: { serverId: string }) {
     flushTimerRef.current = setTimeout(flush, FLUSH_INTERVAL);
   }, [flush]);
 
+  const pushCommandLine = useCallback(
+    (value: string) => {
+      const line = commandConsoleLine(
+        nextIdRef.current++,
+        value,
+        previousLineRef.current,
+      );
+      previousLineRef.current = line;
+      bufferRef.current.push(line);
+      scheduleFlush();
+    },
+    [scheduleFlush],
+  );
+
   const pushSystemLine = useCallback(
     (message: string) => {
       const line = systemConsoleLine(
@@ -356,7 +371,8 @@ export default function LogConsole({ serverId }: { serverId: string }) {
     const needle = query.toLowerCase();
 
     return lines.filter((line) => {
-      if (!line.system && hiddenLevels.includes(line.level)) return false;
+      if (!line.system && !line.command && hiddenLevels.includes(line.level))
+        return false;
       if (!needle) return true;
       return line.raw.toLowerCase().includes(needle);
     });
@@ -587,12 +603,13 @@ export default function LogConsole({ serverId }: { serverId: string }) {
       return;
     }
 
+    pushCommandLine(value);
     rememberCommand(value);
     setCommand("");
     setHistoryIndex(-1);
     setPinnedToBottom(true);
     scrollToBottom();
-  }, [command, send, rememberCommand, scrollToBottom, t]);
+  }, [command, send, pushCommandLine, rememberCommand, scrollToBottom, t]);
 
   const stepHistory = useCallback(
     (direction: 1 | -1) => {
@@ -819,7 +836,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
                         LEVEL_TEXT[line.level],
                       )}
                     >
-                      {line.continuation || line.system
+                      {line.continuation || line.system || line.command
                         ? ""
                         : LEVEL_LABEL[line.level]}
                     </span>
@@ -835,7 +852,9 @@ export default function LogConsole({ serverId }: { serverId: string }) {
                         "min-w-0 flex-1",
                         line.system
                           ? "italic text-muted-foreground"
-                          : MESSAGE_TEXT[line.level],
+                          : line.command
+                            ? "font-medium text-sky-600 dark:text-sky-400"
+                            : MESSAGE_TEXT[line.level],
                         wrapLines
                           ? "whitespace-pre-wrap break-words"
                           : "whitespace-pre",
@@ -862,6 +881,11 @@ export default function LogConsole({ serverId }: { serverId: string }) {
                               })
                             : null}
                         </button>
+                      )}
+                      {line.command && (
+                        <span className="mr-1.5 select-none text-muted-foreground">
+                          &gt;
+                        </span>
                       )}
                       <LineText segments={line.segments} query={query} />
                     </span>

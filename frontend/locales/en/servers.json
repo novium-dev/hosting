@@ -583,6 +583,11 @@
       "clear": "Clear console"
     }
   },
+  "graphs": {
+    "waiting": "Waiting for the first sample…",
+    "limit": "of {{limit}}",
+    "unlimited": "Unlimited"
+  },
   "variablesEditor": {
     "groupFallback": "Group {{index}}",
     "selectPlaceholder": "Select value",

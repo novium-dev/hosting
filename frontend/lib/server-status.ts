@@ -193,7 +193,7 @@ function formatScaled(value: number) {
   return value.toFixed(2);
 }
 
-function formatMib(value: number) {
+export function formatMib(value: number) {
   const scale = mibScale(value);
   return `${formatScaled(value / scale.factor)} ${scale.unit}`;
 }

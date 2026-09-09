@@ -110,22 +110,9 @@
       "description": "Erstelle ein Projekt im Namen eines anderen Nutzers."
     },
     "searchPlaceholder": "Suche nach Projekt, Slug oder Besitzer...",
-    "featuresButton": "Features",
-    "table": {
-      "features": "Features"
-    },
     "emptyState": {
       "title": "Keine Projekte gefunden",
       "description": "Passe deine Suche an."
-    },
-    "featuresDialog": {
-      "title": "Feature-Flags",
-      "description": "Frühe Features für \"{{name}}\" aktivieren.",
-      "noFeatures": "Diese Instanz hat keine Feature-Flags."
-    },
-    "toast": {
-      "featuresSaved": "Feature-Flags aktualisiert",
-      "featuresSaveFailed": "Features konnten nicht gespeichert werden"
     }
   },
   "regions": {

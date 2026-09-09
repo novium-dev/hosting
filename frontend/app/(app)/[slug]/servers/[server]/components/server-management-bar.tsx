@@ -48,6 +48,10 @@ import {
   type ServerPlayers,
 } from "@/lib/server-players";
 import {
+  useForgetServerStats,
+  usePublishServerStats,
+} from "@/stores/server-stats";
+import {
   useForgetServerStatus,
   usePublishServerStatus,
 } from "@/stores/server-status";
@@ -214,6 +218,8 @@ export function ServerManagementBar({
 
   const publishStatus = usePublishServerStatus();
   const forgetStatus = useForgetServerStatus();
+  const publishStats = usePublishServerStats();
+  const forgetStats = useForgetServerStats();
   const publishTasks = usePublishServerTasks();
   const forgetTasks = useForgetServerTasks();
 
@@ -225,6 +231,8 @@ export function ServerManagementBar({
   }, [publishStatus, serverId, status]);
 
   useEffect(() => () => forgetStatus(serverId), [forgetStatus, serverId]);
+
+  useEffect(() => () => forgetStats(serverId), [forgetStats, serverId]);
 
   useEffect(() => () => forgetTasks(serverId), [forgetTasks, serverId]);
 
@@ -384,6 +392,16 @@ export function ServerManagementBar({
                     : formatUsage(payload.swap, swapMax),
               });
 
+              publishStats(serverId, {
+                at: Date.now(),
+                cpu: toFiniteNumber(cpuCurrent),
+                cpuMax: toFiniteNumber(cpuMax),
+                ram: toFiniteNumber(ramCurrent),
+                ramMax: toFiniteNumber(ramMax),
+                disk: toFiniteNumber(diskCurrent),
+                diskMax: toFiniteNumber(diskMax),
+              });
+
               const diskPercent = usagePercentValue(diskCurrent, diskMax);
 
               setUsagePercents({
@@ -449,7 +467,7 @@ export function ServerManagementBar({
       mounted = false;
       socket?.close();
     };
-  }, [serverId, template, publishTasks]);
+  }, [serverId, template, publishTasks, publishStats]);
 
   useEffect(() => {
     if (status !== "running") {

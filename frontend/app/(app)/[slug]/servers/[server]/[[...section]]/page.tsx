@@ -29,6 +29,7 @@ import {
   getVisibleServerSections,
 } from "@/lib/server-sections";
 import { ServerConsole } from "../components/server-console";
+import { ServerResourceGraphs } from "../components/resource-graphs";
 import { BackupsManager } from "../components/backups-manager";
 import { FileEditor } from "../components/file-editor";
 import { FilesManager } from "../components/files-manager";
@@ -70,7 +71,6 @@ export default function ClientServerSectionPage() {
   const visibleSections = getVisibleServerSections(
     effectivePermissions,
     serverData?.features ?? [],
-    project?.features ?? [],
   );
   const activeSection = getActiveServerSection(visibleSections, section);
 
@@ -187,7 +187,10 @@ export default function ClientServerSectionPage() {
           </Card>
         )
       ) : activeSection.key === "console" ? (
-        <ServerConsole serverId={server} />
+        <div className="space-y-4">
+          <ServerConsole serverId={server} />
+          <ServerResourceGraphs serverId={server} />
+        </div>
       ) : activeSection.key === "files" ? (
         <FilesManager
           serverId={server}

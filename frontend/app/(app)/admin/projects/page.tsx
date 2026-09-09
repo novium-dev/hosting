@@ -1,6 +1,6 @@
 import useSWR from "swr";
 
-import { listProjectFeatures, listProjects, listUsers } from "@/lib/api";
+import { listProjects, listUsers } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import {
   hasManagementPermission,
@@ -10,13 +10,6 @@ import { ProjectsTable } from "./projects-table";
 
 export default function AdminProjectsPage() {
   const { data: session, isLoading } = authClient.useSession();
-
-  const canManageFeatures = session
-    ? hasManagementPermission(
-        session.user.permissions,
-        ManagementPermission.FEATURES_MANAGE,
-      )
-    : false;
 
   const canManageUsers = session
     ? hasManagementPermission(
@@ -29,14 +22,6 @@ export default function AdminProjectsPage() {
     session ? "admin/projects" : null,
     async () => {
       const response = await listProjects();
-      return response.error ? [] : (response.data ?? []);
-    },
-  );
-
-  const { data: features } = useSWR(
-    canManageFeatures ? "admin/project-features" : null,
-    async () => {
-      const response = await listProjectFeatures();
       return response.error ? [] : (response.data ?? []);
     },
   );
@@ -55,8 +40,6 @@ export default function AdminProjectsPage() {
     <div className="flex flex-col gap-4 p-4 md:p-6">
       <ProjectsTable
         projects={projects ?? []}
-        features={features ?? []}
-        canManageFeatures={canManageFeatures}
         owners={canManageUsers ? (owners ?? []) : null}
         onChanged={() => void mutate()}
       />

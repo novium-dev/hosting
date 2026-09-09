@@ -11,7 +11,6 @@ import {
   Wrench,
 } from "lucide-react";
 
-import { ProjectFeature } from "@/lib/api";
 import { hasResourceSupport } from "@/lib/mod-browser/types";
 import { hasServerPermission, ServerPermission } from "@/lib/permissions";
 
@@ -21,7 +20,6 @@ export type ServerSection = {
   permission: number;
   requiresMinecraftResources?: boolean;
   requiresMinecraftServer?: boolean;
-  requiresProjectFeature?: ProjectFeature;
 };
 
 export const SERVER_SECTIONS: ServerSection[] = [
@@ -45,7 +43,6 @@ export const SERVER_SECTIONS: ServerSection[] = [
     icon: PackageSearch,
     permission: ServerPermission.FILES_READ,
     requiresMinecraftResources: true,
-    requiresProjectFeature: ProjectFeature.MOD_INSTALLER,
   },
   {
     key: "players",
@@ -75,22 +72,11 @@ export const SERVER_SECTIONS: ServerSection[] = [
   },
 ];
 
-export function getVisibleServerSections(
-  permissions: number,
-  features: string[],
-  projectFeatures: ProjectFeature[],
-) {
+export function getVisibleServerSections(permissions: number, features: string[]) {
   const isMinecraftServer = features.includes("minecraft_commands");
 
   return SERVER_SECTIONS.filter((entry) => {
     if (!hasServerPermission(permissions, entry.permission)) {
-      return false;
-    }
-
-    if (
-      entry.requiresProjectFeature &&
-      !projectFeatures.includes(entry.requiresProjectFeature)
-    ) {
       return false;
     }
 

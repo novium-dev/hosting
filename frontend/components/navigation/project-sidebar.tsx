@@ -120,7 +120,6 @@ export function ProjectSidebar() {
     ? getVisibleServerSections(
         effectivePermissions,
         serverData?.features ?? [],
-        project?.features ?? [],
       )
     : [];
 

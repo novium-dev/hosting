@@ -2,7 +2,6 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
-use crate::db::feature::ProjectFeature;
 use crate::db::project::ProjectId;
 use crate::service::error_project_not_found::FromProjectNotFound;
 use crate::service::error_project_slug_invalid::FromProjectSlugInvalid;
@@ -64,7 +63,6 @@ pub(crate) struct ProjectInfo {
     pub(crate) owner_username: String,
     pub(crate) server_count: i64,
     pub(crate) permissions: i64,
-    pub(crate) features: Vec<ProjectFeature>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -89,8 +87,6 @@ pub(crate) impl ProjectService for Backend {
         own: Option<bool>,
     ) -> Result<Paged<ProjectInfo>, _> {
         let own = own.unwrap_or_default();
-
-        let mut features = self.all_project_features().await?;
 
         Ok(query!(
             r#"SELECT
@@ -122,7 +118,6 @@ pub(crate) impl ProjectService for Backend {
                 owner_username: project.owner_username,
                 server_count: project.server_count,
                 permissions: auth.permissions::<ProjectPermissions, _>(id).bits(),
-                features: features.remove(&id).unwrap_or_default(),
             }
         })
         .apply_pagesplit(&mut page)
@@ -233,7 +228,6 @@ pub(crate) impl ProjectService for Backend {
             owner_username: project.owner_username,
             server_count: project.server_count,
             permissions: auth.permissions::<ProjectPermissions, _>(project_id).bits(),
-            features: self.project_features(project_id).await?,
         })
     }
 

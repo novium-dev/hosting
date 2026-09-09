@@ -414,14 +414,6 @@ export type PrimaryPortInfo = {
     port: NetworkPort;
 };
 
-export const ProjectFeature = { MOD_INSTALLER: 'mod_installer' } as const;
-
-export type ProjectFeature = typeof ProjectFeature[keyof typeof ProjectFeature];
-
-export type ProjectFeaturesRequest = {
-    features: Array<ProjectFeature>;
-};
-
 export type ResourceDisk = {
     available: number;
     filesystem: string;
@@ -8651,7 +8643,6 @@ export type ListProjectsResponses = {
      * Success
      */
     200: Array<{
-        features: Array<ProjectFeature>;
         id: NanoId;
         name: string;
         owner: number;
@@ -8963,7 +8954,6 @@ export type GetProjectResponses = {
      * Success
      */
     200: {
-        features: Array<ProjectFeature>;
         id: NanoId;
         name: string;
         owner: number;
@@ -10340,7 +10330,7 @@ export type ResourceContextErrors = {
     /**
      * The resource is not compatible with the server template
      */
-    '400‪': {
+    '400‏': {
         error?: {
             id?: 'resource/wrong_template';
             msg?: 'The resource is not compatible with the server template';
@@ -10356,18 +10346,9 @@ export type ResourceContextErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -10376,7 +10357,7 @@ export type ResourceContextErrors = {
     /**
      * Server not found
      */
-    '404‏': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -10385,7 +10366,7 @@ export type ResourceContextErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -10394,7 +10375,7 @@ export type ResourceContextErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -10403,7 +10384,7 @@ export type ResourceContextErrors = {
     /**
      * Cache operation failed
      */
-    '500‎': {
+    '500‍': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -10412,7 +10393,7 @@ export type ResourceContextErrors = {
     /**
      * The template was unable to read the server data
      */
-    '500‫': {
+    '500‪': {
         error?: {
             id?: 'template/corrupted';
             msg?: 'The template was unable to read the server data';
@@ -10421,7 +10402,7 @@ export type ResourceContextErrors = {
     /**
      * The template is unavailable at the moment
      */
-    '503‬': {
+    '503‫': {
         error?: {
             id?: 'template/unavailable';
             msg?: 'The template is unavailable at the moment';
@@ -10495,7 +10476,7 @@ export type SearchResourcesErrors = {
     /**
      * The resource payload is invalid
      */
-    '400‪': {
+    '400‏': {
         error?: {
             id?: 'resource/invalid_payload';
             msg?: 'The resource payload is invalid';
@@ -10504,7 +10485,7 @@ export type SearchResourcesErrors = {
     /**
      * The resource provider is not configured on this instance
      */
-    '400‬': {
+    '400‫': {
         error?: {
             id?: 'resource/provider_disabled';
             msg?: 'The resource provider is not configured on this instance';
@@ -10513,7 +10494,7 @@ export type SearchResourcesErrors = {
     /**
      * The resource cannot be downloaded automatically
      */
-    '400‮': {
+    '400‭': {
         error?: {
             id?: 'resource/download_unavailable';
             msg?: 'The resource cannot be downloaded automatically';
@@ -10529,18 +10510,9 @@ export type SearchResourcesErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -10549,7 +10521,7 @@ export type SearchResourcesErrors = {
     /**
      * Server not found
      */
-    '404‏': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -10558,7 +10530,7 @@ export type SearchResourcesErrors = {
     /**
      * The specified resource is missing
      */
-    '404⁠': {
+    '404‮': {
         error?: {
             id?: 'resource/missing';
             msg?: 'The specified resource is missing';
@@ -10567,7 +10539,7 @@ export type SearchResourcesErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -10576,7 +10548,7 @@ export type SearchResourcesErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -10585,7 +10557,7 @@ export type SearchResourcesErrors = {
     /**
      * Cache operation failed
      */
-    '500‎': {
+    '500‍': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -10594,7 +10566,7 @@ export type SearchResourcesErrors = {
     /**
      * The resource provider returned an error
      */
-    '502‭': {
+    '502‬': {
         error?: {
             id?: 'resource/provider_error';
             msg?: 'The resource provider returned an error';
@@ -10603,7 +10575,7 @@ export type SearchResourcesErrors = {
     /**
      * The resource provider is currently unavailable
      */
-    '503‫': {
+    '503‪': {
         error?: {
             id?: 'resource/provider_unavailable';
             msg?: 'The resource provider is currently unavailable';
@@ -10678,7 +10650,7 @@ export type ListResourceVersionsErrors = {
     /**
      * The resource payload is invalid
      */
-    '400‪': {
+    '400‏': {
         error?: {
             id?: 'resource/invalid_payload';
             msg?: 'The resource payload is invalid';
@@ -10687,7 +10659,7 @@ export type ListResourceVersionsErrors = {
     /**
      * The resource provider is not configured on this instance
      */
-    '400‬': {
+    '400‫': {
         error?: {
             id?: 'resource/provider_disabled';
             msg?: 'The resource provider is not configured on this instance';
@@ -10696,7 +10668,7 @@ export type ListResourceVersionsErrors = {
     /**
      * The resource cannot be downloaded automatically
      */
-    '400‮': {
+    '400‭': {
         error?: {
             id?: 'resource/download_unavailable';
             msg?: 'The resource cannot be downloaded automatically';
@@ -10712,18 +10684,9 @@ export type ListResourceVersionsErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -10732,7 +10695,7 @@ export type ListResourceVersionsErrors = {
     /**
      * Server not found
      */
-    '404‏': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -10741,7 +10704,7 @@ export type ListResourceVersionsErrors = {
     /**
      * The specified resource is missing
      */
-    '404⁠': {
+    '404‮': {
         error?: {
             id?: 'resource/missing';
             msg?: 'The specified resource is missing';
@@ -10750,7 +10713,7 @@ export type ListResourceVersionsErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -10759,7 +10722,7 @@ export type ListResourceVersionsErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -10768,7 +10731,7 @@ export type ListResourceVersionsErrors = {
     /**
      * Cache operation failed
      */
-    '500‎': {
+    '500‍': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -10777,7 +10740,7 @@ export type ListResourceVersionsErrors = {
     /**
      * The resource provider returned an error
      */
-    '502‭': {
+    '502‬': {
         error?: {
             id?: 'resource/provider_error';
             msg?: 'The resource provider returned an error';
@@ -10786,7 +10749,7 @@ export type ListResourceVersionsErrors = {
     /**
      * The resource provider is currently unavailable
      */
-    '503‫': {
+    '503‪': {
         error?: {
             id?: 'resource/provider_unavailable';
             msg?: 'The resource provider is currently unavailable';
@@ -10849,7 +10812,7 @@ export type UninstallResourceErrors = {
     /**
      * The specified file violates the sandbox
      */
-    '400‬': {
+    '400‫': {
         error?: {
             id?: 'file/sandbox_violated';
             msg?: 'The specified file violates the sandbox';
@@ -10858,7 +10821,7 @@ export type UninstallResourceErrors = {
     /**
      * The specified file is a directory
      */
-    '400‭': {
+    '400‬': {
         error?: {
             id?: 'file/is_directory';
             msg?: 'The specified file is a directory';
@@ -10867,7 +10830,7 @@ export type UninstallResourceErrors = {
     /**
      * The specified file is not a directory
      */
-    '400‮': {
+    '400‭': {
         error?: {
             id?: 'file/not_directory';
             msg?: 'The specified file is not a directory';
@@ -10883,18 +10846,9 @@ export type UninstallResourceErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -10903,7 +10857,7 @@ export type UninstallResourceErrors = {
     /**
      * Server not found
      */
-    '404‎': {
+    '404‍': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -10912,7 +10866,7 @@ export type UninstallResourceErrors = {
     /**
      * The resource is not installed on this server
      */
-    '404‪': {
+    '404‏': {
         error?: {
             id?: 'resource/not_installed';
             msg?: 'The resource is not installed on this server';
@@ -10921,7 +10875,7 @@ export type UninstallResourceErrors = {
     /**
      * The specified file was not found
      */
-    '404⁠': {
+    '404‮': {
         error?: {
             id?: 'file/not_found';
             msg?: 'The specified file was not found';
@@ -10930,7 +10884,7 @@ export type UninstallResourceErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -10939,7 +10893,7 @@ export type UninstallResourceErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -10948,7 +10902,7 @@ export type UninstallResourceErrors = {
     /**
      * Node operation failed
      */
-    '502‏': {
+    '502‎': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -10957,7 +10911,7 @@ export type UninstallResourceErrors = {
     /**
      * Storage is currently in use
      */
-    '503‫': {
+    '503‪': {
         error?: {
             id?: 'file/storage_unavailable';
             msg?: 'Storage is currently in use';
@@ -11005,18 +10959,9 @@ export type ListInstalledResourcesErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -11025,7 +10970,7 @@ export type ListInstalledResourcesErrors = {
     /**
      * Server not found
      */
-    '404‏': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -11034,7 +10979,7 @@ export type ListInstalledResourcesErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -11043,7 +10988,7 @@ export type ListInstalledResourcesErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -11052,7 +10997,7 @@ export type ListInstalledResourcesErrors = {
     /**
      * Cache operation failed
      */
-    '500‎': {
+    '500‍': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -11061,7 +11006,7 @@ export type ListInstalledResourcesErrors = {
     /**
      * The template was unable to read the server data
      */
-    '500‪': {
+    '500‏': {
         error?: {
             id?: 'template/corrupted';
             msg?: 'The template was unable to read the server data';
@@ -11070,7 +11015,7 @@ export type ListInstalledResourcesErrors = {
     /**
      * The template is unavailable at the moment
      */
-    '503‫': {
+    '503‪': {
         error?: {
             id?: 'template/unavailable';
             msg?: 'The template is unavailable at the moment';
@@ -11116,7 +11061,7 @@ export type InstallResourceErrors = {
     /**
      * The resource payload is invalid
      */
-    '400‫': {
+    '400‪': {
         error?: {
             id?: 'resource/invalid_payload';
             msg?: 'The resource payload is invalid';
@@ -11125,7 +11070,7 @@ export type InstallResourceErrors = {
     /**
      * The resource provider is not configured on this instance
      */
-    '400‭': {
+    '400‬': {
         error?: {
             id?: 'resource/provider_disabled';
             msg?: 'The resource provider is not configured on this instance';
@@ -11134,7 +11079,7 @@ export type InstallResourceErrors = {
     /**
      * The resource cannot be downloaded automatically
      */
-    '400⁠': {
+    '400‮': {
         error?: {
             id?: 'resource/download_unavailable';
             msg?: 'The resource cannot be downloaded automatically';
@@ -11143,25 +11088,16 @@ export type InstallResourceErrors = {
     /**
      * The resource is not compatible with the server template
      */
-    '400⁢': {
+    '400⁡': {
         error?: {
             id?: 'resource/wrong_template';
             msg?: 'The resource is not compatible with the server template';
         };
     };
     /**
-     * The specified file is a directory
-     */
-    '400⁦': {
-        error?: {
-            id?: 'file/is_directory';
-            msg?: 'The specified file is a directory';
-        };
-    };
-    /**
      * The specified file violates the sandbox
      */
-    '400⁧': {
+    '400⁤': {
         error?: {
             id?: 'file/sandbox_violated';
             msg?: 'The specified file violates the sandbox';
@@ -11170,16 +11106,25 @@ export type InstallResourceErrors = {
     /**
      * The file exceeds the server's storage quota
      */
-    '400⁨': {
+    '400⁦': {
         error?: {
             id?: 'file/quota_exceeded';
             msg?: 'The file exceeds the server\'s storage quota';
         };
     };
     /**
+     * The specified file is a directory
+     */
+    '400⁧': {
+        error?: {
+            id?: 'file/is_directory';
+            msg?: 'The specified file is a directory';
+        };
+    };
+    /**
      * A file with the specified name already exists
      */
-    '400⁩': {
+    '400⁨': {
         error?: {
             id?: 'file/already_exists';
             msg?: 'A file with the specified name already exists';
@@ -11195,18 +11140,9 @@ export type InstallResourceErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -11215,7 +11151,7 @@ export type InstallResourceErrors = {
     /**
      * Server not found
      */
-    '404‏': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -11224,7 +11160,7 @@ export type InstallResourceErrors = {
     /**
      * The specified resource is missing
      */
-    '404⁡': {
+    '404⁠': {
         error?: {
             id?: 'resource/missing';
             msg?: 'The specified resource is missing';
@@ -11233,7 +11169,7 @@ export type InstallResourceErrors = {
     /**
      * The specified file was not found
      */
-    '404⁤': {
+    '404⁣': {
         error?: {
             id?: 'file/not_found';
             msg?: 'The specified file was not found';
@@ -11242,7 +11178,7 @@ export type InstallResourceErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -11251,7 +11187,7 @@ export type InstallResourceErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -11260,7 +11196,7 @@ export type InstallResourceErrors = {
     /**
      * Cache operation failed
      */
-    '500‎': {
+    '500‍': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -11269,7 +11205,7 @@ export type InstallResourceErrors = {
     /**
      * Node operation failed
      */
-    '502‪': {
+    '502‏': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -11278,7 +11214,7 @@ export type InstallResourceErrors = {
     /**
      * The resource provider returned an error
      */
-    '502‮': {
+    '502‭': {
         error?: {
             id?: 'resource/provider_error';
             msg?: 'The resource provider returned an error';
@@ -11287,7 +11223,7 @@ export type InstallResourceErrors = {
     /**
      * The resource provider is currently unavailable
      */
-    '503‬': {
+    '503‫': {
         error?: {
             id?: 'resource/provider_unavailable';
             msg?: 'The resource provider is currently unavailable';
@@ -11296,7 +11232,7 @@ export type InstallResourceErrors = {
     /**
      * Storage is currently in use
      */
-    '503⁣': {
+    '503⁢': {
         error?: {
             id?: 'file/storage_unavailable';
             msg?: 'Storage is currently in use';
@@ -11359,18 +11295,9 @@ export type ListResourceUpdatesErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -11379,7 +11306,7 @@ export type ListResourceUpdatesErrors = {
     /**
      * Server not found
      */
-    '404‏': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -11388,7 +11315,7 @@ export type ListResourceUpdatesErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -11397,7 +11324,7 @@ export type ListResourceUpdatesErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -11406,7 +11333,7 @@ export type ListResourceUpdatesErrors = {
     /**
      * Cache operation failed
      */
-    '500‎': {
+    '500‍': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -11415,7 +11342,7 @@ export type ListResourceUpdatesErrors = {
     /**
      * The template was unable to read the server data
      */
-    '500‪': {
+    '500‏': {
         error?: {
             id?: 'template/corrupted';
             msg?: 'The template was unable to read the server data';
@@ -11424,7 +11351,7 @@ export type ListResourceUpdatesErrors = {
     /**
      * The template is unavailable at the moment
      */
-    '503‫': {
+    '503‪': {
         error?: {
             id?: 'template/unavailable';
             msg?: 'The template is unavailable at the moment';
@@ -11488,7 +11415,7 @@ export type UpdateResourceErrors = {
     /**
      * The resource payload is invalid
      */
-    '400‭': {
+    '400‬': {
         error?: {
             id?: 'resource/invalid_payload';
             msg?: 'The resource payload is invalid';
@@ -11497,7 +11424,7 @@ export type UpdateResourceErrors = {
     /**
      * The resource provider is not configured on this instance
      */
-    '400⁠': {
+    '400‮': {
         error?: {
             id?: 'resource/provider_disabled';
             msg?: 'The resource provider is not configured on this instance';
@@ -11506,7 +11433,7 @@ export type UpdateResourceErrors = {
     /**
      * The resource cannot be downloaded automatically
      */
-    '400⁢': {
+    '400⁡': {
         error?: {
             id?: 'resource/download_unavailable';
             msg?: 'The resource cannot be downloaded automatically';
@@ -11515,7 +11442,7 @@ export type UpdateResourceErrors = {
     /**
      * The resource is not compatible with the server template
      */
-    '400⁧': {
+    '400⁤': {
         error?: {
             id?: 'resource/wrong_template';
             msg?: 'The resource is not compatible with the server template';
@@ -11524,7 +11451,7 @@ export type UpdateResourceErrors = {
     /**
      * The specified file violates the sandbox
      */
-    '400⁩': {
+    '400⁨': {
         error?: {
             id?: 'file/sandbox_violated';
             msg?: 'The specified file violates the sandbox';
@@ -11533,7 +11460,7 @@ export type UpdateResourceErrors = {
     /**
      * The specified file is a directory
      */
-    '400⁪': {
+    '400⁩': {
         error?: {
             id?: 'file/is_directory';
             msg?: 'The specified file is a directory';
@@ -11542,7 +11469,7 @@ export type UpdateResourceErrors = {
     /**
      * The file exceeds the server's storage quota
      */
-    '400⁫': {
+    '400⁪': {
         error?: {
             id?: 'file/quota_exceeded';
             msg?: 'The file exceeds the server\'s storage quota';
@@ -11551,7 +11478,7 @@ export type UpdateResourceErrors = {
     /**
      * A file with the specified name already exists
      */
-    '400⁬': {
+    '400⁫': {
         error?: {
             id?: 'file/already_exists';
             msg?: 'A file with the specified name already exists';
@@ -11567,18 +11494,9 @@ export type UpdateResourceErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -11587,7 +11505,7 @@ export type UpdateResourceErrors = {
     /**
      * Server not found
      */
-    '404‏': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -11596,7 +11514,7 @@ export type UpdateResourceErrors = {
     /**
      * The specified resource is missing
      */
-    '404⁣': {
+    '404⁢': {
         error?: {
             id?: 'resource/missing';
             msg?: 'The specified resource is missing';
@@ -11605,7 +11523,7 @@ export type UpdateResourceErrors = {
     /**
      * The resource is not installed on this server
      */
-    '404⁤': {
+    '404⁣': {
         error?: {
             id?: 'resource/not_installed';
             msg?: 'The resource is not installed on this server';
@@ -11614,7 +11532,7 @@ export type UpdateResourceErrors = {
     /**
      * The specified file was not found
      */
-    '404⁨': {
+    '404⁦': {
         error?: {
             id?: 'file/not_found';
             msg?: 'The specified file was not found';
@@ -11623,7 +11541,7 @@ export type UpdateResourceErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -11632,7 +11550,7 @@ export type UpdateResourceErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -11641,7 +11559,7 @@ export type UpdateResourceErrors = {
     /**
      * Cache operation failed
      */
-    '500‎': {
+    '500‍': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -11650,7 +11568,7 @@ export type UpdateResourceErrors = {
     /**
      * The template was unable to read the server data
      */
-    '500‫': {
+    '500‪': {
         error?: {
             id?: 'template/corrupted';
             msg?: 'The template was unable to read the server data';
@@ -11659,7 +11577,7 @@ export type UpdateResourceErrors = {
     /**
      * Node operation failed
      */
-    '502‪': {
+    '502‏': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -11668,7 +11586,7 @@ export type UpdateResourceErrors = {
     /**
      * The resource provider returned an error
      */
-    '502⁡': {
+    '502⁠': {
         error?: {
             id?: 'resource/provider_error';
             msg?: 'The resource provider returned an error';
@@ -11677,7 +11595,7 @@ export type UpdateResourceErrors = {
     /**
      * The template is unavailable at the moment
      */
-    '503‬': {
+    '503‫': {
         error?: {
             id?: 'template/unavailable';
             msg?: 'The template is unavailable at the moment';
@@ -11686,7 +11604,7 @@ export type UpdateResourceErrors = {
     /**
      * The resource provider is currently unavailable
      */
-    '503‮': {
+    '503‭': {
         error?: {
             id?: 'resource/provider_unavailable';
             msg?: 'The resource provider is currently unavailable';
@@ -11695,7 +11613,7 @@ export type UpdateResourceErrors = {
     /**
      * Storage is currently in use
      */
-    '503⁦': {
+    '503⁧': {
         error?: {
             id?: 'file/storage_unavailable';
             msg?: 'Storage is currently in use';
@@ -11751,7 +11669,7 @@ export type UpdateAllResourcesErrors = {
     /**
      * The resource is not compatible with the server template
      */
-    '400‪': {
+    '400‏': {
         error?: {
             id?: 'resource/wrong_template';
             msg?: 'The resource is not compatible with the server template';
@@ -11767,18 +11685,9 @@ export type UpdateAllResourcesErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -11787,7 +11696,7 @@ export type UpdateAllResourcesErrors = {
     /**
      * Server not found
      */
-    '404‏': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -11796,7 +11705,7 @@ export type UpdateAllResourcesErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -11805,7 +11714,7 @@ export type UpdateAllResourcesErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -11814,7 +11723,7 @@ export type UpdateAllResourcesErrors = {
     /**
      * Cache operation failed
      */
-    '500‎': {
+    '500‍': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -11823,7 +11732,7 @@ export type UpdateAllResourcesErrors = {
     /**
      * The template was unable to read the server data
      */
-    '500‫': {
+    '500‪': {
         error?: {
             id?: 'template/corrupted';
             msg?: 'The template was unable to read the server data';
@@ -11832,7 +11741,7 @@ export type UpdateAllResourcesErrors = {
     /**
      * The template is unavailable at the moment
      */
-    '503‬': {
+    '503‫': {
         error?: {
             id?: 'template/unavailable';
             msg?: 'The template is unavailable at the moment';
@@ -11892,7 +11801,7 @@ export type SetResourceStateErrors = {
     /**
      * The resource payload is invalid
      */
-    '400‪': {
+    '400‏': {
         error?: {
             id?: 'resource/invalid_payload';
             msg?: 'The resource payload is invalid';
@@ -11901,7 +11810,7 @@ export type SetResourceStateErrors = {
     /**
      * The specified file is not a directory
      */
-    '400‭': {
+    '400‬': {
         error?: {
             id?: 'file/not_directory';
             msg?: 'The specified file is not a directory';
@@ -11910,7 +11819,7 @@ export type SetResourceStateErrors = {
     /**
      * The specified file violates the sandbox
      */
-    '400‮': {
+    '400‭': {
         error?: {
             id?: 'file/sandbox_violated';
             msg?: 'The specified file violates the sandbox';
@@ -11919,7 +11828,7 @@ export type SetResourceStateErrors = {
     /**
      * A file with the specified name already exists
      */
-    '400⁠': {
+    '400‮': {
         error?: {
             id?: 'file/already_exists';
             msg?: 'A file with the specified name already exists';
@@ -11935,18 +11844,9 @@ export type SetResourceStateErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -11955,7 +11855,7 @@ export type SetResourceStateErrors = {
     /**
      * Server not found
      */
-    '404‎': {
+    '404‍': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -11964,7 +11864,7 @@ export type SetResourceStateErrors = {
     /**
      * The specified file was not found
      */
-    '404‬': {
+    '404‫': {
         error?: {
             id?: 'file/not_found';
             msg?: 'The specified file was not found';
@@ -11973,7 +11873,7 @@ export type SetResourceStateErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -11982,7 +11882,7 @@ export type SetResourceStateErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -11991,7 +11891,7 @@ export type SetResourceStateErrors = {
     /**
      * Node operation failed
      */
-    '502‏': {
+    '502‎': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -12000,7 +11900,7 @@ export type SetResourceStateErrors = {
     /**
      * Storage is currently in use
      */
-    '503‫': {
+    '503‪': {
         error?: {
             id?: 'file/storage_unavailable';
             msg?: 'Storage is currently in use';
@@ -12052,18 +11952,9 @@ export type UnlinkModpackErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -12072,7 +11963,7 @@ export type UnlinkModpackErrors = {
     /**
      * Server not found
      */
-    '404‎': {
+    '404‍': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -12081,7 +11972,7 @@ export type UnlinkModpackErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -12090,7 +11981,7 @@ export type UnlinkModpackErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -12138,18 +12029,9 @@ export type ModpackStatusErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -12158,7 +12040,7 @@ export type ModpackStatusErrors = {
     /**
      * Server not found
      */
-    '404‎': {
+    '404‍': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -12167,7 +12049,7 @@ export type ModpackStatusErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -12176,7 +12058,7 @@ export type ModpackStatusErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -12227,7 +12109,7 @@ export type InstallModpackErrors = {
     /**
      * The resource payload is invalid
      */
-    '400‪': {
+    '400‏': {
         error?: {
             id?: 'resource/invalid_payload';
             msg?: 'The resource payload is invalid';
@@ -12236,7 +12118,7 @@ export type InstallModpackErrors = {
     /**
      * The resource provider is not configured on this instance
      */
-    '400‬': {
+    '400‫': {
         error?: {
             id?: 'resource/provider_disabled';
             msg?: 'The resource provider is not configured on this instance';
@@ -12245,7 +12127,7 @@ export type InstallModpackErrors = {
     /**
      * The resource cannot be downloaded automatically
      */
-    '400‮': {
+    '400‭': {
         error?: {
             id?: 'resource/download_unavailable';
             msg?: 'The resource cannot be downloaded automatically';
@@ -12254,7 +12136,7 @@ export type InstallModpackErrors = {
     /**
      * The resource is not compatible with the server template
      */
-    '400⁡': {
+    '400⁠': {
         error?: {
             id?: 'resource/wrong_template';
             msg?: 'The resource is not compatible with the server template';
@@ -12263,7 +12145,7 @@ export type InstallModpackErrors = {
     /**
      * Installing a modpack rewrites server files and must be confirmed
      */
-    '400⁢': {
+    '400⁡': {
         error?: {
             id?: 'modpack/not_confirmed';
             msg?: 'Installing a modpack rewrites server files and must be confirmed';
@@ -12272,7 +12154,7 @@ export type InstallModpackErrors = {
     /**
      * A modpack installation is already running for this server
      */
-    '400⁣': {
+    '400⁢': {
         error?: {
             id?: 'modpack/already_running';
             msg?: 'A modpack installation is already running for this server';
@@ -12281,7 +12163,7 @@ export type InstallModpackErrors = {
     /**
      * The server must be stopped before a modpack can be installed
      */
-    '400⁤': {
+    '400⁣': {
         error?: {
             id?: 'modpack/server_running';
             msg?: 'The server must be stopped before a modpack can be installed';
@@ -12297,18 +12179,9 @@ export type InstallModpackErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -12317,7 +12190,7 @@ export type InstallModpackErrors = {
     /**
      * Server not found
      */
-    '404‏': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -12326,7 +12199,7 @@ export type InstallModpackErrors = {
     /**
      * The specified resource is missing
      */
-    '404⁠': {
+    '404‮': {
         error?: {
             id?: 'resource/missing';
             msg?: 'The specified resource is missing';
@@ -12335,7 +12208,7 @@ export type InstallModpackErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -12344,7 +12217,7 @@ export type InstallModpackErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -12353,7 +12226,7 @@ export type InstallModpackErrors = {
     /**
      * Cache operation failed
      */
-    '500‎': {
+    '500‍': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -12362,7 +12235,7 @@ export type InstallModpackErrors = {
     /**
      * The resource provider returned an error
      */
-    '502‭': {
+    '502‬': {
         error?: {
             id?: 'resource/provider_error';
             msg?: 'The resource provider returned an error';
@@ -12371,7 +12244,7 @@ export type InstallModpackErrors = {
     /**
      * The resource provider is currently unavailable
      */
-    '503‫': {
+    '503‪': {
         error?: {
             id?: 'resource/provider_unavailable';
             msg?: 'The resource provider is currently unavailable';
@@ -12427,7 +12300,7 @@ export type ModpackVersionsErrors = {
     /**
      * The resource payload is invalid
      */
-    '400‪': {
+    '400‏': {
         error?: {
             id?: 'resource/invalid_payload';
             msg?: 'The resource payload is invalid';
@@ -12436,7 +12309,7 @@ export type ModpackVersionsErrors = {
     /**
      * The resource provider is not configured on this instance
      */
-    '400‬': {
+    '400‫': {
         error?: {
             id?: 'resource/provider_disabled';
             msg?: 'The resource provider is not configured on this instance';
@@ -12445,7 +12318,7 @@ export type ModpackVersionsErrors = {
     /**
      * The resource cannot be downloaded automatically
      */
-    '400‮': {
+    '400‭': {
         error?: {
             id?: 'resource/download_unavailable';
             msg?: 'The resource cannot be downloaded automatically';
@@ -12461,18 +12334,9 @@ export type ModpackVersionsErrors = {
         };
     };
     /**
-     * This feature is not enabled for the project
-     */
-    '403᠎': {
-        error?: {
-            id?: 'feature/disabled';
-            msg?: 'This feature is not enabled for the project';
-        };
-    };
-    /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403​': {
+    '403᠎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -12481,7 +12345,7 @@ export type ModpackVersionsErrors = {
     /**
      * Server not found
      */
-    '404‏': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -12490,7 +12354,7 @@ export type ModpackVersionsErrors = {
     /**
      * The specified resource is missing
      */
-    '404⁠': {
+    '404‮': {
         error?: {
             id?: 'resource/missing';
             msg?: 'The specified resource is missing';
@@ -12499,7 +12363,7 @@ export type ModpackVersionsErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500​': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -12508,7 +12372,7 @@ export type ModpackVersionsErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -12517,7 +12381,7 @@ export type ModpackVersionsErrors = {
     /**
      * Cache operation failed
      */
-    '500‎': {
+    '500‍': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -12526,7 +12390,7 @@ export type ModpackVersionsErrors = {
     /**
      * The resource provider returned an error
      */
-    '502‭': {
+    '502‬': {
         error?: {
             id?: 'resource/provider_error';
             msg?: 'The resource provider returned an error';
@@ -12535,7 +12399,7 @@ export type ModpackVersionsErrors = {
     /**
      * The resource provider is currently unavailable
      */
-    '503‫': {
+    '503‪': {
         error?: {
             id?: 'resource/provider_unavailable';
             msg?: 'The resource provider is currently unavailable';
@@ -13585,150 +13449,6 @@ export type UpdateRegionResponses = {
 };
 
 export type UpdateRegionResponse = UpdateRegionResponses[keyof UpdateRegionResponses];
-
-export type ListProjectFeaturesData = {
-    body?: never;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path?: never;
-    query?: never;
-    url: '/admin/project/features';
-};
-
-export type ListProjectFeaturesErrors = {
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403᠎': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500​': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‌': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type ListProjectFeaturesError = ListProjectFeaturesErrors[keyof ListProjectFeaturesErrors];
-
-export type ListProjectFeaturesResponses = {
-    /**
-     * Success
-     */
-    200: Array<{
-        description: string;
-        display: string;
-        id: ProjectFeature;
-    }>;
-};
-
-export type ListProjectFeaturesResponse = ListProjectFeaturesResponses[keyof ListProjectFeaturesResponses];
-
-export type SetProjectFeaturesData = {
-    body: ProjectFeaturesRequest;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path: {
-        /**
-         * The project ID
-         */
-        project_id: NanoId;
-    };
-    query?: never;
-    url: '/admin/project/{project_id}/features';
-};
-
-export type SetProjectFeaturesErrors = {
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403᠎': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * Project not found
-     */
-    '404‌': {
-        error?: {
-            id?: 'project/not_found';
-            msg?: 'Project not found';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500​': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‍': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type SetProjectFeaturesError = SetProjectFeaturesErrors[keyof SetProjectFeaturesErrors];
-
-export type SetProjectFeaturesResponses = {
-    /**
-     * Success
-     */
-    204: void;
-};
-
-export type SetProjectFeaturesResponse = SetProjectFeaturesResponses[keyof SetProjectFeaturesResponses];
 
 export type ListRouteDomainsData = {
     body?: never;

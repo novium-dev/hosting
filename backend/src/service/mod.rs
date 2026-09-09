@@ -135,10 +135,6 @@ define_error!(node {
     invalid_host("The specified SSH host is invalid" BAD_REQUEST),
 });
 
-define_error!(feature {
-    disabled("This feature is not enabled for the project" FORBIDDEN),
-});
-
 define_error!(integrity {
     already_running("An integrity run is already in progress" CONFLICT),
 });

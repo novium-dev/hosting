@@ -66,6 +66,7 @@ export type ConsoleLine = {
   segments: ConsoleSegment[];
   continuation: boolean;
   system: boolean;
+  command: boolean;
 };
 
 const ANSI_TOKEN_PATTERN =
@@ -568,6 +569,7 @@ export function parseConsoleLine(
     receivedAt,
     continuation: false,
     system: false,
+    command: false,
   };
 
   if (raw.trim().length === 0) {
@@ -652,6 +654,36 @@ export function systemConsoleLine(
     segments: plainSegments(message),
     continuation: false,
     system: true,
+    command: false,
+  };
+}
+
+/**
+ * Locally echoed line for a command the user submitted. The daemon does not
+ * send typed input back on the log stream (JLine repaints its prompt with a
+ * bare carriage return, which the splitter drops), so the console would
+ * otherwise only show the server's answer and never the question.
+ */
+export function commandConsoleLine(
+  id: number,
+  command: string,
+  previous: ConsoleLine | null = null,
+): ConsoleLine {
+  const receivedAt = Date.now();
+  const raw = `> ${command}`;
+
+  return {
+    id,
+    raw,
+    ...timeFields(null, receivedAt, previous),
+    level: "info",
+    receivedAt,
+    source: null,
+    message: command,
+    segments: plainSegments(command),
+    continuation: false,
+    system: false,
+    command: true,
   };
 }
 
