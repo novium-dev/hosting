@@ -139,6 +139,17 @@ RUN set -eux; \
     } > /usr/local/bin/hytale-entrypoint \
     && chmod +x /usr/local/bin/hytale-entrypoint
 
+# The daemon starts the server as this uid and mounts the storage at /work. Without a
+# matching entry the uid resolves to no user at all and everything that looks up the home
+# directory falls back to /, which is read-only. An id of the base image that collides is
+# dropped, so that ours is the entry that resolves.
+ARG CONTAINER_UID=25335
+ARG CONTAINER_GID=25335
+RUN sed -i "/^[^:]*:[^:]*:${CONTAINER_UID}:/d" /etc/passwd \
+    && sed -i "/^[^:]*:[^:]*:${CONTAINER_GID}:/d" /etc/group \
+    && echo "container:x:${CONTAINER_UID}:${CONTAINER_GID}::/work:/bin/sh" >> /etc/passwd \
+    && echo "container:x:${CONTAINER_GID}:" >> /etc/group
+
 WORKDIR /work
 STOPSIGNAL SIGTERM
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/hytale-entrypoint"]
