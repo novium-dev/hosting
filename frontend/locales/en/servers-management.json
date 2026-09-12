@@ -7,13 +7,14 @@
       "description": "Disk is currently at {{percent}}% usage. Consider cleaning up files to avoid allocation issues."
     },
     "pathInputPlaceholder": "Enter path",
-    "openPathButton": "Open Path",
     "newFolderButton": "New Folder",
     "newFileButton": "New File",
     "loadingFiles": "Loading files...",
     "emptyState": {
       "title": "This directory is empty.",
-      "hint": "Drop files here to upload."
+      "hint": "Drop files here to upload.",
+      "noMatches": "No files match “{{query}}”.",
+      "noMatchesHint": "Clear the search to see every file in this directory."
     },
     "contextMenu": {
       "view": "View",
@@ -179,7 +180,10 @@
       "title": "Delete selection?",
       "description_one": "This will delete {{count}} entry, directories recursively.",
       "description_other": "This will delete {{count}} entries, directories recursively."
-    }
+    },
+    "searchPlaceholder": "Search files",
+    "goToRoot": "Go to root directory",
+    "editPath": "Edit path"
   },
   "minecraftPlayerManager": {
     "title": "Minecraft Players",

@@ -7,13 +7,14 @@
       "description": "Der Speicher ist derzeit zu {{percent}}% ausgelastet. Räume Dateien auf, um Zuweisungsprobleme zu vermeiden."
     },
     "pathInputPlaceholder": "Pfad eingeben",
-    "openPathButton": "Pfad öffnen",
     "newFolderButton": "Neuer Ordner",
     "newFileButton": "Neue Datei",
     "loadingFiles": "Dateien werden geladen...",
     "emptyState": {
       "title": "Dieses Verzeichnis ist leer.",
-      "hint": "Dateien hier ablegen, um sie hochzuladen."
+      "hint": "Dateien hier ablegen, um sie hochzuladen.",
+      "noMatches": "Keine Dateien passen zu „{{query}}“.",
+      "noMatchesHint": "Suche löschen, um alle Dateien in diesem Verzeichnis zu sehen."
     },
     "contextMenu": {
       "view": "Anzeigen",
@@ -179,7 +180,10 @@
       "title": "Auswahl löschen?",
       "description_one": "Dies löscht {{count}} Eintrag, Verzeichnisse rekursiv.",
       "description_other": "Dies löscht {{count}} Einträge, Verzeichnisse rekursiv."
-    }
+    },
+    "searchPlaceholder": "Dateien suchen",
+    "goToRoot": "Zum Stammverzeichnis",
+    "editPath": "Pfad bearbeiten"
   },
   "minecraftPlayerManager": {
     "title": "Minecraft-Spieler",

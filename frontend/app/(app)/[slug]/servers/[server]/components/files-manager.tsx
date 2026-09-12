@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Archive,
   Boxes,
+  ChevronDown,
   ChevronRight,
   Copy,
   Download,
@@ -23,9 +24,12 @@ import {
   Folder,
   FolderInput,
   FolderPlus,
+  Home,
   Loader2,
   MoreHorizontal,
   Pencil,
+  Plus,
+  Search,
   Shield,
   RefreshCcw,
   Trash2,
@@ -343,6 +347,8 @@ export function FilesManager({
   const router = useRouter();
   const [currentPath, setCurrentPath] = useState("/");
   const [pathInput, setPathInput] = useState("/");
+  const [isEditingPath, setIsEditingPath] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [files, setFiles] = useState<FileRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<FileRow | null>(null);
@@ -413,8 +419,18 @@ export function FilesManager({
     [files, selectedNames],
   );
 
+  const visibleFiles = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return files;
+    }
+
+    return files.filter((entry) => entry.name.toLowerCase().includes(query));
+  }, [files, searchQuery]);
+
   const allSelected =
-    files.length > 0 && selectedNames.length === files.length;
+    visibleFiles.length > 0 && selectedNames.length === visibleFiles.length;
 
   const clearSelection = () => setSelectedNames([]);
 
@@ -428,22 +444,13 @@ export function FilesManager({
 
   const toggleSelectAll = () => {
     setSelectedNames((previous) =>
-      previous.length === files.length ? [] : files.map((entry) => entry.name),
+      previous.length === visibleFiles.length
+        ? []
+        : visibleFiles.map((entry) => entry.name),
     );
   };
 
   const segments = useMemo(() => buildPathSegments(currentPath), [currentPath]);
-  const parentPath = useMemo(() => {
-    if (currentPath === "/") {
-      return "/";
-    }
-
-    const parts = currentPath.split("/").filter(Boolean);
-    parts.pop();
-
-    return parts.length === 0 ? "/" : `/${parts.join("/")}`;
-  }, [currentPath]);
-
   const refresh = async (
     targetPath = currentPath,
     options?: { preserveScroll?: boolean },
@@ -479,8 +486,13 @@ export function FilesManager({
 
       setFiles(sorted);
       setSelectedNames([]);
+      if (normalized !== currentPath) {
+        setSearchQuery("");
+      }
+
       setCurrentPath(normalized);
       setPathInput(normalized);
+      setIsEditingPath(false);
     } catch {
       toast.error(t("servers-management:filesManager.toasts.loadFailed"));
     } finally {
@@ -518,18 +530,6 @@ export function FilesManager({
       );
     };
   }, [serverId]);
-
-  const goToParent = () => {
-    if (currentPath === "/") {
-      return;
-    }
-
-    const parts = currentPath.split("/").filter(Boolean);
-    parts.pop();
-
-    const nextPath = parts.length === 0 ? "/" : `/${parts.join("/")}`;
-    void refresh(nextPath);
-  };
 
   const openEditor = (entry: FileRow) => {
     const path = getFullPath(currentPath, entry);
@@ -1945,84 +1945,117 @@ export function FilesManager({
         ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={goToParent}
-            onDragOver={(event) => handleDragOverTarget(event, parentPath)}
-            onDragLeave={() => handleDragLeaveTarget(parentPath)}
-            onDrop={(event) => {
-              void handleDropToPath(event, parentPath);
-            }}
-            disabled={filesBlocked}
-            className={
-              dropTargetPath === parentPath
-                ? "border-primary bg-primary/10"
-                : ""
-            }
-          >
-            ..
-          </Button>
-          <div className="flex min-w-64 flex-1 items-center gap-2 rounded-md border px-2 py-1.5 text-sm">
-            <button
+          <div className="flex h-9 min-w-64 flex-1 items-center gap-1 rounded-md border bg-transparent px-1 text-sm">
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
+              className={`size-7 shrink-0 text-muted-foreground hover:text-foreground ${
+                dropTargetPath === "/" ? "bg-primary/10 text-primary" : ""
+              }`}
+              aria-label={t("servers-management:filesManager.goToRoot")}
+              title={t("servers-management:filesManager.goToRoot")}
+              disabled={filesBlocked}
               onClick={() => void refresh("/")}
               onDragOver={(event) => handleDragOverTarget(event, "/")}
               onDragLeave={() => handleDragLeaveTarget("/")}
               onDrop={(event) => {
                 void handleDropToPath(event, "/");
               }}
-              className={`rounded px-1 text-muted-foreground hover:text-foreground ${
-                dropTargetPath === "/" ? "bg-primary/10 text-primary" : ""
-              }`}
             >
-              /
-            </button>
-            {segments.map((segment) => (
-              <span
-                key={segment.path}
-                className="inline-flex items-center gap-1"
-              >
-                <ChevronRight className="size-3 text-muted-foreground" />
+              <Home className="size-4" />
+            </Button>
+            {isEditingPath ? (
+              <Input
+                autoFocus
+                value={pathInput}
+                onChange={(event) => setPathInput(event.target.value)}
+                onBlur={() => {
+                  setPathInput(currentPath);
+                  setIsEditingPath(false);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void refresh(pathInput);
+                  }
+
+                  if (event.key === "Escape") {
+                    setPathInput(currentPath);
+                    setIsEditingPath(false);
+                  }
+                }}
+                className="h-7 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0"
+                placeholder={t(
+                  "servers-management:filesManager.pathInputPlaceholder",
+                )}
+              />
+            ) : (
+              <>
+                <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
+                  {segments.map((segment, index) => (
+                    <span
+                      key={segment.path}
+                      className="inline-flex items-center gap-1"
+                    >
+                      <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
+                      <button
+                        type="button"
+                        onClick={() => void refresh(segment.path)}
+                        onDragOver={(event) =>
+                          handleDragOverTarget(event, segment.path)
+                        }
+                        onDragLeave={() => handleDragLeaveTarget(segment.path)}
+                        onDrop={(event) => {
+                          void handleDropToPath(event, segment.path);
+                        }}
+                        className={`truncate rounded px-1 py-0.5 hover:text-foreground ${
+                          dropTargetPath === segment.path
+                            ? "bg-primary/10 text-primary"
+                            : index === segments.length - 1
+                              ? "font-medium text-foreground"
+                              : "text-muted-foreground"
+                        }`}
+                      >
+                        {segment.label}
+                      </button>
+                    </span>
+                  ))}
+                </div>
                 <button
                   type="button"
-                  onClick={() => void refresh(segment.path)}
-                  onDragOver={(event) =>
-                    handleDragOverTarget(event, segment.path)
-                  }
-                  onDragLeave={() => handleDragLeaveTarget(segment.path)}
-                  onDrop={(event) => {
-                    void handleDropToPath(event, segment.path);
-                  }}
-                  className={`rounded px-1 text-muted-foreground hover:text-foreground ${
-                    dropTargetPath === segment.path
-                      ? "bg-primary/10 text-primary"
-                      : ""
-                  }`}
-                >
-                  {segment.label}
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            value={pathInput}
-            onChange={(event) => setPathInput(event.target.value)}
-            className="max-w-xl"
-            placeholder={t(
-              "servers-management:filesManager.pathInputPlaceholder",
+                  onClick={() => setIsEditingPath(true)}
+                  disabled={filesBlocked}
+                  aria-label={t("servers-management:filesManager.editPath")}
+                  title={t("servers-management:filesManager.editPath")}
+                  className="h-7 flex-1 cursor-text rounded"
+                />
+              </>
             )}
-          />
-          <Button
-            type="button"
-            onClick={() => void refresh(pathInput)}
-            disabled={filesBlocked}
-          >
-            {t("servers-management:filesManager.openPathButton")}
-          </Button>
+          </div>
+
+          <div className="relative w-full sm:w-56">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="pr-8 pl-8"
+              placeholder={t(
+                "servers-management:filesManager.searchPlaceholder",
+              )}
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label={t("common:actions.clear")}
+                className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            ) : null}
+          </div>
+
           <Button
             type="button"
             variant="outline"
@@ -2032,43 +2065,50 @@ export function FilesManager({
             <RefreshCcw className="size-4" />
             {t("common:actions.refresh")}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              handleUpload();
-            }}
-            disabled={isActionLoading || !canWriteFiles || filesBlocked}
-          >
-            <Upload className="size-4" />
-            {t("common:actions.upload")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setCreateFileOpen(true)}
-            disabled={isActionLoading || !canWriteFiles || filesBlocked}
-          >
-            <FilePlus className="size-4" />
-            {t("servers-management:filesManager.newFileButton")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setCreateDirectoryOpen(true)}
-            disabled={isActionLoading || !canWriteFiles || filesBlocked}
-          >
-            <FolderPlus className="size-4" />
-            {t("servers-management:filesManager.newFolderButton")}
-          </Button>
-          <TaskLockNotice lock={storageLock} />
-          {modpackInstalling ? (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Boxes className="size-3.5 shrink-0" />
-              {t("servers-management:mods.filesLockedNotice")}
-            </p>
-          ) : null}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isActionLoading || !canWriteFiles || filesBlocked}
+              >
+                <Plus className="size-4" />
+                <ChevronDown className="size-4 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() => {
+                  handleUpload();
+                }}
+              >
+                <Upload className="size-4 text-muted-foreground" />
+                {t("common:actions.upload")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setCreateFileOpen(true)}>
+                <FilePlus className="size-4 text-muted-foreground" />
+                {t("servers-management:filesManager.newFileButton")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setCreateDirectoryOpen(true)}>
+                <FolderPlus className="size-4 text-muted-foreground" />
+                {t("servers-management:filesManager.newFolderButton")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+
+        {storageLock.locked || modpackInstalling ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <TaskLockNotice lock={storageLock} />
+            {modpackInstalling ? (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Boxes className="size-3.5 shrink-0" />
+                {t("servers-management:mods.filesLockedNotice")}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </CardHeader>
 
       <CardContent>
@@ -2095,7 +2135,7 @@ export function FilesManager({
             <Loader2 className="size-4 animate-spin" />
             {t("servers-management:filesManager.loadingFiles")}
           </div>
-        ) : files.length === 0 ? (
+        ) : visibleFiles.length === 0 ? (
           <div
             onDragOver={handleManagerDragOver}
             onDragLeave={handleManagerDragLeave}
@@ -2107,10 +2147,16 @@ export function FilesManager({
             }`}
           >
             <p className="text-sm text-muted-foreground">
-              {t("servers-management:filesManager.emptyState.title")}
+              {files.length === 0
+                ? t("servers-management:filesManager.emptyState.title")
+                : t("servers-management:filesManager.emptyState.noMatches", {
+                    query: searchQuery.trim(),
+                  })}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              {t("servers-management:filesManager.emptyState.hint")}
+              {files.length === 0
+                ? t("servers-management:filesManager.emptyState.hint")
+                : t("servers-management:filesManager.emptyState.noMatchesHint")}
             </p>
           </div>
         ) : (
@@ -2150,7 +2196,7 @@ export function FilesManager({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {files.map((entry) => {
+                {visibleFiles.map((entry) => {
                   const kind = getEntryKind(entry);
                   const directory = kind === "directory";
 
