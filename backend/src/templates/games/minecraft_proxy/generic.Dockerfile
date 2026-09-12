@@ -1,10 +1,13 @@
 FROM itzg/mc-monitor:0.15.0 as monitor
 
-FROM alpine:latest
+FROM debian:bookworm-slim
 
-RUN apk update
-RUN apk add --no-cache wget curl jq ca-certificates
-RUN update-ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        jq \
+        wget \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN rm -rf /tmp /var/tmp
 RUN ln -s /work/.tmp /tmp
@@ -21,8 +24,8 @@ ARG CONTAINER_GID=25335
 RUN set -eu; \
     existing_user="$(getent passwd "${CONTAINER_UID}" | cut -d: -f1)"; \
     [ -z "${existing_user}" ] || deluser "${existing_user}"; \
-    getent group "${CONTAINER_GID}" >/dev/null || addgroup -g "${CONTAINER_GID}" container; \
-    adduser -D -H -u "${CONTAINER_UID}" -G "$(getent group "${CONTAINER_GID}" | cut -d: -f1)" -h /work -s /bin/sh container
+    getent group "${CONTAINER_GID}" >/dev/null || addgroup --gid "${CONTAINER_GID}" container; \
+    adduser --uid "${CONTAINER_UID}" --gid "${CONTAINER_GID}" --home /work --shell /bin/sh --no-create-home --disabled-password --gecos "" container
 
 WORKDIR /work
 ENTRYPOINT ["/bin/sh", "-c", "eval \"exec $STARTUP_COMMAND\""]
