@@ -71,7 +71,7 @@ pub(crate) enum MinecraftProxyExtra {
 }
 
 impl MinecraftProxyExtra {
-    const REL: usize = 2;
+    const REL: usize = 3;
 
     pub(crate) const fn software(&self) -> MinecraftProxySoftware {
         match self {

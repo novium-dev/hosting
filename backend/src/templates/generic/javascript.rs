@@ -78,7 +78,7 @@ impl Template for JavascriptTemplate {
                 .replace("{NODE_VERSION}", &extra.node_version),
             args: HashMap::new(),
             tag: None,
-            default_tag: Some(format!("javascript-{}-r1", extra.node_version)),
+            default_tag: Some(format!("javascript-{}-r2", extra.node_version)),
         };
         let image = ServerBuildImage {
             parents: vec![generic],
@@ -92,9 +92,9 @@ impl Template for JavascriptTemplate {
             args: HashMap::new(),
             tag: None,
             default_tag: Some(match extra.package_manager {
-                PackageManager::Npm => format!("javascript-npm-{}-r3", extra.node_version),
-                PackageManager::Pnpm => format!("javascript-pnpm-{}-r3", extra.node_version),
-                PackageManager::Bun => format!("javascript-bun-{}-r3", extra.node_version),
+                PackageManager::Npm => format!("javascript-npm-{}-r4", extra.node_version),
+                PackageManager::Pnpm => format!("javascript-pnpm-{}-r4", extra.node_version),
+                PackageManager::Bun => format!("javascript-bun-{}-r4", extra.node_version),
             }),
         };
         Ok(ServerBuildPayload {

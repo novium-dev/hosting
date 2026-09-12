@@ -135,7 +135,7 @@ impl Template for HytaleTemplate {
         Ok(ServerBuildPayload {
             image: ServerBuildImage {
                 dockerfile: include_str!("hytale.Dockerfile").to_owned(),
-                default_tag: Some("hytale-r2".to_owned()),
+                default_tag: Some("hytale-r3".to_owned()),
                 tag: None,
                 args: HashMap::new(),
                 parents: Vec::new(),
