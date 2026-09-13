@@ -124,6 +124,10 @@
       "bypassTooltip": "Deine Berechtigungen erlauben dir Backups über das Limit dieses Servers hinaus.",
       "reached": "Das Backup-Limit ist erreicht. Lösche ein Backup, bevor du ein weiteres erstellst."
     },
+    "unavailable": {
+      "title": "Backups sind deaktiviert",
+      "description": "Dieser Server hat keine Backup-Slots. Bitte eine Administratorin oder einen Administrator, das Backup-Limit zu erhöhen."
+    },
     "unnamedBackup": "Backup {{id}}",
     "unnamedFallback": "das ausgewählte Backup",
     "protectAction": "Backup sperren",

@@ -146,7 +146,7 @@ export function BackupsManager({
   const atBackupLimit = backupLimit !== null && backups.length >= backupLimit;
   const backupLimitPercent =
     backupLimit === null || backupLimit === 0
-      ? 100
+      ? 0
       : Math.min(100, (backups.length / backupLimit) * 100);
 
   const selectedBackupId = useMemo(
@@ -416,7 +416,7 @@ export function BackupsManager({
           <TaskLockNotice lock={restoreLock} />
         </div>
 
-        {backupLimit === null ? null : (
+        {backupLimit === null || backupLimit === 0 ? null : (
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm text-muted-foreground">

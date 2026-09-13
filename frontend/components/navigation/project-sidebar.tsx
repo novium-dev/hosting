@@ -31,7 +31,9 @@ import { authClient } from "@/lib/auth-client";
 import { useProjectRoute } from "@/lib/project-route";
 import {
   hasAnyManagementPermission,
+  hasManagementPermission,
   hasServerPermission,
+  ManagementPermission,
   mergePermissions,
   ServerPermission,
 } from "@/lib/permissions";
@@ -42,6 +44,7 @@ import {
 } from "@/lib/instance-sections";
 import {
   getVisibleServerSections,
+  hasBackupSlots,
   serverSectionHref,
 } from "@/lib/server-sections";
 import { NavUserMenu } from "./nav-user-menu";
@@ -120,6 +123,13 @@ export function ProjectSidebar() {
     ? getVisibleServerSections(
         effectivePermissions,
         serverData?.features ?? [],
+        hasBackupSlots(
+          serverData?.limits.backup,
+          hasManagementPermission(
+            effectivePermissions,
+            ManagementPermission.LIMITS_BYPASS,
+          ),
+        ),
       )
     : [];
 

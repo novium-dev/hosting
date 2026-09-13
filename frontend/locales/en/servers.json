@@ -124,6 +124,10 @@
       "bypassTooltip": "Your permissions let you create backups beyond this server's limit.",
       "reached": "The backup limit is reached. Delete a backup before creating another one."
     },
+    "unavailable": {
+      "title": "Backups are disabled",
+      "description": "This server has no backup slots. Ask an administrator to raise its backup limit."
+    },
     "unnamedBackup": "Backup {{id}}",
     "unnamedFallback": "the selected backup",
     "protectAction": "Lock backup",

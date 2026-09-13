@@ -27,6 +27,7 @@ import {
 import {
   getActiveServerSection,
   getVisibleServerSections,
+  hasBackupSlots,
 } from "@/lib/server-sections";
 import { ServerConsole } from "../components/server-console";
 import { ServerResourceGraphs } from "../components/resource-graphs";
@@ -68,9 +69,18 @@ export default function ClientServerSectionPage() {
     session?.user.permissions ?? 0,
     project?.permissions ?? 0,
   );
+  const canBypassLimits = hasManagementPermission(
+    effectivePermissions,
+    ManagementPermission.LIMITS_BYPASS,
+  );
+  const backupSlotsAvailable = hasBackupSlots(
+    serverData?.limits.backup,
+    canBypassLimits,
+  );
   const visibleSections = getVisibleServerSections(
     effectivePermissions,
     serverData?.features ?? [],
+    backupSlotsAvailable,
   );
   const activeSection = getActiveServerSection(visibleSections, section);
 
@@ -129,6 +139,10 @@ export default function ClientServerSectionPage() {
     ServerPermission.USER_EDIT,
   );
   const isEditRoute = section?.[0] === "edit";
+  const isUnavailableBackupsRoute =
+    section?.[0] === "backups" &&
+    !backupSlotsAvailable &&
+    hasServerPermission(effectivePermissions, ServerPermission.BACKUP_VIEW);
 
   return (
     <div className="flex flex-col gap-6">
@@ -166,6 +180,15 @@ export default function ClientServerSectionPage() {
               </Link>
             </Button>
           </CardContent>
+        </Card>
+      ) : isUnavailableBackupsRoute ? (
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle>{t("servers:backups.unavailable.title")}</CardTitle>
+            <CardDescription>
+              {t("servers:backups.unavailable.description")}
+            </CardDescription>
+          </CardHeader>
         </Card>
       ) : isEditRoute ? (
         canReadFiles ? (
@@ -209,10 +232,7 @@ export default function ClientServerSectionPage() {
         <BackupsManager
           serverId={server}
           backupLimit={serverData?.limits.backup ?? null}
-          canBypassLimits={hasManagementPermission(
-            effectivePermissions,
-            ManagementPermission.LIMITS_BYPASS,
-          )}
+          canBypassLimits={canBypassLimits}
         />
       ) : activeSection.key === "network" ? (
         <div className="space-y-4">

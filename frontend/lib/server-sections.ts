@@ -20,6 +20,7 @@ export type ServerSection = {
   permission: number;
   requiresMinecraftResources?: boolean;
   requiresMinecraftServer?: boolean;
+  requiresBackupSlots?: boolean;
 };
 
 export const SERVER_SECTIONS: ServerSection[] = [
@@ -37,6 +38,7 @@ export const SERVER_SECTIONS: ServerSection[] = [
     key: "backups",
     icon: Archive,
     permission: ServerPermission.BACKUP_VIEW,
+    requiresBackupSlots: true,
   },
   {
     key: "mods",
@@ -72,11 +74,26 @@ export const SERVER_SECTIONS: ServerSection[] = [
   },
 ];
 
-export function getVisibleServerSections(permissions: number, features: string[]) {
+export function hasBackupSlots(
+  backupLimit: number | null | undefined,
+  canBypassLimits: boolean,
+) {
+  return backupLimit !== 0 || canBypassLimits;
+}
+
+export function getVisibleServerSections(
+  permissions: number,
+  features: string[],
+  backupSlotsAvailable = true,
+) {
   const isMinecraftServer = features.includes("minecraft_commands");
 
   return SERVER_SECTIONS.filter((entry) => {
     if (!hasServerPermission(permissions, entry.permission)) {
+      return false;
+    }
+
+    if (entry.requiresBackupSlots && !backupSlotsAvailable) {
       return false;
     }
 
