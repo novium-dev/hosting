@@ -9,6 +9,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { appConfig } from "@/constants/config";
 import { authClient } from "@/lib/auth-client";
 import { useProjectStore } from "@/stores/projects";
 
@@ -22,7 +23,7 @@ export default function SlugLayout() {
   }, [slug, setCurrentSlug]);
 
   if (isLoading) return null;
-  if (!session) return <Navigate to="/signin" replace />;
+  if (!session) return <Navigate to={appConfig.authRoutes.signin} replace />;
 
   return (
     <SidebarProvider>
