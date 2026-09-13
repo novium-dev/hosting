@@ -167,13 +167,18 @@ impl Backend {
     }
 
     async fn wipe_mods(&self, server: &Server) -> Result<u32, ServerListFilesError> {
-        let entries = server
+        let entries = match server
             .node
             .server_list_files(
                 server.node_server_id,
                 ResourceType::Modification.directory(),
             )
-            .await?;
+            .await
+        {
+            Ok(entries) => entries,
+            Err(ServerListFilesError::FileNotFound) => return Ok(0),
+            Err(err) => return Err(err),
+        };
 
         let mut removed = Vec::new();
         for entry in entries {
