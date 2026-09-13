@@ -178,8 +178,8 @@ impl MinecraftProxyExtra {
 
     pub(crate) fn image(&self) -> ServerBuildImage {
         let generic = ServerBuildImage {
-            dockerfile: include_str!("minecraft_proxy/generic.Dockerfile").to_owned(),
-            args: HashMap::new(),
+            dockerfile: include_str!("minecraft/generic.Dockerfile").to_owned(),
+            args: HashMap::from([("MC_MONITOR_DEFAULT_PORT".to_owned(), PROXY_PORT.to_string())]),
             parents: Vec::new(),
             tag: None,
             default_tag: Some(format!("minecraft_proxy-generic-r{}", Self::REL)),

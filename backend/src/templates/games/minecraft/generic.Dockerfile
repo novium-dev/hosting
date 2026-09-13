@@ -5,10 +5,23 @@ FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         adduser \
         ca-certificates \
+        curl \
+        fontconfig \
+        git \
+        iproute2 \
         jq \
+        libfreetype6 \
         libstdc++6 \
         libudev1 \
+        lsof \
+        openssl \
+        sqlite3 \
+        tar \
+        tini \
+        tzdata \
+        unzip \
         wget \
+        zip \
     && rm -rf /var/lib/apt/lists/*
 
 ARG RCON_CLI_VERSION=1.7.7
@@ -40,6 +53,9 @@ RUN set -eu; \
     getent group "${CONTAINER_GID}" >/dev/null || addgroup --gid "${CONTAINER_GID}" container; \
     adduser --uid "${CONTAINER_UID}" --gid "${CONTAINER_GID}" --home /work --shell /bin/sh --no-create-home --disabled-password --gecos "" container
 
+ARG MC_MONITOR_DEFAULT_PORT=25565
+ENV MC_MONITOR_DEFAULT_PORT=${MC_MONITOR_DEFAULT_PORT}
+
 WORKDIR /work
 ENTRYPOINT ["/bin/sh", "-c", "eval \"exec $STARTUP_COMMAND\""]
-HEALTHCHECK --start-period=2m --retries=3 --interval=30s CMD /mc-monitor status -json
+HEALTHCHECK --start-period=2m --retries=3 --interval=30s CMD /mc-monitor status -json -port "${NOVIUM_PORT_MINECRAFT:-$MC_MONITOR_DEFAULT_PORT}"

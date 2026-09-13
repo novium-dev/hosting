@@ -205,7 +205,10 @@ impl MinecraftServerExtra {
     pub(crate) fn image(&self) -> ServerBuildImage {
         let generic = ServerBuildImage {
             dockerfile: include_str!("minecraft/generic.Dockerfile").to_owned(),
-            args: HashMap::new(),
+            args: HashMap::from([(
+                "MC_MONITOR_DEFAULT_PORT".to_owned(),
+                SERVER_PORT.to_string(),
+            )]),
             parents: Vec::new(),
             tag: None,
             default_tag: Some(format!("minecraft-generic-r{}", Self::REL)),
