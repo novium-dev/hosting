@@ -232,13 +232,12 @@ mod tests {
         .compile();
         let expected = owned(&[
             "rcon",
-            "-H",
+            "--host",
             "::1",
-            "-p",
+            "--port",
             "25575",
-            "-P",
+            "--password",
             "_",
-            "-m",
             "--",
             "say",
             "Restarting",

@@ -14,13 +14,12 @@ const PORT_ENVIRONMENT_PREFIX: &str = "NOVIUM_PORT_";
 pub fn rcon_command(command: impl IntoIterator<Item = String>) -> Vec<String> {
     vec![
         "rcon".to_owned(),
-        "-H".to_owned(),
+        "--host".to_owned(),
         "::1".to_owned(),
-        "-p".to_owned(),
+        "--port".to_owned(),
         "25575".to_owned(),
-        "-P".to_owned(),
+        "--password".to_owned(),
         "_".to_owned(),
-        "-m".to_owned(),
         "--".to_owned(),
     ]
     .into_iter()

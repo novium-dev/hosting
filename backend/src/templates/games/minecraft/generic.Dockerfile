@@ -1,36 +1,35 @@
 FROM itzg/mc-monitor:0.15.0 as monitor
 
-FROM debian:bookworm-slim as rcon-builder
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        cmake \
-        git \
-        libglib2.0-dev \
-        pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN git clone --depth 1 --branch 0.6 https://github.com/n0la/rcon.git /usr/src/rcon \
-    && cmake -S /usr/src/rcon -B /usr/src/rcon/build -DCMAKE_BUILD_TYPE=Release -DINSTALL_BASH_COMPLETION=OFF \
-    && cmake --build /usr/src/rcon/build --target rcon -j"$(nproc)"
-
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         jq \
-        libglib2.0-0 \
         libstdc++6 \
         libudev1 \
         wget \
     && rm -rf /var/lib/apt/lists/*
+
+ARG RCON_CLI_VERSION=1.7.7
+RUN set -eu; \
+    case "$(dpkg --print-architecture)" in \
+        amd64) rcon_arch=amd64 ;; \
+        arm64) rcon_arch=arm64 ;; \
+        armhf) rcon_arch=armv7 ;; \
+        armel) rcon_arch=armv6 ;; \
+        i386) rcon_arch=386 ;; \
+        riscv64) rcon_arch=riscv64 ;; \
+        *) echo "Unsupported architecture for rcon-cli: $(dpkg --print-architecture)" >&2; exit 1 ;; \
+    esac; \
+    wget -qO- "https://github.com/itzg/rcon-cli/releases/download/${RCON_CLI_VERSION}/rcon-cli_${RCON_CLI_VERSION}_linux_${rcon_arch}.tar.gz" \
+        | tar -xz -C /usr/local/bin rcon-cli; \
+    mv /usr/local/bin/rcon-cli /usr/local/bin/rcon
 
 RUN rm -rf /tmp /var/tmp
 RUN ln -s /work/.tmp /tmp
 RUN ln -s /work/.tmp /var/tmp
 
 COPY --from=monitor /mc-monitor /mc-monitor
-COPY --from=rcon-builder /usr/src/rcon/build/rcon /usr/local/bin/rcon
 
 # The daemon starts the server as this uid and mounts the storage at /work. Without a
 # matching entry the uid resolves to no user at all and everything that looks up the home
