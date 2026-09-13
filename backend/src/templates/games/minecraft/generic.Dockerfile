@@ -3,6 +3,7 @@ FROM itzg/mc-monitor:0.15.0 as monitor
 FROM debian:trixie-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        adduser \
         ca-certificates \
         jq \
         libstdc++6 \
@@ -24,10 +25,6 @@ RUN set -eu; \
     wget -qO- "https://github.com/itzg/rcon-cli/releases/download/${RCON_CLI_VERSION}/rcon-cli_${RCON_CLI_VERSION}_linux_${rcon_arch}.tar.gz" \
         | tar -xz -C /usr/local/bin rcon-cli; \
     mv /usr/local/bin/rcon-cli /usr/local/bin/rcon
-
-RUN rm -rf /tmp /var/tmp
-RUN ln -s /work/.tmp /tmp
-RUN ln -s /work/.tmp /var/tmp
 
 COPY --from=monitor /mc-monitor /mc-monitor
 

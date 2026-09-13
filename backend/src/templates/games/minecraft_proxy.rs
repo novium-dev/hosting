@@ -16,7 +16,9 @@ use std::collections::{HashMap, HashSet};
 use tracing::{debug, error};
 
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
-use crate::templates::games::minecraft::{JAVA_PREFIX, JAVA_RECOMMENDED, JVM_FLAGS, VersionBuild};
+use crate::templates::games::minecraft::{
+    JAVA_PREFIX, JAVA_RECOMMENDED, JVM_FLAGS, VersionBuild, WORK_TMP_SETUP,
+};
 use crate::templates::variable::{
     VariableBuilder, VariableContent, VariableDataBuilder, VariableGroupBuilder, VariablePayload,
 };
@@ -216,7 +218,7 @@ impl MinecraftProxyExtra {
             .collect();
 
         ServerBuildImage {
-            dockerfile: dockerfile.to_owned(),
+            dockerfile: format!("{dockerfile}{WORK_TMP_SETUP}"),
             parents: vec![java],
             default_tag: None,
             tag: Some(self.identifier()),

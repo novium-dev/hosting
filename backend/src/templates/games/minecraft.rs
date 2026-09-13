@@ -30,6 +30,8 @@ use crate::templates::{
 
 use crate::utils::serde::SerdePrimitive;
 
+pub(crate) const WORK_TMP_SETUP: &str =
+    "\nRUN rm -rf /tmp /var/tmp\nRUN ln -s /work/.tmp /tmp\nRUN ln -s /work/.tmp /var/tmp\n";
 pub(crate) const JAVA_RECOMMENDED: &str = "Recommended";
 pub(crate) const JAVA_PREFIX: &str = "Java ";
 pub(crate) const JVM_FLAGS: &str =
@@ -253,7 +255,7 @@ impl MinecraftServerExtra {
             .collect();
 
         ServerBuildImage {
-            dockerfile: dockerfile.to_owned(),
+            dockerfile: format!("{dockerfile}{WORK_TMP_SETUP}"),
             parents,
             default_tag: None,
             tag: Some(self.identifier()),

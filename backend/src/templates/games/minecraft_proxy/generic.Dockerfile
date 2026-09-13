@@ -3,15 +3,12 @@ FROM itzg/mc-monitor:0.15.0 as monitor
 FROM debian:trixie-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        adduser \
         ca-certificates \
         curl \
         jq \
         wget \
     && rm -rf /var/lib/apt/lists/*
-
-RUN rm -rf /tmp /var/tmp
-RUN ln -s /work/.tmp /tmp
-RUN ln -s /work/.tmp /var/tmp
 
 COPY --from=monitor /mc-monitor /mc-monitor
 
