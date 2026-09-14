@@ -6,6 +6,7 @@ import type { TFunction } from "i18next";
 import {
   AlertTriangle,
   Cpu,
+  Database,
   Globe2,
   HardDrive,
   MemoryStick,
@@ -16,18 +17,22 @@ import {
 import { NotFoundView } from "@/components/not-found-view";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import {
   availablePorts,
   listNodes,
   listRegions,
   metricsNode,
+  type ResourceDisk,
 } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { hasManagementPermission, ManagementPermission } from "@/lib/permissions";
@@ -108,6 +113,12 @@ export default function AdminNodeManagementPage() {
     ManagementPermission.NODES_MANAGE,
   );
   const regions = regionsResponse.error ? [] : (regionsResponse.data ?? []);
+  const disks = metrics?.disks ?? [];
+  const diskTotal = disks.reduce((sum, disk) => sum + disk.total, 0);
+  const diskUsedTotal = disks.reduce(
+    (sum, disk) => sum + Math.max(disk.total - disk.available, 0),
+    0,
+  );
   const currentRegion = regions.find(
     (region) => region.id === currentNode.region,
   );
@@ -187,7 +198,7 @@ export default function AdminNodeManagementPage() {
               }
             />
             <InfoCard
-              icon={HardDrive}
+              icon={Database}
               title={t("admin-infra:nodes.detailPage.swapLabel")}
               value={
                 metrics
@@ -195,9 +206,20 @@ export default function AdminNodeManagementPage() {
                   : t("admin-infra:nodes.detailPage.unavailable")
               }
             />
+            <InfoCard
+              icon={HardDrive}
+              title={t("common:resources.disk")}
+              value={
+                disks.length > 0
+                  ? `${formatBytes(diskUsedTotal, t)} / ${formatBytes(diskTotal, t)}`
+                  : t("admin-infra:nodes.detailPage.unavailable")
+              }
+            />
           </div>
         </CardHeader>
       </Card>
+
+      {metrics && <DisksCard disks={disks} />}
 
       <NodePortsManager
         nodeId={currentNode.id}
@@ -239,5 +261,78 @@ function InfoCard({
       </p>
       <p className="mt-1 text-sm font-medium">{value}</p>
     </div>
+  );
+}
+
+function DisksCard({ disks }: { disks: ResourceDisk[] }) {
+  const { t } = useTranslation();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("admin-infra:nodes.detailPage.disksTitle")}</CardTitle>
+        <CardDescription>
+          {t("admin-infra:nodes.detailPage.disksDescription")}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {disks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("admin-infra:nodes.detailPage.disksEmpty")}
+          </p>
+        ) : (
+          disks.map((disk) => {
+            const used = Math.max(disk.total - disk.available, 0);
+            const percent = disk.total > 0 ? (used / disk.total) * 100 : 0;
+
+            return (
+              <div
+                key={`${disk.mountpoint}-${disk.filesystem}`}
+                className="rounded-md border bg-muted/30 p-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <HardDrive className="size-4 text-muted-foreground" />
+                    <span className="font-mono text-sm font-medium">
+                      {disk.mountpoint}
+                    </span>
+                    <Badge variant="outline">{disk.filesystem}</Badge>
+                    {disk.readonly && (
+                      <Badge variant="secondary">
+                        {t("admin-infra:nodes.detailPage.disksReadonly")}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin-infra:nodes.detailPage.disksUsage", {
+                      used: formatBytes(used, t),
+                      total: formatBytes(disk.total, t),
+                      percent: percent.toFixed(1),
+                    })}
+                  </p>
+                </div>
+
+                <Progress
+                  value={percent}
+                  className={
+                    percent >= 90
+                      ? "mt-3 [&>[data-slot=progress-indicator]]:bg-destructive"
+                      : percent >= 75
+                        ? "mt-3 [&>[data-slot=progress-indicator]]:bg-amber-500"
+                        : "mt-3"
+                  }
+                />
+
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {t("admin-infra:nodes.detailPage.disksAvailable", {
+                    available: formatBytes(disk.available, t),
+                  })}
+                </p>
+              </div>
+            );
+          })
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -144,7 +144,13 @@
       "swapLabel": "Swap",
       "unavailable": "Nicht verfügbar",
       "cpuValue": "{{used}} / {{count}} Kerne",
-      "nodeIdDescription": "Node-ID: {{id}}"
+      "nodeIdDescription": "Node-ID: {{id}}",
+      "disksTitle": "Datenträger",
+      "disksDescription": "Auf diesem Node eingehängte Dateisysteme, wie vom Daemon gemeldet.",
+      "disksEmpty": "Der Node hat keine Datenträger gemeldet.",
+      "disksReadonly": "Schreibgeschützt",
+      "disksUsage": "{{used}} / {{total}} ({{percent}}%)",
+      "disksAvailable": "{{available}} frei"
     },
     "createDialog": {
       "createError": "Node konnte nicht erstellt werden",

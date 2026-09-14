@@ -144,7 +144,13 @@
       "swapLabel": "Swap",
       "unavailable": "Unavailable",
       "cpuValue": "{{used}} / {{count}} cores",
-      "nodeIdDescription": "Node ID: {{id}}"
+      "nodeIdDescription": "Node ID: {{id}}",
+      "disksTitle": "Disks",
+      "disksDescription": "Filesystems mounted on this node, as reported by the daemon.",
+      "disksEmpty": "The node did not report any disks.",
+      "disksReadonly": "Read-only",
+      "disksUsage": "{{used}} / {{total}} ({{percent}}%)",
+      "disksAvailable": "{{available}} free"
     },
     "createDialog": {
       "createError": "Failed to create node",
