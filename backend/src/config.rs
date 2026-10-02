@@ -173,21 +173,17 @@ pub struct LogoConfig {
 
 impl LogoConfig {
     fn from_env() -> Result<Self, anyhow::Error> {
-        let upload = if flag_var("BACKEND_LOGO_UPLOAD_ENABLED", true) {
-            let strategy = var("BACKEND_LOGO_UPLOAD_STRATEGY")
-                .unwrap_or_else(|| DEFAULT_LOGO_UPLOAD_STRATEGY.to_owned())
-                .to_lowercase();
+        let strategy = var("BACKEND_LOGO_UPLOAD_STRATEGY")
+            .unwrap_or_else(|| DEFAULT_LOGO_UPLOAD_STRATEGY.to_owned())
+            .to_lowercase();
 
-            match strategy.as_str() {
-                "s3" => S3Config::from_env()?.map(LogoUpload::S3),
-                other => {
-                    return Err(anyhow!(
-                        "BACKEND_LOGO_UPLOAD_STRATEGY is not a valid value: unknown strategy `{other}`"
-                    ));
-                }
+        let upload = match strategy.as_str() {
+            "s3" => S3Config::from_env()?.map(LogoUpload::S3),
+            other => {
+                return Err(anyhow!(
+                    "BACKEND_LOGO_UPLOAD_STRATEGY is not a valid value: unknown strategy `{other}`"
+                ));
             }
-        } else {
-            None
         };
 
         Ok(Self {
