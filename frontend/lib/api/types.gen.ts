@@ -692,6 +692,10 @@ export type SetInstanceUserGrants = {
     grants?: Array<UserGrant>;
 };
 
+export type SetProjectLogo = {
+    url: string;
+};
+
 export type SetProjectUserPayload = {
     email: string;
     expires_at?: string | null;
@@ -8644,6 +8648,7 @@ export type ListProjectsResponses = {
      */
     200: Array<{
         id: NanoId;
+        logo_url?: string | null;
         name: string;
         owner: number;
         owner_username: string;
@@ -8955,6 +8960,7 @@ export type GetProjectResponses = {
      */
     200: {
         id: NanoId;
+        logo_url?: string | null;
         name: string;
         owner: number;
         owner_username: string;
@@ -9060,6 +9066,273 @@ export type UpdateProjectResponses = {
 };
 
 export type UpdateProjectResponse = UpdateProjectResponses[keyof UpdateProjectResponses];
+
+export type DeleteProjectLogoData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+    };
+    query?: never;
+    url: '/project/{project_id}/logo';
+};
+
+export type DeleteProjectLogoErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403​': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‌': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+};
+
+export type DeleteProjectLogoError = DeleteProjectLogoErrors[keyof DeleteProjectLogoErrors];
+
+export type DeleteProjectLogoResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteProjectLogoResponse = DeleteProjectLogoResponses[keyof DeleteProjectLogoResponses];
+
+export type UploadProjectLogoData = {
+    body: unknown;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+    };
+    query?: never;
+    url: '/project/{project_id}/logo';
+};
+
+export type UploadProjectLogoErrors = {
+    /**
+     * The logo must be a PNG, JPEG, GIF or WebP image of at most 2 MiB
+     */
+    '400‎': {
+        error?: {
+            id?: 'project/logo_invalid';
+            msg?: 'The logo must be a PNG, JPEG, GIF or WebP image of at most 2 MiB';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403​': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Logo uploads are disabled on this instance
+     */
+    '403‏': {
+        error?: {
+            id?: 'project/logo_upload_disabled';
+            msg?: 'Logo uploads are disabled on this instance';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‌': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * The logo could not be stored
+     */
+    '502‪': {
+        error?: {
+            id?: 'project/logo_storage_failure';
+            msg?: 'The logo could not be stored';
+        };
+    };
+};
+
+export type UploadProjectLogoError = UploadProjectLogoErrors[keyof UploadProjectLogoErrors];
+
+export type UploadProjectLogoResponses = {
+    /**
+     * Success
+     */
+    200: string;
+};
+
+export type UploadProjectLogoResponse = UploadProjectLogoResponses[keyof UploadProjectLogoResponses];
+
+export type SetProjectLogoData = {
+    body: SetProjectLogo;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+    };
+    query?: never;
+    url: '/project/{project_id}/logo';
+};
+
+export type SetProjectLogoErrors = {
+    /**
+     * The logo URL is not hosted on a trusted URL
+     */
+    '400‎': {
+        error?: {
+            id?: 'project/logo_url_untrusted';
+            msg?: 'The logo URL is not hosted on a trusted URL';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403​': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‌': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+};
+
+export type SetProjectLogoError = SetProjectLogoErrors[keyof SetProjectLogoErrors];
+
+export type SetProjectLogoResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type SetProjectLogoResponse = SetProjectLogoResponses[keyof SetProjectLogoResponses];
 
 export type ListProjectUsersData = {
     body?: never;
@@ -17711,6 +17984,7 @@ export type InstancePolicyResponses = {
     200: {
         can_create_project: boolean;
         can_update_project: boolean;
+        can_upload_project_logo: boolean;
     };
 };
 

@@ -206,6 +206,15 @@
       "deleteSuccess": "Project deleted",
       "deleteError": "Failed to delete the project"
     },
+    "logoCard": {
+      "title": "Project Logo",
+      "description": "A PNG, JPEG, GIF or WebP image of at most 2 MiB.",
+      "invalid": "The logo must be a PNG, JPEG, GIF or WebP image of at most 2 MiB",
+      "uploadSuccess": "Project logo updated successfully",
+      "uploadError": "Failed to upload the logo",
+      "removeSuccess": "Project logo removed",
+      "removeError": "Failed to remove the logo"
+    },
     "nameCard": {
       "title": "Project Name",
       "label": "Please enter your project name",

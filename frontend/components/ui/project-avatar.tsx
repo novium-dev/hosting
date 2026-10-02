@@ -1,12 +1,13 @@
 "use client";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 
 interface ProjectAvatarProps {
   projectId: string;
   projectName: string;
+  logoUrl?: string | null;
   className?: string;
   fallbackClassName?: string;
   size?: "sm" | "md" | "lg";
@@ -109,6 +110,7 @@ function getInitials(name: string): string {
 export function ProjectAvatar({
   projectId,
   projectName,
+  logoUrl,
   className,
   fallbackClassName,
   size = "sm",
@@ -143,6 +145,13 @@ export function ProjectAvatar({
         className
       )}
     >
+      {logoUrl && (
+        <AvatarImage
+          src={logoUrl}
+          alt={projectName}
+          className={cn("object-cover", shape === "square" && "rounded-[4px]")}
+        />
+      )}
       <AvatarFallback
         className={cn(
           colorStyles.background,

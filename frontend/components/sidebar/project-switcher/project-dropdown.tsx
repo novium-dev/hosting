@@ -36,6 +36,7 @@ export function ProjectDropdown({ projects }: { projects: AppProject[] }) {
           <ProjectAvatar
             projectId={activeProject?.id ?? ""}
             projectName={activeProject?.name ?? ""}
+            logoUrl={activeProject?.logo_url}
           />
           <div className="grid flex-1 text-left text-sm leading-tight">
             <span className="truncate font-semibold">
@@ -58,6 +59,7 @@ export function ProjectDropdown({ projects }: { projects: AppProject[] }) {
           <ProjectAvatar
             projectId={activeProject?.id ?? ""}
             projectName={activeProject?.name ?? ""}
+            logoUrl={activeProject?.logo_url}
           />
           <span className="truncate font-semibold">
             {activeProject?.name ?? ""}

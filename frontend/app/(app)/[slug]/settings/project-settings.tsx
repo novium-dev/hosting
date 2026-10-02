@@ -30,6 +30,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import { UpdateProjectLogo } from "./update-project-logo";
 import { UpdateProjectName } from "./update-project-name";
 import { UpdateProjectSlug } from "./update-project-slug";
 
@@ -65,6 +66,8 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
           {t("project:settings.subheading")}
         </p>
       </div>
+      <UpdateProjectLogo project={project} />
+
       {canUpdateProject ? (
         <>
           <UpdateProjectName project={project} />
