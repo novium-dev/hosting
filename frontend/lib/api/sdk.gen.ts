@@ -973,7 +973,9 @@ export const updateProject = <ThrowOnError extends boolean = false>(options: Opt
  *  Removes the project logo.<br/>
  * <br/>
  * # Permissions<br/>
- * Requires `ProjectPermissions::ADMIN_MANAGEMENT`.
+ * Requires `ProjectPermissions::ADMIN_MANAGEMENT`.<br/>
+ * Requires `ManagementPermissions::LIMITS_BYPASS` if this instance does<br/>
+ * not let users update their own projects.
  */
 export const deleteProjectLogo = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectLogoData, ThrowOnError>) => (options.client ?? client).delete<DeleteProjectLogoResponses, DeleteProjectLogoErrors, ThrowOnError>({ url: '/project/{project_id}/logo', ...options });
 
@@ -985,7 +987,9 @@ export const deleteProjectLogo = <ThrowOnError extends boolean = false>(options:
  * The request body is the raw image: PNG, JPEG, GIF or WebP, at most 2 MiB.<br/>
  * <br/>
  * # Permissions<br/>
- * Requires `ProjectPermissions::ADMIN_MANAGEMENT`.
+ * Requires `ProjectPermissions::ADMIN_MANAGEMENT`.<br/>
+ * Requires `ManagementPermissions::LIMITS_BYPASS` if this instance does<br/>
+ * not let users update their own projects.
  */
 export const uploadProjectLogo = <ThrowOnError extends boolean = false>(options: Options<UploadProjectLogoData, ThrowOnError>) => (options.client ?? client).post<UploadProjectLogoResponses, UploadProjectLogoErrors, ThrowOnError>({
     bodySerializer: null,
@@ -1004,7 +1008,9 @@ export const uploadProjectLogo = <ThrowOnError extends boolean = false>(options:
  * trusted logo URLs.<br/>
  * <br/>
  * # Permissions<br/>
- * Requires `ProjectPermissions::ADMIN_MANAGEMENT`.
+ * Requires `ProjectPermissions::ADMIN_MANAGEMENT`.<br/>
+ * Requires `ManagementPermissions::LIMITS_BYPASS` if this instance does<br/>
+ * not let users update their own projects.
  */
 export const setProjectLogo = <ThrowOnError extends boolean = false>(options: Options<SetProjectLogoData, ThrowOnError>) => (options.client ?? client).put<SetProjectLogoResponses, SetProjectLogoErrors, ThrowOnError>({
     url: '/project/{project_id}/logo',

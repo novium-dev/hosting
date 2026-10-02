@@ -66,10 +66,10 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
           {t("project:settings.subheading")}
         </p>
       </div>
-      <UpdateProjectLogo project={project} />
-
       {canUpdateProject ? (
         <>
+          <UpdateProjectLogo project={project} />
+
           <UpdateProjectName project={project} />
 
           <UpdateProjectSlug project={project} />

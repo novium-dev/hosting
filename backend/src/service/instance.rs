@@ -28,7 +28,8 @@ pub(crate) impl InstanceService for Backend {
         Ok(InstancePolicy {
             can_create_project: policy.self_creation || can_bypass_limits,
             can_update_project: policy.self_update || can_bypass_limits,
-            can_upload_project_logo: self.config.logos.upload.is_some(),
+            can_upload_project_logo: self.config.logos.upload.is_some()
+                && (policy.self_update || can_bypass_limits),
         })
     }
 }

@@ -346,6 +346,8 @@ pub(crate) impl ProjectService for Backend {
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::ADMIN_MANAGEMENT`].
+    /// Requires [`ManagementPermissions::LIMITS_BYPASS`] if this instance does
+    /// not let users update their own projects.
     #[route("/{project_id}/logo", method = PUT)]
     #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found, logo_url_untrusted})]
     async fn set_project_logo(
@@ -358,6 +360,10 @@ pub(crate) impl ProjectService for Backend {
             project_id,
             ProjectPermissions::ADMIN_MANAGEMENT,
         )?;
+
+        if !self.config.projects.self_update {
+            auth.require::<_, _, SetProjectLogoError>((), ManagementPermissions::LIMITS_BYPASS)?;
+        }
 
         let trusted = payload.url.len() <= LOGO_URL_MAX_LENGTH
             && Url::parse(&payload.url).is_ok_and(|url| self.config.logos.is_trusted(&url));
@@ -374,6 +380,8 @@ pub(crate) impl ProjectService for Backend {
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::ADMIN_MANAGEMENT`].
+    /// Requires [`ManagementPermissions::LIMITS_BYPASS`] if this instance does
+    /// not let users update their own projects.
     #[route("/{project_id}/logo", method = POST)]
     #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found, logo_invalid, logo_upload_disabled, logo_storage_failure})]
     async fn upload_project_logo(
@@ -386,6 +394,10 @@ pub(crate) impl ProjectService for Backend {
             project_id,
             ProjectPermissions::ADMIN_MANAGEMENT,
         )?;
+
+        if !self.config.projects.self_update {
+            auth.require::<_, _, UploadProjectLogoError>((), ManagementPermissions::LIMITS_BYPASS)?;
+        }
 
         let upload = self
             .config
@@ -425,6 +437,8 @@ pub(crate) impl ProjectService for Backend {
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::ADMIN_MANAGEMENT`].
+    /// Requires [`ManagementPermissions::LIMITS_BYPASS`] if this instance does
+    /// not let users update their own projects.
     #[route("/{project_id}/logo", method = DELETE)]
     #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found)]
     async fn delete_project_logo(
@@ -436,6 +450,10 @@ pub(crate) impl ProjectService for Backend {
             project_id,
             ProjectPermissions::ADMIN_MANAGEMENT,
         )?;
+
+        if !self.config.projects.self_update {
+            auth.require::<_, _, DeleteProjectLogoError>((), ManagementPermissions::LIMITS_BYPASS)?;
+        }
 
         replace_project_logo::<DeleteProjectLogoError>(self, project_id, None).await
     }
