@@ -9,6 +9,7 @@ use zelus::service;
 pub(crate) struct InstancePolicy {
     pub(crate) can_create_project: bool,
     pub(crate) can_update_project: bool,
+    pub(crate) can_upload_project_logo: bool,
 }
 
 #[service(path = "/instance", tag = "instance", no_sdk)]
@@ -27,6 +28,7 @@ pub(crate) impl InstanceService for Backend {
         Ok(InstancePolicy {
             can_create_project: policy.self_creation || can_bypass_limits,
             can_update_project: policy.self_update || can_bypass_limits,
+            can_upload_project_logo: self.config.logos.upload.is_some(),
         })
     }
 }

@@ -3,22 +3,29 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
 use crate::db::project::ProjectId;
+use crate::logo::{LOGO_MAX_BYTES, LogoFormat};
 use crate::service::error_project_not_found::FromProjectNotFound;
 use crate::service::error_project_slug_invalid::FromProjectSlugInvalid;
 use crate::service::project::project_service_error::{
-    CreateProjectError, DeleteProjectError, GetProjectError, ListProjectUsersError,
-    ListProjectsError, RemoveProjectUserError, SetProjectUserError, UpdateProjectError,
+    CreateProjectError, DeleteProjectError, DeleteProjectLogoError, GetProjectError,
+    ListProjectUsersError, ListProjectsError, RemoveProjectUserError, SetProjectLogoError,
+    SetProjectUserError, UpdateProjectError, UploadProjectLogoError,
 };
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{query, query_scalar};
+use tokio::io::AsyncReadExt as _;
+use tracing::{error, warn};
+use url::Url;
+use zelus::types::DataStream;
 use zelus::{define_query_variable, service};
 
 define_query_variable!(own "Only include projects owned by or shared with the current user");
 define_query_variable!(slug "The project slug to check for availability");
 
 const SLUG_MAX_LENGTH: usize = 64;
+const LOGO_URL_MAX_LENGTH: usize = 1024;
 
 const RESERVED_SLUGS: &[&str] = &[
     "accept-invitation",
@@ -59,6 +66,7 @@ pub(crate) struct ProjectInfo {
     pub(crate) id: ProjectId,
     pub(crate) slug: String,
     pub(crate) name: String,
+    pub(crate) logo_url: Option<String>,
     pub(crate) owner: i32,
     pub(crate) owner_username: String,
     pub(crate) server_count: i64,
@@ -73,6 +81,11 @@ pub(crate) struct ProjectUserInfo {
     pub(crate) avatar_url: String,
     pub(crate) permissions: i64,
     pub(crate) expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub(crate) struct SetProjectLogo {
+    pub(crate) url: String,
 }
 
 #[service(path = "/project", tag = "project", no_sdk)]
@@ -93,6 +106,7 @@ pub(crate) impl ProjectService for Backend {
                 projects.id AS "id: ProjectId",
                 projects.slug,
                 projects.name,
+                projects.logo_url,
                 projects.owner,
                 users.username AS owner_username,
                 (SELECT COUNT(*) FROM servers WHERE servers.project = projects.id) AS "server_count!"
@@ -114,6 +128,7 @@ pub(crate) impl ProjectService for Backend {
                 id,
                 slug: project.slug,
                 name: project.name,
+                logo_url: project.logo_url,
                 owner: project.owner,
                 owner_username: project.owner_username,
                 server_count: project.server_count,
@@ -209,6 +224,7 @@ pub(crate) impl ProjectService for Backend {
                 projects.id AS "id: ProjectId",
                 projects.slug,
                 projects.name,
+                projects.logo_url,
                 projects.owner,
                 users.username AS owner_username,
                 (SELECT COUNT(*) FROM servers WHERE servers.project = projects.id) AS "server_count!"
@@ -224,6 +240,7 @@ pub(crate) impl ProjectService for Backend {
             id: project.id,
             slug: project.slug,
             name: project.name,
+            logo_url: project.logo_url,
             owner: project.owner,
             owner_username: project.owner_username,
             server_count: project.server_count,
@@ -311,15 +328,116 @@ pub(crate) impl ProjectService for Backend {
     ) -> Result<(), _> {
         auth.require::<_, _, DeleteProjectError>(project_id, ProjectPermissions::ADMIN_MANAGEMENT)?;
 
-        let result = query!("DELETE FROM projects WHERE id = $1", &project_id)
-            .execute(&*self.database)
-            .await?;
+        let logo_url = query_scalar!(
+            "DELETE FROM projects WHERE id = $1 RETURNING logo_url",
+            &project_id
+        )
+        .fetch_optional(&*self.database)
+        .await?
+        .ok_or(DeleteProjectError::ProjectNotFound)?;
 
-        if result.rows_affected() == 0 {
-            return Err(DeleteProjectError::ProjectNotFound);
-        }
+        remove_stored_logo(self, project_id, logo_url).await;
 
         Ok(())
+    }
+
+    /// Sets the project logo to an image hosted under one of the instance's
+    /// trusted logo URLs.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::ADMIN_MANAGEMENT`].
+    #[route("/{project_id}/logo", method = PUT)]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found, logo_url_untrusted})]
+    async fn set_project_logo(
+        &self,
+        #[special] auth: Authentication,
+        project_id: ProjectId,
+        payload: SetProjectLogo,
+    ) -> Result<(), _> {
+        auth.require::<_, _, SetProjectLogoError>(
+            project_id,
+            ProjectPermissions::ADMIN_MANAGEMENT,
+        )?;
+
+        let trusted = payload.url.len() <= LOGO_URL_MAX_LENGTH
+            && Url::parse(&payload.url).is_ok_and(|url| self.config.logos.is_trusted(&url));
+        if !trusted {
+            return Err(SetProjectLogoError::ProjectLogoUrlUntrusted);
+        }
+
+        replace_project_logo::<SetProjectLogoError>(self, project_id, Some(&payload.url)).await
+    }
+
+    /// Uploads an image as the project logo and returns its URL.
+    ///
+    /// The request body is the raw image: PNG, JPEG, GIF or WebP, at most 2 MiB.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::ADMIN_MANAGEMENT`].
+    #[route("/{project_id}/logo", method = POST)]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found, logo_invalid, logo_upload_disabled, logo_storage_failure})]
+    async fn upload_project_logo(
+        &self,
+        #[special] auth: Authentication,
+        project_id: ProjectId,
+        data: DataStream,
+    ) -> Result<String, _> {
+        auth.require::<_, _, UploadProjectLogoError>(
+            project_id,
+            ProjectPermissions::ADMIN_MANAGEMENT,
+        )?;
+
+        let upload = self
+            .config
+            .logos
+            .upload
+            .as_ref()
+            .ok_or(UploadProjectLogoError::ProjectLogoUploadDisabled)?;
+        ensure_project_exists::<UploadProjectLogoError>(self, project_id).await?;
+
+        let limit = u64::try_from(LOGO_MAX_BYTES).unwrap_or(u64::MAX);
+        let mut content = Vec::new();
+        data.reader()
+            .take(limit.saturating_add(1))
+            .read_to_end(&mut content)
+            .await
+            .map_err(|_err| UploadProjectLogoError::ProjectLogoInvalid)?;
+        if content.len() > LOGO_MAX_BYTES {
+            return Err(UploadProjectLogoError::ProjectLogoInvalid);
+        }
+        let format =
+            LogoFormat::detect(&content).ok_or(UploadProjectLogoError::ProjectLogoInvalid)?;
+
+        let url = upload
+            .store(&self.http_client, project_id, format, content)
+            .await
+            .map_err(|err| {
+                error!("Failed to store the logo of project {project_id}: {err:?}");
+                UploadProjectLogoError::ProjectLogoStorageFailure
+            })?;
+
+        replace_project_logo::<UploadProjectLogoError>(self, project_id, Some(&url)).await?;
+
+        Ok(url)
+    }
+
+    /// Removes the project logo.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::ADMIN_MANAGEMENT`].
+    #[route("/{project_id}/logo", method = DELETE)]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found)]
+    async fn delete_project_logo(
+        &self,
+        #[special] auth: Authentication,
+        project_id: ProjectId,
+    ) -> Result<(), _> {
+        auth.require::<_, _, DeleteProjectLogoError>(
+            project_id,
+            ProjectPermissions::ADMIN_MANAGEMENT,
+        )?;
+
+        replace_project_logo::<DeleteProjectLogoError>(self, project_id, None).await
     }
 
     /// Lists project members.
@@ -488,5 +606,40 @@ async fn ensure_project_exists<E: From<sqlx::Error> + FromProjectNotFound>(
         Ok(())
     } else {
         Err(<E as FromProjectNotFound>::from())
+    }
+}
+
+async fn replace_project_logo<E: From<sqlx::Error> + FromProjectNotFound>(
+    backend: &Backend,
+    project_id: ProjectId,
+    logo_url: Option<&str>,
+) -> Result<(), E> {
+    let previous = query_scalar!(
+        r#"UPDATE projects SET logo_url = $1 WHERE id = $2
+         RETURNING (SELECT logo_url FROM projects WHERE id = $2) AS "previous""#,
+        logo_url,
+        &project_id
+    )
+    .fetch_optional(&*backend.database)
+    .await?
+    .ok_or_else(<E as FromProjectNotFound>::from)?;
+
+    if previous.as_deref() != logo_url {
+        remove_stored_logo(backend, project_id, previous).await;
+    }
+
+    Ok(())
+}
+
+async fn remove_stored_logo(backend: &Backend, project_id: ProjectId, logo_url: Option<String>) {
+    let (Some(upload), Some(logo_url)) = (backend.config.logos.upload.as_ref(), logo_url) else {
+        return;
+    };
+
+    if let Err(err) = upload
+        .remove(&backend.http_client, project_id, &logo_url)
+        .await
+    {
+        warn!("Failed to remove the stored logo of project {project_id}: {err:?}");
     }
 }

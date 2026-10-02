@@ -46,6 +46,10 @@ define_error!(project {
     slug_invalid("The slug must be 1-64 characters of lowercase letters, numbers or hyphens, and must not be reserved" BAD_REQUEST),
     expiry_invalid("The membership expiry must be in the future" BAD_REQUEST),
     owner_immutable("The project owner cannot be modified or removed" BAD_REQUEST),
+    logo_url_untrusted("The logo URL is not hosted on a trusted URL" BAD_REQUEST),
+    logo_invalid("The logo must be a PNG, JPEG, GIF or WebP image of at most 2 MiB" BAD_REQUEST),
+    logo_upload_disabled("Logo uploads are disabled on this instance" FORBIDDEN),
+    logo_storage_failure("The logo could not be stored" BAD_GATEWAY),
 });
 
 define_error!(user {

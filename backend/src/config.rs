@@ -4,6 +4,7 @@ use core::net::SocketAddr;
 use core::str::FromStr;
 use database_agent_common::types::{DatabaseType, StoredInstanceCreate, VolumeMapping};
 use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
+use rusty_s3::{Bucket, Credentials, UrlStyle};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::env;
 use url::Url;
@@ -11,6 +12,7 @@ use url::Url;
 const DEFAULT_SESSION_LIFETIME: u64 = 43200;
 const DEFAULT_SESSION_ABSOLUTE_LIFETIME: u64 = 2_592_000;
 const DEFAULT_AUTH_PROVIDER: &str = "user";
+const DEFAULT_LOGO_UPLOAD_STRATEGY: &str = "s3";
 
 fn var(key: &str) -> Option<String> {
     env::var(key).ok().filter(|value| !value.is_empty())
@@ -100,6 +102,7 @@ pub struct BackendConfig {
     pub routes: RouteConfig,
     pub databases: DatabaseConfig,
     pub projects: ProjectPolicyConfig,
+    pub logos: LogoConfig,
 }
 
 impl BackendConfig {
@@ -132,6 +135,7 @@ impl BackendConfig {
             routes: RouteConfig::from_env()?,
             databases: DatabaseConfig::from_env()?,
             projects: ProjectPolicyConfig::from_env(),
+            logos: LogoConfig::from_env()?,
         })
     }
 
@@ -158,6 +162,108 @@ impl ProjectPolicyConfig {
             self_creation: flag_var("BACKEND_SELF_ORG_CREATION", true),
             self_update: flag_var("BACKEND_SELF_ORG_UPDATE", true),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LogoConfig {
+    pub trusted_urls: Vec<Url>,
+    pub upload: Option<LogoUpload>,
+}
+
+impl LogoConfig {
+    fn from_env() -> Result<Self, anyhow::Error> {
+        let upload = if flag_var("BACKEND_LOGO_UPLOAD_ENABLED", true) {
+            let strategy = var("BACKEND_LOGO_UPLOAD_STRATEGY")
+                .unwrap_or_else(|| DEFAULT_LOGO_UPLOAD_STRATEGY.to_owned())
+                .to_lowercase();
+
+            match strategy.as_str() {
+                "s3" => S3Config::from_env()?.map(LogoUpload::S3),
+                other => {
+                    return Err(anyhow!(
+                        "BACKEND_LOGO_UPLOAD_STRATEGY is not a valid value: unknown strategy `{other}`"
+                    ));
+                }
+            }
+        } else {
+            None
+        };
+
+        Ok(Self {
+            trusted_urls: parse_list_var::<Url>("BACKEND_LOGO_TRUSTED_URLS")?,
+            upload,
+        })
+    }
+
+    pub fn is_trusted(&self, url: &Url) -> bool {
+        self.trusted_urls
+            .iter()
+            .chain(self.upload.iter().map(LogoUpload::public_url))
+            .any(|trusted| url_within(url, trusted))
+    }
+}
+
+fn url_within(url: &Url, base: &Url) -> bool {
+    url.scheme() == base.scheme()
+        && url.host() == base.host()
+        && url.port_or_known_default() == base.port_or_known_default()
+        && url.username().is_empty()
+        && url.password().is_none()
+        && url
+            .path()
+            .strip_prefix(base.path().trim_end_matches('/'))
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+}
+
+#[derive(Debug, Clone)]
+pub enum LogoUpload {
+    S3(S3Config),
+}
+
+impl LogoUpload {
+    pub const fn public_url(&self) -> &Url {
+        match self {
+            Self::S3(s3) => &s3.public_url,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct S3Config {
+    pub bucket: Bucket,
+    pub credentials: Credentials,
+    pub public_url: Url,
+}
+
+impl S3Config {
+    fn from_env() -> Result<Option<Self>, anyhow::Error> {
+        let Some(endpoint) = url_var("BACKEND_LOGO_S3_ENDPOINT")? else {
+            return Ok(None);
+        };
+
+        let style = if flag_var("BACKEND_LOGO_S3_PATH_STYLE", true) {
+            UrlStyle::Path
+        } else {
+            UrlStyle::VirtualHost
+        };
+
+        let bucket = Bucket::new(
+            endpoint,
+            style,
+            required_var("BACKEND_LOGO_S3_BUCKET")?,
+            required_var("BACKEND_LOGO_S3_REGION")?,
+        )
+        .map_err(|err| anyhow!("BACKEND_LOGO_S3_ENDPOINT is not a valid value: {err}"))?;
+
+        Ok(Some(Self {
+            bucket,
+            credentials: Credentials::new(
+                required_var("BACKEND_LOGO_S3_ACCESS_KEY")?,
+                required_var("BACKEND_LOGO_S3_SECRET_KEY")?,
+            ),
+            public_url: required_url_var("BACKEND_LOGO_S3_PUBLIC_URL")?,
+        }))
     }
 }
 
@@ -419,4 +525,60 @@ pub struct OAuthProviderConfig {
     pub client_secret: ClientSecret,
     pub admin_roles: HashSet<String>,
     pub moderator_roles: HashSet<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::url_within;
+    use url::Url;
+
+    fn within(url: &str, base: &str) -> bool {
+        url_within(
+            &Url::parse(url).expect("url"),
+            &Url::parse(base).expect("base"),
+        )
+    }
+
+    #[test]
+    fn accepts_urls_below_the_base() {
+        assert!(within("https://i.imgur.com/abc.png", "https://i.imgur.com"));
+        assert!(within(
+            "https://s3.example.com/logos/a/b.png",
+            "https://s3.example.com/logos/"
+        ));
+    }
+
+    #[test]
+    fn rejects_other_hosts_schemes_and_ports() {
+        assert!(!within("https://evil.com/abc.png", "https://i.imgur.com"));
+        assert!(!within(
+            "https://i.imgur.com.evil.com/abc.png",
+            "https://i.imgur.com"
+        ));
+        assert!(!within("http://i.imgur.com/abc.png", "https://i.imgur.com"));
+        assert!(!within(
+            "https://i.imgur.com:8443/abc.png",
+            "https://i.imgur.com"
+        ));
+        assert!(!within(
+            "https://i.imgur.com@evil.com/abc.png",
+            "https://i.imgur.com"
+        ));
+        assert!(!within(
+            "https://user@i.imgur.com/abc.png",
+            "https://i.imgur.com"
+        ));
+    }
+
+    #[test]
+    fn rejects_paths_outside_the_prefix() {
+        assert!(!within(
+            "https://s3.example.com/logos-other/a.png",
+            "https://s3.example.com/logos"
+        ));
+        assert!(!within(
+            "https://s3.example.com/logos/../private/a.png",
+            "https://s3.example.com/logos"
+        ));
+    }
 }

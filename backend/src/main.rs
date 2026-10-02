@@ -7,6 +7,7 @@ pub(crate) mod db;
 mod auth;
 mod http;
 pub(crate) mod integrity;
+mod logo;
 pub(crate) mod resources;
 pub(crate) mod routes;
 pub(crate) mod service;
