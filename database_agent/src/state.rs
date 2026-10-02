@@ -16,7 +16,6 @@ use tokio::sync::{RwLock, Semaphore};
 use uuid::Uuid;
 
 const RESTORE_DELAY: Duration = Duration::from_secs(5);
-const STATE_PERSIST_INTERVAL: Duration = Duration::from_secs(10);
 
 pub struct AgentInner {
     pub config: Arc<AgentConfig>,
@@ -69,13 +68,13 @@ impl Agent {
 
     pub async fn load_instances(&self) -> anyhow::Result<()> {
         let mut instances = Vec::new();
-        let mut states = data::instance_states(self.store.read()).await?;
+        let states = data::instance_states(self.store.read()).await?;
 
         let autostart_concurrency = self.config.boot_autostart_concurrency;
         let autostart = Arc::new(Semaphore::new(autostart_concurrency));
 
         for stored in data::all_instances(self.store.read()).await? {
-            let state = states.remove(&stored.uuid).unwrap_or_default();
+            let state = states.get(&stored.uuid).copied().unwrap_or_default();
             let instance = Instance::new(self.clone(), stored);
             instance.resync_users().await?;
             instance.attach_container().await;
@@ -97,7 +96,7 @@ impl Agent {
         tracing::info!("loaded {} instances", instances.len());
         *self.instances.write().await = instances;
 
-        tokio::spawn(self.clone().persist_instance_states());
+        tokio::spawn(self.clone().adopt_running_instances(states));
 
         Ok(())
     }
@@ -129,33 +128,15 @@ impl Agent {
         drop(permit);
     }
 
-    #[expect(
-        clippy::infinite_loop,
-        reason = "the task runs for the agent's lifetime"
-    )]
-    async fn persist_instance_states(self) {
-        let mut persisted: HashMap<Uuid, ContainerState> = HashMap::new();
+    async fn adopt_running_instances(self, stored: HashMap<Uuid, ContainerState>) {
+        tokio::time::sleep(RESTORE_DELAY).await;
 
-        loop {
-            tokio::time::sleep(STATE_PERSIST_INTERVAL).await;
-
-            let instances = self.instances.read().await.clone();
-            persisted.retain(|uuid, _| instances.iter().any(|instance| instance.uuid == *uuid));
-
-            for instance in instances {
-                let state = instance.container_state().await;
-                if persisted.get(&instance.uuid) == Some(&state) {
-                    continue;
-                }
-
-                match data::set_instance_state(self.store.write(), instance.uuid, state).await {
-                    Ok(()) => {
-                        persisted.insert(instance.uuid, state);
-                    }
-                    Err(err) => {
-                        tracing::error!(instance = %instance.uuid, "failed to persist the instance state: {err:#}");
-                    }
-                }
+        let instances = self.instances.read().await.clone();
+        for instance in instances {
+            if stored.get(&instance.uuid) != Some(&ContainerState::Running)
+                && instance.container_state().await == ContainerState::Running
+            {
+                instance.persist_state(ContainerState::Running).await;
             }
         }
     }

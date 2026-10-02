@@ -487,9 +487,19 @@ impl Instance {
             Some(handle) => handle.start().await,
             None => Err(anyhow::anyhow!("the instance has no container")),
         };
+        if result.is_ok() {
+            self.persist_state(ContainerState::Running).await;
+        }
         drop(guard);
 
         result
+    }
+
+    pub async fn persist_state(&self, state: ContainerState) {
+        if let Err(err) = data::set_instance_state(self.agent.store.write(), self.uuid, state).await
+        {
+            tracing::error!(instance = %self.uuid, "failed to persist the instance state: {err:#}");
+        }
     }
 
     pub async fn stop(&self) -> anyhow::Result<()> {
@@ -499,6 +509,9 @@ impl Instance {
             Some(handle) => handle.stop().await,
             None => Ok(()),
         };
+        if result.is_ok() {
+            self.persist_state(ContainerState::Offline).await;
+        }
         drop(guard);
 
         result
@@ -511,6 +524,9 @@ impl Instance {
             Some(handle) => handle.kill().await,
             None => Ok(()),
         };
+        if result.is_ok() {
+            self.persist_state(ContainerState::Offline).await;
+        }
         drop(guard);
 
         result
