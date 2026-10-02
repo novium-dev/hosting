@@ -2,6 +2,7 @@ pub mod connection;
 pub mod disk_checker;
 pub mod docker;
 pub mod manager;
+pub mod mariadb_version;
 
 use crate::state::Agent;
 use crate::store::data;
@@ -25,6 +26,8 @@ use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
 use uuid::Uuid;
 
+const MARIADB_DEFINER_STRIP: &str = r"sed -e 's/DEFINER=`[^`]*`@`[^`]*`//g'";
+
 pub struct InnerInstance {
     pub uuid: Uuid,
     pub agent: Agent,
@@ -37,11 +40,15 @@ pub struct InnerInstance {
     route_inserter: RouteInserter,
     power_lock: Mutex<()>,
     disk_checker_task: JoinHandle<()>,
+    mariadb_version_task: Option<JoinHandle<()>>,
 }
 
 impl Drop for InnerInstance {
     fn drop(&mut self) {
         self.disk_checker_task.abort();
+        if let Some(task) = &self.mariadb_version_task {
+            task.abort();
+        }
     }
 }
 
@@ -62,6 +69,8 @@ impl Instance {
             uuid: data.uuid,
             route_inserter: agent.routes.inserter(Weak::clone(weak), data.database_type),
             disk_checker_task: tokio::spawn(disk_checker::run(Weak::clone(weak))),
+            mariadb_version_task: (data.database_type == DatabaseType::Mariadb)
+                .then(|| tokio::spawn(mariadb_version::run(Weak::clone(weak)))),
             agent,
             data: RwLock::new(data),
             handle: RwLock::new(None),
@@ -549,17 +558,18 @@ impl Instance {
                     format!("pg_dumpall --no-owner --no-privileges -h '{directory}' -U postgres")
                 }
             },
-            DatabaseType::Mariadb => {
-                let strip = r"| sed -e 's/DEFINER=`[^`]*`@`[^`]*`//g'";
-                match database {
-                    Some(database) => {
-                        format!("mariadb-dump --socket='{socket}' -u root '{database}' {strip}")
-                    }
-                    None => {
-                        format!("mariadb-dump --socket='{socket}' -u root --all-databases {strip}")
-                    }
+            DatabaseType::Mariadb => match database {
+                Some(database) => {
+                    format!(
+                        "mariadb-dump --socket='{socket}' -u root '{database}' | {MARIADB_DEFINER_STRIP}"
+                    )
                 }
-            }
+                None => {
+                    format!(
+                        "mariadb-dump --socket='{socket}' -u root --all-databases | {MARIADB_DEFINER_STRIP}"
+                    )
+                }
+            },
             DatabaseType::Mongodb => {
                 let auth = mongodb_shell_auth(&data);
                 match database {
@@ -607,13 +617,14 @@ impl Instance {
         let (wipe_command, command) = match data.database_type {
             DatabaseType::Postgres => match database {
                 Some(database) => {
+                    let strip = r"sed '/^COPY .*FROM stdin;$/,/^\\\.$/!{ s/^\\connect .*$//; s/^\\c .*$//; s/^CREATE DATABASE .*;$//; s/^DROP DATABASE .*;$//; s/^ALTER DATABASE .*;$//; }' |";
                     let base = format!(
                         "psql -q -v ON_ERROR_STOP=1 -h '{directory}' -U postgres -d '{database}'"
                     );
                     let wipe = wipe.then(|| {
                         format!("{base} -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'")
                     });
-                    (wipe, format!("{base} -o /dev/null"))
+                    (wipe, format!("{strip} {base} -o /dev/null"))
                 }
                 None => (
                     None,
@@ -622,7 +633,10 @@ impl Instance {
             },
             DatabaseType::Mariadb => match database {
                 Some(database) => {
-                    let import = format!("mariadb --socket='{socket}' -u root '{database}'");
+                    let redirect = r" -e '/^DELIMITER ;;$/,/^DELIMITER ;$/!{ s/^USE `[^`]*`;$//; s/^CREATE DATABASE .*;$//; s/^DROP DATABASE .*;$//; s|^/\*![0-9]* DROP DATABASE .*;$||; }'";
+                    let import = format!(
+                        "{MARIADB_DEFINER_STRIP}{redirect} | mariadb --socket='{socket}' -u root '{database}'"
+                    );
                     let wipe = wipe.then(|| {
                         format!(
                             "mariadb --socket='{socket}' -u root -e \
@@ -631,7 +645,10 @@ impl Instance {
                     });
                     (wipe, import)
                 }
-                None => (None, format!("mariadb --socket='{socket}' -u root")),
+                None => (
+                    None,
+                    format!("{MARIADB_DEFINER_STRIP} | mariadb --socket='{socket}' -u root"),
+                ),
             },
             DatabaseType::Mongodb => {
                 let auth = mongodb_shell_auth(&data);

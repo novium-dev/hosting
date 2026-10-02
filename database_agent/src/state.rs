@@ -5,13 +5,18 @@ use crate::store::{Store, data};
 use crate::subsystems::SubsystemRegistry;
 use bollard::Docker;
 use core::ops::Deref;
+use core::time::Duration;
 use daemon_common::key::{DaemonKey, DaemonRootKey};
-use database_agent_common::types::StoredInstanceCreate;
+use database_agent_common::types::{ContainerState, StoredInstanceCreate};
+use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{RwLock, Semaphore};
 use uuid::Uuid;
+
+const RESTORE_DELAY: Duration = Duration::from_secs(5);
+const STATE_PERSIST_INTERVAL: Duration = Duration::from_secs(10);
 
 pub struct AgentInner {
     pub config: Arc<AgentConfig>,
@@ -64,11 +69,27 @@ impl Agent {
 
     pub async fn load_instances(&self) -> anyhow::Result<()> {
         let mut instances = Vec::new();
+        let mut states = data::instance_states(self.store.read()).await?;
+
+        let autostart_concurrency = self.config.boot_autostart_concurrency;
+        let autostart = Arc::new(Semaphore::new(autostart_concurrency));
 
         for stored in data::all_instances(self.store.read()).await? {
+            let state = states.remove(&stored.uuid).unwrap_or_default();
             let instance = Instance::new(self.clone(), stored);
             instance.resync_users().await?;
             instance.attach_container().await;
+
+            if autostart_concurrency > 0
+                && matches!(state, ContainerState::Running | ContainerState::Starting)
+                && !instance.is_suspended().await
+            {
+                tokio::spawn(self.clone().restore_instance(
+                    instance.clone(),
+                    state,
+                    Arc::clone(&autostart),
+                ));
+            }
 
             instances.push(instance);
         }
@@ -76,7 +97,67 @@ impl Agent {
         tracing::info!("loaded {} instances", instances.len());
         *self.instances.write().await = instances;
 
+        tokio::spawn(self.clone().persist_instance_states());
+
         Ok(())
+    }
+
+    async fn restore_instance(
+        self,
+        instance: Instance,
+        state: ContainerState,
+        autostart: Arc<Semaphore>,
+    ) {
+        tokio::time::sleep(RESTORE_DELAY).await;
+        if instance.container_state().await != ContainerState::Offline {
+            return;
+        }
+
+        let Ok(permit) = autostart.acquire().await else {
+            return;
+        };
+        if self.instance(instance.uuid).await.is_none() {
+            return;
+        }
+
+        tracing::info!(instance = %instance.uuid, "restoring instance state {state:?}");
+        instance.check_disk_usage().await;
+
+        if let Err(err) = instance.start().await {
+            tracing::error!(instance = %instance.uuid, "failed to restore the instance: {err:#}");
+        }
+        drop(permit);
+    }
+
+    #[expect(
+        clippy::infinite_loop,
+        reason = "the task runs for the agent's lifetime"
+    )]
+    async fn persist_instance_states(self) {
+        let mut persisted: HashMap<Uuid, ContainerState> = HashMap::new();
+
+        loop {
+            tokio::time::sleep(STATE_PERSIST_INTERVAL).await;
+
+            let instances = self.instances.read().await.clone();
+            persisted.retain(|uuid, _| instances.iter().any(|instance| instance.uuid == *uuid));
+
+            for instance in instances {
+                let state = instance.container_state().await;
+                if persisted.get(&instance.uuid) == Some(&state) {
+                    continue;
+                }
+
+                match data::set_instance_state(self.store.write(), instance.uuid, state).await {
+                    Ok(()) => {
+                        persisted.insert(instance.uuid, state);
+                    }
+                    Err(err) => {
+                        tracing::error!(instance = %instance.uuid, "failed to persist the instance state: {err:#}");
+                    }
+                }
+            }
+        }
     }
 
     pub async fn instance(&self, uuid: Uuid) -> Option<Instance> {
@@ -121,6 +202,7 @@ impl Agent {
         }
 
         data::delete_instance(self.store.write(), instance.uuid).await?;
+        self.routes.mariadb_versions.remove(instance.uuid);
         self.instances
             .write()
             .await

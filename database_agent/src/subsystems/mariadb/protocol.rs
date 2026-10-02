@@ -5,6 +5,7 @@
 )]
 
 use crate::utils::{SafeArrayExt as _, SafeSliceExt as _, bad};
+use core::sync::atomic::{AtomicU32, Ordering};
 use std::io;
 use tokio::io::{AsyncRead, AsyncReadExt as _, AsyncWrite, AsyncWriteExt as _};
 
@@ -20,6 +21,7 @@ pub const CLIENT_PLUGIN_AUTH: u32 = 0x0008_0000;
 pub const CLIENT_PLUGIN_AUTH_LENENC: u32 = 0x0020_0000;
 
 pub const NATIVE: &str = "mysql_native_password";
+pub const FALLBACK_SERVER_VERSION: &str = "5.5.5-10.6.0-MariaDB";
 
 const CAPS: u32 = CLIENT_LONG_PASSWORD
     | CLIENT_LONG_FLAG
@@ -44,11 +46,20 @@ const CHARSET_UTF8MB4: u8 = 45;
 const STATUS_AUTOCOMMIT: u16 = 0x0002;
 const MAX_PACKET: u32 = 16 * 1024 * 1024;
 
-pub fn server_handshake(scramble: &[u8; 20]) -> io::Result<Vec<u8>> {
+pub fn next_connection_id() -> u32 {
+    static NEXT: AtomicU32 = AtomicU32::new(1);
+    NEXT.fetch_add(1, Ordering::Relaxed)
+}
+
+pub fn server_handshake(
+    version: &str,
+    scramble: &[u8; 20],
+    connection_id: u32,
+) -> io::Result<Vec<u8>> {
     let mut packet = vec![10];
-    packet.extend_from_slice(b"8.0.30");
+    packet.extend_from_slice(version.as_bytes());
     packet.push(0);
-    packet.extend_from_slice(&1u32.to_le_bytes());
+    packet.extend_from_slice(&connection_id.to_le_bytes());
     packet.extend_from_slice(scramble.get_slice(..8)?);
     packet.push(0);
     packet.extend_from_slice(&(CAPS as u16).to_le_bytes());
@@ -158,9 +169,9 @@ pub fn parse_handshake_response(packet: &[u8]) -> io::Result<HandshakeResponse> 
     })
 }
 
-pub fn parse_server_handshake(packet: &[u8]) -> io::Result<[u8; 20]> {
+pub fn parse_server_handshake(packet: &[u8]) -> io::Result<([u8; 20], String)> {
     let mut cursor = 1;
-    read_cstr(packet, &mut cursor)?;
+    let version = read_cstr(packet, &mut cursor)?;
     cursor = cursor.saturating_add(4);
 
     let mut scramble = [0; 20];
@@ -188,7 +199,7 @@ pub fn parse_server_handshake(packet: &[u8]) -> io::Result<[u8; 20]> {
         return Err(bad("short backend scramble"));
     }
 
-    Ok(scramble)
+    Ok((scramble, version))
 }
 
 pub fn read_cstr(packet: &[u8], cursor: &mut usize) -> io::Result<String> {

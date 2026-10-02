@@ -24,7 +24,7 @@ const AUTHENTICATION_SASL_FINAL: i32 = 12;
 
 pub async fn authenticate_client<S: AsyncRead + AsyncWrite + Unpin>(
     stream: &mut S,
-    password: &str,
+    password: Option<&str>,
 ) -> io::Result<bool> {
     let mut advertisement = AUTHENTICATION_SASL.to_be_bytes().to_vec();
     advertisement.extend_from_slice(b"SCRAM-SHA-256\0\0");
@@ -71,14 +71,18 @@ pub async fn authenticate_client<S: AsyncRead + AsyncWrite + Unpin>(
         return Err(bad("malformed client-final"));
     };
 
-    let salted = scram::pbkdf2_sha256(password.as_bytes(), &salt, SCRAM_ITERATIONS);
+    let salted = scram::pbkdf2_sha256(
+        password.unwrap_or_default().as_bytes(),
+        &salt,
+        SCRAM_ITERATIONS,
+    );
     let auth_message = format!("{client_first_bare},{server_first},{without_proof}");
     let (_, expected) = scram::client_proof(&salted, &auth_message);
 
     let Some(given) = scram::decode(&proof) else {
         return Err(bad("malformed client proof"));
     };
-    if !constant_time_eq(&expected, &given) {
+    if !constant_time_eq(&expected, &given) || password.is_none() {
         return Ok(false);
     }
 

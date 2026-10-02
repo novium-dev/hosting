@@ -6,6 +6,10 @@ socket_dir = "/run/novium-database-agent"
 disk_check_interval = 60
 disk_check_concurrency = 5
 
+# Instances that were running when the agent last stopped are started again on
+# boot, this many at a time. 0 disables the restore.
+boot_autostart_concurrency = 5
+
 # The agent normally writes this file itself during setup (`--setup-url` /
 # `--setup-token`), together with agent_root.pem and agent.pem. It is kept here
 # as a reference for the values setup cannot know.

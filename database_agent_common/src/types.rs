@@ -141,6 +141,33 @@ pub enum ContainerState {
     Stopping,
 }
 
+impl ContainerState {
+    pub const ALL: &'static [Self] =
+        &[Self::Offline, Self::Running, Self::Starting, Self::Stopping];
+
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Offline => "offline",
+            Self::Running => "running",
+            Self::Starting => "starting",
+            Self::Stopping => "stopping",
+        }
+    }
+}
+
+impl FromStr for ContainerState {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::ALL
+            .iter()
+            .copied()
+            .find(|state| state.as_str() == value)
+            .ok_or(())
+    }
+}
+
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct ResourceUsage {
     pub cpu_absolute: f64,

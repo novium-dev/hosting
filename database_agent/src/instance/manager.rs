@@ -4,6 +4,7 @@ use database_agent_common::types::DatabaseType;
 use parking_lot::RwLock;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::sync::{Arc, Weak};
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct Credentials {
@@ -19,6 +20,59 @@ pub struct DatabaseRouteManager {
     mongodb: Table,
     postgres: Table,
     redis: Table,
+
+    pub mariadb_versions: MariadbVersions,
+}
+
+const MAX_VERSION_LENGTH: usize = 60;
+
+type MariadbVersion = (u32, u32, u32);
+
+#[derive(Default)]
+pub struct MariadbVersions {
+    versions: RwLock<FxHashMap<Uuid, (MariadbVersion, Arc<str>)>>,
+}
+
+impl MariadbVersions {
+    pub fn set(&self, instance: Uuid, version: &str) -> bool {
+        if version.len() > MAX_VERSION_LENGTH
+            || !version
+                .bytes()
+                .all(|byte| byte.is_ascii_graphic() || byte == b' ')
+            || !version.to_ascii_lowercase().contains("mariadb")
+        {
+            return false;
+        }
+
+        let mut parts = version
+            .strip_prefix("5.5.5-")
+            .unwrap_or(version)
+            .split(|character: char| !character.is_ascii_digit())
+            .map(|part| part.parse::<u32>().ok());
+        let (Some(Some(major)), Some(Some(minor)), Some(Some(patch))) =
+            (parts.next(), parts.next(), parts.next())
+        else {
+            return false;
+        };
+
+        self.versions
+            .write()
+            .insert(instance, ((major, minor, patch), Arc::from(version)));
+
+        true
+    }
+
+    pub fn remove(&self, instance: Uuid) {
+        self.versions.write().remove(&instance);
+    }
+
+    pub fn lowest(&self) -> Option<Arc<str>> {
+        self.versions
+            .read()
+            .values()
+            .min_by_key(|(parsed, _)| *parsed)
+            .map(|(_, version)| Arc::clone(version))
+    }
 }
 
 impl DatabaseRouteManager {

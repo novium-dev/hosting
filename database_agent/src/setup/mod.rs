@@ -133,6 +133,7 @@ fn to_agent_config(remote: &SetupAgentConfig, port: u16) -> AgentConfig {
         socket_dir: crate::config::default_socket_dir(),
         disk_check_interval: crate::config::default_disk_check_interval(),
         disk_check_concurrency: crate::config::default_disk_check_concurrency(),
+        boot_autostart_concurrency: crate::config::default_boot_autostart_concurrency(),
         api: ApiConfig {
             public_url: remote.base_url.clone(),
             bind: SocketAddr::from(([0, 0, 0, 0], port)),

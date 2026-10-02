@@ -57,12 +57,10 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
 
     let identifier = UserIdentifier::from_str(&user).ok();
     let Some(credentials) = identifier.and_then(|id| agent.routes.find(KIND, &id)) else {
-        return protocol::send_error(
-            &mut stream,
-            INVALID_AUTHORIZATION,
-            &format!("no credential for user {user:?}"),
-        )
-        .await;
+        scram::authenticate_client(&mut stream, None).await?;
+        tracing::debug!("[{peer}] rejected: no credential for user {user:?}");
+        return protocol::send_error(&mut stream, INVALID_AUTHORIZATION, "authentication failed")
+            .await;
     };
 
     if credentials.instance.is_suspended().await {
@@ -78,7 +76,7 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
         .await;
     }
 
-    if !scram::authenticate_client(&mut stream, &credentials.password).await? {
+    if !scram::authenticate_client(&mut stream, Some(&credentials.password)).await? {
         return protocol::send_error(&mut stream, INVALID_AUTHORIZATION, "authentication failed")
             .await;
     }

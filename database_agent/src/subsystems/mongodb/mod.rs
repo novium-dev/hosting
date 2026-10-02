@@ -7,18 +7,19 @@ mod protocol;
 mod scram;
 
 use crate::state::Agent;
-use crate::utils::{accept_loop, bad};
+use crate::utils::{accept_loop, bad, generate_password};
 use bson::doc;
 use core::net::SocketAddr;
 use core::str::FromStr as _;
 use database_agent_common::identifier::UserIdentifier;
 use database_agent_common::types::DatabaseType;
 use protocol::{
-    OP_MSG, OP_QUERY, binary, hello_doc, op_msg_doc, read_message, sasl_error, write_op_msg,
-    write_op_reply,
+    OP_MSG, OP_QUERY, binary, hello_doc, op_msg_doc, read_message, sasl_error, sasl_start_reply,
+    write_op_msg, write_op_reply,
 };
 use scram::Session;
 use std::io;
+use std::path::Path;
 use tokio::io::copy_bidirectional;
 use tokio::net::{TcpListener, TcpStream};
 
@@ -39,7 +40,7 @@ pub async fn run(agent: Agent) -> anyhow::Result<()> {
 }
 
 async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::Result<()> {
-    let mut session: Option<Session> = None;
+    let mut session: Option<(Session, bool)> = None;
 
     loop {
         let (request_id, opcode, body) = read_message(&mut stream).await?;
@@ -73,13 +74,18 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
                     .ok()
                     .and_then(|id| agent.routes.find(KIND, &id));
                 let Some(credentials) = credentials else {
-                    write_op_msg(
-                        &mut stream,
-                        request_id,
-                        &sasl_error("authentication failed"),
-                    )
-                    .await?;
-                    return Ok(());
+                    tracing::debug!("[{peer}] rejected: no credential for user {user:?}");
+                    let (started, server_first) = Session::start(
+                        &generate_password(),
+                        Path::new(""),
+                        bare,
+                        &client_nonce,
+                        user,
+                        database,
+                    );
+                    write_op_msg(&mut stream, request_id, &sasl_start_reply(&server_first)).await?;
+                    session = Some((started, false));
+                    continue;
                 };
 
                 if credentials.instance.is_suspended().await {
@@ -119,22 +125,12 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
                     database,
                 );
 
-                write_op_msg(
-                    &mut stream,
-                    request_id,
-                    &doc! {
-                        "conversationId": 1,
-                        "done": false,
-                        "payload": binary(server_first.as_bytes()),
-                        "ok": 1.0,
-                    },
-                )
-                .await?;
+                write_op_msg(&mut stream, request_id, &sasl_start_reply(&server_first)).await?;
 
-                session = Some(started);
+                session = Some((started, true));
             }
             "saslContinue" => {
-                let started = session
+                let (started, routable) = session
                     .as_ref()
                     .ok_or_else(|| bad("saslContinue before saslStart"))?;
                 let payload = message
@@ -142,7 +138,7 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
                     .map_err(|_err| bad("no payload"))?;
                 let client_final = String::from_utf8_lossy(payload).into_owned();
 
-                let Some(server_final) = started.verify(&client_final) else {
+                let Some(server_final) = started.verify(&client_final).filter(|_| *routable) else {
                     write_op_msg(
                         &mut stream,
                         request_id,
@@ -171,7 +167,7 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
         }
     }
 
-    let session = session.ok_or_else(|| bad("not authenticated"))?;
+    let (session, _) = session.ok_or_else(|| bad("not authenticated"))?;
     tracing::info!(
         "[{peer}] {:?}@{:?} authenticated",
         session.user,

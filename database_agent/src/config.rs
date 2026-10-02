@@ -22,6 +22,10 @@ pub(crate) const fn default_disk_check_concurrency() -> usize {
     5
 }
 
+pub(crate) const fn default_boot_autostart_concurrency() -> usize {
+    5
+}
+
 fn default_store_url() -> String {
     "sqlite:///var/lib/novium-database-agent/data/agent.db?mode=rwc".to_owned()
 }
@@ -66,6 +70,8 @@ pub struct AgentConfig {
     pub disk_check_interval: u64,
     #[serde(default = "default_disk_check_concurrency")]
     pub disk_check_concurrency: usize,
+    #[serde(default = "default_boot_autostart_concurrency")]
+    pub boot_autostart_concurrency: usize,
 
     pub api: ApiConfig,
     #[serde(default)]

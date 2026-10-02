@@ -4,9 +4,14 @@ use core::ops::{Bound, RangeBounds};
 use core::time::Duration;
 use rand::RngExt as _;
 use rand::distr::SampleString as _;
+use socket2::{SockRef, TcpKeepalive};
 use std::io;
 use subtle::ConstantTimeEq as _;
 use tokio::net::{TcpListener, TcpStream};
+
+const KEEPALIVE_IDLE: Duration = Duration::from_secs(60);
+const KEEPALIVE_INTERVAL: Duration = Duration::from_secs(15);
+const KEEPALIVE_RETRIES: u32 = 4;
 
 const PASSWORD_LENGTH: usize = 24;
 const PASSWORD_SPECIAL_CHARS: &[u8] = b"!@#$%^&*()<>-_";
@@ -56,6 +61,17 @@ pub fn is_silent_error(error: &io::Error) -> bool {
     )
 }
 
+fn apply_socket_keepalive(stream: &TcpStream) {
+    let keepalive = TcpKeepalive::new()
+        .with_time(KEEPALIVE_IDLE)
+        .with_interval(KEEPALIVE_INTERVAL)
+        .with_retries(KEEPALIVE_RETRIES);
+
+    if let Err(err) = SockRef::from(stream).set_tcp_keepalive(&keepalive) {
+        tracing::debug!("failed to set tcp keepalive on a connection: {err}");
+    }
+}
+
 #[expect(
     clippy::infinite_loop,
     reason = "the listener runs until the task is aborted"
@@ -71,6 +87,7 @@ pub async fn accept_loop<
     loop {
         match listener.accept().await {
             Ok((tcp, peer)) => {
+                apply_socket_keepalive(&tcp);
                 let task = on_accept(tcp, peer);
                 tokio::spawn(async move {
                     if let Err(err) = task.await

@@ -35,7 +35,20 @@ pub async fn run(agent: Agent) -> anyhow::Result<()> {
 async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::Result<()> {
     let mut scramble = [0; 20];
     rand::rng().fill_bytes(&mut scramble);
-    write_packet(&mut stream, 0, &protocol::server_handshake(&scramble)?).await?;
+    let connection_id = protocol::next_connection_id();
+    let version = agent.routes.mariadb_versions.lowest();
+    write_packet(
+        &mut stream,
+        0,
+        &protocol::server_handshake(
+            version
+                .as_deref()
+                .unwrap_or(protocol::FALLBACK_SERVER_VERSION),
+            &scramble,
+            connection_id,
+        )?,
+    )
+    .await?;
 
     let (client_sequence, packet) = read_packet(&mut stream).await?;
     let handshake = protocol::parse_handshake_response(&packet)?;
@@ -48,13 +61,25 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
 
     let identifier = UserIdentifier::from_str(&handshake.user).ok();
     let Some(credentials) = identifier.and_then(|id| agent.routes.find(KIND, &id)) else {
+        let (_, sequence) = native_auth_response(
+            &mut stream,
+            &handshake.plugin,
+            handshake.auth_response,
+            client_sequence,
+            &scramble,
+        )
+        .await?;
+        tracing::debug!(
+            "[{peer}] rejected: no credential for user {:?}",
+            handshake.user
+        );
         return write_packet(
             &mut stream,
-            client_sequence.wrapping_add(1),
+            sequence.wrapping_add(1),
             &protocol::err_packet(
                 ACCESS_DENIED,
                 SQLSTATE_INVALID_AUTHORIZATION,
-                &format!("no credential for user {:?}", handshake.user),
+                "access denied",
             ),
         )
         .await;
@@ -77,18 +102,14 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
         .await;
     }
 
-    let (mut token, mut sequence) = (handshake.auth_response, client_sequence);
-    if handshake.plugin != protocol::NATIVE {
-        write_packet(
-            &mut stream,
-            sequence.wrapping_add(1),
-            &protocol::auth_switch_request(&scramble),
-        )
-        .await?;
-        let (switched_sequence, switched_token) = read_packet(&mut stream).await?;
-        token = switched_token;
-        sequence = switched_sequence;
-    }
+    let (token, sequence) = native_auth_response(
+        &mut stream,
+        &handshake.plugin,
+        handshake.auth_response,
+        client_sequence,
+        &scramble,
+    )
+    .await?;
 
     if !constant_time_eq(
         &token,
@@ -113,7 +134,7 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
     )
     .await?;
     tracing::info!(
-        "[{peer}] {:?}@{:?} authenticated",
+        "[{peer}] {:?}@{:?} authenticated as connection {connection_id}",
         handshake.user,
         handshake.database
     );
@@ -141,6 +162,36 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
     Ok(())
 }
 
+pub async fn read_server_version(socket: &Path) -> io::Result<String> {
+    let mut stream = UnixStream::connect(socket).await?;
+    let (_, handshake) = read_packet(&mut stream).await?;
+    let (_, version) = protocol::parse_server_handshake(&handshake)?;
+
+    Ok(version)
+}
+
+async fn native_auth_response(
+    stream: &mut TcpStream,
+    plugin: &str,
+    token: Vec<u8>,
+    sequence: u8,
+    scramble: &[u8; 20],
+) -> io::Result<(Vec<u8>, u8)> {
+    if plugin == protocol::NATIVE {
+        return Ok((token, sequence));
+    }
+
+    write_packet(
+        stream,
+        sequence.wrapping_add(1),
+        &protocol::auth_switch_request(scramble),
+    )
+    .await?;
+    let (sequence, token) = read_packet(stream).await?;
+
+    Ok((token, sequence))
+}
+
 async fn backend_auth(
     socket: &Path,
     user: &str,
@@ -151,7 +202,7 @@ async fn backend_auth(
     let mut backend = UnixStream::connect(socket).await?;
 
     let (sequence, handshake) = read_packet(&mut backend).await?;
-    let scramble = protocol::parse_server_handshake(&handshake)?;
+    let (scramble, _) = protocol::parse_server_handshake(&handshake)?;
     let token = auth::native_token(&scramble, password.as_bytes());
 
     write_packet(

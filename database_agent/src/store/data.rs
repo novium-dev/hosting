@@ -2,8 +2,8 @@ use anyhow::Context as _;
 use chrono::{DateTime, Utc};
 use core::str::FromStr as _;
 use database_agent_common::types::{
-    DatabaseAccess, DatabaseType, StoredDatabase, StoredInstance, StoredInstanceCreate,
-    StoredInstanceUpdate, StoredUser, UserGrant, VolumeMapping,
+    ContainerState, DatabaseAccess, DatabaseType, StoredDatabase, StoredInstance,
+    StoredInstanceCreate, StoredInstanceUpdate, StoredUser, UserGrant, VolumeMapping,
 };
 use sqlx::{SqlitePool, query, query_scalar};
 use std::collections::{BTreeMap, HashMap};
@@ -175,6 +175,36 @@ pub async fn set_root_password(
     query!(
         "UPDATE instances SET root_password = ? WHERE uuid = ?",
         password,
+        instance
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn instance_states(pool: &SqlitePool) -> anyhow::Result<HashMap<Uuid, ContainerState>> {
+    query!(r#"SELECT uuid AS "uuid: Uuid", state FROM instances"#)
+        .fetch_all(pool)
+        .await?
+        .into_iter()
+        .map(|row| {
+            let state = ContainerState::from_str(&row.state)
+                .map_err(|()| anyhow::anyhow!("invalid instance state {}", row.state))?;
+            Ok((row.uuid, state))
+        })
+        .collect()
+}
+
+pub async fn set_instance_state(
+    pool: &SqlitePool,
+    instance: Uuid,
+    state: ContainerState,
+) -> anyhow::Result<()> {
+    let state = state.as_str();
+    query!(
+        "UPDATE instances SET state = ? WHERE uuid = ?",
+        state,
         instance
     )
     .execute(pool)
