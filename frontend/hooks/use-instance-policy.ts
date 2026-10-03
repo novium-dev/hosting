@@ -8,6 +8,7 @@ import type { InstancePolicyResponse } from "@/lib/api";
 const optimisticPolicy: InstancePolicyResponse = {
   can_create_project: true,
   can_update_project: true,
+  can_upload_project_logo: false,
 };
 
 export function useInstancePolicy() {
@@ -26,6 +27,7 @@ export function useInstancePolicy() {
   return {
     canCreateProject: policy.can_create_project,
     canUpdateProject: policy.can_update_project,
+    canUploadProjectLogo: policy.can_upload_project_logo,
     isLoading,
   };
 }

@@ -204,6 +204,6 @@
   },
   "policy": {
     "projectCreationDisabled": "Creating projects is disabled on this instance. Ask an administrator to create one for you.",
-    "projectUpdateDisabled": "Renaming projects is disabled on this instance. Ask an administrator to change the name or the slug."
+    "projectUpdateDisabled": "Updating projects is disabled on this instance. Ask an administrator to change the name, the slug or the logo."
   }
 }

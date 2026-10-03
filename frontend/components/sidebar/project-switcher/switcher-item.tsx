@@ -38,6 +38,7 @@ export function SwitcherItem({
       <ProjectAvatar
         projectId={project.id}
         projectName={project.name}
+        logoUrl={project.logo_url}
         className="size-5"
       />
       <div className="flex flex-col">
