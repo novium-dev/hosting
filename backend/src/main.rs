@@ -23,12 +23,14 @@ use crate::db::node::BackendNode;
 use crate::routes::RouteBackends;
 use crate::templates::TemplateInner;
 use crate::templates::games::hytale::HytaleTemplate;
+use crate::templates::games::minecraft_bedrock::MinecraftBedrockTemplate;
 use crate::templates::games::satisfactory::SatisfactoryTemplate;
 use crate::templates::generic::go::GoTemplate;
 use crate::templates::generic::java::JavaTemplate;
 use crate::templates::generic::javascript::JavascriptTemplate;
 use crate::templates::generic::python::PythonTemplate;
 use crate::templates::generic::rust::RustTemplate;
+use crate::templates::generic::web::WebTemplate;
 use core::time::Duration;
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
@@ -175,6 +177,16 @@ async fn load_templates(backend: &Backend) {
         .expect("Unable to initialize minecraft proxy template");
     templates.insert(minecraft_proxy.id().to_owned(), Arc::new(minecraft_proxy));
 
+    let minecraft_bedrock = MinecraftBedrockTemplate;
+    minecraft_bedrock
+        .init(backend.cache.clone(), skip_cache_update)
+        .await
+        .expect("Unable to initialize minecraft bedrock template");
+    templates.insert(
+        minecraft_bedrock.id().to_owned(),
+        Arc::new(minecraft_bedrock),
+    );
+
     let go = GoTemplate;
     go.init(backend.cache.clone(), skip_cache_update)
         .await
@@ -206,6 +218,12 @@ async fn load_templates(backend: &Backend) {
         .await
         .expect("Unable to initialize rust template");
     templates.insert(rust.id().to_owned(), Arc::new(rust));
+
+    let web = WebTemplate;
+    web.init(backend.cache.clone(), skip_cache_update)
+        .await
+        .expect("Unable to initialize web template");
+    templates.insert(web.id().to_owned(), Arc::new(web));
 
     let satisfactory = SatisfactoryTemplate;
     satisfactory

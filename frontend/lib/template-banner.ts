@@ -39,6 +39,10 @@ const BANNERS: { match: (id: string) => boolean; banner: TemplateBanner }[] = [
     banner: { gradient: "linear-gradient(135deg, #22d3ee 0%, #0e7490 100%)" },
   },
   {
+    match: (id) => id === "web",
+    banner: { gradient: "linear-gradient(135deg, #a78bfa 0%, #4c1d95 100%)" },
+  },
+  {
     match: (id) => id.includes("docker"),
     banner: { gradient: "linear-gradient(135deg, #38bdf8 0%, #1d4ed8 100%)" },
   },
