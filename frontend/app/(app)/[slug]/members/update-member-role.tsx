@@ -25,6 +25,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { mutate } from "swr";
 import { useTranslation } from "react-i18next";
 import type { ProjectMember } from "./members-view";
 
@@ -55,6 +56,7 @@ export function UpdateMemberRoleDialog({
       },
       actionProps: {
         onSuccess: () => {
+          void mutate(["project-users", projectId]);
           resetFormAndAction();
           setOpen(false);
           toast.success(t("project:members.updateDialog.success"));

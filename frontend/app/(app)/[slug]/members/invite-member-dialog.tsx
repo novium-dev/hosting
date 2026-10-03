@@ -28,6 +28,7 @@ import { useHookFormAction } from "@/lib/action-hooks";
 import { UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { mutate } from "swr";
 import { useTranslation } from "react-i18next";
 
 export function InviteMemberDialog({ projectId }: { projectId: string }) {
@@ -46,6 +47,7 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
       },
       actionProps: {
         onSuccess: () => {
+          void mutate(["project-users", projectId]);
           resetFormAndAction();
           setOpen(false);
           toast.success(t("project:members.inviteDialog.success"));

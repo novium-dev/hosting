@@ -39,6 +39,7 @@ import { Crown, MoreHorizontal, Users } from "lucide-react";
 import { useAction } from "@/lib/action-hooks";
 import { useState } from "react";
 import { toast } from "sonner";
+import { mutate } from "swr";
 import { useTranslation } from "react-i18next";
 import type { ProjectMember } from "./members-view";
 import { UpdateMemberRoleDialog } from "./update-member-role";
@@ -71,6 +72,7 @@ export function MembersTable({
 
   const remove = useAction(removeProjectUserAction, {
     onSuccess: () => {
+      void mutate(["project-users", projectId]);
       toast.success(t("project:members.table.removeSuccess"));
       setRemoveMember(null);
     },
