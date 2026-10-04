@@ -9,6 +9,7 @@ use speedy::{Readable, Writable};
 use std::collections::{HashMap, HashSet};
 use tracing::debug;
 
+use crate::db::license::{HYTALE_EULA, HYTALE_SERVER_POLICIES, License};
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use crate::templates::utils::{RELATIVE_PATH_REGEX, is_relative_path};
 use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, VariablePayload};
@@ -384,6 +385,10 @@ impl Template for HytaleTemplate {
 
     fn default_internet_access(&self) -> bool {
         true
+    }
+
+    fn licenses(&self) -> &'static [&'static License] {
+        &[&HYTALE_EULA, &HYTALE_SERVER_POLICIES]
     }
 
     async fn init(&self, _redis_client: ConnectionManager) -> Result<(), RedisError> {
