@@ -43,6 +43,7 @@ database_agent_common = { path = "database_agent_common", default-features = fal
 
 [workspace.dependencies.daemon_common]
 git = "ssh://git@github.com/novium-dev/daemon.git"
+branch = "groups/macos"
 default-features = false
 
 [workspace.dependencies.reqwest]

@@ -27,6 +27,7 @@ pub(crate) struct GroupInfo {
     pub(crate) name: String,
     pub(crate) nodes: Vec<GroupNodeInfo>,
     pub(crate) deploy_config_count: i64,
+    pub(crate) database_host_count: i64,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -50,7 +51,8 @@ pub(crate) impl GroupAdminService for Backend {
 
         let mut groups: BTreeMap<String, GroupInfo> = query!(
             r#"SELECT groups.name,
-                      (SELECT COUNT(*) FROM deploy_configs WHERE deploy_configs.group_name = groups.name) AS "deploy_config_count!"
+                      (SELECT COUNT(*) FROM deploy_configs WHERE deploy_configs.group_name = groups.name) AS "deploy_config_count!",
+                      (SELECT COUNT(*) FROM database_host_groups WHERE database_host_groups.group_name = groups.name) AS "database_host_count!"
                FROM groups"#
         )
         .fetch_all(&*self.database)
@@ -63,6 +65,7 @@ pub(crate) impl GroupAdminService for Backend {
                     name: row.name,
                     nodes: Vec::new(),
                     deploy_config_count: row.deploy_config_count,
+                    database_host_count: row.database_host_count,
                 },
             )
         })

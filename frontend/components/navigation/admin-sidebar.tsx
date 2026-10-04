@@ -6,7 +6,6 @@ import {
   ShieldCheck,
   FolderKanban,
   Globe,
-  Globe2,
   Home,
   KeyRound,
   Layers,
@@ -93,12 +92,6 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
     {
       label: t("navigation:adminSidebar.groups.infrastructure"),
       items: [
-        {
-          title: t("common:nav.regions"),
-          href: "/admin/regions",
-          icon: Globe2,
-          permission: ManagementPermission.NODES_VIEW,
-        },
         {
           title: t("common:nav.nodes"),
           href: "/admin/nodes",

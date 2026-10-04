@@ -1,7 +1,6 @@
 {
   "shared": {
     "maintenance": "Wartung",
-    "selectRegionPlaceholder": "Region auswählen",
     "protocol": "Protokoll",
     "done": "Fertig"
   },
@@ -56,7 +55,9 @@
       "setupCodeTitle": "Setup-Code",
       "setupCodeDescription": "Starte den Agent mit SETUP_URL und diesem Code als SETUP_TOKEN. Er wird nur einmal angezeigt und läuft in einer Stunde ab.",
       "setupCodeCopied": "Setup-Code kopiert",
-      "copyCodeButton": "Code kopieren"
+      "copyCodeButton": "Code kopieren",
+      "noGroups": "Es gibt noch keine Gruppen. Erstelle sie auf der Gruppenseite.",
+      "groupsDescription": "Neue Datenbanken bevorzugen Hosts, die eine Gruppe mit den Nodes teilen, auf denen die Server des Projekts laufen."
     },
     "hostsTable": {
       "title": "Datenbank-Hosts",
@@ -119,8 +120,6 @@
       "maintenanceToggleError": "Der Wartungsmodus konnte nicht aktualisiert werden",
       "maintenanceEnabledToast": "Der Wartungsmodus für den Node wurde aktiviert",
       "maintenanceDisabledToast": "Der Wartungsmodus für den Node wurde deaktiviert",
-      "regionError": "Die Region konnte nicht aktualisiert werden",
-      "regionSuccess": "Node-Region aktualisiert",
       "syncError": "Die Node-Konfiguration konnte nicht synchronisiert werden",
       "syncSuccess": "Node-Konfiguration vom Daemon synchronisiert",
       "title": "Node-Update",
@@ -129,7 +128,6 @@
       "maintenanceWarning": "Server auf diesem Node sind blockiert, solange die Wartung aktiviert ist.",
       "maintenanceModeTitle": "Wartungsmodus",
       "maintenanceModeDescription": "Wartungsmodus für diesen Node umschalten.",
-      "regionDescription": "Die Region, zu der dieser Node gehört.",
       "syncConfigTitle": "Konfiguration synchronisieren",
       "syncConfigDescription": "Aktuelle Konfiguration vom laufenden Node abrufen (Basis-URL, Host/Bind, Speicher- und Backup-Zuordnungen) und mit dem Backend abgleichen.",
       "syncButton": "Von Node synchronisieren",
@@ -160,7 +158,6 @@
     },
     "createDialog": {
       "createError": "Node konnte nicht erstellt werden",
-      "selectRegionError": "Bitte eine Region für den Node auswählen",
       "invalidSshPortError": "Der SSH-Port muss eine gültige Portnummer sein",
       "setupCodeCopied": "Einrichtungscode kopiert",
       "title": "Node erstellen",
@@ -168,7 +165,6 @@
       "setupCodeDescription": "Diesen Code beim Registrieren des neuen Nodes verwenden. Vertraulich behandeln.",
       "copyCodeButton": "Code kopieren",
       "description": "Den neuen Node konfigurieren und seinen Einrichtungscode erzeugen.",
-      "noRegionsHint": "Noch keine Regionen — zuerst eine unter Regionen anlegen.",
       "baseUrlLabel": "Basis-URL",
       "defaultHostHint": "Öffentlicher Host, über den Clients Spielserver auf diesem Node erreichen.",
       "sshHostLabel": "SSH-Host",
@@ -223,8 +219,6 @@
       "empty": "Dieser Node ist noch in keiner Gruppe.",
       "loadError": "Die Gruppen des Nodes konnten nicht geladen werden.",
       "columns": {
-        "limits": "Limits auf diesem Node",
-        "usage": "Auslastung",
         "servers": "Server"
       },
       "unlimited": "Unbegrenzt",
@@ -246,7 +240,8 @@
       "deleteTitle": "Diesen Node aus {{name}} entfernen?",
       "deleteDescription": "Die Server des Nodes in dieser Gruppe verlassen sie und übernehmen die Änderung beim nächsten Start.",
       "deleteSuccess": "Node aus der Gruppe entfernt.",
-      "deleteError": "Der Node konnte nicht aus der Gruppe entfernt werden."
+      "deleteError": "Der Node konnte nicht aus der Gruppe entfernt werden.",
+      "ownLimit": "Eigenes Limit: {{value}}"
     }
   },
   "servers": {
@@ -468,10 +463,11 @@
   },
   "groups": {
     "title": "Gruppen",
-    "description": "Gruppen gelten über Nodes hinweg. Nodes werden auf der Seite des Nodes einer Gruppe zugewiesen, mit den Limits, die die Gruppe auf diesem Node bekommt. Deploy-Konfigurationen platzieren Server auf den Nodes ihrer Gruppe.",
+    "description": "Gemeinsame Limits über Nodes hinweg. Nodes treten einer Gruppe auf ihrer Node-Seite bei.",
     "createButton": "Gruppe erstellen",
+    "searchPlaceholder": "Gruppen oder Nodes suchen",
     "empty": "Es gibt noch keine Gruppen.",
-    "loadError": "Die Gruppen konnten nicht geladen werden.",
+    "emptyDescription": "Erstelle eine Gruppe und füge ihr anschließend auf der jeweiligen Node-Seite Nodes hinzu.",
     "noNodes": "Keine Nodes",
     "columns": {
       "servers": "Server",

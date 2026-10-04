@@ -115,38 +115,6 @@
       "description": "Passe deine Suche an."
     }
   },
-  "regions": {
-    "description": "Gruppiere Knoten nach Standort. Jeder Knoten gehört zu genau einer Region.",
-    "createButton": "Region erstellen",
-    "searchPlaceholder": "Suche nach Name, Slug oder ID...",
-    "table": {
-      "regionId": "Regions-ID"
-    },
-    "emptyState": {
-      "title": "Keine Regionen gefunden",
-      "description": "Erstelle eine Region, bevor du einen Knoten registrierst."
-    },
-    "deleteDialog": {
-      "title": "Region löschen",
-      "description": "\"{{display}}\" wird dauerhaft entfernt. Knoten müssen zuvor in eine andere Region verschoben werden."
-    },
-    "formDialog": {
-      "editTitle": "Region bearbeiten",
-      "createTitle": "Region erstellen",
-      "description": "Regionen gruppieren Knoten, damit Server später nach Standort platziert werden können.",
-      "namePlaceholder": "Europa (Frankfurt)",
-      "slugPlaceholder": "eu-frankfurt",
-      "slugHelp": "Nur Kleinbuchstaben, Zahlen und Bindestriche."
-    },
-    "toast": {
-      "slugRequired": "Der Slug darf nur Kleinbuchstaben, Zahlen oder Bindestriche enthalten",
-      "saveFailed": "Region konnte nicht gespeichert werden",
-      "updated": "Region aktualisiert",
-      "created": "Region erstellt",
-      "deleteFailed": "Region konnte nicht gelöscht werden",
-      "deleted": "Region gelöscht"
-    }
-  },
   "users": {
     "description": "Benutzerkonten, Rollen und Projekte verwalten.",
     "searchPlaceholder": "Suche nach Benutzername oder E-Mail...",

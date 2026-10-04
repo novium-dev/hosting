@@ -1,7 +1,6 @@
 {
   "shared": {
     "maintenance": "Maintenance",
-    "selectRegionPlaceholder": "Select a region",
     "protocol": "Protocol",
     "done": "Done"
   },
@@ -56,7 +55,9 @@
       "setupCodeTitle": "Setup code",
       "setupCodeDescription": "Start the agent with SETUP_URL and this code as SETUP_TOKEN. It is shown once and expires in an hour.",
       "setupCodeCopied": "Setup code copied",
-      "copyCodeButton": "Copy code"
+      "copyCodeButton": "Copy code",
+      "noGroups": "No groups exist yet. Create them on the groups page.",
+      "groupsDescription": "New databases prefer hosts that share a group with the nodes the project's servers run on."
     },
     "hostsTable": {
       "title": "Database hosts",
@@ -119,8 +120,6 @@
       "maintenanceToggleError": "Failed to update maintenance mode",
       "maintenanceEnabledToast": "Node maintenance has been enabled",
       "maintenanceDisabledToast": "Node maintenance has been disabled",
-      "regionError": "Failed to update region",
-      "regionSuccess": "Node region updated",
       "syncError": "Failed to sync node config",
       "syncSuccess": "Node config synced from daemon",
       "title": "Node Update",
@@ -129,7 +128,6 @@
       "maintenanceWarning": "Servers on this node are blocked while maintenance is enabled.",
       "maintenanceModeTitle": "Maintenance Mode",
       "maintenanceModeDescription": "Toggle maintenance mode for this node.",
-      "regionDescription": "The region this node belongs to.",
       "syncConfigTitle": "Sync Config",
       "syncConfigDescription": "Pull the current config from the running node (base URL, host/bind, storage and backup mappings) and reconcile it into the backend.",
       "syncButton": "Sync from Node",
@@ -160,7 +158,6 @@
     },
     "createDialog": {
       "createError": "Failed to create node",
-      "selectRegionError": "Select a region for the node",
       "invalidSshPortError": "SSH port must be a valid port number",
       "setupCodeCopied": "Setup code copied",
       "title": "Create Node",
@@ -168,7 +165,6 @@
       "setupCodeDescription": "Use this code when registering the new node. Keep it private.",
       "copyCodeButton": "Copy code",
       "description": "Configure the new node and generate its setup code.",
-      "noRegionsHint": "No regions yet — create one under Regions first.",
       "baseUrlLabel": "Base URL",
       "defaultHostHint": "Public host clients use to reach game servers on this node.",
       "sshHostLabel": "SSH Host",
@@ -223,8 +219,6 @@
       "empty": "This node isn't in any group yet.",
       "loadError": "Failed to load the node's groups.",
       "columns": {
-        "limits": "Limits on this node",
-        "usage": "Usage",
         "servers": "Servers"
       },
       "unlimited": "Unlimited",
@@ -246,7 +240,8 @@
       "deleteTitle": "Remove this node from {{name}}?",
       "deleteDescription": "The node's servers in this group leave it and pick up the change on their next start.",
       "deleteSuccess": "Node removed from the group.",
-      "deleteError": "Failed to remove the node from the group."
+      "deleteError": "Failed to remove the node from the group.",
+      "ownLimit": "Own limit: {{value}}"
     }
   },
   "servers": {
@@ -468,10 +463,11 @@
   },
   "groups": {
     "title": "Groups",
-    "description": "Groups are shared across nodes. Assign nodes to a group on the node's page, with the limits the group gets on that node. Deploy configs place servers on the nodes of their group.",
+    "description": "Share limits across nodes. Nodes join a group on their node page.",
     "createButton": "Create group",
+    "searchPlaceholder": "Search groups or nodes",
     "empty": "There are no groups yet.",
-    "loadError": "Failed to load the groups.",
+    "emptyDescription": "Create a group, then assign nodes to it on the node's page.",
     "noNodes": "No nodes",
     "columns": {
       "servers": "Servers",

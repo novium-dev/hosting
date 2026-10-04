@@ -75,8 +75,7 @@ workspace = true
 features = ["sdk"]
 
 [dependencies.daemon_common]
-git = "ssh://git@github.com/novium-dev/daemon.git"
-default-features = false
+workspace = true
 features = ["sdk", "backend", "ssh"]
 
 [dependencies.zelus]

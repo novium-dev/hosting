@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   Cpu,
   Database,
-  Globe2,
   HardDrive,
   MemoryStick,
   Network,
@@ -30,7 +29,6 @@ import { Progress } from "@/components/ui/progress";
 import {
   availablePorts,
   listNodes,
-  listRegions,
   metricsNode,
   type MetricsNodeResponses,
   type StorageUsageEntry,
@@ -101,18 +99,16 @@ export default function AdminNodeManagementPage() {
   const { data: bundle } = useSWR(
     canView && node ? ["admin-node", node] : null,
     async () => {
-      const [nodesResponse, metricsResponse, availableResponse, regionsResponse] =
+      const [nodesResponse, metricsResponse, availableResponse] =
         await Promise.all([
           listNodes(),
           metricsNode({ path: { node_id: node } }).catch(() => null),
           availablePorts({ path: { node_id: node } }),
-          listRegions(),
         ]);
       return {
         nodesResponse,
         metricsResponse,
         availableResponse,
-        regionsResponse,
       };
     },
   );
@@ -121,8 +117,7 @@ export default function AdminNodeManagementPage() {
   if (!session || !canView) return <NotFoundView />;
   if (!bundle) return null;
 
-  const { nodesResponse, metricsResponse, availableResponse, regionsResponse } =
-    bundle;
+  const { nodesResponse, metricsResponse, availableResponse } = bundle;
   const nodes = nodesResponse.error ? [] : (nodesResponse.data ?? []);
   const currentNode = nodes.find((entry) => entry.id === node) ?? null;
 
@@ -138,12 +133,8 @@ export default function AdminNodeManagementPage() {
     session.user.permissions,
     ManagementPermission.NODES_MANAGE,
   );
-  const regions = regionsResponse.error ? [] : (regionsResponse.data ?? []);
   const storages = storageRows(metrics);
   const serverStorages = storages.filter((row) => row.kind === "server");
-  const currentRegion = regions.find(
-    (region) => region.id === currentNode.region,
-  );
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -181,11 +172,6 @@ export default function AdminNodeManagementPage() {
           )}
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <InfoCard
-              icon={Globe2}
-              title={t("common:labels.region")}
-              value={currentRegion?.display ?? currentNode.region}
-            />
             <InfoCard
               icon={Network}
               title={t("common:nav.network")}
@@ -255,9 +241,7 @@ export default function AdminNodeManagementPage() {
         backupStorages={currentNode.backup_storages}
         serverStorages={currentNode.server_storages}
         initialMaintenance={currentNode.maintenance}
-        initialRegion={currentNode.region}
         initialOverallocation={currentNode.overallocation}
-        regions={regions}
         canManage={canManageNodes}
       />
     </div>

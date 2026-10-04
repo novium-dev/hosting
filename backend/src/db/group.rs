@@ -1,6 +1,7 @@
 use lazy_regex::regex_is_match;
 use serde::{Deserialize, Serialize};
 use sqlx::{Executor, Postgres, query_scalar};
+use std::collections::HashSet;
 use uuid::Uuid;
 
 const MAX_GROUP_NAME_LENGTH: usize = 200;
@@ -38,6 +39,20 @@ pub async fn node_in_group(
     )
     .fetch_one(conn)
     .await
+}
+
+pub async fn all_groups_exist(
+    conn: impl Executor<'_, Database = Postgres>,
+    groups: &[String],
+) -> Result<bool, sqlx::Error> {
+    let found = query_scalar!(
+        r#"SELECT COUNT(*) AS "count!" FROM groups WHERE name = ANY($1)"#,
+        groups
+    )
+    .fetch_one(conn)
+    .await?;
+    let unique: HashSet<&String> = groups.iter().collect();
+    Ok(usize::try_from(found).is_ok_and(|found| found == unique.len()))
 }
 
 #[cfg(test)]

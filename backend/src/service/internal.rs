@@ -168,7 +168,7 @@ pub(crate) impl InternalService for Backend {
             let backend = self.clone();
             self.database.acquire().await?
                 .transaction(move |tx| Box::pin(async move {
-                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host,ssh_host,ssh_port,region) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", &uuid, registration.name, config.base_url.as_str(), &default_bind, &default_host, ssh_host, ssh_port, &registration.region)
+                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host,ssh_host,ssh_port) VALUES ($1, $2, $3, $4, $5, $6, $7)", &uuid, registration.name, config.base_url.as_str(), &default_bind, &default_host, ssh_host, ssh_port)
                         .execute(&mut **tx)
                         .await
                         .inspect_err(|err| error!("Failed to insert node: {err:?}"))?;
@@ -286,16 +286,24 @@ pub(crate) impl InternalService for Backend {
                 .transaction(move |tx| {
                     Box::pin(async move {
                         query!(
-                            "INSERT INTO database_hosts (id, display, region, url, public_host) VALUES ($1, $2, $3, $4, $5)",
+                            "INSERT INTO database_hosts (id, display, url, public_host) VALUES ($1, $2, $3, $4)",
                             &uuid,
                             registration.display,
-                            &registration.region,
                             config.base_url.as_str(),
                             registration.public_host
                         )
                         .execute(&mut **tx)
                         .await
                         .inspect_err(|err| error!("Failed to insert database host: {err:?}"))?;
+
+                        query!(
+                            "INSERT INTO database_host_groups (host, group_name) SELECT $1, name FROM groups WHERE name = ANY($2)",
+                            &uuid,
+                            &registration.groups
+                        )
+                        .execute(&mut **tx)
+                        .await
+                        .inspect_err(|err| error!("Failed to insert database host groups: {err:?}"))?;
 
                         for (kind, port) in config.ports {
                             query!(

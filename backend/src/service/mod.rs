@@ -166,13 +166,6 @@ define_error!(license {
     not_accepted("A license required by this server has not been accepted yet" BAD_REQUEST),
 });
 
-define_error!(region {
-    not_found("The specified region was not found" NOT_FOUND),
-    not_empty("Region still has nodes assigned" BAD_REQUEST),
-    slug_invalid("The slug must be 1-64 characters of lowercase letters, numbers or hyphens" BAD_REQUEST),
-    slug_taken("A region with this slug already exists" BAD_REQUEST),
-});
-
 define_error!(db {
     failure("Database operation failed" INTERNAL_SERVER_ERROR),
 });
@@ -231,10 +224,6 @@ define_path_variable!(
 
 define_path_variable!(
     user_id "The user ID"
-);
-
-define_path_variable!(
-    region_id "The region ID"
 );
 
 define_path_variable!(

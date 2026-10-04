@@ -6,7 +6,7 @@ import {
   Database,
   FolderKanban,
   Globe,
-  Globe2,
+  Layers,
   KeyRound,
   Network,
   Server,
@@ -29,7 +29,7 @@ import {
   listNodeRegistrations,
   listNodes,
   listProjects,
-  listRegions,
+  listGroups,
   listRouteDomainsAdmin,
   listServers,
   listTemplateUsage,
@@ -140,8 +140,8 @@ export function AdminOverview({ permissions }: { permissions: number }) {
     return response.error ? [] : (response.data ?? []);
   });
 
-  const regions = useList(canViewNodes ? "admin/regions" : null, async () => {
-    const response = await listRegions();
+  const groups = useList(canViewNodes ? "admin/overview/groups" : null, async () => {
+    const response = await listGroups();
     return response.error ? [] : (response.data ?? []);
   });
 
@@ -334,11 +334,11 @@ export function AdminOverview({ permissions }: { permissions: number }) {
       : null,
     canViewNodes
       ? {
-          key: "regions",
-          href: "/admin/regions",
-          icon: Globe2,
-          label: t("common:nav.regions"),
-          value: regions?.length,
+          key: "groups",
+          href: "/admin/groups",
+          icon: Layers,
+          label: t("navigation:adminSidebar.items.groups"),
+          value: groups?.length,
           hint: undefined,
         }
       : null,

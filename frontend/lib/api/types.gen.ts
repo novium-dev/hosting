@@ -109,11 +109,11 @@ export type CreateApiKeyPayload = {
 export type CreateDatabaseHost = {
     base_url: string;
     display: string;
+    groups?: Array<string>;
     ports?: {
         [key: string]: number;
     };
     public_host: string;
-    region: NanoId;
 };
 
 export type CreateGroupPayload = {
@@ -135,7 +135,6 @@ export type CreateInstanceUser = {
 export type CreateNodePayload = {
     config: SetupNodeConfigRequest;
     name: string;
-    region: NanoId;
 };
 
 export type CreateProjectInstance = {
@@ -146,11 +145,6 @@ export type CreateProjectInstance = {
 export type CreateProjectPayload = {
     name: string;
     owner?: number | null;
-    slug: string;
-};
-
-export type CreateRegionPayload = {
-    display: string;
     slug: string;
 };
 
@@ -845,12 +839,12 @@ export type UpdateApiKeyPayload = {
 
 export type UpdateDatabaseHost = {
     display?: string | null;
+    groups?: Array<string> | null;
     maintenance?: boolean | null;
     ports?: {
         [key: string]: number;
     } | null;
     public_host?: string | null;
-    region?: null | NanoId;
     url?: string | null;
 };
 
@@ -866,7 +860,6 @@ export type UpdateDatabaseInstance = {
 export type UpdateNodeRegistrationPayload = {
     config: SetupNodeConfigRequest;
     name: string;
-    region: NanoId;
 };
 
 export type UpdatePortPayload = {
@@ -882,11 +875,6 @@ export type UpdatePortPayload = {
 export type UpdateProjectPayload = {
     name?: string | null;
     owner?: number | null;
-    slug?: string | null;
-};
-
-export type UpdateRegionPayload = {
-    display?: string | null;
     slug?: string | null;
 };
 
@@ -6543,11 +6531,11 @@ export type ListNodesResponses = {
         default_bind: string;
         default_host: string;
         display: string;
+        groups: Array<string>;
         id: string;
         maintenance: boolean;
         overallocation: number;
         ports: Array<NodePortAllocation>;
-        region: NanoId;
         server_count: number;
         server_storages: Array<string>;
         ssh_host?: string | null;
@@ -6599,15 +6587,6 @@ export type CreateNodeErrors = {
         };
     };
     /**
-     * The specified region was not found
-     */
-    '404‎': {
-        error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
-        };
-    };
-    /**
      * Authentication storage is unreachable
      */
     '500​': {
@@ -6628,7 +6607,7 @@ export type CreateNodeErrors = {
     /**
      * Database operation failed
      */
-    '500‏': {
+    '500‎': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -6886,7 +6865,6 @@ export type ListNodeRegistrationsResponses = {
         default_host: string;
         expires_in: number;
         name: string;
-        region: NanoId;
         ssh?: null | SshEndpointRequest;
         storages: {
             [key: string]: ServerStorage;
@@ -6952,15 +6930,6 @@ export type UpdateNodeRegistrationErrors = {
         };
     };
     /**
-     * The specified region was not found
-     */
-    '404‎': {
-        error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
-        };
-    };
-    /**
      * Authentication storage is unreachable
      */
     '500‍': {
@@ -6972,7 +6941,7 @@ export type UpdateNodeRegistrationErrors = {
     /**
      * Database operation failed
      */
-    '500‏': {
+    '500‎': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -7144,92 +7113,6 @@ export type UpdateMaintenanceResponses = {
 };
 
 export type UpdateMaintenanceResponse = UpdateMaintenanceResponses[keyof UpdateMaintenanceResponses];
-
-export type UpdateNodeRegionData = {
-    body: NanoId;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path: {
-        /**
-         * The node identifier
-         */
-        node_id: string;
-    };
-    query?: never;
-    url: '/admin/node/{node_id}/region';
-};
-
-export type UpdateNodeRegionErrors = {
-    /**
-     * The specified node was not found
-     */
-    '400᠎': {
-        error?: {
-            id?: 'node/not_found';
-            msg?: 'The specified node was not found';
-        };
-    };
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403‌': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * The specified region was not found
-     */
-    '404​': {
-        error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500‍': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‎': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type UpdateNodeRegionError = UpdateNodeRegionErrors[keyof UpdateNodeRegionErrors];
-
-export type UpdateNodeRegionResponses = {
-    /**
-     * Success
-     */
-    204: void;
-};
-
-export type UpdateNodeRegionResponse = UpdateNodeRegionResponses[keyof UpdateNodeRegionResponses];
 
 export type MetricsNodeData = {
     body?: never;
@@ -13722,336 +13605,6 @@ export type RefreshTemplateCacheResponses = {
 
 export type RefreshTemplateCacheResponse = RefreshTemplateCacheResponses[keyof RefreshTemplateCacheResponses];
 
-export type ListRegionsData = {
-    body?: never;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path?: never;
-    query?: never;
-    url: '/admin/region';
-};
-
-export type ListRegionsErrors = {
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403᠎': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500​': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‌': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type ListRegionsError = ListRegionsErrors[keyof ListRegionsErrors];
-
-export type ListRegionsResponses = {
-    /**
-     * Success
-     */
-    200: Array<{
-        display: string;
-        id: NanoId;
-        node_count: number;
-        slug: string;
-    }>;
-};
-
-export type ListRegionsResponse = ListRegionsResponses[keyof ListRegionsResponses];
-
-export type CreateRegionData = {
-    body: CreateRegionPayload;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path?: never;
-    query?: never;
-    url: '/admin/region';
-};
-
-export type CreateRegionErrors = {
-    /**
-     * The slug must be 1-64 characters of lowercase letters, numbers or hyphens
-     */
-    '400‌': {
-        error?: {
-            id?: 'region/slug_invalid';
-            msg?: 'The slug must be 1-64 characters of lowercase letters, numbers or hyphens';
-        };
-    };
-    /**
-     * A region with this slug already exists
-     */
-    '400‍': {
-        error?: {
-            id?: 'region/slug_taken';
-            msg?: 'A region with this slug already exists';
-        };
-    };
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403᠎': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500​': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‎': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type CreateRegionError = CreateRegionErrors[keyof CreateRegionErrors];
-
-export type CreateRegionResponses = {
-    /**
-     * Success
-     */
-    200: string;
-};
-
-export type CreateRegionResponse = CreateRegionResponses[keyof CreateRegionResponses];
-
-export type DeleteRegionData = {
-    body?: never;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path: {
-        /**
-         * The region ID
-         */
-        region_id: NanoId;
-    };
-    query?: never;
-    url: '/admin/region/{region_id}';
-};
-
-export type DeleteRegionErrors = {
-    /**
-     * Region still has nodes assigned
-     */
-    '400‍': {
-        error?: {
-            id?: 'region/not_empty';
-            msg?: 'Region still has nodes assigned';
-        };
-    };
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403᠎': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * The specified region was not found
-     */
-    '404‌': {
-        error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500​': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‎': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type DeleteRegionError = DeleteRegionErrors[keyof DeleteRegionErrors];
-
-export type DeleteRegionResponses = {
-    /**
-     * Success
-     */
-    204: void;
-};
-
-export type DeleteRegionResponse = DeleteRegionResponses[keyof DeleteRegionResponses];
-
-export type UpdateRegionData = {
-    body: UpdateRegionPayload;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path: {
-        /**
-         * The region ID
-         */
-        region_id: NanoId;
-    };
-    query?: never;
-    url: '/admin/region/{region_id}';
-};
-
-export type UpdateRegionErrors = {
-    /**
-     * The slug must be 1-64 characters of lowercase letters, numbers or hyphens
-     */
-    '400‍': {
-        error?: {
-            id?: 'region/slug_invalid';
-            msg?: 'The slug must be 1-64 characters of lowercase letters, numbers or hyphens';
-        };
-    };
-    /**
-     * A region with this slug already exists
-     */
-    '400‎': {
-        error?: {
-            id?: 'region/slug_taken';
-            msg?: 'A region with this slug already exists';
-        };
-    };
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403᠎': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * The specified region was not found
-     */
-    '404‌': {
-        error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500​': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‏': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type UpdateRegionError = UpdateRegionErrors[keyof UpdateRegionErrors];
-
-export type UpdateRegionResponses = {
-    /**
-     * Success
-     */
-    204: void;
-};
-
-export type UpdateRegionResponse = UpdateRegionResponses[keyof UpdateRegionResponses];
-
 export type ListRouteDomainsData = {
     body?: never;
     headers?: {
@@ -17203,6 +16756,7 @@ export type ListDatabaseHostsResponses = {
      */
     200: Array<{
         display: string;
+        groups: Array<string>;
         id: string;
         instance_count: number;
         maintenance: boolean;
@@ -17210,7 +16764,6 @@ export type ListDatabaseHostsResponses = {
             [key: string]: number;
         };
         public_host: string;
-        region: NanoId;
         url: string;
     }>;
 };
@@ -17250,12 +16803,12 @@ export type CreateDatabaseHostErrors = {
         };
     };
     /**
-     * The specified region was not found
+     * The specified group was not found
      */
     '404‍': {
         error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
+            id?: 'group/not_found';
+            msg?: 'The specified group was not found';
         };
     };
     /**
@@ -17361,11 +16914,11 @@ export type ListDatabaseHostRegistrationsResponses = {
         code: string;
         display: string;
         expires_in: number;
+        groups: Array<string>;
         ports: {
             [key: string]: number;
         };
         public_host: string;
-        region: NanoId;
     }>;
 };
 
@@ -17418,12 +16971,12 @@ export type UpdateDatabaseHostRegistrationErrors = {
         };
     };
     /**
-     * The specified region was not found
+     * The specified group was not found
      */
     '404‍': {
         error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
+            id?: 'group/not_found';
+            msg?: 'The specified group was not found';
         };
     };
     /**
@@ -17667,6 +17220,15 @@ export type UpdateDatabaseHostErrors = {
         };
     };
     /**
+     * The specified group was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'group/not_found';
+            msg?: 'The specified group was not found';
+        };
+    };
+    /**
      * Authentication storage is unreachable
      */
     '500​': {
@@ -17678,7 +17240,7 @@ export type UpdateDatabaseHostErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‎': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -18378,6 +17940,7 @@ export type ListGroupsResponses = {
      * Success
      */
     200: Array<{
+        database_host_count: number;
         deploy_config_count: number;
         name: string;
         nodes: Array<GroupNodeInfo>;

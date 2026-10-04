@@ -1,7 +1,7 @@
 import useSWR from "swr";
 
 import { NotFoundView } from "@/components/not-found-view";
-import { listDatabaseHosts, listRegions } from "@/lib/api";
+import { listDatabaseHosts, listGroups } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import {
   hasManagementPermission,
@@ -32,11 +32,11 @@ export default function AdminDatabasesPage() {
     },
   );
 
-  const { data: regions } = useSWR(
-    canView ? "admin/regions" : null,
+  const { data: groups } = useSWR(
+    canView ? "admin/database-hosts/groups" : null,
     async () => {
-      const response = await listRegions();
-      return response.error ? [] : (response.data ?? []);
+      const response = await listGroups();
+      return response.error ? [] : (response.data ?? []).map((group) => group.name);
     },
   );
 
@@ -47,7 +47,7 @@ export default function AdminDatabasesPage() {
     <div className="flex flex-col gap-4 p-4 md:p-6">
       <DatabaseHostsTable
         hosts={hosts ?? []}
-        regions={regions ?? []}
+        groups={groups ?? []}
         canManage={canManage}
         onChanged={() => void mutate()}
       />

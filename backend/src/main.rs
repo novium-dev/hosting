@@ -64,7 +64,6 @@ pub struct NodeRegistration {
     time: Instant,
     name: String,
     default_host: String,
-    region: crate::db::region::RegionId,
     config: SetupNodeConfig,
 }
 
@@ -73,7 +72,7 @@ type NodeRegistrationMap = HashMap<String, NodeRegistration>;
 pub struct DatabaseHostRegistration {
     time: Instant,
     display: String,
-    region: crate::db::region::RegionId,
+    groups: Vec<String>,
     public_host: String,
     config: SetupAgentConfig,
 }

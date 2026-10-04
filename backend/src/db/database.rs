@@ -1,6 +1,5 @@
 use crate::Backend;
 use crate::db::project::ProjectId;
-use crate::db::region::RegionId;
 use crate::define_id;
 use core::str::FromStr as _;
 use database_agent_common::sdk::DatabaseAgentSDK;
@@ -23,7 +22,7 @@ pub const MAX_PROJECT_INSTANCES: i64 = 4;
 pub struct BackendDatabaseHost {
     pub id: Uuid,
     pub display: String,
-    pub region: RegionId,
+    pub groups: Vec<String>,
     pub public_host: String,
     pub maintenance: bool,
     pub ports: HashMap<DatabaseType, u16>,
@@ -57,7 +56,7 @@ impl Backend {
         let mut hosts = HashMap::new();
 
         for host in query!(
-            r#"SELECT id, display, region AS "region: RegionId", url, public_host,
+            r#"SELECT id, display, url, public_host,
                    maintenance AS "maintenance: bool"
                FROM database_hosts"#
         )
@@ -78,6 +77,14 @@ impl Backend {
             })
             .collect();
 
+            let groups = query_scalar!(
+                "SELECT group_name FROM database_host_groups WHERE host = $1",
+                host.id
+            )
+            .fetch_all(&mut **tx)
+            .await
+            .inspect_err(|err| error!("Failed to select database host groups: {err:?}"))?;
+
             let sdk = DatabaseAgentSDK::builder()
                 .with_identifier(host.id)
                 .with_root_key(Arc::clone(&self.root_key))
@@ -90,7 +97,7 @@ impl Backend {
                 Arc::new(BackendDatabaseHost {
                     id: host.id,
                     display: host.display,
-                    region: host.region,
+                    groups,
                     public_host: host.public_host,
                     maintenance: host.maintenance,
                     ports,
@@ -143,21 +150,20 @@ impl Backend {
     }
 
     /// Picks where a new instance goes: a host that is not in maintenance,
-    /// preferring the project's own region, then the one carrying the fewest
-    /// instances.
+    /// preferring one that shares a group with the nodes the project's servers
+    /// run on, then the one carrying the fewest instances.
     pub async fn pick_database_host<E: From<sqlx::Error>>(
         &self,
         project: ProjectId,
     ) -> Result<Option<Arc<BackendDatabaseHost>>, E> {
-        let region = query_scalar!(
-            r#"SELECT nodes.region AS "region: RegionId"
+        let groups: Vec<String> = query_scalar!(
+            r#"SELECT DISTINCT node_groups.group_name
                FROM servers
-               JOIN nodes ON nodes.id = servers.node
-               WHERE servers.project = $1
-               LIMIT 1"#,
+               JOIN node_groups ON node_groups.node = servers.node
+               WHERE servers.project = $1"#,
             &project
         )
-        .fetch_optional(&*self.database)
+        .fetch_all(&*self.database)
         .await?;
 
         let loads = query!(
@@ -180,7 +186,7 @@ impl Backend {
                 continue;
             };
 
-            if region.is_some_and(|region| region == host.region) {
+            if host.groups.iter().any(|group| groups.contains(group)) {
                 preferred = Some(Arc::clone(host));
                 break;
             }

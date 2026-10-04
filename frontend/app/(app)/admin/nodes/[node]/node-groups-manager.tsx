@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { Loader2, Pencil, Plus, RefreshCcw, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  PencilIcon,
+  Plus,
+  RefreshCcw,
+  Trash2Icon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -59,7 +64,8 @@ import {
   type ListNodeGroupsResponses,
   type ResourceSubset,
 } from "@/lib/api";
-import { formatGroupLimits, formatMib } from "@/lib/groups";
+import { formatMib } from "@/lib/groups";
+import { Progress } from "@/components/ui/progress";
 
 type NodeGroupRow = ListNodeGroupsResponses[200][number];
 
@@ -104,20 +110,51 @@ function parseLimits(form: GroupForm): GroupLimits | null {
   return { cpu, ram, swap };
 }
 
-function formatUsage(usage: ResourceSubset | undefined, t: TFunction) {
-  if (!usage) return [t("admin-infra:nodes.detailPage.unavailable")];
-  const cpuLimit = usage.cpu_limit_effective;
-  const memLimit = usage.mem_limit_effective;
-  return [
-    `${t("common:resources.cpu")}: ${usage.cpu_used.toFixed(2)}${
-      cpuLimit != null
-        ? ` / ${t("admin-infra:nodes.groupsManager.cores", { value: cpuLimit })}`
-        : ""
-    }`,
-    `${t("common:resources.memory")}: ${formatMib(usage.mem_used)}${
-      memLimit != null ? ` / ${formatMib(memLimit)}` : ""
-    }`,
-  ];
+type Meter = {
+  used: number | null;
+  limit: number | null | undefined;
+  own: number | null | undefined;
+  format: (value: number) => string;
+};
+
+function ResourceMeter({ used, limit, own, format }: Meter) {
+  const { t } = useTranslation();
+  const unlimited = t("admin-infra:nodes.groupsManager.unlimited");
+  const percent =
+    used != null && limit != null && limit > 0
+      ? Math.min((used / limit) * 100, 100)
+      : null;
+
+  return (
+    <div className="min-w-36 space-y-1.5">
+      <p className="text-sm tabular-nums">
+        {used == null ? "—" : format(used)}
+        <span className="text-muted-foreground">
+          {" / "}
+          {limit != null ? format(limit) : unlimited}
+        </span>
+      </p>
+      {percent != null && (
+        <Progress
+          value={percent}
+          className={
+            percent >= 90
+              ? "h-1.5 [&>[data-slot=progress-indicator]]:bg-destructive"
+              : percent >= 75
+                ? "h-1.5 [&>[data-slot=progress-indicator]]:bg-amber-500"
+                : "h-1.5"
+          }
+        />
+      )}
+      {(own ?? null) !== (limit ?? null) && (
+        <p className="text-xs text-muted-foreground">
+          {t("admin-infra:nodes.groupsManager.ownLimit", {
+            value: own != null ? format(own) : unlimited,
+          })}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function NodeGroupsManager({
@@ -269,18 +306,19 @@ export function NodeGroupsManager({
           </Button>
           <Button
             type="button"
-            variant="outline"
+            size="icon"
+            variant="ghost"
             onClick={() => {
               void mutate();
             }}
             disabled={isActionLoading || isValidating}
+            aria-label={t("common:actions.refresh")}
           >
             {isValidating ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <RefreshCcw className="size-4" />
             )}
-            {t("common:actions.refresh")}
           </Button>
         </div>
       </CardHeader>
@@ -294,72 +332,82 @@ export function NodeGroupsManager({
             {t("admin-infra:nodes.groupsManager.empty")}
           </p>
         ) : (
-          <div className="overflow-hidden rounded-lg border">
+          <div className="overflow-hidden rounded-lg border border-muted">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-muted/40">
                 <TableRow>
                   <TableHead>{t("common:labels.name")}</TableHead>
+                  <TableHead>{t("common:resources.cpu")}</TableHead>
+                  <TableHead>{t("common:resources.memory")}</TableHead>
                   <TableHead>
-                    {t("admin-infra:nodes.groupsManager.columns.limits")}
-                  </TableHead>
-                  <TableHead>
-                    {t("admin-infra:nodes.groupsManager.columns.usage")}
+                    {t("admin-infra:nodes.detailPage.swapLabel")}
                   </TableHead>
                   <TableHead>
                     {t("admin-infra:nodes.groupsManager.columns.servers")}
                   </TableHead>
                   <TableHead className="text-right">
-                    {t("common:labels.actions")}
+                    {t("common:resources.manage")}
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {groups.map((group) => {
-                  const depth = group.name.split("-").length - 1;
+                  const usage = groupUsage?.[group.name];
+                  const cores = (value: number) =>
+                    t("admin-infra:nodes.groupsManager.cores", {
+                      value: Number(value.toFixed(2)),
+                    });
                   return (
                     <TableRow key={group.name}>
+                      <TableCell className="font-medium">
+                        {group.name}
+                      </TableCell>
                       <TableCell>
-                        <span
-                          className="font-mono text-sm"
-                          style={{ paddingLeft: `${depth}rem` }}
-                        >
-                          {group.name}
-                        </span>
+                        <ResourceMeter
+                          used={usage?.cpu_used ?? null}
+                          limit={usage ? usage.cpu_limit_effective : group.limits.cpu}
+                          own={group.limits.cpu}
+                          format={cores}
+                        />
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {formatGroupLimits(group.limits, t).map((line) => (
-                          <p key={line}>{line}</p>
-                        ))}
+                      <TableCell>
+                        <ResourceMeter
+                          used={usage?.mem_used ?? null}
+                          limit={usage ? usage.mem_limit_effective : group.limits.ram}
+                          own={group.limits.ram}
+                          format={formatMib}
+                        />
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {formatUsage(groupUsage?.[group.name], t).map(
-                          (line) => (
-                            <p key={line}>{line}</p>
-                          ),
-                        )}
+                      <TableCell>
+                        <ResourceMeter
+                          used={usage?.swap_used ?? null}
+                          limit={usage ? usage.swap_limit_effective : group.limits.swap}
+                          own={group.limits.swap}
+                          format={formatMib}
+                        />
                       </TableCell>
-                      <TableCell>{group.server_count}</TableCell>
+                      <TableCell className="tabular-nums">
+                        {group.server_count}
+                      </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1">
                           <Button
                             type="button"
-                            size="sm"
-                            variant="outline"
+                            size="icon"
+                            variant="ghost"
                             onClick={() => openEdit(group)}
                             disabled={isActionLoading || !canManage}
                           >
-                            <Pencil className="size-4" />
-                            {t("common:actions.edit")}
+                            <PencilIcon className="size-4" />
                           </Button>
                           <Button
                             type="button"
-                            size="sm"
-                            variant="destructive"
+                            size="icon"
+                            variant="ghost"
                             onClick={() => setDeleting(group)}
                             disabled={isActionLoading || !canManage}
                           >
-                            <Trash2 className="size-4" />
-                            {t("common:actions.delete")}
+                            <Trash2Icon className="size-4" />
                           </Button>
                         </div>
                       </TableCell>

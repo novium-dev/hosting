@@ -4,7 +4,6 @@ pub(crate) mod deploy;
 pub(crate) mod group;
 pub(crate) mod integrity;
 pub(crate) mod node;
-pub(crate) mod region;
 pub(crate) mod route;
 pub(crate) mod server;
 pub(crate) mod template;

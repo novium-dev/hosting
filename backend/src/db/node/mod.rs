@@ -1,5 +1,4 @@
 use crate::Backend;
-use crate::db::region::RegionId;
 use crate::db::server::ports::NetworkProtocol;
 use core::ops::Deref;
 use daemon_common::sdk::DaemonSDK;
@@ -18,7 +17,6 @@ pub struct BackendNode {
     pub services: Arc<dyn DaemonServicesURLWithUserKey + Send + Sync + 'static>,
     pub display: String,
     pub maintenance: bool,
-    pub region: RegionId,
     pub default_host: String,
     pub default_bind: String,
     pub ssh_host: Option<String>,
@@ -69,7 +67,7 @@ impl Backend {
     pub async fn sync_nodes(&self, tx: &mut Transaction<'_, Postgres>) -> Result<(), sqlx::Error> {
         let mut nodes = HashMap::new();
 
-        for node in query!(r#"SELECT id,url,display,maintenance AS "maintenance: bool",region AS "region: RegionId",default_host,default_bind,ssh_host,ssh_port,overallocation FROM nodes"#)
+        for node in query!(r#"SELECT id,url,display,maintenance AS "maintenance: bool",default_host,default_bind,ssh_host,ssh_port,overallocation FROM nodes"#)
             .fetch_all(&mut **tx)
             .await? {
 
@@ -121,7 +119,6 @@ impl Backend {
                 services,
                 display: node.display,
                 maintenance: node.maintenance,
-                region: node.region,
                 default_host: node.default_host,
                 default_bind: node.default_bind,
                 ssh_host: node.ssh_host,

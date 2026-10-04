@@ -14,26 +14,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
   updateMaintenance,
   updateNode,
   updateNodeOverallocation,
-  updateNodeRegion,
   type ListNodesResponses,
-  type ListRegionsResponses,
 } from "@/lib/api";
 
 type NodeRow = ListNodesResponses[200][number];
-type RegionRow = ListRegionsResponses[200][number];
 
 type NodeSettingsCardProps = {
   nodeId: string;
@@ -43,9 +33,7 @@ type NodeSettingsCardProps = {
   backupStorages: NodeRow["backup_storages"];
   serverStorages: NodeRow["server_storages"];
   initialMaintenance: boolean;
-  initialRegion: string;
   initialOverallocation: number;
-  regions: RegionRow[];
   canManage: boolean;
 };
 
@@ -57,17 +45,13 @@ export function NodeSettingsCard({
   backupStorages,
   serverStorages,
   initialMaintenance,
-  initialRegion,
   initialOverallocation,
-  regions,
   canManage,
 }: NodeSettingsCardProps) {
   const { t } = useTranslation();
   const [maintenance, setMaintenance] = useState(initialMaintenance);
   const [isMaintenanceSaving, setIsMaintenanceSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [region, setRegion] = useState(initialRegion);
-  const [isRegionSaving, setIsRegionSaving] = useState(false);
   const [overallocation, setOverallocation] = useState(
     String(initialOverallocation),
   );
@@ -109,30 +93,6 @@ export function NodeSettingsCard({
       );
     } finally {
       setIsMaintenanceSaving(false);
-    }
-  };
-
-  const handleChangeRegion = async (next: string) => {
-    setIsRegionSaving(true);
-
-    try {
-      const response = await updateNodeRegion({
-        path: { node_id: nodeId },
-        body: next,
-      });
-
-      if (response.error) {
-        toast.error(
-          response.error.error?.msg ??
-            t("admin-infra:nodes.settingsCard.regionError"),
-        );
-        return;
-      }
-
-      setRegion(next);
-      toast.success(t("admin-infra:nodes.settingsCard.regionSuccess"));
-    } finally {
-      setIsRegionSaving(false);
     }
   };
 
@@ -247,43 +207,6 @@ export function NodeSettingsCard({
             <span className="text-sm text-muted-foreground">
               {isMaintenanceSaving ? t("common:state.saving") : maintenanceLabel}
             </span>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 rounded-md border p-4">
-          <div className="space-y-1">
-            <p className="text-sm font-medium">{t("common:labels.region")}</p>
-            <p className="text-sm text-muted-foreground">
-              {t("admin-infra:nodes.settingsCard.regionDescription")}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Select
-              value={region}
-              onValueChange={(next) => {
-                void handleChangeRegion(next);
-              }}
-              disabled={isRegionSaving || !canManage}
-            >
-              <SelectTrigger className="w-full sm:w-72">
-                <SelectValue
-                  placeholder={t("admin-infra:shared.selectRegionPlaceholder")}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {regions.map((entry) => (
-                  <SelectItem key={entry.id} value={entry.id}>
-                    {entry.display}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {isRegionSaving ? (
-              <span className="text-sm text-muted-foreground">
-                {t("common:state.saving")}
-              </span>
-            ) : null}
           </div>
         </div>
 

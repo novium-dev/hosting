@@ -47,14 +47,13 @@ import {
   listDatabaseHostRegistrations,
   type ListDatabaseHostRegistrationsResponses,
   type ListDatabaseHostsResponses,
-  type ListRegionsResponses,
 } from "@/lib/api";
+import { GroupBadges } from "@/components/group-badges";
 import { DatabaseHostDialog } from "./database-host-dialog";
 
 export type DatabaseHostRow = ListDatabaseHostsResponses[200][number];
 export type DatabaseHostRegistrationRow =
   ListDatabaseHostRegistrationsResponses[200][number];
-export type RegionRow = ListRegionsResponses[200][number];
 
 function formatExpiry(seconds: number) {
   const minutes = Math.floor(seconds / 60);
@@ -62,16 +61,16 @@ function formatExpiry(seconds: number) {
   return `${minutes}:${String(remaining).padStart(2, "0")}`;
 }
 
-type HostColumn = "display" | "region" | "publicHost" | "instances" | "status";
+type HostColumn = "display" | "groups" | "publicHost" | "instances" | "status";
 
 export function DatabaseHostsTable({
   hosts,
-  regions,
+  groups,
   canManage,
   onChanged,
 }: {
   hosts: DatabaseHostRow[];
-  regions: RegionRow[];
+  groups: string[];
   canManage: boolean;
   onChanged: () => void;
 }) {
@@ -93,20 +92,15 @@ export function DatabaseHostsTable({
     { refreshInterval: 30_000 },
   );
 
-  const regionName = (id: string) =>
-    regions.find((region) => region.id === id)?.display ?? id;
-
   const accessors = useMemo(
     () => ({
       display: (host: DatabaseHostRow) => host.display,
-      region: (host: DatabaseHostRow) =>
-        regions.find((region) => region.id === host.region)?.display ??
-        host.region,
+      groups: (host: DatabaseHostRow) => host.groups.length,
       publicHost: (host: DatabaseHostRow) => host.public_host,
       instances: (host: DatabaseHostRow) => host.instance_count,
       status: (host: DatabaseHostRow) => host.maintenance,
     }),
-    [regions],
+    [],
   );
 
   const { rows, sort, toggle } = useTableSort<DatabaseHostRow, HostColumn>(
@@ -186,8 +180,8 @@ export function DatabaseHostsTable({
               <SortableTableHead column="display" sort={sort} onSort={toggle}>
                 {t("common:labels.name")}
               </SortableTableHead>
-              <SortableTableHead column="region" sort={sort} onSort={toggle}>
-                {t("common:labels.region")}
+              <SortableTableHead column="groups" sort={sort} onSort={toggle}>
+                {t("navigation:adminSidebar.items.groups")}
               </SortableTableHead>
               <SortableTableHead
                 column="publicHost"
@@ -251,7 +245,9 @@ export function DatabaseHostsTable({
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{regionName(registration.region)}</TableCell>
+                    <TableCell>
+                      <GroupBadges groups={registration.groups} />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">
                       {registration.public_host}
                     </TableCell>
@@ -314,7 +310,9 @@ export function DatabaseHostsTable({
                       {host.display}
                     </Link>
                   </TableCell>
-                  <TableCell>{regionName(host.region)}</TableCell>
+                  <TableCell>
+                    <GroupBadges groups={host.groups} />
+                  </TableCell>
                   <TableCell className="font-mono text-xs">
                     {host.public_host}
                   </TableCell>
@@ -375,7 +373,7 @@ export function DatabaseHostsTable({
       <DatabaseHostDialog
         open={creating}
         onOpenChange={setCreating}
-        regions={regions}
+        groups={groups}
         onSaved={() => {
           void mutateRegistrations();
           onChanged();
@@ -387,7 +385,7 @@ export function DatabaseHostsTable({
           if (!open) setEditingRegistration(null);
         }}
         registration={editingRegistration ?? undefined}
-        regions={regions}
+        groups={groups}
         onSaved={() => void mutateRegistrations()}
       />
       <DatabaseHostDialog
@@ -396,7 +394,7 @@ export function DatabaseHostsTable({
           if (!open) setEditing(null);
         }}
         host={editing ?? undefined}
-        regions={regions}
+        groups={groups}
         onSaved={onChanged}
       />
 
