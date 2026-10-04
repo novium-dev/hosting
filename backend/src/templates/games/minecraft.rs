@@ -30,16 +30,8 @@ use crate::utils::serde::SerdePrimitive;
 
 pub(crate) const WORK_TMP_SETUP: &str =
     "\nRUN rm -rf /tmp /var/tmp\nRUN ln -s /work/.tmp /tmp\nRUN ln -s /work/.tmp /var/tmp\n";
-
-pub(crate) fn exec_entrypoint(command: &str) -> String {
-    let entrypoint = serde_json::to_string(&["/bin/sh", "-c", &format!("exec {command}")])
-        .expect("Unable to serialize the entrypoint");
-    format!("ENTRYPOINT {entrypoint}\n")
-}
 pub(crate) const JAVA_RECOMMENDED: &str = "Recommended";
 pub(crate) const JAVA_PREFIX: &str = "Java ";
-pub(crate) const JVM_FLAGS: &str =
-    "-Dterminal.ansi=true -Djava.net.preferIPv6Addresses=system -XX:MaxRAMPercentage=95.0";
 pub(crate) const SERVER_PORT: u16 = 25565;
 pub(crate) const SERVER_PORT_NAME: &str = "minecraft";
 pub(crate) const PAPER_URL: &str = "https://fill.papermc.io/";
@@ -187,25 +179,6 @@ impl MinecraftServerExtra {
         }
     }
 
-    pub(crate) fn startup_command(&self) -> String {
-        let modules = match self.modification() {
-            MinecraftServerModification::Purpur => "--add-modules=jdk.incubator.vector ",
-            _ => "",
-        };
-        let launch = match self.modification() {
-            MinecraftServerModification::Fabric => {
-                "-Dfabric.gameJarPath=/server.jar -jar /fabric-server-launch.jar"
-            }
-            MinecraftServerModification::Quilt => {
-                "-Dloader.gameJarPath=/server.jar -jar /quilt-server-launch.jar"
-            }
-            MinecraftServerModification::NeoForge => "$(cat /args.txt)",
-            _ => "-jar /server.jar",
-        };
-
-        format!("java {modules}{JVM_FLAGS} {launch}")
-    }
-
     pub(crate) fn image(&self) -> ServerBuildImage {
         let generic = ServerBuildImage {
             dockerfile: include_str!("minecraft/generic.Dockerfile").to_owned(),
@@ -262,10 +235,7 @@ impl MinecraftServerExtra {
             .collect();
 
         ServerBuildImage {
-            dockerfile: format!(
-                "{dockerfile}{WORK_TMP_SETUP}{}",
-                exec_entrypoint(&self.startup_command())
-            ),
+            dockerfile: format!("{dockerfile}{WORK_TMP_SETUP}"),
             parents,
             default_tag: None,
             tag: Some(self.identifier()),

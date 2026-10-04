@@ -17,7 +17,7 @@ use tracing::{debug, error};
 
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use crate::templates::games::minecraft::{
-    JAVA_PREFIX, JAVA_RECOMMENDED, JVM_FLAGS, VersionBuild, WORK_TMP_SETUP, exec_entrypoint,
+    JAVA_PREFIX, JAVA_RECOMMENDED, VersionBuild, WORK_TMP_SETUP,
 };
 use crate::templates::variable::{
     VariableBuilder, VariableContent, VariableDataBuilder, VariableGroupBuilder, VariablePayload,
@@ -143,10 +143,6 @@ impl MinecraftProxyExtra {
         }
     }
 
-    pub(crate) fn startup_command() -> String {
-        format!("java {JVM_FLAGS} -jar /server.jar")
-    }
-
     pub(crate) fn identifier(&self) -> String {
         match self {
             Self::Velocity {
@@ -216,10 +212,7 @@ impl MinecraftProxyExtra {
             .collect();
 
         ServerBuildImage {
-            dockerfile: format!(
-                "{dockerfile}{WORK_TMP_SETUP}{}",
-                exec_entrypoint(&Self::startup_command())
-            ),
+            dockerfile: format!("{dockerfile}{WORK_TMP_SETUP}"),
             parents: vec![java],
             default_tag: None,
             tag: Some(self.identifier()),

@@ -57,4 +57,5 @@ ARG MC_MONITOR_DEFAULT_PORT=25565
 ENV MC_MONITOR_DEFAULT_PORT=${MC_MONITOR_DEFAULT_PORT}
 
 WORKDIR /work
+ENTRYPOINT ["java", "-Dterminal.ansi=true", "-Djava.net.preferIPv6Addresses=system", "-XX:MaxRAMPercentage=95.0", "-jar", "/server.jar"]
 HEALTHCHECK --start-period=2m --retries=3 --interval=30s CMD /mc-monitor status -json -port "${NOVIUM_PORT_MINECRAFT:-$MC_MONITOR_DEFAULT_PORT}"
