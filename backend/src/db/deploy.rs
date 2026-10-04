@@ -252,6 +252,7 @@ impl Backend {
         &self,
         config: &DeployConfig,
         definitions: &HashMap<String, TemplatePortDefinition>,
+        node: Option<Uuid>,
     ) -> Result<Option<Placement>, sqlx::Error> {
         let members: HashSet<Uuid> = query!(
             "SELECT node FROM node_groups WHERE group_name = $1",
@@ -268,7 +269,11 @@ impl Backend {
             .read()
             .await
             .values()
-            .filter(|node| members.contains(&node.id) && !node.maintenance)
+            .filter(|candidate| {
+                members.contains(&candidate.id)
+                    && !candidate.maintenance
+                    && node.is_none_or(|node| node == candidate.id)
+            })
             .cloned()
             .collect();
         if candidates.is_empty() {

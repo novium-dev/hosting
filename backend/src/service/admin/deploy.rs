@@ -2,6 +2,7 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::deploy::DeployConfig;
+use crate::db::group::node_in_group;
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::db::server::provision::ServerProvision;
@@ -182,9 +183,10 @@ pub(crate) impl DeployAdminService for Backend {
 
     /// Deploys a server from a deploy config into a project.
     ///
-    /// The node is picked from the nodes assigned to the config's group: nodes in maintenance
-    /// or without metrics are skipped, and of the nodes whose capacity still fits the config the
-    /// one with the most free cpu and memory wins. A node's capacity is its hardware, capped by
+    /// `node` is optional. When it is set, the server is deployed on that node, which has to be
+    /// assigned to the config's group. Otherwise the node is picked from the nodes assigned to
+    /// the config's group: nodes in maintenance or without metrics are skipped, and of the nodes
+    /// whose capacity still fits the config the one with the most free cpu and memory wins. A node's capacity is its hardware, capped by
     /// the daemon's server limit, times its overallocation; it is compared against the limits of
     /// the servers already on it. Ports are allocated from the node's free port ranges and the
     /// server is placed in the config's group.
@@ -192,7 +194,8 @@ pub(crate) impl DeployAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::SERVER_DEPLOY`].
     #[route("/configs/{config_id}/deploy", method = POST)]
-    #[error(deploy::{config_not_found, no_capacity}, project::not_found, server::storage_not_found, node::failure,
+    #[error(deploy::{config_not_found, no_capacity}, project::not_found, server::storage_not_found, node::{not_found, failure},
+        group::not_on_node,
         port::{invalid, not_allocated},
         template::{not_found, unavailable, corrupted, port_definition_unknown, input_invalid}, cache::failure <- [redis:*],
         auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
@@ -202,6 +205,7 @@ pub(crate) impl DeployAdminService for Backend {
         config_id: i32,
         project: ProjectId,
         name: String,
+        node: Option<Uuid>,
     ) -> Result<DeployedServer, _> {
         auth.require::<_, _, DeployServerError>((), ManagementPermissions::SERVER_DEPLOY)?;
 
@@ -221,6 +225,15 @@ pub(crate) impl DeployAdminService for Backend {
             .pop()
             .ok_or(DeployServerError::DeployConfigNotFound)?;
 
+        if let Some(node) = node {
+            if self.nodes.read().await.get(&node).is_none() {
+                return Err(DeployServerError::NodeNotFound);
+            }
+            if !node_in_group(&*self.database, node, &config.group).await? {
+                return Err(DeployServerError::GroupNotOnNode);
+            }
+        }
+
         let template = self
             .templates
             .read()
@@ -237,10 +250,10 @@ pub(crate) impl DeployAdminService for Backend {
         let _guard = DEPLOY_LOCK.lock().await;
 
         let placement = self
-            .place_deploy(&config, &definitions)
+            .place_deploy(&config, &definitions, node)
             .await?
             .ok_or(DeployServerError::DeployNoCapacity)?;
-        let node = placement.node.id;
+        let deployed_node = placement.node.id;
 
         let id = self
             .provision_server::<DeployServerError>(ServerProvision {
@@ -263,7 +276,10 @@ pub(crate) impl DeployAdminService for Backend {
             })
             .await?;
 
-        Ok(DeployedServer { id, node })
+        Ok(DeployedServer {
+            id,
+            node: deployed_node,
+        })
     }
 }
 

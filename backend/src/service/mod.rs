@@ -142,7 +142,7 @@ define_error!(node {
 
 define_error!(group {
     not_found("The specified group was not found" NOT_FOUND),
-    not_on_node("The group is not assigned to the server's node" BAD_REQUEST),
+    not_on_node("The group is not assigned to that node" BAD_REQUEST),
     invalid_name("Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by '-'" BAD_REQUEST),
     already_exists("A group with this name already exists" CONFLICT),
     limits_invalid("Group limits must be positive numbers" BAD_REQUEST),

@@ -196,6 +196,7 @@ export type DeployConfigPayload = {
 
 export type DeployServerPayload = {
     name: string;
+    node?: string | null;
     project: NanoId;
 };
 
@@ -1212,12 +1213,12 @@ export type UpdateServerErrors = {
         };
     };
     /**
-     * The group is not assigned to the server's node
+     * The group is not assigned to that node
      */
     '400‬': {
         error?: {
             id?: 'group/not_on_node';
-            msg?: 'The group is not assigned to the server\'s node';
+            msg?: 'The group is not assigned to that node';
         };
     };
     /**
@@ -5631,12 +5632,12 @@ export type CreateServerErrors = {
         };
     };
     /**
-     * The group is not assigned to the server's node
+     * The group is not assigned to that node
      */
     '400‭': {
         error?: {
             id?: 'group/not_on_node';
-            msg?: 'The group is not assigned to the server\'s node';
+            msg?: 'The group is not assigned to that node';
         };
     };
     /**
@@ -18149,12 +18150,12 @@ export type RemoveGroupNodeData = {
 
 export type RemoveGroupNodeErrors = {
     /**
-     * The group is not assigned to the server's node
+     * The group is not assigned to that node
      */
     '400᠎': {
         error?: {
             id?: 'group/not_on_node';
-            msg?: 'The group is not assigned to the server\'s node';
+            msg?: 'The group is not assigned to that node';
         };
     };
     /**
@@ -18826,9 +18827,27 @@ export type DeployServerErrors = {
         };
     };
     /**
+     * The specified node was not found
+     */
+    '400‎': {
+        error?: {
+            id?: 'node/not_found';
+            msg?: 'The specified node was not found';
+        };
+    };
+    /**
+     * The group is not assigned to that node
+     */
+    '400‪': {
+        error?: {
+            id?: 'group/not_on_node';
+            msg?: 'The group is not assigned to that node';
+        };
+    };
+    /**
      * The specified port range is invalid
      */
-    '400‏': {
+    '400‫': {
         error?: {
             id?: 'port/invalid';
             msg?: 'The specified port range is invalid';
@@ -18837,7 +18856,7 @@ export type DeployServerErrors = {
     /**
      * The specified port range is not allocated to the server
      */
-    '400‪': {
+    '400‬': {
         error?: {
             id?: 'port/not_allocated';
             msg?: 'The specified port range is not allocated to the server';
@@ -18846,7 +18865,7 @@ export type DeployServerErrors = {
     /**
      * Unknown template port definition used
      */
-    '400‮': {
+    '400⁡': {
         error?: {
             id?: 'template/port_definition_unknown';
             msg?: 'Unknown template port definition used';
@@ -18855,7 +18874,7 @@ export type DeployServerErrors = {
     /**
      * The template input is invalid
      */
-    '400⁠': {
+    '400⁢': {
         error?: {
             id?: 'template/input_invalid';
             msg?: 'The template input is invalid';
@@ -18873,7 +18892,7 @@ export type DeployServerErrors = {
     /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403⁢': {
+    '403⁤': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -18900,7 +18919,7 @@ export type DeployServerErrors = {
     /**
      * The template does not exist
      */
-    '404‫': {
+    '404‭': {
         error?: {
             id?: 'template/not_found';
             msg?: 'The template does not exist';
@@ -18918,7 +18937,7 @@ export type DeployServerErrors = {
     /**
      * The template was unable to read the server data
      */
-    '500‭': {
+    '500⁠': {
         error?: {
             id?: 'template/corrupted';
             msg?: 'The template was unable to read the server data';
@@ -18927,34 +18946,34 @@ export type DeployServerErrors = {
     /**
      * Cache operation failed
      */
-    '500⁡': {
+    '500⁣': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
         };
     };
     /**
-     * Authentication storage is unreachable
-     */
-    '500⁣': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
      * Database operation failed
      */
-    '500⁤': {
+    '500⁦': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
         };
     };
     /**
+     * Authentication storage is unreachable
+     */
+    '500⁧': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
      * Node operation failed
      */
-    '502‎': {
+    '502‏': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -18963,7 +18982,7 @@ export type DeployServerErrors = {
     /**
      * The template is unavailable at the moment
      */
-    '503‬': {
+    '503‮': {
         error?: {
             id?: 'template/unavailable';
             msg?: 'The template is unavailable at the moment';

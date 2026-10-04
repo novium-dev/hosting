@@ -52,7 +52,7 @@ import { DeployConfigDialog } from "./deploy-config-dialog";
 const DEPLOY_REQUEST_EXAMPLE = `POST /api/admin/deploy/configs/{id}/deploy
 Authorization: Bearer nvm_…
 
-{ "project": "<project id>", "name": "<server name>" }`;
+{ "project": "<project id>", "name": "<server name>", "node": "<optional node id>" }`;
 
 export default function AdminDeployConfigsPage() {
   const { t } = useTranslation();

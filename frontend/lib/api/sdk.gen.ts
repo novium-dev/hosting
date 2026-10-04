@@ -2328,9 +2328,10 @@ export const updateDeployConfig = <ThrowOnError extends boolean = false>(options
  *
  *  Deploys a server from a deploy config into a project.<br/>
  * <br/>
- * The node is picked from the nodes assigned to the config's group: nodes in maintenance<br/>
- * or without metrics are skipped, and of the nodes whose capacity still fits the config the<br/>
- * one with the most free cpu and memory wins. A node's capacity is its hardware, capped by<br/>
+ * `node` is optional. When it is set, the server is deployed on that node, which has to be<br/>
+ * assigned to the config's group. Otherwise the node is picked from the nodes assigned to<br/>
+ * the config's group: nodes in maintenance or without metrics are skipped, and of the nodes<br/>
+ * whose capacity still fits the config the one with the most free cpu and memory wins. A node's capacity is its hardware, capped by<br/>
  * the daemon's server limit, times its overallocation; it is compared against the limits of<br/>
  * the servers already on it. Ports are allocated from the node's free port ranges and the<br/>
  * server is placed in the config's group.<br/>
