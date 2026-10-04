@@ -43,7 +43,7 @@ export const ManagementPermission = {
   DATABASE_HOSTS_VIEW: 2 ** 50,
   DATABASE_HOSTS_MANAGE: 2 ** 51,
   INTEGRITY_VIEW: 2 ** 52,
-  SERVER_DEPLOY: 2 ** 53,
+  SERVER_DEPLOY: 2 ** 44,
 } as const;
 
 const serverDependencyMap = [
