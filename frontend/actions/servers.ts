@@ -19,6 +19,7 @@ const createServerSchema = z.object({
   disk: z.number().nullable(),
   swap: z.number().nullable(),
   backupLimit: z.number().nullable(),
+  group: z.string().nullable(),
   ports: z.record(z.string(), z.number()),
   variables: z.record(z.string(), z.string()),
 });
@@ -54,6 +55,7 @@ export const createServerAction = authActionClient
         storage: parsedInput.storage,
         internet_access: parsedInput.internetAccess,
         backup_limit: parsedInput.backupLimit,
+        group: parsedInput.group,
         ports: parsedInput.ports,
         variables: parsedInput.variables,
         resource: {

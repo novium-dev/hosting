@@ -111,6 +111,7 @@ export default function AdminServerManagementPage() {
     swap: data.swap ?? null,
     disk: data.disk ?? null,
     customDockerfile: data.custom_dockerfile ?? null,
+    group: data.group ?? null,
   };
 
   return (
@@ -237,6 +238,7 @@ export default function AdminServerManagementPage() {
         <TabsContent value="settings">
           <ServerAdminSettings
             serverId={data.id}
+            nodeId={data.node.id}
             canManage={canManageServers}
             canSuspend={canSuspendServers}
             initial={initialAdminSettings}

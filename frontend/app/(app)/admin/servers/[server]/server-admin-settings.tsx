@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import useSWR from "swr";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -14,12 +15,22 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { updateServer } from "@/lib/api";
+import { listNodeGroups, updateServer } from "@/lib/api";
+
+const NO_GROUP = "__none__";
 
 type ServerAdminSettingsProps = {
   serverId: string;
+  nodeId: string;
   canManage: boolean;
   canSuspend: boolean;
   initial: {
@@ -32,6 +43,7 @@ type ServerAdminSettingsProps = {
     swap: number | null;
     disk: number | null;
     customDockerfile: string | null;
+    group: string | null;
   };
 };
 
@@ -45,6 +57,7 @@ type FormState = {
   swap: string;
   disk: string;
   customDockerfile: string;
+  group: string;
 };
 
 function toInputValue(value: number | null) {
@@ -74,11 +87,13 @@ function buildInitialForm(
     swap: toInputValue(initial.swap),
     disk: toInputValue(initial.disk),
     customDockerfile: initial.customDockerfile ?? "",
+    group: initial.group ?? NO_GROUP,
   };
 }
 
 export function ServerAdminSettings({
   serverId,
+  nodeId,
   canManage,
   canSuspend,
   initial,
@@ -89,6 +104,20 @@ export function ServerAdminSettings({
     buildInitialForm(initial),
   );
   const [isSaving, setIsSaving] = useState(false);
+
+  const { data: nodeGroups } = useSWR(
+    canManage ? ["admin-node-groups", nodeId] : null,
+    async () => {
+      const response = await listNodeGroups({ path: { node_id: nodeId } });
+      return response.error || !response.data
+        ? []
+        : response.data.map((entry) => entry.name);
+    },
+  );
+  const groupOptions =
+    form.group === NO_GROUP || (nodeGroups ?? []).includes(form.group)
+      ? (nodeGroups ?? [])
+      : [form.group, ...(nodeGroups ?? [])];
 
   const onReset = useCallback(() => {
     setForm(initialForm);
@@ -153,7 +182,9 @@ export function ServerAdminSettings({
         body: {
           ...(canManage && {
             internet_access: form.internetAccess,
-            custom_dockerfile: form.customDockerfile.trim() || null,
+            ...(isFieldDirty("customDockerfile") && {
+              custom_dockerfile: form.customDockerfile.trim(),
+            }),
             limits: {
               backup: backupLimit,
             },
@@ -163,6 +194,9 @@ export function ServerAdminSettings({
               swap,
               disk,
             },
+            ...(isFieldDirty("group") && {
+              group: form.group === NO_GROUP ? "" : form.group,
+            }),
           }),
           ...(canSuspend &&
             hasSuspendChange && {
@@ -388,7 +422,44 @@ export function ServerAdminSettings({
             />
           </div>
 
-          <div className="space-y-2 sm:col-span-2">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="group">
+                {t("admin-infra:servers.shared.groupLabel")}
+              </Label>
+              {isFieldDirty("group") ? (
+                <span className="text-xs font-medium text-amber-600">
+                  {t("admin-infra:servers.adminSettings.editedBadge")}
+                </span>
+              ) : null}
+            </div>
+            <Select
+              value={form.group}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, group: value }))
+              }
+              disabled={!canManage}
+            >
+              <SelectTrigger id="group" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_GROUP}>
+                  {t("admin-infra:servers.shared.noGroup")}
+                </SelectItem>
+                {groupOptions.map((groupOption) => (
+                  <SelectItem key={groupOption} value={groupOption}>
+                    {groupOption}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {t("admin-infra:servers.adminSettings.groupHint")}
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Label htmlFor="limit-disk">
                 {t("admin-infra:servers.adminSettings.diskLimitLabel")}

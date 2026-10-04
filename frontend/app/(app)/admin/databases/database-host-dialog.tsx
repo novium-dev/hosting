@@ -14,15 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
   createDatabaseHost,
@@ -34,7 +28,6 @@ import { DATABASE_TYPE_LABELS } from "@/components/databases/database-type";
 import type {
   DatabaseHostRegistrationRow,
   DatabaseHostRow,
-  RegionRow,
 } from "./database-hosts-table";
 
 const ENGINES = Object.keys(DATABASE_TYPE_LABELS) as DatabaseType[];
@@ -52,7 +45,7 @@ export function DatabaseHostDialog({
   onOpenChange,
   host,
   registration,
-  regions,
+  groups,
   onSaved,
 }: {
   open: boolean;
@@ -61,12 +54,12 @@ export function DatabaseHostDialog({
   host?: DatabaseHostRow;
   /** Editing a setup code that no agent has claimed yet when set. */
   registration?: DatabaseHostRegistrationRow;
-  regions: RegionRow[];
+  groups: string[];
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const [display, setDisplay] = useState("");
-  const [region, setRegion] = useState("");
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [url, setUrl] = useState("");
   const [publicHost, setPublicHost] = useState("");
   const [maintenance, setMaintenance] = useState(false);
@@ -79,7 +72,7 @@ export function DatabaseHostDialog({
     if (!open) return;
 
     setDisplay(host?.display ?? registration?.display ?? "");
-    setRegion(host?.region ?? registration?.region ?? regions[0]?.id ?? "");
+    setSelectedGroups(host?.groups ?? registration?.groups ?? []);
     setUrl(host?.url ?? registration?.base_url ?? "");
     setPublicHost(host?.public_host ?? registration?.public_host ?? "");
     setMaintenance(host?.maintenance ?? false);
@@ -93,7 +86,7 @@ export function DatabaseHostDialog({
         }),
       ),
     );
-  }, [open, host, registration, regions]);
+  }, [open, host, registration]);
 
   const collectPorts = () =>
     Object.fromEntries(
@@ -121,7 +114,7 @@ export function DatabaseHostDialog({
           path: { host_id: host.id },
           body: {
             display,
-            region,
+            groups: selectedGroups,
             url,
             public_host: publicHost,
             maintenance,
@@ -145,7 +138,7 @@ export function DatabaseHostDialog({
 
       const body = {
         display,
-        region,
+        groups: selectedGroups,
         base_url: url,
         public_host: publicHost,
         ports: collectPorts(),
@@ -190,7 +183,6 @@ export function DatabaseHostDialog({
 
   const canSubmit =
     display.trim() !== "" &&
-    region !== "" &&
     url.trim() !== "" &&
     publicHost.trim() !== "";
 
@@ -287,23 +279,36 @@ export function DatabaseHostDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="region">{t("common:labels.region")}</Label>
-                <Select value={region} onValueChange={setRegion}>
-                  <SelectTrigger id="region" className="w-full">
-                    <SelectValue
-                      placeholder={t(
-                        "admin-infra:shared.selectRegionPlaceholder",
-                      )}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {regions.map((option) => (
-                      <SelectItem key={option.id} value={option.id}>
-                        {option.display}
-                      </SelectItem>
+                <Label>{t("navigation:adminSidebar.items.groups")}</Label>
+                {groups.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin-infra:databases.hostDialog.noGroups")}
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-md border p-3">
+                    {groups.map((group) => (
+                      <label
+                        key={group}
+                        className="flex items-center gap-2 font-mono text-sm"
+                      >
+                        <Checkbox
+                          checked={selectedGroups.includes(group)}
+                          onCheckedChange={(checked) =>
+                            setSelectedGroups((current) =>
+                              checked === true
+                                ? [...current, group]
+                                : current.filter((entry) => entry !== group),
+                            )
+                          }
+                        />
+                        {group}
+                      </label>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {t("admin-infra:databases.hostDialog.groupsDescription")}
+                </p>
               </div>
 
               <div className="space-y-2">

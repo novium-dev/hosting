@@ -14,24 +14,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
   updateMaintenance,
   updateNode,
-  updateNodeRegion,
+  updateNodeOverallocation,
   type ListNodesResponses,
-  type ListRegionsResponses,
 } from "@/lib/api";
 
 type NodeRow = ListNodesResponses[200][number];
-type RegionRow = ListRegionsResponses[200][number];
 
 type NodeSettingsCardProps = {
   nodeId: string;
@@ -41,8 +33,7 @@ type NodeSettingsCardProps = {
   backupStorages: NodeRow["backup_storages"];
   serverStorages: NodeRow["server_storages"];
   initialMaintenance: boolean;
-  initialRegion: string;
-  regions: RegionRow[];
+  initialOverallocation: number;
   canManage: boolean;
 };
 
@@ -54,16 +45,20 @@ export function NodeSettingsCard({
   backupStorages,
   serverStorages,
   initialMaintenance,
-  initialRegion,
-  regions,
+  initialOverallocation,
   canManage,
 }: NodeSettingsCardProps) {
   const { t } = useTranslation();
   const [maintenance, setMaintenance] = useState(initialMaintenance);
   const [isMaintenanceSaving, setIsMaintenanceSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [region, setRegion] = useState(initialRegion);
-  const [isRegionSaving, setIsRegionSaving] = useState(false);
+  const [overallocation, setOverallocation] = useState(
+    String(initialOverallocation),
+  );
+  const [savedOverallocation, setSavedOverallocation] = useState(
+    initialOverallocation,
+  );
+  const [isOverallocationSaving, setIsOverallocationSaving] = useState(false);
 
   const maintenanceLabel = useMemo(
     () =>
@@ -101,27 +96,33 @@ export function NodeSettingsCard({
     }
   };
 
-  const handleChangeRegion = async (next: string) => {
-    setIsRegionSaving(true);
+  const handleSaveOverallocation = async () => {
+    const value = Number(overallocation.trim());
+    if (!Number.isInteger(value) || value < 1 || value > 1000) {
+      toast.error(t("admin-infra:nodes.settingsCard.overallocationInvalid"));
+      return;
+    }
+
+    setIsOverallocationSaving(true);
 
     try {
-      const response = await updateNodeRegion({
+      const response = await updateNodeOverallocation({
         path: { node_id: nodeId },
-        body: next,
+        body: value,
       });
 
       if (response.error) {
         toast.error(
           response.error.error?.msg ??
-            t("admin-infra:nodes.settingsCard.regionError"),
+            t("admin-infra:nodes.settingsCard.overallocationError"),
         );
         return;
       }
 
-      setRegion(next);
-      toast.success(t("admin-infra:nodes.settingsCard.regionSuccess"));
+      setSavedOverallocation(value);
+      toast.success(t("admin-infra:nodes.settingsCard.overallocationSuccess"));
     } finally {
-      setIsRegionSaving(false);
+      setIsOverallocationSaving(false);
     }
   };
 
@@ -211,38 +212,41 @@ export function NodeSettingsCard({
 
         <div className="flex flex-col gap-3 rounded-md border p-4">
           <div className="space-y-1">
-            <p className="text-sm font-medium">{t("common:labels.region")}</p>
+            <p className="text-sm font-medium">
+              {t("admin-infra:nodes.settingsCard.overallocationTitle")}
+            </p>
             <p className="text-sm text-muted-foreground">
-              {t("admin-infra:nodes.settingsCard.regionDescription")}
+              {t("admin-infra:nodes.settingsCard.overallocationDescription")}
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Select
-              value={region}
-              onValueChange={(next) => {
-                void handleChangeRegion(next);
-              }}
-              disabled={isRegionSaving || !canManage}
-            >
-              <SelectTrigger className="w-full sm:w-72">
-                <SelectValue
-                  placeholder={t("admin-infra:shared.selectRegionPlaceholder")}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {regions.map((entry) => (
-                  <SelectItem key={entry.id} value={entry.id}>
-                    {entry.display}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {isRegionSaving ? (
-              <span className="text-sm text-muted-foreground">
-                {t("common:state.saving")}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-32">
+              <Input
+                value={overallocation}
+                onChange={(event) => setOverallocation(event.target.value)}
+                inputMode="numeric"
+                className="pr-7"
+                disabled={!canManage}
+              />
+              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+                %
               </span>
-            ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void handleSaveOverallocation();
+              }}
+              loading={isOverallocationSaving}
+              disabled={
+                !canManage ||
+                overallocation.trim() === String(savedOverallocation)
+              }
+            >
+              {t("common:actions.save")}
+            </Button>
           </div>
         </div>
 

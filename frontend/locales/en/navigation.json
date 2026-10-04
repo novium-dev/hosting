@@ -8,7 +8,9 @@
       "diagnostics": "Diagnostics"
     },
     "items": {
-      "domains": "Domains"
+      "domains": "Domains",
+      "groups": "Groups",
+      "deployConfigs": "Deploy configs"
     },
     "backToApp": "Back to app"
   },

@@ -6,3 +6,5 @@ RUN wget "$(jq -r ".[0].url" /installer.json)" --output-document /installer.jar
 RUN cd / && java -jar /installer.jar install server "$MINECRAFT_VERSION" "$LOADER_VERSION" --install-dir=/ --download-server
 
 RUN rm -f /installer.json /installer.jar
+
+ENTRYPOINT ["java", "-Dloader.gameJarPath=/server.jar", "-Dterminal.ansi=true", "-Djava.net.preferIPv6Addresses=system", "-XX:MaxRAMPercentage=95.0", "-jar", "/quilt-server-launch.jar"]

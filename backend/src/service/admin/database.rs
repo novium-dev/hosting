@@ -1,7 +1,7 @@
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
+use crate::db::group::all_groups_exist;
 use crate::db::project::ProjectId;
-use crate::db::region::RegionId;
 use crate::service::admin::database::database_admin_service_error::{
     CreateDatabaseHostError, DeleteDatabaseHostError, DeleteDatabaseInstanceError,
     ExtendDatabaseHostRegistrationError, ListDatabaseHostRegistrationsError,
@@ -30,7 +30,7 @@ use zelus::service;
 pub(crate) struct DatabaseHostInfo {
     pub(crate) id: Uuid,
     pub(crate) display: String,
-    pub(crate) region: RegionId,
+    pub(crate) groups: Vec<String>,
     pub(crate) url: String,
     pub(crate) public_host: String,
     pub(crate) maintenance: bool,
@@ -41,7 +41,8 @@ pub(crate) struct DatabaseHostInfo {
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub(crate) struct CreateDatabaseHost {
     pub(crate) display: String,
-    pub(crate) region: RegionId,
+    #[serde(default)]
+    pub(crate) groups: Vec<String>,
     pub(crate) base_url: Url,
     pub(crate) public_host: String,
     #[serde(default)]
@@ -52,7 +53,7 @@ pub(crate) struct CreateDatabaseHost {
 pub(crate) struct DatabaseHostRegistrationInfo {
     pub(crate) code: String,
     pub(crate) display: String,
-    pub(crate) region: RegionId,
+    pub(crate) groups: Vec<String>,
     pub(crate) base_url: Url,
     pub(crate) public_host: String,
     pub(crate) ports: HashMap<DatabaseType, u16>,
@@ -64,7 +65,7 @@ pub(crate) struct UpdateDatabaseHost {
     #[serde(default)]
     pub(crate) display: Option<String>,
     #[serde(default)]
-    pub(crate) region: Option<RegionId>,
+    pub(crate) groups: Option<Vec<String>>,
     #[serde(default)]
     pub(crate) url: Option<Url>,
     #[serde(default)]
@@ -145,8 +146,7 @@ pub(crate) impl DatabaseAdminService for Backend {
         )?;
 
         let rows = query!(
-            r#"SELECT database_hosts.id, database_hosts.display,
-                   database_hosts.region AS "region: RegionId", database_hosts.url,
+            r#"SELECT database_hosts.id, database_hosts.display, database_hosts.url,
                    database_hosts.public_host,
                    database_hosts.maintenance AS "maintenance: bool",
                    (SELECT COUNT(*) FROM database_instances
@@ -174,10 +174,17 @@ pub(crate) impl DatabaseAdminService for Backend {
             })
             .collect();
 
+            let groups = query_scalar!(
+                "SELECT group_name FROM database_host_groups WHERE host = $1 ORDER BY group_name",
+                row.id
+            )
+            .fetch_all(&*self.database)
+            .await?;
+
             hosts.push(DatabaseHostInfo {
                 id: row.id,
                 display: row.display,
-                region: row.region,
+                groups,
                 url: row.url,
                 public_host: row.public_host,
                 maintenance: row.maintenance,
@@ -198,7 +205,7 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, os::failure,
-        region::not_found <- [sql:not_found], db::failure <- [sql:*])]
+        group::not_found, db::failure <- [sql:*])]
     async fn create_database_host(
         &self,
         #[special] auth: Authentication,
@@ -209,12 +216,9 @@ pub(crate) impl DatabaseAdminService for Backend {
             ManagementPermissions::DATABASE_HOSTS_MANAGE,
         )?;
 
-        query!(
-            r#"SELECT id AS "id: RegionId" FROM regions WHERE id = $1"#,
-            &payload.region
-        )
-        .fetch_one(&*self.database)
-        .await?;
+        if !all_groups_exist(&*self.database, &payload.groups).await? {
+            return Err(CreateDatabaseHostError::GroupNotFound);
+        }
 
         let code = gen_code::<CreateDatabaseHostError>()?;
 
@@ -223,7 +227,7 @@ pub(crate) impl DatabaseAdminService for Backend {
             DatabaseHostRegistration {
                 time: Instant::now(),
                 display: payload.display,
-                region: payload.region,
+                groups: payload.groups,
                 public_host: payload.public_host,
                 config: SetupAgentConfig {
                     base_url: payload.base_url,
@@ -262,7 +266,7 @@ pub(crate) impl DatabaseAdminService for Backend {
             .map(|(code, registration)| DatabaseHostRegistrationInfo {
                 code: code.clone(),
                 display: registration.display.clone(),
-                region: registration.region,
+                groups: registration.groups.clone(),
                 base_url: registration.config.base_url.clone(),
                 public_host: registration.public_host.clone(),
                 ports: registration.config.ports.clone(),
@@ -283,7 +287,7 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host/registrations/{code}", method = PATCH)]
     #[error(auth::{permission_denied, unreachable}, database::host_not_found,
-        region::not_found <- [sql:not_found], db::failure <- [sql:*])]
+        group::not_found, db::failure <- [sql:*])]
     async fn update_database_host_registration(
         &self,
         #[special] auth: Authentication,
@@ -295,12 +299,9 @@ pub(crate) impl DatabaseAdminService for Backend {
             ManagementPermissions::DATABASE_HOSTS_MANAGE,
         )?;
 
-        query!(
-            r#"SELECT id AS "id: RegionId" FROM regions WHERE id = $1"#,
-            &payload.region
-        )
-        .fetch_one(&*self.database)
-        .await?;
+        if !all_groups_exist(&*self.database, &payload.groups).await? {
+            return Err(UpdateDatabaseHostRegistrationError::GroupNotFound);
+        }
 
         self.database_host_registrations
             .write()
@@ -309,7 +310,7 @@ pub(crate) impl DatabaseAdminService for Backend {
             .filter(|registration| registration.time.elapsed() < REGISTRATION_TIMEOUT)
             .map(|registration| {
                 registration.display = payload.display;
-                registration.region = payload.region;
+                registration.groups = payload.groups;
                 registration.public_host = payload.public_host;
                 registration.config.base_url = payload.base_url;
                 registration.config.ports = payload.ports;
@@ -351,7 +352,7 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host/{host_id}", method = PATCH)]
     #[error(auth::{permission_denied, unreachable}, database::host_not_found <- [sql:not_found],
-        db::failure <- [sql:*])]
+        group::not_found <- [sql:foreign_key], db::failure <- [sql:*])]
     async fn update_database_host(
         &self,
         #[special] auth: Authentication,
@@ -366,20 +367,32 @@ pub(crate) impl DatabaseAdminService for Backend {
         query!(
             "UPDATE database_hosts SET
                  display = COALESCE($2, display),
-                 region = COALESCE($3, region),
-                 url = COALESCE($4, url),
-                 public_host = COALESCE($5, public_host),
-                 maintenance = COALESCE($6, maintenance)
+                 url = COALESCE($3, url),
+                 public_host = COALESCE($4, public_host),
+                 maintenance = COALESCE($5, maintenance)
              WHERE id = $1",
             host_id,
             payload.display,
-            payload.region.as_ref().map(ToString::to_string),
             payload.url.map(|url| url.to_string()),
             payload.public_host,
             payload.maintenance
         )
         .execute(&*self.database)
         .await?;
+
+        if let Some(groups) = payload.groups {
+            query!("DELETE FROM database_host_groups WHERE host = $1", host_id)
+                .execute(&*self.database)
+                .await?;
+
+            query!(
+                "INSERT INTO database_host_groups (host, group_name) SELECT DISTINCT $1::uuid, UNNEST($2::varchar[])",
+                host_id,
+                &groups
+            )
+            .execute(&*self.database)
+            .await?;
+        }
 
         if let Some(ports) = payload.ports {
             query!("DELETE FROM database_host_ports WHERE host = $1", host_id)

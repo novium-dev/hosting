@@ -3,9 +3,7 @@ use crate::templates::generic::{
     version_cmp,
 };
 use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, VariablePayload};
-use crate::templates::{
-    STARTUP_COMMAND_ENVIRONMENT, Template, TemplateError, TemplatePortDefinition, ThinTemplateError,
-};
+use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
 use chrono::{TimeDelta, TimeZone as _, Utc};
 use daemon_common::service::server::{ServerBuildImage, ServerBuildPayload};
 use indexmap::IndexSet;
@@ -35,9 +33,6 @@ pub(crate) struct GoVersionCache(IndexSet<(u16, u16, u16)>, i64);
 
 pub(crate) struct GoTemplate;
 
-const DEFAULT_STARTUP_COMMAND: &str =
-    "rm -f .tmp/binary && go build -o .tmp/binary $GO_FILE && .tmp/binary";
-
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
 pub static GO_FILE_REGEX: lazy_regex::Lazy<Regex> =
     lazy_regex!(r"^(?:[a-zA-Z0-9_]+(?:-[a-zA-Z0-9_]+)*\/)*[a-zA-Z0-9_]+(?:-[a-zA-Z0-9_]+)*\.go$");
@@ -58,7 +53,7 @@ impl Template for GoTemplate {
             dockerfile: include_str!("go/Dockerfile").replace("{GO_VERSION}", &extra.go_version),
             args: HashMap::new(),
             tag: None,
-            default_tag: Some(format!("go-{}-r4", extra.go_version)),
+            default_tag: Some(format!("go-{}-r5", extra.go_version)),
         };
         Ok(ServerBuildPayload {
             image,
@@ -74,13 +69,7 @@ impl Template for GoTemplate {
                 password: extra.repository_password,
             })
             .into_iter()
-            .chain([
-                ("GO_FILE".to_owned(), extra.build_file),
-                (
-                    STARTUP_COMMAND_ENVIRONMENT.to_owned(),
-                    DEFAULT_STARTUP_COMMAND.to_owned(),
-                ),
-            ])
+            .chain([("GO_FILE".to_owned(), extra.build_file)])
             .collect(),
             files_write: HashMap::new(),
             cap_add: Vec::new(),
@@ -214,10 +203,6 @@ impl Template for GoTemplate {
     }
 
     fn default_internet_access(&self) -> bool {
-        true
-    }
-
-    fn supports_custom_startup(&self) -> bool {
         true
     }
 

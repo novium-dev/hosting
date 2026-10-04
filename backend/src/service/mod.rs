@@ -33,8 +33,6 @@ define_error!(server {
     suspension_reason_required("Suspending a server requires a reason" BAD_REQUEST),
     not_suspended("The server is not suspended" BAD_REQUEST),
     config_invalid("The server config file is invalid" BAD_REQUEST),
-    startup_unsupported("The server's template does not support a custom startup command" BAD_REQUEST),
-    startup_invalid("The startup command must be 1-4000 characters without control characters" BAD_REQUEST),
     environment_unsupported("The server's template does not support custom environment variables" BAD_REQUEST),
     environment_invalid("An environment variable name or value is invalid, reserved or too long" BAD_REQUEST),
     env_file_invalid("The environment file must be a relative path inside the server directory" BAD_REQUEST)
@@ -137,6 +135,24 @@ define_error!(node {
     not_empty("Node still has servers assigned" BAD_REQUEST),
     failure("Node operation failed" BAD_GATEWAY),
     invalid_host("The specified SSH host is invalid" BAD_REQUEST),
+    overallocation_invalid("The overallocation must be between 1 and 1000 percent" BAD_REQUEST),
+});
+
+define_error!(group {
+    not_found("The specified group was not found" NOT_FOUND),
+    not_on_node("The group is not assigned to that node" BAD_REQUEST),
+    invalid_name("Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by '-'" BAD_REQUEST),
+    already_exists("A group with this name already exists" CONFLICT),
+    limits_invalid("Group limits must be positive numbers" BAD_REQUEST),
+    in_use("The group is still used by deploy configs" CONFLICT),
+});
+
+define_error!(deploy {
+    config_not_found("The specified deploy config was not found" NOT_FOUND),
+    name_invalid("Deploy config names must be 1-64 characters" BAD_REQUEST),
+    name_taken("A deploy config with this name already exists" CONFLICT),
+    resources_invalid("Deploy configs need a positive cpu and memory limit, and a non-negative swap limit" BAD_REQUEST),
+    no_capacity("No node in the group has enough free capacity and ports for this config" CONFLICT),
 });
 
 define_error!(integrity {
@@ -146,13 +162,6 @@ define_error!(integrity {
 define_error!(license {
     not_found("The specified license is not required by this server" NOT_FOUND),
     not_accepted("A license required by this server has not been accepted yet" BAD_REQUEST),
-});
-
-define_error!(region {
-    not_found("The specified region was not found" NOT_FOUND),
-    not_empty("Region still has nodes assigned" BAD_REQUEST),
-    slug_invalid("The slug must be 1-64 characters of lowercase letters, numbers or hyphens" BAD_REQUEST),
-    slug_taken("A region with this slug already exists" BAD_REQUEST),
 });
 
 define_error!(db {
@@ -213,10 +222,6 @@ define_path_variable!(
 
 define_path_variable!(
     user_id "The user ID"
-);
-
-define_path_variable!(
-    region_id "The region ID"
 );
 
 define_path_variable!(

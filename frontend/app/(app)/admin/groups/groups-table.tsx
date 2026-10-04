@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Globe2, PencilIcon, PlusIcon, Search, Trash2Icon } from "lucide-react";
+import { Layers, PlusIcon, Search, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
+import Link from "@/components/link";
 import { SortableTableHead } from "@/components/sortable-table-head";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,70 +37,68 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTableSort } from "@/hooks/use-table-sort";
-import {
-  createRegion,
-  deleteRegion,
-  updateRegion,
-  type ListRegionsResponses,
-} from "@/lib/api";
+import { createGroup, deleteGroup, type ListGroupsResponses } from "@/lib/api";
+import { formatGroupLimits } from "@/lib/groups";
 
-type RegionRow = ListRegionsResponses[200][number];
+type GroupRow = ListGroupsResponses[200][number];
 
-type RegionColumn = "display" | "slug" | "id" | "nodes";
+type GroupColumn = "name" | "nodes" | "servers" | "configs";
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+const GROUP_NAME_PATTERN = /^[A-Za-z0-9_]+(-[A-Za-z0-9_]+){0,15}$/;
+
+function serverCount(group: GroupRow) {
+  return group.nodes.reduce((sum, entry) => sum + entry.server_count, 0);
 }
 
-export function RegionsTable({
-  regions,
+export function GroupsTable({
+  groups,
+  nodeNames,
   canManage,
   onChanged,
 }: {
-  regions: RegionRow[];
+  groups: GroupRow[];
+  nodeNames: Record<string, string>;
   canManage: boolean;
   onChanged: () => void;
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState<RegionRow | null>(null);
   const [creating, setCreating] = useState(false);
-  const [deleting, setDeleting] = useState<RegionRow | null>(null);
+  const [deleting, setDeleting] = useState<GroupRow | null>(null);
   const [isDeletePending, setIsDeletePending] = useState(false);
 
-  const filteredRegions = useMemo(() => {
+  const filteredGroups = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
     if (!normalizedQuery) {
-      return regions;
+      return groups;
     }
 
-    return regions.filter(
-      (region) =>
-        region.display.toLowerCase().includes(normalizedQuery) ||
-        region.slug.toLowerCase().includes(normalizedQuery) ||
-        region.id.toLowerCase().includes(normalizedQuery),
+    return groups.filter(
+      (group) =>
+        group.name.toLowerCase().includes(normalizedQuery) ||
+        group.nodes.some((entry) =>
+          (nodeNames[entry.node] ?? entry.node)
+            .toLowerCase()
+            .includes(normalizedQuery),
+        ),
     );
-  }, [regions, query]);
+  }, [groups, nodeNames, query]);
 
   const accessors = useMemo(
     () => ({
-      display: (region: RegionRow) => region.display,
-      slug: (region: RegionRow) => region.slug,
-      id: (region: RegionRow) => region.id,
-      nodes: (region: RegionRow) => region.node_count,
+      name: (group: GroupRow) => group.name,
+      nodes: (group: GroupRow) => group.nodes.length,
+      servers: serverCount,
+      configs: (group: GroupRow) => group.deploy_config_count,
     }),
     [],
   );
 
-  const { rows, sort, toggle } = useTableSort<RegionRow, RegionColumn>(
-    filteredRegions,
+  const { rows, sort, toggle } = useTableSort<GroupRow, GroupColumn>(
+    filteredGroups,
     accessors,
-    { column: "display", direction: "asc" },
+    { column: "name", direction: "asc" },
   );
 
   const handleDelete = async () => {
@@ -107,18 +106,18 @@ export function RegionsTable({
 
     setIsDeletePending(true);
     try {
-      const response = await deleteRegion({
-        path: { region_id: deleting.id },
+      const response = await deleteGroup({
+        path: { group_name: deleting.name },
       });
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("admin-core:regions.toast.deleteFailed"),
+          response.error.error?.msg ?? t("admin-infra:groups.deleteError"),
         );
         return;
       }
 
-      toast.success(t("admin-core:regions.toast.deleted"));
+      toast.success(t("admin-infra:groups.deleteSuccess"));
       setDeleting(null);
       onChanged();
     } finally {
@@ -131,16 +130,16 @@ export function RegionsTable({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">
-            {t("common:nav.regions")}
+            {t("admin-infra:groups.title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {t("admin-core:regions.description")}
+            {t("admin-infra:groups.description")}
           </p>
         </div>
         {canManage ? (
           <Button type="button" onClick={() => setCreating(true)}>
             <PlusIcon data-icon="inline-start" />
-            {t("admin-core:regions.createButton")}
+            {t("admin-infra:groups.createButton")}
           </Button>
         ) : null}
       </div>
@@ -151,7 +150,7 @@ export function RegionsTable({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder={t("admin-core:regions.searchPlaceholder")}
+          placeholder={t("admin-infra:groups.searchPlaceholder")}
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
         />
       </div>
@@ -160,17 +159,17 @@ export function RegionsTable({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <SortableTableHead column="display" sort={sort} onSort={toggle}>
+              <SortableTableHead column="name" sort={sort} onSort={toggle}>
                 {t("common:labels.name")}
-              </SortableTableHead>
-              <SortableTableHead column="slug" sort={sort} onSort={toggle}>
-                {t("admin-core:shared.slugColumn")}
-              </SortableTableHead>
-              <SortableTableHead column="id" sort={sort} onSort={toggle}>
-                {t("admin-core:regions.table.regionId")}
               </SortableTableHead>
               <SortableTableHead column="nodes" sort={sort} onSort={toggle}>
                 {t("common:nav.nodes")}
+              </SortableTableHead>
+              <SortableTableHead column="servers" sort={sort} onSort={toggle}>
+                {t("admin-infra:groups.columns.servers")}
+              </SortableTableHead>
+              <SortableTableHead column="configs" sort={sort} onSort={toggle}>
+                {t("admin-infra:groups.columns.deployConfigs")}
               </SortableTableHead>
               <TableHead className="text-right">
                 {t("common:resources.manage")}
@@ -182,30 +181,48 @@ export function RegionsTable({
               <TableRow>
                 <TableCell colSpan={5} className="h-28">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
-                    <Globe2 className="size-5 text-muted-foreground" />
+                    <Layers className="size-5 text-muted-foreground" />
                     <p className="text-sm font-medium">
-                      {t("admin-core:regions.emptyState.title")}
+                      {t("admin-infra:groups.empty")}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {t("admin-core:regions.emptyState.description")}
+                      {t("admin-infra:groups.emptyDescription")}
                     </p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((region) => (
-                <TableRow key={region.id}>
+              rows.map((group) => (
+                <TableRow key={group.name}>
                   <TableCell className="font-medium">
-                    {region.display}
+                    {group.name}
                   </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {region.slug}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {region.id}
+                  <TableCell className="space-y-1">
+                    {group.nodes.length === 0 ? (
+                      <span className="text-muted-foreground">
+                        {t("admin-infra:groups.noNodes")}
+                      </span>
+                    ) : (
+                      group.nodes.map((entry) => (
+                        <div key={entry.node}>
+                          <Link
+                            href={`/admin/nodes/${entry.node}`}
+                            className="font-medium underline-offset-4 hover:underline"
+                          >
+                            {nodeNames[entry.node] ?? entry.node}
+                          </Link>
+                          <p className="text-xs text-muted-foreground">
+                            {formatGroupLimits(entry.limits, t).join(" · ")}
+                          </p>
+                        </div>
+                      ))
+                    )}
                   </TableCell>
                   <TableCell className="tabular-nums">
-                    {region.node_count}
+                    {serverCount(group)}
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {group.deploy_config_count}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -213,17 +230,8 @@ export function RegionsTable({
                         type="button"
                         size="icon"
                         variant="ghost"
-                        disabled={!canManage}
-                        onClick={() => setEditing(region)}
-                      >
-                        <PencilIcon className="size-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        disabled={!canManage || region.node_count > 0}
-                        onClick={() => setDeleting(region)}
+                        disabled={!canManage || group.deploy_config_count > 0}
+                        onClick={() => setDeleting(group)}
                       >
                         <Trash2Icon className="size-4" />
                       </Button>
@@ -236,16 +244,9 @@ export function RegionsTable({
         </Table>
       </div>
 
-      <RegionFormDialog
-        key={editing?.id ?? "create"}
-        open={creating || editing !== null}
-        region={editing}
-        onOpenChange={(next) => {
-          if (!next) {
-            setCreating(false);
-            setEditing(null);
-          }
-        }}
+      <CreateGroupDialog
+        open={creating}
+        onOpenChange={setCreating}
         onSaved={onChanged}
       />
 
@@ -258,14 +259,12 @@ export function RegionsTable({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t("admin-core:regions.deleteDialog.title")}
+              {t("admin-infra:groups.deleteTitle", {
+                name: deleting?.name ?? "",
+              })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {deleting
-                ? t("admin-core:regions.deleteDialog.description", {
-                    display: deleting.display,
-                  })
-                : null}
+              {t("admin-infra:groups.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -287,57 +286,41 @@ export function RegionsTable({
   );
 }
 
-function RegionFormDialog({
+function CreateGroupDialog({
   open,
-  region,
   onOpenChange,
   onSaved,
 }: {
   open: boolean;
-  region: RegionRow | null;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
-  const [display, setDisplay] = useState(region?.display ?? "");
-  const [slug, setSlug] = useState(region?.slug ?? "");
-  const [slugTouched, setSlugTouched] = useState(region !== null);
+  const [name, setName] = useState("");
   const [isPending, setIsPending] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const trimmedDisplay = display.trim();
-    const normalizedSlug = slugify(slug.trim());
-
-    if (normalizedSlug === "") {
-      toast.error(t("admin-core:regions.toast.slugRequired"));
+    const trimmed = name.trim();
+    if (trimmed.length > 200 || !GROUP_NAME_PATTERN.test(trimmed)) {
+      toast.error(t("admin-infra:groups.invalidName"));
       return;
     }
 
     setIsPending(true);
     try {
-      const response = region
-        ? await updateRegion({
-            path: { region_id: region.id },
-            body: { display: trimmedDisplay, slug: normalizedSlug },
-          })
-        : await createRegion({
-            body: { display: trimmedDisplay, slug: normalizedSlug },
-          });
+      const response = await createGroup({ body: { name: trimmed } });
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("admin-core:regions.toast.saveFailed"),
+          response.error.error?.msg ?? t("admin-infra:groups.createError"),
         );
         return;
       }
 
-      toast.success(
-        region
-          ? t("admin-core:regions.toast.updated")
-          : t("admin-core:regions.toast.created"),
-      );
+      toast.success(t("admin-infra:groups.createSuccess"));
+      setName("");
       onOpenChange(false);
       onSaved();
     } finally {
@@ -346,52 +329,35 @@ function RegionFormDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setName("");
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit} className="space-y-6">
           <DialogHeader>
-            <DialogTitle>
-              {region
-                ? t("admin-core:regions.formDialog.editTitle")
-                : t("admin-core:regions.formDialog.createTitle")}
-            </DialogTitle>
+            <DialogTitle>{t("admin-infra:groups.createTitle")}</DialogTitle>
             <DialogDescription>
-              {t("admin-core:regions.formDialog.description")}
+              {t("admin-infra:groups.createDescription")}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="region-display">{t("common:labels.name")}</Label>
-              <Input
-                id="region-display"
-                value={display}
-                onChange={(event) => {
-                  setDisplay(event.target.value);
-                  if (!slugTouched) setSlug(slugify(event.target.value));
-                }}
-                placeholder={t("admin-core:regions.formDialog.namePlaceholder")}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="region-slug">
-                {t("admin-core:shared.slugColumn")}
-              </Label>
-              <Input
-                id="region-slug"
-                value={slug}
-                onChange={(event) => {
-                  setSlugTouched(true);
-                  setSlug(event.target.value);
-                }}
-                placeholder={t("admin-core:regions.formDialog.slugPlaceholder")}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                {t("admin-core:regions.formDialog.slugHelp")}
-              </p>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="group-name">{t("common:labels.name")}</Label>
+            <Input
+              id="group-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder={t("admin-infra:groups.namePlaceholder")}
+              maxLength={200}
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("admin-infra:groups.nameHint")}
+            </p>
           </div>
 
           <DialogFooter>
@@ -399,11 +365,12 @@ function RegionFormDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={isPending}
             >
               {t("common:actions.cancel")}
             </Button>
             <Button type="submit" loading={isPending}>
-              {region ? t("common:actions.save") : t("common:actions.create")}
+              {t("common:actions.create")}
             </Button>
           </DialogFooter>
         </form>

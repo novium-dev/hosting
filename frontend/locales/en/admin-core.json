@@ -115,38 +115,6 @@
       "description": "Adjust your search query."
     }
   },
-  "regions": {
-    "description": "Group nodes by location. Every node belongs to exactly one region.",
-    "createButton": "Create Region",
-    "searchPlaceholder": "Search by name, slug, or id...",
-    "table": {
-      "regionId": "Region ID"
-    },
-    "emptyState": {
-      "title": "No regions found",
-      "description": "Create a region before registering a node."
-    },
-    "deleteDialog": {
-      "title": "Delete region",
-      "description": "\"{{display}}\" will be removed permanently. Nodes must be moved to another region first."
-    },
-    "formDialog": {
-      "editTitle": "Edit region",
-      "createTitle": "Create region",
-      "description": "Regions group nodes so servers can later be placed by location.",
-      "namePlaceholder": "Europe (Frankfurt)",
-      "slugPlaceholder": "eu-frankfurt",
-      "slugHelp": "Lowercase letters, numbers and hyphens only."
-    },
-    "toast": {
-      "slugRequired": "Slug must contain lowercase letters, numbers or hyphens",
-      "saveFailed": "Failed to save region",
-      "updated": "Region updated",
-      "created": "Region created",
-      "deleteFailed": "Failed to delete region",
-      "deleted": "Region deleted"
-    }
-  },
   "users": {
     "description": "Manage user accounts, roles, and projects.",
     "searchPlaceholder": "Search by username or email...",

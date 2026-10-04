@@ -6,10 +6,11 @@ import {
   ShieldCheck,
   FolderKanban,
   Globe,
-  Globe2,
   Home,
   KeyRound,
+  Layers,
   Network,
+  Rocket,
   Server,
   Users,
 } from "lucide-react";
@@ -80,21 +81,27 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
           icon: Boxes,
           permission: ManagementPermission.SERVER_MANAGE,
         },
+        {
+          title: t("navigation:adminSidebar.items.deployConfigs"),
+          href: "/admin/deploy-configs",
+          icon: Rocket,
+          permission: ManagementPermission.SERVER_MANAGE,
+        },
       ],
     },
     {
       label: t("navigation:adminSidebar.groups.infrastructure"),
       items: [
         {
-          title: t("common:nav.regions"),
-          href: "/admin/regions",
-          icon: Globe2,
-          permission: ManagementPermission.NODES_VIEW,
-        },
-        {
           title: t("common:nav.nodes"),
           href: "/admin/nodes",
           icon: Network,
+          permission: ManagementPermission.NODES_VIEW,
+        },
+        {
+          title: t("navigation:adminSidebar.items.groups"),
+          href: "/admin/groups",
+          icon: Layers,
           permission: ManagementPermission.NODES_VIEW,
         },
         {

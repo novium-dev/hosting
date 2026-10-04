@@ -109,11 +109,15 @@ export type CreateApiKeyPayload = {
 export type CreateDatabaseHost = {
     base_url: string;
     display: string;
+    groups?: Array<string>;
     ports?: {
         [key: string]: number;
     };
     public_host: string;
-    region: NanoId;
+};
+
+export type CreateGroupPayload = {
+    name: string;
 };
 
 export type CreateInstanceDatabase = {
@@ -131,7 +135,6 @@ export type CreateInstanceUser = {
 export type CreateNodePayload = {
     config: SetupNodeConfigRequest;
     name: string;
-    region: NanoId;
 };
 
 export type CreateProjectInstance = {
@@ -145,13 +148,9 @@ export type CreateProjectPayload = {
     slug: string;
 };
 
-export type CreateRegionPayload = {
-    display: string;
-    slug: string;
-};
-
 export type CreateServerPayload = {
     backup_limit?: number | null;
+    group?: string | null;
     internet_access: boolean;
     name: string;
     node: string;
@@ -179,6 +178,39 @@ export const DatabaseType = {
 } as const;
 
 export type DatabaseType = typeof DatabaseType[keyof typeof DatabaseType];
+
+export type DeployConfigPayload = {
+    backup_limit?: number | null;
+    cpu: number;
+    disk?: number | null;
+    group: string;
+    internet_access: boolean;
+    name: string;
+    ram: number;
+    swap: number;
+    template: string;
+    variables: {
+        [key: string]: string;
+    };
+};
+
+export type DeployServerPayload = {
+    name: string;
+    node?: string | null;
+    project: NanoId;
+};
+
+export type GroupLimits = {
+    cpu?: number | null;
+    ram?: number | null;
+    swap?: number | null;
+};
+
+export type GroupNodeInfo = {
+    limits: GroupLimits;
+    node: string;
+    server_count: number;
+};
 
 export type HashMap = {
     [key: string]: string;
@@ -418,14 +450,6 @@ export type RefreshTemplateCachePayload = {
     template?: string | null;
 };
 
-export type ResourceDisk = {
-    available: number;
-    filesystem: string;
-    mountpoint: string;
-    readonly: boolean;
-    total: number;
-};
-
 export const ResourceKind = { RESOURCE: 'resource', MODPACK: 'modpack' } as const;
 
 export type ResourceKind = typeof ResourceKind[keyof typeof ResourceKind];
@@ -456,6 +480,21 @@ export const ResourceProvider = {
 } as const;
 
 export type ResourceProvider = typeof ResourceProvider[keyof typeof ResourceProvider];
+
+export type ResourceSubset = {
+    cpu_allocated: number;
+    cpu_limit?: number | null;
+    cpu_limit_effective?: number | null;
+    cpu_used: number;
+    mem_allocated: number;
+    mem_limit?: number | null;
+    mem_limit_effective?: number | null;
+    mem_used: number;
+    swap_allocated: number;
+    swap_limit?: number | null;
+    swap_limit_effective?: number | null;
+    swap_used: number;
+};
 
 export const ResourceType = {
     PLUGIN: 'plugin',
@@ -657,13 +696,6 @@ export const ServerResyncStatus = {
 
 export type ServerResyncStatus = typeof ServerResyncStatus[keyof typeof ServerResyncStatus];
 
-export type ServerStartupCommandInfo = {
-    current: string;
-    customized: boolean;
-    default: string;
-    supported: boolean;
-};
-
 export type ServerStartupEnvironmentInfo = {
     file_enabled: boolean;
     file_path: string;
@@ -721,6 +753,22 @@ export type SetupNodeConfigRequest = {
 export type SshEndpointRequest = {
     host: string;
     port: number;
+};
+
+export type StorageUsage = {
+    backup: {
+        [key: string]: StorageUsageEntry;
+    };
+    server: {
+        [key: string]: StorageUsageEntry;
+    };
+};
+
+export type StorageUsageEntry = {
+    available: number;
+    free: number;
+    path: string;
+    total: number;
 };
 
 export type StoredDatabase = {
@@ -785,12 +833,12 @@ export type UpdateApiKeyPayload = {
 
 export type UpdateDatabaseHost = {
     display?: string | null;
+    groups?: Array<string> | null;
     maintenance?: boolean | null;
     ports?: {
         [key: string]: number;
     } | null;
     public_host?: string | null;
-    region?: null | NanoId;
     url?: string | null;
 };
 
@@ -806,7 +854,6 @@ export type UpdateDatabaseInstance = {
 export type UpdateNodeRegistrationPayload = {
     config: SetupNodeConfigRequest;
     name: string;
-    region: NanoId;
 };
 
 export type UpdatePortPayload = {
@@ -825,13 +872,9 @@ export type UpdateProjectPayload = {
     slug?: string | null;
 };
 
-export type UpdateRegionPayload = {
-    display?: string | null;
-    slug?: string | null;
-};
-
 export type UpdateServerPayload = {
     custom_dockerfile?: string | null;
+    group?: string | null;
     internet_access?: boolean | null;
     limits?: null | ServerLimits;
     name?: string | null;
@@ -841,7 +884,6 @@ export type UpdateServerPayload = {
 };
 
 export type UpdateStartupPayload = {
-    command?: string | null;
     env_file_enabled?: boolean | null;
     env_file_path?: string | null;
     environment?: {
@@ -896,6 +938,8 @@ export type VolumeMapping = {
 };
 
 export type Bool = boolean;
+
+export type U16 = number;
 
 export type ListServersData = {
     body?: never;
@@ -1100,6 +1144,7 @@ export type ServerInfoResponses = {
         custom_dockerfile?: string | null;
         disk?: number | null;
         features: Array<string>;
+        group?: string | null;
         id: NanoId;
         internet_access: boolean;
         limits: ServerLimits;
@@ -1160,6 +1205,15 @@ export type UpdateServerErrors = {
         };
     };
     /**
+     * The group is not assigned to that node
+     */
+    '400‬': {
+        error?: {
+            id?: 'group/not_on_node';
+            msg?: 'The group is not assigned to that node';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -1216,7 +1270,7 @@ export type UpdateServerErrors = {
     /**
      * The template was unable to read the server data
      */
-    '500‬': {
+    '500‭': {
         error?: {
             id?: 'template/corrupted';
             msg?: 'The template was unable to read the server data';
@@ -1234,7 +1288,7 @@ export type UpdateServerErrors = {
     /**
      * The template is unavailable at the moment
      */
-    '503‭': {
+    '503‮': {
         error?: {
             id?: 'template/unavailable';
             msg?: 'The template is unavailable at the moment';
@@ -2247,7 +2301,6 @@ export type ServerStartupResponses = {
      * Success
      */
     200: {
-        command: ServerStartupCommandInfo;
         environment: ServerStartupEnvironmentInfo;
     };
 };
@@ -2274,27 +2327,9 @@ export type UpdateStartupData = {
 
 export type UpdateStartupErrors = {
     /**
-     * The server's template does not support a custom startup command
-     */
-    '400‫': {
-        error?: {
-            id?: 'server/startup_unsupported';
-            msg?: 'The server\'s template does not support a custom startup command';
-        };
-    };
-    /**
-     * The startup command must be 1-4000 characters without control characters
-     */
-    '400‬': {
-        error?: {
-            id?: 'server/startup_invalid';
-            msg?: 'The startup command must be 1-4000 characters without control characters';
-        };
-    };
-    /**
      * The server's template does not support custom environment variables
      */
-    '400‭': {
+    '400‫': {
         error?: {
             id?: 'server/environment_unsupported';
             msg?: 'The server\'s template does not support custom environment variables';
@@ -2303,7 +2338,7 @@ export type UpdateStartupErrors = {
     /**
      * An environment variable name or value is invalid, reserved or too long
      */
-    '400‮': {
+    '400‬': {
         error?: {
             id?: 'server/environment_invalid';
             msg?: 'An environment variable name or value is invalid, reserved or too long';
@@ -2312,7 +2347,7 @@ export type UpdateStartupErrors = {
     /**
      * The environment file must be a relative path inside the server directory
      */
-    '400⁠': {
+    '400‭': {
         error?: {
             id?: 'server/env_file_invalid';
             msg?: 'The environment file must be a relative path inside the server directory';
@@ -2384,7 +2419,7 @@ export type UpdateStartupErrors = {
     /**
      * Node operation failed
      */
-    '502⁡': {
+    '502‮': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -5570,9 +5605,18 @@ export type CreateServerErrors = {
         };
     };
     /**
-     * The specified port range is invalid
+     * The group is not assigned to that node
      */
     '400‭': {
+        error?: {
+            id?: 'group/not_on_node';
+            msg?: 'The group is not assigned to that node';
+        };
+    };
+    /**
+     * The specified port range is invalid
+     */
+    '400‮': {
         error?: {
             id?: 'port/invalid';
             msg?: 'The specified port range is invalid';
@@ -5581,7 +5625,7 @@ export type CreateServerErrors = {
     /**
      * The specified port range is not allocated to the server
      */
-    '400‮': {
+    '400⁠': {
         error?: {
             id?: 'port/not_allocated';
             msg?: 'The specified port range is not allocated to the server';
@@ -5590,7 +5634,7 @@ export type CreateServerErrors = {
     /**
      * Unknown template port definition used
      */
-    '400⁣': {
+    '400⁤': {
         error?: {
             id?: 'template/port_definition_unknown';
             msg?: 'Unknown template port definition used';
@@ -5599,7 +5643,7 @@ export type CreateServerErrors = {
     /**
      * The template input is invalid
      */
-    '400⁤': {
+    '400⁧': {
         error?: {
             id?: 'template/input_invalid';
             msg?: 'The template input is invalid';
@@ -5644,7 +5688,7 @@ export type CreateServerErrors = {
     /**
      * The template does not exist
      */
-    '404⁠': {
+    '404⁡': {
         error?: {
             id?: 'template/not_found';
             msg?: 'The template does not exist';
@@ -5680,7 +5724,7 @@ export type CreateServerErrors = {
     /**
      * The template was unable to read the server data
      */
-    '500⁢': {
+    '500⁣': {
         error?: {
             id?: 'template/corrupted';
             msg?: 'The template was unable to read the server data';
@@ -5698,7 +5742,7 @@ export type CreateServerErrors = {
     /**
      * The template is unavailable at the moment
      */
-    '503⁡': {
+    '503⁢': {
         error?: {
             id?: 'template/unavailable';
             msg?: 'The template is unavailable at the moment';
@@ -6461,10 +6505,11 @@ export type ListNodesResponses = {
         default_bind: string;
         default_host: string;
         display: string;
+        groups: Array<string>;
         id: string;
         maintenance: boolean;
+        overallocation: number;
         ports: Array<NodePortAllocation>;
-        region: NanoId;
         server_count: number;
         server_storages: Array<string>;
         ssh_host?: string | null;
@@ -6516,15 +6561,6 @@ export type CreateNodeErrors = {
         };
     };
     /**
-     * The specified region was not found
-     */
-    '404‎': {
-        error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
-        };
-    };
-    /**
      * Authentication storage is unreachable
      */
     '500​': {
@@ -6545,7 +6581,7 @@ export type CreateNodeErrors = {
     /**
      * Database operation failed
      */
-    '500‏': {
+    '500‎': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -6803,7 +6839,6 @@ export type ListNodeRegistrationsResponses = {
         default_host: string;
         expires_in: number;
         name: string;
-        region: NanoId;
         ssh?: null | SshEndpointRequest;
         storages: {
             [key: string]: ServerStorage;
@@ -6869,15 +6904,6 @@ export type UpdateNodeRegistrationErrors = {
         };
     };
     /**
-     * The specified region was not found
-     */
-    '404‎': {
-        error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
-        };
-    };
-    /**
      * Authentication storage is unreachable
      */
     '500‍': {
@@ -6889,7 +6915,7 @@ export type UpdateNodeRegistrationErrors = {
     /**
      * Database operation failed
      */
-    '500‏': {
+    '500‎': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -7062,92 +7088,6 @@ export type UpdateMaintenanceResponses = {
 
 export type UpdateMaintenanceResponse = UpdateMaintenanceResponses[keyof UpdateMaintenanceResponses];
 
-export type UpdateNodeRegionData = {
-    body: NanoId;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path: {
-        /**
-         * The node identifier
-         */
-        node_id: string;
-    };
-    query?: never;
-    url: '/admin/node/{node_id}/region';
-};
-
-export type UpdateNodeRegionErrors = {
-    /**
-     * The specified node was not found
-     */
-    '400᠎': {
-        error?: {
-            id?: 'node/not_found';
-            msg?: 'The specified node was not found';
-        };
-    };
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403‌': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * The specified region was not found
-     */
-    '404​': {
-        error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500‍': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‎': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type UpdateNodeRegionError = UpdateNodeRegionErrors[keyof UpdateNodeRegionErrors];
-
-export type UpdateNodeRegionResponses = {
-    /**
-     * Success
-     */
-    204: void;
-};
-
-export type UpdateNodeRegionResponse = UpdateNodeRegionResponses[keyof UpdateNodeRegionResponses];
-
 export type MetricsNodeData = {
     body?: never;
     headers?: {
@@ -7231,14 +7171,14 @@ export type MetricsNodeResponses = {
      */
     200: {
         cpu_count: number;
-        cpu_used: number;
-        disks: Array<ResourceDisk>;
-        mem_allocated: number;
+        groups: {
+            [key: string]: ResourceSubset;
+        };
         mem_total: number;
-        mem_used: number;
-        swap_allocated: number;
+        server: ResourceSubset;
+        storage: StorageUsage;
         swap_total: number;
-        swap_used: number;
+        system: ResourceSubset;
     };
 };
 
@@ -7502,6 +7442,173 @@ export type DeleteNodePortResponses = {
 };
 
 export type DeleteNodePortResponse = DeleteNodePortResponses[keyof DeleteNodePortResponses];
+
+export type ListNodeGroupsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The node identifier
+         */
+        node_id: string;
+    };
+    query?: never;
+    url: '/admin/node/{node_id}/groups';
+};
+
+export type ListNodeGroupsErrors = {
+    /**
+     * The specified node was not found
+     */
+    '400᠎': {
+        error?: {
+            id?: 'node/not_found';
+            msg?: 'The specified node was not found';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403​': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‌': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListNodeGroupsError = ListNodeGroupsErrors[keyof ListNodeGroupsErrors];
+
+export type ListNodeGroupsResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        limits: GroupLimits;
+        name: string;
+        server_count: number;
+    }>;
+};
+
+export type ListNodeGroupsResponse = ListNodeGroupsResponses[keyof ListNodeGroupsResponses];
+
+export type UpdateNodeOverallocationData = {
+    body: U16;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The node identifier
+         */
+        node_id: string;
+    };
+    query?: never;
+    url: '/admin/node/{node_id}/overallocation';
+};
+
+export type UpdateNodeOverallocationErrors = {
+    /**
+     * The specified node was not found
+     */
+    '400᠎': {
+        error?: {
+            id?: 'node/not_found';
+            msg?: 'The specified node was not found';
+        };
+    };
+    /**
+     * The overallocation must be between 1 and 1000 percent
+     */
+    '400​': {
+        error?: {
+            id?: 'node/overallocation_invalid';
+            msg?: 'The overallocation must be between 1 and 1000 percent';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403‌': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‍': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type UpdateNodeOverallocationError = UpdateNodeOverallocationErrors[keyof UpdateNodeOverallocationErrors];
+
+export type UpdateNodeOverallocationResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UpdateNodeOverallocationResponse = UpdateNodeOverallocationResponses[keyof UpdateNodeOverallocationResponses];
 
 export type ListUsersData = {
     body?: never;
@@ -13472,336 +13579,6 @@ export type RefreshTemplateCacheResponses = {
 
 export type RefreshTemplateCacheResponse = RefreshTemplateCacheResponses[keyof RefreshTemplateCacheResponses];
 
-export type ListRegionsData = {
-    body?: never;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path?: never;
-    query?: never;
-    url: '/admin/region';
-};
-
-export type ListRegionsErrors = {
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403᠎': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500​': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‌': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type ListRegionsError = ListRegionsErrors[keyof ListRegionsErrors];
-
-export type ListRegionsResponses = {
-    /**
-     * Success
-     */
-    200: Array<{
-        display: string;
-        id: NanoId;
-        node_count: number;
-        slug: string;
-    }>;
-};
-
-export type ListRegionsResponse = ListRegionsResponses[keyof ListRegionsResponses];
-
-export type CreateRegionData = {
-    body: CreateRegionPayload;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path?: never;
-    query?: never;
-    url: '/admin/region';
-};
-
-export type CreateRegionErrors = {
-    /**
-     * The slug must be 1-64 characters of lowercase letters, numbers or hyphens
-     */
-    '400‌': {
-        error?: {
-            id?: 'region/slug_invalid';
-            msg?: 'The slug must be 1-64 characters of lowercase letters, numbers or hyphens';
-        };
-    };
-    /**
-     * A region with this slug already exists
-     */
-    '400‍': {
-        error?: {
-            id?: 'region/slug_taken';
-            msg?: 'A region with this slug already exists';
-        };
-    };
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403᠎': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500​': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‎': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type CreateRegionError = CreateRegionErrors[keyof CreateRegionErrors];
-
-export type CreateRegionResponses = {
-    /**
-     * Success
-     */
-    200: string;
-};
-
-export type CreateRegionResponse = CreateRegionResponses[keyof CreateRegionResponses];
-
-export type DeleteRegionData = {
-    body?: never;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path: {
-        /**
-         * The region ID
-         */
-        region_id: NanoId;
-    };
-    query?: never;
-    url: '/admin/region/{region_id}';
-};
-
-export type DeleteRegionErrors = {
-    /**
-     * Region still has nodes assigned
-     */
-    '400‍': {
-        error?: {
-            id?: 'region/not_empty';
-            msg?: 'Region still has nodes assigned';
-        };
-    };
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403᠎': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * The specified region was not found
-     */
-    '404‌': {
-        error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500​': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‎': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type DeleteRegionError = DeleteRegionErrors[keyof DeleteRegionErrors];
-
-export type DeleteRegionResponses = {
-    /**
-     * Success
-     */
-    204: void;
-};
-
-export type DeleteRegionResponse = DeleteRegionResponses[keyof DeleteRegionResponses];
-
-export type UpdateRegionData = {
-    body: UpdateRegionPayload;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path: {
-        /**
-         * The region ID
-         */
-        region_id: NanoId;
-    };
-    query?: never;
-    url: '/admin/region/{region_id}';
-};
-
-export type UpdateRegionErrors = {
-    /**
-     * The slug must be 1-64 characters of lowercase letters, numbers or hyphens
-     */
-    '400‍': {
-        error?: {
-            id?: 'region/slug_invalid';
-            msg?: 'The slug must be 1-64 characters of lowercase letters, numbers or hyphens';
-        };
-    };
-    /**
-     * A region with this slug already exists
-     */
-    '400‎': {
-        error?: {
-            id?: 'region/slug_taken';
-            msg?: 'A region with this slug already exists';
-        };
-    };
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403᠎': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * The specified region was not found
-     */
-    '404‌': {
-        error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500​': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‏': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type UpdateRegionError = UpdateRegionErrors[keyof UpdateRegionErrors];
-
-export type UpdateRegionResponses = {
-    /**
-     * Success
-     */
-    204: void;
-};
-
-export type UpdateRegionResponse = UpdateRegionResponses[keyof UpdateRegionResponses];
-
 export type ListRouteDomainsData = {
     body?: never;
     headers?: {
@@ -16953,6 +16730,7 @@ export type ListDatabaseHostsResponses = {
      */
     200: Array<{
         display: string;
+        groups: Array<string>;
         id: string;
         instance_count: number;
         maintenance: boolean;
@@ -16960,7 +16738,6 @@ export type ListDatabaseHostsResponses = {
             [key: string]: number;
         };
         public_host: string;
-        region: NanoId;
         url: string;
     }>;
 };
@@ -17000,12 +16777,12 @@ export type CreateDatabaseHostErrors = {
         };
     };
     /**
-     * The specified region was not found
+     * The specified group was not found
      */
     '404‍': {
         error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
+            id?: 'group/not_found';
+            msg?: 'The specified group was not found';
         };
     };
     /**
@@ -17111,11 +16888,11 @@ export type ListDatabaseHostRegistrationsResponses = {
         code: string;
         display: string;
         expires_in: number;
+        groups: Array<string>;
         ports: {
             [key: string]: number;
         };
         public_host: string;
-        region: NanoId;
     }>;
 };
 
@@ -17168,12 +16945,12 @@ export type UpdateDatabaseHostRegistrationErrors = {
         };
     };
     /**
-     * The specified region was not found
+     * The specified group was not found
      */
     '404‍': {
         error?: {
-            id?: 'region/not_found';
-            msg?: 'The specified region was not found';
+            id?: 'group/not_found';
+            msg?: 'The specified group was not found';
         };
     };
     /**
@@ -17417,6 +17194,15 @@ export type UpdateDatabaseHostErrors = {
         };
     };
     /**
+     * The specified group was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'group/not_found';
+            msg?: 'The specified group was not found';
+        };
+    };
+    /**
      * Authentication storage is unreachable
      */
     '500​': {
@@ -17428,7 +17214,7 @@ export type UpdateDatabaseHostErrors = {
     /**
      * Database operation failed
      */
-    '500‍': {
+    '500‎': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -18068,6 +17854,1128 @@ export type InstancePolicyResponses = {
 };
 
 export type InstancePolicyResponse = InstancePolicyResponses[keyof InstancePolicyResponses];
+
+export type ListGroupsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/group';
+};
+
+export type ListGroupsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListGroupsError = ListGroupsErrors[keyof ListGroupsErrors];
+
+export type ListGroupsResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        database_host_count: number;
+        deploy_config_count: number;
+        name: string;
+        nodes: Array<GroupNodeInfo>;
+    }>;
+};
+
+export type ListGroupsResponse = ListGroupsResponses[keyof ListGroupsResponses];
+
+export type CreateGroupData = {
+    body: CreateGroupPayload;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/group';
+};
+
+export type CreateGroupErrors = {
+    /**
+     * Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by '-'
+     */
+    '400᠎': {
+        error?: {
+            id?: 'group/invalid_name';
+            msg?: 'Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by \'-\'';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403‌': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * A group with this name already exists
+     */
+    '409​': {
+        error?: {
+            id?: 'group/already_exists';
+            msg?: 'A group with this name already exists';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‍': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type CreateGroupError = CreateGroupErrors[keyof CreateGroupErrors];
+
+export type CreateGroupResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type CreateGroupResponse = CreateGroupResponses[keyof CreateGroupResponses];
+
+export type DeleteGroupData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The group name
+         */
+        group_name: string;
+    };
+    query?: never;
+    url: '/admin/group/{group_name}';
+};
+
+export type DeleteGroupErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403‍': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified group was not found
+     */
+    '404᠎': {
+        error?: {
+            id?: 'group/not_found';
+            msg?: 'The specified group was not found';
+        };
+    };
+    /**
+     * The group is still used by deploy configs
+     */
+    '409​': {
+        error?: {
+            id?: 'group/in_use';
+            msg?: 'The group is still used by deploy configs';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‎': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‌': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+};
+
+export type DeleteGroupError = DeleteGroupErrors[keyof DeleteGroupErrors];
+
+export type DeleteGroupResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteGroupResponse = DeleteGroupResponses[keyof DeleteGroupResponses];
+
+export type RemoveGroupNodeData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The group name
+         */
+        group_name: string;
+        /**
+         * The node identifier
+         */
+        node_id: string;
+    };
+    query?: never;
+    url: '/admin/group/{group_name}/nodes/{node_id}';
+};
+
+export type RemoveGroupNodeErrors = {
+    /**
+     * The group is not assigned to that node
+     */
+    '400᠎': {
+        error?: {
+            id?: 'group/not_on_node';
+            msg?: 'The group is not assigned to that node';
+        };
+    };
+    /**
+     * The specified node was not found
+     */
+    '400​': {
+        error?: {
+            id?: 'node/not_found';
+            msg?: 'The specified node was not found';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403‍': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‎': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‌': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+};
+
+export type RemoveGroupNodeError = RemoveGroupNodeErrors[keyof RemoveGroupNodeErrors];
+
+export type RemoveGroupNodeResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type RemoveGroupNodeResponse = RemoveGroupNodeResponses[keyof RemoveGroupNodeResponses];
+
+export type AssignGroupNodeData = {
+    body: GroupLimits;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The group name
+         */
+        group_name: string;
+        /**
+         * The node identifier
+         */
+        node_id: string;
+    };
+    query?: never;
+    url: '/admin/group/{group_name}/nodes/{node_id}';
+};
+
+export type AssignGroupNodeErrors = {
+    /**
+     * Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by '-'
+     */
+    '400​': {
+        error?: {
+            id?: 'group/invalid_name';
+            msg?: 'Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by \'-\'';
+        };
+    };
+    /**
+     * Group limits must be positive numbers
+     */
+    '400‌': {
+        error?: {
+            id?: 'group/limits_invalid';
+            msg?: 'Group limits must be positive numbers';
+        };
+    };
+    /**
+     * The specified node was not found
+     */
+    '400‍': {
+        error?: {
+            id?: 'node/not_found';
+            msg?: 'The specified node was not found';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403‏': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified group was not found
+     */
+    '404᠎': {
+        error?: {
+            id?: 'group/not_found';
+            msg?: 'The specified group was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‪': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‫': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‎': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+};
+
+export type AssignGroupNodeError = AssignGroupNodeErrors[keyof AssignGroupNodeErrors];
+
+export type AssignGroupNodeResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type AssignGroupNodeResponse = AssignGroupNodeResponses[keyof AssignGroupNodeResponses];
+
+export type ListDeployConfigsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/deploy/configs';
+};
+
+export type ListDeployConfigsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListDeployConfigsError = ListDeployConfigsErrors[keyof ListDeployConfigsErrors];
+
+export type ListDeployConfigsResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        backup_limit?: number | null;
+        cpu: number;
+        disk?: number | null;
+        group: string;
+        id: number;
+        internet_access: boolean;
+        name: string;
+        ram: number;
+        swap: number;
+        template: string;
+        variables: {
+            [key: string]: string;
+        };
+    }>;
+};
+
+export type ListDeployConfigsResponse = ListDeployConfigsResponses[keyof ListDeployConfigsResponses];
+
+export type CreateDeployConfigData = {
+    body: DeployConfigPayload;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/deploy/configs';
+};
+
+export type CreateDeployConfigErrors = {
+    /**
+     * Deploy config names must be 1-64 characters
+     */
+    '400᠎': {
+        error?: {
+            id?: 'deploy/name_invalid';
+            msg?: 'Deploy config names must be 1-64 characters';
+        };
+    };
+    /**
+     * Deploy configs need a positive cpu and memory limit, and a non-negative swap limit
+     */
+    '400‌': {
+        error?: {
+            id?: 'deploy/resources_invalid';
+            msg?: 'Deploy configs need a positive cpu and memory limit, and a non-negative swap limit';
+        };
+    };
+    /**
+     * The template input is invalid
+     */
+    '400‫': {
+        error?: {
+            id?: 'template/input_invalid';
+            msg?: 'The template input is invalid';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403‭': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified group was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'group/not_found';
+            msg?: 'The specified group was not found';
+        };
+    };
+    /**
+     * The template does not exist
+     */
+    '404‎': {
+        error?: {
+            id?: 'template/not_found';
+            msg?: 'The template does not exist';
+        };
+    };
+    /**
+     * A deploy config with this name already exists
+     */
+    '409​': {
+        error?: {
+            id?: 'deploy/name_taken';
+            msg?: 'A deploy config with this name already exists';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‪': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‬': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‮': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500⁠': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‏': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+};
+
+export type CreateDeployConfigError = CreateDeployConfigErrors[keyof CreateDeployConfigErrors];
+
+export type CreateDeployConfigResponses = {
+    /**
+     * Success
+     */
+    200: number;
+};
+
+export type CreateDeployConfigResponse = CreateDeployConfigResponses[keyof CreateDeployConfigResponses];
+
+export type DeleteDeployConfigData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The deploy config identifier
+         */
+        config_id: number;
+    };
+    query?: never;
+    url: '/admin/deploy/configs/{config_id}';
+};
+
+export type DeleteDeployConfigErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403​': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified deploy config was not found
+     */
+    '404᠎': {
+        error?: {
+            id?: 'deploy/config_not_found';
+            msg?: 'The specified deploy config was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500‌': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type DeleteDeployConfigError = DeleteDeployConfigErrors[keyof DeleteDeployConfigErrors];
+
+export type DeleteDeployConfigResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteDeployConfigResponse = DeleteDeployConfigResponses[keyof DeleteDeployConfigResponses];
+
+export type UpdateDeployConfigData = {
+    body: DeployConfigPayload;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The deploy config identifier
+         */
+        config_id: number;
+    };
+    query?: never;
+    url: '/admin/deploy/configs/{config_id}';
+};
+
+export type UpdateDeployConfigErrors = {
+    /**
+     * Deploy config names must be 1-64 characters
+     */
+    '400​': {
+        error?: {
+            id?: 'deploy/name_invalid';
+            msg?: 'Deploy config names must be 1-64 characters';
+        };
+    };
+    /**
+     * Deploy configs need a positive cpu and memory limit, and a non-negative swap limit
+     */
+    '400‍': {
+        error?: {
+            id?: 'deploy/resources_invalid';
+            msg?: 'Deploy configs need a positive cpu and memory limit, and a non-negative swap limit';
+        };
+    };
+    /**
+     * The template input is invalid
+     */
+    '400‬': {
+        error?: {
+            id?: 'template/input_invalid';
+            msg?: 'The template input is invalid';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403‮': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified deploy config was not found
+     */
+    '404᠎': {
+        error?: {
+            id?: 'deploy/config_not_found';
+            msg?: 'The specified deploy config was not found';
+        };
+    };
+    /**
+     * The specified group was not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'group/not_found';
+            msg?: 'The specified group was not found';
+        };
+    };
+    /**
+     * The template does not exist
+     */
+    '404‏': {
+        error?: {
+            id?: 'template/not_found';
+            msg?: 'The template does not exist';
+        };
+    };
+    /**
+     * A deploy config with this name already exists
+     */
+    '409‌': {
+        error?: {
+            id?: 'deploy/name_taken';
+            msg?: 'A deploy config with this name already exists';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500‫': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‭': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500⁠': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500⁡': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‪': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+};
+
+export type UpdateDeployConfigError = UpdateDeployConfigErrors[keyof UpdateDeployConfigErrors];
+
+export type UpdateDeployConfigResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UpdateDeployConfigResponse = UpdateDeployConfigResponses[keyof UpdateDeployConfigResponses];
+
+export type DeployServerData = {
+    body: DeployServerPayload;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The deploy config identifier
+         */
+        config_id: number;
+    };
+    query?: never;
+    url: '/admin/deploy/configs/{config_id}/deploy';
+};
+
+export type DeployServerErrors = {
+    /**
+     * The specified storage was not found
+     */
+    '400‍': {
+        error?: {
+            id?: 'server/storage_not_found';
+            msg?: 'The specified storage was not found';
+        };
+    };
+    /**
+     * The specified node was not found
+     */
+    '400‎': {
+        error?: {
+            id?: 'node/not_found';
+            msg?: 'The specified node was not found';
+        };
+    };
+    /**
+     * The group is not assigned to that node
+     */
+    '400‪': {
+        error?: {
+            id?: 'group/not_on_node';
+            msg?: 'The group is not assigned to that node';
+        };
+    };
+    /**
+     * The specified port range is invalid
+     */
+    '400‫': {
+        error?: {
+            id?: 'port/invalid';
+            msg?: 'The specified port range is invalid';
+        };
+    };
+    /**
+     * The specified port range is not allocated to the server
+     */
+    '400‬': {
+        error?: {
+            id?: 'port/not_allocated';
+            msg?: 'The specified port range is not allocated to the server';
+        };
+    };
+    /**
+     * Unknown template port definition used
+     */
+    '400⁡': {
+        error?: {
+            id?: 'template/port_definition_unknown';
+            msg?: 'Unknown template port definition used';
+        };
+    };
+    /**
+     * The template input is invalid
+     */
+    '400⁢': {
+        error?: {
+            id?: 'template/input_invalid';
+            msg?: 'The template input is invalid';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403⁤': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified deploy config was not found
+     */
+    '404᠎': {
+        error?: {
+            id?: 'deploy/config_not_found';
+            msg?: 'The specified deploy config was not found';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The template does not exist
+     */
+    '404‭': {
+        error?: {
+            id?: 'template/not_found';
+            msg?: 'The template does not exist';
+        };
+    };
+    /**
+     * No node in the group has enough free capacity and ports for this config
+     */
+    '409​': {
+        error?: {
+            id?: 'deploy/no_capacity';
+            msg?: 'No node in the group has enough free capacity and ports for this config';
+        };
+    };
+    /**
+     * The template was unable to read the server data
+     */
+    '500⁠': {
+        error?: {
+            id?: 'template/corrupted';
+            msg?: 'The template was unable to read the server data';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500⁣': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500⁦': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500⁧': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Node operation failed
+     */
+    '502‏': {
+        error?: {
+            id?: 'node/failure';
+            msg?: 'Node operation failed';
+        };
+    };
+    /**
+     * The template is unavailable at the moment
+     */
+    '503‮': {
+        error?: {
+            id?: 'template/unavailable';
+            msg?: 'The template is unavailable at the moment';
+        };
+    };
+};
+
+export type DeployServerError = DeployServerErrors[keyof DeployServerErrors];
+
+export type DeployServerResponses = {
+    /**
+     * Success
+     */
+    200: {
+        id: NanoId;
+        node: string;
+    };
+};
+
+export type DeployServerResponse = DeployServerResponses[keyof DeployServerResponses];
 
 export type LoginDevData = {
     body?: never;

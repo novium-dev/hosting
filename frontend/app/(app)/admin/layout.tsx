@@ -19,8 +19,9 @@ const sectionTitleKeys: Record<string, string> = {
   projects: "common:nav.projects",
   servers: "common:nav.servers",
   templates: "common:nav.templates",
-  regions: "common:nav.regions",
   nodes: "common:nav.nodes",
+  groups: "navigation:adminSidebar.items.groups",
+  "deploy-configs": "navigation:adminSidebar.items.deployConfigs",
   integrity: "admin-integrity:title",
 };
 

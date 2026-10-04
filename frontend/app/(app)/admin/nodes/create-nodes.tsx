@@ -3,7 +3,6 @@
 import { CheckIcon, ClockIcon, CopyIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import { useAction } from "@/lib/action-hooks";
@@ -28,7 +27,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { createNodeAction, updateNodeRegistrationAction } from "@/actions/nodes";
 import {
-  listRegions,
   type BackupStorage,
   type ListNodeRegistrationsResponses,
   type ServerStorage,
@@ -97,7 +95,6 @@ function NodeRegistrationDialog({
   const [copied, setCopied] = useState(false);
 
   const [name, setName] = useState(registration?.name ?? "");
-  const [region, setRegion] = useState(registration?.region ?? "");
   const [baseUrl, setBaseUrl] = useState(registration?.base_url ?? "");
   const [defaultHost, setDefaultHost] = useState(
     registration?.default_host ?? "",
@@ -140,18 +137,8 @@ function NodeRegistrationDialog({
     },
   });
 
-  const { data: regions } = useSWR("admin/regions", async () => {
-    const response = await listRegions();
-    return response.error ? [] : (response.data ?? []);
-  });
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (region === "") {
-      toast.error(t("admin-infra:nodes.createDialog.selectRegionError"));
-      return;
-    }
 
     // An empty SSH host disables SSH/SFTP for the node.
     let sshConfig: { host: string; port: number } | undefined;
@@ -167,7 +154,6 @@ function NodeRegistrationDialog({
 
     const input = {
       name: name.trim(),
-      region,
       baseUrl: baseUrl.trim(),
       defaultHost: defaultHost.trim(),
       ssh: sshConfig,
@@ -300,30 +286,6 @@ function NodeRegistrationDialog({
                   placeholder="my-node"
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="node-region">{t("common:labels.region")}</Label>
-                <Select value={region} onValueChange={setRegion}>
-                  <SelectTrigger id="node-region" className="w-full">
-                    <SelectValue
-                      placeholder={t(
-                        "admin-infra:shared.selectRegionPlaceholder",
-                      )}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(regions ?? []).map((entry) => (
-                      <SelectItem key={entry.id} value={entry.id}>
-                        {entry.display}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {regions?.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    {t("admin-infra:nodes.createDialog.noRegionsHint")}
-                  </p>
-                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="node-base-url">

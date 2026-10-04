@@ -55,7 +55,6 @@ struct ResyncTarget {
     template: String,
     template_extra: Value,
     custom_dockerfile: Option<String>,
-    custom_startup: Option<String>,
     custom_environment: HashMap<String, String>,
     env_file_enabled: bool,
     env_file_path: String,
@@ -79,7 +78,6 @@ impl Backend {
                 template,
                 template_extra AS "template_extra: JsonValue",
                 custom_dockerfile,
-                custom_startup,
                 custom_environment AS "custom_environment: JsonValue",
                 env_file_enabled AS "env_file_enabled: bool",
                 env_file_path
@@ -101,7 +99,6 @@ impl Backend {
             template: row.template,
             template_extra: row.template_extra,
             custom_dockerfile: row.custom_dockerfile,
-            custom_startup: row.custom_startup,
             env_file_enabled: row.env_file_enabled,
             env_file_path: row.env_file_path,
             custom_environment: serde_json::from_value(row.custom_environment).unwrap_or_else(
@@ -204,7 +201,6 @@ impl Backend {
             server: target.id,
             template: &*template,
             dockerfile: target.custom_dockerfile.as_deref(),
-            startup: target.custom_startup.as_deref(),
             environment: &target.custom_environment,
             env_file: target
                 .env_file_enabled
@@ -213,7 +209,7 @@ impl Backend {
         .apply(build);
 
         if let Err(err) = node
-            .update_server(node_server_id, None, Some(build), None, None)
+            .update_server(node_server_id, None, Some(build), None, None, None)
             .await
         {
             error!("Node refused the resync of server {}: {err:?}", target.id);

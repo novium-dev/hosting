@@ -1,7 +1,6 @@
 {
   "shared": {
     "maintenance": "Maintenance",
-    "selectRegionPlaceholder": "Select a region",
     "protocol": "Protocol",
     "done": "Done"
   },
@@ -56,7 +55,9 @@
       "setupCodeTitle": "Setup code",
       "setupCodeDescription": "Start the agent with SETUP_URL and this code as SETUP_TOKEN. It is shown once and expires in an hour.",
       "setupCodeCopied": "Setup code copied",
-      "copyCodeButton": "Copy code"
+      "copyCodeButton": "Copy code",
+      "noGroups": "No groups exist yet. Create them on the groups page.",
+      "groupsDescription": "New databases prefer hosts that share a group with the nodes the project's servers run on."
     },
     "hostsTable": {
       "title": "Database hosts",
@@ -119,8 +120,6 @@
       "maintenanceToggleError": "Failed to update maintenance mode",
       "maintenanceEnabledToast": "Node maintenance has been enabled",
       "maintenanceDisabledToast": "Node maintenance has been disabled",
-      "regionError": "Failed to update region",
-      "regionSuccess": "Node region updated",
       "syncError": "Failed to sync node config",
       "syncSuccess": "Node config synced from daemon",
       "title": "Node Update",
@@ -129,12 +128,16 @@
       "maintenanceWarning": "Servers on this node are blocked while maintenance is enabled.",
       "maintenanceModeTitle": "Maintenance Mode",
       "maintenanceModeDescription": "Toggle maintenance mode for this node.",
-      "regionDescription": "The region this node belongs to.",
       "syncConfigTitle": "Sync Config",
       "syncConfigDescription": "Pull the current config from the running node (base URL, host/bind, storage and backup mappings) and reconcile it into the backend.",
       "syncButton": "Sync from Node",
       "backupStoragesLabel": "Backup Storages",
-      "serverStoragesLabel": "Server Storages"
+      "serverStoragesLabel": "Server Storages",
+      "overallocationTitle": "Overallocation",
+      "overallocationDescription": "How much of the node's cpu, memory, swap and disk automatic deploys may allocate, in percent of its hardware. 120% allows 20% more than the node has.",
+      "overallocationInvalid": "The overallocation must be a whole number between 1 and 1000.",
+      "overallocationSuccess": "Overallocation updated.",
+      "overallocationError": "Failed to update the overallocation."
     },
     "detailPage": {
       "backToList": "Back to node list",
@@ -145,16 +148,16 @@
       "unavailable": "Unavailable",
       "cpuValue": "{{used}} / {{count}} cores",
       "nodeIdDescription": "Node ID: {{id}}",
-      "disksTitle": "Disks",
-      "disksDescription": "Filesystems mounted on this node, as reported by the daemon.",
-      "disksEmpty": "The node did not report any disks.",
-      "disksReadonly": "Read-only",
-      "disksUsage": "{{used}} / {{total}} ({{percent}}%)",
-      "disksAvailable": "{{available}} free"
+      "storageTitle": "Storage",
+      "storageDescription": "Server and backup storage locations configured on this node.",
+      "storageEmpty": "The node did not report any storage.",
+      "storageServer": "Server",
+      "storageBackup": "Backup",
+      "storageUsage": "{{used}} / {{total}} ({{percent}}%)",
+      "storageAvailable": "{{available}} free"
     },
     "createDialog": {
       "createError": "Failed to create node",
-      "selectRegionError": "Select a region for the node",
       "invalidSshPortError": "SSH port must be a valid port number",
       "setupCodeCopied": "Setup code copied",
       "title": "Create Node",
@@ -162,7 +165,6 @@
       "setupCodeDescription": "Use this code when registering the new node. Keep it private.",
       "copyCodeButton": "Copy code",
       "description": "Configure the new node and generate its setup code.",
-      "noRegionsHint": "No regions yet — create one under Regions first.",
       "baseUrlLabel": "Base URL",
       "defaultHostHint": "Public host clients use to reach game servers on this node.",
       "sshHostLabel": "SSH Host",
@@ -208,6 +210,38 @@
       "blocked_other": "Move or delete its {{count}} servers first",
       "deleted": "Node deleted",
       "failed": "Failed to delete the node"
+    },
+    "groupsManager": {
+      "title": "Groups",
+      "description": "Groups this node belongs to. A group's limits on this node are shared by its servers here, and a parent group's limits also apply to its subgroups.",
+      "addButton": "Add to group",
+      "manageGroupsLink": "Manage groups",
+      "empty": "This node isn't in any group yet.",
+      "loadError": "Failed to load the node's groups.",
+      "columns": {
+        "servers": "Servers"
+      },
+      "unlimited": "Unlimited",
+      "cores": "{{value}} cores",
+      "createTitle": "Add node to group",
+      "editTitle": "Limits of {{name}} on this node",
+      "dialogDescription": "Limits left empty are unlimited.",
+      "groupLabel": "Group",
+      "selectGroupPlaceholder": "Select a group",
+      "noGroupsAvailable": "This node is already in every group. Create new groups on the groups page.",
+      "cpuLabel": "CPU (cores)",
+      "ramLabel": "Memory (MiB)",
+      "swapLabel": "Swap (MiB)",
+      "invalidLimits": "Limits must be positive numbers, memory and swap in whole MiB.",
+      "createSuccess": "Node added to the group.",
+      "createError": "Failed to add the node to the group.",
+      "updateSuccess": "Group limits updated.",
+      "updateError": "Failed to update the group limits.",
+      "deleteTitle": "Remove this node from {{name}}?",
+      "deleteDescription": "The node's servers in this group leave it and pick up the change on their next start.",
+      "deleteSuccess": "Node removed from the group.",
+      "deleteError": "Failed to remove the node from the group.",
+      "ownLimit": "Own limit: {{value}}"
     }
   },
   "servers": {
@@ -219,7 +253,9 @@
       "nodeLabel": "Node",
       "internetAccessLabel": "Internet Access",
       "backupLimitLabel": "Backup Limit",
-      "rangeExcluding": "{{base}} excluding {{exclude}}"
+      "rangeExcluding": "{{base}} excluding {{exclude}}",
+      "groupLabel": "Resource Group",
+      "noGroup": "No group"
     },
     "detailPage": {
       "addressUnavailable": "Address unavailable",
@@ -294,7 +330,8 @@
       "diskLimitLabel": "Disk Limit (MiB)",
       "customDockerfileLabel": "Custom Dockerfile",
       "customDockerfilePlaceholder": "Optional custom Dockerfile content",
-      "saveButton": "Save Admin Settings"
+      "saveButton": "Save Admin Settings",
+      "groupHint": "Group changes apply on the server's next start."
     },
     "deleteCard": {
       "title": "Delete Server",
@@ -422,6 +459,58 @@
       "refreshToast_one": "{{refreshed}} of {{count}} template cache refreshed",
       "refreshToast_other": "{{refreshed}} of {{count}} template caches refreshed",
       "refreshFailed": "Failed to refresh: {{templates}}"
+    }
+  },
+  "groups": {
+    "title": "Groups",
+    "description": "Share limits across nodes. Nodes join a group on their node page.",
+    "createButton": "Create group",
+    "searchPlaceholder": "Search groups or nodes",
+    "empty": "There are no groups yet.",
+    "emptyDescription": "Create a group, then assign nodes to it on the node's page.",
+    "noNodes": "No nodes",
+    "columns": {
+      "servers": "Servers",
+      "deployConfigs": "Deploy configs"
+    },
+    "createTitle": "Create group",
+    "createDescription": "The group takes effect once nodes are assigned to it.",
+    "namePlaceholder": "customers-acme",
+    "nameHint": "Letters, numbers and underscores. Use '-' to nest groups, up to 16 levels.",
+    "invalidName": "The group name is invalid.",
+    "createSuccess": "Group created.",
+    "createError": "Failed to create the group.",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteDescription": "The group is removed from all of its nodes. Its servers leave it and pick up the change on their next start. Groups used by deploy configs can't be deleted.",
+    "deleteSuccess": "Group deleted.",
+    "deleteError": "Failed to delete the group."
+  },
+  "deployConfigs": {
+    "title": "Deploy configs",
+    "description": "A template with its variables and resources, assigned to a group. Deploying a config picks the node in the group with the most free capacity, within the node's overallocation, and allocates its ports automatically.",
+    "createButton": "Create deploy config",
+    "empty": "There are no deploy configs yet.",
+    "loadError": "Failed to load the deploy configs.",
+    "groupLabel": "Group",
+    "resourcesLabel": "Resources",
+    "diskLabel": "Disk (MiB)",
+    "apiTitle": "Deploying",
+    "apiDescription": "Servers are deployed through the API with an API key that has the \"Deploy servers from deploy configs\" permission.",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteDescription": "Servers deployed from this config are not affected.",
+    "deleteSuccess": "Deploy config deleted.",
+    "deleteError": "Failed to delete the deploy config.",
+    "dialog": {
+      "createTitle": "Create deploy config",
+      "editTitle": "Edit {{name}}",
+      "description": "Changes only apply to servers deployed afterwards.",
+      "selectGroup": "Select a group",
+      "selectTemplate": "Select a template",
+      "missingFields": "Name, group and template are required.",
+      "invalidResources": "CPU and memory must be positive, swap, disk and backup limit whole numbers.",
+      "invalidVariables": "Fix the template variables before saving.",
+      "saveSuccess": "Deploy config saved.",
+      "saveError": "Failed to save the deploy config."
     }
   }
 }

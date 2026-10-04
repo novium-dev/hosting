@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 import { SortableTableHead } from "@/components/sortable-table-head";
+import { GroupBadges } from "@/components/group-badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,7 +39,6 @@ import {
   deleteNode,
   extendNodeRegistration,
   listNodeRegistrations,
-  listRegions,
   type ListNodesResponses,
 } from "@/lib/api";
 import {
@@ -49,7 +49,7 @@ import {
 
 type NodeRow = ListNodesResponses[200][number];
 
-type NodeColumn = "display" | "region" | "host" | "ports" | "servers" | "status";
+type NodeColumn = "display" | "groups" | "host" | "ports" | "servers" | "status";
 
 function formatExpiry(seconds: number) {
   const minutes = Math.floor(seconds / 60);
@@ -72,11 +72,6 @@ export function NodesTable({
   const [deleting, setDeleting] = useState<NodeRow | null>(null);
   const [isDeletePending, setIsDeletePending] = useState(false);
 
-  const { data: regions } = useSWR("admin/regions", async () => {
-    const response = await listRegions();
-    return response.error ? [] : (response.data ?? []);
-  });
-
   const { data: registrations, mutate: mutateRegistrations } = useSWR(
     "admin/node/registrations",
     async () => {
@@ -84,12 +79,6 @@ export function NodesTable({
       return response.error ? [] : (response.data ?? []);
     },
     { refreshInterval: 30_000 },
-  );
-
-  const regionNames = useMemo(
-    () =>
-      new Map((regions ?? []).map((region) => [region.id, region.display])),
-    [regions],
   );
 
   const normalizedQuery = query.trim().toLowerCase();
@@ -104,12 +93,12 @@ export function NodesTable({
         node.display.toLowerCase().includes(normalizedQuery) ||
         node.id.toLowerCase().includes(normalizedQuery) ||
         node.default_host.toLowerCase().includes(normalizedQuery) ||
-        (regionNames.get(node.region) ?? "")
-          .toLowerCase()
-          .includes(normalizedQuery)
+        node.groups.some((group) =>
+          group.toLowerCase().includes(normalizedQuery),
+        )
       );
     });
-  }, [nodes, normalizedQuery, regionNames]);
+  }, [nodes, normalizedQuery]);
 
   const filteredRegistrations = useMemo(() => {
     const pending: NodeRegistration[] = registrations ?? [];
@@ -122,24 +111,21 @@ export function NodesTable({
       return (
         registration.name.toLowerCase().includes(normalizedQuery) ||
         registration.code.toLowerCase().includes(normalizedQuery) ||
-        registration.default_host.toLowerCase().includes(normalizedQuery) ||
-        (regionNames.get(registration.region) ?? "")
-          .toLowerCase()
-          .includes(normalizedQuery)
+        registration.default_host.toLowerCase().includes(normalizedQuery)
       );
     });
-  }, [registrations, normalizedQuery, regionNames]);
+  }, [registrations, normalizedQuery]);
 
   const accessors = useMemo(
     () => ({
       display: (node: NodeRow) => node.display,
-      region: (node: NodeRow) => regionNames.get(node.region) ?? node.region,
+      groups: (node: NodeRow) => node.groups.length,
       host: (node: NodeRow) => node.default_host,
       ports: (node: NodeRow) => node.ports.length,
       servers: (node: NodeRow) => node.server_count,
       status: (node: NodeRow) => node.maintenance,
     }),
-    [regionNames],
+    [],
   );
 
   const { rows: sortedNodes, sort, toggle } = useTableSort<NodeRow, NodeColumn>(
@@ -229,8 +215,8 @@ export function NodesTable({
               <SortableTableHead column="display" sort={sort} onSort={toggle}>
                 {t("admin-infra:nodes.table.columns.display")}
               </SortableTableHead>
-              <SortableTableHead column="region" sort={sort} onSort={toggle}>
-                {t("common:labels.region")}
+              <SortableTableHead column="groups" sort={sort} onSort={toggle}>
+                {t("navigation:adminSidebar.items.groups")}
               </SortableTableHead>
               <SortableTableHead column="host" sort={sort} onSort={toggle}>
                 {t("admin-infra:nodes.shared.defaultHost")}
@@ -290,10 +276,7 @@ export function NodesTable({
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      {regionNames.get(registration.region) ??
-                        registration.region}
-                    </TableCell>
+                    <TableCell className="text-muted-foreground">—</TableCell>
                     <TableCell className="font-mono text-xs">
                       {registration.default_host}
                     </TableCell>
@@ -345,7 +328,7 @@ export function NodesTable({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {regionNames.get(node.region) ?? node.region}
+                      <GroupBadges groups={node.groups} />
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {node.default_host}

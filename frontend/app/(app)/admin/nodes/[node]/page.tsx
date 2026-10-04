@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   Cpu,
   Database,
-  Globe2,
   HardDrive,
   MemoryStick,
   Network,
@@ -30,12 +29,13 @@ import { Progress } from "@/components/ui/progress";
 import {
   availablePorts,
   listNodes,
-  listRegions,
   metricsNode,
-  type ResourceDisk,
+  type MetricsNodeResponses,
+  type StorageUsageEntry,
 } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { hasManagementPermission, ManagementPermission } from "@/lib/permissions";
+import { NodeGroupsManager } from "./node-groups-manager";
 import { NodePortsManager } from "./node-ports-manager";
 import { NodeSettingsCard } from "./node-settings-card";
 
@@ -60,6 +60,30 @@ function formatBytes(value: number, t: TFunction) {
   return `${size.toFixed(2)} ${unit}`;
 }
 
+function formatMib(value: number, t: TFunction) {
+  return formatBytes(value * 1024 * 1024, t);
+}
+
+type StorageRow = {
+  kind: "server" | "backup";
+  id: string;
+  entry: StorageUsageEntry;
+};
+
+function storageRows(
+  metrics: MetricsNodeResponses[200] | null,
+): StorageRow[] {
+  if (!metrics) return [];
+  const rows = (kind: StorageRow["kind"], entries: Record<string, StorageUsageEntry>) =>
+    Object.entries(entries)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([id, entry]) => ({ kind, id, entry }));
+  return [
+    ...rows("server", metrics.storage.server),
+    ...rows("backup", metrics.storage.backup),
+  ];
+}
+
 export default function AdminNodeManagementPage() {
   const { t } = useTranslation();
   const { node = "" } = useParams<{ node: string }>();
@@ -75,18 +99,16 @@ export default function AdminNodeManagementPage() {
   const { data: bundle } = useSWR(
     canView && node ? ["admin-node", node] : null,
     async () => {
-      const [nodesResponse, metricsResponse, availableResponse, regionsResponse] =
+      const [nodesResponse, metricsResponse, availableResponse] =
         await Promise.all([
           listNodes(),
           metricsNode({ path: { node_id: node } }).catch(() => null),
           availablePorts({ path: { node_id: node } }),
-          listRegions(),
         ]);
       return {
         nodesResponse,
         metricsResponse,
         availableResponse,
-        regionsResponse,
       };
     },
   );
@@ -95,8 +117,7 @@ export default function AdminNodeManagementPage() {
   if (!session || !canView) return <NotFoundView />;
   if (!bundle) return null;
 
-  const { nodesResponse, metricsResponse, availableResponse, regionsResponse } =
-    bundle;
+  const { nodesResponse, metricsResponse, availableResponse } = bundle;
   const nodes = nodesResponse.error ? [] : (nodesResponse.data ?? []);
   const currentNode = nodes.find((entry) => entry.id === node) ?? null;
 
@@ -112,16 +133,8 @@ export default function AdminNodeManagementPage() {
     session.user.permissions,
     ManagementPermission.NODES_MANAGE,
   );
-  const regions = regionsResponse.error ? [] : (regionsResponse.data ?? []);
-  const disks = metrics?.disks ?? [];
-  const diskTotal = disks.reduce((sum, disk) => sum + disk.total, 0);
-  const diskUsedTotal = disks.reduce(
-    (sum, disk) => sum + Math.max(disk.total - disk.available, 0),
-    0,
-  );
-  const currentRegion = regions.find(
-    (region) => region.id === currentNode.region,
-  );
+  const storages = storageRows(metrics);
+  const serverStorages = storages.filter((row) => row.kind === "server");
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -160,11 +173,6 @@ export default function AdminNodeManagementPage() {
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <InfoCard
-              icon={Globe2}
-              title={t("common:labels.region")}
-              value={currentRegion?.display ?? currentNode.region}
-            />
-            <InfoCard
               icon={Network}
               title={t("common:nav.network")}
               value={`${currentNode.default_host} (${currentNode.default_bind})`}
@@ -182,7 +190,7 @@ export default function AdminNodeManagementPage() {
               value={
                 metrics
                   ? t("admin-infra:nodes.detailPage.cpuValue", {
-                      used: metrics.cpu_used.toFixed(2),
+                      used: metrics.system.cpu_used.toFixed(2),
                       count: metrics.cpu_count.toFixed(0),
                     })
                   : t("admin-infra:nodes.detailPage.unavailable")
@@ -193,7 +201,7 @@ export default function AdminNodeManagementPage() {
               title={t("common:resources.memory")}
               value={
                 metrics
-                  ? `${formatBytes(metrics.mem_used, t)} / ${formatBytes(metrics.mem_total, t)}`
+                  ? `${formatMib(metrics.system.mem_used, t)} / ${formatMib(metrics.mem_total, t)}`
                   : t("admin-infra:nodes.detailPage.unavailable")
               }
             />
@@ -202,16 +210,7 @@ export default function AdminNodeManagementPage() {
               title={t("admin-infra:nodes.detailPage.swapLabel")}
               value={
                 metrics
-                  ? `${formatBytes(metrics.swap_used, t)} / ${formatBytes(metrics.swap_total, t)}`
-                  : t("admin-infra:nodes.detailPage.unavailable")
-              }
-            />
-            <InfoCard
-              icon={HardDrive}
-              title={t("common:resources.disk")}
-              value={
-                disks.length > 0
-                  ? `${formatBytes(diskUsedTotal, t)} / ${formatBytes(diskTotal, t)}`
+                  ? `${formatMib(metrics.system.swap_used, t)} / ${formatMib(metrics.swap_total, t)}`
                   : t("admin-infra:nodes.detailPage.unavailable")
               }
             />
@@ -219,7 +218,13 @@ export default function AdminNodeManagementPage() {
         </CardHeader>
       </Card>
 
-      {metrics && <DisksCard disks={disks} />}
+      {metrics && <StorageCard storages={storages} />}
+
+      <NodeGroupsManager
+        nodeId={currentNode.id}
+        groupUsage={metrics?.groups ?? null}
+        canManage={canManageNodes}
+      />
 
       <NodePortsManager
         nodeId={currentNode.id}
@@ -236,8 +241,7 @@ export default function AdminNodeManagementPage() {
         backupStorages={currentNode.backup_storages}
         serverStorages={currentNode.server_storages}
         initialMaintenance={currentNode.maintenance}
-        initialRegion={currentNode.region}
-        regions={regions}
+        initialOverallocation={currentNode.overallocation}
         canManage={canManageNodes}
       />
     </div>
@@ -264,49 +268,49 @@ function InfoCard({
   );
 }
 
-function DisksCard({ disks }: { disks: ResourceDisk[] }) {
+function StorageCard({ storages }: { storages: StorageRow[] }) {
   const { t } = useTranslation();
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t("admin-infra:nodes.detailPage.disksTitle")}</CardTitle>
+        <CardTitle>{t("admin-infra:nodes.detailPage.storageTitle")}</CardTitle>
         <CardDescription>
-          {t("admin-infra:nodes.detailPage.disksDescription")}
+          {t("admin-infra:nodes.detailPage.storageDescription")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {disks.length === 0 ? (
+        {storages.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {t("admin-infra:nodes.detailPage.disksEmpty")}
+            {t("admin-infra:nodes.detailPage.storageEmpty")}
           </p>
         ) : (
-          disks.map((disk) => {
-            const used = Math.max(disk.total - disk.available, 0);
-            const percent = disk.total > 0 ? (used / disk.total) * 100 : 0;
+          storages.map(({ kind, id, entry }) => {
+            const used = Math.max(entry.total - entry.available, 0);
+            const percent = entry.total > 0 ? (used / entry.total) * 100 : 0;
 
             return (
               <div
-                key={`${disk.mountpoint}-${disk.filesystem}`}
+                key={`${kind}-${id}`}
                 className="rounded-md border bg-muted/30 p-3"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <HardDrive className="size-4 text-muted-foreground" />
-                    <span className="font-mono text-sm font-medium">
-                      {disk.mountpoint}
+                    <span className="text-sm font-medium">{id}</span>
+                    <Badge variant="outline">
+                      {kind === "server"
+                        ? t("admin-infra:nodes.detailPage.storageServer")
+                        : t("admin-infra:nodes.detailPage.storageBackup")}
+                    </Badge>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {entry.path}
                     </span>
-                    <Badge variant="outline">{disk.filesystem}</Badge>
-                    {disk.readonly && (
-                      <Badge variant="secondary">
-                        {t("admin-infra:nodes.detailPage.disksReadonly")}
-                      </Badge>
-                    )}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {t("admin-infra:nodes.detailPage.disksUsage", {
-                      used: formatBytes(used, t),
-                      total: formatBytes(disk.total, t),
+                    {t("admin-infra:nodes.detailPage.storageUsage", {
+                      used: formatMib(used, t),
+                      total: formatMib(entry.total, t),
                       percent: percent.toFixed(1),
                     })}
                   </p>
@@ -324,8 +328,8 @@ function DisksCard({ disks }: { disks: ResourceDisk[] }) {
                 />
 
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {t("admin-infra:nodes.detailPage.disksAvailable", {
-                    available: formatBytes(disk.available, t),
+                  {t("admin-infra:nodes.detailPage.storageAvailable", {
+                    available: formatMib(entry.available, t),
                   })}
                 </p>
               </div>

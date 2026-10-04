@@ -11,13 +11,14 @@ use zelus::service;
 
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
-use crate::db::node::{NodePortAllocation, replace_storages};
-use crate::db::region::RegionId;
+use crate::db::group::GroupLimits;
+use crate::db::node::{NodePortAllocation, replace_storages, used_ports};
 use crate::db::server::ports::NetworkProtocol;
 use crate::service::admin::node::node_admin_service_error::{
     AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodeError, DeleteNodePortError,
-    ExtendNodeRegistrationError, ListNodeRegistrationsError, ListNodesError, MetricsNodeError,
-    UpdateMaintenanceError, UpdateNodeError, UpdateNodeRegionError, UpdateNodeRegistrationError,
+    ExtendNodeRegistrationError, ListNodeGroupsError, ListNodeRegistrationsError, ListNodesError,
+    MetricsNodeError, UpdateMaintenanceError, UpdateNodeError, UpdateNodeOverallocationError,
+    UpdateNodeRegistrationError,
 };
 use crate::service::error_os_failure::FromOsFailure;
 use crate::service::internal::REGISTRATION_TIMEOUT;
@@ -32,12 +33,13 @@ use utoipa::ToSchema;
 define_path_variable!(node_id "The node identifier");
 define_path_variable!(code "The node registration code");
 
+const MAX_OVERALLOCATION: u16 = 1000;
+
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct NodeInfo {
     pub(crate) id: Uuid,
     pub(crate) display: String,
     pub(crate) maintenance: bool,
-    pub(crate) region: RegionId,
     pub(crate) default_bind: String,
     pub(crate) default_host: String,
     pub(crate) ssh_host: Option<String>,
@@ -45,6 +47,15 @@ pub(crate) struct NodeInfo {
     pub(crate) server_storages: Vec<String>,
     pub(crate) backup_storages: Vec<String>,
     pub(crate) ports: Vec<NodePortAllocation>,
+    pub(crate) server_count: i64,
+    pub(crate) overallocation: u16,
+    pub(crate) groups: Vec<String>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct NodeGroupInfo {
+    pub(crate) name: String,
+    pub(crate) limits: GroupLimits,
     pub(crate) server_count: i64,
 }
 
@@ -68,7 +79,6 @@ pub struct SetupNodeConfigRequest {
 pub(crate) struct NodeRegistrationInfo {
     pub(crate) code: String,
     pub(crate) name: String,
-    pub(crate) region: RegionId,
     pub(crate) base_url: Url,
     pub(crate) default_host: String,
     pub(crate) ssh: Option<SshEndpointRequest>,
@@ -94,22 +104,14 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("", method = PUT)]
-    #[error(auth::{permission_denied, unreachable}, os::failure, node::invalid_host, region::not_found <- [sql:not_found], db::failure <- [sql:*])]
+    #[error(auth::{permission_denied, unreachable}, os::failure, node::invalid_host, db::failure <- [sql:*])]
     async fn create_node(
         &self,
         #[special] auth: Authentication,
         name: String,
-        region: RegionId,
         config: SetupNodeConfigRequest,
     ) -> Result<String, _> {
         auth.require::<_, _, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
-
-        query!(
-            r#"SELECT id AS "id: RegionId" FROM regions WHERE id = $1"#,
-            &region
-        )
-        .fetch_one(&*self.database)
-        .await?;
 
         let code = gen_code::<CreateNodeError>()?;
 
@@ -138,7 +140,6 @@ pub(crate) impl NodeAdminService for Backend {
             time: Instant::now(),
             name,
             default_host: config.default_host,
-            region,
             config: final_config,
         };
 
@@ -221,6 +222,14 @@ pub(crate) impl NodeAdminService for Backend {
                 .map(|row| (row.node, row.count))
                 .collect();
 
+        let mut groups: HashMap<Uuid, Vec<String>> = HashMap::new();
+        for row in query!("SELECT node, group_name FROM node_groups ORDER BY group_name")
+            .fetch_all(&*self.database)
+            .await?
+        {
+            groups.entry(row.node).or_default().push(row.group_name);
+        }
+
         Ok(self
             .nodes
             .read()
@@ -230,7 +239,6 @@ pub(crate) impl NodeAdminService for Backend {
                 id: node.id,
                 display: node.display.clone(),
                 maintenance: node.maintenance,
-                region: node.region,
                 default_bind: node.default_bind.clone(),
                 default_host: node.default_host.clone(),
                 ssh_host: node.ssh_host.clone(),
@@ -239,6 +247,8 @@ pub(crate) impl NodeAdminService for Backend {
                 backup_storages: node.backup_storages.clone(),
                 ports: node.ports.clone(),
                 server_count: server_counts.get(&node.id).copied().unwrap_or_default(),
+                overallocation: node.overallocation,
+                groups: groups.remove(&node.id).unwrap_or_default(),
             })
             .collect())
     }
@@ -266,7 +276,6 @@ pub(crate) impl NodeAdminService for Backend {
             .map(|(code, registration)| NodeRegistrationInfo {
                 code: code.clone(),
                 name: registration.name.clone(),
-                region: registration.region,
                 base_url: registration.config.base_url.clone(),
                 default_host: registration.default_host.clone(),
                 ssh: registration
@@ -294,23 +303,15 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("/registrations/{code}", method = PATCH)]
-    #[error(node::{not_found, invalid_host}, auth::{permission_denied, unreachable}, region::not_found <- [sql:not_found], db::failure <- [sql:*])]
+    #[error(node::{not_found, invalid_host}, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn update_node_registration(
         &self,
         #[special] auth: Authentication,
         code: String,
         name: String,
-        region: RegionId,
         config: SetupNodeConfigRequest,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateNodeRegistrationError>((), ManagementPermissions::NODES_MANAGE)?;
-
-        query!(
-            r#"SELECT id AS "id: RegionId" FROM regions WHERE id = $1"#,
-            &region
-        )
-        .fetch_one(&*self.database)
-        .await?;
 
         let ssh = config
             .ssh
@@ -330,7 +331,6 @@ pub(crate) impl NodeAdminService for Backend {
             .filter(|registration| registration.time.elapsed() < REGISTRATION_TIMEOUT)
             .map(|registration| {
                 registration.name = name;
-                registration.region = region;
                 registration.default_host = config.default_host;
                 registration.config.base_url = config.base_url;
                 registration.config.ssh = ssh;
@@ -442,44 +442,6 @@ pub(crate) impl NodeAdminService for Backend {
         .await
     }
 
-    /// Moves a node into another region.
-    ///
-    /// # Permissions
-    /// Requires [`ManagementPermissions::NODES_MANAGE`].
-    #[route("/{node_id}/region", method = PATCH)]
-    #[error(node::not_found, region::not_found <- [sql:foreign_key], auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
-    async fn update_node_region(
-        &self,
-        #[special] auth: Authentication,
-        node_id: Uuid,
-        region: RegionId,
-    ) -> Result<(), _> {
-        auth.require::<_, _, UpdateNodeRegionError>((), ManagementPermissions::NODES_MANAGE)?;
-
-        if self.nodes.read().await.get(&node_id).is_none() {
-            return Err(UpdateNodeRegionError::NodeNotFound);
-        }
-
-        let mut conn = self.database.acquire().await?;
-        let backend = self.clone();
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                query!(
-                    "UPDATE nodes SET region = $1 WHERE id = $2",
-                    &region,
-                    node_id
-                )
-                .execute(&mut **tx)
-                .await?;
-
-                backend.sync_nodes(tx).await?;
-
-                Ok::<_, UpdateNodeRegionError>(())
-            })
-        })
-        .await
-    }
-
     /// Gets live resource usage for a node.
     ///
     /// # Permissions
@@ -538,25 +500,7 @@ pub(crate) impl NodeAdminService for Backend {
             .cloned()
             .ok_or(AvailablePortsError::NodeNotFound)?;
 
-        let mut used: HashMap<NetworkProtocol, HashSet<u16>> = HashMap::new();
-        for row in query!(
-            r#"SELECT
-                   server_ports.protocol AS "protocol: NetworkProtocol",
-                   lower(server_ports.external_port) AS "external_port_start!",
-                   upper(server_ports.external_port) - 1 AS "external_port_end!"
-               FROM servers
-               JOIN server_ports ON server_ports.server = servers.id
-               WHERE servers.node = $1"#,
-            node_id
-        )
-        .fetch_all(&*self.database)
-        .await?
-        {
-            used.entry(row.protocol).or_default().extend(
-                (row.external_port_start..=row.external_port_end)
-                    .filter_map(|port| u16::try_from(port).ok()),
-            );
-        }
+        let used = used_ports(&*self.database, node_id).await?;
 
         let mut result: HashMap<String, Vec<PortRange>> = HashMap::new();
         for port in &node.ports {
@@ -692,6 +636,95 @@ pub(crate) impl NodeAdminService for Backend {
                 backend.sync_nodes(tx).await?;
 
                 Ok::<_, DeleteNodePortError>(())
+            })
+        })
+        .await
+    }
+    /// Lists the groups the node is assigned to, with the limits each group has on this node
+    /// and the number of the node's servers in it.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_VIEW`].
+    #[route("/{node_id}/groups", method = GET)]
+    #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn list_node_groups(
+        &self,
+        #[special] auth: Authentication,
+        node_id: Uuid,
+    ) -> Result<Vec<NodeGroupInfo>, _> {
+        auth.require::<_, _, ListNodeGroupsError>((), ManagementPermissions::NODES_VIEW)?;
+
+        if self.nodes.read().await.get(&node_id).is_none() {
+            return Err(ListNodeGroupsError::NodeNotFound);
+        }
+
+        Ok(query!(
+            r#"SELECT node_groups.group_name, node_groups.cpu, node_groups.ram, node_groups.swap,
+                      COUNT(servers.id) AS "server_count!"
+               FROM node_groups
+               LEFT JOIN servers ON servers.node = node_groups.node AND servers.node_group = node_groups.group_name
+               WHERE node_groups.node = $1
+               GROUP BY node_groups.node, node_groups.group_name
+               ORDER BY node_groups.group_name"#,
+            node_id
+        )
+        .fetch_all(&*self.database)
+        .await?
+        .into_iter()
+        .map(|row| NodeGroupInfo {
+            name: row.group_name,
+            limits: GroupLimits {
+                cpu: row.cpu,
+                ram: row.ram.map(i32::cast_unsigned),
+                swap: row.swap.map(i32::cast_unsigned),
+            },
+            server_count: row.server_count,
+        })
+        .collect())
+    }
+
+    /// Sets how far the node may be allocated beyond its hardware when servers are deployed
+    /// automatically, in percent. `120` allows 20% more cpu, memory, swap and disk to be
+    /// allocated than the node has.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
+    #[route("/{node_id}/overallocation", method = PATCH)]
+    #[error(node::{not_found, overallocation_invalid}, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn update_node_overallocation(
+        &self,
+        #[special] auth: Authentication,
+        node_id: Uuid,
+        overallocation: u16,
+    ) -> Result<(), _> {
+        auth.require::<_, _, UpdateNodeOverallocationError>(
+            (),
+            ManagementPermissions::NODES_MANAGE,
+        )?;
+
+        if !(1..=MAX_OVERALLOCATION).contains(&overallocation) {
+            return Err(UpdateNodeOverallocationError::NodeOverallocationInvalid);
+        }
+
+        if self.nodes.read().await.get(&node_id).is_none() {
+            return Err(UpdateNodeOverallocationError::NodeNotFound);
+        }
+
+        let mut conn = self.database.acquire().await?;
+        let backend = self.clone();
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                query!(
+                    "UPDATE nodes SET overallocation = $1 WHERE id = $2",
+                    i32::from(overallocation),
+                    node_id
+                )
+                .execute(&mut **tx)
+                .await?;
+
+                backend.sync_nodes(tx).await?;
+
+                Ok::<_, UpdateNodeOverallocationError>(())
             })
         })
         .await

@@ -240,6 +240,11 @@ bitflags! {
         /// nodes and its database hosts, and to read the reports they produce.
         ///
         const INTEGRITY_VIEW = 1 << 52;
+
+        /// Allows the user to deploy servers from deploy configs into any project. The node is
+        /// picked automatically from the config's group.
+        ///
+        const SERVER_DEPLOY = 1 << 44;
     }
 }
 

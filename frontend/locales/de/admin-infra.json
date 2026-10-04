@@ -1,7 +1,6 @@
 {
   "shared": {
     "maintenance": "Wartung",
-    "selectRegionPlaceholder": "Region auswählen",
     "protocol": "Protokoll",
     "done": "Fertig"
   },
@@ -56,7 +55,9 @@
       "setupCodeTitle": "Setup-Code",
       "setupCodeDescription": "Starte den Agent mit SETUP_URL und diesem Code als SETUP_TOKEN. Er wird nur einmal angezeigt und läuft in einer Stunde ab.",
       "setupCodeCopied": "Setup-Code kopiert",
-      "copyCodeButton": "Code kopieren"
+      "copyCodeButton": "Code kopieren",
+      "noGroups": "Es gibt noch keine Gruppen. Erstelle sie auf der Gruppenseite.",
+      "groupsDescription": "Neue Datenbanken bevorzugen Hosts, die eine Gruppe mit den Nodes teilen, auf denen die Server des Projekts laufen."
     },
     "hostsTable": {
       "title": "Datenbank-Hosts",
@@ -119,8 +120,6 @@
       "maintenanceToggleError": "Der Wartungsmodus konnte nicht aktualisiert werden",
       "maintenanceEnabledToast": "Der Wartungsmodus für den Node wurde aktiviert",
       "maintenanceDisabledToast": "Der Wartungsmodus für den Node wurde deaktiviert",
-      "regionError": "Die Region konnte nicht aktualisiert werden",
-      "regionSuccess": "Node-Region aktualisiert",
       "syncError": "Die Node-Konfiguration konnte nicht synchronisiert werden",
       "syncSuccess": "Node-Konfiguration vom Daemon synchronisiert",
       "title": "Node-Update",
@@ -129,12 +128,16 @@
       "maintenanceWarning": "Server auf diesem Node sind blockiert, solange die Wartung aktiviert ist.",
       "maintenanceModeTitle": "Wartungsmodus",
       "maintenanceModeDescription": "Wartungsmodus für diesen Node umschalten.",
-      "regionDescription": "Die Region, zu der dieser Node gehört.",
       "syncConfigTitle": "Konfiguration synchronisieren",
       "syncConfigDescription": "Aktuelle Konfiguration vom laufenden Node abrufen (Basis-URL, Host/Bind, Speicher- und Backup-Zuordnungen) und mit dem Backend abgleichen.",
       "syncButton": "Von Node synchronisieren",
       "backupStoragesLabel": "Backup-Speicher",
-      "serverStoragesLabel": "Server-Speicher"
+      "serverStoragesLabel": "Server-Speicher",
+      "overallocationTitle": "Überbelegung",
+      "overallocationDescription": "Wie viel CPU, Arbeitsspeicher, Swap und Speicherplatz des Nodes automatische Deployments vergeben dürfen, in Prozent seiner Hardware. 120 % erlaubt 20 % mehr, als der Node hat.",
+      "overallocationInvalid": "Die Überbelegung muss eine ganze Zahl zwischen 1 und 1000 sein.",
+      "overallocationSuccess": "Überbelegung aktualisiert.",
+      "overallocationError": "Die Überbelegung konnte nicht aktualisiert werden."
     },
     "detailPage": {
       "backToList": "Zurück zur Node-Liste",
@@ -145,16 +148,16 @@
       "unavailable": "Nicht verfügbar",
       "cpuValue": "{{used}} / {{count}} Kerne",
       "nodeIdDescription": "Node-ID: {{id}}",
-      "disksTitle": "Datenträger",
-      "disksDescription": "Auf diesem Node eingehängte Dateisysteme, wie vom Daemon gemeldet.",
-      "disksEmpty": "Der Node hat keine Datenträger gemeldet.",
-      "disksReadonly": "Schreibgeschützt",
-      "disksUsage": "{{used}} / {{total}} ({{percent}}%)",
-      "disksAvailable": "{{available}} frei"
+      "storageTitle": "Speicher",
+      "storageDescription": "Auf diesem Node konfigurierte Server- und Backup-Speicherorte.",
+      "storageEmpty": "Der Node hat keinen Speicher gemeldet.",
+      "storageServer": "Server",
+      "storageBackup": "Backup",
+      "storageUsage": "{{used}} / {{total}} ({{percent}} %)",
+      "storageAvailable": "{{available}} frei"
     },
     "createDialog": {
       "createError": "Node konnte nicht erstellt werden",
-      "selectRegionError": "Bitte eine Region für den Node auswählen",
       "invalidSshPortError": "Der SSH-Port muss eine gültige Portnummer sein",
       "setupCodeCopied": "Einrichtungscode kopiert",
       "title": "Node erstellen",
@@ -162,7 +165,6 @@
       "setupCodeDescription": "Diesen Code beim Registrieren des neuen Nodes verwenden. Vertraulich behandeln.",
       "copyCodeButton": "Code kopieren",
       "description": "Den neuen Node konfigurieren und seinen Einrichtungscode erzeugen.",
-      "noRegionsHint": "Noch keine Regionen — zuerst eine unter Regionen anlegen.",
       "baseUrlLabel": "Basis-URL",
       "defaultHostHint": "Öffentlicher Host, über den Clients Spielserver auf diesem Node erreichen.",
       "sshHostLabel": "SSH-Host",
@@ -208,6 +210,38 @@
       "blocked_other": "Zuerst die {{count}} Server verschieben oder löschen",
       "deleted": "Node gelöscht",
       "failed": "Node konnte nicht gelöscht werden"
+    },
+    "groupsManager": {
+      "title": "Gruppen",
+      "description": "Gruppen, zu denen dieser Node gehört. Die Limits einer Gruppe auf diesem Node teilen sich ihre Server hier, und die Limits einer übergeordneten Gruppe gelten auch für ihre Untergruppen.",
+      "addButton": "Zu Gruppe hinzufügen",
+      "manageGroupsLink": "Gruppen verwalten",
+      "empty": "Dieser Node ist noch in keiner Gruppe.",
+      "loadError": "Die Gruppen des Nodes konnten nicht geladen werden.",
+      "columns": {
+        "servers": "Server"
+      },
+      "unlimited": "Unbegrenzt",
+      "cores": "{{value}} Kerne",
+      "createTitle": "Node zu Gruppe hinzufügen",
+      "editTitle": "Limits von {{name}} auf diesem Node",
+      "dialogDescription": "Leer gelassene Limits sind unbegrenzt.",
+      "groupLabel": "Gruppe",
+      "selectGroupPlaceholder": "Gruppe auswählen",
+      "noGroupsAvailable": "Dieser Node ist bereits in jeder Gruppe. Neue Gruppen werden auf der Gruppenseite erstellt.",
+      "cpuLabel": "CPU (Kerne)",
+      "ramLabel": "Arbeitsspeicher (MiB)",
+      "swapLabel": "Swap (MiB)",
+      "invalidLimits": "Limits müssen positive Zahlen sein, Arbeitsspeicher und Swap in ganzen MiB.",
+      "createSuccess": "Node zur Gruppe hinzugefügt.",
+      "createError": "Der Node konnte nicht zur Gruppe hinzugefügt werden.",
+      "updateSuccess": "Gruppenlimits aktualisiert.",
+      "updateError": "Die Gruppenlimits konnten nicht aktualisiert werden.",
+      "deleteTitle": "Diesen Node aus {{name}} entfernen?",
+      "deleteDescription": "Die Server des Nodes in dieser Gruppe verlassen sie und übernehmen die Änderung beim nächsten Start.",
+      "deleteSuccess": "Node aus der Gruppe entfernt.",
+      "deleteError": "Der Node konnte nicht aus der Gruppe entfernt werden.",
+      "ownLimit": "Eigenes Limit: {{value}}"
     }
   },
   "servers": {
@@ -219,7 +253,9 @@
       "nodeLabel": "Node",
       "internetAccessLabel": "Internetzugang",
       "backupLimitLabel": "Backup-Limit",
-      "rangeExcluding": "{{base}} ausgenommen {{exclude}}"
+      "rangeExcluding": "{{base}} ausgenommen {{exclude}}",
+      "groupLabel": "Ressourcengruppe",
+      "noGroup": "Keine Gruppe"
     },
     "detailPage": {
       "addressUnavailable": "Adresse nicht verfügbar",
@@ -294,7 +330,8 @@
       "diskLimitLabel": "Speicherlimit (MiB)",
       "customDockerfileLabel": "Benutzerdefiniertes Dockerfile",
       "customDockerfilePlaceholder": "Optionaler Inhalt für ein benutzerdefiniertes Dockerfile",
-      "saveButton": "Admin-Einstellungen speichern"
+      "saveButton": "Admin-Einstellungen speichern",
+      "groupHint": "Gruppenänderungen werden beim nächsten Start des Servers übernommen."
     },
     "deleteCard": {
       "title": "Server löschen",
@@ -422,6 +459,58 @@
       "refreshToast_one": "{{refreshed}} von {{count}} Template-Cache aktualisiert",
       "refreshToast_other": "{{refreshed}} von {{count}} Template-Caches aktualisiert",
       "refreshFailed": "Aktualisierung fehlgeschlagen: {{templates}}"
+    }
+  },
+  "groups": {
+    "title": "Gruppen",
+    "description": "Gemeinsame Limits über Nodes hinweg. Nodes treten einer Gruppe auf ihrer Node-Seite bei.",
+    "createButton": "Gruppe erstellen",
+    "searchPlaceholder": "Gruppen oder Nodes suchen",
+    "empty": "Es gibt noch keine Gruppen.",
+    "emptyDescription": "Erstelle eine Gruppe und füge ihr anschließend auf der jeweiligen Node-Seite Nodes hinzu.",
+    "noNodes": "Keine Nodes",
+    "columns": {
+      "servers": "Server",
+      "deployConfigs": "Deploy-Konfigurationen"
+    },
+    "createTitle": "Gruppe erstellen",
+    "createDescription": "Die Gruppe wird wirksam, sobald ihr Nodes zugewiesen sind.",
+    "namePlaceholder": "customers-acme",
+    "nameHint": "Buchstaben, Zahlen und Unterstriche. Mit '-' werden Gruppen verschachtelt, bis zu 16 Ebenen.",
+    "invalidName": "Der Gruppenname ist ungültig.",
+    "createSuccess": "Gruppe erstellt.",
+    "createError": "Die Gruppe konnte nicht erstellt werden.",
+    "deleteTitle": "{{name}} löschen?",
+    "deleteDescription": "Die Gruppe wird von allen ihren Nodes entfernt. Ihre Server verlassen sie und übernehmen die Änderung beim nächsten Start. Gruppen, die von Deploy-Konfigurationen verwendet werden, können nicht gelöscht werden.",
+    "deleteSuccess": "Gruppe gelöscht.",
+    "deleteError": "Die Gruppe konnte nicht gelöscht werden."
+  },
+  "deployConfigs": {
+    "title": "Deploy-Konfigurationen",
+    "description": "Ein Template mit seinen Variablen und Ressourcen, einer Gruppe zugewiesen. Beim Deployment wird der Node der Gruppe mit der meisten freien Kapazität innerhalb seiner Überbelegung gewählt und die Ports werden automatisch vergeben.",
+    "createButton": "Deploy-Konfiguration erstellen",
+    "empty": "Es gibt noch keine Deploy-Konfigurationen.",
+    "loadError": "Die Deploy-Konfigurationen konnten nicht geladen werden.",
+    "groupLabel": "Gruppe",
+    "resourcesLabel": "Ressourcen",
+    "diskLabel": "Speicherplatz (MiB)",
+    "apiTitle": "Deployment",
+    "apiDescription": "Server werden über die API mit einem API-Schlüssel deployt, der die Berechtigung \"Deploy servers from deploy configs\" hat.",
+    "deleteTitle": "{{name}} löschen?",
+    "deleteDescription": "Server, die aus dieser Konfiguration deployt wurden, sind nicht betroffen.",
+    "deleteSuccess": "Deploy-Konfiguration gelöscht.",
+    "deleteError": "Die Deploy-Konfiguration konnte nicht gelöscht werden.",
+    "dialog": {
+      "createTitle": "Deploy-Konfiguration erstellen",
+      "editTitle": "{{name}} bearbeiten",
+      "description": "Änderungen gelten nur für danach deployte Server.",
+      "selectGroup": "Gruppe auswählen",
+      "selectTemplate": "Template auswählen",
+      "missingFields": "Name, Gruppe und Template sind erforderlich.",
+      "invalidResources": "CPU und Arbeitsspeicher müssen positiv sein, Swap, Speicherplatz und Backup-Limit ganze Zahlen.",
+      "invalidVariables": "Bitte die Template-Variablen korrigieren, bevor gespeichert wird.",
+      "saveSuccess": "Deploy-Konfiguration gespeichert.",
+      "saveError": "Die Deploy-Konfiguration konnte nicht gespeichert werden."
     }
   }
 }
