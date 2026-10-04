@@ -78,7 +78,6 @@ impl Backend {
                         suspended AS "suspended: bool",
                         suspension_reason,
                         custom_dockerfile,
-                        custom_startup,
                         custom_environment AS "custom_environment: JsonValue",
                         env_file_enabled AS "env_file_enabled: bool",
                         env_file_path,
@@ -122,7 +121,6 @@ impl Backend {
                     suspended: server.suspended,
                     suspension_reason: server.suspension_reason,
                     custom_dockerfile: server.custom_dockerfile,
-                    custom_startup: server.custom_startup,
                     custom_environment: serde_json::from_value(server.custom_environment)
                         .unwrap_or_else(|err| {
                             warn!(

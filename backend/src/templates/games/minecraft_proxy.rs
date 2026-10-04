@@ -556,10 +556,6 @@ impl Template for MinecraftProxyTemplate {
         true
     }
 
-    fn supports_custom_startup(&self) -> bool {
-        true
-    }
-
     async fn init(&self, _redis_client: ConnectionManager) -> Result<(), RedisError> {
         Ok(())
     }

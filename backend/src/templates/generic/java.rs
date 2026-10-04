@@ -284,10 +284,6 @@ impl Template for JavaTemplate {
         true
     }
 
-    fn supports_custom_startup(&self) -> bool {
-        true
-    }
-
     fn supports_custom_environment(&self) -> bool {
         true
     }

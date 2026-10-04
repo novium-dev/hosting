@@ -459,15 +459,7 @@
     "loading": "Startkonfiguration wird geladen...",
     "warning": {
       "title": "Erweiterte Einstellungen",
-      "description": "Diese Einstellungen bestimmen, wie der Serverprozess gestartet wird. Ein falscher Befehl oder eine falsche Variable kann verhindern, dass der Server überhaupt startet — ändere sie nur, wenn du weißt, was sie bewirken."
-    },
-    "command": {
-      "title": "Startbefehl",
-      "dialogTitle": "Startbefehl bearbeiten",
-      "customBadge": "Angepasst",
-      "description": "Der Befehl, den der Server ausführt, sobald seine Dateien bereitstehen. Umgebungsvariablen wie $MAIN_FILE werden beim Start eingesetzt.",
-      "defaultLabel": "Standard der Vorlage:",
-      "resetButton": "Auf Standard zurücksetzen"
+      "description": "Diese Einstellungen bestimmen, wie der Serverprozess gestartet wird. Eine falsche Variable kann verhindern, dass der Server überhaupt startet — ändere sie nur, wenn du weißt, was sie bewirken."
     },
     "environment": {
       "title": "Umgebungsvariablen",
@@ -513,7 +505,6 @@
     },
     "toasts": {
       "loadFailed": "Startkonfiguration konnte nicht geladen werden",
-      "commandSaved": "Startbefehl aktualisiert",
       "environmentSaved": "Umgebungsvariablen aktualisiert",
       "environmentInvalid": "Korrigiere die ungültigen Umgebungsvariablen vor dem Speichern",
       "saveFailed": "Startkonfiguration konnte nicht gespeichert werden"

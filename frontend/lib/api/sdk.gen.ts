@@ -173,11 +173,10 @@ export const updateVariables = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
- *  Gets the server's startup command and its custom environment variables.
+ *  Gets the server's custom environment variables.
  *
- *  Gets the server's startup command and its custom environment variables.<br/>
+ *  Gets the server's custom environment variables.<br/>
  * <br/>
- * `command` is what the server runs today, `default_command` what its template defines.<br/>
  * `reserved_environment` lists the names the template and the port allocation own, which<br/>
  * a custom variable cannot take over. When `env_file_enabled` is set, the server sources<br/>
  * `env_file_path` from its working directory right before the startup command runs; the file<br/>
@@ -189,13 +188,12 @@ export const updateVariables = <ThrowOnError extends boolean = false>(options: O
 export const serverStartup = <ThrowOnError extends boolean = false>(options: Options<ServerStartupData, ThrowOnError>) => (options.client ?? client).get<ServerStartupResponses, ServerStartupErrors, ThrowOnError>({ url: '/server/{server_id}/startup', ...options });
 
 /**
- *  Updates the server's startup command and its custom environment variables, then pushes
+ *  Updates the server's custom environment variables, then pushes the resulting build to its
  *
- *  Updates the server's startup command and its custom environment variables, then pushes<br/>
- * the resulting build to its node.<br/>
+ *  Updates the server's custom environment variables, then pushes the resulting build to its<br/>
+ * node.<br/>
  * <br/>
- * An empty `command` resets the server to the startup command of its template. Omitting a<br/>
- * field leaves it untouched, while `environment` replaces the whole set of custom variables.<br/>
+ * Omitting a field leaves it untouched, while `environment` replaces the whole set of custom variables.<br/>
  * `env_file_path` must be a relative path inside the server directory; it is only sourced<br/>
  * while `env_file_enabled` is set, and a missing file is skipped rather than failing the start.<br/>
  * The variables the build already defines are restored after the file is sourced, so the file<br/>

@@ -1,7 +1,7 @@
 use crate::db::node::BackendNode;
 use crate::db::project::ProjectId;
 use crate::define_id;
-use crate::templates::{ENV_FILE_ENVIRONMENT, STARTUP_COMMAND_ENVIRONMENT, TemplateInner};
+use crate::templates::{ENV_FILE_ENVIRONMENT, TemplateInner};
 use daemon_common::service::server::{ServerBuildImage, ServerBuildPayload};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -25,7 +25,6 @@ pub struct Server {
     pub template: Arc<dyn TemplateInner + Send + Sync>,
     pub template_extra: Value,
     pub custom_dockerfile: Option<String>,
-    pub custom_startup: Option<String>,
     pub custom_environment: HashMap<String, String>,
     pub env_file_enabled: bool,
     pub env_file_path: String,
@@ -44,7 +43,6 @@ pub struct ServerCustomization<'a> {
     pub server: ServerId,
     pub template: &'a (dyn TemplateInner + Send + Sync),
     pub dockerfile: Option<&'a str>,
-    pub startup: Option<&'a str>,
     pub environment: &'a HashMap<String, String>,
     pub env_file: Option<&'a str>,
 }
@@ -65,14 +63,6 @@ impl ServerCustomization<'_> {
                     .environment
                     .insert(ENV_FILE_ENVIRONMENT.to_owned(), env_file.to_owned());
             }
-        }
-
-        if self.template.supports_custom_startup()
-            && let Some(startup) = self.startup
-        {
-            build
-                .environment
-                .insert(STARTUP_COMMAND_ENVIRONMENT.to_owned(), startup.to_owned());
         }
 
         if let Some(dockerfile) = self.dockerfile {
@@ -98,7 +88,6 @@ impl Server {
             server: self.id,
             template: &*self.template,
             dockerfile: self.custom_dockerfile.as_deref(),
-            startup: self.custom_startup.as_deref(),
             environment: &self.custom_environment,
             env_file: self.env_file_enabled.then_some(self.env_file_path.as_str()),
         }

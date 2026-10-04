@@ -76,10 +76,6 @@ pub trait Template {
 
     fn default_internet_access(&self) -> bool;
 
-    fn supports_custom_startup(&self) -> bool {
-        false
-    }
-
     fn supports_custom_environment(&self) -> bool {
         false
     }
@@ -204,8 +200,6 @@ pub trait TemplateInner {
     async fn refresh_cache(&self, cache_client: ConnectionManager) -> Result<(), io::Error>;
 
     fn default_internet_access(&self) -> bool;
-
-    fn supports_custom_startup(&self) -> bool;
 
     fn supports_custom_environment(&self) -> bool;
 
@@ -512,10 +506,6 @@ impl<T: Template + Send + Sync> TemplateInner for T {
 
     fn default_internet_access(&self) -> bool {
         <Self as Template>::default_internet_access(self)
-    }
-
-    fn supports_custom_startup(&self) -> bool {
-        <Self as Template>::supports_custom_startup(self)
     }
 
     fn supports_custom_environment(&self) -> bool {

@@ -265,7 +265,6 @@ pub(crate) impl ServerAdminService for Backend {
         let build = ServerCustomization {
             template: &*template,
             dockerfile: None,
-            startup: None,
             ..server.customization()
         }
         .apply(build);
@@ -304,7 +303,7 @@ pub(crate) impl ServerAdminService for Backend {
             })?;
 
         query!(
-            "UPDATE servers SET template = $1, template_extra = $2, custom_dockerfile = NULL, custom_startup = NULL WHERE id = $3",
+            "UPDATE servers SET template = $1, template_extra = $2, custom_dockerfile = NULL WHERE id = $3",
             template.id(),
             &extra,
             &server_id

@@ -833,10 +833,6 @@ impl Template for MinecraftTemplate {
         true
     }
 
-    fn supports_custom_startup(&self) -> bool {
-        true
-    }
-
     fn licenses(&self) -> &'static [&'static License] {
         &[&MINECRAFT_EULA]
     }

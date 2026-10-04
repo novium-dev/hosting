@@ -6,7 +6,6 @@ import {
   Loader2,
   Pencil,
   Plus,
-  RotateCcw,
   FileCode,
   Save,
   Trash2,
@@ -16,7 +15,6 @@ import { toast } from "sonner";
 import { Trans, useTranslation } from "react-i18next";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -82,10 +80,6 @@ export function StartupConfiguration({
 
   const [payload, setPayload] = useState<StartupPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  const [commandOpen, setCommandOpen] = useState(false);
-  const [commandDraft, setCommandDraft] = useState("");
-  const [isSavingCommand, setIsSavingCommand] = useState(false);
 
   const [environmentOpen, setEnvironmentOpen] = useState(false);
   const [rows, setRows] = useState<EnvironmentRow[]>([]);
@@ -202,11 +196,6 @@ export function StartupConfiguration({
     return valid ? null : t("servers:startupConfig.envFile.errors.path");
   }, [fileEnabled, filePath, t]);
 
-  const openCommandDialog = () => {
-    setCommandDraft(payload?.command.current ?? "");
-    setCommandOpen(true);
-  };
-
   const openEnvironmentDialog = () => {
     setRows(toRows(payload?.environment.variables ?? {}));
     setFileEnabled(payload?.environment.file_enabled ?? false);
@@ -214,36 +203,6 @@ export function StartupConfiguration({
     setImportOpen(false);
     setImportContent("");
     setEnvironmentOpen(true);
-  };
-
-  const saveCommand = async () => {
-    if (!payload) {
-      return;
-    }
-
-    setIsSavingCommand(true);
-
-    try {
-      const trimmed = commandDraft.trim();
-      const response = await updateStartup({
-        path: { server_id: serverId },
-        body: {
-          command: trimmed === payload.command.default.trim() ? "" : trimmed,
-        },
-      });
-
-      if (response.error) {
-        throw new Error(t("servers:startupConfig.toasts.saveFailed"));
-      }
-
-      await load();
-      setCommandOpen(false);
-      toast.success(t("servers:startupConfig.toasts.commandSaved"));
-    } catch {
-      toast.error(t("servers:startupConfig.toasts.saveFailed"));
-    } finally {
-      setIsSavingCommand(false);
-    }
   };
 
   const saveEnvironment = async () => {
@@ -345,7 +304,7 @@ export function StartupConfiguration({
     );
   }
 
-  if (!payload || (!payload.command.supported && !payload.environment.supported)) {
+  if (!payload?.environment.supported) {
     return null;
   }
 
@@ -363,41 +322,7 @@ export function StartupConfiguration({
         </AlertDescription>
       </Alert>
 
-      {payload.command.supported ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {t("servers:startupConfig.command.title")}
-              {payload.command.customized ? (
-                <Badge variant="secondary">
-                  {t("servers:startupConfig.command.customBadge")}
-                </Badge>
-              ) : null}
-            </CardTitle>
-            <CardDescription>
-              {t("servers:startupConfig.command.description")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <code className="block rounded-md bg-muted px-3 py-2 font-mono text-xs break-all whitespace-pre-wrap">
-              {payload.command.current}
-            </code>
-          </CardContent>
-          <CardFooter className="justify-end">
-            <Button
-              disabled={!canEdit}
-              onClick={openCommandDialog}
-              variant="outline"
-            >
-              <Pencil className="size-4" />
-              {t("common:actions.edit")}
-            </Button>
-          </CardFooter>
-        </Card>
-      ) : null}
-
-      {payload.environment.supported ? (
-        <Card>
+      <Card>
           <CardHeader>
             <CardTitle>
               {t("servers:startupConfig.environment.title")}
@@ -455,62 +380,7 @@ export function StartupConfiguration({
               {t("common:actions.edit")}
             </Button>
           </CardFooter>
-        </Card>
-      ) : null}
-
-      <Dialog onOpenChange={setCommandOpen} open={commandOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {t("servers:startupConfig.command.dialogTitle")}
-            </DialogTitle>
-            <DialogDescription>
-              {t("servers:startupConfig.warning.description")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="startup-command">
-              {t("servers:startupConfig.command.title")}
-            </Label>
-            <Textarea
-              className="min-h-32 font-mono text-xs"
-              id="startup-command"
-              onChange={(event) => setCommandDraft(event.target.value)}
-              spellCheck={false}
-              value={commandDraft}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("servers:startupConfig.command.defaultLabel")}
-            </p>
-            <code className="block rounded-md bg-muted px-3 py-2 font-mono text-xs break-all whitespace-pre-wrap">
-              {payload.command.default}
-            </code>
-          </div>
-          <DialogFooter className="sm:justify-between">
-            <Button
-              disabled={commandDraft === payload.command.default}
-              onClick={() => setCommandDraft(payload.command.default)}
-              variant="outline"
-            >
-              <RotateCcw className="size-4" />
-              {t("servers:startupConfig.command.resetButton")}
-            </Button>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button onClick={() => setCommandOpen(false)} variant="ghost">
-                {t("common:actions.cancel")}
-              </Button>
-              <Button
-                disabled={commandDraft.trim().length === 0}
-                loading={isSavingCommand}
-                onClick={saveCommand}
-              >
-                <Save className="size-4" />
-                {t("common:actions.save")}
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </Card>
 
       <Dialog onOpenChange={setEnvironmentOpen} open={environmentOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">

@@ -19,7 +19,7 @@ use crate::service::server::server_service_error::{
 };
 use crate::service::template::*;
 use crate::templates::variable::VariablePayload;
-use crate::templates::{ENV_FILE_ENVIRONMENT, STARTUP_COMMAND_ENVIRONMENT, TemplateError};
+use crate::templates::{ENV_FILE_ENVIRONMENT, TemplateError};
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use daemon_common::service::backup::backup_service_error::{
     ServerCreateBackupOrderError, ServerListBackupsError,
@@ -128,16 +128,7 @@ pub(crate) struct ServerLimits {
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ServerStartupInfo {
-    pub(crate) command: ServerStartupCommandInfo,
     pub(crate) environment: ServerStartupEnvironmentInfo,
-}
-
-#[derive(Debug, Serialize, utoipa::ToSchema)]
-pub(crate) struct ServerStartupCommandInfo {
-    pub(crate) supported: bool,
-    pub(crate) customized: bool,
-    pub(crate) current: String,
-    pub(crate) default: String,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -149,7 +140,6 @@ pub(crate) struct ServerStartupEnvironmentInfo {
     pub(crate) file_path: String,
 }
 
-const MAX_STARTUP_COMMAND_LENGTH: usize = 4000;
 const MAX_ENVIRONMENT_VARIABLES: usize = 64;
 const MAX_ENVIRONMENT_KEY_LENGTH: usize = 128;
 const MAX_ENVIRONMENT_VALUE_LENGTH: usize = 4096;
@@ -1100,9 +1090,8 @@ pub(crate) impl ServerService for Backend {
         Ok(())
     }
 
-    /// Gets the server's startup command and its custom environment variables.
+    /// Gets the server's custom environment variables.
     ///
-    /// `command` is what the server runs today, `default_command` what its template defines.
     /// `reserved_environment` lists the names the template and the port allocation own, which
     /// a custom variable cannot take over. When `env_file_enabled` is set, the server sources
     /// `env_file_path` from its working directory right before the startup command runs; the file
@@ -1134,22 +1123,7 @@ pub(crate) impl ServerService for Backend {
             .environment
             .extend(self.port_environment(&*self.database, server_id).await?);
 
-        let default_command = build
-            .environment
-            .get(STARTUP_COMMAND_ENVIRONMENT)
-            .cloned()
-            .unwrap_or_default();
-
         Ok(ServerStartupInfo {
-            command: ServerStartupCommandInfo {
-                supported: server.template.supports_custom_startup(),
-                customized: server.custom_startup.is_some(),
-                current: server
-                    .custom_startup
-                    .clone()
-                    .unwrap_or_else(|| default_command.clone()),
-                default: default_command,
-            },
             environment: ServerStartupEnvironmentInfo {
                 supported: server.template.supports_custom_environment(),
                 file_enabled: server.env_file_enabled,
@@ -1164,11 +1138,10 @@ pub(crate) impl ServerService for Backend {
         })
     }
 
-    /// Updates the server's startup command and its custom environment variables, then pushes
-    /// the resulting build to its node.
+    /// Updates the server's custom environment variables, then pushes the resulting build to its
+    /// node.
     ///
-    /// An empty `command` resets the server to the startup command of its template. Omitting a
-    /// field leaves it untouched, while `environment` replaces the whole set of custom variables.
+    /// Omitting a field leaves it untouched, while `environment` replaces the whole set of custom variables.
     /// `env_file_path` must be a relative path inside the server directory; it is only sourced
     /// while `env_file_enabled` is set, and a missing file is skipped rather than failing the start.
     /// The variables the build already defines are restored after the file is sourced, so the file
@@ -1177,12 +1150,11 @@ pub(crate) impl ServerService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::BUILD_EDIT`].
     #[route("/{server_id}/startup", method = PATCH)]
-    #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, startup_unsupported, startup_invalid, environment_unsupported, environment_invalid, env_file_invalid}, node::failure)]
+    #[error(auth::{permission_denied, unreachable}, template::{corrupted, unavailable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, environment_unsupported, environment_invalid, env_file_invalid}, node::failure)]
     async fn update_startup(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
-        command: Option<String>,
         environment: Option<HashMap<String, String>>,
         env_file_enabled: Option<bool>,
         env_file_path: Option<String>,
@@ -1193,10 +1165,6 @@ pub(crate) impl ServerService for Backend {
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(UpdateStartupError::ServerNotFound)?;
-
-        if command.is_some() && !server.template.supports_custom_startup() {
-            return Err(UpdateStartupError::ServerStartupUnsupported);
-        }
 
         if (environment.is_some() || env_file_enabled.is_some() || env_file_path.is_some())
             && !server.template.supports_custom_environment()
@@ -1212,19 +1180,6 @@ pub(crate) impl ServerService for Backend {
                 } else {
                     Err(UpdateStartupError::ServerEnvFileInvalid)
                 }
-            })
-            .transpose()?;
-
-        let command = command
-            .map(|command| {
-                let command = command.trim().to_owned();
-                if command.is_empty() {
-                    return Ok(None);
-                }
-                if !text_value_valid(&command, MAX_STARTUP_COMMAND_LENGTH) {
-                    return Err(UpdateStartupError::ServerStartupInvalid);
-                }
-                Ok(Some(command))
             })
             .transpose()?;
 
@@ -1254,16 +1209,11 @@ pub(crate) impl ServerService for Backend {
             }
         }
 
-        let startup = match command {
-            Some(ref command) => command.as_deref(),
-            None => server.custom_startup.as_deref(),
-        };
         let variables = environment.as_ref().unwrap_or(&server.custom_environment);
         let env_file_enabled = env_file_enabled.unwrap_or(server.env_file_enabled);
         let env_file_path = env_file_path.as_ref().unwrap_or(&server.env_file_path);
 
         let build = ServerCustomization {
-            startup,
             environment: variables,
             env_file: env_file_enabled.then_some(env_file_path.as_str()),
             ..server.customization()
@@ -1280,10 +1230,8 @@ pub(crate) impl ServerService for Backend {
             })?;
 
         query!(
-            "UPDATE servers SET custom_startup = $1, custom_environment = $2,
-                    env_file_enabled = $3, env_file_path = $4
-             WHERE id = $5",
-            startup,
+            "UPDATE servers SET custom_environment = $1, env_file_enabled = $2, env_file_path = $3
+             WHERE id = $4",
             serde_json::to_value(variables).expect("environment variables are serializable"),
             env_file_enabled,
             env_file_path,
