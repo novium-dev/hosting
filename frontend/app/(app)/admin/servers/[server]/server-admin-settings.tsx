@@ -182,7 +182,9 @@ export function ServerAdminSettings({
         body: {
           ...(canManage && {
             internet_access: form.internetAccess,
-            custom_dockerfile: form.customDockerfile.trim() || null,
+            ...(isFieldDirty("customDockerfile") && {
+              custom_dockerfile: form.customDockerfile.trim(),
+            }),
             limits: {
               backup: backupLimit,
             },
