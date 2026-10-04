@@ -72,6 +72,7 @@ impl Backend {
                         id AS "id: ServerId",
                         node,
                         node_server_id,
+                        node_group,
                         project AS "project: ProjectId",
                         name,
                         suspended AS "suspended: bool",
@@ -138,6 +139,7 @@ impl Backend {
 
                     node,
                     node_server_id: server.node_server_id.cast_unsigned(),
+                    group: server.node_group,
 
                     template,
                     template_extra: server.template_extra,

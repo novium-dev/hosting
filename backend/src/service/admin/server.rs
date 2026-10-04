@@ -2,6 +2,7 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
 use crate::db::node::NodePortAllocation;
+use crate::db::node::group::group_exists;
 use crate::db::project::ProjectId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, merge_ports};
 use crate::db::server::resync::is_running_label;
@@ -38,7 +39,7 @@ pub(crate) struct PortRange {
 
 #[service(path = "/admin/server", tag = "server", no_sdk)]
 pub(crate) impl ServerAdminService for Backend {
-    /// Creates a new server
+    /// Creates a new server, optionally inside one of the node's resource groups.
     ///
     /// # Permissions
     /// Requires [`ManagementPermissions::SERVER_MANAGE`].
@@ -47,6 +48,7 @@ pub(crate) impl ServerAdminService for Backend {
         server::{not_found, storage_not_found},
         project::not_found,
         node::{not_found, failure},
+        group::not_found,
         port::{invalid, not_allocated},
         template::{not_found, unavailable, corrupted, port_definition_unknown, input_invalid})]
     #[example("../examples/server.create.json")]
@@ -63,6 +65,7 @@ pub(crate) impl ServerAdminService for Backend {
         variables: HashMap<String, String>,
         internet_access: bool,
         backup_limit: Option<u32>,
+        group: Option<String>,
     ) -> Result<ServerId, _> {
         if !auth.has((), ManagementPermissions::SERVER_MANAGE) {
             return Err(<CreateServerError as FromAuthPermissionDenied>::from());
@@ -83,6 +86,13 @@ pub(crate) impl ServerAdminService for Backend {
             return Err(CreateServerError::NodeNotFound);
         };
         drop(nodes);
+
+        let group = group.filter(|group| !group.is_empty());
+        if let Some(group) = group.as_deref()
+            && !group_exists(&*self.database, node.id, group).await?
+        {
+            return Err(CreateServerError::GroupNotFound);
+        }
 
         let Some(template) = self.templates.read().await.get(&template).cloned() else {
             return Err(CreateServerError::TemplateNotFound);
@@ -188,6 +198,7 @@ pub(crate) impl ServerAdminService for Backend {
                         networks: Vec::new(),
                         internet_access,
                     },
+                    group.clone().unwrap_or_default(),
                 )
                 .await
                 .map_err(|err| match err {
@@ -195,7 +206,8 @@ pub(crate) impl ServerAdminService for Backend {
                     | DaemonCreateServerError::AuthInvalid
                     | DaemonCreateServerError::SqlFailure
                     | DaemonCreateServerError::ServerImageDifferent
-                    | DaemonCreateServerError::ServerImageMissingTag) => {
+                    | DaemonCreateServerError::ServerImageMissingTag
+                    | DaemonCreateServerError::GroupInvalidName) => {
                         error!("Failed to create server: {err:?}");
                         CreateServerError::NodeFailure
                     }
@@ -207,8 +219,8 @@ pub(crate) impl ServerAdminService for Backend {
             let id = ServerId::generate();
 
             conn.transaction(|tx| Box::pin(async move {
-                query!("INSERT INTO servers (id,node,node_server_id,project,storage,cpu,ram,swap,disk,template,template_extra,name,internet_access,backup_limit) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
-                        &id, &node.id, new_server.cast_signed(), project.as_str(), &storage, resource.cpu, resource.ram.map(u32::cast_signed), resource.swap.map(u32::cast_signed), resource.disk.map(u64::cast_signed), template.id(), &extra, &name, internet_access, backup_limit.map(u32::cast_signed))                    .execute(&mut **tx)
+                query!("INSERT INTO servers (id,node,node_server_id,project,storage,cpu,ram,swap,disk,template,template_extra,name,internet_access,backup_limit,node_group) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+                        &id, &node.id, new_server.cast_signed(), project.as_str(), &storage, resource.cpu, resource.ram.map(u32::cast_signed), resource.swap.map(u32::cast_signed), resource.disk.map(u64::cast_signed), template.id(), &extra, &name, internet_access, backup_limit.map(u32::cast_signed), group)                    .execute(&mut **tx)
                     .await
                     .inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
@@ -411,7 +423,7 @@ pub(crate) impl ServerAdminService for Backend {
 
         server
             .node
-            .update_server(server.node_server_id, None, Some(build), None, None)
+            .update_server(server.node_server_id, None, Some(build), None, None, None)
             .await
             .map_err(|err| {
                 error!("Failed to push the new template of server {server_id}: {err:?}");
@@ -568,7 +580,7 @@ pub(crate) impl ServerAdminService for Backend {
 
             server
                 .node
-                .update_server(server.node_server_id, None, Some(build), Some(payload), None)
+                .update_server(server.node_server_id, None, Some(build), Some(payload), None, None)
                 .await
                 .map_err(|_err| AddPortError::NodeFailure)?;
 
@@ -840,7 +852,7 @@ pub(crate) impl ServerAdminService for Backend {
 
             server
                 .node
-                .update_server(server.node_server_id, None, Some(build), Some(payload), None)
+                .update_server(server.node_server_id, None, Some(build), Some(payload), None, None)
                 .await
                 .map_err(|_err| UpdatePortError::NodeFailure)?;
 
@@ -933,7 +945,7 @@ pub(crate) impl ServerAdminService for Backend {
 
                 server
                     .node
-                    .update_server(server.node_server_id, None, Some(build), Some(payload), None)
+                    .update_server(server.node_server_id, None, Some(build), Some(payload), None, None)
                     .await
                     .map_err(|_err| DeletePortError::NodeFailure)?;
 

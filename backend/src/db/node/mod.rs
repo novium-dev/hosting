@@ -1,3 +1,5 @@
+pub mod group;
+
 use crate::Backend;
 use crate::db::region::RegionId;
 use crate::db::server::ports::NetworkProtocol;

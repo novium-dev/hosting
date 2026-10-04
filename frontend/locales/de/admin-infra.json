@@ -145,12 +145,13 @@
       "unavailable": "Nicht verfügbar",
       "cpuValue": "{{used}} / {{count}} Kerne",
       "nodeIdDescription": "Node-ID: {{id}}",
-      "disksTitle": "Datenträger",
-      "disksDescription": "Auf diesem Node eingehängte Dateisysteme, wie vom Daemon gemeldet.",
-      "disksEmpty": "Der Node hat keine Datenträger gemeldet.",
-      "disksReadonly": "Schreibgeschützt",
-      "disksUsage": "{{used}} / {{total}} ({{percent}}%)",
-      "disksAvailable": "{{available}} frei"
+      "storageTitle": "Speicher",
+      "storageDescription": "Auf diesem Node konfigurierte Server- und Backup-Speicherorte.",
+      "storageEmpty": "Der Node hat keinen Speicher gemeldet.",
+      "storageServer": "Server",
+      "storageBackup": "Backup",
+      "storageUsage": "{{used}} / {{total}} ({{percent}} %)",
+      "storageAvailable": "{{available}} frei"
     },
     "createDialog": {
       "createError": "Node konnte nicht erstellt werden",
@@ -208,6 +209,38 @@
       "blocked_other": "Zuerst die {{count}} Server verschieben oder löschen",
       "deleted": "Node gelöscht",
       "failed": "Node konnte nicht gelöscht werden"
+    },
+    "groupsManager": {
+      "title": "Ressourcengruppen",
+      "description": "Server in einer Gruppe teilen sich deren CPU-, Arbeitsspeicher- und Swap-Limits. Ein '-' verschachtelt eine Gruppe in einer anderen, z. B. customers-acme in customers, und die Limits einer übergeordneten Gruppe gelten auch für ihre Untergruppen.",
+      "addButton": "Gruppe hinzufügen",
+      "empty": "Auf diesem Node gibt es keine Ressourcengruppen.",
+      "loadError": "Die Ressourcengruppen des Nodes konnten nicht geladen werden.",
+      "columns": {
+        "limits": "Limits",
+        "usage": "Auslastung",
+        "servers": "Server"
+      },
+      "unlimited": "Unbegrenzt",
+      "cores": "{{value}} Kerne",
+      "createTitle": "Ressourcengruppe hinzufügen",
+      "editTitle": "{{name}} bearbeiten",
+      "dialogDescription": "Leer gelassene Limits sind unbegrenzt.",
+      "namePlaceholder": "customers-acme",
+      "nameHint": "Buchstaben, Zahlen und Unterstriche. Mit '-' werden Gruppen verschachtelt, bis zu 16 Ebenen.",
+      "cpuLabel": "CPU (Kerne)",
+      "ramLabel": "Arbeitsspeicher (MiB)",
+      "swapLabel": "Swap (MiB)",
+      "invalidName": "Der Gruppenname ist ungültig.",
+      "invalidLimits": "Limits müssen positive Zahlen sein, Arbeitsspeicher und Swap in ganzen MiB.",
+      "createSuccess": "Ressourcengruppe erstellt.",
+      "createError": "Die Ressourcengruppe konnte nicht erstellt werden.",
+      "updateSuccess": "Ressourcengruppe aktualisiert.",
+      "updateError": "Die Ressourcengruppe konnte nicht aktualisiert werden.",
+      "deleteTitle": "{{name}} löschen?",
+      "deleteDescription": "Server in dieser Gruppe verlassen sie und übernehmen die Änderung beim nächsten Start. Untergruppen behalten ihre eigenen Limits.",
+      "deleteSuccess": "Ressourcengruppe gelöscht.",
+      "deleteError": "Die Ressourcengruppe konnte nicht gelöscht werden."
     }
   },
   "servers": {
@@ -219,7 +252,9 @@
       "nodeLabel": "Node",
       "internetAccessLabel": "Internetzugang",
       "backupLimitLabel": "Backup-Limit",
-      "rangeExcluding": "{{base}} ausgenommen {{exclude}}"
+      "rangeExcluding": "{{base}} ausgenommen {{exclude}}",
+      "groupLabel": "Ressourcengruppe",
+      "noGroup": "Keine Gruppe"
     },
     "detailPage": {
       "addressUnavailable": "Adresse nicht verfügbar",
@@ -294,7 +329,8 @@
       "diskLimitLabel": "Speicherlimit (MiB)",
       "customDockerfileLabel": "Benutzerdefiniertes Dockerfile",
       "customDockerfilePlaceholder": "Optionaler Inhalt für ein benutzerdefiniertes Dockerfile",
-      "saveButton": "Admin-Einstellungen speichern"
+      "saveButton": "Admin-Einstellungen speichern",
+      "groupHint": "Gruppenänderungen werden beim nächsten Start des Servers übernommen."
     },
     "deleteCard": {
       "title": "Server löschen",

@@ -435,7 +435,7 @@ where
             servers.suspended AS "suspended: bool",
             nodes.maintenance AS "maintenance: bool",
             projects.owner,
-            project_users.permissions
+            project_users.permissions AS "permissions?"
          FROM servers
          JOIN nodes ON nodes.id = servers.node
          JOIN projects ON projects.id = servers.project

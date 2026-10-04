@@ -11,13 +11,15 @@ use zelus::service;
 
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
+use crate::db::node::group::{NodeGroup, valid_group_name};
 use crate::db::node::{NodePortAllocation, replace_storages};
 use crate::db::region::RegionId;
 use crate::db::server::ports::NetworkProtocol;
 use crate::service::admin::node::node_admin_service_error::{
-    AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodeError, DeleteNodePortError,
-    ExtendNodeRegistrationError, ListNodeRegistrationsError, ListNodesError, MetricsNodeError,
-    UpdateMaintenanceError, UpdateNodeError, UpdateNodeRegionError, UpdateNodeRegistrationError,
+    AddNodePortError, AvailablePortsError, CreateNodeError, CreateNodeGroupError, DeleteNodeError,
+    DeleteNodeGroupError, DeleteNodePortError, ExtendNodeRegistrationError, ListNodeGroupsError,
+    ListNodeRegistrationsError, ListNodesError, MetricsNodeError, UpdateMaintenanceError,
+    UpdateNodeError, UpdateNodeGroupError, UpdateNodeRegionError, UpdateNodeRegistrationError,
 };
 use crate::service::error_os_failure::FromOsFailure;
 use crate::service::internal::REGISTRATION_TIMEOUT;
@@ -26,11 +28,13 @@ use crate::{Backend, NodeRegistration};
 use daemon_common::node::{
     BackendNodeConfig, BackupStorage, HostAndPort, ServerStorage, SetupNodeConfig,
 };
+use daemon_common::service::group::group_service_error::ConfigureGroupError;
 use url::{Host, Url};
 use utoipa::ToSchema;
 
 define_path_variable!(node_id "The node identifier");
 define_path_variable!(code "The node registration code");
+define_path_variable!(group_name "The node group name");
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct NodeInfo {
@@ -696,6 +700,230 @@ pub(crate) impl NodeAdminService for Backend {
         })
         .await
     }
+    /// Lists the node's resource groups with their limits and the number of servers assigned
+    /// to each.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_VIEW`].
+    #[route("/{node_id}/groups", method = GET)]
+    #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn list_node_groups(
+        &self,
+        #[special] auth: Authentication,
+        node_id: Uuid,
+    ) -> Result<Vec<NodeGroup>, _> {
+        auth.require::<_, _, ListNodeGroupsError>((), ManagementPermissions::NODES_VIEW)?;
+
+        if self.nodes.read().await.get(&node_id).is_none() {
+            return Err(ListNodeGroupsError::NodeNotFound);
+        }
+
+        Ok(query!(
+            r#"SELECT node_groups.name, node_groups.cpu, node_groups.ram, node_groups.swap,
+                      COUNT(servers.id) AS "server_count!"
+               FROM node_groups
+               LEFT JOIN servers ON servers.node = node_groups.node AND servers.node_group = node_groups.name
+               WHERE node_groups.node = $1
+               GROUP BY node_groups.node, node_groups.name
+               ORDER BY node_groups.name"#,
+            node_id
+        )
+        .fetch_all(&*self.database)
+        .await?
+        .into_iter()
+        .map(|row| NodeGroup {
+            name: row.name,
+            cpu: row.cpu,
+            ram: row.ram.map(i32::cast_unsigned),
+            swap: row.swap.map(i32::cast_unsigned),
+            server_count: row.server_count,
+        })
+        .collect())
+    }
+
+    /// Creates a resource group on the node.
+    ///
+    /// Group names consist of letters, numbers and underscores. A `-` nests a group inside
+    /// another one, e.g. `customers-acme` lives inside `customers`, and the limits of a
+    /// parent group also apply to all of its subgroups. Omitted limits are unlimited.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
+    #[route("/{node_id}/groups", method = PUT)]
+    #[error(node::{not_found, failure}, group::{invalid_name, already_exists <- [sql:unique], limits_invalid}, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn create_node_group(
+        &self,
+        #[special] auth: Authentication,
+        node_id: Uuid,
+        name: String,
+        cpu: Option<f32>,
+        ram: Option<u32>,
+        swap: Option<u32>,
+    ) -> Result<(), _> {
+        auth.require::<_, _, CreateNodeGroupError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        if !valid_group_name(&name) {
+            return Err(CreateNodeGroupError::GroupInvalidName);
+        }
+        if !valid_group_limits(cpu, ram) {
+            return Err(CreateNodeGroupError::GroupLimitsInvalid);
+        }
+
+        let node = self
+            .nodes
+            .read()
+            .await
+            .get(&node_id)
+            .cloned()
+            .ok_or(CreateNodeGroupError::NodeNotFound)?;
+
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                query!(
+                    "INSERT INTO node_groups (node, name, cpu, ram, swap) VALUES ($1, $2, $3, $4, $5)",
+                    node_id,
+                    &name,
+                    cpu,
+                    ram.map(u32::cast_signed),
+                    swap.map(u32::cast_signed),
+                )
+                .execute(&mut **tx)
+                .await?;
+
+                node.configure_group(name, cpu, ram, swap)
+                    .await
+                    .map_err(|err| match err {
+                        ConfigureGroupError::GroupInvalidName => {
+                            CreateNodeGroupError::GroupInvalidName
+                        }
+                        err => {
+                            error!("Failed to configure group: {err:?}");
+                            CreateNodeGroupError::NodeFailure
+                        }
+                    })?;
+
+                Ok::<_, CreateNodeGroupError>(())
+            })
+        })
+        .await
+    }
+
+    /// Replaces the limits of a resource group on the node. Omitted limits are unlimited.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
+    #[route("/{node_id}/groups/{group_name}", method = PATCH)]
+    #[error(node::{not_found, failure}, group::{not_found, invalid_name, limits_invalid}, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn update_node_group(
+        &self,
+        #[special] auth: Authentication,
+        node_id: Uuid,
+        group_name: String,
+        cpu: Option<f32>,
+        ram: Option<u32>,
+        swap: Option<u32>,
+    ) -> Result<(), _> {
+        auth.require::<_, _, UpdateNodeGroupError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        if !valid_group_limits(cpu, ram) {
+            return Err(UpdateNodeGroupError::GroupLimitsInvalid);
+        }
+
+        let node = self
+            .nodes
+            .read()
+            .await
+            .get(&node_id)
+            .cloned()
+            .ok_or(UpdateNodeGroupError::NodeNotFound)?;
+
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let updated = query!(
+                    "UPDATE node_groups SET cpu = $3, ram = $4, swap = $5 WHERE node = $1 AND name = $2",
+                    node_id,
+                    &group_name,
+                    cpu,
+                    ram.map(u32::cast_signed),
+                    swap.map(u32::cast_signed),
+                )
+                .execute(&mut **tx)
+                .await?
+                .rows_affected();
+
+                if updated == 0 {
+                    return Err(UpdateNodeGroupError::GroupNotFound);
+                }
+
+                node.configure_group(group_name, cpu, ram, swap)
+                    .await
+                    .map_err(|err| match err {
+                        ConfigureGroupError::GroupInvalidName => {
+                            UpdateNodeGroupError::GroupInvalidName
+                        }
+                        err => {
+                            error!("Failed to configure group: {err:?}");
+                            UpdateNodeGroupError::NodeFailure
+                        }
+                    })?;
+
+                Ok(())
+            })
+        })
+        .await
+    }
+
+    /// Deletes a resource group from the node. Servers in the group are moved out of it and
+    /// pick up the change on their next start.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::NODES_MANAGE`].
+    #[route("/{node_id}/groups/{group_name}", method = DELETE)]
+    #[error(node::{not_found, failure}, group::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    async fn delete_node_group(
+        &self,
+        #[special] auth: Authentication,
+        node_id: Uuid,
+        group_name: String,
+    ) -> Result<(), _> {
+        auth.require::<_, _, DeleteNodeGroupError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        let node = self
+            .nodes
+            .read()
+            .await
+            .get(&node_id)
+            .cloned()
+            .ok_or(DeleteNodeGroupError::NodeNotFound)?;
+
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let deleted = query!(
+                    "DELETE FROM node_groups WHERE node = $1 AND name = $2",
+                    node_id,
+                    &group_name,
+                )
+                .execute(&mut **tx)
+                .await?
+                .rows_affected();
+
+                if deleted == 0 {
+                    return Err(DeleteNodeGroupError::GroupNotFound);
+                }
+
+                node.delete_group(group_name).await.map_err(|err| {
+                    error!("Failed to delete group: {err:?}");
+                    DeleteNodeGroupError::NodeFailure
+                })?;
+
+                Ok(())
+            })
+        })
+        .await
+    }
 }
 
 pub(crate) fn gen_code<E: FromOsFailure>() -> Result<String, E> {
@@ -711,4 +939,8 @@ pub(crate) fn gen_code<E: FromOsFailure>() -> Result<String, E> {
         hex::encode(&data[4..6]),
         hex::encode(&data[6..8])
     ))
+}
+
+fn valid_group_limits(cpu: Option<f32>, ram: Option<u32>) -> bool {
+    cpu.is_none_or(|cpu| cpu.is_finite() && cpu > 0.0) && ram.is_none_or(|ram| ram > 0)
 }

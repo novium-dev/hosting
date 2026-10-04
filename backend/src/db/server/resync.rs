@@ -213,7 +213,7 @@ impl Backend {
         .apply(build);
 
         if let Err(err) = node
-            .update_server(node_server_id, None, Some(build), None, None)
+            .update_server(node_server_id, None, Some(build), None, None, None)
             .await
         {
             error!("Node refused the resync of server {}: {err:?}", target.id);

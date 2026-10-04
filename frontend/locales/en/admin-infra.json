@@ -145,12 +145,13 @@
       "unavailable": "Unavailable",
       "cpuValue": "{{used}} / {{count}} cores",
       "nodeIdDescription": "Node ID: {{id}}",
-      "disksTitle": "Disks",
-      "disksDescription": "Filesystems mounted on this node, as reported by the daemon.",
-      "disksEmpty": "The node did not report any disks.",
-      "disksReadonly": "Read-only",
-      "disksUsage": "{{used}} / {{total}} ({{percent}}%)",
-      "disksAvailable": "{{available}} free"
+      "storageTitle": "Storage",
+      "storageDescription": "Server and backup storage locations configured on this node.",
+      "storageEmpty": "The node did not report any storage.",
+      "storageServer": "Server",
+      "storageBackup": "Backup",
+      "storageUsage": "{{used}} / {{total}} ({{percent}}%)",
+      "storageAvailable": "{{available}} free"
     },
     "createDialog": {
       "createError": "Failed to create node",
@@ -208,6 +209,38 @@
       "blocked_other": "Move or delete its {{count}} servers first",
       "deleted": "Node deleted",
       "failed": "Failed to delete the node"
+    },
+    "groupsManager": {
+      "title": "Resource groups",
+      "description": "Servers in a group share its CPU, memory and swap limits. A '-' nests a group inside another, e.g. customers-acme inside customers, and a parent's limits also apply to its subgroups.",
+      "addButton": "Add group",
+      "empty": "There are no resource groups on this node.",
+      "loadError": "Failed to load the node's resource groups.",
+      "columns": {
+        "limits": "Limits",
+        "usage": "Usage",
+        "servers": "Servers"
+      },
+      "unlimited": "Unlimited",
+      "cores": "{{value}} cores",
+      "createTitle": "Add resource group",
+      "editTitle": "Edit {{name}}",
+      "dialogDescription": "Limits left empty are unlimited.",
+      "namePlaceholder": "customers-acme",
+      "nameHint": "Letters, numbers and underscores. Use '-' to nest groups, up to 16 levels.",
+      "cpuLabel": "CPU (cores)",
+      "ramLabel": "Memory (MiB)",
+      "swapLabel": "Swap (MiB)",
+      "invalidName": "The group name is invalid.",
+      "invalidLimits": "Limits must be positive numbers, memory and swap in whole MiB.",
+      "createSuccess": "Resource group created.",
+      "createError": "Failed to create the resource group.",
+      "updateSuccess": "Resource group updated.",
+      "updateError": "Failed to update the resource group.",
+      "deleteTitle": "Delete {{name}}?",
+      "deleteDescription": "Servers in this group leave it and pick up the change on their next start. Subgroups keep their own limits.",
+      "deleteSuccess": "Resource group deleted.",
+      "deleteError": "Failed to delete the resource group."
     }
   },
   "servers": {
@@ -219,7 +252,9 @@
       "nodeLabel": "Node",
       "internetAccessLabel": "Internet Access",
       "backupLimitLabel": "Backup Limit",
-      "rangeExcluding": "{{base}} excluding {{exclude}}"
+      "rangeExcluding": "{{base}} excluding {{exclude}}",
+      "groupLabel": "Resource Group",
+      "noGroup": "No group"
     },
     "detailPage": {
       "addressUnavailable": "Address unavailable",
@@ -294,7 +329,8 @@
       "diskLimitLabel": "Disk Limit (MiB)",
       "customDockerfileLabel": "Custom Dockerfile",
       "customDockerfilePlaceholder": "Optional custom Dockerfile content",
-      "saveButton": "Save Admin Settings"
+      "saveButton": "Save Admin Settings",
+      "groupHint": "Group changes apply on the server's next start."
     },
     "deleteCard": {
       "title": "Delete Server",

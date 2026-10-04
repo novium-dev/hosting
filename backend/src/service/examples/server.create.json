@@ -15,5 +15,6 @@
 		"version": "21.0.8"
 	},
 	"internet_access": true,
-	"backup_limit": null
+	"backup_limit": null,
+	"group": null
 }

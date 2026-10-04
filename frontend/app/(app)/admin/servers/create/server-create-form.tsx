@@ -54,12 +54,14 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { availablePorts } from "@/lib/api";
+import { availablePorts, listNodeGroups } from "@/lib/api";
 import type {
   AvailablePortsResponse,
   NodePortAllocation,
   TemplateInfoResponse,
 } from "@/lib/api";
+
+const NO_GROUP = "__none__";
 
 type ProjectOption = {
   id: string;
@@ -335,6 +337,8 @@ export function ServerCreateForm({
   const [template, setTemplate] = useState<string>(templates[0] ?? "");
   const [node, setNode] = useState<string>(nodes[0]?.id ?? "");
   const [storage, setStorage] = useState(nodes[0]?.serverStorages?.[0] ?? "");
+  const [group, setGroup] = useState(NO_GROUP);
+  const [nodeGroups, setNodeGroups] = useState<string[]>([]);
 
   const [cpu, setCpu] = useState("1");
   const [ram, setRam] = useState("1024");
@@ -412,6 +416,28 @@ export function ServerCreateForm({
       setStorage(selectedNode.serverStorages[0] ?? "");
     }
   }, [selectedNode, storage]);
+
+  useEffect(() => {
+    setGroup(NO_GROUP);
+    setNodeGroups([]);
+    if (!selectedNode) {
+      return;
+    }
+
+    let isActive = true;
+
+    listNodeGroups({ path: { node_id: selectedNode.id } })
+      .then((response) => {
+        if (isActive && !response.error && response.data) {
+          setNodeGroups(response.data.map((entry) => entry.name));
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedNode]);
 
   useEffect(() => {
     if (!selectedNode) {
@@ -608,6 +634,7 @@ export function ServerCreateForm({
       disk: toNullableNumber(disk),
       swap: toNullableNumber(swap),
       backupLimit: toNullableNumber(backupLimit),
+      group: group === NO_GROUP ? null : group,
       variables: variablesAsStrings,
       ports,
     });
@@ -769,6 +796,27 @@ export function ServerCreateForm({
                 {(selectedNode?.serverStorages ?? []).map((storageOption) => (
                   <SelectItem key={storageOption} value={storageOption}>
                     {storageOption}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="group">
+              {t("admin-infra:servers.shared.groupLabel")}
+            </Label>
+            <Select value={group} onValueChange={setGroup}>
+              <SelectTrigger id="group" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_GROUP}>
+                  {t("admin-infra:servers.shared.noGroup")}
+                </SelectItem>
+                {nodeGroups.map((groupOption) => (
+                  <SelectItem key={groupOption} value={groupOption}>
+                    {groupOption}
                   </SelectItem>
                 ))}
               </SelectContent>

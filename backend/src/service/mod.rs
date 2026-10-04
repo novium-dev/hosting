@@ -139,6 +139,13 @@ define_error!(node {
     invalid_host("The specified SSH host is invalid" BAD_REQUEST),
 });
 
+define_error!(group {
+    not_found("The specified group was not found on the server's node" BAD_REQUEST),
+    invalid_name("Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by '-'" BAD_REQUEST),
+    already_exists("A group with this name already exists on the node" CONFLICT),
+    limits_invalid("Group limits must be positive numbers" BAD_REQUEST),
+});
+
 define_error!(integrity {
     already_running("An integrity run is already in progress" CONFLICT),
 });

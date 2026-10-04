@@ -6,6 +6,7 @@ use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
 use crate::db::license::ServerLicenseInfo;
+use crate::db::node::group::group_exists;
 use crate::db::project::ProjectId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
 use crate::db::server::resync::is_running_label;
@@ -95,6 +96,7 @@ pub(crate) struct ServerInfo {
     pub(crate) project: ProjectId,
     pub(crate) node: LightNodeInfo,
     pub(crate) node_server_id: Option<u32>,
+    pub(crate) group: Option<String>,
     pub(crate) template: String,
     pub(crate) limits: ServerLimits,
     pub(crate) cpu: Option<f32>,
@@ -405,6 +407,10 @@ pub(crate) impl ServerService for Backend {
             node_server_id: auth
                 .has((), ManagementPermissions::SERVER_MANAGE)
                 .then_some(server.node_server_id),
+            group: server
+                .group
+                .clone()
+                .filter(|_| auth.has((), ManagementPermissions::SERVER_MANAGE)),
             node: LightNodeInfo {
                 id: server.node.id,
                 display: server.node.display.clone(),
@@ -428,11 +434,12 @@ pub(crate) impl ServerService for Backend {
     /// Requires [`ProjectPermissions::VIEW`].
     /// Requires [`ProjectPermissions::ADMIN_MANAGEMENT`] to rename a server.
     /// Requires [`ManagementPermissions::SERVER_MANAGE`] to update resources, internet access,
-    /// backup limits or custom dockerfile.
+    /// backup limits, custom dockerfile or the resource group. An empty group removes the
+    /// server from its group; the change applies on the server's next start.
     /// Requires [`ManagementPermissions::SERVER_SUSPEND`] to (un)suspend a server or to change
     /// the reason a server is suspended for.
     #[route("/{server_id}", method = PATCH)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, suspension_reason_required, not_suspended}, node::failure, template::{corrupted, unavailable})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, suspension_reason_required, not_suspended}, node::failure, group::not_found, template::{corrupted, unavailable})]
     async fn update_server(
         &self,
         #[special] auth: Authentication,
@@ -444,6 +451,7 @@ pub(crate) impl ServerService for Backend {
         suspension_reason: Option<String>,
         internet_access: Option<bool>,
         limits: Option<ServerLimits>,
+        group: Option<String>,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateServerError>(server_id, ProjectPermissions::VIEW)?;
 
@@ -458,6 +466,7 @@ pub(crate) impl ServerService for Backend {
             || internet_access.is_some()
             || custom_dockerfile.is_some()
             || limits.is_some()
+            || group.is_some()
         {
             auth.require::<_, _, UpdateServerError>((), ManagementPermissions::SERVER_MANAGE)?;
         }
@@ -485,6 +494,13 @@ pub(crate) impl ServerService for Backend {
             .resolve_server(&*self.database, server_id)
             .await?
             .ok_or(UpdateServerError::ServerNotFound)?;
+
+        if let Some(group) = group.as_deref()
+            && !group.is_empty()
+            && !group_exists(&*self.database, server.node.id, group).await?
+        {
+            return Err(UpdateServerError::GroupNotFound);
+        }
 
         if suspended.is_none()
             && let Some(reason) = suspension_reason.as_ref()
@@ -519,7 +535,8 @@ pub(crate) impl ServerService for Backend {
             None
         };
 
-        if resource.is_some() || internet_access.is_some() || new_build.is_some() {
+        if resource.is_some() || internet_access.is_some() || new_build.is_some() || group.is_some()
+        {
             server
                 .node
                 .update_server(
@@ -531,6 +548,7 @@ pub(crate) impl ServerService for Backend {
                         internet_access,
                         networks: Vec::new(),
                     }),
+                    group.clone(),
                 )
                 .await
                 .map_err(|err| {
@@ -614,6 +632,19 @@ pub(crate) impl ServerService for Backend {
                     .await
                     .inspect_err(|err| {
                         error!("Failed to update server (backup_limit): {err:?}");
+                    })?;
+                }
+
+                if let Some(group) = group {
+                    query!(
+                        "UPDATE servers SET node_group = $1 WHERE id = $2",
+                        Some(group).filter(|group| !group.is_empty()),
+                        &server_id
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| {
+                        error!("Failed to update server (group): {err:?}");
                     })?;
                 }
 
@@ -1043,7 +1074,14 @@ pub(crate) impl ServerService for Backend {
 
         server
             .node
-            .update_server(server.node_server_id, None, Some(new_build), None, None)
+            .update_server(
+                server.node_server_id,
+                None,
+                Some(new_build),
+                None,
+                None,
+                None,
+            )
             .await
             .map_err(|err| {
                 error!("Failed to update server variables: {err:?}");
@@ -1234,7 +1272,7 @@ pub(crate) impl ServerService for Backend {
 
         server
             .node
-            .update_server(server.node_server_id, None, Some(build), None, None)
+            .update_server(server.node_server_id, None, Some(build), None, None, None)
             .await
             .map_err(|err| {
                 error!("Failed to update the startup of server {server_id}: {err:?}");
