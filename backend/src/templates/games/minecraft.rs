@@ -24,14 +24,18 @@ use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use crate::templates::variable::{
     VariableBuilder, VariableContent, VariableDataBuilder, VariableGroupBuilder, VariablePayload,
 };
-use crate::templates::{
-    STARTUP_COMMAND_ENVIRONMENT, Template, TemplateError, TemplatePortDefinition, ThinTemplateError,
-};
+use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
 
 use crate::utils::serde::SerdePrimitive;
 
 pub(crate) const WORK_TMP_SETUP: &str =
     "\nRUN rm -rf /tmp /var/tmp\nRUN ln -s /work/.tmp /tmp\nRUN ln -s /work/.tmp /var/tmp\n";
+
+pub(crate) fn exec_entrypoint(command: &str) -> String {
+    let entrypoint = serde_json::to_string(&["/bin/sh", "-c", &format!("exec {command}")])
+        .expect("Unable to serialize the entrypoint");
+    format!("ENTRYPOINT {entrypoint}\n")
+}
 pub(crate) const JAVA_RECOMMENDED: &str = "Recommended";
 pub(crate) const JAVA_PREFIX: &str = "Java ";
 pub(crate) const JVM_FLAGS: &str =
@@ -170,7 +174,7 @@ impl MinecraftServerModification {
 }
 
 impl MinecraftServerExtra {
-    const REL: usize = 7;
+    const REL: usize = 8;
 
     pub(crate) const fn modification(&self) -> MinecraftServerModification {
         match self {
@@ -258,7 +262,10 @@ impl MinecraftServerExtra {
             .collect();
 
         ServerBuildImage {
-            dockerfile: format!("{dockerfile}{WORK_TMP_SETUP}"),
+            dockerfile: format!(
+                "{dockerfile}{WORK_TMP_SETUP}{}",
+                exec_entrypoint(&self.startup_command())
+            ),
             parents,
             default_tag: None,
             tag: Some(self.identifier()),
@@ -490,10 +497,7 @@ impl Template for MinecraftTemplate {
                 "DAC_OVERRIDE".to_owned(),
                 "NET_BIND_SERVICE".to_owned(),
             ],
-            environment: HashMap::from([(
-                STARTUP_COMMAND_ENVIRONMENT.to_owned(),
-                extra.startup_command(),
-            )]),
+            environment: HashMap::new(),
             backup_exclude,
             files_write: extra.files_write(),
 

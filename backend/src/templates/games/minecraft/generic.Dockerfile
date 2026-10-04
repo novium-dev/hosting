@@ -57,5 +57,4 @@ ARG MC_MONITOR_DEFAULT_PORT=25565
 ENV MC_MONITOR_DEFAULT_PORT=${MC_MONITOR_DEFAULT_PORT}
 
 WORKDIR /work
-ENTRYPOINT ["/bin/sh", "-c", "eval \"exec $STARTUP_COMMAND\""]
 HEALTHCHECK --start-period=2m --retries=3 --interval=30s CMD /mc-monitor status -json -port "${NOVIUM_PORT_MINECRAFT:-$MC_MONITOR_DEFAULT_PORT}"

@@ -17,14 +17,12 @@ use tracing::{debug, error};
 
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use crate::templates::games::minecraft::{
-    JAVA_PREFIX, JAVA_RECOMMENDED, JVM_FLAGS, VersionBuild, WORK_TMP_SETUP,
+    JAVA_PREFIX, JAVA_RECOMMENDED, JVM_FLAGS, VersionBuild, WORK_TMP_SETUP, exec_entrypoint,
 };
 use crate::templates::variable::{
     VariableBuilder, VariableContent, VariableDataBuilder, VariableGroupBuilder, VariablePayload,
 };
-use crate::templates::{
-    STARTUP_COMMAND_ENVIRONMENT, Template, TemplateError, TemplatePortDefinition, ThinTemplateError,
-};
+use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
 use crate::utils::serde::SerdePrimitive;
 
 pub(crate) const VELOCITY_URL: &str = "https://fill.papermc.io/";
@@ -73,7 +71,7 @@ pub(crate) enum MinecraftProxyExtra {
 }
 
 impl MinecraftProxyExtra {
-    const REL: usize = 5;
+    const REL: usize = 6;
 
     pub(crate) const fn software(&self) -> MinecraftProxySoftware {
         match self {
@@ -218,7 +216,10 @@ impl MinecraftProxyExtra {
             .collect();
 
         ServerBuildImage {
-            dockerfile: format!("{dockerfile}{WORK_TMP_SETUP}"),
+            dockerfile: format!(
+                "{dockerfile}{WORK_TMP_SETUP}{}",
+                exec_entrypoint(&Self::startup_command())
+            ),
             parents: vec![java],
             default_tag: None,
             tag: Some(self.identifier()),
@@ -312,10 +313,7 @@ impl Template for MinecraftProxyTemplate {
                 "DAC_OVERRIDE".to_owned(),
                 "NET_BIND_SERVICE".to_owned(),
             ],
-            environment: HashMap::from([(
-                STARTUP_COMMAND_ENVIRONMENT.to_owned(),
-                MinecraftProxyExtra::startup_command(),
-            )]),
+            environment: HashMap::new(),
             backup_exclude: extra.backup_exclude(),
             files_write: extra.files_write(),
 
