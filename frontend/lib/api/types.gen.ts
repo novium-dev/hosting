@@ -414,6 +414,10 @@ export type PrimaryPortInfo = {
     port: NetworkPort;
 };
 
+export type RefreshTemplateCachePayload = {
+    template?: string | null;
+};
+
 export type ResourceDisk = {
     available: number;
     filesystem: string;
@@ -13392,6 +13396,81 @@ export type ResyncTemplateResponses = {
 };
 
 export type ResyncTemplateResponse = ResyncTemplateResponses[keyof ResyncTemplateResponses];
+
+export type RefreshTemplateCacheData = {
+    body: RefreshTemplateCachePayload;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/template/cache/refresh';
+};
+
+export type RefreshTemplateCacheErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The template does not exist
+     */
+    '404‍': {
+        error?: {
+            id?: 'template/not_found';
+            msg?: 'The template does not exist';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type RefreshTemplateCacheError = RefreshTemplateCacheErrors[keyof RefreshTemplateCacheErrors];
+
+export type RefreshTemplateCacheResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        id: string;
+        success: boolean;
+    }>;
+};
+
+export type RefreshTemplateCacheResponse = RefreshTemplateCacheResponses[keyof RefreshTemplateCacheResponses];
 
 export type ListRegionsData = {
     body?: never;
