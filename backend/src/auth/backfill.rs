@@ -1,4 +1,4 @@
-use crate::auth::permissions::{ProjectPermissions, ServerPermissions};
+use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
 use sqlx::{PgPool, query};
 use tracing::info;
 
@@ -25,6 +25,11 @@ pub const PERMISSION_BACKFILLS: &[PermissionBackfill] = &[
         id: "schedule_manage",
         granted: ServerPermissions::SCHEDULE_MANAGE.bits(),
         required: ServerPermissions::POWER.bits(),
+    },
+    PermissionBackfill {
+        id: "server_deploy",
+        granted: ManagementPermissions::SERVER_DEPLOY.bits(),
+        required: ManagementPermissions::SERVER_MANAGE.bits(),
     },
 ];
 

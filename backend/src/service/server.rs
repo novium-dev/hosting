@@ -5,8 +5,8 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
+use crate::db::group::node_in_group;
 use crate::db::license::ServerLicenseInfo;
-use crate::db::node::group::group_exists;
 use crate::db::project::ProjectId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
 use crate::db::server::resync::is_running_label;
@@ -439,7 +439,7 @@ pub(crate) impl ServerService for Backend {
     /// Requires [`ManagementPermissions::SERVER_SUSPEND`] to (un)suspend a server or to change
     /// the reason a server is suspended for.
     #[route("/{server_id}", method = PATCH)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, suspension_reason_required, not_suspended}, node::failure, group::not_found, template::{corrupted, unavailable})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, suspension_reason_required, not_suspended}, node::failure, group::not_on_node, template::{corrupted, unavailable})]
     async fn update_server(
         &self,
         #[special] auth: Authentication,
@@ -497,9 +497,9 @@ pub(crate) impl ServerService for Backend {
 
         if let Some(group) = group.as_deref()
             && !group.is_empty()
-            && !group_exists(&*self.database, server.node.id, group).await?
+            && !node_in_group(&*self.database, server.node.id, group).await?
         {
-            return Err(UpdateServerError::GroupNotFound);
+            return Err(UpdateServerError::GroupNotOnNode);
         }
 
         if suspended.is_none()

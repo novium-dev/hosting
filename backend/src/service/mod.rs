@@ -137,13 +137,24 @@ define_error!(node {
     not_empty("Node still has servers assigned" BAD_REQUEST),
     failure("Node operation failed" BAD_GATEWAY),
     invalid_host("The specified SSH host is invalid" BAD_REQUEST),
+    overallocation_invalid("The overallocation must be between 1 and 1000 percent" BAD_REQUEST),
 });
 
 define_error!(group {
-    not_found("The specified group was not found on the server's node" BAD_REQUEST),
+    not_found("The specified group was not found" NOT_FOUND),
+    not_on_node("The group is not assigned to the server's node" BAD_REQUEST),
     invalid_name("Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by '-'" BAD_REQUEST),
-    already_exists("A group with this name already exists on the node" CONFLICT),
+    already_exists("A group with this name already exists" CONFLICT),
     limits_invalid("Group limits must be positive numbers" BAD_REQUEST),
+    in_use("The group is still used by deploy configs" CONFLICT),
+});
+
+define_error!(deploy {
+    config_not_found("The specified deploy config was not found" NOT_FOUND),
+    name_invalid("Deploy config names must be 1-64 characters" BAD_REQUEST),
+    name_taken("A deploy config with this name already exists" CONFLICT),
+    resources_invalid("Deploy configs need a positive cpu and memory limit, and a non-negative swap limit" BAD_REQUEST),
+    no_capacity("No node in the group has enough free capacity and ports for this config" CONFLICT),
 });
 
 define_error!(integrity {

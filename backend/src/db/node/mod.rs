@@ -1,5 +1,3 @@
-pub mod group;
-
 use crate::Backend;
 use crate::db::region::RegionId;
 use crate::db::server::ports::NetworkProtocol;
@@ -7,8 +5,8 @@ use core::ops::Deref;
 use daemon_common::sdk::DaemonSDK;
 use daemon_common::service::DaemonServicesURLWithUserKey;
 use serde::Serialize;
-use sqlx::{Postgres, Transaction, query, query_as};
-use std::collections::HashMap;
+use sqlx::{Executor, Postgres, Transaction, query, query_as};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tracing::error;
 use url::Url;
@@ -28,6 +26,7 @@ pub struct BackendNode {
     pub server_storages: Vec<String>,
     pub backup_storages: Vec<String>,
     pub ports: Vec<NodePortAllocation>,
+    pub overallocation: u16,
 }
 
 #[derive(Clone, Debug, Serialize, sqlx::FromRow, utoipa::ToSchema)]
@@ -70,7 +69,7 @@ impl Backend {
     pub async fn sync_nodes(&self, tx: &mut Transaction<'_, Postgres>) -> Result<(), sqlx::Error> {
         let mut nodes = HashMap::new();
 
-        for node in query!(r#"SELECT id,url,display,maintenance AS "maintenance: bool",region AS "region: RegionId",default_host,default_bind,ssh_host,ssh_port FROM nodes"#)
+        for node in query!(r#"SELECT id,url,display,maintenance AS "maintenance: bool",region AS "region: RegionId",default_host,default_bind,ssh_host,ssh_port,overallocation FROM nodes"#)
             .fetch_all(&mut **tx)
             .await? {
 
@@ -132,6 +131,7 @@ impl Backend {
                 server_storages,
                 backup_storages,
                 ports,
+                overallocation: u16::try_from(node.overallocation).unwrap_or(100),
             }));
         }
 
@@ -139,6 +139,32 @@ impl Backend {
 
         Ok(())
     }
+}
+
+pub(crate) async fn used_ports(
+    conn: impl Executor<'_, Database = Postgres>,
+    node: Uuid,
+) -> Result<HashMap<NetworkProtocol, HashSet<u16>>, sqlx::Error> {
+    let mut used: HashMap<NetworkProtocol, HashSet<u16>> = HashMap::new();
+    for row in query!(
+        r#"SELECT
+               server_ports.protocol AS "protocol: NetworkProtocol",
+               lower(server_ports.external_port) AS "external_port_start!",
+               upper(server_ports.external_port) - 1 AS "external_port_end!"
+           FROM servers
+           JOIN server_ports ON server_ports.server = servers.id
+           WHERE servers.node = $1"#,
+        node
+    )
+    .fetch_all(conn)
+    .await?
+    {
+        used.entry(row.protocol).or_default().extend(
+            (row.external_port_start..=row.external_port_end)
+                .filter_map(|port| u16::try_from(port).ok()),
+        );
+    }
+    Ok(used)
 }
 
 pub(crate) async fn insert_storages(

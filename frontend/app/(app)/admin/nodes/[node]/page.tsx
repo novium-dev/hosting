@@ -141,14 +141,6 @@ export default function AdminNodeManagementPage() {
   const regions = regionsResponse.error ? [] : (regionsResponse.data ?? []);
   const storages = storageRows(metrics);
   const serverStorages = storages.filter((row) => row.kind === "server");
-  const diskTotal = serverStorages.reduce(
-    (sum, row) => sum + row.entry.total,
-    0,
-  );
-  const diskUsedTotal = serverStorages.reduce(
-    (sum, row) => sum + Math.max(row.entry.total - row.entry.available, 0),
-    0,
-  );
   const currentRegion = regions.find(
     (region) => region.id === currentNode.region,
   );
@@ -236,15 +228,6 @@ export default function AdminNodeManagementPage() {
                   : t("admin-infra:nodes.detailPage.unavailable")
               }
             />
-            <InfoCard
-              icon={HardDrive}
-              title={t("common:resources.disk")}
-              value={
-                serverStorages.length > 0
-                  ? `${formatMib(diskUsedTotal, t)} / ${formatMib(diskTotal, t)}`
-                  : t("admin-infra:nodes.detailPage.unavailable")
-              }
-            />
           </div>
         </CardHeader>
       </Card>
@@ -273,6 +256,7 @@ export default function AdminNodeManagementPage() {
         serverStorages={currentNode.server_storages}
         initialMaintenance={currentNode.maintenance}
         initialRegion={currentNode.region}
+        initialOverallocation={currentNode.overallocation}
         regions={regions}
         canManage={canManageNodes}
       />

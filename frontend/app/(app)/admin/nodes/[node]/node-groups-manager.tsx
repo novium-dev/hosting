@@ -44,13 +44,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  createNodeGroup,
-  deleteNodeGroup,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import Link from "@/components/link";
+import {
+  assignGroupNode,
+  listGroups,
   listNodeGroups,
-  updateNodeGroup,
+  removeGroupNode,
   type ListNodeGroupsResponses,
   type ResourceSubset,
 } from "@/lib/api";
+import { formatGroupLimits, formatMib } from "@/lib/groups";
 
 type NodeGroupRow = ListNodeGroupsResponses[200][number];
 
@@ -75,8 +84,6 @@ type GroupLimits = {
 
 const EMPTY_FORM: GroupForm = { name: "", cpu: "", ram: "", swap: "" };
 
-const GROUP_NAME_PATTERN = /^[A-Za-z0-9_]+(-[A-Za-z0-9_]+){0,15}$/;
-
 function parseLimits(form: GroupForm): GroupLimits | null {
   const parse = (value: string, integer: boolean, allowZero: boolean) => {
     const trimmed = value.trim();
@@ -95,27 +102,6 @@ function parseLimits(form: GroupForm): GroupLimits | null {
     return null;
   }
   return { cpu, ram, swap };
-}
-
-function formatMib(value: number) {
-  return value >= 1024 ? `${(value / 1024).toFixed(2)} GiB` : `${value} MiB`;
-}
-
-function formatLimits(group: NodeGroupRow, t: TFunction) {
-  const unlimited = t("admin-infra:nodes.groupsManager.unlimited");
-  return [
-    `${t("common:resources.cpu")}: ${
-      group.cpu != null
-        ? t("admin-infra:nodes.groupsManager.cores", { value: group.cpu })
-        : unlimited
-    }`,
-    `${t("common:resources.memory")}: ${
-      group.ram != null ? formatMib(group.ram) : unlimited
-    }`,
-    `${t("admin-infra:nodes.detailPage.swapLabel")}: ${
-      group.swap != null ? formatMib(group.swap) : unlimited
-    }`,
-  ];
 }
 
 function formatUsage(usage: ResourceSubset | undefined, t: TFunction) {
@@ -159,6 +145,20 @@ export function NodeGroupsManager({
     return response.data;
   });
 
+  const { data: allGroups } = useSWR(
+    canManage ? ["admin-groups"] : null,
+    async () => {
+      const response = await listGroups();
+      return response.error || !response.data
+        ? []
+        : response.data.map((group) => group.name);
+    },
+  );
+
+  const availableGroups = (allGroups ?? []).filter(
+    (name) => !(groups ?? []).some((group) => group.name === name),
+  );
+
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
@@ -169,17 +169,17 @@ export function NodeGroupsManager({
     setEditing(group);
     setForm({
       name: group.name,
-      cpu: group.cpu != null ? String(group.cpu) : "",
-      ram: group.ram != null ? String(group.ram) : "",
-      swap: group.swap != null ? String(group.swap) : "",
+      cpu: group.limits.cpu != null ? String(group.limits.cpu) : "",
+      ram: group.limits.ram != null ? String(group.limits.ram) : "",
+      swap: group.limits.swap != null ? String(group.limits.swap) : "",
     });
     setDialogOpen(true);
   };
 
   const handleSubmit = async () => {
-    const name = form.name.trim();
-    if (!editing && (name.length > 200 || !GROUP_NAME_PATTERN.test(name))) {
-      toast.error(t("admin-infra:nodes.groupsManager.invalidName"));
+    const name = editing ? editing.name : form.name;
+    if (!name) {
+      toast.error(t("admin-infra:nodes.groupsManager.selectGroupPlaceholder"));
       return;
     }
 
@@ -191,15 +191,10 @@ export function NodeGroupsManager({
 
     setIsActionLoading(true);
     try {
-      const response = editing
-        ? await updateNodeGroup({
-            path: { node_id: nodeId, group_name: editing.name },
-            body: limits,
-          })
-        : await createNodeGroup({
-            path: { node_id: nodeId },
-            body: { name, ...limits },
-          });
+      const response = await assignGroupNode({
+        path: { group_name: name, node_id: nodeId },
+        body: limits,
+      });
 
       if (response.error) {
         toast.error(
@@ -228,8 +223,8 @@ export function NodeGroupsManager({
 
     setIsActionLoading(true);
     try {
-      const response = await deleteNodeGroup({
-        path: { node_id: nodeId, group_name: deleting.name },
+      const response = await removeGroupNode({
+        path: { group_name: deleting.name, node_id: nodeId },
       });
 
       if (response.error) {
@@ -266,6 +261,11 @@ export function NodeGroupsManager({
           >
             <Plus className="size-4" />
             {t("admin-infra:nodes.groupsManager.addButton")}
+          </Button>
+          <Button asChild variant="ghost">
+            <Link href="/admin/groups">
+              {t("admin-infra:nodes.groupsManager.manageGroupsLink")}
+            </Link>
           </Button>
           <Button
             type="button"
@@ -327,7 +327,7 @@ export function NodeGroupsManager({
                         </span>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {formatLimits(group, t).map((line) => (
+                        {formatGroupLimits(group.limits, t).map((line) => (
                           <p key={line}>{line}</p>
                         ))}
                       </TableCell>
@@ -391,22 +391,35 @@ export function NodeGroupsManager({
             {!editing && (
               <div className="grid gap-2">
                 <Label htmlFor="node-group-name">
-                  {t("common:labels.name")}
+                  {t("admin-infra:nodes.groupsManager.groupLabel")}
                 </Label>
-                <Input
-                  id="node-group-name"
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, name: event.target.value }))
-                  }
-                  placeholder={t(
-                    "admin-infra:nodes.groupsManager.namePlaceholder",
-                  )}
-                  maxLength={200}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t("admin-infra:nodes.groupsManager.nameHint")}
-                </p>
+                {availableGroups.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin-infra:nodes.groupsManager.noGroupsAvailable")}
+                  </p>
+                ) : (
+                  <Select
+                    value={form.name}
+                    onValueChange={(value) =>
+                      setForm((prev) => ({ ...prev, name: value }))
+                    }
+                  >
+                    <SelectTrigger id="node-group-name" className="w-full">
+                      <SelectValue
+                        placeholder={t(
+                          "admin-infra:nodes.groupsManager.selectGroupPlaceholder",
+                        )}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableGroups.map((name) => (
+                        <SelectItem key={name} value={name}>
+                          {name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             )}
             <div className="grid gap-3 sm:grid-cols-3">

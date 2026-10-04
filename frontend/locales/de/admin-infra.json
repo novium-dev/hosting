@@ -134,7 +134,12 @@
       "syncConfigDescription": "Aktuelle Konfiguration vom laufenden Node abrufen (Basis-URL, Host/Bind, Speicher- und Backup-Zuordnungen) und mit dem Backend abgleichen.",
       "syncButton": "Von Node synchronisieren",
       "backupStoragesLabel": "Backup-Speicher",
-      "serverStoragesLabel": "Server-Speicher"
+      "serverStoragesLabel": "Server-Speicher",
+      "overallocationTitle": "Überbelegung",
+      "overallocationDescription": "Wie viel CPU, Arbeitsspeicher, Swap und Speicherplatz des Nodes automatische Deployments vergeben dürfen, in Prozent seiner Hardware. 120 % erlaubt 20 % mehr, als der Node hat.",
+      "overallocationInvalid": "Die Überbelegung muss eine ganze Zahl zwischen 1 und 1000 sein.",
+      "overallocationSuccess": "Überbelegung aktualisiert.",
+      "overallocationError": "Die Überbelegung konnte nicht aktualisiert werden."
     },
     "detailPage": {
       "backToList": "Zurück zur Node-Liste",
@@ -211,36 +216,37 @@
       "failed": "Node konnte nicht gelöscht werden"
     },
     "groupsManager": {
-      "title": "Ressourcengruppen",
-      "description": "Server in einer Gruppe teilen sich deren CPU-, Arbeitsspeicher- und Swap-Limits. Ein '-' verschachtelt eine Gruppe in einer anderen, z. B. customers-acme in customers, und die Limits einer übergeordneten Gruppe gelten auch für ihre Untergruppen.",
-      "addButton": "Gruppe hinzufügen",
-      "empty": "Auf diesem Node gibt es keine Ressourcengruppen.",
-      "loadError": "Die Ressourcengruppen des Nodes konnten nicht geladen werden.",
+      "title": "Gruppen",
+      "description": "Gruppen, zu denen dieser Node gehört. Die Limits einer Gruppe auf diesem Node teilen sich ihre Server hier, und die Limits einer übergeordneten Gruppe gelten auch für ihre Untergruppen.",
+      "addButton": "Zu Gruppe hinzufügen",
+      "manageGroupsLink": "Gruppen verwalten",
+      "empty": "Dieser Node ist noch in keiner Gruppe.",
+      "loadError": "Die Gruppen des Nodes konnten nicht geladen werden.",
       "columns": {
-        "limits": "Limits",
+        "limits": "Limits auf diesem Node",
         "usage": "Auslastung",
         "servers": "Server"
       },
       "unlimited": "Unbegrenzt",
       "cores": "{{value}} Kerne",
-      "createTitle": "Ressourcengruppe hinzufügen",
-      "editTitle": "{{name}} bearbeiten",
+      "createTitle": "Node zu Gruppe hinzufügen",
+      "editTitle": "Limits von {{name}} auf diesem Node",
       "dialogDescription": "Leer gelassene Limits sind unbegrenzt.",
-      "namePlaceholder": "customers-acme",
-      "nameHint": "Buchstaben, Zahlen und Unterstriche. Mit '-' werden Gruppen verschachtelt, bis zu 16 Ebenen.",
+      "groupLabel": "Gruppe",
+      "selectGroupPlaceholder": "Gruppe auswählen",
+      "noGroupsAvailable": "Dieser Node ist bereits in jeder Gruppe. Neue Gruppen werden auf der Gruppenseite erstellt.",
       "cpuLabel": "CPU (Kerne)",
       "ramLabel": "Arbeitsspeicher (MiB)",
       "swapLabel": "Swap (MiB)",
-      "invalidName": "Der Gruppenname ist ungültig.",
       "invalidLimits": "Limits müssen positive Zahlen sein, Arbeitsspeicher und Swap in ganzen MiB.",
-      "createSuccess": "Ressourcengruppe erstellt.",
-      "createError": "Die Ressourcengruppe konnte nicht erstellt werden.",
-      "updateSuccess": "Ressourcengruppe aktualisiert.",
-      "updateError": "Die Ressourcengruppe konnte nicht aktualisiert werden.",
-      "deleteTitle": "{{name}} löschen?",
-      "deleteDescription": "Server in dieser Gruppe verlassen sie und übernehmen die Änderung beim nächsten Start. Untergruppen behalten ihre eigenen Limits.",
-      "deleteSuccess": "Ressourcengruppe gelöscht.",
-      "deleteError": "Die Ressourcengruppe konnte nicht gelöscht werden."
+      "createSuccess": "Node zur Gruppe hinzugefügt.",
+      "createError": "Der Node konnte nicht zur Gruppe hinzugefügt werden.",
+      "updateSuccess": "Gruppenlimits aktualisiert.",
+      "updateError": "Die Gruppenlimits konnten nicht aktualisiert werden.",
+      "deleteTitle": "Diesen Node aus {{name}} entfernen?",
+      "deleteDescription": "Die Server des Nodes in dieser Gruppe verlassen sie und übernehmen die Änderung beim nächsten Start.",
+      "deleteSuccess": "Node aus der Gruppe entfernt.",
+      "deleteError": "Der Node konnte nicht aus der Gruppe entfernt werden."
     }
   },
   "servers": {
@@ -458,6 +464,57 @@
       "refreshToast_one": "{{refreshed}} von {{count}} Template-Cache aktualisiert",
       "refreshToast_other": "{{refreshed}} von {{count}} Template-Caches aktualisiert",
       "refreshFailed": "Aktualisierung fehlgeschlagen: {{templates}}"
+    }
+  },
+  "groups": {
+    "title": "Gruppen",
+    "description": "Gruppen gelten über Nodes hinweg. Nodes werden auf der Seite des Nodes einer Gruppe zugewiesen, mit den Limits, die die Gruppe auf diesem Node bekommt. Deploy-Konfigurationen platzieren Server auf den Nodes ihrer Gruppe.",
+    "createButton": "Gruppe erstellen",
+    "empty": "Es gibt noch keine Gruppen.",
+    "loadError": "Die Gruppen konnten nicht geladen werden.",
+    "noNodes": "Keine Nodes",
+    "columns": {
+      "servers": "Server",
+      "deployConfigs": "Deploy-Konfigurationen"
+    },
+    "createTitle": "Gruppe erstellen",
+    "createDescription": "Die Gruppe wird wirksam, sobald ihr Nodes zugewiesen sind.",
+    "namePlaceholder": "customers-acme",
+    "nameHint": "Buchstaben, Zahlen und Unterstriche. Mit '-' werden Gruppen verschachtelt, bis zu 16 Ebenen.",
+    "invalidName": "Der Gruppenname ist ungültig.",
+    "createSuccess": "Gruppe erstellt.",
+    "createError": "Die Gruppe konnte nicht erstellt werden.",
+    "deleteTitle": "{{name}} löschen?",
+    "deleteDescription": "Die Gruppe wird von allen ihren Nodes entfernt. Ihre Server verlassen sie und übernehmen die Änderung beim nächsten Start. Gruppen, die von Deploy-Konfigurationen verwendet werden, können nicht gelöscht werden.",
+    "deleteSuccess": "Gruppe gelöscht.",
+    "deleteError": "Die Gruppe konnte nicht gelöscht werden."
+  },
+  "deployConfigs": {
+    "title": "Deploy-Konfigurationen",
+    "description": "Ein Template mit seinen Variablen und Ressourcen, einer Gruppe zugewiesen. Beim Deployment wird der Node der Gruppe mit der meisten freien Kapazität innerhalb seiner Überbelegung gewählt und die Ports werden automatisch vergeben.",
+    "createButton": "Deploy-Konfiguration erstellen",
+    "empty": "Es gibt noch keine Deploy-Konfigurationen.",
+    "loadError": "Die Deploy-Konfigurationen konnten nicht geladen werden.",
+    "groupLabel": "Gruppe",
+    "resourcesLabel": "Ressourcen",
+    "diskLabel": "Speicherplatz (MiB)",
+    "apiTitle": "Deployment",
+    "apiDescription": "Server werden über die API mit einem API-Schlüssel deployt, der die Berechtigung \"Deploy servers from deploy configs\" hat.",
+    "deleteTitle": "{{name}} löschen?",
+    "deleteDescription": "Server, die aus dieser Konfiguration deployt wurden, sind nicht betroffen.",
+    "deleteSuccess": "Deploy-Konfiguration gelöscht.",
+    "deleteError": "Die Deploy-Konfiguration konnte nicht gelöscht werden.",
+    "dialog": {
+      "createTitle": "Deploy-Konfiguration erstellen",
+      "editTitle": "{{name}} bearbeiten",
+      "description": "Änderungen gelten nur für danach deployte Server.",
+      "selectGroup": "Gruppe auswählen",
+      "selectTemplate": "Template auswählen",
+      "missingFields": "Name, Gruppe und Template sind erforderlich.",
+      "invalidResources": "CPU und Arbeitsspeicher müssen positiv sein, Swap, Speicherplatz und Backup-Limit ganze Zahlen.",
+      "invalidVariables": "Bitte die Template-Variablen korrigieren, bevor gespeichert wird.",
+      "saveSuccess": "Deploy-Konfiguration gespeichert.",
+      "saveError": "Die Deploy-Konfiguration konnte nicht gespeichert werden."
     }
   }
 }

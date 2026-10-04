@@ -23,6 +23,8 @@ import AdminIntegrityPage from "@/app/(app)/admin/integrity/page";
 import AdminNodesPage from "@/app/(app)/admin/nodes/page";
 import AdminNodePage from "@/app/(app)/admin/nodes/[node]/page";
 import AdminRegionsPage from "@/app/(app)/admin/regions/page";
+import AdminGroupsPage from "@/app/(app)/admin/groups/page";
+import AdminDeployConfigsPage from "@/app/(app)/admin/deploy-configs/page";
 import AdminDomainsPage from "@/app/(app)/admin/domains/page";
 import AdminDomainPage from "@/app/(app)/admin/domains/[domain]/page";
 import AdminDatabasesPage from "@/app/(app)/admin/databases/page";
@@ -74,6 +76,8 @@ export const router = createBrowserRouter([
               { path: "nodes", element: <AdminNodesPage /> },
               { path: "nodes/:node", element: <AdminNodePage /> },
               { path: "regions", element: <AdminRegionsPage /> },
+              { path: "groups", element: <AdminGroupsPage /> },
+              { path: "deploy-configs", element: <AdminDeployConfigsPage /> },
               { path: "domains", element: <AdminDomainsPage /> },
               { path: "domains/:domain", element: <AdminDomainPage /> },
               { path: "databases", element: <AdminDatabasesPage /> },

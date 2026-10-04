@@ -21,10 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
   updateMaintenance,
   updateNode,
+  updateNodeOverallocation,
   updateNodeRegion,
   type ListNodesResponses,
   type ListRegionsResponses,
@@ -42,6 +44,7 @@ type NodeSettingsCardProps = {
   serverStorages: NodeRow["server_storages"];
   initialMaintenance: boolean;
   initialRegion: string;
+  initialOverallocation: number;
   regions: RegionRow[];
   canManage: boolean;
 };
@@ -55,6 +58,7 @@ export function NodeSettingsCard({
   serverStorages,
   initialMaintenance,
   initialRegion,
+  initialOverallocation,
   regions,
   canManage,
 }: NodeSettingsCardProps) {
@@ -64,6 +68,13 @@ export function NodeSettingsCard({
   const [isSyncing, setIsSyncing] = useState(false);
   const [region, setRegion] = useState(initialRegion);
   const [isRegionSaving, setIsRegionSaving] = useState(false);
+  const [overallocation, setOverallocation] = useState(
+    String(initialOverallocation),
+  );
+  const [savedOverallocation, setSavedOverallocation] = useState(
+    initialOverallocation,
+  );
+  const [isOverallocationSaving, setIsOverallocationSaving] = useState(false);
 
   const maintenanceLabel = useMemo(
     () =>
@@ -122,6 +133,36 @@ export function NodeSettingsCard({
       toast.success(t("admin-infra:nodes.settingsCard.regionSuccess"));
     } finally {
       setIsRegionSaving(false);
+    }
+  };
+
+  const handleSaveOverallocation = async () => {
+    const value = Number(overallocation.trim());
+    if (!Number.isInteger(value) || value < 1 || value > 1000) {
+      toast.error(t("admin-infra:nodes.settingsCard.overallocationInvalid"));
+      return;
+    }
+
+    setIsOverallocationSaving(true);
+
+    try {
+      const response = await updateNodeOverallocation({
+        path: { node_id: nodeId },
+        body: value,
+      });
+
+      if (response.error) {
+        toast.error(
+          response.error.error?.msg ??
+            t("admin-infra:nodes.settingsCard.overallocationError"),
+        );
+        return;
+      }
+
+      setSavedOverallocation(value);
+      toast.success(t("admin-infra:nodes.settingsCard.overallocationSuccess"));
+    } finally {
+      setIsOverallocationSaving(false);
     }
   };
 
@@ -243,6 +284,46 @@ export function NodeSettingsCard({
                 {t("common:state.saving")}
               </span>
             ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-md border p-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">
+              {t("admin-infra:nodes.settingsCard.overallocationTitle")}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {t("admin-infra:nodes.settingsCard.overallocationDescription")}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-32">
+              <Input
+                value={overallocation}
+                onChange={(event) => setOverallocation(event.target.value)}
+                inputMode="numeric"
+                className="pr-7"
+                disabled={!canManage}
+              />
+              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+                %
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void handleSaveOverallocation();
+              }}
+              loading={isOverallocationSaving}
+              disabled={
+                !canManage ||
+                overallocation.trim() === String(savedOverallocation)
+              }
+            >
+              {t("common:actions.save")}
+            </Button>
           </div>
         </div>
 

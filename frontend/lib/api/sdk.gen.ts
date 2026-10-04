@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptServerLicenseData, AcceptServerLicenseErrors, AcceptServerLicenseResponses, AddNodePortData, AddNodePortErrors, AddNodePortResponses, AddPortData, AddPortErrors, AddPortResponses, AddSshKeyData, AddSshKeyErrors, AddSshKeyResponses, AllowDomainProjectData, AllowDomainProjectErrors, AllowDomainProjectResponses, ArchiveFileData, ArchiveFileErrors, ArchiveFileResponses, AuthPasswordData, AuthPasswordErrors, AuthPasswordResponses, AuthPublickeyData, AuthPublickeyErrors, AuthPublickeyResponses, AvailablePortsData, AvailablePortsErrors, AvailablePortsResponses, BanUserData, BanUserErrors, BanUserResponses, CallbackData, CallbackErrors, ChangeServerTemplateData, ChangeServerTemplateErrors, ChangeServerTemplateResponses, CheckProjectSlugData, CheckProjectSlugErrors, CheckProjectSlugResponses, ChmodFileData, ChmodFileErrors, ChmodFileResponses, ChownFileData, ChownFileErrors, ChownFileResponses, CopyFileData, CopyFileErrors, CopyFileResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, CreateBackupWithStorageData, CreateBackupWithStorageErrors, CreateBackupWithStorageResponses, CreateDatabaseHostData, CreateDatabaseHostErrors, CreateDatabaseHostResponses, CreateDirectoryData, CreateDirectoryErrors, CreateDirectoryResponses, CreateInstanceDatabaseData, CreateInstanceDatabaseErrors, CreateInstanceDatabaseResponses, CreateInstanceUserData, CreateInstanceUserErrors, CreateInstanceUserResponses, CreateNodeData, CreateNodeErrors, CreateNodeGroupData, CreateNodeGroupErrors, CreateNodeGroupResponses, CreateNodeResponses, CreateProjectData, CreateProjectErrors, CreateProjectInstanceData, CreateProjectInstanceErrors, CreateProjectInstanceResponses, CreateProjectResponses, CreateRegionData, CreateRegionErrors, CreateRegionResponses, CreateRouteData, CreateRouteDomainData, CreateRouteDomainErrors, CreateRouteDomainResponses, CreateRouteErrors, CreateRouteResponses, CreateScheduleData, CreateScheduleErrors, CreateScheduleResponses, CreateServerData, CreateServerErrors, CreateServerResponses, DaemonConfigData, DaemonConfigErrors, DaemonConfigResponses, DaemonPasswordData, DaemonPasswordErrors, DaemonPasswordResponses, DaemonRegisterData, DaemonRegisterErrors, DaemonRegisterResponses, DaemonRootKeyData, DaemonRootKeyErrors, DaemonRootKeyResponses, DatabaseAgentConfigData, DatabaseAgentConfigErrors, DatabaseAgentConfigResponses, DatabaseAgentRegisterData, DatabaseAgentRegisterErrors, DatabaseAgentRegisterResponses, DatabaseAgentRootKeyData, DatabaseAgentRootKeyErrors, DatabaseAgentRootKeyResponses, DeleteAnyApiKeyData, DeleteAnyApiKeyErrors, DeleteAnyApiKeyResponses, DeleteApiKeyData, DeleteApiKeyErrors, DeleteApiKeyResponses, DeleteBackupData, DeleteBackupErrors, DeleteBackupResponses, DeleteDatabaseHostData, DeleteDatabaseHostErrors, DeleteDatabaseHostResponses, DeleteDatabaseInstanceData, DeleteDatabaseInstanceErrors, DeleteDatabaseInstanceResponses, DeleteFileData, DeleteFileErrors, DeleteFileResponses, DeleteInstanceDatabaseData, DeleteInstanceDatabaseErrors, DeleteInstanceDatabaseResponses, DeleteInstanceUserData, DeleteInstanceUserErrors, DeleteInstanceUserResponses, DeleteNodeData, DeleteNodeErrors, DeleteNodeGroupData, DeleteNodeGroupErrors, DeleteNodeGroupResponses, DeleteNodePortData, DeleteNodePortErrors, DeleteNodePortResponses, DeleteNodeResponses, DeleteOtherSessionsData, DeleteOtherSessionsErrors, DeleteOtherSessionsResponses, DeletePortData, DeletePortErrors, DeletePortResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectInstanceData, DeleteProjectInstanceErrors, DeleteProjectInstanceResponses, DeleteProjectLogoData, DeleteProjectLogoErrors, DeleteProjectLogoResponses, DeleteProjectResponses, DeleteRegionData, DeleteRegionErrors, DeleteRegionResponses, DeleteRouteData, DeleteRouteDomainData, DeleteRouteDomainErrors, DeleteRouteDomainResponses, DeleteRouteErrors, DeleteRouteResponses, DeleteScheduleData, DeleteScheduleErrors, DeleteScheduleResponses, DeleteServerData, DeleteServerErrors, DeleteServerResponses, DeleteSessionData, DeleteSessionErrors, DeleteSessionResponses, DeleteSshKeyData, DeleteSshKeyErrors, DeleteSshKeyResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DenyDomainProjectData, DenyDomainProjectErrors, DenyDomainProjectResponses, DeopUserData, DeopUserErrors, DeopUserResponses, DownloadBackupData, DownloadBackupErrors, DownloadBackupResponses, DownloadUserData, DownloadUserErrors, DownloadUserResponses, ExtendDatabaseHostRegistrationData, ExtendDatabaseHostRegistrationErrors, ExtendDatabaseHostRegistrationResponses, ExtendNodeRegistrationData, ExtendNodeRegistrationErrors, ExtendNodeRegistrationResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetUserData, GetUserErrors, GetUserResponses, InstallModpackData, InstallModpackErrors, InstallModpackResponses, InstallResourceData, InstallResourceErrors, InstallResourceResponses, InstancePolicyData, InstancePolicyErrors, InstancePolicyResponses, IntegrityReportData, IntegrityReportErrors, IntegrityReportResponses, IntegritySchemaData, IntegritySchemaErrors, IntegritySchemaResponses, KillServerData, KillServerErrors, KillServerResponses, ListAllApiKeysData, ListAllApiKeysErrors, ListAllApiKeysResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListBackupsData, ListBackupsErrors, ListBackupsResponses, ListDatabaseHostRegistrationsData, ListDatabaseHostRegistrationsErrors, ListDatabaseHostRegistrationsResponses, ListDatabaseHostsData, ListDatabaseHostsErrors, ListDatabaseHostsResponses, ListDatabaseInstancesData, ListDatabaseInstancesErrors, ListDatabaseInstancesResponses, ListDomainRoutesData, ListDomainRoutesErrors, ListDomainRoutesResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListInstalledResourcesData, ListInstalledResourcesErrors, ListInstalledResourcesResponses, ListInstanceDatabasesData, ListInstanceDatabasesErrors, ListInstanceDatabasesResponses, ListInstanceUsersData, ListInstanceUsersErrors, ListInstanceUsersResponses, ListIntegrityChecksData, ListIntegrityChecksErrors, ListIntegrityChecksResponses, ListNodeGroupsData, ListNodeGroupsErrors, ListNodeGroupsResponses, ListNodeRegistrationsData, ListNodeRegistrationsErrors, ListNodeRegistrationsResponses, ListNodesData, ListNodesErrors, ListNodesResponses, ListProjectApiKeysData, ListProjectApiKeysErrors, ListProjectApiKeysResponses, ListProjectInstancesData, ListProjectInstancesErrors, ListProjectInstancesResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectUsersData, ListProjectUsersErrors, ListProjectUsersResponses, ListRegionsData, ListRegionsErrors, ListRegionsResponses, ListResourceUpdatesData, ListResourceUpdatesErrors, ListResourceUpdatesResponses, ListResourceVersionsData, ListResourceVersionsErrors, ListResourceVersionsResponses, ListRouteDomainsAdminData, ListRouteDomainsAdminErrors, ListRouteDomainsAdminResponses, ListRouteDomainsData, ListRouteDomainsErrors, ListRouteDomainsResponses, ListRoutesData, ListRoutesErrors, ListRoutesResponses, ListSchedulesData, ListSchedulesErrors, ListSchedulesResponses, ListServersData, ListServersErrors, ListServersResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, ListSshKeysData, ListSshKeysErrors, ListSshKeysResponses, ListTemplatesData, ListTemplatesErrors, ListTemplatesResponses, ListTemplateUsageData, ListTemplateUsageErrors, ListTemplateUsageResponses, ListUserProjectsData, ListUserProjectsErrors, ListUserProjectsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginDevData, LoginDevErrors, LoginErrors, LogoutData, LogoutErrors, LogoutResponses, MeData, MeErrors, MeResponses, MetricsNodeData, MetricsNodeErrors, MetricsNodeResponses, ModpackStatusData, ModpackStatusErrors, ModpackStatusResponses, ModpackVersionsData, ModpackVersionsErrors, ModpackVersionsResponses, OpUserData, OpUserErrors, OpUserResponses, PardonUserData, PardonUserErrors, PardonUserResponses, PowerProjectInstanceData, PowerProjectInstanceErrors, PowerProjectInstanceResponses, RealtimeDownloadBackupData, RealtimeDownloadBackupErrors, RealtimeDownloadBackupResponses, RefreshTemplateCacheData, RefreshTemplateCacheErrors, RefreshTemplateCacheResponses, RemoveProjectUserData, RemoveProjectUserErrors, RemoveProjectUserResponses, RenameFileData, RenameFileErrors, RenameFileResponses, RerollDaemonPasswordData, RerollDaemonPasswordErrors, RerollDaemonPasswordResponses, ResolveDomainZoneData, ResolveDomainZoneErrors, ResolveDomainZoneResponses, ResourceContextData, ResourceContextErrors, ResourceContextResponses, RestartServerData, RestartServerErrors, RestartServerResponses, RestoreBackupData, RestoreBackupErrors, RestoreBackupResponses, ResyncTemplateData, ResyncTemplateErrors, ResyncTemplateResponses, RotateInstanceUserPasswordData, RotateInstanceUserPasswordErrors, RotateInstanceUserPasswordResponses, RouteBackendsData, RouteBackendsErrors, RouteBackendsResponses, RunIntegrityChecksData, RunIntegrityChecksErrors, RunIntegrityChecksResponses, RunScheduleData, RunScheduleErrors, RunScheduleResponses, SearchResourcesData, SearchResourcesErrors, SearchResourcesResponses, ServerInfoData, ServerInfoErrors, ServerInfoResponses, ServerLicensesData, ServerLicensesErrors, ServerLicensesResponses, ServerStartupData, ServerStartupErrors, ServerStartupResponses, ServerStatsData, ServerStatsErrors, ServerStatsResponses, ServerTerminalData, ServerTerminalErrors, ServerTerminalResponses, ServerVariablesData, ServerVariablesErrors, ServerVariablesResponses, SetConfigData, SetConfigErrors, SetConfigResponses, SetInstanceUserGrantsData, SetInstanceUserGrantsErrors, SetInstanceUserGrantsResponses, SetProjectLogoData, SetProjectLogoErrors, SetProjectLogoResponses, SetProjectUserData, SetProjectUserErrors, SetProjectUserResponses, SetResourceStateData, SetResourceStateErrors, SetResourceStateResponses, StartServerData, StartServerErrors, StartServerResponses, StatFileData, StatFileErrors, StatFileResponses, StopServerData, StopServerErrors, StopServerResponses, SymlinkFileData, SymlinkFileErrors, SymlinkFileResponses, TemplateInfoData, TemplateInfoErrors, TemplateInfoResponses, UnarchiveFileData, UnarchiveFileErrors, UnarchiveFileResponses, UninstallResourceData, UninstallResourceErrors, UninstallResourceResponses, UnlinkModpackData, UnlinkModpackErrors, UnlinkModpackResponses, UpdateAllResourcesData, UpdateAllResourcesErrors, UpdateAllResourcesResponses, UpdateApiKeyData, UpdateApiKeyErrors, UpdateApiKeyResponses, UpdateBackupData, UpdateBackupErrors, UpdateBackupResponses, UpdateDatabaseHostData, UpdateDatabaseHostErrors, UpdateDatabaseHostRegistrationData, UpdateDatabaseHostRegistrationErrors, UpdateDatabaseHostRegistrationResponses, UpdateDatabaseHostResponses, UpdateDatabaseInstanceData, UpdateDatabaseInstanceErrors, UpdateDatabaseInstanceResponses, UpdateMaintenanceData, UpdateMaintenanceErrors, UpdateMaintenanceResponses, UpdateNodeData, UpdateNodeErrors, UpdateNodeGroupData, UpdateNodeGroupErrors, UpdateNodeGroupResponses, UpdateNodeRegionData, UpdateNodeRegionErrors, UpdateNodeRegionResponses, UpdateNodeRegistrationData, UpdateNodeRegistrationErrors, UpdateNodeRegistrationResponses, UpdateNodeResponses, UpdatePortData, UpdatePortErrors, UpdatePortResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateRegionData, UpdateRegionErrors, UpdateRegionResponses, UpdateResourceData, UpdateResourceErrors, UpdateResourceResponses, UpdateRouteDomainData, UpdateRouteDomainErrors, UpdateRouteDomainResponses, UpdateScheduleData, UpdateScheduleErrors, UpdateScheduleResponses, UpdateServerData, UpdateServerErrors, UpdateServerResponses, UpdateStartupData, UpdateStartupErrors, UpdateStartupResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateVariablesData, UpdateVariablesErrors, UpdateVariablesResponses, UploadProjectLogoData, UploadProjectLogoErrors, UploadProjectLogoResponses, UploadUserData, UploadUserErrors, UploadUserResponses, WipeServerData, WipeServerErrors, WipeServerResponses } from './types.gen';
+import type { AcceptServerLicenseData, AcceptServerLicenseErrors, AcceptServerLicenseResponses, AddNodePortData, AddNodePortErrors, AddNodePortResponses, AddPortData, AddPortErrors, AddPortResponses, AddSshKeyData, AddSshKeyErrors, AddSshKeyResponses, AllowDomainProjectData, AllowDomainProjectErrors, AllowDomainProjectResponses, ArchiveFileData, ArchiveFileErrors, ArchiveFileResponses, AssignGroupNodeData, AssignGroupNodeErrors, AssignGroupNodeResponses, AuthPasswordData, AuthPasswordErrors, AuthPasswordResponses, AuthPublickeyData, AuthPublickeyErrors, AuthPublickeyResponses, AvailablePortsData, AvailablePortsErrors, AvailablePortsResponses, BanUserData, BanUserErrors, BanUserResponses, CallbackData, CallbackErrors, ChangeServerTemplateData, ChangeServerTemplateErrors, ChangeServerTemplateResponses, CheckProjectSlugData, CheckProjectSlugErrors, CheckProjectSlugResponses, ChmodFileData, ChmodFileErrors, ChmodFileResponses, ChownFileData, ChownFileErrors, ChownFileResponses, CopyFileData, CopyFileErrors, CopyFileResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, CreateBackupWithStorageData, CreateBackupWithStorageErrors, CreateBackupWithStorageResponses, CreateDatabaseHostData, CreateDatabaseHostErrors, CreateDatabaseHostResponses, CreateDeployConfigData, CreateDeployConfigErrors, CreateDeployConfigResponses, CreateDirectoryData, CreateDirectoryErrors, CreateDirectoryResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, CreateInstanceDatabaseData, CreateInstanceDatabaseErrors, CreateInstanceDatabaseResponses, CreateInstanceUserData, CreateInstanceUserErrors, CreateInstanceUserResponses, CreateNodeData, CreateNodeErrors, CreateNodeResponses, CreateProjectData, CreateProjectErrors, CreateProjectInstanceData, CreateProjectInstanceErrors, CreateProjectInstanceResponses, CreateProjectResponses, CreateRegionData, CreateRegionErrors, CreateRegionResponses, CreateRouteData, CreateRouteDomainData, CreateRouteDomainErrors, CreateRouteDomainResponses, CreateRouteErrors, CreateRouteResponses, CreateScheduleData, CreateScheduleErrors, CreateScheduleResponses, CreateServerData, CreateServerErrors, CreateServerResponses, DaemonConfigData, DaemonConfigErrors, DaemonConfigResponses, DaemonPasswordData, DaemonPasswordErrors, DaemonPasswordResponses, DaemonRegisterData, DaemonRegisterErrors, DaemonRegisterResponses, DaemonRootKeyData, DaemonRootKeyErrors, DaemonRootKeyResponses, DatabaseAgentConfigData, DatabaseAgentConfigErrors, DatabaseAgentConfigResponses, DatabaseAgentRegisterData, DatabaseAgentRegisterErrors, DatabaseAgentRegisterResponses, DatabaseAgentRootKeyData, DatabaseAgentRootKeyErrors, DatabaseAgentRootKeyResponses, DeleteAnyApiKeyData, DeleteAnyApiKeyErrors, DeleteAnyApiKeyResponses, DeleteApiKeyData, DeleteApiKeyErrors, DeleteApiKeyResponses, DeleteBackupData, DeleteBackupErrors, DeleteBackupResponses, DeleteDatabaseHostData, DeleteDatabaseHostErrors, DeleteDatabaseHostResponses, DeleteDatabaseInstanceData, DeleteDatabaseInstanceErrors, DeleteDatabaseInstanceResponses, DeleteDeployConfigData, DeleteDeployConfigErrors, DeleteDeployConfigResponses, DeleteFileData, DeleteFileErrors, DeleteFileResponses, DeleteGroupData, DeleteGroupErrors, DeleteGroupResponses, DeleteInstanceDatabaseData, DeleteInstanceDatabaseErrors, DeleteInstanceDatabaseResponses, DeleteInstanceUserData, DeleteInstanceUserErrors, DeleteInstanceUserResponses, DeleteNodeData, DeleteNodeErrors, DeleteNodePortData, DeleteNodePortErrors, DeleteNodePortResponses, DeleteNodeResponses, DeleteOtherSessionsData, DeleteOtherSessionsErrors, DeleteOtherSessionsResponses, DeletePortData, DeletePortErrors, DeletePortResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectInstanceData, DeleteProjectInstanceErrors, DeleteProjectInstanceResponses, DeleteProjectLogoData, DeleteProjectLogoErrors, DeleteProjectLogoResponses, DeleteProjectResponses, DeleteRegionData, DeleteRegionErrors, DeleteRegionResponses, DeleteRouteData, DeleteRouteDomainData, DeleteRouteDomainErrors, DeleteRouteDomainResponses, DeleteRouteErrors, DeleteRouteResponses, DeleteScheduleData, DeleteScheduleErrors, DeleteScheduleResponses, DeleteServerData, DeleteServerErrors, DeleteServerResponses, DeleteSessionData, DeleteSessionErrors, DeleteSessionResponses, DeleteSshKeyData, DeleteSshKeyErrors, DeleteSshKeyResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DenyDomainProjectData, DenyDomainProjectErrors, DenyDomainProjectResponses, DeopUserData, DeopUserErrors, DeopUserResponses, DeployServerData, DeployServerErrors, DeployServerResponses, DownloadBackupData, DownloadBackupErrors, DownloadBackupResponses, DownloadUserData, DownloadUserErrors, DownloadUserResponses, ExtendDatabaseHostRegistrationData, ExtendDatabaseHostRegistrationErrors, ExtendDatabaseHostRegistrationResponses, ExtendNodeRegistrationData, ExtendNodeRegistrationErrors, ExtendNodeRegistrationResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetUserData, GetUserErrors, GetUserResponses, InstallModpackData, InstallModpackErrors, InstallModpackResponses, InstallResourceData, InstallResourceErrors, InstallResourceResponses, InstancePolicyData, InstancePolicyErrors, InstancePolicyResponses, IntegrityReportData, IntegrityReportErrors, IntegrityReportResponses, IntegritySchemaData, IntegritySchemaErrors, IntegritySchemaResponses, KillServerData, KillServerErrors, KillServerResponses, ListAllApiKeysData, ListAllApiKeysErrors, ListAllApiKeysResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListBackupsData, ListBackupsErrors, ListBackupsResponses, ListDatabaseHostRegistrationsData, ListDatabaseHostRegistrationsErrors, ListDatabaseHostRegistrationsResponses, ListDatabaseHostsData, ListDatabaseHostsErrors, ListDatabaseHostsResponses, ListDatabaseInstancesData, ListDatabaseInstancesErrors, ListDatabaseInstancesResponses, ListDeployConfigsData, ListDeployConfigsErrors, ListDeployConfigsResponses, ListDomainRoutesData, ListDomainRoutesErrors, ListDomainRoutesResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListGroupsData, ListGroupsErrors, ListGroupsResponses, ListInstalledResourcesData, ListInstalledResourcesErrors, ListInstalledResourcesResponses, ListInstanceDatabasesData, ListInstanceDatabasesErrors, ListInstanceDatabasesResponses, ListInstanceUsersData, ListInstanceUsersErrors, ListInstanceUsersResponses, ListIntegrityChecksData, ListIntegrityChecksErrors, ListIntegrityChecksResponses, ListNodeGroupsData, ListNodeGroupsErrors, ListNodeGroupsResponses, ListNodeRegistrationsData, ListNodeRegistrationsErrors, ListNodeRegistrationsResponses, ListNodesData, ListNodesErrors, ListNodesResponses, ListProjectApiKeysData, ListProjectApiKeysErrors, ListProjectApiKeysResponses, ListProjectInstancesData, ListProjectInstancesErrors, ListProjectInstancesResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectUsersData, ListProjectUsersErrors, ListProjectUsersResponses, ListRegionsData, ListRegionsErrors, ListRegionsResponses, ListResourceUpdatesData, ListResourceUpdatesErrors, ListResourceUpdatesResponses, ListResourceVersionsData, ListResourceVersionsErrors, ListResourceVersionsResponses, ListRouteDomainsAdminData, ListRouteDomainsAdminErrors, ListRouteDomainsAdminResponses, ListRouteDomainsData, ListRouteDomainsErrors, ListRouteDomainsResponses, ListRoutesData, ListRoutesErrors, ListRoutesResponses, ListSchedulesData, ListSchedulesErrors, ListSchedulesResponses, ListServersData, ListServersErrors, ListServersResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, ListSshKeysData, ListSshKeysErrors, ListSshKeysResponses, ListTemplatesData, ListTemplatesErrors, ListTemplatesResponses, ListTemplateUsageData, ListTemplateUsageErrors, ListTemplateUsageResponses, ListUserProjectsData, ListUserProjectsErrors, ListUserProjectsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginDevData, LoginDevErrors, LoginErrors, LogoutData, LogoutErrors, LogoutResponses, MeData, MeErrors, MeResponses, MetricsNodeData, MetricsNodeErrors, MetricsNodeResponses, ModpackStatusData, ModpackStatusErrors, ModpackStatusResponses, ModpackVersionsData, ModpackVersionsErrors, ModpackVersionsResponses, OpUserData, OpUserErrors, OpUserResponses, PardonUserData, PardonUserErrors, PardonUserResponses, PowerProjectInstanceData, PowerProjectInstanceErrors, PowerProjectInstanceResponses, RealtimeDownloadBackupData, RealtimeDownloadBackupErrors, RealtimeDownloadBackupResponses, RefreshTemplateCacheData, RefreshTemplateCacheErrors, RefreshTemplateCacheResponses, RemoveGroupNodeData, RemoveGroupNodeErrors, RemoveGroupNodeResponses, RemoveProjectUserData, RemoveProjectUserErrors, RemoveProjectUserResponses, RenameFileData, RenameFileErrors, RenameFileResponses, RerollDaemonPasswordData, RerollDaemonPasswordErrors, RerollDaemonPasswordResponses, ResolveDomainZoneData, ResolveDomainZoneErrors, ResolveDomainZoneResponses, ResourceContextData, ResourceContextErrors, ResourceContextResponses, RestartServerData, RestartServerErrors, RestartServerResponses, RestoreBackupData, RestoreBackupErrors, RestoreBackupResponses, ResyncTemplateData, ResyncTemplateErrors, ResyncTemplateResponses, RotateInstanceUserPasswordData, RotateInstanceUserPasswordErrors, RotateInstanceUserPasswordResponses, RouteBackendsData, RouteBackendsErrors, RouteBackendsResponses, RunIntegrityChecksData, RunIntegrityChecksErrors, RunIntegrityChecksResponses, RunScheduleData, RunScheduleErrors, RunScheduleResponses, SearchResourcesData, SearchResourcesErrors, SearchResourcesResponses, ServerInfoData, ServerInfoErrors, ServerInfoResponses, ServerLicensesData, ServerLicensesErrors, ServerLicensesResponses, ServerStartupData, ServerStartupErrors, ServerStartupResponses, ServerStatsData, ServerStatsErrors, ServerStatsResponses, ServerTerminalData, ServerTerminalErrors, ServerTerminalResponses, ServerVariablesData, ServerVariablesErrors, ServerVariablesResponses, SetConfigData, SetConfigErrors, SetConfigResponses, SetInstanceUserGrantsData, SetInstanceUserGrantsErrors, SetInstanceUserGrantsResponses, SetProjectLogoData, SetProjectLogoErrors, SetProjectLogoResponses, SetProjectUserData, SetProjectUserErrors, SetProjectUserResponses, SetResourceStateData, SetResourceStateErrors, SetResourceStateResponses, StartServerData, StartServerErrors, StartServerResponses, StatFileData, StatFileErrors, StatFileResponses, StopServerData, StopServerErrors, StopServerResponses, SymlinkFileData, SymlinkFileErrors, SymlinkFileResponses, TemplateInfoData, TemplateInfoErrors, TemplateInfoResponses, UnarchiveFileData, UnarchiveFileErrors, UnarchiveFileResponses, UninstallResourceData, UninstallResourceErrors, UninstallResourceResponses, UnlinkModpackData, UnlinkModpackErrors, UnlinkModpackResponses, UpdateAllResourcesData, UpdateAllResourcesErrors, UpdateAllResourcesResponses, UpdateApiKeyData, UpdateApiKeyErrors, UpdateApiKeyResponses, UpdateBackupData, UpdateBackupErrors, UpdateBackupResponses, UpdateDatabaseHostData, UpdateDatabaseHostErrors, UpdateDatabaseHostRegistrationData, UpdateDatabaseHostRegistrationErrors, UpdateDatabaseHostRegistrationResponses, UpdateDatabaseHostResponses, UpdateDatabaseInstanceData, UpdateDatabaseInstanceErrors, UpdateDatabaseInstanceResponses, UpdateDeployConfigData, UpdateDeployConfigErrors, UpdateDeployConfigResponses, UpdateMaintenanceData, UpdateMaintenanceErrors, UpdateMaintenanceResponses, UpdateNodeData, UpdateNodeErrors, UpdateNodeOverallocationData, UpdateNodeOverallocationErrors, UpdateNodeOverallocationResponses, UpdateNodeRegionData, UpdateNodeRegionErrors, UpdateNodeRegionResponses, UpdateNodeRegistrationData, UpdateNodeRegistrationErrors, UpdateNodeRegistrationResponses, UpdateNodeResponses, UpdatePortData, UpdatePortErrors, UpdatePortResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateRegionData, UpdateRegionErrors, UpdateRegionResponses, UpdateResourceData, UpdateResourceErrors, UpdateResourceResponses, UpdateRouteDomainData, UpdateRouteDomainErrors, UpdateRouteDomainResponses, UpdateScheduleData, UpdateScheduleErrors, UpdateScheduleResponses, UpdateServerData, UpdateServerErrors, UpdateServerResponses, UpdateStartupData, UpdateStartupErrors, UpdateStartupResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateVariablesData, UpdateVariablesErrors, UpdateVariablesResponses, UploadProjectLogoData, UploadProjectLogoErrors, UploadProjectLogoResponses, UploadUserData, UploadUserErrors, UploadUserResponses, WipeServerData, WipeServerErrors, WipeServerResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -766,10 +766,10 @@ export const addNodePort = <ThrowOnError extends boolean = false>(options: Optio
 export const deleteNodePort = <ThrowOnError extends boolean = false>(options: Options<DeleteNodePortData, ThrowOnError>) => (options.client ?? client).delete<DeleteNodePortResponses, DeleteNodePortErrors, ThrowOnError>({ url: '/admin/node/{node_id}/ports/{port_id}', ...options });
 
 /**
- *  Lists the node's resource groups with their limits and the number of servers assigned
+ *  Lists the groups the node is assigned to, with the limits each group has on this node
  *
- *  Lists the node's resource groups with their limits and the number of servers assigned<br/>
- * to each.<br/>
+ *  Lists the groups the node is assigned to, with the limits each group has on this node<br/>
+ * and the number of the node's servers in it.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ManagementPermissions::NODES_VIEW`.
@@ -777,47 +777,17 @@ export const deleteNodePort = <ThrowOnError extends boolean = false>(options: Op
 export const listNodeGroups = <ThrowOnError extends boolean = false>(options: Options<ListNodeGroupsData, ThrowOnError>) => (options.client ?? client).get<ListNodeGroupsResponses, ListNodeGroupsErrors, ThrowOnError>({ url: '/admin/node/{node_id}/groups', ...options });
 
 /**
- *  Creates a resource group on the node.
+ *  Sets how far the node may be allocated beyond its hardware when servers are deployed
  *
- *  Creates a resource group on the node.<br/>
- * <br/>
- * Group names consist of letters, numbers and underscores. A `-` nests a group inside<br/>
- * another one, e.g. `customers-acme` lives inside `customers`, and the limits of a<br/>
- * parent group also apply to all of its subgroups. Omitted limits are unlimited.<br/>
+ *  Sets how far the node may be allocated beyond its hardware when servers are deployed<br/>
+ * automatically, in percent. `120` allows 20% more cpu, memory, swap and disk to be<br/>
+ * allocated than the node has.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ManagementPermissions::NODES_MANAGE`.
  */
-export const createNodeGroup = <ThrowOnError extends boolean = false>(options: Options<CreateNodeGroupData, ThrowOnError>) => (options.client ?? client).put<CreateNodeGroupResponses, CreateNodeGroupErrors, ThrowOnError>({
-    url: '/admin/node/{node_id}/groups',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- *  Deletes a resource group from the node. Servers in the group are moved out of it and
- *
- *  Deletes a resource group from the node. Servers in the group are moved out of it and<br/>
- * pick up the change on their next start.<br/>
- * <br/>
- * # Permissions<br/>
- * Requires `ManagementPermissions::NODES_MANAGE`.
- */
-export const deleteNodeGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteNodeGroupData, ThrowOnError>) => (options.client ?? client).delete<DeleteNodeGroupResponses, DeleteNodeGroupErrors, ThrowOnError>({ url: '/admin/node/{node_id}/groups/{group_name}', ...options });
-
-/**
- *  Replaces the limits of a resource group on the node. Omitted limits are unlimited.
- *
- *  Replaces the limits of a resource group on the node. Omitted limits are unlimited.<br/>
- * <br/>
- * # Permissions<br/>
- * Requires `ManagementPermissions::NODES_MANAGE`.
- */
-export const updateNodeGroup = <ThrowOnError extends boolean = false>(options: Options<UpdateNodeGroupData, ThrowOnError>) => (options.client ?? client).patch<UpdateNodeGroupResponses, UpdateNodeGroupErrors, ThrowOnError>({
-    url: '/admin/node/{node_id}/groups/{group_name}',
+export const updateNodeOverallocation = <ThrowOnError extends boolean = false>(options: Options<UpdateNodeOverallocationData, ThrowOnError>) => (options.client ?? client).patch<UpdateNodeOverallocationResponses, UpdateNodeOverallocationErrors, ThrowOnError>({
+    url: '/admin/node/{node_id}/overallocation',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -2294,6 +2264,159 @@ export const integritySchema = <ThrowOnError extends boolean = false>(options?: 
  * separately, when the action itself is performed.
  */
 export const instancePolicy = <ThrowOnError extends boolean = false>(options?: Options<InstancePolicyData, ThrowOnError>) => (options?.client ?? client).get<InstancePolicyResponses, InstancePolicyErrors, ThrowOnError>({ url: '/instance/policy', ...options });
+
+/**
+ *  Lists all groups with the nodes assigned to them, the limits each group has on those
+ *
+ *  Lists all groups with the nodes assigned to them, the limits each group has on those<br/>
+ * nodes and the number of deploy configs targeting the group.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_VIEW`.
+ */
+export const listGroups = <ThrowOnError extends boolean = false>(options?: Options<ListGroupsData, ThrowOnError>) => (options?.client ?? client).get<ListGroupsResponses, ListGroupsErrors, ThrowOnError>({ url: '/admin/group', ...options });
+
+/**
+ *  Creates a group. Groups are global and only take effect on the nodes assigned to them.
+ *
+ *  Creates a group. Groups are global and only take effect on the nodes assigned to them.<br/>
+ * <br/>
+ * Group names consist of letters, numbers and underscores. A `-` nests a group inside<br/>
+ * another one, e.g. `customers-acme` lives inside `customers`, and on every node the<br/>
+ * limits of a parent group also apply to its subgroups.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_MANAGE`.
+ */
+export const createGroup = <ThrowOnError extends boolean = false>(options: Options<CreateGroupData, ThrowOnError>) => (options.client ?? client).put<CreateGroupResponses, CreateGroupErrors, ThrowOnError>({
+    url: '/admin/group',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ *  Deletes a group and removes it from every node. Servers in the group leave it and pick
+ *
+ *  Deletes a group and removes it from every node. Servers in the group leave it and pick<br/>
+ * up the change on their next start. Groups still targeted by deploy configs can't be<br/>
+ * deleted.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_MANAGE`.
+ */
+export const deleteGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteGroupData, ThrowOnError>) => (options.client ?? client).delete<DeleteGroupResponses, DeleteGroupErrors, ThrowOnError>({ url: '/admin/group/{group_name}', ...options });
+
+/**
+ *  Removes a node from a group. The node's servers in the group leave it and pick up the
+ *
+ *  Removes a node from a group. The node's servers in the group leave it and pick up the<br/>
+ * change on their next start.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_MANAGE`.
+ */
+export const removeGroupNode = <ThrowOnError extends boolean = false>(options: Options<RemoveGroupNodeData, ThrowOnError>) => (options.client ?? client).delete<RemoveGroupNodeResponses, RemoveGroupNodeErrors, ThrowOnError>({ url: '/admin/group/{group_name}/nodes/{node_id}', ...options });
+
+/**
+ *  Assigns a node to a group, or updates the limits the group has on that node. Omitted
+ *
+ *  Assigns a node to a group, or updates the limits the group has on that node. Omitted<br/>
+ * limits are unlimited.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::NODES_MANAGE`.
+ */
+export const assignGroupNode = <ThrowOnError extends boolean = false>(options: Options<AssignGroupNodeData, ThrowOnError>) => (options.client ?? client).put<AssignGroupNodeResponses, AssignGroupNodeErrors, ThrowOnError>({
+    url: '/admin/group/{group_name}/nodes/{node_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ *  Lists all deploy configs.
+ *
+ *  Lists all deploy configs.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::SERVER_MANAGE`.
+ */
+export const listDeployConfigs = <ThrowOnError extends boolean = false>(options?: Options<ListDeployConfigsData, ThrowOnError>) => (options?.client ?? client).get<ListDeployConfigsResponses, ListDeployConfigsErrors, ThrowOnError>({ url: '/admin/deploy/configs', ...options });
+
+/**
+ *  Creates a deploy config: a template with its variables and the resources a server gets,
+ *
+ *  Creates a deploy config: a template with its variables and the resources a server gets,<br/>
+ * assigned to the group whose nodes servers are deployed to. The variables are validated<br/>
+ * against the template.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::SERVER_MANAGE`.
+ */
+export const createDeployConfig = <ThrowOnError extends boolean = false>(options: Options<CreateDeployConfigData, ThrowOnError>) => (options.client ?? client).put<CreateDeployConfigResponses, CreateDeployConfigErrors, ThrowOnError>({
+    url: '/admin/deploy/configs',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ *  Deletes a deploy config. Servers deployed from it are not changed.
+ *
+ *  Deletes a deploy config. Servers deployed from it are not changed.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::SERVER_MANAGE`.
+ */
+export const deleteDeployConfig = <ThrowOnError extends boolean = false>(options: Options<DeleteDeployConfigData, ThrowOnError>) => (options.client ?? client).delete<DeleteDeployConfigResponses, DeleteDeployConfigErrors, ThrowOnError>({ url: '/admin/deploy/configs/{config_id}', ...options });
+
+/**
+ *  Replaces a deploy config. Servers deployed from it earlier are not changed.
+ *
+ *  Replaces a deploy config. Servers deployed from it earlier are not changed.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::SERVER_MANAGE`.
+ */
+export const updateDeployConfig = <ThrowOnError extends boolean = false>(options: Options<UpdateDeployConfigData, ThrowOnError>) => (options.client ?? client).put<UpdateDeployConfigResponses, UpdateDeployConfigErrors, ThrowOnError>({
+    url: '/admin/deploy/configs/{config_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ *  Deploys a server from a deploy config into a project.
+ *
+ *  Deploys a server from a deploy config into a project.<br/>
+ * <br/>
+ * The node is picked from the nodes assigned to the config's group: nodes in maintenance<br/>
+ * or without metrics are skipped, and of the nodes whose capacity still fits the config the<br/>
+ * one with the most free cpu and memory wins. A node's capacity is its hardware, capped by<br/>
+ * the daemon's server limit, times its overallocation; it is compared against the limits of<br/>
+ * the servers already on it. Ports are allocated from the node's free port ranges and the<br/>
+ * server is placed in the config's group.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::SERVER_DEPLOY`.
+ */
+export const deployServer = <ThrowOnError extends boolean = false>(options: Options<DeployServerData, ThrowOnError>) => (options.client ?? client).post<DeployServerResponses, DeployServerErrors, ThrowOnError>({
+    url: '/admin/deploy/configs/{config_id}/deploy',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  *  Logs in as a seeded admin dev user, attaches the session cookie and

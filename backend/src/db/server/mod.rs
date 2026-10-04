@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 pub mod ports;
+pub mod provision;
 pub mod resources;
 pub mod resync;
 pub mod schedule;

@@ -43,6 +43,7 @@ export const ManagementPermission = {
   DATABASE_HOSTS_VIEW: 2 ** 50,
   DATABASE_HOSTS_MANAGE: 2 ** 51,
   INTEGRITY_VIEW: 2 ** 52,
+  SERVER_DEPLOY: 2 ** 53,
 } as const;
 
 const serverDependencyMap = [
@@ -262,6 +263,10 @@ export const MANAGEMENT_PERMISSION_GROUPS: {
       { bit: ManagementPermission.SERVER_MANAGE, label: "Create & manage servers" },
       { bit: ManagementPermission.SERVER_SUSPEND, label: "Suspend servers" },
       { bit: ManagementPermission.SERVER_DELETE, label: "Delete servers" },
+      {
+        bit: ManagementPermission.SERVER_DEPLOY,
+        label: "Deploy servers from deploy configs",
+      },
     ],
   },
   {
