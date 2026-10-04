@@ -25,6 +25,7 @@ use crate::templates::TemplateInner;
 use crate::templates::games::hytale::HytaleTemplate;
 use crate::templates::games::minecraft_bedrock::MinecraftBedrockTemplate;
 use crate::templates::games::satisfactory::SatisfactoryTemplate;
+use crate::templates::games::teamspeak::TeamSpeakTemplate;
 use crate::templates::generic::go::GoTemplate;
 use crate::templates::generic::java::JavaTemplate;
 use crate::templates::generic::javascript::JavascriptTemplate;
@@ -238,6 +239,13 @@ async fn load_templates(backend: &Backend) {
         .await
         .expect("Unable to initialize hytale template");
     templates.insert(hytale.id().to_owned(), Arc::new(hytale));
+
+    let teamspeak = TeamSpeakTemplate;
+    teamspeak
+        .init(backend.cache.clone(), skip_cache_update)
+        .await
+        .expect("Unable to initialize teamspeak template");
+    templates.insert(teamspeak.id().to_owned(), Arc::new(teamspeak));
 }
 
 #[tokio::main]

@@ -18,6 +18,13 @@ pub const MINECRAFT_EULA: License = License {
     url: "https://aka.ms/MinecraftEULA",
 };
 
+pub const TEAMSPEAK_LICENSE: License = License {
+    id: "teamspeak_license",
+    display: "TeamSpeak License",
+    description: "TeamSpeak requires the operator of every TeamSpeak server to accept its terms and conditions before the server may be run.",
+    url: "https://www.teamspeak.com/en/privacy-and-terms/",
+};
+
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ServerLicenseInfo {
     pub id: &'static str,

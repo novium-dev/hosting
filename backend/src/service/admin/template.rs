@@ -3,13 +3,15 @@ use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::server::resync::{ServerResyncResult, ServerResyncStatus};
 use crate::service::admin::template::template_admin_service_error::{
-    ListTemplateUsageError, ResyncTemplateError,
+    ListTemplateUsageError, RefreshTemplateCacheError, ResyncTemplateError,
 };
 use crate::service::template::*;
 use crate::service::*;
-use serde::Serialize;
+use futures::future::join_all;
+use serde::{Deserialize, Serialize};
 use sqlx::query;
 use std::collections::HashMap;
+use tracing::error;
 use zelus::service;
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -26,6 +28,17 @@ pub(crate) struct ResyncReport {
     pub(crate) failed: usize,
     pub(crate) restarted: usize,
     pub(crate) servers: Vec<ServerResyncResult>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct TemplateCacheRefreshResult {
+    pub(crate) id: String,
+    pub(crate) success: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub(crate) struct RefreshTemplateCachePayload {
+    pub(crate) template: Option<String>,
 }
 
 #[service(path = "/admin/template", tag = "template", no_sdk)]
@@ -119,5 +132,61 @@ pub(crate) impl TemplateAdminService for Backend {
             restarted: servers.iter().filter(|server| server.restarted).count(),
             servers,
         })
+    }
+
+    /// Refreshes the cached upstream data of templates, such as their version
+    /// lists, instead of waiting for the next scheduled update.
+    ///
+    /// Without `template`, every template is refreshed. Templates are reported
+    /// individually — one that fails to refresh never stops the rest.
+    ///
+    /// # Permissions
+    /// Requires `ManagementPermissions::SERVER_MANAGE`.
+    #[route("/cache/refresh", method = POST)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], template::not_found)]
+    async fn refresh_template_cache(
+        &self,
+        #[special] auth: Authentication,
+        payload: RefreshTemplateCachePayload,
+    ) -> Result<Vec<TemplateCacheRefreshResult>, _> {
+        auth.require::<_, _, RefreshTemplateCacheError>((), ManagementPermissions::SERVER_MANAGE)?;
+
+        let templates: Vec<_> = {
+            let templates = self.templates.read().await;
+            match payload.template.as_deref() {
+                Some(id) => vec![
+                    templates
+                        .get(id)
+                        .cloned()
+                        .ok_or(RefreshTemplateCacheError::TemplateNotFound)?,
+                ],
+                None => templates.values().cloned().collect(),
+            }
+        };
+
+        let cache = self.cache.clone();
+        let mut results = join_all(templates.into_iter().map(move |template| {
+            let cache = cache.clone();
+            async move {
+                let success = template
+                    .refresh_cache(cache)
+                    .await
+                    .inspect_err(|err| {
+                        error!(
+                            "Failed to refresh cache for template {}: {err:?}",
+                            template.id()
+                        );
+                    })
+                    .is_ok();
+                TemplateCacheRefreshResult {
+                    id: template.id().to_owned(),
+                    success,
+                }
+            }
+        }))
+        .await;
+        results.sort_by(|first, second| first.id.cmp(&second.id));
+
+        Ok(results)
     }
 }

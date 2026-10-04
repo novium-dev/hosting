@@ -15,7 +15,7 @@ use tracing::{debug, error};
 
 use crate::db::license::{License, MINECRAFT_EULA};
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
-use crate::templates::utils::embed_script;
+use crate::templates::utils::{VERSION_REGEX, embed_script, github_release_tags, template_client};
 use crate::templates::variable::{
     VariableBuilder, VariableContent, VariableDataBuilder, VariableGroupBuilder, VariablePayload,
 };
@@ -25,16 +25,10 @@ const SERVER_PORT: u16 = 19132;
 const SERVER_PORT_V6: u16 = 19133;
 const SERVER_PORT_NAME: &str = "bedrock";
 const REL: usize = 1;
-const MAX_RELEASES: usize = 20;
-const USER_AGENT: &str = "novium-backend";
 const BEDROCK_DOWNLOAD_LINKS: &str =
     "https://net-secondary.web.minecraft-services.net/api/v1.0/download/links";
-const POCKETMINE_RELEASES: &str = "https://api.github.com/repos/pmmp/PocketMine-MP/releases";
-const POWERNUKKITX_RELEASES: &str =
-    "https://api.github.com/repos/PowerNukkitX/PowerNukkitX/releases";
-
-#[expect(clippy::non_std_lazy_statics, reason = "external crate")]
-static VERSION_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!(r"^[0-9A-Za-z][0-9A-Za-z._-]*$");
+const POCKETMINE_REPOSITORY: &str = "pmmp/PocketMine-MP";
+const POWERNUKKITX_REPOSITORY: &str = "PowerNukkitX/PowerNukkitX";
 
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
 static BEDROCK_URL_VERSION_REGEX: lazy_regex::Lazy<Regex> =
@@ -346,18 +340,12 @@ impl Template for MinecraftBedrockTemplate {
     }
 
     async fn update_cache() -> Result<Self::Cache, ()> {
-        let client = reqwest::Client::builder()
-            .user_agent(USER_AGENT)
-            .build()
-            .inspect_err(|err| {
-                error!("Unable to build cache update client (for minecraft bedrock): {err:?}");
-            })
-            .map_err(|_err| ())?;
+        let client = template_client()?;
 
         Ok(BedrockVersionCache {
             vanilla: resolve_vanilla(&client).await?,
-            pocketmine: resolve_github_releases(&client, POCKETMINE_RELEASES).await?,
-            powernukkitx: resolve_github_releases(&client, POWERNUKKITX_RELEASES).await?,
+            pocketmine: github_release_tags(&client, POCKETMINE_REPOSITORY, false).await?,
+            powernukkitx: github_release_tags(&client, POWERNUKKITX_REPOSITORY, false).await?,
             updated: Utc::now().timestamp_millis(),
         })
     }
@@ -384,13 +372,6 @@ struct BedrockDownloadLinksResult {
 struct BedrockDownloadLink {
     download_type: String,
     download_url: String,
-}
-
-#[derive(Deserialize)]
-struct GithubRelease {
-    tag_name: String,
-    draft: bool,
-    prerelease: bool,
 }
 
 async fn resolve_vanilla(client: &reqwest::Client) -> Result<Vec<String>, ()> {
@@ -422,37 +403,4 @@ async fn resolve_vanilla(client: &reqwest::Client) -> Result<Vec<String>, ()> {
         .ok_or_else(|| error!("No linux bedrock server download link found"))?;
 
     Ok(vec![version])
-}
-
-async fn resolve_github_releases(client: &reqwest::Client, url: &str) -> Result<Vec<String>, ()> {
-    let releases: Vec<GithubRelease> = client
-        .get(url)
-        .query(&[("per_page", "50")])
-        .send()
-        .await
-        .inspect_err(|err| error!("Unable to send github releases request ({url}): {err:?}"))
-        .map_err(|_err| ())?
-        .error_for_status()
-        .inspect_err(|err| error!("Unable to get github releases ({url}): {err:?}"))
-        .map_err(|_err| ())?
-        .json()
-        .await
-        .inspect_err(|err| error!("Unable to receive github releases ({url}): {err:?}"))
-        .map_err(|_err| ())?;
-
-    let versions: Vec<String> = releases
-        .into_iter()
-        .filter(|release| {
-            !release.draft && !release.prerelease && VERSION_REGEX.is_match(&release.tag_name)
-        })
-        .map(|release| release.tag_name)
-        .take(MAX_RELEASES)
-        .collect();
-
-    if versions.is_empty() {
-        error!("No releases found ({url})");
-        return Err(());
-    }
-
-    Ok(versions)
 }
