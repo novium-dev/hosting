@@ -1,6 +1,9 @@
 "use client";
 
-import { resyncTemplateAction } from "@/actions/templates";
+import {
+  refreshTemplateCacheAction,
+  resyncTemplateAction,
+} from "@/actions/templates";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -35,7 +38,7 @@ import {
 import type { ListTemplateUsageResponses, ResyncTemplateResponse } from "@/lib/api";
 import { listTemplateUsage } from "@/lib/api";
 import { useAction } from "@/lib/action-hooks";
-import { Boxes, RefreshCw } from "lucide-react";
+import { Boxes, DatabaseZap, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -62,6 +65,10 @@ export function TemplatesView() {
   const [target, setTarget] = useState<string | null | undefined>(undefined);
   const [restart, setRestart] = useState(false);
   const [report, setReport] = useState<ResyncTemplateResponse | null>(null);
+  // `null` refreshes every template's cache; a string refreshes that one.
+  const [refreshing, setRefreshing] = useState<string | null | undefined>(
+    undefined,
+  );
 
   const {
     data: templates,
@@ -97,6 +104,36 @@ export function TemplatesView() {
     },
   });
 
+  const refreshCache = useAction(refreshTemplateCacheAction, {
+    onSuccess: ({ data }) => {
+      setRefreshing(undefined);
+      const results = data ?? [];
+      const failed = results.filter((result) => !result.success);
+      const summary = t("admin-infra:templates.view.refreshToast", {
+        count: results.length,
+        refreshed: results.length - failed.length,
+      });
+      if (failed.length === 0) {
+        toast.success(summary);
+      } else {
+        toast.error(summary, {
+          description: t("admin-infra:templates.view.refreshFailed", {
+            templates: failed.map((result) => result.id).join(", "),
+          }),
+        });
+      }
+    },
+    onError: (actionError) => {
+      setRefreshing(undefined);
+      toast.error(actionError.error.serverError ?? t("common:state.genericError"));
+    },
+  });
+
+  const startRefresh = (template: string | null) => {
+    setRefreshing(template);
+    refreshCache.execute({ template: template ?? undefined });
+  };
+
   const totalServers = (templates ?? []).reduce(
     (total: number, template: TemplateUsage) => total + template.servers,
     0,
@@ -124,17 +161,29 @@ export function TemplatesView() {
             {t("admin-infra:templates.view.description")}
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setRestart(false);
-            setTarget(null);
-          }}
-          disabled={totalServers === 0}
-        >
-          <RefreshCw className="size-4" />
-          {t("admin-infra:templates.view.resyncAllButton")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => startRefresh(null)}
+            disabled={refreshCache.isExecuting}
+          >
+            <DatabaseZap
+              className={refreshing === null ? "size-4 animate-pulse" : "size-4"}
+            />
+            {t("admin-infra:templates.view.refreshAllButton")}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setRestart(false);
+              setTarget(null);
+            }}
+            disabled={totalServers === 0}
+          >
+            <RefreshCw className="size-4" />
+            {t("admin-infra:templates.view.resyncAllButton")}
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border">
@@ -181,7 +230,22 @@ export function TemplatesView() {
                       })}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="space-x-2 text-right">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={refreshCache.isExecuting}
+                      onClick={() => startRefresh(template.id)}
+                    >
+                      <DatabaseZap
+                        className={
+                          refreshing === template.id || refreshing === null
+                            ? "size-4 animate-pulse"
+                            : "size-4"
+                        }
+                      />
+                      {t("admin-infra:templates.view.refreshButton")}
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"

@@ -201,6 +201,8 @@ pub trait TemplateInner {
         skip_cache_update: bool,
     ) -> Result<(), RedisError>;
 
+    async fn refresh_cache(&self, cache_client: ConnectionManager) -> Result<(), io::Error>;
+
     fn default_internet_access(&self) -> bool;
 
     fn supports_custom_startup(&self) -> bool;
@@ -498,6 +500,14 @@ impl<T: Template + Send + Sync> TemplateInner for T {
             }
         });
         Ok(())
+    }
+
+    async fn refresh_cache(&self, mut cache_client: ConnectionManager) -> Result<(), io::Error> {
+        info!("Refreshing cache for Template {}", self.id());
+        let cache_obj = T::update_cache().await.map_err(|()| {
+            io::Error::other(format!("Failed to update cache for template {}", self.id()))
+        })?;
+        save_cache(&mut cache_client, self.id(), &cache_obj).await
     }
 
     fn default_internet_access(&self) -> bool {

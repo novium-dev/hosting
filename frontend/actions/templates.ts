@@ -1,7 +1,10 @@
-import { resyncTemplate } from "@/lib/api";
+import { refreshTemplateCache, resyncTemplate } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
-import { resyncTemplateSchema } from "@/types/template.schema";
+import {
+  refreshTemplateCacheSchema,
+  resyncTemplateSchema,
+} from "@/types/template.schema";
 
 export const resyncTemplateAction = authActionClient
   .inputSchema(resyncTemplateSchema)
@@ -15,6 +18,22 @@ export const resyncTemplateAction = authActionClient
     if (response.error || !response.data) {
       throw new ActionError(
         response.error?.error?.msg || "Failed to resync servers",
+      );
+    }
+
+    return response.data;
+  });
+
+export const refreshTemplateCacheAction = authActionClient
+  .inputSchema(refreshTemplateCacheSchema)
+  .action(async ({ parsedInput }) => {
+    const response = await refreshTemplateCache({
+      body: { template: parsedInput.template },
+    });
+
+    if (response.error || !response.data) {
+      throw new ActionError(
+        response.error?.error?.msg || "Failed to refresh template cache",
       );
     }
 

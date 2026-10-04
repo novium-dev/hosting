@@ -9,7 +9,9 @@ use speedy::{Readable, Writable};
 use std::collections::{HashMap, HashSet};
 use tracing::debug;
 
+use crate::db::license::{HYTALE_EULA, HYTALE_SERVER_POLICIES, License};
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
+use crate::templates::utils::{RELATIVE_PATH_REGEX, is_relative_path};
 use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, VariablePayload};
 use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
 
@@ -107,16 +109,8 @@ pub(crate) struct HytaleTemplate;
 static POSITIVE_INTEGER_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!(r"^[1-9][0-9]*$");
 
 #[expect(clippy::non_std_lazy_statics, reason = "external crate")]
-static RELATIVE_PATH_REGEX: lazy_regex::Lazy<Regex> =
-    lazy_regex!(r"^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$");
-
-#[expect(clippy::non_std_lazy_statics, reason = "external crate")]
 static OPTIONAL_RELATIVE_PATH_REGEX: lazy_regex::Lazy<Regex> =
     lazy_regex!(r"^([A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*)?$");
-
-fn is_relative_path(value: &str) -> bool {
-    RELATIVE_PATH_REGEX.is_match(value) && value.split('/').all(|part| part != "." && part != "..")
-}
 
 fn flag(value: bool) -> String {
     if value { "1" } else { "0" }.to_owned()
@@ -391,6 +385,10 @@ impl Template for HytaleTemplate {
 
     fn default_internet_access(&self) -> bool {
         true
+    }
+
+    fn licenses(&self) -> &'static [&'static License] {
+        &[&HYTALE_EULA, &HYTALE_SERVER_POLICIES]
     }
 
     async fn init(&self, _redis_client: ConnectionManager) -> Result<(), RedisError> {

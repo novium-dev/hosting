@@ -416,7 +416,12 @@
         "failure": "Internal failure"
       },
       "loadError": "Failed to load templates",
-      "loadErrorDisplay": "Failed to load templates."
+      "loadErrorDisplay": "Failed to load templates.",
+      "refreshAllButton": "Refresh all caches",
+      "refreshButton": "Refresh cache",
+      "refreshToast_one": "{{refreshed}} of {{count}} template cache refreshed",
+      "refreshToast_other": "{{refreshed}} of {{count}} template caches refreshed",
+      "refreshFailed": "Failed to refresh: {{templates}}"
     }
   }
 }

@@ -18,6 +18,27 @@ pub const MINECRAFT_EULA: License = License {
     url: "https://aka.ms/MinecraftEULA",
 };
 
+pub const HYTALE_EULA: License = License {
+    id: "hytale_eula",
+    display: "Hytale EULA",
+    description: "Hypixel Studios requires everyone who downloads, installs or uses Hytale, including its server software, to accept the Hytale End User License Agreement.",
+    url: "https://hytale.com/eula",
+};
+
+pub const HYTALE_SERVER_POLICIES: License = License {
+    id: "hytale_server_policies",
+    display: "Hytale Server Operator Policies",
+    description: "Every Hytale server operator must follow the Server Operator Policies, which cover monetization, gambling, loot box disclosures and revenue share.",
+    url: "https://hytale.com/server-policies",
+};
+
+pub const TEAMSPEAK_LICENSE: License = License {
+    id: "teamspeak_license",
+    display: "TeamSpeak License",
+    description: "TeamSpeak requires the operator of every TeamSpeak server to accept its terms and conditions before the server may be run.",
+    url: "https://www.teamspeak.com/en/privacy-and-terms/",
+};
+
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ServerLicenseInfo {
     pub id: &'static str,

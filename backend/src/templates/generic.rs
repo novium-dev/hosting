@@ -4,6 +4,7 @@ pub mod java;
 pub mod javascript;
 pub mod python;
 pub mod rust;
+pub mod web;
 
 use crate::templates::variable::VariableGroupBuilder;
 use core::cmp::Ordering;

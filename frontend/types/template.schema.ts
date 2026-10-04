@@ -8,3 +8,10 @@ export const resyncTemplateSchema = z.object({
 });
 
 export type ResyncTemplate = z.infer<typeof resyncTemplateSchema>;
+
+export const refreshTemplateCacheSchema = z.object({
+  /** Limit the refresh to one template; omit to refresh every template. */
+  template: z.string().optional(),
+});
+
+export type RefreshTemplateCache = z.infer<typeof refreshTemplateCacheSchema>;

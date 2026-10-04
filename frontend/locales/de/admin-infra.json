@@ -416,7 +416,12 @@
         "failure": "Interner Fehler"
       },
       "loadError": "Templates konnten nicht geladen werden",
-      "loadErrorDisplay": "Templates konnten nicht geladen werden."
+      "loadErrorDisplay": "Templates konnten nicht geladen werden.",
+      "refreshAllButton": "Alle Caches aktualisieren",
+      "refreshButton": "Cache aktualisieren",
+      "refreshToast_one": "{{refreshed}} von {{count}} Template-Cache aktualisiert",
+      "refreshToast_other": "{{refreshed}} von {{count}} Template-Caches aktualisiert",
+      "refreshFailed": "Aktualisierung fehlgeschlagen: {{templates}}"
     }
   }
 }
