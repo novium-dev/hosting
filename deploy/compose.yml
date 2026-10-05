@@ -71,6 +71,8 @@ services:
       - traefik.http.routers.backend.priority=100
       - traefik.http.routers.backend.entrypoints=websecure
       - traefik.http.services.backend.loadbalancer.server.port=8080
+      - traefik.http.services.backend.loadbalancer.healthcheck.path=/api/health
+      - traefik.http.services.backend.loadbalancer.healthcheck.interval=10s
     networks:
       - novium
 

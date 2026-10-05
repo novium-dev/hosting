@@ -25,10 +25,12 @@ use crate::service::route::RouteService;
 use crate::service::schedule::ScheduleService;
 use crate::service::server::ServerService;
 use crate::service::template::TemplateService;
+use axum::http::StatusCode;
 use axum::{Extension, Router};
 use axum_server::{Handle, Server};
 use core::net::SocketAddr;
 use core::time::Duration;
+use sqlx::query_scalar;
 use tokio::sync::broadcast::error::RecvError;
 use tower_http::cors::Any;
 use tower_http::trace::TraceLayer;
@@ -66,6 +68,15 @@ impl Backend {
             .into_openapi()
             .split_for_parts();
 
+        let backend = self.clone();
+        let api_router = api_router.route(
+            "/health",
+            axum::routing::get(move || {
+                let backend = backend.clone();
+                async move { backend.health().await }
+            }),
+        );
+
         let mut router = axum::Router::new().nest("/api", api_router);
 
         #[cfg(debug_assertions)]
@@ -86,6 +97,16 @@ impl Backend {
                 .layer(SentryHttpLayer::new().enable_transaction());
         };
         router
+    }
+
+    async fn health(&self) -> StatusCode {
+        match query_scalar!("SELECT 1").fetch_one(&*self.database).await {
+            Ok(_) => StatusCode::OK,
+            Err(err) => {
+                error!("Health check failed: {err:?}");
+                StatusCode::SERVICE_UNAVAILABLE
+            }
+        }
     }
 
     #[expect(

@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use rand::TryRng as _;
 use tracing::error;
 
@@ -9,10 +7,15 @@ use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use zelus::service;
 
+use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::group::GroupLimits;
 use crate::db::node::{NodePortAllocation, replace_storages, used_ports};
+use crate::db::registration::{
+    extend_node_registration, insert_node_registration, list_node_registrations, node_registration,
+    update_node_registration,
+};
 use crate::db::server::ports::NetworkProtocol;
 use crate::service::admin::node::node_admin_service_error::{
     AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodeError, DeleteNodePortError,
@@ -21,9 +24,7 @@ use crate::service::admin::node::node_admin_service_error::{
     UpdateNodeRegistrationError,
 };
 use crate::service::error_os_failure::FromOsFailure;
-use crate::service::internal::REGISTRATION_TIMEOUT;
 use crate::service::*;
-use crate::{Backend, NodeRegistration};
 use daemon_common::node::{
     BackendNodeConfig, BackupStorage, HostAndPort, ServerStorage, SetupNodeConfig,
 };
@@ -136,17 +137,14 @@ pub(crate) impl NodeAdminService for Backend {
             backups: config.backups,
         };
 
-        let registration = NodeRegistration {
-            time: Instant::now(),
-            name,
-            default_host: config.default_host,
-            config: final_config,
-        };
-
-        self.node_registrations
-            .write()
-            .await
-            .insert(code.clone(), registration);
+        insert_node_registration(
+            &*self.database,
+            &code,
+            &name,
+            &config.default_host,
+            &final_config,
+        )
+        .await?;
 
         Ok(code)
     }
@@ -267,30 +265,24 @@ pub(crate) impl NodeAdminService for Backend {
     ) -> Result<Vec<NodeRegistrationInfo>, _> {
         auth.require::<_, _, ListNodeRegistrationsError>((), ManagementPermissions::NODES_VIEW)?;
 
-        let mut registrations = self.node_registrations.write().await;
-        registrations
-            .retain(|_code, registration| registration.time.elapsed() < REGISTRATION_TIMEOUT);
-
-        Ok(registrations
-            .iter()
-            .map(|(code, registration)| NodeRegistrationInfo {
-                code: code.clone(),
-                name: registration.name.clone(),
-                base_url: registration.config.base_url.clone(),
-                default_host: registration.default_host.clone(),
-                ssh: registration
-                    .config
-                    .ssh
-                    .as_ref()
-                    .map(|endpoint| SshEndpointRequest {
+        Ok(list_node_registrations(&*self.database)
+            .await?
+            .into_iter()
+            .map(|registration| {
+                let config = registration.config.0;
+                NodeRegistrationInfo {
+                    code: registration.code,
+                    name: registration.name,
+                    base_url: config.base_url,
+                    default_host: registration.default_host,
+                    ssh: config.ssh.map(|endpoint| SshEndpointRequest {
                         host: endpoint.host.to_string(),
                         port: endpoint.port,
                     }),
-                storages: registration.config.storages.clone(),
-                backups: registration.config.backups.clone(),
-                expires_in: REGISTRATION_TIMEOUT
-                    .saturating_sub(registration.time.elapsed())
-                    .as_secs(),
+                    storages: config.storages,
+                    backups: config.backups,
+                    expires_in: registration.expires_in.max(0).cast_unsigned(),
+                }
             })
             .collect())
     }
@@ -324,20 +316,31 @@ pub(crate) impl NodeAdminService for Backend {
             })
             .transpose()?;
 
-        self.node_registrations
-            .write()
-            .await
-            .get_mut(&code)
-            .filter(|registration| registration.time.elapsed() < REGISTRATION_TIMEOUT)
-            .map(|registration| {
-                registration.name = name;
-                registration.default_host = config.default_host;
-                registration.config.base_url = config.base_url;
-                registration.config.ssh = ssh;
-                registration.config.storages = config.storages;
-                registration.config.backups = config.backups;
-            })
-            .ok_or(UpdateNodeRegistrationError::NodeNotFound)
+        let Some(current) = node_registration(&*self.database, &code).await? else {
+            return Err(UpdateNodeRegistrationError::NodeNotFound);
+        };
+
+        let updated = SetupNodeConfig {
+            base_url: config.base_url,
+            ssh,
+            origins: current.config.0.origins,
+            storages: config.storages,
+            backups: config.backups,
+        };
+
+        if update_node_registration(
+            &*self.database,
+            &code,
+            &name,
+            &config.default_host,
+            &updated,
+        )
+        .await?
+        {
+            Ok(())
+        } else {
+            Err(UpdateNodeRegistrationError::NodeNotFound)
+        }
     }
 
     /// Restarts the expiry countdown of a node registration that has not been
@@ -354,14 +357,11 @@ pub(crate) impl NodeAdminService for Backend {
     ) -> Result<(), _> {
         auth.require::<_, _, ExtendNodeRegistrationError>((), ManagementPermissions::NODES_MANAGE)?;
 
-        self.node_registrations
-            .write()
-            .await
-            .get_mut(&code)
-            .map(|registration| {
-                registration.time = Instant::now();
-            })
-            .ok_or(ExtendNodeRegistrationError::NodeNotFound)
+        if extend_node_registration(&*self.database, &code).await? {
+            Ok(())
+        } else {
+            Err(ExtendNodeRegistrationError::NodeNotFound)
+        }
     }
 
     /// Deletes a node. Nodes that still carry servers are rejected.

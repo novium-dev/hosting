@@ -1,5 +1,9 @@
 use super::*;
 use crate::db::node::insert_storages;
+use crate::db::registration::{
+    claim_database_host_registration, claim_node_registration, database_host_registration,
+    node_registration,
+};
 use crate::service::internal::internal_service_error::{AuthPasswordError, AuthPublickeyError};
 use crate::{
     Backend,
@@ -18,7 +22,6 @@ use axum_extra::{
     TypedHeader,
     headers::{Authorization, authorization::Bearer},
 };
-use core::time::Duration;
 use daemon_common::node::{BackendAuthServerPermissions, SetupNodeConfig};
 use daemon_common::ssh::{DaemonBackendAuthResponse, DaemonBackendAuthServer};
 use daemon_common::{
@@ -57,8 +60,6 @@ define_query_variable!(
     node "The node ID"
 );
 
-pub(crate) const REGISTRATION_TIMEOUT: Duration = Duration::from_hours(1);
-
 #[service(path = "/internal", tag = "internal", no_sdk)]
 pub(crate) impl InternalService for Backend {
     /// Returns the public daemon root key as pem.
@@ -70,12 +71,12 @@ pub(crate) impl InternalService for Backend {
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
     ) -> Result<String, _> {
-        if let Some(registration) = self
-            .node_registrations
-            .read()
+        if node_registration(&*self.database, auth.token())
             .await
-            .get(&auth.token().to_owned())
-            && registration.time.elapsed() < REGISTRATION_TIMEOUT
+            .inspect_err(|err| error!("Unable to look up a node registration: {err:?}"))
+            .ok()
+            .flatten()
+            .is_some()
         {
             Ok(self.root_key.dump(None, None))
         } else {
@@ -96,14 +97,13 @@ pub(crate) impl InternalService for Backend {
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
     ) -> Result<SetupNodeConfig, _> {
-        if let Some(registration) = self
-            .node_registrations
-            .read()
+        if let Some(registration) = node_registration(&*self.database, auth.token())
             .await
-            .get(&auth.token().to_owned())
-            && registration.time.elapsed() < REGISTRATION_TIMEOUT
+            .inspect_err(|err| error!("Unable to look up a node registration: {err:?}"))
+            .ok()
+            .flatten()
         {
-            Ok(registration.config.clone())
+            Ok(registration.config.0)
         } else {
             Err(DaemonConfigError::AuthInvalid)
         }
@@ -123,16 +123,10 @@ pub(crate) impl InternalService for Backend {
             default_bind,
         }: NodeRegistrationRequest,
     ) -> Result<Vec<u8>, _> {
-        if let Some(registration) = self
-            .node_registrations
-            .write()
-            .await
-            .remove(&auth.token().to_owned())
-            && registration.time.elapsed() < REGISTRATION_TIMEOUT
-        {
+        if let Some(registration) = claim_node_registration(&*self.database, auth.token()).await? {
             let cert = CertificateDer::from(cert);
 
-            let config = registration.config.clone();
+            let config = registration.config.0;
             let default_host = registration.default_host.clone();
             let ssh_host = config
                 .ssh
@@ -196,12 +190,12 @@ pub(crate) impl InternalService for Backend {
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
     ) -> Result<String, _> {
-        if let Some(registration) = self
-            .database_host_registrations
-            .read()
+        if database_host_registration(&*self.database, auth.token())
             .await
-            .get(&auth.token().to_owned())
-            && registration.time.elapsed() < REGISTRATION_TIMEOUT
+            .inspect_err(|err| error!("Unable to look up a database host registration: {err:?}"))
+            .ok()
+            .flatten()
+            .is_some()
         {
             Ok(self.root_key.dump(None, None))
         } else {
@@ -221,14 +215,13 @@ pub(crate) impl InternalService for Backend {
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
     ) -> Result<SetupAgentConfig, _> {
-        if let Some(registration) = self
-            .database_host_registrations
-            .read()
+        if let Some(registration) = database_host_registration(&*self.database, auth.token())
             .await
-            .get(&auth.token().to_owned())
-            && registration.time.elapsed() < REGISTRATION_TIMEOUT
+            .inspect_err(|err| error!("Unable to look up a database host registration: {err:?}"))
+            .ok()
+            .flatten()
         {
-            Ok(registration.config.clone())
+            Ok(registration.config.0)
         } else {
             Err(DatabaseAgentConfigError::AuthInvalid)
         }
@@ -244,15 +237,11 @@ pub(crate) impl InternalService for Backend {
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
         AgentRegistrationRequest { cert, csr }: AgentRegistrationRequest,
     ) -> Result<Vec<u8>, _> {
-        if let Some(registration) = self
-            .database_host_registrations
-            .write()
-            .await
-            .remove(&auth.token().to_owned())
-            && registration.time.elapsed() < REGISTRATION_TIMEOUT
+        if let Some(registration) =
+            claim_database_host_registration(&*self.database, auth.token()).await?
         {
             let cert = CertificateDer::from(cert);
-            let config = registration.config.clone();
+            let config = registration.config.0;
 
             database_agent_connection_test::<DatabaseAgentRegisterError>(
                 Uuid::nil(),

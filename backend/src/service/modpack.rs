@@ -2,6 +2,7 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ServerPermissions;
+use crate::cluster::{JOB_LOCK_TTL, JOB_RETENTION};
 use crate::db::server::resources::{
     ModpackRecord, delete_installed_files, delete_modpack, get_modpack, upsert_modpack,
 };
@@ -52,7 +53,7 @@ const MAX_PACK_VERSION_NUMBER: usize = 128;
 
 const CURSEFORGE_FILE_DIR: &str = "mods";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ModpackJobState {
     Running,
@@ -60,7 +61,7 @@ pub(crate) enum ModpackJobState {
     Failed,
 }
 
-#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub(crate) struct ModpackJob {
     pub(crate) state: ModpackJobState,
     pub(crate) step: String,
@@ -123,15 +124,41 @@ pub(crate) struct ModpackVersions {
     pub(crate) versions: Vec<ResourceVersion>,
 }
 
+fn job_key(server: ServerId) -> String {
+    format!("modpack:job:{server}")
+}
+
+fn job_lock(server: ServerId) -> String {
+    format!("modpack:lock:{server}")
+}
+
 impl Backend {
     async fn set_job(&self, server: ServerId, job: ModpackJob) {
+        self.store_shared(&job_key(server), &job, JOB_RETENTION)
+            .await;
         self.modpack_jobs.write().await.insert(server, job);
     }
 
     async fn update_job(&self, server: ServerId, update: impl FnOnce(&mut ModpackJob)) {
-        if let Some(job) = self.modpack_jobs.write().await.get_mut(&server) {
+        let mut jobs = self.modpack_jobs.write().await;
+        if let Some(job) = jobs.get_mut(&server) {
             update(job);
+            self.store_shared(&job_key(server), &*job, JOB_RETENTION)
+                .await;
         }
+    }
+
+    async fn modpack_job(&self, server: ServerId) -> Result<Option<ModpackJob>, redis::RedisError> {
+        let Some(mut job) = self.load_shared::<ModpackJob>(&job_key(server)).await? else {
+            return Ok(None);
+        };
+
+        if job.state == ModpackJobState::Running && !self.is_locked(&job_lock(server)).await {
+            job.state = ModpackJobState::Failed;
+            job.error = Some("The instance running the install stopped".to_owned());
+        }
+
+        Ok(Some(job))
     }
 
     async fn fail_job(&self, server: ServerId, reason: &str) {
@@ -587,7 +614,7 @@ pub(crate) impl ModpackService for Backend {
     /// # Permissions
     /// Requires [`ServerPermissions::FILES_READ`].
     #[route("", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found)]
     async fn modpack_status(
         &self,
         #[special] auth: Authentication,
@@ -595,7 +622,7 @@ pub(crate) impl ModpackService for Backend {
     ) -> Result<Option<ModpackJob>, _> {
         auth.require::<_, _, ModpackStatusError>(server_id, ServerPermissions::FILES_READ)?;
 
-        Ok(self.modpack_jobs.read().await.get(&server_id).cloned())
+        Ok(self.modpack_job(server_id).await?)
     }
 
     /// Installs a modpack in the background.
@@ -651,13 +678,7 @@ pub(crate) impl ModpackService for Backend {
             return Err(InstallModpackError::ModpackServerRunning);
         }
 
-        if self
-            .modpack_jobs
-            .read()
-            .await
-            .get(&server_id)
-            .is_some_and(|job| job.state == ModpackJobState::Running)
-        {
+        if self.is_locked(&job_lock(server_id)).await {
             return Err(InstallModpackError::ModpackAlreadyRunning);
         }
 
@@ -667,6 +688,11 @@ pub(crate) impl ModpackService for Backend {
             .await
             .map_err(ResourceError::into::<InstallModpackError>)?;
 
+        let lock = job_lock(server_id);
+        if !self.try_lock(&lock, JOB_LOCK_TTL).await {
+            return Err(InstallModpackError::ModpackAlreadyRunning);
+        }
+
         let pack_file = sanitize_file_name(&resolved.file_name, "modpack.zip");
         let job = ModpackJob::new("Queued");
         self.set_job(server_id, job.clone()).await;
@@ -674,9 +700,13 @@ pub(crate) impl ModpackService for Backend {
         let backend = self.clone();
         let url = resolved.url;
         self.server_task_cancellable.lock().await.spawn(async move {
+            let heartbeat = backend.hold_lock(lock.clone());
             backend
                 .run_modpack_install(server, payload, pack_file, url)
                 .await;
+            drop(heartbeat);
+            backend.modpack_jobs.write().await.remove(&server_id);
+            backend.release_lock(&lock).await;
         });
 
         Ok(job)

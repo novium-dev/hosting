@@ -1,7 +1,12 @@
+use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::group::all_groups_exist;
 use crate::db::project::ProjectId;
+use crate::db::registration::{
+    extend_database_host_registration, insert_database_host_registration,
+    list_database_host_registrations, update_database_host_registration,
+};
 use crate::service::admin::database::database_admin_service_error::{
     CreateDatabaseHostError, DeleteDatabaseHostError, DeleteDatabaseInstanceError,
     ExtendDatabaseHostRegistrationError, ListDatabaseHostRegistrationsError,
@@ -10,9 +15,7 @@ use crate::service::admin::database::database_admin_service_error::{
 };
 use crate::service::admin::node::gen_code;
 use crate::service::error_database_agent_error::FromDatabaseAgentError;
-use crate::service::internal::REGISTRATION_TIMEOUT;
 use crate::service::*;
-use crate::{Backend, DatabaseHostRegistration};
 use core::str::FromStr as _;
 use database_agent_common::service::instance::InstanceService as _;
 use database_agent_common::types::{
@@ -21,7 +24,6 @@ use database_agent_common::types::{
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
 use std::collections::HashMap;
-use std::time::Instant;
 use url::Url;
 use uuid::Uuid;
 use zelus::service;
@@ -222,19 +224,18 @@ pub(crate) impl DatabaseAdminService for Backend {
 
         let code = gen_code::<CreateDatabaseHostError>()?;
 
-        self.database_host_registrations.write().await.insert(
-            code.clone(),
-            DatabaseHostRegistration {
-                time: Instant::now(),
-                display: payload.display,
-                groups: payload.groups,
-                public_host: payload.public_host,
-                config: SetupAgentConfig {
-                    base_url: payload.base_url,
-                    ports: payload.ports,
-                },
+        insert_database_host_registration(
+            &*self.database,
+            &code,
+            &payload.display,
+            &payload.groups,
+            &payload.public_host,
+            &SetupAgentConfig {
+                base_url: payload.base_url,
+                ports: payload.ports,
             },
-        );
+        )
+        .await?;
 
         Ok(code)
     }
@@ -257,22 +258,20 @@ pub(crate) impl DatabaseAdminService for Backend {
             ManagementPermissions::DATABASE_HOSTS_VIEW,
         )?;
 
-        let mut registrations = self.database_host_registrations.write().await;
-        registrations
-            .retain(|_code, registration| registration.time.elapsed() < REGISTRATION_TIMEOUT);
-
-        Ok(registrations
-            .iter()
-            .map(|(code, registration)| DatabaseHostRegistrationInfo {
-                code: code.clone(),
-                display: registration.display.clone(),
-                groups: registration.groups.clone(),
-                base_url: registration.config.base_url.clone(),
-                public_host: registration.public_host.clone(),
-                ports: registration.config.ports.clone(),
-                expires_in: REGISTRATION_TIMEOUT
-                    .saturating_sub(registration.time.elapsed())
-                    .as_secs(),
+        Ok(list_database_host_registrations(&*self.database)
+            .await?
+            .into_iter()
+            .map(|registration| {
+                let config = registration.config.0;
+                DatabaseHostRegistrationInfo {
+                    code: registration.code,
+                    display: registration.display,
+                    groups: registration.groups,
+                    base_url: config.base_url,
+                    public_host: registration.public_host,
+                    ports: config.ports,
+                    expires_in: registration.expires_in.max(0).cast_unsigned(),
+                }
             })
             .collect())
     }
@@ -303,19 +302,23 @@ pub(crate) impl DatabaseAdminService for Backend {
             return Err(UpdateDatabaseHostRegistrationError::GroupNotFound);
         }
 
-        self.database_host_registrations
-            .write()
-            .await
-            .get_mut(&code)
-            .filter(|registration| registration.time.elapsed() < REGISTRATION_TIMEOUT)
-            .map(|registration| {
-                registration.display = payload.display;
-                registration.groups = payload.groups;
-                registration.public_host = payload.public_host;
-                registration.config.base_url = payload.base_url;
-                registration.config.ports = payload.ports;
-            })
-            .ok_or(UpdateDatabaseHostRegistrationError::DatabaseHostNotFound)
+        if update_database_host_registration(
+            &*self.database,
+            &code,
+            &payload.display,
+            &payload.groups,
+            &payload.public_host,
+            &SetupAgentConfig {
+                base_url: payload.base_url,
+                ports: payload.ports,
+            },
+        )
+        .await?
+        {
+            Ok(())
+        } else {
+            Err(UpdateDatabaseHostRegistrationError::DatabaseHostNotFound)
+        }
     }
 
     /// Restarts the expiry countdown of a database host registration that has not
@@ -336,14 +339,11 @@ pub(crate) impl DatabaseAdminService for Backend {
             ManagementPermissions::DATABASE_HOSTS_MANAGE,
         )?;
 
-        self.database_host_registrations
-            .write()
-            .await
-            .get_mut(&code)
-            .map(|registration| {
-                registration.time = Instant::now();
-            })
-            .ok_or(ExtendDatabaseHostRegistrationError::DatabaseHostNotFound)
+        if extend_database_host_registration(&*self.database, &code).await? {
+            Ok(())
+        } else {
+            Err(ExtendDatabaseHostRegistrationError::DatabaseHostNotFound)
+        }
     }
 
     /// Updates a registered database host.

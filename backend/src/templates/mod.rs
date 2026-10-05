@@ -12,7 +12,7 @@ use core::future::Future;
 use core::time::Duration;
 pub use daemon_common::service::server::ServerBuildPayload;
 pub use redis::aio::ConnectionManager;
-use redis::{AsyncCommands as _, RedisError};
+use redis::{AsyncCommands as _, ExistenceCheck, RedisError, SetExpiry, SetOptions};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use speedy::{LittleEndian, Readable, Writable};
@@ -20,6 +20,8 @@ use std::collections::{HashMap, HashSet};
 use std::io;
 use tracing::{debug, error, info};
 use variable::VariablePayload;
+
+const REFRESH_INTERVAL: Duration = Duration::from_mins(10);
 
 pub const ENV_FILE_ENVIRONMENT: &str = "ENV_FILE";
 
@@ -231,6 +233,18 @@ async fn load_cache_required<
     load_cache(cache, id)
         .await?
         .map_or_else(|| Err(<E as FromTemplateUnavailable>::from()), Ok)
+}
+
+async fn claim_refresh(cache: &mut ConnectionManager, id: &'static str) -> bool {
+    let key = format!("{}template_refresh:{}", crate::CACHE_KEY_PREFIX, id);
+    let options = SetOptions::default()
+        .conditional_set(ExistenceCheck::NX)
+        .with_expiration(SetExpiry::EX(REFRESH_INTERVAL.as_secs() - 60));
+    cache
+        .set_options::<_, _, Option<String>>(&key, 1i32, options)
+        .await
+        .inspect_err(|err| error!("Unable to claim the cache refresh of template {id}: {err:?}"))
+        .is_ok_and(|reply| reply.is_some())
 }
 
 async fn save_cache<T: Writable<LittleEndian> + Send + Sync>(
@@ -472,24 +486,32 @@ impl<T: Template + Send + Sync> TemplateInner for T {
 
             loop {
                 if T::cache_update_needed(&cache_obj) {
-                    debug!("Updating Cache for {}", id);
-                    match T::update_cache().await {
-                        Ok(obj) => {
-                            if let Err(err) = save_cache(&mut cache_client, id, &obj).await {
-                                error!(
-                                    "Failed to update cache for template {}: {:?} (save_cache)",
-                                    id, err
-                                );
-                            } else {
-                                cache_obj = obj;
+                    if claim_refresh(&mut cache_client, id).await {
+                        debug!("Updating Cache for {}", id);
+                        match T::update_cache().await {
+                            Ok(obj) => {
+                                if let Err(err) = save_cache(&mut cache_client, id, &obj).await {
+                                    error!(
+                                        "Failed to update cache for template {}: {:?} (save_cache)",
+                                        id, err
+                                    );
+                                } else {
+                                    cache_obj = obj;
+                                }
+                            }
+                            Err(()) => {
+                                error!("Failed to update cache for template {id} (update_cache)");
                             }
                         }
-                        Err(()) => {
-                            error!("Failed to update cache for template {id} (update_cache)");
-                        }
+                    } else {
+                        cache_obj = load_cache(&mut cache_client, id)
+                            .await
+                            .ok()
+                            .flatten()
+                            .unwrap_or(cache_obj);
                     }
                 }
-                tokio::time::sleep(Duration::from_mins(10)).await;
+                tokio::time::sleep(REFRESH_INTERVAL).await;
             }
         });
         Ok(())
