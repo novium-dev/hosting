@@ -3,17 +3,13 @@ use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::group::all_groups_exist;
 use crate::db::project::ProjectId;
-use crate::db::registration::{
-    extend_database_host_registration, insert_database_host_registration,
-    list_database_host_registrations, update_database_host_registration,
-};
+use crate::registration::{DatabaseHostRegistration, Pending};
 use crate::service::admin::database::database_admin_service_error::{
     CreateDatabaseHostError, DeleteDatabaseHostError, DeleteDatabaseInstanceError,
     ExtendDatabaseHostRegistrationError, ListDatabaseHostRegistrationsError,
     ListDatabaseHostsError, ListDatabaseInstancesError, UpdateDatabaseHostError,
     UpdateDatabaseHostRegistrationError, UpdateDatabaseInstanceError,
 };
-use crate::service::admin::node::gen_code;
 use crate::service::error_database_agent_error::FromDatabaseAgentError;
 use crate::service::*;
 use core::str::FromStr as _;
@@ -60,6 +56,20 @@ pub(crate) struct DatabaseHostRegistrationInfo {
     pub(crate) public_host: String,
     pub(crate) ports: HashMap<DatabaseType, u16>,
     pub(crate) expires_in: u64,
+}
+
+impl From<CreateDatabaseHost> for DatabaseHostRegistration {
+    fn from(payload: CreateDatabaseHost) -> Self {
+        Self {
+            display: payload.display,
+            groups: payload.groups,
+            public_host: payload.public_host,
+            config: SetupAgentConfig {
+                base_url: payload.base_url,
+                ports: payload.ports,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -207,7 +217,7 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, os::failure,
-        group::not_found, db::failure <- [sql:*])]
+        group::not_found, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn create_database_host(
         &self,
         #[special] auth: Authentication,
@@ -222,22 +232,10 @@ pub(crate) impl DatabaseAdminService for Backend {
             return Err(CreateDatabaseHostError::GroupNotFound);
         }
 
-        let code = gen_code::<CreateDatabaseHostError>()?;
-
-        insert_database_host_registration(
-            &*self.database,
-            &code,
-            &payload.display,
-            &payload.groups,
-            &payload.public_host,
-            &SetupAgentConfig {
-                base_url: payload.base_url,
-                ports: payload.ports,
-            },
-        )
-        .await?;
-
-        Ok(code)
+        self.create_registration::<_, CreateDatabaseHostError>(&DatabaseHostRegistration::from(
+            payload,
+        ))
+        .await
     }
 
     /// Lists the database host registrations that are still waiting for an agent
@@ -248,7 +246,7 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_VIEW`].
     #[route("/host/registrations", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn list_database_host_registrations(
         &self,
         #[special] auth: Authentication,
@@ -258,21 +256,25 @@ pub(crate) impl DatabaseAdminService for Backend {
             ManagementPermissions::DATABASE_HOSTS_VIEW,
         )?;
 
-        Ok(list_database_host_registrations(&*self.database)
+        Ok(self
+            .list_registrations::<DatabaseHostRegistration>()
             .await?
             .into_iter()
-            .map(|registration| {
-                let config = registration.config.0;
-                DatabaseHostRegistrationInfo {
-                    code: registration.code,
+            .map(
+                |Pending {
+                     code,
+                     registration,
+                     expires_in,
+                 }| DatabaseHostRegistrationInfo {
+                    code,
                     display: registration.display,
                     groups: registration.groups,
-                    base_url: config.base_url,
+                    base_url: registration.config.base_url,
                     public_host: registration.public_host,
-                    ports: config.ports,
-                    expires_in: registration.expires_in.max(0).cast_unsigned(),
-                }
-            })
+                    ports: registration.config.ports,
+                    expires_in,
+                },
+            )
             .collect())
     }
 
@@ -286,7 +288,7 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host/registrations/{code}", method = PATCH)]
     #[error(auth::{permission_denied, unreachable}, database::host_not_found,
-        group::not_found, db::failure <- [sql:*])]
+        group::not_found, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn update_database_host_registration(
         &self,
         #[special] auth: Authentication,
@@ -302,23 +304,10 @@ pub(crate) impl DatabaseAdminService for Backend {
             return Err(UpdateDatabaseHostRegistrationError::GroupNotFound);
         }
 
-        if update_database_host_registration(
-            &*self.database,
-            &code,
-            &payload.display,
-            &payload.groups,
-            &payload.public_host,
-            &SetupAgentConfig {
-                base_url: payload.base_url,
-                ports: payload.ports,
-            },
-        )
-        .await?
-        {
-            Ok(())
-        } else {
-            Err(UpdateDatabaseHostRegistrationError::DatabaseHostNotFound)
-        }
+        self.update_registration(&code, &DatabaseHostRegistration::from(payload))
+            .await?
+            .then_some(())
+            .ok_or(UpdateDatabaseHostRegistrationError::DatabaseHostNotFound)
     }
 
     /// Restarts the expiry countdown of a database host registration that has not
@@ -328,7 +317,7 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host/registrations/{code}/extend", method = POST)]
     #[error(auth::{permission_denied, unreachable}, database::host_not_found,
-        db::failure <- [sql:*])]
+        db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn extend_database_host_registration(
         &self,
         #[special] auth: Authentication,
@@ -339,11 +328,10 @@ pub(crate) impl DatabaseAdminService for Backend {
             ManagementPermissions::DATABASE_HOSTS_MANAGE,
         )?;
 
-        if extend_database_host_registration(&*self.database, &code).await? {
-            Ok(())
-        } else {
-            Err(ExtendDatabaseHostRegistrationError::DatabaseHostNotFound)
-        }
+        self.extend_registration::<DatabaseHostRegistration>(&code)
+            .await?
+            .then_some(())
+            .ok_or(ExtendDatabaseHostRegistrationError::DatabaseHostNotFound)
     }
 
     /// Updates a registered database host.

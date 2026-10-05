@@ -9,6 +9,7 @@ mod cluster;
 mod http;
 pub(crate) mod integrity;
 mod logo;
+mod registration;
 pub(crate) mod resources;
 pub(crate) mod routes;
 pub(crate) mod service;

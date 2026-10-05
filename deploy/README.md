@@ -59,7 +59,7 @@ docker compose up -d --scale backend=3 --scale frontend=2
 ```
 
 Everything instance-wide lives in Postgres or Valkey: sessions, OAuth flows,
-the keys, node and database host setup codes, modpack install and integrity run
+the keys, node and database host setup codes (Valkey, expiring after an hour), modpack install and integrity run
 progress, and template caches. No sticky sessions are needed.
 
 - Node and database host changes are broadcast with Postgres `NOTIFY`, and every

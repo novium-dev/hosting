@@ -1,4 +1,3 @@
-use rand::TryRng as _;
 use tracing::error;
 
 use serde::{Deserialize, Serialize};
@@ -12,18 +11,15 @@ use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::group::GroupLimits;
 use crate::db::node::{NodePortAllocation, replace_storages, used_ports};
-use crate::db::registration::{
-    extend_node_registration, insert_node_registration, list_node_registrations, node_registration,
-    update_node_registration,
-};
 use crate::db::server::ports::NetworkProtocol;
+use crate::registration::{NodeRegistration, Pending};
 use crate::service::admin::node::node_admin_service_error::{
     AddNodePortError, AvailablePortsError, CreateNodeError, DeleteNodeError, DeleteNodePortError,
     ExtendNodeRegistrationError, ListNodeGroupsError, ListNodeRegistrationsError, ListNodesError,
     MetricsNodeError, UpdateMaintenanceError, UpdateNodeError, UpdateNodeOverallocationError,
     UpdateNodeRegistrationError,
 };
-use crate::service::error_os_failure::FromOsFailure;
+use crate::service::error_node_invalid_host::FromNodeInvalidHost;
 use crate::service::*;
 use daemon_common::node::{
     BackendNodeConfig, BackupStorage, HostAndPort, ServerStorage, SetupNodeConfig,
@@ -76,6 +72,37 @@ pub struct SetupNodeConfigRequest {
     pub backups: HashMap<String, BackupStorage>,
 }
 
+impl SetupNodeConfigRequest {
+    fn into_registration<E: FromNodeInvalidHost>(
+        self,
+        name: String,
+        public_url: &Url,
+    ) -> Result<NodeRegistration, E> {
+        let ssh = self
+            .ssh
+            .map(|endpoint| {
+                Ok(HostAndPort {
+                    host: Host::parse(&endpoint.host)
+                        .map_err(|_err| <E as FromNodeInvalidHost>::from())?,
+                    port: endpoint.port,
+                })
+            })
+            .transpose()?;
+
+        Ok(NodeRegistration {
+            name,
+            default_host: self.default_host,
+            config: SetupNodeConfig {
+                base_url: self.base_url,
+                ssh,
+                origins: vec![public_url.to_string()],
+                storages: self.storages,
+                backups: self.backups,
+            },
+        })
+    }
+}
+
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct NodeRegistrationInfo {
     pub(crate) code: String,
@@ -105,7 +132,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("", method = PUT)]
-    #[error(auth::{permission_denied, unreachable}, os::failure, node::invalid_host, db::failure <- [sql:*])]
+    #[error(auth::{permission_denied, unreachable}, os::failure, node::invalid_host, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn create_node(
         &self,
         #[special] auth: Authentication,
@@ -114,39 +141,11 @@ pub(crate) impl NodeAdminService for Backend {
     ) -> Result<String, _> {
         auth.require::<_, _, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
 
-        let code = gen_code::<CreateNodeError>()?;
+        let registration =
+            config.into_registration::<CreateNodeError>(name, &self.config.public_url)?;
 
-        let origins = vec![self.config.public_url.to_string()];
-
-        let ssh = config
-            .ssh
-            .map(|endpoint| {
-                Ok::<_, CreateNodeError>(HostAndPort {
-                    host: Host::parse(&endpoint.host)
-                        .map_err(|_err| CreateNodeError::NodeInvalidHost)?,
-                    port: endpoint.port,
-                })
-            })
-            .transpose()?;
-
-        let final_config = SetupNodeConfig {
-            base_url: config.base_url,
-            ssh,
-            origins,
-            storages: config.storages,
-            backups: config.backups,
-        };
-
-        insert_node_registration(
-            &*self.database,
-            &code,
-            &name,
-            &config.default_host,
-            &final_config,
-        )
-        .await?;
-
-        Ok(code)
+        self.create_registration::<_, CreateNodeError>(&registration)
+            .await
     }
 
     /// Pulls the current [`NodeConfig`] from a running node over mTLS and
@@ -258,32 +257,36 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::NODES_VIEW`].
     #[route("/registrations", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn list_node_registrations(
         &self,
         #[special] auth: Authentication,
     ) -> Result<Vec<NodeRegistrationInfo>, _> {
         auth.require::<_, _, ListNodeRegistrationsError>((), ManagementPermissions::NODES_VIEW)?;
 
-        Ok(list_node_registrations(&*self.database)
+        Ok(self
+            .list_registrations::<NodeRegistration>()
             .await?
             .into_iter()
-            .map(|registration| {
-                let config = registration.config.0;
-                NodeRegistrationInfo {
-                    code: registration.code,
+            .map(
+                |Pending {
+                     code,
+                     registration,
+                     expires_in,
+                 }| NodeRegistrationInfo {
+                    code,
                     name: registration.name,
-                    base_url: config.base_url,
+                    base_url: registration.config.base_url,
                     default_host: registration.default_host,
-                    ssh: config.ssh.map(|endpoint| SshEndpointRequest {
+                    ssh: registration.config.ssh.map(|endpoint| SshEndpointRequest {
                         host: endpoint.host.to_string(),
                         port: endpoint.port,
                     }),
-                    storages: config.storages,
-                    backups: config.backups,
-                    expires_in: registration.expires_in.max(0).cast_unsigned(),
-                }
-            })
+                    storages: registration.config.storages,
+                    backups: registration.config.backups,
+                    expires_in,
+                },
+            )
             .collect())
     }
 
@@ -295,7 +298,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("/registrations/{code}", method = PATCH)]
-    #[error(node::{not_found, invalid_host}, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    #[error(node::{not_found, invalid_host}, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn update_node_registration(
         &self,
         #[special] auth: Authentication,
@@ -305,42 +308,13 @@ pub(crate) impl NodeAdminService for Backend {
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateNodeRegistrationError>((), ManagementPermissions::NODES_MANAGE)?;
 
-        let ssh = config
-            .ssh
-            .map(|endpoint| {
-                Ok::<_, UpdateNodeRegistrationError>(HostAndPort {
-                    host: Host::parse(&endpoint.host)
-                        .map_err(|_err| UpdateNodeRegistrationError::NodeInvalidHost)?,
-                    port: endpoint.port,
-                })
-            })
-            .transpose()?;
+        let registration = config
+            .into_registration::<UpdateNodeRegistrationError>(name, &self.config.public_url)?;
 
-        let Some(current) = node_registration(&*self.database, &code).await? else {
-            return Err(UpdateNodeRegistrationError::NodeNotFound);
-        };
-
-        let updated = SetupNodeConfig {
-            base_url: config.base_url,
-            ssh,
-            origins: current.config.0.origins,
-            storages: config.storages,
-            backups: config.backups,
-        };
-
-        if update_node_registration(
-            &*self.database,
-            &code,
-            &name,
-            &config.default_host,
-            &updated,
-        )
-        .await?
-        {
-            Ok(())
-        } else {
-            Err(UpdateNodeRegistrationError::NodeNotFound)
-        }
+        self.update_registration(&code, &registration)
+            .await?
+            .then_some(())
+            .ok_or(UpdateNodeRegistrationError::NodeNotFound)
     }
 
     /// Restarts the expiry countdown of a node registration that has not been
@@ -349,7 +323,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("/registrations/{code}/extend", method = POST)]
-    #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    #[error(node::not_found, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn extend_node_registration(
         &self,
         #[special] auth: Authentication,
@@ -357,11 +331,10 @@ pub(crate) impl NodeAdminService for Backend {
     ) -> Result<(), _> {
         auth.require::<_, _, ExtendNodeRegistrationError>((), ManagementPermissions::NODES_MANAGE)?;
 
-        if extend_node_registration(&*self.database, &code).await? {
-            Ok(())
-        } else {
-            Err(ExtendNodeRegistrationError::NodeNotFound)
-        }
+        self.extend_registration::<NodeRegistration>(&code)
+            .await?
+            .then_some(())
+            .ok_or(ExtendNodeRegistrationError::NodeNotFound)
     }
 
     /// Deletes a node. Nodes that still carry servers are rejected.
@@ -729,19 +702,4 @@ pub(crate) impl NodeAdminService for Backend {
         })
         .await
     }
-}
-
-pub(crate) fn gen_code<E: FromOsFailure>() -> Result<String, E> {
-    let mut data = [0u8; 8];
-    rand::rng()
-        .try_fill_bytes(&mut data)
-        .inspect_err(|err| error!("Unable to generate random bytes: {err:?}"))
-        .map_err(|_err| <E as FromOsFailure>::from())?;
-    Ok(format!(
-        "{}-{}-{}-{}",
-        hex::encode(&data[0..2]),
-        hex::encode(&data[2..4]),
-        hex::encode(&data[4..6]),
-        hex::encode(&data[6..8])
-    ))
 }

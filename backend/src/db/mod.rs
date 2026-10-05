@@ -4,6 +4,5 @@ pub mod group;
 pub mod license;
 pub mod node;
 pub mod project;
-pub mod registration;
 pub mod route;
 pub mod server;

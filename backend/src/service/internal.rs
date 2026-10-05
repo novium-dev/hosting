@@ -1,9 +1,6 @@
 use super::*;
 use crate::db::node::insert_storages;
-use crate::db::registration::{
-    claim_database_host_registration, claim_node_registration, database_host_registration,
-    node_registration,
-};
+use crate::registration::{DatabaseHostRegistration, NodeRegistration};
 use crate::service::internal::internal_service_error::{AuthPasswordError, AuthPublickeyError};
 use crate::{
     Backend,
@@ -66,22 +63,15 @@ pub(crate) impl InternalService for Backend {
     ///
     /// This route should only be used directly by the daemon.
     #[route("/daemon/root_key", no_auth)]
-    #[error(auth::invalid)]
+    #[error(auth::invalid, cache::failure <- [redis:*])]
     async fn daemon_root_key(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
     ) -> Result<String, _> {
-        if node_registration(&*self.database, auth.token())
-            .await
-            .inspect_err(|err| error!("Unable to look up a node registration: {err:?}"))
-            .ok()
-            .flatten()
-            .is_some()
-        {
-            Ok(self.root_key.dump(None, None))
-        } else {
-            Err(DaemonRootKeyError::AuthInvalid)
-        }
+        self.registration::<NodeRegistration>(auth.token())
+            .await?
+            .ok_or(DaemonRootKeyError::AuthInvalid)?;
+        Ok(self.root_key.dump(None, None))
     }
 
     /// Returns the intended logical [`NodeConfig`] for a pending node registration.
@@ -92,28 +82,22 @@ pub(crate) impl InternalService for Backend {
     ///
     /// This route should only be used directly by the daemon.
     #[route("/daemon/config", no_auth)]
-    #[error(auth::invalid)]
+    #[error(auth::invalid, cache::failure <- [redis:*])]
     async fn daemon_config(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
     ) -> Result<SetupNodeConfig, _> {
-        if let Some(registration) = node_registration(&*self.database, auth.token())
-            .await
-            .inspect_err(|err| error!("Unable to look up a node registration: {err:?}"))
-            .ok()
-            .flatten()
-        {
-            Ok(registration.config.0)
-        } else {
-            Err(DaemonConfigError::AuthInvalid)
-        }
+        self.registration::<NodeRegistration>(auth.token())
+            .await?
+            .map(|registration| registration.config)
+            .ok_or(DaemonConfigError::AuthInvalid)
     }
 
     /// Registers a new daemon.
     ///
     /// This route should only be used directly by the daemon.
     #[route("/daemon/register", method = POST, raw, no_auth)]
-    #[error(internal_daemon::{key_invalid, unreachable, sign_failed, mismatch}, db::failure <- [sql:*], auth::invalid)]
+    #[error(internal_daemon::{key_invalid, unreachable, sign_failed, mismatch}, db::failure <- [sql:*], cache::failure <- [redis:*], auth::invalid)]
     async fn daemon_register(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
@@ -123,10 +107,13 @@ pub(crate) impl InternalService for Backend {
             default_bind,
         }: NodeRegistrationRequest,
     ) -> Result<Vec<u8>, _> {
-        if let Some(registration) = claim_node_registration(&*self.database, auth.token()).await? {
+        if let Some(registration) = self
+            .claim_registration::<NodeRegistration>(auth.token())
+            .await?
+        {
             let cert = CertificateDer::from(cert);
 
-            let config = registration.config.0;
+            let config = registration.config;
             let default_host = registration.default_host.clone();
             let ssh_host = config
                 .ssh
@@ -185,22 +172,15 @@ pub(crate) impl InternalService for Backend {
     ///
     /// This route should only be used directly by the database agent.
     #[route("/database_agent/root_key", no_auth)]
-    #[error(auth::invalid)]
+    #[error(auth::invalid, cache::failure <- [redis:*])]
     async fn database_agent_root_key(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
     ) -> Result<String, _> {
-        if database_host_registration(&*self.database, auth.token())
-            .await
-            .inspect_err(|err| error!("Unable to look up a database host registration: {err:?}"))
-            .ok()
-            .flatten()
-            .is_some()
-        {
-            Ok(self.root_key.dump(None, None))
-        } else {
-            Err(DatabaseAgentRootKeyError::AuthInvalid)
-        }
+        self.registration::<DatabaseHostRegistration>(auth.token())
+            .await?
+            .ok_or(DatabaseAgentRootKeyError::AuthInvalid)?;
+        Ok(self.root_key.dump(None, None))
     }
 
     /// Returns the intended logical config for a pending database host registration.
@@ -210,38 +190,33 @@ pub(crate) impl InternalService for Backend {
     ///
     /// This route should only be used directly by the database agent.
     #[route("/database_agent/config", no_auth)]
-    #[error(auth::invalid)]
+    #[error(auth::invalid, cache::failure <- [redis:*])]
     async fn database_agent_config(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
     ) -> Result<SetupAgentConfig, _> {
-        if let Some(registration) = database_host_registration(&*self.database, auth.token())
-            .await
-            .inspect_err(|err| error!("Unable to look up a database host registration: {err:?}"))
-            .ok()
-            .flatten()
-        {
-            Ok(registration.config.0)
-        } else {
-            Err(DatabaseAgentConfigError::AuthInvalid)
-        }
+        self.registration::<DatabaseHostRegistration>(auth.token())
+            .await?
+            .map(|registration| registration.config)
+            .ok_or(DatabaseAgentConfigError::AuthInvalid)
     }
 
     /// Registers a new database agent.
     ///
     /// This route should only be used directly by the database agent.
     #[route("/database_agent/register", method = POST, raw, no_auth)]
-    #[error(internal_daemon::{key_invalid, unreachable, sign_failed}, db::failure <- [sql:*], auth::invalid)]
+    #[error(internal_daemon::{key_invalid, unreachable, sign_failed}, db::failure <- [sql:*], cache::failure <- [redis:*], auth::invalid)]
     async fn database_agent_register(
         &self,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
         AgentRegistrationRequest { cert, csr }: AgentRegistrationRequest,
     ) -> Result<Vec<u8>, _> {
-        if let Some(registration) =
-            claim_database_host_registration(&*self.database, auth.token()).await?
+        if let Some(registration) = self
+            .claim_registration::<DatabaseHostRegistration>(auth.token())
+            .await?
         {
             let cert = CertificateDer::from(cert);
-            let config = registration.config.0;
+            let config = registration.config;
 
             database_agent_connection_test::<DatabaseAgentRegisterError>(
                 Uuid::nil(),
