@@ -6032,6 +6032,101 @@ export type ChangeServerTemplateResponses = {
 
 export type ChangeServerTemplateResponse = ChangeServerTemplateResponses[keyof ChangeServerTemplateResponses];
 
+export type MoveServerData = {
+    body: NanoId;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: never;
+    url: '/admin/server/{server_id}/project';
+};
+
+export type MoveServerErrors = {
+    /**
+     * The server has routes on a private domain the target project cannot use
+     */
+    '400‏': {
+        error?: {
+            id?: 'route/domain_not_shared';
+            msg?: 'The server has routes on a private domain the target project cannot use';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type MoveServerError = MoveServerErrors[keyof MoveServerErrors];
+
+export type MoveServerResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type MoveServerResponse = MoveServerResponses[keyof MoveServerResponses];
+
 export type AddPortData = {
     body: AddPortPayload;
     headers?: {

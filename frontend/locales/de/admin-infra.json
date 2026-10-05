@@ -341,6 +341,17 @@
       "deleteSuccess": "Server gelöscht",
       "confirmDescription": "Dies löscht {{name}} dauerhaft."
     },
+    "moveCard": {
+      "title": "Server verschieben",
+      "description": "Diesen Server in ein anderes Projekt verschieben. Mitglieder des aktuellen Projekts verlieren den Zugriff, Mitglieder des neuen Projekts erhalten ihn.",
+      "targetLabel": "Zielprojekt",
+      "targetPlaceholder": "Projekt auswählen",
+      "moveButton": "Server verschieben",
+      "moveError": "Server konnte nicht verschoben werden",
+      "moveSuccess": "Server nach {{project}} verschoben",
+      "confirmTitle": "{{name}} verschieben?",
+      "confirmDescription": "{{name}} wird nach {{project}} verschoben. Mitglieder des aktuellen Projekts und dessen Projekt-API-Keys verlieren den Zugriff. Datenbank-Zugangsdaten, die der Server nutzt, verweisen weiterhin auf die Datenbanken des aktuellen Projekts."
+    },
     "templateCard": {
       "changeError": "Template konnte nicht geändert werden",
       "changeSuccess": "Template zu {{template}} geändert",

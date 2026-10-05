@@ -9,7 +9,7 @@ use crate::db::server::resync::is_running_label;
 use crate::db::server::{ServerCustomization, ServerId};
 use crate::service::admin::server::server_admin_service_error::{
     AddPortError, ChangeServerTemplateError, CreateServerError, DeletePortError, DeleteServerError,
-    UpdatePortError,
+    MoveServerError, UpdatePortError,
 };
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::template::*;
@@ -311,6 +311,81 @@ pub(crate) impl ServerAdminService for Backend {
         .execute(&*self.database)
         .await
         .inspect_err(|err| error!("Failed to store the new template: {err:?}"))?;
+
+        Ok(())
+    }
+
+    /// Moves a server into a different project.
+    ///
+    /// Access follows the project: members of the old project lose access to
+    /// the server and members of the new one gain it, as do project-scoped API
+    /// keys. Nothing on the node changes, so the server keeps running.
+    ///
+    /// The move is refused while the server has routes on a private domain
+    /// that is not shared with the new project. Databases belong to projects,
+    /// not servers, so credentials the server uses stay pointed at the old
+    /// project's databases.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::VIEW`] and [`ManagementPermissions::SERVER_MANAGE`].
+    #[route("/{server_id}/project", method = POST)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*],
+        server::not_found,
+        project::not_found <- [sql:foreign_key],
+        route::domain_not_shared)]
+    async fn move_server(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        project: ProjectId,
+    ) -> Result<(), _> {
+        auth.require::<_, _, MoveServerError>(server_id, ProjectPermissions::VIEW)?;
+        auth.require::<_, _, MoveServerError>((), ManagementPermissions::SERVER_MANAGE)?;
+
+        let mut tx = self.database.begin().await?;
+
+        let current = query_scalar!(
+            r#"SELECT project AS "project: ProjectId" FROM servers WHERE id = $1 FOR UPDATE"#,
+            &server_id
+        )
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(MoveServerError::ServerNotFound)?;
+
+        if current == project {
+            return Ok(());
+        }
+
+        let unshared_routes = query_scalar!(
+            r#"SELECT (COUNT(*) > 0) AS "exists!"
+               FROM routes
+               JOIN route_domains ON route_domains.id = routes.domain
+               WHERE routes.server = $1
+                 AND route_domains.private
+                 AND NOT EXISTS (
+                     SELECT 1 FROM route_domain_projects
+                     WHERE route_domain_projects.domain = routes.domain
+                       AND route_domain_projects.project = $2
+                 )"#,
+            &server_id,
+            &project
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        if unshared_routes {
+            return Err(MoveServerError::RouteDomainNotShared);
+        }
+
+        query!(
+            "UPDATE servers SET project = $1 WHERE id = $2",
+            &project,
+            &server_id
+        )
+        .execute(&mut *tx)
+        .await
+        .inspect_err(|err| error!("Failed to move server {server_id}: {err:?}"))?;
+
+        tx.commit().await?;
 
         Ok(())
     }

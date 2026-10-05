@@ -341,6 +341,17 @@
       "deleteSuccess": "Server deleted",
       "confirmDescription": "This permanently deletes {{name}}."
     },
+    "moveCard": {
+      "title": "Move Server",
+      "description": "Move this server into a different project. Members of the current project lose access and members of the new project gain it.",
+      "targetLabel": "Target project",
+      "targetPlaceholder": "Select a project",
+      "moveButton": "Move Server",
+      "moveError": "Failed to move server",
+      "moveSuccess": "Server moved to {{project}}",
+      "confirmTitle": "Move {{name}}?",
+      "confirmDescription": "{{name}} will be moved to {{project}}. Members of the current project and its project API keys lose access to it. Database credentials the server uses stay pointed at the current project's databases."
+    },
     "templateCard": {
       "changeError": "Failed to change template",
       "changeSuccess": "Template changed to {{template}}",

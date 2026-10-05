@@ -28,6 +28,7 @@ import { PortsManager } from "./ports-manager";
 import { extractAdminPorts } from "./port-utils";
 import { ServerAdminSettings } from "./server-admin-settings";
 import { ServerDeleteCard } from "./server-delete-card";
+import { ServerMoveCard } from "./server-move-card";
 import { ServerTemplateCard } from "./server-template-card";
 
 function getPanelPath(
@@ -254,7 +255,15 @@ export default function AdminServerManagementPage() {
           />
         </TabsContent>
 
-        <TabsContent value="actions">
+        <TabsContent value="actions" className="space-y-4">
+          <ServerMoveCard
+            canMove={canManageServers}
+            serverId={data.id}
+            serverName={data.name}
+            currentProject={data.project}
+            projects={projects}
+            onMoved={() => void mutate()}
+          />
           <ServerDeleteCard
             canDelete={canDeleteServers}
             serverId={data.id}

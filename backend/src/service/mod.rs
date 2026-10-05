@@ -107,6 +107,7 @@ define_error!(route {
     domain_invalid("The specified route domain is invalid" BAD_REQUEST),
     domain_in_use("The route domain is still used by routes" BAD_REQUEST),
     domain_not_linked("The route domain is not linked to a Pangolin domain" BAD_REQUEST),
+    domain_not_shared("The server has routes on a private domain the target project cannot use" BAD_REQUEST),
     subdomain_invalid("The specified subdomain is invalid" BAD_REQUEST),
     subdomain_taken("The specified subdomain is already taken" BAD_REQUEST),
     port_invalid("The selected port does not belong to this server" BAD_REQUEST),
