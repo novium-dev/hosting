@@ -12,7 +12,7 @@ use daemon_common::integrity::{
 };
 use daemon_common::sdk::DaemonSDK;
 use database_agent_common::sdk::DatabaseAgentSDK;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, OnceLock};
 use url::Url;
 use uuid::Uuid;
@@ -56,7 +56,7 @@ impl Backend {
 }
 pub(crate) const SOURCE_TIMEOUT: Duration = Duration::from_mins(15);
 
-#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub(crate) enum IntegritySource {
     Backend,
@@ -64,7 +64,7 @@ pub(crate) enum IntegritySource {
     DatabaseHost { id: Uuid, display: String },
 }
 
-#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub(crate) struct IntegritySourceReport {
     pub(crate) source: IntegritySource,
     pub(crate) severity: IntegritySeverity,
@@ -86,7 +86,7 @@ pub(crate) struct IntegritySourceSchema {
     pub(crate) error: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum IntegrityRunState {
     Idle,
@@ -95,7 +95,7 @@ pub(crate) enum IntegrityRunState {
     Failed,
 }
 
-#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub(crate) struct IntegrityRun {
     pub(crate) state: IntegrityRunState,
     pub(crate) deep: bool,

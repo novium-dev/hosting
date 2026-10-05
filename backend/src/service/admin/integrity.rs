@@ -32,11 +32,11 @@ pub(crate) impl IntegrityAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::INTEGRITY_VIEW`].
     #[route("", method = GET)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn integrity_report(&self, #[special] auth: Authentication) -> Result<IntegrityRun, _> {
         auth.require::<_, _, IntegrityReportError>((), ManagementPermissions::INTEGRITY_VIEW)?;
 
-        Ok(self.integrity.read().await.clone())
+        Ok(self.integrity_run_state().await?)
     }
 
     /// Starts an integrity run in the background.

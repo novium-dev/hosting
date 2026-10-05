@@ -44,9 +44,35 @@ The backend has no config file — it reads everything from the environment, and
 Postgres credentials. `backend/.env.example` documents every variable it reads,
 including the ones `compose.yml` does not pass through.
 
-`BACKEND_DATA_DIR` (`/data` here, on a named volume) holds only the generated
-keys. Migrations run at startup, so the backend brings an empty Postgres up to
-date on its own.
+Migrations run at startup, so the backend brings an empty Postgres up to date
+on its own. The CA and backend keys live in Postgres too (`backend_keys`): the
+first instance to start generates them, or imports `backend_root.pem` and
+`backend.pem` from `BACKEND_DATA_DIR` (`/data` here) if an older deployment left
+them there. Once imported, the data volume is no longer read.
+
+## Running several instances
+
+Both images are stateless, so either can be scaled behind the load balancer:
+
+```bash
+docker compose up -d --scale backend=3 --scale frontend=2
+```
+
+Everything instance-wide lives in Postgres or Valkey: sessions, OAuth flows,
+the keys, node and database host setup codes (Valkey, expiring after an hour), modpack install and integrity run
+progress, and template caches. No sticky sessions are needed.
+
+- Node and database host changes are broadcast with Postgres `NOTIFY`, and every
+  instance reloads its in-memory node and host maps. Each instance holds one
+  extra Postgres connection for this, on top of its pool of 5, so size
+  Postgres' `max_connections` for that.
+- Background jobs (modpack installs, integrity runs) run on the instance that
+  accepted them and hold a Valkey lock refreshed every minute. If that instance
+  dies, the lock expires after 3 minutes and the job reads as failed.
+- Only one instance refreshes a template's upstream cache per interval, the rest
+  read the result from Valkey.
+- `GET /api/health` returns 200 while the instance can reach Postgres, and 503
+  otherwise; Traefik uses it to take an instance out of rotation.
 
 ## Serving the SPA from a different origin
 

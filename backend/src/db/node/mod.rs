@@ -1,10 +1,11 @@
 use crate::Backend;
+use crate::cluster::SyncTarget;
 use crate::db::server::ports::NetworkProtocol;
 use core::ops::Deref;
 use daemon_common::sdk::DaemonSDK;
 use daemon_common::service::DaemonServicesURLWithUserKey;
 use serde::Serialize;
-use sqlx::{Executor, Postgres, Transaction, query, query_as};
+use sqlx::{Executor, PgConnection, Postgres, Transaction, query, query_as};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tracing::error;
@@ -65,17 +66,22 @@ pub struct NodeInfo {
 
 impl Backend {
     pub async fn sync_nodes(&self, tx: &mut Transaction<'_, Postgres>) -> Result<(), sqlx::Error> {
+        self.load_nodes(tx).await?;
+        self.notify_sync(tx, SyncTarget::Nodes).await
+    }
+
+    pub async fn load_nodes(&self, conn: &mut PgConnection) -> Result<(), sqlx::Error> {
         let mut nodes = HashMap::new();
 
         for node in query!(r#"SELECT id,url,display,maintenance AS "maintenance: bool",default_host,default_bind,ssh_host,ssh_port,overallocation FROM nodes"#)
-            .fetch_all(&mut **tx)
+            .fetch_all(&mut *conn)
             .await? {
 
             let server_storages = query!(
                 "SELECT * FROM node_server_storage WHERE node = $1",
                 node.id
             )
-            .fetch_all(&mut **tx)
+            .fetch_all(&mut *conn)
             .await
             .inspect_err(|err| error!("Failed to select server storages: {err:?}"))?
             .into_iter()
@@ -86,7 +92,7 @@ impl Backend {
                 "SELECT * FROM node_backup_storage WHERE node = $1",
                 node.id
             )
-                .fetch_all(&mut **tx)
+                .fetch_all(&mut *conn)
                 .await
                 .inspect_err(|err| error!("Failed to select backup storages: {err:?}"))?
                 .into_iter()
@@ -98,7 +104,7 @@ impl Backend {
                 r#"SELECT id,node,protocol AS "protocol: NetworkProtocol", start, "end" FROM node_ports WHERE node = $1"#,
                 node.id
             )
-            .fetch_all(&mut **tx)
+            .fetch_all(&mut *conn)
             .await.inspect_err(|err| error!("Failed to select allocated ports: {err:?}"))?;
 
             let id = node.id;

@@ -1,87 +1,107 @@
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
+use sqlx::{PgPool, query, query_as};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::fs;
-use tokio::fs::File;
-use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+use tracing::info;
 
-pub async fn check_and_generate_keys(
+const KEY_LOCK: i64 = 0x6e6f_7669_756d_6b65;
+
+struct StoredKeys {
+    root_key: String,
+    backend_key: String,
+}
+
+async fn read_legacy(data_dir: &Path) -> Option<StoredKeys> {
+    let root_key = fs::read_to_string(data_dir.join("backend_root.pem"))
+        .await
+        .ok()?;
+    let backend_key = fs::read_to_string(data_dir.join("backend.pem"))
+        .await
+        .ok()?;
+    Some(StoredKeys {
+        root_key,
+        backend_key,
+    })
+}
+
+fn generate() -> StoredKeys {
+    let user_key = SigningKey::generate(&mut rand::rng());
+
+    let root_privkey = KeyPair::generate().expect("Unable to generate root key");
+    let root_key = DaemonRootKey::new(&root_privkey, Some(user_key.verifying_key()))
+        .expect("Unable to generate x509 root key");
+
+    let backend_keypair = KeyPair::generate().expect("Unable to generate backend key");
+    let backend_key = root_key
+        .new_backend_key(&root_privkey, &backend_keypair)
+        .expect("Unable to create backend key");
+
+    StoredKeys {
+        root_key: root_key.dump(Some(&root_privkey), Some(&user_key)),
+        backend_key: backend_key.dump(),
+    }
+}
+
+async fn load_or_store(database: &PgPool, data_dir: &Path) -> Result<StoredKeys, sqlx::Error> {
+    let mut tx = database.begin().await?;
+
+    query!("SELECT pg_advisory_xact_lock($1)", KEY_LOCK)
+        .execute(&mut *tx)
+        .await?;
+
+    if let Some(keys) = query_as!(StoredKeys, "SELECT root_key, backend_key FROM backend_keys")
+        .fetch_optional(&mut *tx)
+        .await?
+    {
+        tx.commit().await?;
+        return Ok(keys);
+    }
+
+    let keys = read_legacy(data_dir).await.map_or_else(
+        || {
+            info!("Generating new backend keys");
+            generate()
+        },
+        |keys| {
+            info!(
+                "Importing the backend keys from {} into the database",
+                data_dir.display()
+            );
+            keys
+        },
+    );
+
+    query!(
+        "INSERT INTO backend_keys (root_key, backend_key) VALUES ($1, $2)",
+        keys.root_key,
+        keys.backend_key
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(keys)
+}
+
+pub async fn load_keys(
+    database: &PgPool,
     data_dir: &Path,
 ) -> (Arc<DaemonRootKey>, KeyPair, SigningKey, BackendKey) {
-    let backend_root_path = data_dir.join("backend_root.pem");
-    let backend_path = data_dir.join("backend.pem");
-
-    let (root_key, root_privkey, user_key) = if fs::try_exists(&backend_root_path)
+    let keys = load_or_store(database, data_dir)
         .await
-        .expect("Unable to check backend_root.pem presence")
-    {
-        let mut file = File::open(&backend_root_path)
-            .await
-            .expect("Unable to open backend_root.pem");
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf)
-            .await
-            .expect("Unable to read backend_root.pem");
-        let (root_key, root_privkey, user_key) =
-            DaemonRootKey::parse(buf).expect("Unable to parse root key");
-        (
-            root_key,
-            root_privkey.expect("Root private key is missing"),
-            user_key.expect("Private User key is missing"),
-        )
-    } else {
-        let user_key = SigningKey::generate(&mut rand::rng());
+        .expect("Unable to load the backend keys");
 
-        let root_privkey = KeyPair::generate().expect("Unable to generate root key");
-        let root_key = DaemonRootKey::new(&root_privkey, Some(user_key.verifying_key()))
-            .expect("Unable to generate x509 root key");
+    let (root_key, root_privkey, user_key) =
+        DaemonRootKey::parse(keys.root_key.into_bytes()).expect("Unable to parse root key");
+    let root_privkey = root_privkey.expect("Root private key is missing");
+    let user_key = user_key.expect("Private User key is missing");
 
-        let mut file = File::create_new(&backend_root_path)
-            .await
-            .expect("Unable to create backend_root.pem");
-        file.write_all(
-            root_key
-                .dump(Some(&root_privkey), Some(&user_key))
-                .as_bytes(),
-        )
-        .await
-        .expect("Unable to write backend_root.pem");
-        file.flush()
-            .await
-            .expect("Unable to flush backend_root.pem");
-
-        (root_key, root_privkey, user_key)
-    };
-    let backend_key = if fs::try_exists(&backend_path)
-        .await
-        .expect("Unable to check backend.pem presence")
-    {
-        let mut file = File::open(&backend_path)
-            .await
-            .expect("Unable to open backend.pem");
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf)
-            .await
-            .expect("Unable to read backend.pem");
-        BackendKey::parse(&root_key, buf).expect("Unable to parse backend key")
-    } else {
-        let backend_keypair = KeyPair::generate().expect("Unable to generate backend key");
-        let backend_key = root_key
-            .new_backend_key(&root_privkey, &backend_keypair)
-            .expect("Unable to create backend key");
-
-        let mut file = File::create_new(&backend_path)
-            .await
-            .expect("Unable to create backend.pem");
-        file.write_all(backend_key.dump().as_bytes())
-            .await
-            .expect("Unable to write backend.pem");
-        file.flush().await.expect("Unable to flush backend.pem");
-
-        backend_key
-    };
+    let backend_key = BackendKey::parse(&root_key, keys.backend_key.into_bytes())
+        .expect("Unable to parse backend key");
 
     (Arc::new(root_key), root_privkey, user_key, backend_key)
 }

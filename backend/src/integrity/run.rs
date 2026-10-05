@@ -3,6 +3,7 @@ use super::{
     IntegritySourceSchema, SOURCE_TIMEOUT, agent, checks,
 };
 use crate::Backend;
+use crate::cluster::{JOB_LOCK_TTL, JOB_RETENTION};
 use crate::db::database::BackendDatabaseHost;
 use crate::db::node::BackendNode;
 use crate::integrity::describe_transport;
@@ -21,6 +22,9 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 const CONCURRENCY: usize = 4;
+
+const RUN_KEY: &str = "integrity:run";
+const RUN_LOCK: &str = "integrity:lock";
 
 fn node_source(node: &BackendNode) -> IntegritySource {
     IntegritySource::Node {
@@ -102,11 +106,12 @@ impl Backend {
         selected: Option<Vec<String>>,
         deep: bool,
     ) -> bool {
-        {
+        if !self.try_lock(RUN_LOCK, JOB_LOCK_TTL).await {
+            return false;
+        }
+
+        let snapshot = {
             let mut run = self.integrity.write().await;
-            if run.state == IntegrityRunState::Running {
-                return false;
-            }
 
             let total = 1u32
                 .saturating_add(u32::try_from(self.nodes.read().await.len()).unwrap_or(u32::MAX))
@@ -125,28 +130,53 @@ impl Backend {
                 error: None,
                 started_at: Some(chrono::Utc::now().timestamp()),
                 finished_at: None,
-            }
+            };
+            run.clone()
         };
+        self.store_shared(RUN_KEY, &snapshot, JOB_RETENTION).await;
 
         let backend = self.clone();
-        self.server_task_cancellable
-            .lock()
-            .await
-            .spawn(async move { backend.execute_integrity_run(selected, deep).await });
+        self.server_task_cancellable.lock().await.spawn(async move {
+            let heartbeat = backend.hold_lock(RUN_LOCK.to_owned());
+            backend.execute_integrity_run(selected, deep).await;
+            drop(heartbeat);
+            backend.release_lock(RUN_LOCK).await;
+        });
 
         true
     }
 
     async fn update_run(&self, update: impl FnOnce(&mut IntegrityRun) + Send) {
-        update(&mut *self.integrity.write().await);
+        let snapshot = {
+            let mut run = self.integrity.write().await;
+            update(&mut run);
+            run.clone()
+        };
+        self.store_shared(RUN_KEY, &snapshot, JOB_RETENTION).await;
     }
 
     async fn push_report(&self, report: IntegritySourceReport, step: String) {
-        let mut run = self.integrity.write().await;
-        run.severity = run.severity.max(report.severity);
-        run.reports.push(report);
-        run.done = run.done.saturating_add(1);
-        run.step = step;
+        self.update_run(|run| {
+            run.severity = run.severity.max(report.severity);
+            run.reports.push(report);
+            run.done = run.done.saturating_add(1);
+            run.step = step;
+        })
+        .await;
+    }
+
+    pub(crate) async fn integrity_run_state(&self) -> Result<IntegrityRun, redis::RedisError> {
+        let mut run = self
+            .load_shared::<IntegrityRun>(RUN_KEY)
+            .await?
+            .unwrap_or_default();
+
+        if run.state == IntegrityRunState::Running && !self.is_locked(RUN_LOCK).await {
+            run.state = IntegrityRunState::Failed;
+            run.error = Some("the instance running the checks stopped".to_owned());
+        }
+
+        Ok(run)
     }
 
     /// The backend's own view of a node, so the daemon can report records the

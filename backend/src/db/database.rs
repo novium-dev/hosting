@@ -1,10 +1,11 @@
 use crate::Backend;
+use crate::cluster::SyncTarget;
 use crate::db::project::ProjectId;
 use crate::define_id;
 use core::str::FromStr as _;
 use database_agent_common::sdk::DatabaseAgentSDK;
 use database_agent_common::types::DatabaseType;
-use sqlx::{Postgres, Transaction, query, query_scalar};
+use sqlx::{PgConnection, Postgres, Transaction, query, query_scalar};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::error;
@@ -53,6 +54,11 @@ impl Backend {
         &self,
         tx: &mut Transaction<'_, Postgres>,
     ) -> Result<(), sqlx::Error> {
+        self.load_database_hosts(tx).await?;
+        self.notify_sync(tx, SyncTarget::DatabaseHosts).await
+    }
+
+    pub async fn load_database_hosts(&self, conn: &mut PgConnection) -> Result<(), sqlx::Error> {
         let mut hosts = HashMap::new();
 
         for host in query!(
@@ -60,14 +66,14 @@ impl Backend {
                    maintenance AS "maintenance: bool"
                FROM database_hosts"#
         )
-        .fetch_all(&mut **tx)
+        .fetch_all(&mut *conn)
         .await?
         {
             let ports = query!(
                 r#"SELECT type, port FROM database_host_ports WHERE host = $1"#,
                 host.id
             )
-            .fetch_all(&mut **tx)
+            .fetch_all(&mut *conn)
             .await
             .inspect_err(|err| error!("Failed to select database host ports: {err:?}"))?
             .into_iter()
@@ -81,7 +87,7 @@ impl Backend {
                 "SELECT group_name FROM database_host_groups WHERE host = $1",
                 host.id
             )
-            .fetch_all(&mut **tx)
+            .fetch_all(&mut *conn)
             .await
             .inspect_err(|err| error!("Failed to select database host groups: {err:?}"))?;
 

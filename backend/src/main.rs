@@ -5,9 +5,11 @@ mod crypto;
 pub(crate) mod db;
 
 mod auth;
+mod cluster;
 mod http;
 pub(crate) mod integrity;
 mod logo;
+mod registration;
 pub(crate) mod resources;
 pub(crate) mod routes;
 pub(crate) mod service;
@@ -35,17 +37,14 @@ use crate::templates::generic::web::WebTemplate;
 use core::time::Duration;
 use daemon_common::key::rcgen::KeyPair;
 use daemon_common::key::{BackendKey, DaemonRootKey};
-use daemon_common::node::SetupNodeConfig;
-use database_agent_common::types::SetupAgentConfig;
 use ed25519_dalek::SigningKey;
 use redis::aio::ConnectionManager as CacheConnectionManager;
+use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{Connection as _, PgPool};
 use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
 use templates::games::minecraft::MinecraftTemplate;
 use templates::games::minecraft_proxy::MinecraftProxyTemplate;
 use tokio::sync::broadcast::Sender;
@@ -60,27 +59,9 @@ const CACHE_PREFIX: &str = "novium:";
 
 pub const CACHE_KEY_PREFIX: &str = "novium:";
 
-pub struct NodeRegistration {
-    time: Instant,
-    name: String,
-    default_host: String,
-    config: SetupNodeConfig,
-}
-
-type NodeRegistrationMap = HashMap<String, NodeRegistration>;
-
-pub struct DatabaseHostRegistration {
-    time: Instant,
-    display: String,
-    groups: Vec<String>,
-    public_host: String,
-    config: SetupAgentConfig,
-}
-
-type DatabaseHostRegistrationMap = HashMap<String, DatabaseHostRegistration>;
-
 #[derive(Clone)]
 pub(crate) struct Backend {
+    pub(crate) instance: Uuid,
     pub(crate) database: Arc<PgPool>,
     pub(crate) cache: CacheConnectionManager,
     pub(crate) auth: Arc<AuthService>,
@@ -93,9 +74,6 @@ pub(crate) struct Backend {
     pub(crate) curseforge_api_key: Option<Arc<str>>,
 
     pub(crate) route_backends: Arc<RouteBackends>,
-
-    pub(crate) node_registrations: Arc<RwLock<NodeRegistrationMap>>,
-    pub(crate) database_host_registrations: Arc<RwLock<DatabaseHostRegistrationMap>>,
 
     pub(crate) templates: Arc<RwLock<HashMap<String, Arc<dyn TemplateInner + Send + Sync>>>>,
 
@@ -256,9 +234,6 @@ async fn main0() {
 
     info!("Using data directory {}", data_dir.display());
 
-    let (root_key, root_privkey, user_key, backend_key) =
-        crypto::check_and_generate_keys(&data_dir).await;
-
     let config = BackendConfig::from_env().expect("Unable to load configuration");
 
     let database = Arc::new(loop {
@@ -283,6 +258,9 @@ async fn main0() {
     apply_permission_backfills(&database)
         .await
         .expect("Unable to apply the permission backfills");
+
+    let (root_key, root_privkey, user_key, backend_key) =
+        crypto::load_keys(&database, &data_dir).await;
 
     let cache = loop {
         let client = redis::Client::open(&*config.cache_url).expect("Invalid cache url");
@@ -311,6 +289,7 @@ async fn main0() {
     let route_backends = RouteBackends::new(&config.routes, &http_client);
 
     let backend = Backend {
+        instance: Uuid::new_v4(),
         database,
         cache,
         auth: Arc::new(AuthService::new(&config.auth).expect("Unable to build AuthService")),
@@ -323,9 +302,6 @@ async fn main0() {
         curseforge_api_key: curseforge_api_key.map(Arc::from),
 
         route_backends: Arc::new(route_backends),
-
-        node_registrations: Arc::default(),
-        database_host_registrations: Arc::default(),
 
         templates: Arc::default(),
         modpack_jobs: Arc::default(),
@@ -342,25 +318,22 @@ async fn main0() {
         user_key,
     };
 
-    let backend2 = backend.clone();
-    backend
+    let mut conn = backend
         .database
         .acquire()
         .await
-        .expect("Unable to acquire database connection")
-        .transaction(|tx| Box::pin(async move { backend2.sync_nodes(tx).await }))
+        .expect("Unable to acquire database connection");
+    backend
+        .load_nodes(&mut conn)
         .await
         .expect("Unable to sync nodes cache");
-
-    let backend3 = backend.clone();
     backend
-        .database
-        .acquire()
-        .await
-        .expect("Unable to acquire database connection")
-        .transaction(|tx| Box::pin(async move { backend3.sync_database_hosts(tx).await }))
+        .load_database_hosts(&mut conn)
         .await
         .expect("Unable to sync database hosts cache");
+    drop(conn);
+
+    backend.spawn_cluster_sync();
 
     info!("Initializing Templates...");
 
