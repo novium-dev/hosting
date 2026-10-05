@@ -175,6 +175,10 @@ Every `#[route(...)]` handler must have a `///` doc comment directly above it de
 #[route("/{server_id}/restart", method = GET)]
 ```
 
+### Legacy compatibility
+
+Code that only exists to keep older deployments or data working is listed in `docs/legacy-compat.md`, with what removing it takes. Add an entry there whenever you add such code.
+
 ### Migrations
 
 Migrations live in `backend/migrations/` for the backend and `database_agent/migrations/` for the agent. They are run automatically at startup, but can be run manually with `sqlx migrate run`.
