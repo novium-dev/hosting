@@ -63,7 +63,14 @@ impl UserService for Agent {
             .await
             .ok_or(ListUsersError::InstanceNotFound)?;
 
-        data::users(self.store.read(), instance_id)
+        let mut store = self
+            .store
+            .read()
+            .acquire()
+            .await
+            .map_err(anyhow::Error::from)
+            .or_store_failure::<ListUsersError>("failed to read the store")?;
+        data::users(&mut store, instance_id)
             .await
             .or_store_failure("failed to list the users")
     }

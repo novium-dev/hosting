@@ -35,7 +35,9 @@ impl Check for RouteTable {
         for instance in instances {
             let kind = instance.database_type().await;
 
-            for user in data::users(agent.store.read(), instance.uuid).await? {
+            for user in
+                data::users(&mut *agent.store.read().acquire().await?, instance.uuid).await?
+            {
                 let Ok(identifier) =
                     UserIdentifier::from_parts(user.uuid.as_fields().0, &user.username)
                 else {

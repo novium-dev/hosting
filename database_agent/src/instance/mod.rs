@@ -14,11 +14,12 @@ use core::sync::atomic::{AtomicU64, Ordering};
 use database_agent_common::identifier::UserIdentifier;
 use database_agent_common::types::{
     ApiInstance, ContainerState, DatabaseType, ResourceUsage, StoredDatabase, StoredInstance,
-    StoredUser, UserGrant, validate_database_name,
+    StoredInstanceUpdate, StoredUser, UserGrant, validate_database_name,
 };
 use docker::{DockerHandle, ExecOptions};
 use futures_util::StreamExt as _;
 use manager::RouteInserter;
+use sqlx::SqliteConnection;
 use std::path::PathBuf;
 use std::sync::{Arc, Weak};
 use tokio::io::{AsyncRead, AsyncWriteExt as _};
@@ -174,11 +175,13 @@ impl Instance {
             }
 
             let password = generate_password();
+            let mut tx = self.agent.store.begin().await?;
+            data::set_root_password(&mut *tx, self.uuid, &password).await?;
             connection::mongodb::MongodbConnection::new(socket, None)?
                 .create_root(&password)
                 .await?;
+            tx.commit().await?;
 
-            data::set_root_password(self.agent.store.write(), self.uuid, &password).await?;
             data.root_password = Some(password);
 
             Ok(())
@@ -192,7 +195,7 @@ impl Instance {
     pub async fn resync_users(&self) -> anyhow::Result<()> {
         self.route_inserter.clear();
 
-        for user in data::users(self.agent.store.read(), self.uuid).await? {
+        for user in data::users(&mut *self.agent.store.read().acquire().await?, self.uuid).await? {
             match identifier(&user) {
                 Ok(identifier) => self.route_inserter.insert(identifier, user.password),
                 Err(err) => tracing::warn!(
@@ -212,42 +215,42 @@ impl Instance {
         }
         self.require_online("create a database").await?;
 
+        let mut tx = self.agent.store.begin().await?;
+        let database = data::insert_database(&mut *tx, self.uuid, name).await?;
         self.connection().await?.create_database(name).await?;
+        tx.commit().await?;
 
-        match data::insert_database(self.agent.store.write(), self.uuid, name).await {
-            Ok(database) => Ok(database),
-            Err(err) => {
-                if let Err(cleanup) = self.connection().await?.delete_database(name).await {
-                    tracing::error!(instance = %self.uuid, "failed to roll back database {name}: {cleanup}");
-                }
-                Err(err)
-            }
-        }
+        Ok(database)
     }
 
     pub async fn delete_database(&self, database: &StoredDatabase) -> anyhow::Result<()> {
         self.require_online("delete a database").await?;
 
         let connection = self.connection().await?;
+        let mut tx = self.agent.store.begin().await?;
         let revoked: Vec<UserIdentifier> = self
-            .database_grants(database)
+            .database_grants(&mut tx, database)
             .await?
             .into_iter()
             .map(|grant| grant.user)
             .collect();
 
+        data::delete_database(&mut *tx, database.uuid).await?;
         connection
             .sync_grants(&database.name, &[], &revoked)
             .await?;
         connection.delete_database(&database.name).await?;
+        tx.commit().await?;
 
-        data::delete_database(self.agent.store.write(), database.uuid).await
+        Ok(())
     }
 
     pub async fn recreate_database(&self, database: &StoredDatabase) -> anyhow::Result<()> {
         self.require_online("recreate a database").await?;
 
-        let grants = self.database_grants(database).await?;
+        let grants = self
+            .database_grants(&mut *self.agent.store.read().acquire().await?, database)
+            .await?;
 
         self.connection()
             .await?
@@ -257,9 +260,10 @@ impl Instance {
 
     async fn database_grants(
         &self,
+        store: &mut SqliteConnection,
         database: &StoredDatabase,
     ) -> anyhow::Result<Vec<DatabaseGrant>> {
-        data::database_users(self.agent.store.read(), self.uuid, database.uuid)
+        data::database_users(store, self.uuid, database.uuid)
             .await?
             .iter()
             .filter_map(|user| {
@@ -275,15 +279,14 @@ impl Instance {
             .collect()
     }
 
-    /// Rewrites the engine privileges on every database the user gained or
-    /// lost, reading the desired state back from the store.
     async fn sync_grants(
         &self,
+        store: &mut SqliteConnection,
         connection: &Connection,
         user: &StoredUser,
         previous: &[UserGrant],
     ) -> anyhow::Result<()> {
-        let databases = data::databases(self.agent.store.read(), self.uuid).await?;
+        let databases = data::databases(&mut *store, self.uuid).await?;
         let identifier = identifier(user)?;
 
         let mut affected: Vec<Uuid> = user
@@ -300,7 +303,7 @@ impl Instance {
                 continue;
             };
 
-            let grants = self.database_grants(database).await?;
+            let grants = self.database_grants(store, database).await?;
             let revoked = match user.access(uuid) {
                 Some(_) => Vec::new(),
                 None => vec![identifier],
@@ -330,36 +333,26 @@ impl Instance {
         let connection = self.connection().await?;
         let password = generate_password();
 
-        let user = data::insert_user(
-            self.agent.store.write(),
-            self.uuid,
-            username,
-            &password,
-            grants,
-        )
-        .await?;
-
+        let mut tx = self.agent.store.begin().await?;
+        let user = data::insert_user(&mut tx, self.uuid, username, &password, grants).await?;
         let identifier = identifier(&user)?;
 
-        if let Err(err) = connection.create_user(&identifier, &password).await {
-            data::delete_user(self.agent.store.write(), user.uuid).await?;
-            return Err(err);
-        }
+        connection.create_user(&identifier, &password).await?;
 
-        if let Err(err) = self.sync_grants(&connection, &user, &[]).await {
+        if let Err(err) = self.sync_grants(&mut tx, &connection, &user, &[]).await {
             if let Err(cleanup) = connection.delete_user(&identifier, &[]).await {
                 tracing::error!(instance = %self.uuid, "failed to roll back user {identifier}: {cleanup}");
             }
-            data::delete_user(self.agent.store.write(), user.uuid).await?;
             return Err(err);
         }
+
+        tx.commit().await?;
 
         self.route_inserter.insert(identifier, password);
 
         Ok(user)
     }
 
-    /// Replaces the user's grants with `grants` and applies them to the engine.
     pub async fn set_grants(
         &self,
         user: &StoredUser,
@@ -369,15 +362,17 @@ impl Instance {
 
         let connection = self.connection().await?;
 
-        data::replace_grants(self.agent.store.write(), user.uuid, grants).await?;
+        let mut tx = self.agent.store.begin().await?;
+        data::replace_grants(&mut tx, user.uuid, grants).await?;
 
         let updated = StoredUser {
             grants: grants.to_vec(),
             ..user.clone()
         };
 
-        self.sync_grants(&connection, &updated, &user.grants)
+        self.sync_grants(&mut tx, &connection, &updated, &user.grants)
             .await?;
+        tx.commit().await?;
 
         Ok(updated)
     }
@@ -388,12 +383,13 @@ impl Instance {
         let password = generate_password();
         let identifier = identifier(user)?;
 
+        let mut tx = self.agent.store.begin().await?;
+        data::set_user_password(&mut *tx, user.uuid, &password).await?;
         self.connection()
             .await?
             .update_user_password(&identifier, &password)
             .await?;
-
-        data::set_user_password(self.agent.store.write(), user.uuid, &password).await?;
+        tx.commit().await?;
 
         self.route_inserter.remove(&identifier);
         self.route_inserter.insert(identifier, password.as_str());
@@ -417,12 +413,14 @@ impl Instance {
             })
             .collect();
 
+        let mut tx = self.agent.store.begin().await?;
+        data::delete_user(&mut *tx, user.uuid).await?;
         self.connection()
             .await?
             .delete_user(&identifier, &granted)
             .await?;
+        tx.commit().await?;
 
-        data::delete_user(self.agent.store.write(), user.uuid).await?;
         self.route_inserter.remove(&identifier);
 
         Ok(())
@@ -459,12 +457,21 @@ impl Instance {
         Ok(())
     }
 
-    pub async fn sync_container_resources(&self) -> anyhow::Result<()> {
-        let data = self.data.read().await.clone();
+    pub async fn update(&self, update: StoredInstanceUpdate) -> anyhow::Result<()> {
+        let mut data = self.data.write().await;
+        let mut updated = data.clone();
+        data::apply_update(&mut updated, update);
+
+        let mut tx = self.agent.store.begin().await?;
+        data::update_instance(&mut *tx, &updated).await?;
         let handle = self.handle.read().await.clone();
         if let Some(handle) = handle {
-            handle.update_resources(&data).await?;
+            handle.update_resources(&updated).await?;
         }
+        tx.commit().await?;
+
+        *data = updated;
+        drop(data);
 
         Ok(())
     }

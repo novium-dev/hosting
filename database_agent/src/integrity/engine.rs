@@ -238,7 +238,8 @@ impl Check for EngineUsers {
                 .filter(|name| UserIdentifier::from_str(name).is_ok())
                 .collect();
 
-            let stored = data::users(agent.store.read(), instance.uuid).await?;
+            let stored =
+                data::users(&mut *agent.store.read().acquire().await?, instance.uuid).await?;
             let mut expected = HashSet::new();
 
             for user in stored {

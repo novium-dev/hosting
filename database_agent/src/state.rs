@@ -151,7 +151,8 @@ impl Agent {
     }
 
     pub async fn spawn_instance(&self, create: StoredInstanceCreate) -> anyhow::Result<Instance> {
-        let stored = data::insert_instance(self.store.write(), create).await?;
+        let stored =
+            data::insert_instance(&mut *self.store.write().acquire().await?, create).await?;
         let uuid = stored.uuid;
 
         let instance = Instance::new(self.clone(), stored);
@@ -169,7 +170,10 @@ impl Agent {
     }
 
     pub async fn remove_instance(&self, instance: &Instance) -> anyhow::Result<()> {
+        let mut tx = self.store.begin().await?;
+        data::delete_instance(&mut *tx, instance.uuid).await?;
         instance.destroy_container().await?;
+        tx.commit().await?;
 
         for directory in [
             self.config.socket_dir(instance.uuid),
@@ -182,7 +186,6 @@ impl Agent {
             }
         }
 
-        data::delete_instance(self.store.write(), instance.uuid).await?;
         self.routes.mariadb_versions.remove(instance.uuid);
         self.instances
             .write()

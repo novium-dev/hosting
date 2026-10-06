@@ -1,6 +1,5 @@
 use super::{OrInstanceFailure as _, OrStoreFailure as _};
 use crate::state::Agent;
-use crate::store::data;
 use database_agent_common::service::DataStream;
 use database_agent_common::service::FileResponse;
 use database_agent_common::service::instance::InstanceService;
@@ -69,18 +68,10 @@ impl InstanceService for Agent {
             .await
             .ok_or(UpdateInstanceError::InstanceNotFound)?;
 
-        let mut stored = instance.data.write().await;
-        data::apply_update(&mut stored, update);
-        let stored_result = data::update_instance(self.store.write(), &stored).await;
-        drop(stored);
-        stored_result.or_store_failure::<UpdateInstanceError>("failed to update an instance")?;
-
         instance
-            .sync_container_resources()
+            .update(update)
             .await
-            .or_instance_failure::<UpdateInstanceError>(
-                "failed to apply the new container limits",
-            )?;
+            .or_instance_failure::<UpdateInstanceError>("failed to update an instance")?;
 
         instance
             .to_api_response()
