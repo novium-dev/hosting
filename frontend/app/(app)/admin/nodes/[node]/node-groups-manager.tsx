@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
 import {
   Loader2,
   PencilIcon,
@@ -58,12 +57,11 @@ import {
 import Link from "@/components/link";
 import {
   assignGroupNode,
-  listGroups,
-  listNodeGroups,
   removeGroupNode,
   type ListNodeGroupsResponses,
   type ResourceSubset,
 } from "@/lib/api";
+import { useGroupNames, useNodeGroups } from "@/hooks/use-shared-queries";
 import { formatMib } from "@/lib/groups";
 import { Progress } from "@/components/ui/progress";
 
@@ -174,23 +172,9 @@ export function NodeGroupsManager({
     error,
     isValidating,
     mutate,
-  } = useSWR(["admin-node-groups", nodeId], async () => {
-    const response = await listNodeGroups({ path: { node_id: nodeId } });
-    if (response.error || !response.data) {
-      throw new Error("Failed to load node groups");
-    }
-    return response.data;
-  });
+  } = useNodeGroups(nodeId);
 
-  const { data: allGroups } = useSWR(
-    canManage ? ["admin-groups"] : null,
-    async () => {
-      const response = await listGroups();
-      return response.error || !response.data
-        ? []
-        : response.data.map((group) => group.name);
-    },
-  );
+  const { data: allGroups } = useGroupNames(canManage);
 
   const availableGroups = (allGroups ?? []).filter(
     (name) => !(groups ?? []).some((group) => group.name === name),

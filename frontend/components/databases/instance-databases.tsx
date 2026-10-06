@@ -1,6 +1,5 @@
 "use client";
 
-import useSWR from "swr";
 
 import { createDatabaseAction, deleteDatabaseAction } from "@/actions/databases";
 import {
@@ -40,9 +39,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useInstanceDatabases } from "@/hooks/use-shared-queries";
 import { useAction } from "@/lib/action-hooks";
 import {
-  listInstanceDatabases,
   type ListInstanceDatabasesResponses,
 } from "@/lib/api";
 import { Plus, Table2, Trash2Icon } from "lucide-react";
@@ -70,17 +69,9 @@ export function InstanceDatabases({
     null,
   );
 
-  const { data, error, isLoading, mutate } = useSWR(
-    ["project-databases", projectId, instanceId],
-    async () => {
-      const response = await listInstanceDatabases({
-        path: { project_id: projectId, instance_id: instanceId },
-      });
-      if (response.error) {
-        throw new Error(response.error.error?.msg ?? "Failed to load databases");
-      }
-      return response.data ?? [];
-    },
+  const { data, error, isLoading, mutate } = useInstanceDatabases(
+    projectId,
+    instanceId,
   );
 
   const refresh = () => {

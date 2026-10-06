@@ -1,8 +1,10 @@
-import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import { useProject } from "@/hooks/use-project";
-import { listProjectInstances, serverInfo } from "@/lib/api";
+import {
+  useProjectInstances,
+  useServerInfo,
+} from "@/hooks/use-shared-queries";
 import {
   getActiveInstanceSection,
   INSTANCE_SECTIONS,
@@ -37,21 +39,9 @@ export function ProjectHeaderTitle() {
   const { slug, section, server, serverSection, instance, instanceSection } =
     useProjectRoute();
   const { data: project } = useProject(slug);
-  const { data: infoResponse } = useSWR(
-    server ? ["server-info", server] : null,
-    () => serverInfo({ path: { server_id: server } }),
-  );
-  const { data: instances } = useSWR(
-    instance && project ? ["project-instances", project.id] : null,
-    async () => {
-      const response = await listProjectInstances({
-        path: { project_id: project?.id ?? "" },
-      });
-      if (response.error) {
-        throw new Error(response.error.error?.msg ?? "Failed to load instances");
-      }
-      return response.data ?? [];
-    },
+  const { data: infoResponse } = useServerInfo(server);
+  const { data: instances } = useProjectInstances(
+    instance ? project?.id : null,
   );
 
   if (server) {

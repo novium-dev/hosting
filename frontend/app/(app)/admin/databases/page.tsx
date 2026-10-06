@@ -1,7 +1,6 @@
-import useSWR from "swr";
 
 import { NotFoundView } from "@/components/not-found-view";
-import { listDatabaseHosts, listGroups } from "@/lib/api";
+import { useDatabaseHosts, useGroupNames } from "@/hooks/use-shared-queries";
 import { authClient } from "@/lib/auth-client";
 import {
   hasManagementPermission,
@@ -24,21 +23,9 @@ export default function AdminDatabasesPage() {
       )
     : false;
 
-  const { data: hosts, mutate } = useSWR(
-    canView ? "admin/database-hosts" : null,
-    async () => {
-      const response = await listDatabaseHosts();
-      return response.error ? [] : (response.data ?? []);
-    },
-  );
+  const { data: hosts, mutate } = useDatabaseHosts(canView);
 
-  const { data: groups } = useSWR(
-    canView ? "admin/database-hosts/groups" : null,
-    async () => {
-      const response = await listGroups();
-      return response.error ? [] : (response.data ?? []).map((group) => group.name);
-    },
-  );
+  const { data: groups } = useGroupNames(canView);
 
   if (isLoading) return null;
   if (!canView) return <NotFoundView />;

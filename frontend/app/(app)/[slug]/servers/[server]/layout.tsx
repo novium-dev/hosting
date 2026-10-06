@@ -1,6 +1,5 @@
 import Link from "@/components/link";
 import { Navigate, Outlet, useParams } from "react-router-dom";
-import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import { MainLayout } from "@/components/sidebar/main-layout";
@@ -14,8 +13,9 @@ import {
 } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
 import { appConfig } from "@/constants/config";
-import { serverInfo } from "@/lib/api";
+import type { serverInfo } from "@/lib/api";
 import { useProject } from "@/hooks/use-project";
+import { useServerInfo } from "@/hooks/use-shared-queries";
 import {
   hasManagementPermission,
   hasServerPermission,
@@ -59,10 +59,7 @@ export default function ServerLayout() {
 
   const { data: session, isLoading: sessionLoading } = authClient.useSession();
   const { data: project, isLoading: projectLoading } = useProject(slug);
-  const { data: infoResponse, isLoading: infoLoading } = useSWR(
-    server ? ["server-info", server] : null,
-    () => serverInfo({ path: { server_id: server! } }),
-  );
+  const { data: infoResponse, isLoading: infoLoading } = useServerInfo(server);
 
   if (sessionLoading || projectLoading) return null;
   if (!session) return <Navigate to={appConfig.authRoutes.signin} replace />;

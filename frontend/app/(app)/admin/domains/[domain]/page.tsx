@@ -2,7 +2,8 @@ import { useParams } from "react-router-dom";
 import useSWR from "swr";
 
 import { NotFoundView } from "@/components/not-found-view";
-import { listDomainRoutes, listRouteDomainsAdmin } from "@/lib/api";
+import { useRouteDomains } from "@/hooks/use-shared-queries";
+import { listDomainRoutes } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import {
   ManagementPermission,
@@ -22,13 +23,7 @@ export default function AdminDomainPage() {
       )
     : false;
 
-  const { data: domains } = useSWR(
-    canView ? "admin-route-domains" : null,
-    async () => {
-      const response = await listRouteDomainsAdmin();
-      return response.error ? [] : (response.data ?? []);
-    },
-  );
+  const { data: domains } = useRouteDomains(canView);
 
   const { data: routes, isLoading: routesLoading } = useSWR(
     canView && Number.isInteger(domainId)

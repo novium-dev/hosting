@@ -1,6 +1,5 @@
 "use client";
 
-import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import { InstanceDatabases } from "@/components/databases/instance-databases";
@@ -10,7 +9,7 @@ import { InstanceUsers } from "@/components/databases/instance-users";
 import { NotFoundView } from "@/components/not-found-view";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { listProjectInstances } from "@/lib/api";
+import { useProjectInstances } from "@/hooks/use-shared-queries";
 import { getActiveInstanceSection } from "@/lib/instance-sections";
 import { ServerPermission, hasServerPermission } from "@/lib/permissions";
 
@@ -34,21 +33,7 @@ export function InstanceView({
     data: instances,
     isLoading,
     mutate,
-  } = useSWR(
-    ["project-instances", projectId],
-    async () => {
-      const response = await listProjectInstances({
-        path: { project_id: projectId },
-      });
-      if (response.error) {
-        throw new Error(
-          response.error.error?.msg ?? "Failed to load instances",
-        );
-      }
-      return response.data ?? [];
-    },
-    { refreshInterval: 10000 },
-  );
+  } = useProjectInstances(projectId, { refreshInterval: 10000 });
 
   const canManage = hasServerPermission(
     permissions,

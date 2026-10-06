@@ -51,7 +51,6 @@ import {
   deleteRouteDomain,
   denyDomainProject,
   listProjects,
-  listRouteDomainsAdmin,
   resolveDomainZone,
   routeBackends,
   updateRouteDomain,
@@ -62,6 +61,7 @@ import {
   hasManagementPermission,
 } from "@/lib/permissions";
 import { authClient } from "@/lib/auth-client";
+import { useRouteDomains } from "@/hooks/use-shared-queries";
 
 type Domain = ListRouteDomainsAdminResponse[number];
 
@@ -84,15 +84,7 @@ export function AdminDomainsView() {
     data: domains,
     isLoading,
     mutate,
-  } = useSWR("admin-route-domains", async () => {
-    const response = await listRouteDomainsAdmin();
-    if (response.error) {
-      throw new Error(
-        errorMessage(response.error, t("admin-core:domains.toast.loadFailed")),
-      );
-    }
-    return response.data ?? [];
-  });
+  } = useRouteDomains(true);
 
   const { data: backends } = useSWR("admin-route-backends", async () => {
     const response = await routeBackends();

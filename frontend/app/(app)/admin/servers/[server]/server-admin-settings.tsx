@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import useSWR from "swr";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -24,7 +23,8 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { listNodeGroups, updateServer } from "@/lib/api";
+import { useNodeGroups } from "@/hooks/use-shared-queries";
+import { updateServer } from "@/lib/api";
 
 const NO_GROUP = "__none__";
 
@@ -105,15 +105,8 @@ export function ServerAdminSettings({
   );
   const [isSaving, setIsSaving] = useState(false);
 
-  const { data: nodeGroups } = useSWR(
-    canManage ? ["admin-node-group-names", nodeId] : null,
-    async () => {
-      const response = await listNodeGroups({ path: { node_id: nodeId } });
-      return response.error || !response.data
-        ? []
-        : response.data.map((entry) => entry.name);
-    },
-  );
+  const { data: nodeGroupRows } = useNodeGroups(nodeId, canManage);
+  const nodeGroups = nodeGroupRows?.map((entry) => entry.name);
   const groupOptions =
     form.group === NO_GROUP || (nodeGroups ?? []).includes(form.group)
       ? (nodeGroups ?? [])

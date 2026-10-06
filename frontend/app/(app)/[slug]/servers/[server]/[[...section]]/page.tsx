@@ -1,6 +1,5 @@
 import Link from "@/components/link";
 import { useParams } from "react-router-dom";
-import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -11,9 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { serverInfo } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { useModpackJob } from "@/hooks/use-modpack-job";
+import { useServerInfo } from "@/hooks/use-shared-queries";
 import { useProject } from "@/hooks/use-project";
 import { hasResourceSupport } from "@/lib/mod-browser/types";
 import { useSearchParams } from "@/lib/navigation";
@@ -53,10 +52,7 @@ export default function ClientServerSectionPage() {
   const editPath = useSearchParams().get("path") ?? undefined;
 
   const { data: session } = authClient.useSession();
-  const { data: infoResponse } = useSWR(
-    server ? ["server-info", server] : null,
-    () => serverInfo({ path: { server_id: server } }),
-  );
+  const { data: infoResponse } = useServerInfo(server);
   const { data: project } = useProject(slug);
 
   const serverData =

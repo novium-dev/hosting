@@ -1,11 +1,10 @@
 "use client";
 
-import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import { CreateInstanceDialog } from "@/components/databases/create-instance-dialog";
 import { InstancesTable } from "@/components/databases/instances-table";
-import { listProjectInstances } from "@/lib/api";
+import { useProjectInstances } from "@/hooks/use-shared-queries";
 import { authClient } from "@/lib/auth-client";
 import {
   ManagementPermission,
@@ -36,15 +35,7 @@ export function DatabasesView({
     error,
     isLoading,
     mutate,
-  } = useSWR(["project-instances", projectId], async () => {
-    const response = await listProjectInstances({
-      path: { project_id: projectId },
-    });
-    if (response.error) {
-      throw new Error(response.error.error?.msg ?? "Failed to load instances");
-    }
-    return response.data ?? [];
-  });
+  } = useProjectInstances(projectId);
 
   const canManage = hasServerPermission(
     permissions,

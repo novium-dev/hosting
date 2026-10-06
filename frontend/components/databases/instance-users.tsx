@@ -58,9 +58,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useInstanceDatabases } from "@/hooks/use-shared-queries";
 import { useAction } from "@/lib/action-hooks";
 import {
-  listInstanceDatabases,
   listInstanceUsers,
   type ListInstanceUsersResponses,
 } from "@/lib/api";
@@ -177,7 +177,7 @@ export function InstanceUsers({
   const [pendingDelete, setPendingDelete] = useState<ProjectUser | null>(null);
 
   const { data, error, isLoading, mutate } = useSWR(
-    ["project-users", projectId, instanceId],
+    ["instance-users", projectId, instanceId],
     async () => {
       const response = await listInstanceUsers({
         path: { project_id: projectId, instance_id: instanceId },
@@ -189,15 +189,7 @@ export function InstanceUsers({
     },
   );
 
-  const { data: databases } = useSWR(
-    ["project-databases", projectId, instanceId],
-    async () => {
-      const response = await listInstanceDatabases({
-        path: { project_id: projectId, instance_id: instanceId },
-      });
-      return response.error ? [] : (response.data ?? []);
-    },
-  );
+  const { data: databases } = useInstanceDatabases(projectId, instanceId);
 
   const create = useAction(createUserAction, {
     onSuccess: () => {

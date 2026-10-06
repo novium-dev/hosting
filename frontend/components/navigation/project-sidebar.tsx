@@ -1,5 +1,4 @@
 import Link from "@/components/link";
-import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import {
   Database,
@@ -26,7 +25,10 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { useProject } from "@/hooks/use-project";
-import { listProjectInstances, serverInfo } from "@/lib/api";
+import {
+  useProjectInstances,
+  useServerInfo,
+} from "@/hooks/use-shared-queries";
 import { authClient } from "@/lib/auth-client";
 import { useProjectRoute } from "@/lib/project-route";
 import {
@@ -55,22 +57,10 @@ export function ProjectSidebar() {
     useProjectRoute();
   const { data: session } = authClient.useSession();
   const { data: project } = useProject(slug);
-  const { data: infoResponse } = useSWR(
-    server ? ["server-info", server] : null,
-    () => serverInfo({ path: { server_id: server } }),
-  );
+  const { data: infoResponse } = useServerInfo(server);
 
-  const { data: instances } = useSWR(
-    instance && project ? ["project-instances", project.id] : null,
-    async () => {
-      const response = await listProjectInstances({
-        path: { project_id: project?.id ?? "" },
-      });
-      if (response.error) {
-        throw new Error(response.error.error?.msg ?? "Failed to load instances");
-      }
-      return response.data ?? [];
-    },
+  const { data: instances } = useProjectInstances(
+    instance ? project?.id : null,
   );
 
   const serverData =

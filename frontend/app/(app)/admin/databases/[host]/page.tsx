@@ -2,7 +2,8 @@ import { useParams } from "react-router-dom";
 import useSWR from "swr";
 
 import { NotFoundView } from "@/components/not-found-view";
-import { listDatabaseHosts, listDatabaseInstances } from "@/lib/api";
+import { useDatabaseHosts } from "@/hooks/use-shared-queries";
+import { listDatabaseInstances } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import {
   hasManagementPermission,
@@ -27,13 +28,7 @@ export default function AdminDatabaseHostPage() {
       )
     : false;
 
-  const { data: hosts } = useSWR(
-    canView ? "admin/database-hosts" : null,
-    async () => {
-      const response = await listDatabaseHosts();
-      return response.error ? [] : (response.data ?? []);
-    },
-  );
+  const { data: hosts } = useDatabaseHosts(canView);
 
   const { data: instances, mutate } = useSWR(
     canView && hostId ? ["admin/database-instances", hostId] : null,
