@@ -19,7 +19,6 @@ pub(crate) struct ModpackFile {
 pub(crate) struct Modpack {
     pub(crate) name: Option<String>,
     pub(crate) version: Option<String>,
-    pub(crate) game_version: Option<String>,
     pub(crate) files: Vec<ModpackFile>,
 }
 
@@ -28,14 +27,8 @@ pub(crate) struct Modpack {
 struct ModrinthIndex {
     name: Option<String>,
     version_id: Option<String>,
-    dependencies: Option<ModrinthDependencies>,
     #[serde(default)]
     files: Vec<ModrinthFile>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ModrinthDependencies {
-    minecraft: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -56,14 +49,8 @@ struct ModrinthEnv {
 struct CurseforgeManifest {
     name: Option<String>,
     version: Option<String>,
-    minecraft: Option<CurseforgeMinecraft>,
     #[serde(default)]
     files: Vec<CurseforgeFile>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CurseforgeMinecraft {
-    version: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -131,7 +118,6 @@ pub(crate) fn parse_modrinth_index(raw: &[u8]) -> Result<Modpack, ResourceError>
     Ok(Modpack {
         name: index.name,
         version: index.version_id,
-        game_version: index.dependencies.and_then(|deps| deps.minecraft),
         files,
     })
 }
@@ -154,7 +140,6 @@ pub(crate) fn parse_curseforge_manifest(raw: &[u8]) -> Result<Modpack, ResourceE
     Ok(Modpack {
         name: manifest.name,
         version: manifest.version,
-        game_version: manifest.minecraft.and_then(|minecraft| minecraft.version),
         files,
     })
 }

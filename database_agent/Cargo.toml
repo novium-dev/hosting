@@ -28,8 +28,6 @@ uuid = { workspace = true, features = ["v4", "serde"] }
 
 axum.workspace = true
 axum-server.workspace = true
-tokio-rustls.workspace = true
-tower-layer.workspace = true
 tower-http.workspace = true
 utoipa.workspace = true
 utoipa-axum.workspace = true

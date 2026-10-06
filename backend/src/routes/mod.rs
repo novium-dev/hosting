@@ -38,10 +38,6 @@ impl RouteKind {
             Self::Http | Self::Tcp => "tcp",
         }
     }
-
-    pub const fn is_srv(self) -> bool {
-        matches!(self, Self::Tcp | Self::Udp)
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]

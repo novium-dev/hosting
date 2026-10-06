@@ -55,15 +55,6 @@ impl BackendNode {
     }
 }
 
-pub struct NodeInfo {
-    pub uuid: Uuid,
-    pub display: String,
-    pub maintenance: bool,
-
-    pub default_host: String,
-    pub default_bind: String,
-}
-
 impl Backend {
     pub async fn sync_nodes(&self, tx: &mut Transaction<'_, Postgres>) -> Result<(), sqlx::Error> {
         self.load_nodes(tx).await?;

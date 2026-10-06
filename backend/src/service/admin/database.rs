@@ -101,11 +101,6 @@ pub(crate) struct DatabaseInstanceInfo {
     pub(crate) remote: Option<ApiInstance>,
 }
 
-#[derive(Debug, Serialize, utoipa::ToSchema)]
-pub(crate) struct CreatedId {
-    pub(crate) id: Uuid,
-}
-
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub(crate) struct UpdateDatabaseInstance {
     #[serde(default)]

@@ -46,12 +46,6 @@ impl Display for NetworkProtocol {
     }
 }
 
-impl NetworkProtocol {
-    pub fn by_name(name: &str) -> Self {
-        if name.eq("udp") { Self::Udp } else { Self::Tcp }
-    }
-}
-
 pub(crate) fn merge_ports(ports: &mut Vec<NetworkPort>) {
     let mut remove = None;
     'outer: loop {

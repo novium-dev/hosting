@@ -21,12 +21,6 @@ pub const LENGTH: usize = 6;
 #[repr(transparent)]
 pub struct GenericNanoId<T: ?Sized>(pub(super) ArrayString<LENGTH>, pub(super) PhantomData<T>);
 
-impl<T: ?Sized> GenericNanoId<T> {
-    pub const fn dummy() -> Self {
-        Self(ArrayString::<LENGTH>::new_const(), PhantomData)
-    }
-}
-
 impl<T> TryFrom<Vec<u8>> for GenericNanoId<T> {
     type Error = ();
 

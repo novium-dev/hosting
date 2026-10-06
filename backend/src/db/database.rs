@@ -1,7 +1,6 @@
 use crate::Backend;
 use crate::cluster::SyncTarget;
 use crate::db::project::ProjectId;
-use crate::define_id;
 use core::str::FromStr as _;
 use database_agent_common::sdk::DatabaseAgentSDK;
 use database_agent_common::types::DatabaseType;
@@ -11,8 +10,6 @@ use std::sync::Arc;
 use tracing::error;
 use url::Url;
 use uuid::Uuid;
-
-define_id!(DatabaseId);
 
 /// How many database instances a project may own before it needs
 /// [`ManagementPermissions::LIMITS_BYPASS`]. Databases and users inside an

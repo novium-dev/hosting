@@ -1,5 +1,3 @@
-#![expect(dead_code, reason = "work in progress")]
-
 mod config;
 mod crypto;
 pub(crate) mod db;
@@ -54,8 +52,6 @@ use tracing_subscriber::util::SubscriberInitExt as _;
 use uuid::Uuid;
 use zelus_keys::rcgen::KeyPair;
 use zelus_keys::{BackendKey, DaemonRootKey};
-
-const CACHE_PREFIX: &str = "novium:";
 
 pub const CACHE_KEY_PREFIX: &str = "novium:";
 

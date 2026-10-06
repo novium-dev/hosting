@@ -9,7 +9,6 @@ use zelus::reqwest::Client;
 use zelus::url::Url;
 use zelus_keys::{BackendKey, DaemonKeyVerifier, DaemonRootKey};
 
-#[expect(private_bounds, reason = "trait should be sealed")]
 pub trait DatabaseAgentSDKBuilderState: DatabaseAgentSdkSealed {
     type Inner;
 }

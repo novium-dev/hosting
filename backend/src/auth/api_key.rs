@@ -37,9 +37,7 @@ pub static API_KEY_REGEX: lazy_regex::Lazy<Regex> =
 
 #[derive(Debug)]
 pub struct ApiKeyAuthentication {
-    pub id: i32,
     pub user: i32,
-    pub project: Option<ProjectId>,
     permissions: i64,
     projects: HashMap<ProjectId, i64>,
     servers: HashMap<ServerId, i64>,
@@ -140,9 +138,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             .masked(key.permissions, key.project);
 
         Ok(Some(Self {
-            id: key.id,
             user: key.user,
-            project: key.project,
             permissions: effective.permissions,
             projects: effective.projects,
             servers: effective.servers,
