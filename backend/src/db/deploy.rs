@@ -1,4 +1,5 @@
 use crate::Backend;
+use crate::db::group::GroupRef;
 use crate::db::node::{BackendNode, NodePortAllocation, used_ports};
 use crate::db::server::ports::NetworkProtocol;
 use crate::templates::TemplatePortDefinition;
@@ -16,7 +17,7 @@ use uuid::Uuid;
 pub struct DeployConfig {
     pub id: i32,
     pub name: String,
-    pub group: String,
+    pub group: GroupRef,
     pub template: String,
     pub variables: HashMap<String, String>,
     pub cpu: f32,
@@ -222,11 +223,15 @@ impl Backend {
         id: Option<i32>,
     ) -> Result<Vec<DeployConfig>, sqlx::Error> {
         Ok(query!(
-            r#"SELECT id, name, group_name, template, variables AS "variables: Json<HashMap<String, String>>",
-                      cpu, ram, swap, disk, internet_access, backup_limit
+            r#"SELECT deploy_configs.id, deploy_configs.name, deploy_configs.group_id,
+                      group_paths.label AS "group_label!", deploy_configs.template,
+                      deploy_configs.variables AS "variables: Json<HashMap<String, String>>",
+                      deploy_configs.cpu, deploy_configs.ram, deploy_configs.swap, deploy_configs.disk,
+                      deploy_configs.internet_access, deploy_configs.backup_limit
                FROM deploy_configs
-               WHERE $1::integer IS NULL OR id = $1
-               ORDER BY name"#,
+               JOIN group_paths ON group_paths.id = deploy_configs.group_id
+               WHERE $1::integer IS NULL OR deploy_configs.id = $1
+               ORDER BY deploy_configs.name"#,
             id
         )
         .fetch_all(&*self.database)
@@ -235,7 +240,10 @@ impl Backend {
         .map(|row| DeployConfig {
             id: row.id,
             name: row.name,
-            group: row.group_name,
+            group: GroupRef {
+                id: row.group_id,
+                label: row.group_label,
+            },
             template: row.template,
             variables: row.variables.0,
             cpu: row.cpu,
@@ -255,8 +263,8 @@ impl Backend {
         node: Option<Uuid>,
     ) -> Result<Option<Placement>, sqlx::Error> {
         let members: HashSet<Uuid> = query!(
-            "SELECT node FROM node_groups WHERE group_name = $1",
-            &config.group
+            "SELECT node FROM node_groups WHERE group_id = $1",
+            config.group.id
         )
         .fetch_all(&*self.database)
         .await?

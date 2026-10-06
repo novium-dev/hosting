@@ -1,12 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Layers, PlusIcon, Search, Trash2Icon } from "lucide-react";
+import {
+  CornerDownRight,
+  FolderPlus,
+  Layers,
+  PlusIcon,
+  Search,
+  Trash2Icon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 import Link from "@/components/link";
-import { SortableTableHead } from "@/components/sortable-table-head";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -36,15 +43,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useTableSort } from "@/hooks/use-table-sort";
 import { createGroup, deleteGroup, type ListGroupsResponses } from "@/lib/api";
-import { formatGroupLimits } from "@/lib/groups";
+import { formatGroupLimits, groupDepths } from "@/lib/groups";
 
 type GroupRow = ListGroupsResponses[200][number];
 
-type GroupColumn = "name" | "nodes" | "servers" | "configs";
-
-const GROUP_NAME_PATTERN = /^[A-Za-z0-9_]+(-[A-Za-z0-9_]+){0,15}$/;
+const MAX_GROUP_DEPTH = 16;
+const MAX_GROUP_NAME_LENGTH = 64;
 
 function serverCount(group: GroupRow) {
   return group.nodes.reduce((sum, entry) => sum + entry.server_count, 0);
@@ -63,43 +68,52 @@ export function GroupsTable({
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<{ parent: GroupRow | null } | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState<GroupRow | null>(null);
   const [isDeletePending, setIsDeletePending] = useState(false);
 
-  const filteredGroups = useMemo(() => {
+  const depths = useMemo(() => groupDepths(groups), [groups]);
+
+  const childCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const group of groups) {
+      if (group.parent != null) {
+        counts.set(group.parent, (counts.get(group.parent) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [groups]);
+
+  const rows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
     if (!normalizedQuery) {
       return groups;
     }
 
-    return groups.filter(
-      (group) =>
-        group.name.toLowerCase().includes(normalizedQuery) ||
+    const byId = new Map(groups.map((group) => [group.id, group]));
+    const visible = new Set<number>();
+    for (const group of groups) {
+      const matches =
+        group.label.toLowerCase().includes(normalizedQuery) ||
         group.nodes.some((entry) =>
           (nodeNames[entry.node] ?? entry.node)
             .toLowerCase()
             .includes(normalizedQuery),
-        ),
-    );
+        );
+      if (!matches) continue;
+
+      let current: GroupRow | undefined = group;
+      while (current && !visible.has(current.id)) {
+        visible.add(current.id);
+        current =
+          current.parent != null ? byId.get(current.parent) : undefined;
+      }
+    }
+    return groups.filter((group) => visible.has(group.id));
   }, [groups, nodeNames, query]);
-
-  const accessors = useMemo(
-    () => ({
-      name: (group: GroupRow) => group.name,
-      nodes: (group: GroupRow) => group.nodes.length,
-      servers: serverCount,
-      configs: (group: GroupRow) => group.deploy_config_count,
-    }),
-    [],
-  );
-
-  const { rows, sort, toggle } = useTableSort<GroupRow, GroupColumn>(
-    filteredGroups,
-    accessors,
-    { column: "name", direction: "asc" },
-  );
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -107,7 +121,7 @@ export function GroupsTable({
     setIsDeletePending(true);
     try {
       const response = await deleteGroup({
-        path: { group_name: deleting.name },
+        path: { group_id: deleting.id },
       });
 
       if (response.error) {
@@ -137,7 +151,7 @@ export function GroupsTable({
           </p>
         </div>
         {canManage ? (
-          <Button type="button" onClick={() => setCreating(true)}>
+          <Button type="button" onClick={() => setCreating({ parent: null })}>
             <PlusIcon data-icon="inline-start" />
             {t("admin-infra:groups.createButton")}
           </Button>
@@ -159,18 +173,12 @@ export function GroupsTable({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <SortableTableHead column="name" sort={sort} onSort={toggle}>
-                {t("common:labels.name")}
-              </SortableTableHead>
-              <SortableTableHead column="nodes" sort={sort} onSort={toggle}>
-                {t("common:nav.nodes")}
-              </SortableTableHead>
-              <SortableTableHead column="servers" sort={sort} onSort={toggle}>
-                {t("admin-infra:groups.columns.servers")}
-              </SortableTableHead>
-              <SortableTableHead column="configs" sort={sort} onSort={toggle}>
+              <TableHead>{t("common:labels.name")}</TableHead>
+              <TableHead>{t("common:nav.nodes")}</TableHead>
+              <TableHead>{t("admin-infra:groups.columns.servers")}</TableHead>
+              <TableHead>
                 {t("admin-infra:groups.columns.deployConfigs")}
-              </SortableTableHead>
+              </TableHead>
               <TableHead className="text-right">
                 {t("common:resources.manage")}
               </TableHead>
@@ -192,61 +200,105 @@ export function GroupsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((group) => (
-                <TableRow key={group.name}>
-                  <TableCell className="font-medium">
-                    {group.name}
-                  </TableCell>
-                  <TableCell className="space-y-1">
-                    {group.nodes.length === 0 ? (
-                      <span className="text-muted-foreground">
-                        {t("admin-infra:groups.noNodes")}
-                      </span>
-                    ) : (
-                      group.nodes.map((entry) => (
-                        <div key={entry.node}>
-                          <Link
-                            href={`/admin/nodes/${entry.node}`}
-                            className="font-medium underline-offset-4 hover:underline"
-                          >
-                            {nodeNames[entry.node] ?? entry.node}
-                          </Link>
-                          <p className="text-xs text-muted-foreground">
-                            {formatGroupLimits(entry.limits, t).join(" · ")}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {serverCount(group)}
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {group.deploy_config_count}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        disabled={!canManage || group.deploy_config_count > 0}
-                        onClick={() => setDeleting(group)}
+              rows.map((group) => {
+                const depth = depths.get(group.id) ?? 0;
+                const subgroups = childCounts.get(group.id) ?? 0;
+                return (
+                  <TableRow key={group.id}>
+                    <TableCell>
+                      <div
+                        className="flex items-center gap-2"
+                        style={{
+                          paddingLeft: `${Math.max(depth - 1, 0) * 1.5}rem`,
+                        }}
                       >
-                        <Trash2Icon className="size-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                        {depth > 0 ? (
+                          <CornerDownRight className="size-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <Layers className="size-4 shrink-0 text-muted-foreground" />
+                        )}
+                        <span className="font-medium">{group.name}</span>
+                        {subgroups > 0 ? (
+                          <Badge variant="secondary" className="text-xs">
+                            {t("admin-infra:groups.subgroupCount", {
+                              count: subgroups,
+                            })}
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell className="space-y-1">
+                      {group.nodes.length === 0 ? (
+                        <span className="text-muted-foreground">
+                          {t("admin-infra:groups.noNodes")}
+                        </span>
+                      ) : (
+                        group.nodes.map((entry) => (
+                          <div key={entry.node}>
+                            <Link
+                              href={`/admin/nodes/${entry.node}`}
+                              className="font-medium underline-offset-4 hover:underline"
+                            >
+                              {nodeNames[entry.node] ?? entry.node}
+                            </Link>
+                            <p className="text-xs text-muted-foreground">
+                              {formatGroupLimits(entry.limits, t).join(" · ")}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      {serverCount(group)}
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      {group.deploy_config_count}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          disabled={!canManage || depth + 1 >= MAX_GROUP_DEPTH}
+                          onClick={() => setCreating({ parent: group })}
+                          aria-label={t("admin-infra:groups.addSubgroup")}
+                          title={t("admin-infra:groups.addSubgroup")}
+                        >
+                          <FolderPlus className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          disabled={
+                            !canManage ||
+                            subgroups > 0 ||
+                            group.deploy_config_count > 0
+                          }
+                          onClick={() => setDeleting(group)}
+                          aria-label={t("common:actions.delete")}
+                          title={t("common:actions.delete")}
+                        >
+                          <Trash2Icon className="size-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
       </div>
 
       <CreateGroupDialog
-        open={creating}
-        onOpenChange={setCreating}
+        key={creating?.parent?.id ?? "root"}
+        open={creating !== null}
+        parent={creating?.parent ?? null}
+        onOpenChange={(next) => {
+          if (!next) setCreating(null);
+        }}
         onSaved={onChanged}
       />
 
@@ -260,7 +312,7 @@ export function GroupsTable({
           <AlertDialogHeader>
             <AlertDialogTitle>
               {t("admin-infra:groups.deleteTitle", {
-                name: deleting?.name ?? "",
+                name: deleting?.label ?? "",
               })}
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -288,10 +340,12 @@ export function GroupsTable({
 
 function CreateGroupDialog({
   open,
+  parent,
   onOpenChange,
   onSaved,
 }: {
   open: boolean;
+  parent: GroupRow | null;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
@@ -303,14 +357,16 @@ function CreateGroupDialog({
     event.preventDefault();
 
     const trimmed = name.trim();
-    if (trimmed.length > 200 || !GROUP_NAME_PATTERN.test(trimmed)) {
+    if (trimmed.length === 0 || trimmed.length > MAX_GROUP_NAME_LENGTH) {
       toast.error(t("admin-infra:groups.invalidName"));
       return;
     }
 
     setIsPending(true);
     try {
-      const response = await createGroup({ body: { name: trimmed } });
+      const response = await createGroup({
+        body: { name: trimmed, parent: parent?.id ?? null },
+      });
 
       if (response.error) {
         toast.error(
@@ -339,9 +395,17 @@ function CreateGroupDialog({
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit} className="space-y-6">
           <DialogHeader>
-            <DialogTitle>{t("admin-infra:groups.createTitle")}</DialogTitle>
+            <DialogTitle>
+              {parent
+                ? t("admin-infra:groups.createSubgroupTitle")
+                : t("admin-infra:groups.createTitle")}
+            </DialogTitle>
             <DialogDescription>
-              {t("admin-infra:groups.createDescription")}
+              {parent
+                ? t("admin-infra:groups.createSubgroupDescription", {
+                    parent: parent.label,
+                  })
+                : t("admin-infra:groups.createDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -352,7 +416,7 @@ function CreateGroupDialog({
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder={t("admin-infra:groups.namePlaceholder")}
-              maxLength={200}
+              maxLength={MAX_GROUP_NAME_LENGTH}
               required
             />
             <p className="text-xs text-muted-foreground">

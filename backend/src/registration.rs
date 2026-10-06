@@ -30,7 +30,7 @@ impl Registration for NodeRegistration {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct DatabaseHostRegistration {
     pub(crate) display: String,
-    pub(crate) groups: Vec<String>,
+    pub(crate) groups: Vec<i32>,
     pub(crate) public_host: String,
     pub(crate) config: SetupAgentConfig,
 }

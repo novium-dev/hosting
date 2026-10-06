@@ -23,7 +23,7 @@ pub const MAX_PROJECT_INSTANCES: i64 = 4;
 pub struct BackendDatabaseHost {
     pub id: Uuid,
     pub display: String,
-    pub groups: Vec<String>,
+    pub groups: Vec<i32>,
     pub public_host: String,
     pub maintenance: bool,
     pub ports: HashMap<DatabaseType, u16>,
@@ -84,7 +84,7 @@ impl Backend {
             .collect();
 
             let groups = query_scalar!(
-                "SELECT group_name FROM database_host_groups WHERE host = $1",
+                "SELECT group_id FROM database_host_groups WHERE host = $1",
                 host.id
             )
             .fetch_all(&mut *conn)
@@ -162,8 +162,8 @@ impl Backend {
         &self,
         project: ProjectId,
     ) -> Result<Option<Arc<BackendDatabaseHost>>, E> {
-        let groups: Vec<String> = query_scalar!(
-            r#"SELECT DISTINCT node_groups.group_name
+        let groups: Vec<i32> = query_scalar!(
+            r#"SELECT DISTINCT node_groups.group_id
                FROM servers
                JOIN node_groups ON node_groups.node = servers.node
                WHERE servers.project = $1"#,

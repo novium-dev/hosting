@@ -94,7 +94,7 @@ export function NodesTable({
         node.id.toLowerCase().includes(normalizedQuery) ||
         node.default_host.toLowerCase().includes(normalizedQuery) ||
         node.groups.some((group) =>
-          group.toLowerCase().includes(normalizedQuery),
+          group.label.toLowerCase().includes(normalizedQuery),
         )
       );
     });

@@ -55,6 +55,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { availablePorts, listNodeGroups } from "@/lib/api";
+import type { GroupOption } from "@/lib/groups";
 import type {
   AvailablePortsResponse,
   NodePortAllocation,
@@ -338,7 +339,7 @@ export function ServerCreateForm({
   const [node, setNode] = useState<string>(nodes[0]?.id ?? "");
   const [storage, setStorage] = useState(nodes[0]?.serverStorages?.[0] ?? "");
   const [group, setGroup] = useState(NO_GROUP);
-  const [nodeGroups, setNodeGroups] = useState<string[]>([]);
+  const [nodeGroups, setNodeGroups] = useState<GroupOption[]>([]);
 
   const [cpu, setCpu] = useState("1");
   const [ram, setRam] = useState("1024");
@@ -429,7 +430,9 @@ export function ServerCreateForm({
     listNodeGroups({ path: { node_id: selectedNode.id } })
       .then((response) => {
         if (isActive && !response.error && response.data) {
-          setNodeGroups(response.data.map((entry) => entry.name));
+          setNodeGroups(
+            response.data.map(({ id, label }) => ({ id, label })),
+          );
         }
       })
       .catch(() => {});
@@ -634,7 +637,7 @@ export function ServerCreateForm({
       disk: toNullableNumber(disk),
       swap: toNullableNumber(swap),
       backupLimit: toNullableNumber(backupLimit),
-      group: group === NO_GROUP ? null : group,
+      group: group === NO_GROUP ? null : Number(group),
       variables: variablesAsStrings,
       ports,
     });
@@ -815,8 +818,11 @@ export function ServerCreateForm({
                   {t("admin-infra:servers.shared.noGroup")}
                 </SelectItem>
                 {nodeGroups.map((groupOption) => (
-                  <SelectItem key={groupOption} value={groupOption}>
-                    {groupOption}
+                  <SelectItem
+                    key={groupOption.id}
+                    value={String(groupOption.id)}
+                  >
+                    {groupOption.label}
                   </SelectItem>
                 ))}
               </SelectContent>

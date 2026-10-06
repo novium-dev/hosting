@@ -49,6 +49,7 @@ import {
   type ListDatabaseHostsResponses,
 } from "@/lib/api";
 import { GroupBadges } from "@/components/group-badges";
+import type { GroupOption } from "@/lib/groups";
 import { DatabaseHostDialog } from "./database-host-dialog";
 
 export type DatabaseHostRow = ListDatabaseHostsResponses[200][number];
@@ -70,7 +71,7 @@ export function DatabaseHostsTable({
   onChanged,
 }: {
   hosts: DatabaseHostRow[];
-  groups: string[];
+  groups: GroupOption[];
   canManage: boolean;
   onChanged: () => void;
 }) {

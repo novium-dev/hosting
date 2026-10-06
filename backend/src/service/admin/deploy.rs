@@ -38,7 +38,7 @@ static DEPLOY_LOCK: Mutex<()> = Mutex::const_new(());
 #[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToSchema)]
 pub(crate) struct DeployConfigPayload {
     pub(crate) name: String,
-    pub(crate) group: String,
+    pub(crate) group: i32,
     pub(crate) template: String,
     pub(crate) variables: HashMap<String, String>,
     pub(crate) cpu: f32,
@@ -94,7 +94,7 @@ pub(crate) impl DeployAdminService for Backend {
             .await?;
 
         Ok(query_scalar!(
-            r#"INSERT INTO deploy_configs (name, group_name, template, variables, cpu, ram, swap, disk, internet_access, backup_limit)
+            r#"INSERT INTO deploy_configs (name, group_id, template, variables, cpu, ram, swap, disk, internet_access, backup_limit)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id"#,
             config.name,
             config.group,
@@ -132,7 +132,7 @@ pub(crate) impl DeployAdminService for Backend {
             .await?;
 
         let updated = query!(
-            r#"UPDATE deploy_configs SET name = $2, group_name = $3, template = $4, variables = $5, cpu = $6,
+            r#"UPDATE deploy_configs SET name = $2, group_id = $3, template = $4, variables = $5, cpu = $6,
                       ram = $7, swap = $8, disk = $9, internet_access = $10, backup_limit = $11
                WHERE id = $1"#,
             config_id,
@@ -229,7 +229,7 @@ pub(crate) impl DeployAdminService for Backend {
             if self.nodes.read().await.get(&node).is_none() {
                 return Err(DeployServerError::NodeNotFound);
             }
-            if !node_in_group(&*self.database, node, &config.group).await? {
+            if !node_in_group(&*self.database, node, config.group.id).await? {
                 return Err(DeployServerError::GroupNotOnNode);
             }
         }
@@ -272,7 +272,7 @@ pub(crate) impl DeployAdminService for Backend {
                 variables: config.variables,
                 internet_access: config.internet_access,
                 backup_limit: config.backup_limit,
-                group: Some(config.group),
+                group: Some(config.group.id),
             })
             .await?;
 

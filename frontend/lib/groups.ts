@@ -1,5 +1,7 @@
 import type { TFunction } from "i18next";
 
+export type GroupOption = { id: number; label: string };
+
 export function formatMib(value: number) {
   return value >= 1024 ? `${(value / 1024).toFixed(2)} GiB` : `${value} MiB`;
 }
@@ -22,4 +24,21 @@ export function formatGroupLimits(
       limits.swap != null ? formatMib(limits.swap) : unlimited
     }`,
   ];
+}
+
+type TreeItem = { id: number; parent?: number | null };
+
+export function groupDepths(groups: TreeItem[]) {
+  const parents = new Map(groups.map((group) => [group.id, group.parent ?? null]));
+  const depths = new Map<number, number>();
+  for (const group of groups) {
+    let depth = 0;
+    let parent = parents.get(group.id) ?? null;
+    while (parent !== null && depth < 16) {
+      depth += 1;
+      parent = parents.get(parent) ?? null;
+    }
+    depths.set(group.id, depth);
+  }
+  return depths;
 }

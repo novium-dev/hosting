@@ -62,7 +62,7 @@ pub(crate) impl ServerAdminService for Backend {
         variables: HashMap<String, String>,
         internet_access: bool,
         backup_limit: Option<u32>,
-        group: Option<String>,
+        group: Option<i32>,
     ) -> Result<ServerId, _> {
         if !auth.has((), ManagementPermissions::SERVER_MANAGE) {
             return Err(<CreateServerError as FromAuthPermissionDenied>::from());
@@ -84,8 +84,7 @@ pub(crate) impl ServerAdminService for Backend {
         };
         drop(nodes);
 
-        let group = group.filter(|group| !group.is_empty());
-        if let Some(group) = group.as_deref()
+        if let Some(group) = group
             && !node_in_group(&*self.database, node.id, group).await?
         {
             return Err(CreateServerError::GroupNotOnNode);

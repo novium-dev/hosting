@@ -52,7 +52,7 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
         server.name.toLowerCase().includes(normalizedQuery) ||
         server.id.toLowerCase().includes(normalizedQuery) ||
         server.node.toLowerCase().includes(normalizedQuery) ||
-        server.group?.toLowerCase().includes(normalizedQuery) ||
+        server.group?.label.toLowerCase().includes(normalizedQuery) ||
         server.template.toLowerCase().includes(normalizedQuery) ||
         server.project.toLowerCase().includes(normalizedQuery) ||
         server.project_name.toLowerCase().includes(normalizedQuery) ||
@@ -66,7 +66,7 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
       name: (server: ServerRow) => server.name,
       template: (server: ServerRow) => server.template,
       node: (server: ServerRow) => server.node,
-      group: (server: ServerRow) => server.group ?? "",
+      group: (server: ServerRow) => server.group?.label ?? "",
       project: (server: ServerRow) => server.project_name,
     }),
     [],
@@ -189,7 +189,7 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
                   <TableCell>
                     {server.group ? (
                       <Badge variant="outline" className="font-normal">
-                        {server.group}
+                        {server.group.label}
                       </Badge>
                     ) : (
                       <span className="text-muted-foreground">

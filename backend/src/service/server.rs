@@ -5,7 +5,7 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
-use crate::db::group::node_in_group;
+use crate::db::group::{GroupRef, group_labels, group_path, node_in_group};
 use crate::db::license::ServerLicenseInfo;
 use crate::db::project::ProjectId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
@@ -49,10 +49,15 @@ pub(crate) struct ServerListInfo {
     template: String,
     node: String,
     node_id: Uuid,
-    group: Option<String>,
+    group: Option<GroupRef>,
     suspended: bool,
 
     status: Option<ServerListStatus>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToSchema)]
+pub(crate) struct ServerGroupChange {
+    pub(crate) id: Option<i32>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -71,7 +76,7 @@ struct ServerListRecord {
     template: String,
     node: Uuid,
     node_server_id: i32,
-    node_group: Option<String>,
+    group_id: Option<i32>,
     suspended: bool,
 }
 
@@ -98,7 +103,7 @@ pub(crate) struct ServerInfo {
     pub(crate) project: ProjectId,
     pub(crate) node: LightNodeInfo,
     pub(crate) node_server_id: Option<u32>,
-    pub(crate) group: Option<String>,
+    pub(crate) group: Option<GroupRef>,
     pub(crate) template: String,
     pub(crate) limits: ServerLimits,
     pub(crate) cpu: Option<f32>,
@@ -168,7 +173,8 @@ pub(crate) impl ServerService for Backend {
                 ServerListRecord,
                 r#"SELECT servers.id AS "id: ServerId", servers.name, servers.project AS "project: ProjectId",
                           projects.name AS project_name, projects.slug AS project_slug,
-                          servers.node, servers.node_server_id, servers.node_group, servers.template, servers.suspended
+                          servers.node, servers.node_server_id, servers.group_id,
+                          servers.template, servers.suspended
                    FROM servers
                    JOIN projects ON projects.id = servers.project
                    WHERE servers.project = $1"#,
@@ -181,7 +187,8 @@ pub(crate) impl ServerService for Backend {
                 ServerListRecord,
                 r#"SELECT servers.id AS "id: ServerId", servers.name, servers.project AS "project: ProjectId",
                           projects.name AS project_name, projects.slug AS project_slug,
-                          servers.node, servers.node_server_id, servers.node_group, servers.template, servers.suspended
+                          servers.node, servers.node_server_id, servers.group_id,
+                          servers.template, servers.suspended
                    FROM servers
                    JOIN projects ON projects.id = servers.project"#
             )
@@ -200,6 +207,8 @@ pub(crate) impl ServerService for Backend {
             .filter(|server| auth.has(server.id, ProjectPermissions::VIEW))
             .apply_pagesplit(&mut page)
             .collect::<Vec<_>>();
+
+        let group_labels = group_labels(&*self.database).await?;
 
         let nodes = self.nodes.read().await;
 
@@ -242,7 +251,12 @@ pub(crate) impl ServerService for Backend {
                 project_name: server.project_name,
                 project_slug: server.project_slug,
                 node_id: server.node,
-                group: server.node_group,
+                group: server.group_id.and_then(|id| {
+                    group_labels.get(&id).map(|label| GroupRef {
+                        id,
+                        label: label.clone(),
+                    })
+                }),
                 suspended: server.suspended,
                 status: statuses.remove(&server.id),
                 template: templates
@@ -400,10 +414,17 @@ pub(crate) impl ServerService for Backend {
             node_server_id: auth
                 .has((), ManagementPermissions::SERVER_MANAGE)
                 .then_some(server.node_server_id),
-            group: server
-                .group
-                .clone()
-                .filter(|_| auth.has((), ManagementPermissions::SERVER_MANAGE)),
+            group: match server.group {
+                Some(group) if auth.has((), ManagementPermissions::SERVER_MANAGE) => {
+                    group_path(&*self.database, group)
+                        .await?
+                        .map(|path| GroupRef {
+                            id: path.id,
+                            label: path.label,
+                        })
+                }
+                _ => None,
+            },
             node: LightNodeInfo {
                 id: server.node.id,
                 display: server.node.display.clone(),
@@ -427,8 +448,8 @@ pub(crate) impl ServerService for Backend {
     /// Requires [`ProjectPermissions::VIEW`].
     /// Requires [`ProjectPermissions::ADMIN_MANAGEMENT`] to rename a server.
     /// Requires [`ManagementPermissions::SERVER_MANAGE`] to update resources, internet access,
-    /// backup limits, custom dockerfile or the resource group. An empty group removes the
-    /// server from its group; the change applies on the server's next start.
+    /// backup limits, custom dockerfile or the resource group. `group` with an `id` of `null`
+    /// removes the server from its group; the change applies on the server's next start.
     /// Requires [`ManagementPermissions::SERVER_SUSPEND`] to (un)suspend a server or to change
     /// the reason a server is suspended for.
     #[route("/{server_id}", method = PATCH)]
@@ -444,7 +465,7 @@ pub(crate) impl ServerService for Backend {
         suspension_reason: Option<String>,
         internet_access: Option<bool>,
         limits: Option<ServerLimits>,
-        group: Option<String>,
+        group: Option<ServerGroupChange>,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateServerError>(server_id, ProjectPermissions::VIEW)?;
 
@@ -488,12 +509,23 @@ pub(crate) impl ServerService for Backend {
             .await?
             .ok_or(UpdateServerError::ServerNotFound)?;
 
-        if let Some(group) = group.as_deref()
-            && !group.is_empty()
+        let group = group.map(|change| change.id);
+        if let Some(Some(group)) = group
             && !node_in_group(&*self.database, server.node.id, group).await?
         {
             return Err(UpdateServerError::GroupNotOnNode);
         }
+
+        let daemon_group = match group {
+            Some(Some(group)) => Some(
+                group_path(&*self.database, group)
+                    .await?
+                    .ok_or(UpdateServerError::GroupNotOnNode)?
+                    .daemon_name,
+            ),
+            Some(None) => Some(String::new()),
+            None => None,
+        };
 
         if suspended.is_none()
             && let Some(reason) = suspension_reason.as_ref()
@@ -528,27 +560,13 @@ pub(crate) impl ServerService for Backend {
             None
         };
 
-        if resource.is_some() || internet_access.is_some() || new_build.is_some() || group.is_some()
-        {
-            server
-                .node
-                .update_server(
-                    server.node_server_id,
-                    resource.clone(),
-                    new_build,
-                    None,
-                    internet_access.map(|internet_access| ServerNetworkPayload {
-                        internet_access,
-                        networks: Vec::new(),
-                    }),
-                    group.clone(),
-                )
-                .await
-                .map_err(|err| {
-                    error!("Failed to update server: {err:?}");
-                    UpdateServerError::NodeFailure
-                })?;
-        }
+        let updates_daemon = resource.is_some()
+            || internet_access.is_some()
+            || new_build.is_some()
+            || group.is_some();
+        let daemon_resource = resource.clone();
+        let node = Arc::clone(&server.node);
+        let node_server_id = server.node_server_id;
 
         let mut conn = self.database.acquire().await?;
         conn.transaction(|tx| {
@@ -630,8 +648,8 @@ pub(crate) impl ServerService for Backend {
 
                 if let Some(group) = group {
                     query!(
-                        "UPDATE servers SET node_group = $1 WHERE id = $2",
-                        Some(group).filter(|group| !group.is_empty()),
+                        "UPDATE servers SET group_id = $1 WHERE id = $2",
+                        group,
                         &server_id
                     )
                     .execute(&mut **tx)
@@ -654,6 +672,25 @@ pub(crate) impl ServerService for Backend {
                     .await
                     .inspect_err(|err| {
                         error!("Failed to update server (resource): {err:?}");
+                    })?;
+                }
+
+                if updates_daemon {
+                    node.update_server(
+                        node_server_id,
+                        daemon_resource,
+                        new_build,
+                        None,
+                        internet_access.map(|internet_access| ServerNetworkPayload {
+                            internet_access,
+                            networks: Vec::new(),
+                        }),
+                        daemon_group,
+                    )
+                    .await
+                    .map_err(|err| {
+                        error!("Failed to update server: {err:?}");
+                        UpdateServerError::NodeFailure
                     })?;
                 }
 

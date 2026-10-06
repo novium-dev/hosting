@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import {
+  CornerDownRight,
+  Layers,
   Loader2,
   PencilIcon,
   Plus,
@@ -61,8 +63,8 @@ import {
   type ListNodeGroupsResponses,
   type ResourceSubset,
 } from "@/lib/api";
-import { useGroupNames, useNodeGroups } from "@/hooks/use-shared-queries";
-import { formatMib } from "@/lib/groups";
+import { useGroups, useNodeGroups } from "@/hooks/use-shared-queries";
+import { formatMib, groupDepths } from "@/lib/groups";
 import { Progress } from "@/components/ui/progress";
 
 type NodeGroupRow = ListNodeGroupsResponses[200][number];
@@ -74,7 +76,7 @@ type NodeGroupsManagerProps = {
 };
 
 type GroupForm = {
-  name: string;
+  group: string;
   cpu: string;
   ram: string;
   swap: string;
@@ -86,7 +88,7 @@ type GroupLimits = {
   swap: number | null;
 };
 
-const EMPTY_FORM: GroupForm = { name: "", cpu: "", ram: "", swap: "" };
+const EMPTY_FORM: GroupForm = { group: "", cpu: "", ram: "", swap: "" };
 
 function parseLimits(form: GroupForm): GroupLimits | null {
   const parse = (value: string, integer: boolean, allowZero: boolean) => {
@@ -174,11 +176,17 @@ export function NodeGroupsManager({
     mutate,
   } = useNodeGroups(nodeId);
 
-  const { data: allGroups } = useGroupNames(canManage);
+  const { data: allGroups } = useGroups(canManage);
 
+  const assigned = new Set((groups ?? []).map((group) => group.id));
   const availableGroups = (allGroups ?? []).filter(
-    (name) => !(groups ?? []).some((group) => group.name === name),
+    (group) =>
+      !assigned.has(group.id) &&
+      (group.parent == null || assigned.has(group.parent)),
   );
+  const depths = groupDepths(groups ?? []);
+  const hasSubgroupsHere = (group: NodeGroupRow) =>
+    (groups ?? []).some((entry) => entry.parent === group.id);
 
   const openCreate = () => {
     setEditing(null);
@@ -189,7 +197,7 @@ export function NodeGroupsManager({
   const openEdit = (group: NodeGroupRow) => {
     setEditing(group);
     setForm({
-      name: group.name,
+      group: String(group.id),
       cpu: group.limits.cpu != null ? String(group.limits.cpu) : "",
       ram: group.limits.ram != null ? String(group.limits.ram) : "",
       swap: group.limits.swap != null ? String(group.limits.swap) : "",
@@ -198,8 +206,8 @@ export function NodeGroupsManager({
   };
 
   const handleSubmit = async () => {
-    const name = editing ? editing.name : form.name;
-    if (!name) {
+    const groupId = editing ? editing.id : Number(form.group);
+    if (!groupId) {
       toast.error(t("admin-infra:nodes.groupsManager.selectGroupPlaceholder"));
       return;
     }
@@ -213,7 +221,7 @@ export function NodeGroupsManager({
     setIsActionLoading(true);
     try {
       const response = await assignGroupNode({
-        path: { group_name: name, node_id: nodeId },
+        path: { group_id: groupId, node_id: nodeId },
         body: limits,
       });
 
@@ -245,7 +253,7 @@ export function NodeGroupsManager({
     setIsActionLoading(true);
     try {
       const response = await removeGroupNode({
-        path: { group_name: deleting.name, node_id: nodeId },
+        path: { group_id: deleting.id, node_id: nodeId },
       });
 
       if (response.error) {
@@ -336,15 +344,28 @@ export function NodeGroupsManager({
               </TableHeader>
               <TableBody>
                 {groups.map((group) => {
-                  const usage = groupUsage?.[group.name];
+                  const usage = groupUsage?.[group.daemon_name];
+                  const depth = depths.get(group.id) ?? 0;
                   const cores = (value: number) =>
                     t("admin-infra:nodes.groupsManager.cores", {
                       value: Number(value.toFixed(2)),
                     });
                   return (
-                    <TableRow key={group.name}>
-                      <TableCell className="font-medium">
-                        {group.name}
+                    <TableRow key={group.id}>
+                      <TableCell>
+                        <div
+                          className="flex items-center gap-2"
+                          style={{
+                            paddingLeft: `${Math.max(depth - 1, 0) * 1.5}rem`,
+                          }}
+                        >
+                          {depth > 0 ? (
+                            <CornerDownRight className="size-4 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <Layers className="size-4 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="font-medium">{group.name}</span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <ResourceMeter
@@ -389,7 +410,11 @@ export function NodeGroupsManager({
                             size="icon"
                             variant="ghost"
                             onClick={() => setDeleting(group)}
-                            disabled={isActionLoading || !canManage}
+                            disabled={
+                              isActionLoading ||
+                              !canManage ||
+                              hasSubgroupsHere(group)
+                            }
                           >
                             <Trash2Icon className="size-4" />
                           </Button>
@@ -410,7 +435,7 @@ export function NodeGroupsManager({
             <DialogTitle>
               {editing
                 ? t("admin-infra:nodes.groupsManager.editTitle", {
-                    name: editing.name,
+                    name: editing.label,
                   })
                 : t("admin-infra:nodes.groupsManager.createTitle")}
             </DialogTitle>
@@ -431,9 +456,9 @@ export function NodeGroupsManager({
                   </p>
                 ) : (
                   <Select
-                    value={form.name}
+                    value={form.group}
                     onValueChange={(value) =>
-                      setForm((prev) => ({ ...prev, name: value }))
+                      setForm((prev) => ({ ...prev, group: value }))
                     }
                   >
                     <SelectTrigger id="node-group-name" className="w-full">
@@ -444,9 +469,9 @@ export function NodeGroupsManager({
                       />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableGroups.map((name) => (
-                        <SelectItem key={name} value={name}>
-                          {name}
+                      {availableGroups.map((group) => (
+                        <SelectItem key={group.id} value={String(group.id)}>
+                          {group.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -533,7 +558,7 @@ export function NodeGroupsManager({
           <AlertDialogHeader>
             <AlertDialogTitle>
               {t("admin-infra:nodes.groupsManager.deleteTitle", {
-                name: deleting?.name ?? "",
+                name: deleting?.label ?? "",
               })}
             </AlertDialogTitle>
             <AlertDialogDescription>

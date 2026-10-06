@@ -89,7 +89,10 @@ export default function AdminDeployConfigsPage() {
       }
       return {
         configs: configsResponse.data,
-        groups: (groupsResponse?.data ?? []).map((group) => group.name),
+        groups: (groupsResponse?.data ?? []).map(({ id, label }) => ({
+          id,
+          label,
+        })),
         templates: templatesResponse.data ?? [],
       };
     },
@@ -185,8 +188,8 @@ export default function AdminDeployConfigsPage() {
                         {config.name}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="font-mono">
-                          {config.group}
+                        <Badge variant="outline">
+                          {config.group.label}
                         </Badge>
                       </TableCell>
                       <TableCell>{config.template}</TableCell>

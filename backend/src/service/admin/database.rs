@@ -1,7 +1,7 @@
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
-use crate::db::group::all_groups_exist;
+use crate::db::group::{GroupRef, all_groups_exist, group_labels, group_refs};
 use crate::db::project::ProjectId;
 use crate::registration::{DatabaseHostRegistration, Pending};
 use crate::service::admin::database::database_admin_service_error::{
@@ -28,7 +28,7 @@ use zelus::service;
 pub(crate) struct DatabaseHostInfo {
     pub(crate) id: Uuid,
     pub(crate) display: String,
-    pub(crate) groups: Vec<String>,
+    pub(crate) groups: Vec<GroupRef>,
     pub(crate) url: String,
     pub(crate) public_host: String,
     pub(crate) maintenance: bool,
@@ -40,7 +40,7 @@ pub(crate) struct DatabaseHostInfo {
 pub(crate) struct CreateDatabaseHost {
     pub(crate) display: String,
     #[serde(default)]
-    pub(crate) groups: Vec<String>,
+    pub(crate) groups: Vec<i32>,
     pub(crate) base_url: Url,
     pub(crate) public_host: String,
     #[serde(default)]
@@ -51,7 +51,7 @@ pub(crate) struct CreateDatabaseHost {
 pub(crate) struct DatabaseHostRegistrationInfo {
     pub(crate) code: String,
     pub(crate) display: String,
-    pub(crate) groups: Vec<String>,
+    pub(crate) groups: Vec<GroupRef>,
     pub(crate) base_url: Url,
     pub(crate) public_host: String,
     pub(crate) ports: HashMap<DatabaseType, u16>,
@@ -77,7 +77,7 @@ pub(crate) struct UpdateDatabaseHost {
     #[serde(default)]
     pub(crate) display: Option<String>,
     #[serde(default)]
-    pub(crate) groups: Option<Vec<String>>,
+    pub(crate) groups: Option<Vec<i32>>,
     #[serde(default)]
     pub(crate) url: Option<Url>,
     #[serde(default)]
@@ -169,6 +169,7 @@ pub(crate) impl DatabaseAdminService for Backend {
         .fetch_all(&*self.database)
         .await?;
 
+        let labels = group_labels(&*self.database).await?;
         let mut hosts = Vec::with_capacity(rows.len());
         for row in rows {
             let ports = query!(
@@ -186,12 +187,15 @@ pub(crate) impl DatabaseAdminService for Backend {
             })
             .collect();
 
-            let groups = query_scalar!(
-                "SELECT group_name FROM database_host_groups WHERE host = $1 ORDER BY group_name",
-                row.id
-            )
-            .fetch_all(&*self.database)
-            .await?;
+            let groups = group_refs(
+                &labels,
+                query_scalar!(
+                    "SELECT group_id FROM database_host_groups WHERE host = $1",
+                    row.id
+                )
+                .fetch_all(&*self.database)
+                .await?,
+            );
 
             hosts.push(DatabaseHostInfo {
                 id: row.id,
@@ -256,6 +260,8 @@ pub(crate) impl DatabaseAdminService for Backend {
             ManagementPermissions::DATABASE_HOSTS_VIEW,
         )?;
 
+        let labels = group_labels(&*self.database).await?;
+
         Ok(self
             .list_registrations::<DatabaseHostRegistration>()
             .await?
@@ -268,7 +274,7 @@ pub(crate) impl DatabaseAdminService for Backend {
                  }| DatabaseHostRegistrationInfo {
                     code,
                     display: registration.display,
-                    groups: registration.groups,
+                    groups: group_refs(&labels, registration.groups),
                     base_url: registration.config.base_url,
                     public_host: registration.public_host,
                     ports: registration.config.ports,
@@ -374,7 +380,7 @@ pub(crate) impl DatabaseAdminService for Backend {
                 .await?;
 
             query!(
-                "INSERT INTO database_host_groups (host, group_name) SELECT DISTINCT $1::uuid, UNNEST($2::varchar[])",
+                "INSERT INTO database_host_groups (host, group_id) SELECT DISTINCT $1::uuid, UNNEST($2::integer[])",
                 host_id,
                 &groups
             )

@@ -109,7 +109,7 @@ export type CreateApiKeyPayload = {
 export type CreateDatabaseHost = {
     base_url: string;
     display: string;
-    groups?: Array<string>;
+    groups?: Array<number>;
     ports?: {
         [key: string]: number;
     };
@@ -118,6 +118,7 @@ export type CreateDatabaseHost = {
 
 export type CreateGroupPayload = {
     name: string;
+    parent?: number | null;
 };
 
 export type CreateInstanceDatabase = {
@@ -150,7 +151,7 @@ export type CreateProjectPayload = {
 
 export type CreateServerPayload = {
     backup_limit?: number | null;
-    group?: string | null;
+    group?: number | null;
     internet_access: boolean;
     name: string;
     node: string;
@@ -183,7 +184,7 @@ export type DeployConfigPayload = {
     backup_limit?: number | null;
     cpu: number;
     disk?: number | null;
-    group: string;
+    group: number;
     internet_access: boolean;
     name: string;
     ram: number;
@@ -210,6 +211,11 @@ export type GroupNodeInfo = {
     limits: GroupLimits;
     node: string;
     server_count: number;
+};
+
+export type GroupRef = {
+    id: number;
+    label: string;
 };
 
 export type HashMap = {
@@ -653,6 +659,10 @@ export type ScheduleTask = {
     type: 'prune';
 };
 
+export type ServerGroupChange = {
+    id?: number | null;
+};
+
 export type ServerLimits = {
     backup?: number | null;
 };
@@ -833,7 +843,7 @@ export type UpdateApiKeyPayload = {
 
 export type UpdateDatabaseHost = {
     display?: string | null;
-    groups?: Array<string> | null;
+    groups?: Array<number> | null;
     maintenance?: boolean | null;
     ports?: {
         [key: string]: number;
@@ -874,7 +884,7 @@ export type UpdateProjectPayload = {
 
 export type UpdateServerPayload = {
     custom_dockerfile?: string | null;
-    group?: string | null;
+    group?: null | ServerGroupChange;
     internet_access?: boolean | null;
     limits?: null | ServerLimits;
     name?: string | null;
@@ -1016,7 +1026,7 @@ export type ListServersResponses = {
      * Success
      */
     200: Array<{
-        group?: string | null;
+        group?: null | GroupRef;
         id: NanoId;
         name: string;
         node: string;
@@ -1145,7 +1155,7 @@ export type ServerInfoResponses = {
         custom_dockerfile?: string | null;
         disk?: number | null;
         features: Array<string>;
-        group?: string | null;
+        group?: null | GroupRef;
         id: NanoId;
         internet_access: boolean;
         limits: ServerLimits;
@@ -6601,7 +6611,7 @@ export type ListNodesResponses = {
         default_bind: string;
         default_host: string;
         display: string;
-        groups: Array<string>;
+        groups: Array<GroupRef>;
         id: string;
         maintenance: boolean;
         overallocation: number;
@@ -6681,6 +6691,15 @@ export type CreateNodeErrors = {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
         };
     };
 };
@@ -6918,6 +6937,15 @@ export type ListNodeRegistrationsErrors = {
             msg?: 'Database operation failed';
         };
     };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
 };
 
 export type ListNodeRegistrationsError = ListNodeRegistrationsErrors[keyof ListNodeRegistrationsErrors];
@@ -7017,6 +7045,15 @@ export type UpdateNodeRegistrationErrors = {
             msg?: 'Database operation failed';
         };
     };
+    /**
+     * Cache operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
 };
 
 export type UpdateNodeRegistrationError = UpdateNodeRegistrationErrors[keyof UpdateNodeRegistrationErrors];
@@ -7092,6 +7129,15 @@ export type ExtendNodeRegistrationErrors = {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
         };
     };
 };
@@ -7612,8 +7658,12 @@ export type ListNodeGroupsResponses = {
      * Success
      */
     200: Array<{
+        daemon_name: string;
+        id: number;
+        label: string;
         limits: GroupLimits;
         name: string;
+        parent?: number | null;
         server_count: number;
     }>;
 };
@@ -9949,6 +9999,15 @@ export type DaemonRootKeyErrors = {
             msg?: 'Invalid authentication credentials';
         };
     };
+    /**
+     * Cache operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
 };
 
 export type DaemonRootKeyError = DaemonRootKeyErrors[keyof DaemonRootKeyErrors];
@@ -9983,6 +10042,15 @@ export type DaemonConfigErrors = {
         error?: {
             id?: 'auth/invalid';
             msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
         };
     };
 };
@@ -10049,7 +10117,7 @@ export type DaemonRegisterErrors = {
     /**
      * Invalid authentication credentials
      */
-    '401‎': {
+    '401‏': {
         error?: {
             id?: 'auth/invalid';
             msg?: 'Invalid authentication credentials';
@@ -10071,6 +10139,15 @@ export type DaemonRegisterErrors = {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
         };
     };
     /**
@@ -10118,6 +10195,15 @@ export type DatabaseAgentRootKeyErrors = {
             msg?: 'Invalid authentication credentials';
         };
     };
+    /**
+     * Cache operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
 };
 
 export type DatabaseAgentRootKeyError = DatabaseAgentRootKeyErrors[keyof DatabaseAgentRootKeyErrors];
@@ -10152,6 +10238,15 @@ export type DatabaseAgentConfigErrors = {
         error?: {
             id?: 'auth/invalid';
             msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
         };
     };
 };
@@ -10198,7 +10293,7 @@ export type DatabaseAgentRegisterErrors = {
     /**
      * Invalid authentication credentials
      */
-    '401‍': {
+    '401‎': {
         error?: {
             id?: 'auth/invalid';
             msg?: 'Invalid authentication credentials';
@@ -10220,6 +10315,15 @@ export type DatabaseAgentRegisterErrors = {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
         };
     };
     /**
@@ -12520,7 +12624,7 @@ export type ModpackStatusErrors = {
     /**
      * Server not found
      */
-    '404‍': {
+    '404‎': {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
@@ -12542,6 +12646,15 @@ export type ModpackStatusErrors = {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
         };
     };
 };
@@ -16826,7 +16939,7 @@ export type ListDatabaseHostsResponses = {
      */
     200: Array<{
         display: string;
-        groups: Array<string>;
+        groups: Array<GroupRef>;
         id: string;
         instance_count: number;
         maintenance: boolean;
@@ -16908,6 +17021,15 @@ export type CreateDatabaseHostErrors = {
             msg?: 'Database operation failed';
         };
     };
+    /**
+     * Cache operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
 };
 
 export type CreateDatabaseHostError = CreateDatabaseHostErrors[keyof CreateDatabaseHostErrors];
@@ -16971,6 +17093,15 @@ export type ListDatabaseHostRegistrationsErrors = {
             msg?: 'Database operation failed';
         };
     };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
 };
 
 export type ListDatabaseHostRegistrationsError = ListDatabaseHostRegistrationsErrors[keyof ListDatabaseHostRegistrationsErrors];
@@ -16984,7 +17115,7 @@ export type ListDatabaseHostRegistrationsResponses = {
         code: string;
         display: string;
         expires_in: number;
-        groups: Array<string>;
+        groups: Array<GroupRef>;
         ports: {
             [key: string]: number;
         };
@@ -17067,6 +17198,15 @@ export type UpdateDatabaseHostRegistrationErrors = {
             msg?: 'Database operation failed';
         };
     };
+    /**
+     * Cache operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
 };
 
 export type UpdateDatabaseHostRegistrationError = UpdateDatabaseHostRegistrationErrors[keyof UpdateDatabaseHostRegistrationErrors];
@@ -17142,6 +17282,15 @@ export type ExtendDatabaseHostRegistrationErrors = {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * Cache operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
         };
     };
 };
@@ -17730,6 +17879,15 @@ export type IntegrityReportErrors = {
             msg?: 'Database operation failed';
         };
     };
+    /**
+     * Cache operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'cache/failure';
+            msg?: 'Cache operation failed';
+        };
+    };
 };
 
 export type IntegrityReportError = IntegrityReportErrors[keyof IntegrityReportErrors];
@@ -18012,8 +18170,11 @@ export type ListGroupsResponses = {
     200: Array<{
         database_host_count: number;
         deploy_config_count: number;
+        id: number;
+        label: string;
         name: string;
         nodes: Array<GroupNodeInfo>;
+        parent?: number | null;
     }>;
 };
 
@@ -18034,12 +18195,21 @@ export type CreateGroupData = {
 
 export type CreateGroupErrors = {
     /**
-     * Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by '-'
+     * Group names must be 1-64 characters without control characters
      */
-    '400᠎': {
+    '400​': {
         error?: {
             id?: 'group/invalid_name';
-            msg?: 'Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by \'-\'';
+            msg?: 'Group names must be 1-64 characters without control characters';
+        };
+    };
+    /**
+     * Groups can be nested at most 16 levels deep
+     */
+    '400‍': {
+        error?: {
+            id?: 'group/too_deep';
+            msg?: 'Groups can be nested at most 16 levels deep';
         };
     };
     /**
@@ -18054,84 +18224,7 @@ export type CreateGroupErrors = {
     /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403‌': {
-        error?: {
-            id?: 'auth/permission_denied';
-            msg?: 'You don\'t have the necessary permissions to perform this operation';
-        };
-    };
-    /**
-     * A group with this name already exists
-     */
-    '409​': {
-        error?: {
-            id?: 'group/already_exists';
-            msg?: 'A group with this name already exists';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500‍': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500‎': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-};
-
-export type CreateGroupError = CreateGroupErrors[keyof CreateGroupErrors];
-
-export type CreateGroupResponses = {
-    /**
-     * Success
-     */
-    204: void;
-};
-
-export type CreateGroupResponse = CreateGroupResponses[keyof CreateGroupResponses];
-
-export type DeleteGroupData = {
-    body?: never;
-    headers?: {
-        /**
-         * The api key
-         */
-        Authorization?: string;
-    };
-    path: {
-        /**
-         * The group name
-         */
-        group_name: string;
-    };
-    query?: never;
-    url: '/admin/group/{group_name}';
-};
-
-export type DeleteGroupErrors = {
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * You don't have the necessary permissions to perform this operation
-     */
-    '403‍': {
+    '403‎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -18147,18 +18240,18 @@ export type DeleteGroupErrors = {
         };
     };
     /**
-     * The group is still used by deploy configs
+     * A group with this name already exists at this level
      */
-    '409​': {
+    '409‌': {
         error?: {
-            id?: 'group/in_use';
-            msg?: 'The group is still used by deploy configs';
+            id?: 'group/already_exists';
+            msg?: 'A group with this name already exists at this level';
         };
     };
     /**
      * Authentication storage is unreachable
      */
-    '500‎': {
+    '500‏': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -18167,7 +18260,102 @@ export type DeleteGroupErrors = {
     /**
      * Database operation failed
      */
+    '500‪': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type CreateGroupError = CreateGroupErrors[keyof CreateGroupErrors];
+
+export type CreateGroupResponses = {
+    /**
+     * Success
+     */
+    200: number;
+};
+
+export type CreateGroupResponse = CreateGroupResponses[keyof CreateGroupResponses];
+
+export type DeleteGroupData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The group identifier
+         */
+        group_id: number;
+    };
+    query?: never;
+    url: '/admin/group/{group_id}';
+};
+
+export type DeleteGroupErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403‎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The specified group was not found
+     */
+    '404᠎': {
+        error?: {
+            id?: 'group/not_found';
+            msg?: 'The specified group was not found';
+        };
+    };
+    /**
+     * The group still has subgroups
+     */
+    '409​': {
+        error?: {
+            id?: 'group/has_subgroups';
+            msg?: 'The group still has subgroups';
+        };
+    };
+    /**
+     * The group is still used by deploy configs
+     */
+    '409‌': {
+        error?: {
+            id?: 'group/in_use';
+            msg?: 'The group is still used by deploy configs';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
     '500‏': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‪': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -18176,7 +18364,7 @@ export type DeleteGroupErrors = {
     /**
      * Node operation failed
      */
-    '502‌': {
+    '502‍': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -18205,16 +18393,16 @@ export type RemoveGroupNodeData = {
     };
     path: {
         /**
-         * The group name
+         * The group identifier
          */
-        group_name: string;
+        group_id: number;
         /**
          * The node identifier
          */
         node_id: string;
     };
     query?: never;
-    url: '/admin/group/{group_name}/nodes/{node_id}';
+    url: '/admin/group/{group_id}/nodes/{node_id}';
 };
 
 export type RemoveGroupNodeErrors = {
@@ -18230,7 +18418,7 @@ export type RemoveGroupNodeErrors = {
     /**
      * The specified node was not found
      */
-    '400​': {
+    '400‌': {
         error?: {
             id?: 'node/not_found';
             msg?: 'The specified node was not found';
@@ -18248,16 +18436,25 @@ export type RemoveGroupNodeErrors = {
     /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403‍': {
+    '403‎': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
         };
     };
     /**
+     * The node has to be removed from the group's subgroups first
+     */
+    '409​': {
+        error?: {
+            id?: 'group/subgroups_on_node';
+            msg?: 'The node has to be removed from the group\'s subgroups first';
+        };
+    };
+    /**
      * Authentication storage is unreachable
      */
-    '500‎': {
+    '500‏': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -18266,7 +18463,7 @@ export type RemoveGroupNodeErrors = {
     /**
      * Database operation failed
      */
-    '500‏': {
+    '500‪': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -18275,7 +18472,7 @@ export type RemoveGroupNodeErrors = {
     /**
      * Node operation failed
      */
-    '502‌': {
+    '502‍': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -18304,26 +18501,26 @@ export type AssignGroupNodeData = {
     };
     path: {
         /**
-         * The group name
+         * The group identifier
          */
-        group_name: string;
+        group_id: number;
         /**
          * The node identifier
          */
         node_id: string;
     };
     query?: never;
-    url: '/admin/group/{group_name}/nodes/{node_id}';
+    url: '/admin/group/{group_id}/nodes/{node_id}';
 };
 
 export type AssignGroupNodeErrors = {
     /**
-     * Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by '-'
+     * Group names must be 1-64 characters without control characters
      */
     '400​': {
         error?: {
             id?: 'group/invalid_name';
-            msg?: 'Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by \'-\'';
+            msg?: 'Group names must be 1-64 characters without control characters';
         };
     };
     /**
@@ -18336,9 +18533,18 @@ export type AssignGroupNodeErrors = {
         };
     };
     /**
-     * The specified node was not found
+     * The node has to be assigned to the parent group first
      */
     '400‍': {
+        error?: {
+            id?: 'group/parent_not_on_node';
+            msg?: 'The node has to be assigned to the parent group first';
+        };
+    };
+    /**
+     * The specified node was not found
+     */
+    '400‎': {
         error?: {
             id?: 'node/not_found';
             msg?: 'The specified node was not found';
@@ -18356,7 +18562,7 @@ export type AssignGroupNodeErrors = {
     /**
      * You don't have the necessary permissions to perform this operation
      */
-    '403‏': {
+    '403‪': {
         error?: {
             id?: 'auth/permission_denied';
             msg?: 'You don\'t have the necessary permissions to perform this operation';
@@ -18374,7 +18580,7 @@ export type AssignGroupNodeErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‪': {
+    '500‫': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -18383,7 +18589,7 @@ export type AssignGroupNodeErrors = {
     /**
      * Database operation failed
      */
-    '500‫': {
+    '500‬': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -18392,7 +18598,7 @@ export type AssignGroupNodeErrors = {
     /**
      * Node operation failed
      */
-    '502‎': {
+    '502‏': {
         error?: {
             id?: 'node/failure';
             msg?: 'Node operation failed';
@@ -18473,7 +18679,7 @@ export type ListDeployConfigsResponses = {
         backup_limit?: number | null;
         cpu: number;
         disk?: number | null;
-        group: string;
+        group: GroupRef;
         id: number;
         internet_access: boolean;
         name: string;
