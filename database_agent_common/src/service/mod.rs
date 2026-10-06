@@ -65,11 +65,6 @@ define_query_variable!(wipe "Whether the target is wiped before the import");
 
 error!(BlankError, auth::invalid);
 
-/// Builds the `OpenAPI` document describing every route the agent serves.
-///
-/// Both the agent and the backend can call this: the routes come from the
-/// service definitions in this crate, and the instance only backs the handler
-/// closures, which the document does not describe.
 #[must_use]
 pub fn api_document<T>(instance: &T) -> utoipa::openapi::OpenApi
 where
@@ -94,9 +89,6 @@ where
     api
 }
 
-/// Fingerprint of the agent's `OpenAPI` document, so the backend can tell a
-/// host serving a different API surface from one that merely sits on a
-/// different commit.
 #[must_use]
 pub fn api_hash<T>(instance: &T) -> String
 where

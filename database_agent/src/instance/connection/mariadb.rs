@@ -84,9 +84,6 @@ impl MariadbConnection {
         .await
     }
 
-    /// Rewrites the privileges on `database` to match `grants`. A revoke for a
-    /// user that holds nothing on the database is an error in mariadb, so those
-    /// are logged instead of propagated.
     pub async fn sync_grants(
         &self,
         database: &str,

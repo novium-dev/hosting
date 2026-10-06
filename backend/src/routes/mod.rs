@@ -31,7 +31,6 @@ pub enum RouteKind {
 }
 
 impl RouteKind {
-    /// The protocol label an SRV record is published under.
     pub const fn srv_protocol(self) -> &'static str {
         match self {
             Self::Udp => "udp",
@@ -177,8 +176,6 @@ impl RouteBackends {
         }
     }
 
-    /// Looks up the Cloudflare zone carrying a domain, so TCP routes know where their
-    /// records live without the zone being configured by hand.
     pub async fn zone(&self, domain: &str) -> Result<String, RouteError> {
         self.cloudflare
             .as_ref()

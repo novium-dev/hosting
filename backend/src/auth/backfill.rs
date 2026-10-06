@@ -2,13 +2,6 @@ use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, Server
 use sqlx::{PgPool, query};
 use tracing::info;
 
-/// A permission that did not exist yet when older grants were made, together
-/// with the permission a grant has to hold already to receive it.
-///
-/// Grants are stored as bitmasks in `project_users` and `api_keys`, so a
-/// permission added later is missing from every grant made before it and the
-/// feature it gates reads as denied. Each entry here is applied once and then
-/// recorded, so a permission revoked afterwards stays revoked.
 pub struct PermissionBackfill {
     pub id: &'static str,
     pub granted: i64,

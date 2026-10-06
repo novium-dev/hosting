@@ -96,8 +96,6 @@ fn validate_username(username: &str) -> bool {
         && username.bytes().all(|byte| byte.is_ascii_alphanumeric())
 }
 
-/// The database the connection string points at: the one the user can write
-/// to, falling back to the first it may read.
 fn default_database<'a>(user: &StoredUser, databases: &'a [StoredDatabase]) -> Option<&'a str> {
     let mut grants = user.grants.clone();
     grants.sort_by_key(|grant| !grant.access.is_write());

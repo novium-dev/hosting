@@ -60,8 +60,6 @@ impl Connection {
         }
     }
 
-    /// Rewrites the engine privileges on `database` so that they match
-    /// `grants`, stripping every privilege from `revoked` on the way.
     pub async fn sync_grants(
         &self,
         database: &str,

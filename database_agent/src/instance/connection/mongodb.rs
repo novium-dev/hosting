@@ -96,8 +96,6 @@ impl MongodbConnection {
         self.run_admin(doc! { "dropUser": user.to_string() }).await
     }
 
-    /// Rewrites the roles on `database` to match `grants`, dropping the roles
-    /// of everyone listed either way first.
     pub async fn sync_grants(
         &self,
         database: &str,

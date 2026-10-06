@@ -49,9 +49,6 @@ const fn succeeded(source: IntegritySource, report: IntegrityReport) -> Integrit
     }
 }
 
-/// Folds the checks the backend ran about a source into the report the source
-/// sent back, so a finding about a node shows up on that node rather than in
-/// the backend's own report.
 fn combine(
     source: IntegritySource,
     local: Vec<IntegrityCheckResult>,
@@ -100,7 +97,6 @@ impl Backend {
         hosts
     }
 
-    /// Starts a background integrity run, unless one is already in flight.
     pub(crate) async fn start_integrity_run(
         &self,
         selected: Option<Vec<String>>,
@@ -179,8 +175,6 @@ impl Backend {
         Ok(run)
     }
 
-    /// The backend's own view of a node, so the daemon can report records the
-    /// backend knows about but the node does not.
     async fn node_expectation(&self, node: Uuid) -> IntegrityExpectation {
         let servers = query_scalar!(
             r#"SELECT node_server_id FROM servers WHERE node = $1"#,

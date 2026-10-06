@@ -97,9 +97,6 @@ impl PostgresConnection {
         .await
     }
 
-    /// Drops the role after handing its objects back to the admin user and
-    /// clearing the privileges it holds in `databases`, which postgres would
-    /// otherwise refuse to drop the role over.
     pub async fn delete_user(
         &self,
         user: &UserIdentifier,
@@ -119,9 +116,6 @@ impl PostgresConnection {
         self.execute(&format!("DROP ROLE IF EXISTS {role}")).await
     }
 
-    /// Rewrites the privileges on `database` to match `grants`. Readers are
-    /// granted on the tables a writer creates later through the writer's
-    /// default privileges, which is why every pair is rewritten together.
     pub async fn sync_grants(
         &self,
         database: &str,

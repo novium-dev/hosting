@@ -146,9 +146,6 @@ impl Backend {
         })
     }
 
-    /// Brings the node's copy of a schedule in line with the panel's record and
-    /// answers with the node's id for it, or `None` when the schedule is
-    /// disabled and the node should not hold it at all.
     async fn sync_schedule<E: FromScheduleValidation>(
         &self,
         server: &Server,

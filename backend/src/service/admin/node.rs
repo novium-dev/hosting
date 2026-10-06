@@ -1,7 +1,7 @@
 use tracing::error;
 
 use serde::{Deserialize, Serialize};
-use sqlx::{Connection as _, query, query_scalar};
+use sqlx::{query, query_scalar};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use zelus::service;
@@ -182,28 +182,25 @@ pub(crate) impl NodeAdminService for Backend {
 
         let ssh_port: Option<i32> = ssh_port.map(i32::from);
 
-        let mut conn = self.database.acquire().await?;
-        let backend = self.clone();
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                query!(
-                    "UPDATE nodes SET url = $1, ssh_port = $2 WHERE id = $3",
-                    base_url.as_str(),
-                    ssh_port,
-                    node_id
-                )
-                .execute(&mut **tx)
-                .await
-                .inspect_err(|err| error!("Unable to update node config: {err:?}"))?;
+        let mut tx = self.database.begin().await?;
 
-                replace_storages(tx, &node_id, storages, backups).await?;
-
-                backend.sync_nodes(tx).await?;
-
-                Ok::<_, UpdateNodeError>(())
-            })
-        })
+        query!(
+            "UPDATE nodes SET url = $1, ssh_port = $2 WHERE id = $3",
+            base_url.as_str(),
+            ssh_port,
+            node_id
+        )
+        .execute(&mut *tx)
         .await
+        .inspect_err(|err| error!("Unable to update node config: {err:?}"))?;
+
+        replace_storages(&mut tx, &node_id, storages, backups).await?;
+
+        self.sync_nodes(&mut tx).await?;
+
+        tx.commit().await?;
+
+        Ok(())
     }
 
     /// Lists all nodes.
@@ -355,31 +352,28 @@ pub(crate) impl NodeAdminService for Backend {
             return Err(DeleteNodeError::NodeNotFound);
         }
 
-        let mut conn = self.database.acquire().await?;
-        let backend = self.clone();
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                let has_servers = query_scalar!(
-                    r#"SELECT (COUNT(*) > 0) AS "exists!" FROM servers WHERE node = $1"#,
-                    node_id
-                )
-                .fetch_one(&mut **tx)
-                .await?;
+        let mut tx = self.database.begin().await?;
 
-                if has_servers {
-                    return Err(DeleteNodeError::NodeNotEmpty);
-                }
+        let has_servers = query_scalar!(
+            r#"SELECT (COUNT(*) > 0) AS "exists!" FROM servers WHERE node = $1"#,
+            node_id
+        )
+        .fetch_one(&mut *tx)
+        .await?;
 
-                query!("DELETE FROM nodes WHERE id = $1", node_id)
-                    .execute(&mut **tx)
-                    .await?;
+        if has_servers {
+            return Err(DeleteNodeError::NodeNotEmpty);
+        }
 
-                backend.sync_nodes(tx).await?;
+        query!("DELETE FROM nodes WHERE id = $1", node_id)
+            .execute(&mut *tx)
+            .await?;
 
-                Ok::<_, DeleteNodeError>(())
-            })
-        })
-        .await
+        self.sync_nodes(&mut tx).await?;
+
+        tx.commit().await?;
+
+        Ok(())
     }
 
     /// Updates maintenance mode for a node.
@@ -400,24 +394,21 @@ pub(crate) impl NodeAdminService for Backend {
             return Err(UpdateMaintenanceError::NodeNotFound);
         }
 
-        let mut conn = self.database.acquire().await?;
-        let backend = self.clone();
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                query!(
-                    "UPDATE nodes SET maintenance = $1 WHERE id = $2",
-                    maintenance,
-                    node_id
-                )
-                .execute(&mut **tx)
-                .await?;
+        let mut tx = self.database.begin().await?;
 
-                backend.sync_nodes(tx).await?;
+        query!(
+            "UPDATE nodes SET maintenance = $1 WHERE id = $2",
+            maintenance,
+            node_id
+        )
+        .execute(&mut *tx)
+        .await?;
 
-                Ok::<_, UpdateMaintenanceError>(())
-            })
-        })
-        .await
+        self.sync_nodes(&mut tx).await?;
+
+        tx.commit().await?;
+
+        Ok(())
     }
 
     /// Gets live resource usage for a node.
@@ -528,27 +519,24 @@ pub(crate) impl NodeAdminService for Backend {
             return Err(AddNodePortError::NodeNotFound);
         }
 
-        let mut conn = self.database.acquire().await?;
-        let backend = self.clone();
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                let id = query!(
-                    r#"INSERT INTO node_ports (node, protocol, start, "end") VALUES ($1, $2, $3, $4) RETURNING id"#,
-                    node_id,
-                    protocol as NetworkProtocol,
-                    i32::from(start),
-                    i32::from(end),
-                )
-                .fetch_one(&mut **tx)
-                .await?
-                .id;
+        let mut tx = self.database.begin().await?;
 
-                backend.sync_nodes(tx).await?;
+        let id = query!(
+            r#"INSERT INTO node_ports (node, protocol, start, "end") VALUES ($1, $2, $3, $4) RETURNING id"#,
+            node_id,
+            protocol as NetworkProtocol,
+            i32::from(start),
+            i32::from(end),
+        )
+        .fetch_one(&mut *tx)
+        .await?
+        .id;
 
-                Ok::<_, AddNodePortError>(id)
-            })
-        })
-        .await
+        self.sync_nodes(&mut tx).await?;
+
+        tx.commit().await?;
+
+        Ok(id)
     }
 
     /// Removes a port range from the node.
@@ -569,54 +557,51 @@ pub(crate) impl NodeAdminService for Backend {
             return Err(DeleteNodePortError::NodeNotFound);
         }
 
-        let mut conn = self.database.acquire().await?;
-        let backend = self.clone();
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                let Some(port) = query!(
-                    r#"SELECT protocol AS "protocol: NetworkProtocol", start, "end" FROM node_ports WHERE id = $1 AND node = $2 FOR UPDATE"#,
-                    port_id,
-                    node_id,
-                )
-                .fetch_optional(&mut **tx)
-                .await?
-                else {
-                    return Ok::<_, DeleteNodePortError>(());
-                };
+        let mut tx = self.database.begin().await?;
 
-                let in_use = query_scalar!(
-                    r#"SELECT (COUNT(*) > 0) AS "exists!"
-                       FROM server_ports
-                       JOIN servers ON server_ports.server = servers.id
-                       WHERE servers.node = $1
-                       AND server_ports.protocol = $2
-                       AND server_ports.external_port && int4range($3, $4, '[]')"#,
-                    node_id,
-                    port.protocol as NetworkProtocol,
-                    port.start,
-                    port.end,
-                )
-                .fetch_one(&mut **tx)
-                .await?;
+        let Some(port) = query!(
+            r#"SELECT protocol AS "protocol: NetworkProtocol", start, "end" FROM node_ports WHERE id = $1 AND node = $2 FOR UPDATE"#,
+            port_id,
+            node_id,
+        )
+        .fetch_optional(&mut *tx)
+        .await?
+        else {
+            return Ok(());
+        };
 
-                if in_use {
-                    return Err(DeleteNodePortError::PortInUse);
-                }
+        let in_use = query_scalar!(
+            r#"SELECT (COUNT(*) > 0) AS "exists!"
+               FROM server_ports
+               JOIN servers ON server_ports.server = servers.id
+               WHERE servers.node = $1
+               AND server_ports.protocol = $2
+               AND server_ports.external_port && int4range($3, $4, '[]')"#,
+            node_id,
+            port.protocol as NetworkProtocol,
+            port.start,
+            port.end,
+        )
+        .fetch_one(&mut *tx)
+        .await?;
 
-                query!(
-                    "DELETE FROM node_ports WHERE id = $1 AND node = $2",
-                    port_id,
-                    node_id,
-                )
-                .execute(&mut **tx)
-                .await?;
+        if in_use {
+            return Err(DeleteNodePortError::PortInUse);
+        }
 
-                backend.sync_nodes(tx).await?;
+        query!(
+            "DELETE FROM node_ports WHERE id = $1 AND node = $2",
+            port_id,
+            node_id,
+        )
+        .execute(&mut *tx)
+        .await?;
 
-                Ok::<_, DeleteNodePortError>(())
-            })
-        })
-        .await
+        self.sync_nodes(&mut tx).await?;
+
+        tx.commit().await?;
+
+        Ok(())
     }
     /// Lists the groups the node is assigned to in tree order, with the limits each group has
     /// on this node, the number of the node's servers in it and the name the daemon reports
@@ -696,23 +681,20 @@ pub(crate) impl NodeAdminService for Backend {
             return Err(UpdateNodeOverallocationError::NodeNotFound);
         }
 
-        let mut conn = self.database.acquire().await?;
-        let backend = self.clone();
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                query!(
-                    "UPDATE nodes SET overallocation = $1 WHERE id = $2",
-                    i32::from(overallocation),
-                    node_id
-                )
-                .execute(&mut **tx)
-                .await?;
+        let mut tx = self.database.begin().await?;
 
-                backend.sync_nodes(tx).await?;
+        query!(
+            "UPDATE nodes SET overallocation = $1 WHERE id = $2",
+            i32::from(overallocation),
+            node_id
+        )
+        .execute(&mut *tx)
+        .await?;
 
-                Ok::<_, UpdateNodeOverallocationError>(())
-            })
-        })
-        .await
+        self.sync_nodes(&mut tx).await?;
+
+        tx.commit().await?;
+
+        Ok(())
     }
 }

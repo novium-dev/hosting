@@ -147,8 +147,6 @@ impl ScheduleTask {
         }
     }
 
-    /// Whether the step keeps more backups than `limit` allows, which a step
-    /// without a retention policy always does: it never removes anything.
     pub const fn exceeds_backup_limit(&self, limit: u32) -> bool {
         let Self::Backup { retention, .. } = self else {
             return false;
@@ -182,8 +180,6 @@ impl ScheduleTask {
     }
 }
 
-/// Normalises a cron expression to the six fields a node expects, so a
-/// five-field expression is read as running at second zero.
 pub fn normalize_cron(expression: &str) -> String {
     let expression = expression.trim();
 

@@ -18,7 +18,7 @@ use database_agent_common::types::{
     ApiInstance, DatabaseType, SetupAgentConfig, StoredInstanceUpdate,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{Connection as _, query, query_scalar};
+use sqlx::{query, query_scalar};
 use std::collections::HashMap;
 use url::Url;
 use uuid::Uuid;
@@ -126,12 +126,9 @@ fn agent_failure<E: FromDatabaseAgentError>(error: &impl core::fmt::Debug) -> E 
 
 impl Backend {
     async fn reload_database_hosts(&self) -> Result<(), sqlx::Error> {
-        let backend = self.clone();
-        self.database
-            .acquire()
-            .await?
-            .transaction(|tx| Box::pin(async move { backend.sync_database_hosts(tx).await }))
-            .await
+        let mut tx = self.database.begin().await?;
+        self.sync_database_hosts(&mut tx).await?;
+        tx.commit().await
     }
 }
 

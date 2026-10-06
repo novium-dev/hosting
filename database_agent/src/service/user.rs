@@ -20,8 +20,6 @@ fn validate_username(username: &str) -> bool {
 }
 
 impl Agent {
-    /// Collapses repeated grants on the same database, keeping the last one,
-    /// and rejects databases the instance does not hold.
     async fn resolve_grants<E>(
         &self,
         instance_id: Uuid,

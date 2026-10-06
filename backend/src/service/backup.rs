@@ -19,8 +19,6 @@ use zelus::{define_query_variable, service};
 define_query_variable!(name "The name to give the backup");
 define_query_variable!(protected "Whether the backup is exempt from retention policies");
 
-/// Backup names are optional, so a name of only whitespace is the same as
-/// having sent none at all.
 fn backup_name(name: Option<String>) -> Option<String> {
     name.map(|name| name.trim().to_owned())
         .filter(|name| !name.is_empty())

@@ -11,9 +11,6 @@ use tracing::error;
 use url::Url;
 use uuid::Uuid;
 
-/// How many database instances a project may own before it needs
-/// [`ManagementPermissions::LIMITS_BYPASS`]. Databases and users inside an
-/// instance are not capped.
 pub const MAX_PROJECT_INSTANCES: i64 = 4;
 
 #[derive(Clone)]
@@ -36,8 +33,6 @@ impl BackendDatabaseHost {
     }
 }
 
-/// A project's instance together with the host it runs on, which is what every
-/// call to the agent needs.
 pub struct ProjectInstance {
     pub id: Uuid,
     pub kind: DatabaseType,
@@ -118,8 +113,6 @@ impl Backend {
         self.database_hosts.read().await.get(&id).cloned()
     }
 
-    /// Loads a project's instances, dropping any whose host is no longer
-    /// registered. Pass `instance` to narrow it to one.
     pub async fn project_instances<E: From<sqlx::Error>>(
         &self,
         project: ProjectId,
@@ -152,9 +145,6 @@ impl Backend {
             .collect())
     }
 
-    /// Picks where a new instance goes: a host that is not in maintenance,
-    /// preferring one that shares a group with the nodes the project's servers
-    /// run on, then the one carrying the fewest instances.
     pub async fn pick_database_host<E: From<sqlx::Error>>(
         &self,
         project: ProjectId,
