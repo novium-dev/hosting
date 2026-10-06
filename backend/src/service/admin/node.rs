@@ -9,7 +9,7 @@ use zelus::service;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
-use crate::db::group::GroupLimits;
+use crate::db::group::{GroupLimits, GroupRef, group_labels, group_refs};
 use crate::db::node::{NodePortAllocation, replace_storages, used_ports};
 use crate::db::server::ports::NetworkProtocol;
 use crate::registration::{NodeRegistration, Pending};
@@ -46,12 +46,16 @@ pub(crate) struct NodeInfo {
     pub(crate) ports: Vec<NodePortAllocation>,
     pub(crate) server_count: i64,
     pub(crate) overallocation: u16,
-    pub(crate) groups: Vec<String>,
+    pub(crate) groups: Vec<GroupRef>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct NodeGroupInfo {
+    pub(crate) id: i32,
+    pub(crate) parent: Option<i32>,
     pub(crate) name: String,
+    pub(crate) label: String,
+    pub(crate) daemon_name: String,
     pub(crate) limits: GroupLimits,
     pub(crate) server_count: i64,
 }
@@ -219,12 +223,13 @@ pub(crate) impl NodeAdminService for Backend {
                 .map(|row| (row.node, row.count))
                 .collect();
 
-        let mut groups: HashMap<Uuid, Vec<String>> = HashMap::new();
-        for row in query!("SELECT node, group_name FROM node_groups ORDER BY group_name")
+        let labels = group_labels(&*self.database).await?;
+        let mut group_ids: HashMap<Uuid, Vec<i32>> = HashMap::new();
+        for row in query!("SELECT node, group_id FROM node_groups")
             .fetch_all(&*self.database)
             .await?
         {
-            groups.entry(row.node).or_default().push(row.group_name);
+            group_ids.entry(row.node).or_default().push(row.group_id);
         }
 
         Ok(self
@@ -245,7 +250,7 @@ pub(crate) impl NodeAdminService for Backend {
                 ports: node.ports.clone(),
                 server_count: server_counts.get(&node.id).copied().unwrap_or_default(),
                 overallocation: node.overallocation,
-                groups: groups.remove(&node.id).unwrap_or_default(),
+                groups: group_refs(&labels, group_ids.remove(&node.id).unwrap_or_default()),
             })
             .collect())
     }
@@ -613,8 +618,9 @@ pub(crate) impl NodeAdminService for Backend {
         })
         .await
     }
-    /// Lists the groups the node is assigned to, with the limits each group has on this node
-    /// and the number of the node's servers in it.
+    /// Lists the groups the node is assigned to in tree order, with the limits each group has
+    /// on this node, the number of the node's servers in it and the name the daemon reports
+    /// the group's usage under.
     ///
     /// # Permissions
     /// Requires [`ManagementPermissions::NODES_VIEW`].
@@ -632,20 +638,27 @@ pub(crate) impl NodeAdminService for Backend {
         }
 
         Ok(query!(
-            r#"SELECT node_groups.group_name, node_groups.cpu, node_groups.ram, node_groups.swap,
+            r#"SELECT node_groups.group_id, group_paths.parent, group_paths.name AS "name!", group_paths.label AS "label!",
+                      group_paths.daemon_name AS "daemon_name!", node_groups.cpu, node_groups.ram, node_groups.swap,
                       COUNT(servers.id) AS "server_count!"
                FROM node_groups
-               LEFT JOIN servers ON servers.node = node_groups.node AND servers.node_group = node_groups.group_name
+               JOIN group_paths ON group_paths.id = node_groups.group_id
+               LEFT JOIN servers ON servers.node = node_groups.node AND servers.group_id = node_groups.group_id
                WHERE node_groups.node = $1
-               GROUP BY node_groups.node, node_groups.group_name
-               ORDER BY node_groups.group_name"#,
+               GROUP BY node_groups.node, node_groups.group_id, group_paths.parent, group_paths.name, group_paths.label,
+                        group_paths.daemon_name, group_paths.path
+               ORDER BY group_paths.path"#,
             node_id
         )
         .fetch_all(&*self.database)
         .await?
         .into_iter()
         .map(|row| NodeGroupInfo {
-            name: row.group_name,
+            id: row.group_id,
+            parent: row.parent,
+            name: row.name,
+            label: row.label,
+            daemon_name: row.daemon_name,
             limits: GroupLimits {
                 cpu: row.cpu,
                 ram: row.ram.map(i32::cast_unsigned),

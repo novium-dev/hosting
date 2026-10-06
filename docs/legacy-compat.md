@@ -25,19 +25,19 @@ Remove once every deployment has started at least once on a version with
 
 ## Optional server group
 
-Servers created before groups existed have no group, so `servers.node_group` is
+Servers created before groups existed have no group, so `servers.group_id` is
 nullable and the API treats the group as optional.
 
 Where:
 
-- `backend/migrations/20261004000000_groups.sql` - `node_group` is nullable, and
-  the foreign key to `node_groups` uses `ON DELETE SET NULL (node_group)`, so
+- `backend/migrations/20261004000000_groups.sql` - `group_id` is nullable, and
+  the foreign key to `node_groups` uses `ON DELETE SET NULL (group_id)`, so
   removing a node from a group also clears the group on its servers
-- `backend/src/db/server/mod.rs`, `backend/src/db/server/provision.rs` - `group: Option<String>`;
+- `backend/src/db/server/mod.rs`, `backend/src/db/server/provision.rs` - `group: Option<i32>`;
   provisioning sends `""` to the daemon when there is no group
-- `backend/src/service/server.rs` - `ServerInfo.group` is optional, and an empty
-  string in `update_server` clears the group
-- `backend/src/service/admin/server.rs` - `group: Option<String>` on server creation
+- `backend/src/service/server.rs` - `ServerInfo.group` is optional, and
+  `update_server` clears the group when `group.id` is `null`
+- `backend/src/service/admin/server.rs` - `group: Option<i32>` on server creation
 - `frontend/app/(app)/admin/servers/create/server-create-form.tsx` and
   `frontend/app/(app)/admin/servers/[server]/server-admin-settings.tsx` - the
   "No group" option (`NO_GROUP`, `admin-infra:servers.shared.noGroup`)
@@ -45,9 +45,9 @@ Where:
 Making it required takes:
 
 1. Assigning a group to every server that has none.
-2. A migration making `servers.node_group` `NOT NULL` and replacing the
+2. A migration making `servers.group_id` `NOT NULL` and replacing the
    `ON DELETE SET NULL` behavior, for example by refusing to remove a node from
    a group while servers still use it.
 3. Making `group` non-optional in the backend types and handlers, and dropping
-   the empty-string clearing in `update_server`.
+   the `null` clearing in `update_server`.
 4. Removing the "No group" option and its translation keys (`en` and `de`) from the frontend.

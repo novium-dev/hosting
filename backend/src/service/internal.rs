@@ -261,7 +261,7 @@ pub(crate) impl InternalService for Backend {
                         .inspect_err(|err| error!("Failed to insert database host: {err:?}"))?;
 
                         query!(
-                            "INSERT INTO database_host_groups (host, group_name) SELECT $1, name FROM groups WHERE name = ANY($2)",
+                            "INSERT INTO database_host_groups (host, group_id) SELECT $1, id FROM groups WHERE id = ANY($2)",
                             &uuid,
                             &registration.groups
                         )

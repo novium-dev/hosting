@@ -142,10 +142,14 @@ define_error!(node {
 define_error!(group {
     not_found("The specified group was not found" NOT_FOUND),
     not_on_node("The group is not assigned to that node" BAD_REQUEST),
-    invalid_name("Group names must be 1-200 characters of letters, numbers or underscores, with up to 16 levels separated by '-'" BAD_REQUEST),
-    already_exists("A group with this name already exists" CONFLICT),
+    invalid_name("Group names must be 1-64 characters without control characters" BAD_REQUEST),
+    already_exists("A group with this name already exists at this level" CONFLICT),
     limits_invalid("Group limits must be positive numbers" BAD_REQUEST),
     in_use("The group is still used by deploy configs" CONFLICT),
+    too_deep("Groups can be nested at most 16 levels deep" BAD_REQUEST),
+    has_subgroups("The group still has subgroups" CONFLICT),
+    parent_not_on_node("The node has to be assigned to the parent group first" BAD_REQUEST),
+    subgroups_on_node("The node has to be removed from the group's subgroups first" CONFLICT),
 });
 
 define_error!(deploy {

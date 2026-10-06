@@ -1,6 +1,6 @@
 
 import { NotFoundView } from "@/components/not-found-view";
-import { useDatabaseHosts, useGroupNames } from "@/hooks/use-shared-queries";
+import { useDatabaseHosts, useGroups } from "@/hooks/use-shared-queries";
 import { authClient } from "@/lib/auth-client";
 import {
   hasManagementPermission,
@@ -25,7 +25,7 @@ export default function AdminDatabasesPage() {
 
   const { data: hosts, mutate } = useDatabaseHosts(canView);
 
-  const { data: groups } = useGroupNames(canView);
+  const { data: groups } = useGroups(canView);
 
   if (isLoading) return null;
   if (!canView) return <NotFoundView />;
@@ -34,7 +34,7 @@ export default function AdminDatabasesPage() {
     <div className="flex flex-col gap-4 p-4 md:p-6">
       <DatabaseHostsTable
         hosts={hosts ?? []}
-        groups={groups ?? []}
+        groups={(groups ?? []).map(({ id, label }) => ({ id, label }))}
         canManage={canManage}
         onChanged={() => void mutate()}
       />

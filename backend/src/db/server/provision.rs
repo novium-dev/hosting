@@ -1,4 +1,5 @@
 use crate::Backend;
+use crate::db::group::group_path;
 use crate::db::node::{BackendNode, NodePortAllocation};
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
@@ -34,7 +35,7 @@ pub struct ServerProvision {
     pub variables: HashMap<String, String>,
     pub internet_access: bool,
     pub backup_limit: Option<u32>,
-    pub group: Option<String>,
+    pub group: Option<i32>,
 }
 
 impl Backend {
@@ -155,6 +156,16 @@ impl Backend {
             }
         }
 
+        let daemon_group = match group {
+            Some(group) => {
+                group_path(&*self.database, group)
+                    .await?
+                    .ok_or(sqlx::Error::RowNotFound)?
+                    .daemon_name
+            }
+            None => String::new(),
+        };
+
         let mut conn = self.database.acquire().await?;
         tokio::task::spawn(async move {
             let new_server = node
@@ -167,7 +178,7 @@ impl Backend {
                         networks: Vec::new(),
                         internet_access,
                     },
-                    group.clone().unwrap_or_default(),
+                    daemon_group,
                 )
                 .await
                 .map_err(|daemon_err| match daemon_err {
@@ -188,7 +199,7 @@ impl Backend {
             let id = ServerId::generate();
 
             conn.transaction(|tx| Box::pin(async move {
-                query!("INSERT INTO servers (id,node,node_server_id,project,storage,cpu,ram,swap,disk,template,template_extra,name,internet_access,backup_limit,node_group) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+                query!("INSERT INTO servers (id,node,node_server_id,project,storage,cpu,ram,swap,disk,template,template_extra,name,internet_access,backup_limit,group_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
                         &id, &node.id, new_server.cast_signed(), project.as_str(), &storage, resource.cpu, resource.ram.map(u32::cast_signed), resource.swap.map(u32::cast_signed), resource.disk.map(u64::cast_signed), template.id(), &extra, &name, internet_access, backup_limit.map(u32::cast_signed), group)
                     .execute(&mut **tx)
                     .await

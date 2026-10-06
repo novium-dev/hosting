@@ -76,11 +76,12 @@ export function useNodeGroups(nodeId: string, enabled = true) {
   });
 }
 
-export function useGroupNames(enabled: boolean) {
-  return useSWR(enabled ? "admin/group-names" : null, async () => {
+export function useGroups(enabled: boolean) {
+  return useSWR(enabled ? "admin/groups" : null, async () => {
     const response = await listGroups();
-    return response.error || !response.data
-      ? []
-      : response.data.map((group) => group.name);
+    if (response.error || !response.data) {
+      throw new Error("Failed to load groups");
+    }
+    return response.data;
   });
 }

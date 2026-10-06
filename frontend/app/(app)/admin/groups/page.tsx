@@ -1,7 +1,8 @@
 import useSWR from "swr";
 
 import { NotFoundView } from "@/components/not-found-view";
-import { listGroups, listNodes } from "@/lib/api";
+import { useGroups } from "@/hooks/use-shared-queries";
+import { listNodes } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import {
   hasManagementPermission,
@@ -24,18 +25,16 @@ export default function AdminGroupsPage() {
       )
     : false;
 
-  const { data, mutate } = useSWR(canView ? "admin/groups" : null, async () => {
-    const [groupsResponse, nodesResponse] = await Promise.all([
-      listGroups(),
-      listNodes(),
-    ]);
-    return {
-      groups: groupsResponse.error ? [] : (groupsResponse.data ?? []),
-      nodeNames: Object.fromEntries(
-        (nodesResponse.data ?? []).map((node) => [node.id, node.display]),
-      ),
-    };
-  });
+  const { data: groups, mutate } = useGroups(canView);
+  const { data: nodeNames } = useSWR(
+    canView ? "admin/groups/node-names" : null,
+    async () => {
+      const response = await listNodes();
+      return Object.fromEntries(
+        (response.data ?? []).map((node) => [node.id, node.display]),
+      );
+    },
+  );
 
   if (isLoading) return null;
   if (!canView) return <NotFoundView />;
@@ -43,8 +42,8 @@ export default function AdminGroupsPage() {
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
       <GroupsTable
-        groups={data?.groups ?? []}
-        nodeNames={data?.nodeNames ?? {}}
+        groups={groups ?? []}
+        nodeNames={nodeNames ?? {}}
         canManage={canManage}
         onChanged={() => void mutate()}
       />

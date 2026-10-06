@@ -36,6 +36,7 @@ import {
   type ListDeployConfigsResponses,
   type DeployConfigPayload,
 } from "@/lib/api";
+import type { GroupOption } from "@/lib/groups";
 
 type DeployConfig = ListDeployConfigsResponses[200][number];
 
@@ -43,7 +44,7 @@ type DeployConfigDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   config: DeployConfig | null;
-  groups: string[];
+  groups: GroupOption[];
   templates: string[];
   onSaved: () => void;
 };
@@ -63,7 +64,7 @@ type FormState = {
 function initialForm(config: DeployConfig | null): FormState {
   return {
     name: config?.name ?? "",
-    group: config?.group ?? "",
+    group: config ? String(config.group.id) : "",
     template: config?.template ?? "",
     cpu: config ? String(config.cpu) : "1",
     ram: config ? String(config.ram) : "1024",
@@ -195,7 +196,7 @@ export function DeployConfigDialog({
 
     const body: DeployConfigPayload = {
       name,
-      group: form.group,
+      group: Number(form.group),
       template: form.template,
       variables: variableValuesToStrings(variables),
       cpu,
@@ -298,8 +299,8 @@ export function DeployConfigDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {groups.map((group) => (
-                    <SelectItem key={group} value={group}>
-                      {group}
+                    <SelectItem key={group.id} value={String(group.id)}>
+                      {group.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import type { GroupOption } from "@/lib/groups";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -54,12 +55,12 @@ export function DatabaseHostDialog({
   host?: DatabaseHostRow;
   /** Editing a setup code that no agent has claimed yet when set. */
   registration?: DatabaseHostRegistrationRow;
-  groups: string[];
+  groups: GroupOption[];
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const [display, setDisplay] = useState("");
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [selectedGroups, setSelectedGroups] = useState<number[]>([]);
   const [url, setUrl] = useState("");
   const [publicHost, setPublicHost] = useState("");
   const [maintenance, setMaintenance] = useState(false);
@@ -72,7 +73,9 @@ export function DatabaseHostDialog({
     if (!open) return;
 
     setDisplay(host?.display ?? registration?.display ?? "");
-    setSelectedGroups(host?.groups ?? registration?.groups ?? []);
+    setSelectedGroups(
+      (host?.groups ?? registration?.groups ?? []).map((group) => group.id),
+    );
     setUrl(host?.url ?? registration?.base_url ?? "");
     setPublicHost(host?.public_host ?? registration?.public_host ?? "");
     setMaintenance(host?.maintenance ?? false);
@@ -288,20 +291,20 @@ export function DatabaseHostDialog({
                   <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-md border p-3">
                     {groups.map((group) => (
                       <label
-                        key={group}
-                        className="flex items-center gap-2 font-mono text-sm"
+                        key={group.id}
+                        className="flex items-center gap-2 text-sm"
                       >
                         <Checkbox
-                          checked={selectedGroups.includes(group)}
+                          checked={selectedGroups.includes(group.id)}
                           onCheckedChange={(checked) =>
                             setSelectedGroups((current) =>
                               checked === true
-                                ? [...current, group]
-                                : current.filter((entry) => entry !== group),
+                                ? [...current, group.id]
+                                : current.filter((entry) => entry !== group.id),
                             )
                           }
                         />
-                        {group}
+                        {group.label}
                       </label>
                     ))}
                   </div>

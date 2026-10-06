@@ -46,8 +46,8 @@ export const serverInfo = <ThrowOnError extends boolean = false>(options: Option
  * Requires `ProjectPermissions::VIEW`.<br/>
  * Requires `ProjectPermissions::ADMIN_MANAGEMENT` to rename a server.<br/>
  * Requires `ManagementPermissions::SERVER_MANAGE` to update resources, internet access,<br/>
- * backup limits, custom dockerfile or the resource group. An empty group removes the<br/>
- * server from its group; the change applies on the server's next start.<br/>
+ * backup limits, custom dockerfile or the resource group. `group` with an `id` of `null`<br/>
+ * removes the server from its group; the change applies on the server's next start.<br/>
  * Requires `ManagementPermissions::SERVER_SUSPEND` to (un)suspend a server or to change<br/>
  * the reason a server is suspended for.
  */
@@ -773,10 +773,11 @@ export const addNodePort = <ThrowOnError extends boolean = false>(options: Optio
 export const deleteNodePort = <ThrowOnError extends boolean = false>(options: Options<DeleteNodePortData, ThrowOnError>) => (options.client ?? client).delete<DeleteNodePortResponses, DeleteNodePortErrors, ThrowOnError>({ url: '/admin/node/{node_id}/ports/{port_id}', ...options });
 
 /**
- *  Lists the groups the node is assigned to, with the limits each group has on this node
+ *  Lists the groups the node is assigned to in tree order, with the limits each group has
  *
- *  Lists the groups the node is assigned to, with the limits each group has on this node<br/>
- * and the number of the node's servers in it.<br/>
+ *  Lists the groups the node is assigned to in tree order, with the limits each group has<br/>
+ * on this node, the number of the node's servers in it and the name the daemon reports<br/>
+ * the group's usage under.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ManagementPermissions::NODES_VIEW`.
@@ -2219,10 +2220,11 @@ export const integritySchema = <ThrowOnError extends boolean = false>(options?: 
 export const instancePolicy = <ThrowOnError extends boolean = false>(options?: Options<InstancePolicyData, ThrowOnError>) => (options?.client ?? client).get<InstancePolicyResponses, InstancePolicyErrors, ThrowOnError>({ url: '/instance/policy', ...options });
 
 /**
- *  Lists all groups with the nodes assigned to them, the limits each group has on those
+ *  Lists all groups in tree order, parents before their subgroups, with the nodes assigned
  *
- *  Lists all groups with the nodes assigned to them, the limits each group has on those<br/>
- * nodes and the number of deploy configs targeting the group.<br/>
+ *  Lists all groups in tree order, parents before their subgroups, with the nodes assigned<br/>
+ * to them, the limits each group has on those nodes and how many deploy configs and<br/>
+ * database hosts use the group.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ManagementPermissions::NODES_VIEW`.
@@ -2230,13 +2232,14 @@ export const instancePolicy = <ThrowOnError extends boolean = false>(options?: O
 export const listGroups = <ThrowOnError extends boolean = false>(options?: Options<ListGroupsData, ThrowOnError>) => (options?.client ?? client).get<ListGroupsResponses, ListGroupsErrors, ThrowOnError>({ url: '/admin/group', ...options });
 
 /**
- *  Creates a group. Groups are global and only take effect on the nodes assigned to them.
+ *  Creates a group and returns its id. Groups are global and only take effect on the nodes
  *
- *  Creates a group. Groups are global and only take effect on the nodes assigned to them.<br/>
+ *  Creates a group and returns its id. Groups are global and only take effect on the nodes<br/>
+ * assigned to them.<br/>
  * <br/>
- * Group names consist of letters, numbers and underscores. A `-` nests a group inside<br/>
- * another one, e.g. `customers-acme` lives inside `customers`, and on every node the<br/>
- * limits of a parent group also apply to its subgroups.<br/>
+ * Set `parent` to create a subgroup. On every node the limits of a parent group also<br/>
+ * apply to its subgroups, and groups can be nested at most 16 levels deep. Names are<br/>
+ * free text and only have to be unique among the groups sharing a parent.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ManagementPermissions::NODES_MANAGE`.
@@ -2254,36 +2257,37 @@ export const createGroup = <ThrowOnError extends boolean = false>(options: Optio
  *  Deletes a group and removes it from every node. Servers in the group leave it and pick
  *
  *  Deletes a group and removes it from every node. Servers in the group leave it and pick<br/>
- * up the change on their next start. Groups still targeted by deploy configs can't be<br/>
- * deleted.<br/>
+ * up the change on their next start. Groups with subgroups or used by deploy configs<br/>
+ * can't be deleted.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ManagementPermissions::NODES_MANAGE`.
  */
-export const deleteGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteGroupData, ThrowOnError>) => (options.client ?? client).delete<DeleteGroupResponses, DeleteGroupErrors, ThrowOnError>({ url: '/admin/group/{group_name}', ...options });
+export const deleteGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteGroupData, ThrowOnError>) => (options.client ?? client).delete<DeleteGroupResponses, DeleteGroupErrors, ThrowOnError>({ url: '/admin/group/{group_id}', ...options });
 
 /**
  *  Removes a node from a group. The node's servers in the group leave it and pick up the
  *
  *  Removes a node from a group. The node's servers in the group leave it and pick up the<br/>
- * change on their next start.<br/>
+ * change on their next start. The node has to be removed from the group's subgroups first.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ManagementPermissions::NODES_MANAGE`.
  */
-export const removeGroupNode = <ThrowOnError extends boolean = false>(options: Options<RemoveGroupNodeData, ThrowOnError>) => (options.client ?? client).delete<RemoveGroupNodeResponses, RemoveGroupNodeErrors, ThrowOnError>({ url: '/admin/group/{group_name}/nodes/{node_id}', ...options });
+export const removeGroupNode = <ThrowOnError extends boolean = false>(options: Options<RemoveGroupNodeData, ThrowOnError>) => (options.client ?? client).delete<RemoveGroupNodeResponses, RemoveGroupNodeErrors, ThrowOnError>({ url: '/admin/group/{group_id}/nodes/{node_id}', ...options });
 
 /**
  *  Assigns a node to a group, or updates the limits the group has on that node. Omitted
  *
  *  Assigns a node to a group, or updates the limits the group has on that node. Omitted<br/>
- * limits are unlimited.<br/>
+ * limits are unlimited. A subgroup can only be assigned to nodes its parent group is<br/>
+ * assigned to.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ManagementPermissions::NODES_MANAGE`.
  */
 export const assignGroupNode = <ThrowOnError extends boolean = false>(options: Options<AssignGroupNodeData, ThrowOnError>) => (options.client ?? client).put<AssignGroupNodeResponses, AssignGroupNodeErrors, ThrowOnError>({
-    url: '/admin/group/{group_name}/nodes/{node_id}',
+    url: '/admin/group/{group_id}/nodes/{node_id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',

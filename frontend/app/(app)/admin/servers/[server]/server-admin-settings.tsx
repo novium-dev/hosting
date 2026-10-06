@@ -24,6 +24,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useNodeGroups } from "@/hooks/use-shared-queries";
+import type { GroupOption } from "@/lib/groups";
 import { updateServer } from "@/lib/api";
 
 const NO_GROUP = "__none__";
@@ -43,7 +44,7 @@ type ServerAdminSettingsProps = {
     swap: number | null;
     disk: number | null;
     customDockerfile: string | null;
-    group: string | null;
+    group: GroupOption | null;
   };
 };
 
@@ -87,7 +88,7 @@ function buildInitialForm(
     swap: toInputValue(initial.swap),
     disk: toInputValue(initial.disk),
     customDockerfile: initial.customDockerfile ?? "",
-    group: initial.group ?? NO_GROUP,
+    group: initial.group ? String(initial.group.id) : NO_GROUP,
   };
 }
 
@@ -106,11 +107,13 @@ export function ServerAdminSettings({
   const [isSaving, setIsSaving] = useState(false);
 
   const { data: nodeGroupRows } = useNodeGroups(nodeId, canManage);
-  const nodeGroups = nodeGroupRows?.map((entry) => entry.name);
+  const nodeGroups: GroupOption[] = (nodeGroupRows ?? []).map(
+    ({ id, label }) => ({ id, label }),
+  );
   const groupOptions =
-    form.group === NO_GROUP || (nodeGroups ?? []).includes(form.group)
-      ? (nodeGroups ?? [])
-      : [form.group, ...(nodeGroups ?? [])];
+    initial.group && !nodeGroups.some((entry) => entry.id === initial.group?.id)
+      ? [initial.group, ...nodeGroups]
+      : nodeGroups;
 
   const onReset = useCallback(() => {
     setForm(initialForm);
@@ -188,7 +191,7 @@ export function ServerAdminSettings({
               disk,
             },
             ...(isFieldDirty("group") && {
-              group: form.group === NO_GROUP ? "" : form.group,
+              group: { id: form.group === NO_GROUP ? null : Number(form.group) },
             }),
           }),
           ...(canSuspend &&
@@ -441,8 +444,11 @@ export function ServerAdminSettings({
                   {t("admin-infra:servers.shared.noGroup")}
                 </SelectItem>
                 {groupOptions.map((groupOption) => (
-                  <SelectItem key={groupOption} value={groupOption}>
-                    {groupOption}
+                  <SelectItem
+                    key={groupOption.id}
+                    value={String(groupOption.id)}
+                  >
+                    {groupOption.label}
                   </SelectItem>
                 ))}
               </SelectContent>

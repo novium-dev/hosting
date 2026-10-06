@@ -19,7 +19,7 @@ const createServerSchema = z.object({
   disk: z.number().nullable(),
   swap: z.number().nullable(),
   backupLimit: z.number().nullable(),
-  group: z.string().nullable(),
+  group: z.number().int().nullable(),
   ports: z.record(z.string(), z.number()),
   variables: z.record(z.string(), z.string()),
 });
