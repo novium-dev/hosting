@@ -26,7 +26,7 @@ import {
 
 type ServerRow = ListServersResponses[200][number];
 
-type ServerColumn = "name" | "template" | "node" | "project";
+type ServerColumn = "name" | "template" | "node" | "group" | "project";
 
 export function ServersTable({ servers }: { servers: ServerRow[] }) {
   const { t } = useTranslation(["admin-infra", "common"]);
@@ -52,6 +52,7 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
         server.name.toLowerCase().includes(normalizedQuery) ||
         server.id.toLowerCase().includes(normalizedQuery) ||
         server.node.toLowerCase().includes(normalizedQuery) ||
+        server.group?.toLowerCase().includes(normalizedQuery) ||
         server.template.toLowerCase().includes(normalizedQuery) ||
         server.project.toLowerCase().includes(normalizedQuery) ||
         server.project_name.toLowerCase().includes(normalizedQuery) ||
@@ -65,6 +66,7 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
       name: (server: ServerRow) => server.name,
       template: (server: ServerRow) => server.template,
       node: (server: ServerRow) => server.node,
+      group: (server: ServerRow) => server.group ?? "",
       project: (server: ServerRow) => server.project_name,
     }),
     [],
@@ -120,6 +122,9 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
               <SortableTableHead column="node" sort={sort} onSort={toggle}>
                 {t("admin-infra:servers.table.columns.node")}
               </SortableTableHead>
+              <SortableTableHead column="group" sort={sort} onSort={toggle}>
+                {t("admin-infra:servers.shared.groupLabel")}
+              </SortableTableHead>
               <SortableTableHead column="project" sort={sort} onSort={toggle}>
                 {t("common:labels.project")}
               </SortableTableHead>
@@ -131,7 +136,7 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32">
+                <TableCell colSpan={6} className="h-32">
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <Server className="size-5 text-muted-foreground" />
                     <p className="text-sm font-medium">
@@ -179,6 +184,17 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
                       </Link>
                     ) : (
                       server.node
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {server.group ? (
+                      <Badge variant="outline" className="font-normal">
+                        {server.group}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {t("admin-infra:servers.shared.noGroup")}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell>

@@ -1016,6 +1016,7 @@ export type ListServersResponses = {
      * Success
      */
     200: Array<{
+        group?: string | null;
         id: NanoId;
         name: string;
         node: string;
