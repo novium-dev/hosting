@@ -106,7 +106,7 @@ export function ServerAdminSettings({
   const [isSaving, setIsSaving] = useState(false);
 
   const { data: nodeGroups } = useSWR(
-    canManage ? ["admin-node-groups", nodeId] : null,
+    canManage ? ["admin-node-group-names", nodeId] : null,
     async () => {
       const response = await listNodeGroups({ path: { node_id: nodeId } });
       return response.error || !response.data
