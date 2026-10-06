@@ -62,15 +62,9 @@ import {
 } from "@/lib/permissions";
 import { authClient } from "@/lib/auth-client";
 import { useRouteDomains } from "@/hooks/use-shared-queries";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type Domain = ListRouteDomainsAdminResponse[number];
-
-function errorMessage(
-  error: { error?: { msg?: string } } | undefined,
-  fallback: string,
-) {
-  return error?.error?.msg ?? fallback;
-}
 
 export function AdminDomainsView() {
   const { t } = useTranslation();
@@ -135,7 +129,7 @@ export function AdminDomainsView() {
 
       if (response.error) {
         throw new Error(
-          errorMessage(response.error, t("admin-core:domains.toast.addFailed")),
+          apiErrorMessage(response.error, t("admin-core:domains.toast.addFailed")),
         );
       }
 
@@ -165,7 +159,7 @@ export function AdminDomainsView() {
 
       if (response.error) {
         throw new Error(
-          errorMessage(
+          apiErrorMessage(
             response.error,
             t("admin-core:domains.toast.updateFailed"),
           ),
@@ -194,7 +188,7 @@ export function AdminDomainsView() {
 
       if (response.error) {
         throw new Error(
-          errorMessage(
+          apiErrorMessage(
             response.error,
             t("admin-core:domains.toast.deleteFailed"),
           ),
@@ -227,7 +221,7 @@ export function AdminDomainsView() {
 
       if (response.error) {
         throw new Error(
-          errorMessage(
+          apiErrorMessage(
             response.error,
             t("admin-core:domains.toast.grantFailed"),
           ),
@@ -258,7 +252,7 @@ export function AdminDomainsView() {
 
       if (response.error) {
         throw new Error(
-          errorMessage(
+          apiErrorMessage(
             response.error,
             t("admin-core:domains.toast.resolveFailed"),
           ),
@@ -288,7 +282,7 @@ export function AdminDomainsView() {
 
       if (response.error) {
         throw new Error(
-          errorMessage(
+          apiErrorMessage(
             response.error,
             t("admin-core:domains.toast.revokeFailed"),
           ),

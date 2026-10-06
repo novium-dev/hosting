@@ -39,23 +39,16 @@ import {
   deleteNode,
   extendNodeRegistration,
   listNodeRegistrations,
-  type ListNodesResponses,
 } from "@/lib/api";
 import {
   CreateNodeDialog,
   EditNodeRegistrationDialog,
   type NodeRegistration,
 } from "./create-nodes";
-
-type NodeRow = ListNodesResponses[200][number];
+import type { NodeRow } from "@/types/api";
+import { formatCountdown } from "@/lib/format";
 
 type NodeColumn = "display" | "groups" | "host" | "ports" | "servers" | "status";
-
-function formatExpiry(seconds: number) {
-  const minutes = Math.floor(seconds / 60);
-  const remaining = seconds % 60;
-  return `${minutes}:${String(remaining).padStart(2, "0")}`;
-}
 
 export function NodesTable({
   nodes,
@@ -264,7 +257,7 @@ export function NodesTable({
                           </TooltipTrigger>
                           <TooltipContent>
                             {t("admin-infra:nodes.table.pendingTooltip", {
-                              expires: formatExpiry(registration.expires_in),
+                              expires: formatCountdown(registration.expires_in),
                             })}
                           </TooltipContent>
                         </Tooltip>

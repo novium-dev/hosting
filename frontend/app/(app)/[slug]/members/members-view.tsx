@@ -1,11 +1,10 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import type { ListProjectUsersResponses } from "@/lib/api";
+
 import { InviteMemberDialog } from "./invite-member-dialog";
 import { MembersTable } from "./members-table";
-
-export type ProjectMember = ListProjectUsersResponses[200][number];
+import type { ProjectMember } from "@/types/api";
 
 interface MembersViewProps {
   projectId: string;

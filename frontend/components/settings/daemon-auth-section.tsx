@@ -24,23 +24,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import useSWR from "swr";
-
-type ApiError = {
-  error?: {
-    msg?: string;
-  };
-};
+import { apiErrorMessage } from "@/lib/api-error";
 
 const maskedValue = "************************";
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === "object" && "error" in error) {
-    const apiError = error as ApiError;
-    return apiError.error?.msg ?? fallback;
-  }
-
-  return fallback;
-}
 
 function maskSshKey(publicKey: string) {
   const [type] = publicKey.trim().split(/\s+/);
@@ -50,7 +36,7 @@ function maskSshKey(publicKey: string) {
 async function fetchSshKeys(fallback: string) {
   const response = await listSshKeys();
   if (response.error) {
-    throw new Error(errorMessage(response.error, fallback));
+    throw new Error(apiErrorMessage(response.error, fallback));
   }
 
   return response.data ?? [];
@@ -98,7 +84,7 @@ export function DaemonAuthSection() {
 
     if (response.error || !response.data) {
       toast.error(
-        errorMessage(response.error, t("settings:daemonAuth.loadError")),
+        apiErrorMessage(response.error, t("settings:daemonAuth.loadError")),
       );
       return null;
     }
@@ -148,7 +134,7 @@ export function DaemonAuthSection() {
 
     if (response.error || !response.data) {
       toast.error(
-        errorMessage(response.error, t("settings:daemonAuth.regenerateError")),
+        apiErrorMessage(response.error, t("settings:daemonAuth.regenerateError")),
       );
       return;
     }
@@ -180,7 +166,7 @@ export function DaemonAuthSection() {
 
     if (response.error) {
       toast.error(
-        errorMessage(response.error, t("settings:daemonAuth.addKeyError")),
+        apiErrorMessage(response.error, t("settings:daemonAuth.addKeyError")),
       );
       return;
     }
@@ -203,7 +189,7 @@ export function DaemonAuthSection() {
 
     if (response.error) {
       toast.error(
-        errorMessage(response.error, t("settings:daemonAuth.deleteKeyError")),
+        apiErrorMessage(response.error, t("settings:daemonAuth.deleteKeyError")),
       );
       return;
     }

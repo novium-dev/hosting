@@ -6,7 +6,7 @@ import { useRouter } from "@/lib/navigation";
 import { useAction } from "@/lib/action-hooks";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
+
 import {
   ArrowLeft,
   Check,
@@ -55,12 +55,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { availablePorts, listNodeGroups } from "@/lib/api";
-import type { GroupOption } from "@/lib/groups";
 import type {
   AvailablePortsResponse,
   NodePortAllocation,
   TemplateInfoResponse,
 } from "@/lib/api";
+import { formatPortRange, type SelectablePortRange } from "@/lib/ports";
+import type { GroupRef } from "@/lib/api";
 
 const NO_GROUP = "__none__";
 
@@ -78,12 +79,6 @@ type NodeOption = {
 };
 
 type TemplatePortDefinitions = TemplateInfoResponse["ports"];
-type SelectablePortRange = Pick<
-  NodePortAllocation,
-  "end" | "protocol" | "start"
-> & {
-  exclude?: number[];
-};
 type PortOption = {
   label: string;
   value: number;
@@ -225,20 +220,6 @@ function buildDefaultPorts(
   return defaultPorts;
 }
 
-function formatPortRange(range: SelectablePortRange, t: TFunction) {
-  const base =
-    range.start === range.end
-      ? `${range.protocol.toUpperCase()} ${range.start}`
-      : `${range.protocol.toUpperCase()} ${range.start}-${range.end}`;
-
-  return range.exclude?.length
-    ? t("admin-infra:servers.shared.rangeExcluding", {
-        base,
-        exclude: range.exclude.join(", "),
-      })
-    : base;
-}
-
 function buildPortOptions({
   allowedRanges,
   definitions,
@@ -339,7 +320,7 @@ export function ServerCreateForm({
   const [node, setNode] = useState<string>(nodes[0]?.id ?? "");
   const [storage, setStorage] = useState(nodes[0]?.serverStorages?.[0] ?? "");
   const [group, setGroup] = useState(NO_GROUP);
-  const [nodeGroups, setNodeGroups] = useState<GroupOption[]>([]);
+  const [nodeGroups, setNodeGroups] = useState<GroupRef[]>([]);
 
   const [cpu, setCpu] = useState("1");
   const [ram, setRam] = useState("1024");
@@ -367,7 +348,6 @@ export function ServerCreateForm({
   const selectedNode = useMemo(() => {
     return nodes.find((entry) => entry.id === node) ?? null;
   }, [nodes, node]);
-
 
   const allowedPortRanges = useMemo<SelectablePortRange[]>(() => {
     if (!selectedNode) {

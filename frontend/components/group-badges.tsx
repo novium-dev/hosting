@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 
-type GroupRef = { id: number; label: string };
+import type { GroupRef } from "@/lib/api";
 
 export function GroupBadges({ groups }: { groups: GroupRef[] }) {
   if (groups.length === 0) {

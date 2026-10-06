@@ -27,7 +27,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import { useTranslation } from "react-i18next";
-import type { ProjectMember } from "./members-view";
+import type { ProjectMember } from "@/types/api";
 
 type UpdateMemberRoleDialogProps = {
   member: ProjectMember | null;

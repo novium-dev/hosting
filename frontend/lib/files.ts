@@ -13,3 +13,13 @@ export enum FileMode {
 export function modeToType(mode: number): FileMode {
   return mode & 0xf000;
 }
+
+export function normalizePath(input: string) {
+  const trimmed = input.trim();
+  if (!trimmed || trimmed === "/") {
+    return "/";
+  }
+
+  const cleaned = trimmed.replace(/\/+/g, "/").replace(/\/$/, "");
+  return cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
+}

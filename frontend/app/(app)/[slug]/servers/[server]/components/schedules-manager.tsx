@@ -93,6 +93,7 @@ import {
   toSimpleSchedule,
   type SimpleSchedule,
 } from "@/lib/cron";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type SchedulesManagerProps = {
   serverId: string;
@@ -485,13 +486,6 @@ function taskFitsBackupLimit(task: ScheduleTask, backupLimit: number | null) {
   return ceiling !== null && ceiling <= backupLimit;
 }
 
-function errorMessage(
-  error: { error?: { msg?: string } } | undefined,
-  fallback: string,
-) {
-  return error?.error?.msg ?? fallback;
-}
-
 export function SchedulesManager({
   serverId,
   canManage,
@@ -552,7 +546,7 @@ export function SchedulesManager({
 
       if (response.error || !response.data) {
         throw new Error(
-          errorMessage(response.error, t("servers:schedules.toasts.loadFailed")),
+          apiErrorMessage(response.error, t("servers:schedules.toasts.loadFailed")),
         );
       }
 
@@ -714,7 +708,7 @@ export function SchedulesManager({
 
       if (response.error) {
         throw new Error(
-          errorMessage(
+          apiErrorMessage(
             response.error,
             t("servers:schedules.toasts.saveFailed"),
           ),
@@ -749,7 +743,7 @@ export function SchedulesManager({
 
       if (response.error) {
         throw new Error(
-          errorMessage(response.error, t("servers:schedules.toasts.runFailed")),
+          apiErrorMessage(response.error, t("servers:schedules.toasts.runFailed")),
         );
       }
 
@@ -779,7 +773,7 @@ export function SchedulesManager({
 
       if (response.error) {
         throw new Error(
-          errorMessage(
+          apiErrorMessage(
             response.error,
             t("servers:schedules.toasts.deleteFailed"),
           ),

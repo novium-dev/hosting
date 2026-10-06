@@ -33,18 +33,16 @@ import {
   createDeployConfig,
   templateInfo,
   updateDeployConfig,
-  type ListDeployConfigsResponses,
   type DeployConfigPayload,
 } from "@/lib/api";
-import type { GroupOption } from "@/lib/groups";
-
-type DeployConfig = ListDeployConfigsResponses[200][number];
+import type { DeployConfig } from "@/types/api";
+import type { GroupRef } from "@/lib/api";
 
 type DeployConfigDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   config: DeployConfig | null;
-  groups: GroupOption[];
+  groups: GroupRef[];
   templates: string[];
   onSaved: () => void;
 };

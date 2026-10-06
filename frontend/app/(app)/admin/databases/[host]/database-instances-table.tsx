@@ -33,6 +33,7 @@ import {
   type ListDatabaseInstancesResponses,
 } from "@/lib/api";
 import { EditInstanceDialog } from "./edit-instance-dialog";
+import { formatOptionalMib } from "@/lib/format";
 
 export type DatabaseInstanceRow = ListDatabaseInstancesResponses[200][number];
 
@@ -51,11 +52,6 @@ function stateBadge(instance: DatabaseInstanceRow, t: TFunction) {
     return <Badge>{t("common:status.running")}</Badge>;
 
   return <Badge variant="secondary">{state ?? t("common:status.offline")}</Badge>;
-}
-
-function formatMib(value: number | null | undefined) {
-  if (!value) return "—";
-  return value >= 1024 ? `${(value / 1024).toFixed(1)} GiB` : `${value} MiB`;
 }
 
 export function DatabaseInstancesTable({
@@ -176,10 +172,10 @@ export function DatabaseInstancesTable({
                   </TableCell>
                   <TableCell>{stateBadge(instance, t)}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {formatMib(instance.remote?.memory)}
+                    {formatOptionalMib(instance.remote?.memory)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {formatMib(instance.remote?.disk)}
+                    {formatOptionalMib(instance.remote?.disk)}
                   </TableCell>
                   <TableCell className="text-right">
                     {canManage ? (

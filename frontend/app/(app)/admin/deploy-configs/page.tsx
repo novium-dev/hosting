@@ -37,10 +37,8 @@ import {
   listDeployConfigs,
   listGroups,
   listTemplates,
-  type ListDeployConfigsResponses,
 } from "@/lib/api";
 
-type DeployConfig = ListDeployConfigsResponses[200][number];
 import { authClient } from "@/lib/auth-client";
 import { formatMib } from "@/lib/groups";
 import {
@@ -48,6 +46,7 @@ import {
   ManagementPermission,
 } from "@/lib/permissions";
 import { DeployConfigDialog } from "./deploy-config-dialog";
+import type { DeployConfig } from "@/types/api";
 
 const DEPLOY_REQUEST_EXAMPLE = `POST /api/admin/deploy/configs/{id}/deploy
 Authorization: Bearer nvm_…

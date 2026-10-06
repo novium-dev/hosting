@@ -183,7 +183,6 @@ export function MinecraftPlayerManager({
   useEffect(() => {
     void loadOps();
     void loadBans();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverId]);
 
   useEffect(() => {

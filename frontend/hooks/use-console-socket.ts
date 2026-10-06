@@ -69,7 +69,7 @@ export function useConsoleSocket({
       });
       if (disposed) return;
 
-      let url = response.data;
+      const url = response.data;
       if (response.error || !url) {
         setStatus("failed");
         handlersRef.current.onFail?.();

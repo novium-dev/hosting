@@ -49,18 +49,13 @@ import {
   type ListDatabaseHostsResponses,
 } from "@/lib/api";
 import { GroupBadges } from "@/components/group-badges";
-import type { GroupOption } from "@/lib/groups";
 import { DatabaseHostDialog } from "./database-host-dialog";
+import type { GroupRef } from "@/lib/api";
+import { formatCountdown } from "@/lib/format";
 
 export type DatabaseHostRow = ListDatabaseHostsResponses[200][number];
 export type DatabaseHostRegistrationRow =
   ListDatabaseHostRegistrationsResponses[200][number];
-
-function formatExpiry(seconds: number) {
-  const minutes = Math.floor(seconds / 60);
-  const remaining = seconds % 60;
-  return `${minutes}:${String(remaining).padStart(2, "0")}`;
-}
 
 type HostColumn = "display" | "groups" | "publicHost" | "instances" | "status";
 
@@ -71,7 +66,7 @@ export function DatabaseHostsTable({
   onChanged,
 }: {
   hosts: DatabaseHostRow[];
-  groups: GroupOption[];
+  groups: GroupRef[];
   canManage: boolean;
   onChanged: () => void;
 }) {
@@ -234,7 +229,7 @@ export function DatabaseHostsTable({
                           </TooltipTrigger>
                           <TooltipContent>
                             {t("admin-infra:databases.hostsTable.pendingTooltip", {
-                              expires: formatExpiry(registration.expires_in),
+                              expires: formatCountdown(registration.expires_in),
                             })}
                           </TooltipContent>
                         </Tooltip>

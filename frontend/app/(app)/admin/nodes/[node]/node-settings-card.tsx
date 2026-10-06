@@ -20,10 +20,8 @@ import {
   updateMaintenance,
   updateNode,
   updateNodeOverallocation,
-  type ListNodesResponses,
 } from "@/lib/api";
-
-type NodeRow = ListNodesResponses[200][number];
+import type { NodeRow } from "@/types/api";
 
 type NodeSettingsCardProps = {
   nodeId: string;

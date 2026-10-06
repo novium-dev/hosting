@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/tooltip";
 import { powerInstanceAction } from "@/actions/databases";
 import { useAction } from "@/lib/action-hooks";
-import type { ListProjectInstancesResponses } from "@/lib/api";
+
 import {
   controlsFromState,
   formatCpuPercent,
@@ -44,8 +44,7 @@ import {
 } from "@/lib/server-status";
 import type { PowerAction } from "@/types/database.schema";
 import { useTranslation } from "react-i18next";
-
-export type ProjectInstance = ListProjectInstancesResponses[200][number];
+import type { ProjectInstance } from "@/types/api";
 
 const BYTES_PER_MIB = 1024 * 1024;
 

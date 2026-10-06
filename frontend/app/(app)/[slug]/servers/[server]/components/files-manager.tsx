@@ -124,6 +124,7 @@ import UploadProgressPanel, {
   type UploadTask,
 } from "./upload-progress";
 import type { LucideIcon } from "lucide-react";
+import { normalizePath } from "@/lib/files";
 
 type FilesManagerProps = {
   serverId: string;
@@ -173,16 +174,6 @@ const ARCHIVE_COMPRESSION_VALUES: ArchiveCompression[] = [
   "gzip",
   "bzip2",
 ];
-
-function normalizePath(input: string) {
-  const trimmed = input.trim();
-  if (!trimmed || trimmed === "/") {
-    return "/";
-  }
-
-  const cleaned = trimmed.replace(/\/+/g, "/").replace(/\/$/, "");
-  return cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
-}
 
 function joinPath(basePath: string, childName: string) {
   if (basePath === "/") {
@@ -508,7 +499,6 @@ export function FilesManager({
 
   useEffect(() => {
     void refresh("/");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverId]);
 
   useEffect(() => {
@@ -750,7 +740,6 @@ export function FilesManager({
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPath]);
 
   useEffect(() => {

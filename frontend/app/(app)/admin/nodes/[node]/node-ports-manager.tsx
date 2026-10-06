@@ -53,11 +53,10 @@ import {
   availablePorts,
   deleteNodePort,
   listNodes,
-  type ListNodesResponses,
   type NetworkProtocol,
 } from "@/lib/api";
+import type { NodeRow } from "@/types/api";
 
-type NodeRow = ListNodesResponses[200][number];
 type NodePortRow = NodeRow["ports"][number];
 type AvailablePortRangeValue = {
   start: number;

@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { GroupOption } from "@/lib/groups";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -30,6 +29,7 @@ import type {
   DatabaseHostRegistrationRow,
   DatabaseHostRow,
 } from "./database-hosts-table";
+import type { GroupRef } from "@/lib/api";
 
 const ENGINES = Object.keys(DATABASE_TYPE_LABELS) as DatabaseType[];
 
@@ -55,7 +55,7 @@ export function DatabaseHostDialog({
   host?: DatabaseHostRow;
   /** Editing a setup code that no agent has claimed yet when set. */
   registration?: DatabaseHostRegistrationRow;
-  groups: GroupOption[];
+  groups: GroupRef[];
   onSaved: () => void;
 }) {
   const { t } = useTranslation();

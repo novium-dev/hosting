@@ -60,6 +60,7 @@ import {
   type ListRoutesResponse,
   type NetworkPort,
 } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type RoutesManagerProps = {
   serverId: string;
@@ -85,13 +86,6 @@ function serviceName(name: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-}
-
-function errorMessage(
-  error: { error?: { msg?: string } } | undefined,
-  fallback: string,
-) {
-  return error?.error?.msg ?? fallback;
 }
 
 export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
@@ -121,7 +115,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
 
       if (routesResponse.error || !routesResponse.data) {
         throw new Error(
-          errorMessage(
+          apiErrorMessage(
             routesResponse.error,
             t("servers:routes.toasts.loadFailed"),
           ),
@@ -258,7 +252,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
 
       if (response.error || !response.data) {
         throw new Error(
-          errorMessage(response.error, t("servers:routes.toasts.createFailed")),
+          apiErrorMessage(response.error, t("servers:routes.toasts.createFailed")),
         );
       }
 
@@ -299,7 +293,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
 
       if (response.error) {
         throw new Error(
-          errorMessage(response.error, t("servers:routes.toasts.deleteFailed")),
+          apiErrorMessage(response.error, t("servers:routes.toasts.deleteFailed")),
         );
       }
 

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +63,7 @@ import {
   type NetworkProtocol,
 } from "@/lib/api";
 import { extractAdminPorts, type AdminPortRow } from "./port-utils";
+import { formatPortRange, type SelectablePortRange } from "@/lib/ports";
 
 type PortsManagerProps = {
   serverId: string;
@@ -94,13 +94,6 @@ const EMPTY_FORM: PortFormState = {
   http: false,
 };
 
-type SelectablePortRange = {
-  end: number;
-  exclude?: number[];
-  protocol: NetworkProtocol;
-  start: number;
-};
-
 type PortFormErrors = Partial<Record<keyof PortFormState, string>>;
 
 function formFromPort(port: AdminPortRow): PortFormState {
@@ -114,20 +107,6 @@ function formFromPort(port: AdminPortRow): PortFormState {
     bind: port.bind ?? "",
     http: port.http,
   };
-}
-
-function formatPortRange(range: SelectablePortRange, t: TFunction) {
-  const base =
-    range.start === range.end
-      ? `${range.protocol.toUpperCase()} ${range.start}`
-      : `${range.protocol.toUpperCase()} ${range.start}-${range.end}`;
-
-  return range.exclude?.length
-    ? t("admin-infra:servers.shared.rangeExcluding", {
-        base,
-        exclude: range.exclude.join(", "),
-      })
-    : base;
 }
 
 function parseInteger(value: string) {

@@ -31,6 +31,7 @@ import { appConfig } from "@/constants/config";
 import { FileMode, modeToType } from "@/lib/files";
 import { useServerTaskLock } from "@/stores/server-tasks";
 import { TaskLockNotice } from "@/components/server/task-lock-notice";
+import { normalizePath } from "@/lib/files";
 
 type FileEditorProps = {
   serverId: string;
@@ -59,16 +60,6 @@ function MonacoEditor(props: EditorProps) {
       <LazyMonaco {...props} />
     </Suspense>
   );
-}
-
-function normalizePath(input: string) {
-  const trimmed = input.trim();
-  if (!trimmed || trimmed === "/") {
-    return "/";
-  }
-
-  const cleaned = trimmed.replace(/\/+/g, "/").replace(/\/$/, "");
-  return cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
 }
 
 function getFileName(path: string) {

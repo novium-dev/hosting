@@ -26,7 +26,7 @@ import {
 import { deleteInstanceAction } from "@/actions/databases";
 import { useAction } from "@/lib/action-hooks";
 import { useRouter } from "@/lib/navigation";
-import type { ProjectInstance } from "@/components/databases/instances-table";
+import type { ProjectInstance } from "@/types/api";
 
 export function InstanceDeleteCard({
   projectId,

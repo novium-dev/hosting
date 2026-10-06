@@ -24,8 +24,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useNodeGroups } from "@/hooks/use-shared-queries";
-import type { GroupOption } from "@/lib/groups";
 import { updateServer } from "@/lib/api";
+import type { GroupRef } from "@/lib/api";
 
 const NO_GROUP = "__none__";
 
@@ -44,7 +44,7 @@ type ServerAdminSettingsProps = {
     swap: number | null;
     disk: number | null;
     customDockerfile: string | null;
-    group: GroupOption | null;
+    group: GroupRef | null;
   };
 };
 
@@ -107,7 +107,7 @@ export function ServerAdminSettings({
   const [isSaving, setIsSaving] = useState(false);
 
   const { data: nodeGroupRows } = useNodeGroups(nodeId, canManage);
-  const nodeGroups: GroupOption[] = (nodeGroupRows ?? []).map(
+  const nodeGroups: GroupRef[] = (nodeGroupRows ?? []).map(
     ({ id, label }) => ({ id, label }),
   );
   const groupOptions =

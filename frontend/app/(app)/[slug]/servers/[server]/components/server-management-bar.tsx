@@ -86,6 +86,7 @@ import {
   type UsagePercents,
   type UsageState,
 } from "@/lib/server-status";
+import type { PowerAction } from "@/lib/api";
 
 type ServerManagementBarProps = {
   serverId: string;
@@ -111,7 +112,6 @@ type ServerManagementBarProps = {
   initialStats?: StatsSnapshot | null;
 };
 
-type PowerAction = "start" | "stop" | "restart" | "kill";
 type StatsConnection = "connecting" | "connected" | "disconnected";
 
 export const DISK_USAGE_EVENT = "server-disk-usage";

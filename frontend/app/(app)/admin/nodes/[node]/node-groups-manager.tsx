@@ -66,6 +66,7 @@ import {
 import { useGroups, useNodeGroups } from "@/hooks/use-shared-queries";
 import { formatMib, groupDepths } from "@/lib/groups";
 import { Progress } from "@/components/ui/progress";
+import type { GroupLimits } from "@/lib/api";
 
 type NodeGroupRow = ListNodeGroupsResponses[200][number];
 
@@ -80,12 +81,6 @@ type GroupForm = {
   cpu: string;
   ram: string;
   swap: string;
-};
-
-type GroupLimits = {
-  cpu: number | null;
-  ram: number | null;
-  swap: number | null;
 };
 
 const EMPTY_FORM: GroupForm = { group: "", cpu: "", ram: "", swap: "" };

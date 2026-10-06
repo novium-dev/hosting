@@ -1,3 +1,5 @@
+import { asFiniteNumber, asRecord } from "@/lib/utils";
+
 export type ServerPlayer = {
   id: string | null;
   name: string;
@@ -11,16 +13,6 @@ export type ServerPlayers = {
 
 type PlayerSource = (healthCheck: Record<string, unknown>) => ServerPlayers | null;
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function asCount(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
 function readMinecraftPlayers(
   healthCheck: Record<string, unknown>,
 ): ServerPlayers | null {
@@ -29,7 +21,7 @@ function readMinecraftPlayers(
     return null;
   }
 
-  const online = asCount(players.online);
+  const online = asFiniteNumber(players.online);
   if (online === null) {
     return null;
   }
@@ -53,20 +45,20 @@ function readMinecraftPlayers(
       })
     : [];
 
-  return { online, max: asCount(players.max), list };
+  return { online, max: asFiniteNumber(players.max), list };
 }
 
 function readSatisfactoryPlayers(
   healthCheck: Record<string, unknown>,
 ): ServerPlayers | null {
   const players = asRecord(healthCheck.players);
-  const online = asCount(players?.online);
+  const online = asFiniteNumber(players?.online);
 
   if (online === null) {
     return null;
   }
 
-  return { online, max: asCount(players?.max), list: null };
+  return { online, max: asFiniteNumber(players?.max), list: null };
 }
 
 const PLAYER_SOURCES: Record<string, PlayerSource | undefined> = {
