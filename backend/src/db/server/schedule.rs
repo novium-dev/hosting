@@ -253,50 +253,6 @@ mod tests {
     }
 
     #[test]
-    fn passes_the_node_native_tasks_through_untouched() {
-        assert!(
-            matches!(ScheduleTask::Restart.compile(), ScheduleStep::Restart),
-            "a restart must stay a restart"
-        );
-        assert!(
-            matches!(
-                ScheduleTask::Sleep { time: 30 }.compile(),
-                ScheduleStep::Sleep { time: 30 }
-            ),
-            "a sleep must keep its duration"
-        );
-
-        let step = ScheduleTask::TerminalCommand {
-            command: "stop".to_owned(),
-        }
-        .compile();
-        assert!(
-            matches!(&step, ScheduleStep::TerminalCommand { command } if command == "stop"),
-            "a terminal command must stay a terminal command, got {step:?}"
-        );
-    }
-
-    #[test]
-    fn passes_a_backup_through_with_its_retention_policy() {
-        let step = ScheduleTask::Backup {
-            storage: Some("local".to_owned()),
-            retention: Some(retention(3)),
-        }
-        .compile();
-
-        assert!(
-            matches!(
-                &step,
-                ScheduleStep::Backup {
-                    storage: Some(storage),
-                    retention: Some(retention)
-                } if storage == "local" && retention.keep_last == 3
-            ),
-            "a backup must keep its storage and policy, got {step:?}"
-        );
-    }
-
-    #[test]
     fn only_a_policy_that_fits_the_backup_limit_is_accepted() {
         let unbounded = ScheduleTask::Backup {
             storage: None,

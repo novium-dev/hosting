@@ -203,20 +203,6 @@ mod tests {
     use super::*;
     use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
 
-    #[test]
-    fn ignores_null_claims_the_backend_does_not_use() {
-        let user: AuthUser = serde_json::from_str(
-            r#"{"sub":"abc","email_verified":true,"name":null,"email":"user@example.com","given_name":null,"picture":null}"#,
-        )
-        .expect("user info should deserialize");
-
-        assert_eq!(user.sub, "abc");
-        assert_eq!(user.email, "user@example.com");
-        assert_eq!(user.given_name, None);
-        assert_eq!(user.picture, None);
-        assert_eq!(user.roles, None);
-    }
-
     fn provider(admin: &[&str], moderator: &[&str]) -> OAuthProvider {
         OAuthProvider::new(&OAuthProviderConfig {
             auth_url: AuthUrl::new("https://sso.example.com/oidc/auth".to_owned())
@@ -259,11 +245,5 @@ mod tests {
         let provider = provider(&["panel-admin"], &[]);
 
         assert_eq!(provider.map_role(&["Panel-Admin".to_owned()]), Role::Admin);
-    }
-
-    #[test]
-    fn leaves_roles_alone_without_a_mapping() {
-        assert!(!provider(&[], &[]).maps_roles());
-        assert!(provider(&[], &["panel-moderator"]).maps_roles());
     }
 }

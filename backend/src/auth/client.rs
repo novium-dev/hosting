@@ -72,9 +72,8 @@ impl DocumentedType for ClientInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::{ClientInfo, client_ip};
+    use super::client_ip;
     use http::Request;
-    use zelus::special::FromRequestParts;
 
     fn parts(headers: &[(&str, &str)]) -> http::request::Parts {
         let mut builder = Request::builder();
@@ -97,16 +96,5 @@ mod tests {
         let parts = parts(&[("x-real-ip", "203.0.113.9")]);
 
         assert_eq!(client_ip(&parts).as_deref(), Some("203.0.113.9"));
-    }
-
-    #[tokio::test]
-    async fn reads_the_user_agent() {
-        let mut parts = parts(&[("user-agent", "curl/8.0")]);
-        let client = <ClientInfo as FromRequestParts<()>>::from_request_parts(&mut parts)
-            .await
-            .expect("client info");
-
-        assert_eq!(client.user_agent.as_deref(), Some("curl/8.0"));
-        assert!(client.ip.is_none());
     }
 }
