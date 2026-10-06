@@ -262,7 +262,7 @@ pub(crate) impl DatabaseService for Backend {
         let created = chrono::Utc::now();
         let stored = async {
             query!(
-                "INSERT INTO database_instances (id, host, project, type, display, created)
+                "INSERT INTO database_instances (id, host, project, kind, display, created)
                  VALUES ($1, $2, $3, $4, $5, $6)",
                 remote.data.uuid,
                 host.id,

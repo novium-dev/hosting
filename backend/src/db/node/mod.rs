@@ -69,7 +69,7 @@ impl Backend {
             .await? {
 
             let server_storages = query!(
-                "SELECT * FROM node_server_storage WHERE node = $1",
+                "SELECT * FROM node_server_storages WHERE node = $1",
                 node.id
             )
             .fetch_all(&mut *conn)
@@ -80,7 +80,7 @@ impl Backend {
             .collect();
 
             let backup_storages = query!(
-                "SELECT * FROM node_backup_storage WHERE node = $1",
+                "SELECT * FROM node_backup_storages WHERE node = $1",
                 node.id
             )
                 .fetch_all(&mut *conn)
@@ -169,7 +169,7 @@ pub(crate) async fn insert_storages(
 ) -> Result<(), sqlx::Error> {
     for storage_id in storages {
         query!(
-            r#"INSERT INTO node_server_storage (node,storage) VALUES ($1, $2)"#,
+            r#"INSERT INTO node_server_storages (node,storage) VALUES ($1, $2)"#,
             id,
             storage_id
         )
@@ -181,7 +181,7 @@ pub(crate) async fn insert_storages(
     }
     for storage_id in backups {
         query!(
-            r#"INSERT INTO node_backup_storage (node,storage) VALUES ($1, $2)"#,
+            r#"INSERT INTO node_backup_storages (node,storage) VALUES ($1, $2)"#,
             id,
             storage_id
         )
@@ -198,11 +198,11 @@ pub(crate) async fn replace_storages(
     storages: Vec<String>,
     backups: Vec<String>,
 ) -> Result<(), sqlx::Error> {
-    query!("DELETE FROM node_server_storage WHERE node = $1", id)
+    query!("DELETE FROM node_server_storages WHERE node = $1", id)
         .execute(&mut **tx)
         .await
         .inspect_err(|err| error!("Unable to delete prior server storages: {err:?}"))?;
-    query!("DELETE FROM node_backup_storage WHERE node = $1", id)
+    query!("DELETE FROM node_backup_storages WHERE node = $1", id)
         .execute(&mut **tx)
         .await
         .inspect_err(|err| error!("Unable to delete prior backup storages: {err:?}"))?;

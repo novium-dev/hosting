@@ -168,7 +168,7 @@ pub(crate) impl DatabaseAdminService for Backend {
         let mut hosts = Vec::with_capacity(rows.len());
         for row in rows {
             let ports = query!(
-                r#"SELECT type, port FROM database_host_ports WHERE host = $1"#,
+                r#"SELECT kind, port FROM database_host_ports WHERE host = $1"#,
                 row.id
             )
             .fetch_all(&*self.database)
@@ -176,7 +176,7 @@ pub(crate) impl DatabaseAdminService for Backend {
             .into_iter()
             .filter_map(|port| {
                 Some((
-                    DatabaseType::from_str(&port.r#type).ok()?,
+                    DatabaseType::from_str(&port.kind).ok()?,
                     u16::try_from(port.port).ok()?,
                 ))
             })
@@ -390,7 +390,7 @@ pub(crate) impl DatabaseAdminService for Backend {
 
             for (kind, port) in ports {
                 query!(
-                    "INSERT INTO database_host_ports (host, type, port) VALUES ($1, $2, $3)",
+                    "INSERT INTO database_host_ports (host, kind, port) VALUES ($1, $2, $3)",
                     host_id,
                     kind.as_str(),
                     i32::from(port)
@@ -475,7 +475,7 @@ pub(crate) impl DatabaseAdminService for Backend {
 
         Ok(query!(
             r#"SELECT database_instances.id, database_instances.host,
-                   database_instances.type AS kind, database_instances.display,
+                   database_instances.kind, database_instances.display,
                    database_instances.project AS "project: ProjectId",
                    projects.slug AS project_slug, database_instances.created
                FROM database_instances

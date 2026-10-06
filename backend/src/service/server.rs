@@ -304,7 +304,7 @@ pub(crate) impl ServerService for Backend {
             	name,
             	host,
                 protocol AS "protocol: NetworkProtocol",
-                external_ip,
+                bind,
                 internal_port,
                 http,
                 lower(external_port) AS "external_port_start!",
@@ -323,7 +323,7 @@ pub(crate) impl ServerService for Backend {
                     http: record.http,
                     bind: auth
                         .has((), ManagementPermissions::SERVER_MANAGE)
-                        .then_some(record.external_ip),
+                        .then_some(record.bind),
                     name: record.name,
                     protocol: record.protocol,
                     internal_port: u16::try_from(record.internal_port)
@@ -414,7 +414,7 @@ pub(crate) impl ServerService for Backend {
             node_server_id: auth
                 .has((), ManagementPermissions::SERVER_MANAGE)
                 .then_some(server.node_server_id),
-            group: match server.group {
+            group: match server.group_id {
                 Some(group) if auth.has((), ManagementPermissions::SERVER_MANAGE) => {
                     group_path(&*self.database, group)
                         .await?

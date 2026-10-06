@@ -271,7 +271,7 @@ pub(crate) impl InternalService for Backend {
 
                         for (kind, port) in config.ports {
                             query!(
-                                "INSERT INTO database_host_ports (host, type, port) VALUES ($1, $2, $3)",
+                                "INSERT INTO database_host_ports (host, kind, port) VALUES ($1, $2, $3)",
                                 &uuid,
                                 kind.as_str(),
                                 i32::from(port)

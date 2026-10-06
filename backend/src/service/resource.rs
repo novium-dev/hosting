@@ -706,7 +706,7 @@ pub(crate) impl ResourceService for Backend {
 
         let backup_available = server.backup_limit != Some(0)
             && sqlx::query_scalar!(
-                r#"SELECT COUNT(*) AS "count!" FROM node_backup_storage WHERE node = $1"#,
+                r#"SELECT COUNT(*) AS "count!" FROM node_backup_storages WHERE node = $1"#,
                 server.node.id
             )
             .fetch_one(&*self.database)

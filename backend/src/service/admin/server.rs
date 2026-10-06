@@ -485,7 +485,7 @@ pub(crate) impl ServerAdminService for Backend {
             }
 
             query!(
-                "INSERT INTO server_ports (server, host, name, protocol, internal_port, external_port, external_ip, http)
+                "INSERT INTO server_ports (server, host, name, protocol, internal_port, external_port, bind, http)
                  VALUES ($1, $2, $3, $4, $5, int4range($6, $7, '[]'), $8, $9)
                  RETURNING id",
                 &server.id,
@@ -502,7 +502,7 @@ pub(crate) impl ServerAdminService for Backend {
             .await?;
 
             let rows = query!(
-                r#"SELECT name, internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
+                r#"SELECT name, internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", bind
                  FROM server_ports WHERE server = $1 FOR UPDATE"#,
                 &server.id
             )
@@ -522,7 +522,7 @@ pub(crate) impl ServerAdminService for Backend {
                         external_port: u16::try_from(ext).expect("database port constraints ensure a u16 value"),
                         internal_port: u16::try_from(port_row.internal_port).expect("database port constraints ensure a u16 value"),
                         protocol: port_row.protocol.to_string(),
-                        external_ip: port_row.external_ip.clone(),
+                        external_ip: port_row.bind.clone(),
                     });
                 }
             }
@@ -763,7 +763,7 @@ pub(crate) impl ServerAdminService for Backend {
 
             if let Some(bind) = bind {
                 query!(
-                    "UPDATE server_ports SET external_ip=$1 WHERE id=$2 AND server=$3",
+                    "UPDATE server_ports SET bind=$1 WHERE id=$2 AND server=$3",
                     bind,
                     port_id,
                     &server.id
@@ -773,7 +773,7 @@ pub(crate) impl ServerAdminService for Backend {
             }
 
             let rows = query!(
-                r#"SELECT name, internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
+                r#"SELECT name, internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", bind
                  FROM server_ports WHERE server = $1 FOR UPDATE"#,
                 &server.id
             )
@@ -793,7 +793,7 @@ pub(crate) impl ServerAdminService for Backend {
                         external_port: u16::try_from(ext).expect("database port constraints ensure a u16 value"),
                         internal_port: u16::try_from(port_row.internal_port).expect("database port constraints ensure a u16 value"),
                         protocol: port_row.protocol.to_string(),
-                        external_ip: port_row.external_ip.clone(),
+                        external_ip: port_row.bind.clone(),
                     });
                 }
             }
@@ -864,7 +864,7 @@ pub(crate) impl ServerAdminService for Backend {
                 }
 
                 let rows = query!(
-                r#"SELECT name, internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", external_ip
+                r#"SELECT name, internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!", protocol AS "protocol: NetworkProtocol", bind
                  FROM server_ports WHERE server = $1 FOR UPDATE"#,
                 &server.id
             )
@@ -886,7 +886,7 @@ pub(crate) impl ServerAdminService for Backend {
                             internal_port: u16::try_from(port_row.internal_port)
                                 .expect("database port constraints ensure a u16 value"),
                             protocol: port_row.protocol.to_string(),
-                            external_ip: port_row.external_ip.clone(),
+                            external_ip: port_row.bind.clone(),
                         });
                     }
                 }

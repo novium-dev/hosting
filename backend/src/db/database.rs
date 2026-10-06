@@ -67,7 +67,7 @@ impl Backend {
         .await?
         {
             let ports = query!(
-                r#"SELECT type, port FROM database_host_ports WHERE host = $1"#,
+                r#"SELECT kind, port FROM database_host_ports WHERE host = $1"#,
                 host.id
             )
             .fetch_all(&mut *conn)
@@ -75,7 +75,7 @@ impl Backend {
             .inspect_err(|err| error!("Failed to select database host ports: {err:?}"))?
             .into_iter()
             .filter_map(|row| {
-                let kind = DatabaseType::from_str(&row.r#type).ok()?;
+                let kind = DatabaseType::from_str(&row.kind).ok()?;
                 Some((kind, u16::try_from(row.port).ok()?))
             })
             .collect();
@@ -126,7 +126,7 @@ impl Backend {
         instance: Option<Uuid>,
     ) -> Result<Vec<ProjectInstance>, E> {
         let rows = query!(
-            r#"SELECT id, host, type AS kind, display, created
+            r#"SELECT id, host, kind, display, created
                FROM database_instances
                WHERE project = $1 AND ($2::uuid IS NULL OR id = $2)
                ORDER BY created"#,

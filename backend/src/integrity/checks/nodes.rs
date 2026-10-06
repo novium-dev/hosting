@@ -397,7 +397,7 @@ impl NodeCheck for NodesPorts {
             r#"SELECT
                    server_ports.server,
                    server_ports.name,
-                   server_ports.external_ip,
+                   server_ports.bind,
                    server_ports.protocol AS "protocol: NetworkProtocol",
                    lower(server_ports.external_port) AS "start!",
                    upper(server_ports.external_port) - 1 AS "end!",
@@ -405,7 +405,7 @@ impl NodeCheck for NodesPorts {
                FROM server_ports
                JOIN servers ON servers.id = server_ports.server
                WHERE servers.node = $1
-               ORDER BY server_ports.external_ip, server_ports.id"#,
+               ORDER BY server_ports.bind, server_ports.id"#,
             node.id
         )
         .fetch_all(&*backend.database)
@@ -416,8 +416,7 @@ impl NodeCheck for NodesPorts {
 
         for row in rows {
             let label = format!("{} ({})", row.server_name, row.server);
-            let port_subject =
-                format!("{}:{}-{} {}", row.external_ip, row.start, row.end, row.name);
+            let port_subject = format!("{}:{}-{} {}", row.bind, row.start, row.end, row.name);
 
             let inside = node.ports.iter().any(|allocation| {
                 allocation.protocol == row.protocol
@@ -436,7 +435,7 @@ impl NodeCheck for NodesPorts {
             }
 
             claimed
-                .entry((row.external_ip, row.protocol))
+                .entry((row.bind, row.protocol))
                 .or_default()
                 .push(PortClaim {
                     start: row.start,

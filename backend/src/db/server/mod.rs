@@ -20,7 +20,7 @@ pub struct Server {
     pub id: ServerId,
     pub name: String,
     pub node_server_id: u32,
-    pub group: Option<i32>,
+    pub group_id: Option<i32>,
     pub project: ProjectId,
     pub template: Arc<dyn TemplateInner + Send + Sync>,
     pub template_extra: Value,

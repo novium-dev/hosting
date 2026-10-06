@@ -207,7 +207,7 @@ impl Backend {
                     .inspect_err(|err| error!("Failed to insert server: {err:?}"))?;
 
                 for port in &network_ports {
-                    query!("INSERT INTO server_ports (server,host,name,internal_port,external_ip,external_port,protocol,http) VALUES ($1, $2, $3, $4, $5, int4range($6, $7, '[]'), $8, $9)",
+                    query!("INSERT INTO server_ports (server,host,name,internal_port,bind,external_port,protocol,http) VALUES ($1, $2, $3, $4, $5, int4range($6, $7, '[]'), $8, $9)",
                             &id, &port.host, port.name, i32::from(port.internal_port), port.bind.as_deref().unwrap_or_else(|| node.default_bind()), i32::from(port.external_port_start), i32::from(port.external_port_end), port.protocol as NetworkProtocol, port.http)
                         .execute(&mut **tx)
                         .await

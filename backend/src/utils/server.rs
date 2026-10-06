@@ -137,7 +137,7 @@ impl Backend {
 
                     node,
                     node_server_id: server.node_server_id.cast_unsigned(),
-                    group: server.group_id,
+                    group_id: server.group_id,
 
                     template,
                     template_extra: server.template_extra,
