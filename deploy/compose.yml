@@ -79,8 +79,8 @@ services:
   frontend:
     image: ${IMAGE_FRONTEND:-novium/frontend:latest}
     restart: unless-stopped
-    # Read at container start and written into /runtime-config.js, so changing
-    # any of these is a restart rather than an image rebuild.
+    # Read at container start and rendered into index.html, so changing any of
+    # these is a container restart rather than an image rebuild.
     environment:
       VITE_APP_NAME: ${APP_NAME:-}
       VITE_LOGO_URL: ${LOGO_URL:-}

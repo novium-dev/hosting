@@ -16,6 +16,10 @@ const escapeHtml = (value: string) =>
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const apiTarget = env.VITE_DEV_API_URL ?? "http://localhost:8080";
+  const runtimeConfig = JSON.stringify(loadEnv(mode, process.cwd())).replace(
+    /</g,
+    "\\u003c",
+  );
   const appName = escapeHtml(env.VITE_APP_NAME || "Hephaestus");
 
   return {
@@ -23,8 +27,12 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       {
-        name: "app-name-html",
-        transformIndexHtml: (html) => html.replace(/%APP_NAME%/g, appName),
+        name: "runtime-config",
+        apply: "serve",
+        transformIndexHtml: (html) =>
+          html
+            .replace("__RUNTIME_CONFIG_JSON__", () => runtimeConfig)
+            .replace(/__APP_NAME__/g, () => appName),
       },
     ],
     resolve: {

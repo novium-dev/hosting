@@ -39,19 +39,13 @@ function optionalUrl(value: string | undefined) {
   return trimmed ? trimmed : null;
 }
 
-const behindCloudflare = parseBoolean(
-  window.__RUNTIME_CONFIG__?.BEHIND_CLOUDFLARE ||
-    import.meta.env.VITE_BEHIND_CLOUDFLARE,
-);
+const runtimeConfig = window.__RUNTIME_CONFIG__ ?? {};
+
+const behindCloudflare = parseBoolean(runtimeConfig.VITE_BEHIND_CLOUDFLARE);
 
 export const appConfig: AppConfig = {
-  appName:
-    window.__RUNTIME_CONFIG__?.APP_NAME ||
-    import.meta.env.VITE_APP_NAME ||
-    "Hephaestus",
-  logoUrl: optionalUrl(
-    window.__RUNTIME_CONFIG__?.LOGO_URL || import.meta.env.VITE_LOGO_URL,
-  ),
+  appName: runtimeConfig.VITE_APP_NAME || "Hephaestus",
+  logoUrl: optionalUrl(runtimeConfig.VITE_LOGO_URL),
   authRoutes: {
     default: "/",
     signin: "/signin",
@@ -62,17 +56,9 @@ export const appConfig: AppConfig = {
     userProfile: "/profile",
   },
   legalLinks: {
-    terms: optionalUrl(
-      window.__RUNTIME_CONFIG__?.TERMS_URL || import.meta.env.VITE_TERMS_URL,
-    ),
-    privacy: optionalUrl(
-      window.__RUNTIME_CONFIG__?.PRIVACY_URL ||
-        import.meta.env.VITE_PRIVACY_URL,
-    ),
-    imprint: optionalUrl(
-      window.__RUNTIME_CONFIG__?.IMPRINT_URL ||
-        import.meta.env.VITE_IMPRINT_URL,
-    ),
+    terms: optionalUrl(runtimeConfig.VITE_TERMS_URL),
+    privacy: optionalUrl(runtimeConfig.VITE_PRIVACY_URL),
+    imprint: optionalUrl(runtimeConfig.VITE_IMPRINT_URL),
   },
   uploads: {
     behindCloudflare,

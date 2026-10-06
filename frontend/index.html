@@ -9,12 +9,12 @@
       href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@100..900&display=swap"
       rel="stylesheet"
     />
-    <title>%APP_NAME%</title>
-    <meta name="description" content="%APP_NAME% game panel for managing your servers." />
+    <title>__APP_NAME__</title>
+    <meta name="description" content="__APP_NAME__ game panel for managing your servers." />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="%APP_NAME%" />
-    <meta property="og:title" content="%APP_NAME%" />
-    <meta property="og:description" content="%APP_NAME% game panel for managing your servers." />
+    <meta property="og:site_name" content="__APP_NAME__" />
+    <meta property="og:title" content="__APP_NAME__" />
+    <meta property="og:description" content="__APP_NAME__ game panel for managing your servers." />
     <style>
       /* Font family variables previously provided by next/font. */
       :root {
@@ -29,7 +29,7 @@
   </head>
   <body>
     <div id="root"></div>
-    <script src="/runtime-config.js"></script>
+    <script>window.__RUNTIME_CONFIG__ = __RUNTIME_CONFIG_JSON__;</script>
     <script type="module" src="/main.tsx"></script>
   </body>
 </html>

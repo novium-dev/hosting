@@ -1,31 +1,14 @@
 #!/bin/sh
 set -eu
 
-escape() {
-  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+TEMPLATE=/usr/share/nginx/index.html.template
+INDEX_HTML=/usr/share/nginx/html/index.html
+
+VITE_APP_NAME="${VITE_APP_NAME:-Hephaestus}"
+
+json_string() {
+  printf '"%s"' "$(printf '%s' "$1" | tr -d '\r\n' | sed 's/\\/\\\\/g; s/"/\\"/g; s/</\\u003c/g')"
 }
-
-APP_NAME="${VITE_APP_NAME:-Hephaestus}"
-ESCAPED_APP_NAME=$(escape "$APP_NAME")
-
-LOGO_URL="${VITE_LOGO_URL:-}"
-ESCAPED_LOGO_URL=$(escape "$LOGO_URL")
-
-TERMS_URL="${VITE_TERMS_URL:-}"
-ESCAPED_TERMS_URL=$(escape "$TERMS_URL")
-
-PRIVACY_URL="${VITE_PRIVACY_URL:-}"
-ESCAPED_PRIVACY_URL=$(escape "$PRIVACY_URL")
-
-IMPRINT_URL="${VITE_IMPRINT_URL:-}"
-ESCAPED_IMPRINT_URL=$(escape "$IMPRINT_URL")
-
-BEHIND_CLOUDFLARE="${VITE_BEHIND_CLOUDFLARE:-false}"
-ESCAPED_BEHIND_CLOUDFLARE=$(escape "$BEHIND_CLOUDFLARE")
-
-cat > /usr/share/nginx/html/runtime-config.js <<CONFIG
-window.__RUNTIME_CONFIG__ = { APP_NAME: "${ESCAPED_APP_NAME}", LOGO_URL: "${ESCAPED_LOGO_URL}", TERMS_URL: "${ESCAPED_TERMS_URL}", PRIVACY_URL: "${ESCAPED_PRIVACY_URL}", IMPRINT_URL: "${ESCAPED_IMPRINT_URL}", BEHIND_CLOUDFLARE: "${ESCAPED_BEHIND_CLOUDFLARE}" };
-CONFIG
 
 html_escape() {
   printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g'
@@ -35,17 +18,13 @@ sed_escape() {
   printf '%s' "$1" | sed 's/[\\&|]/\\&/g'
 }
 
-HTML_APP_NAME=$(sed_escape "$(html_escape "$APP_NAME")")
-HTML_DESCRIPTION=$(sed_escape "$(html_escape "$APP_NAME game panel for managing your servers.")")
-
-INDEX_HTML=/usr/share/nginx/html/index.html
-RENDERED_HTML=$(mktemp)
+CONFIG=""
+for name in $(env | sed -n 's/^\(VITE_[A-Za-z0-9_]*\)=.*/\1/p'); do
+  eval "value=\${$name}"
+  CONFIG="${CONFIG}${CONFIG:+,}\"${name}\":$(json_string "$value")"
+done
 
 sed \
-  -e "s|<title>[^<]*</title>|<title>${HTML_APP_NAME}</title>|" \
-  -e "/property=\"og:\(site_name\|title\)\"/ s|content=\"[^\"]*\"|content=\"${HTML_APP_NAME}\"|" \
-  -e "/\(name=\"description\"\|property=\"og:description\"\)/ s|content=\"[^\"]*\"|content=\"${HTML_DESCRIPTION}\"|" \
-  "$INDEX_HTML" > "$RENDERED_HTML"
-
-cat "$RENDERED_HTML" > "$INDEX_HTML"
-rm -f "$RENDERED_HTML"
+  -e "s|__RUNTIME_CONFIG_JSON__|$(sed_escape "{${CONFIG}}")|" \
+  -e "s|__APP_NAME__|$(sed_escape "$(html_escape "$VITE_APP_NAME")")|g" \
+  "$TEMPLATE" > "$INDEX_HTML"
