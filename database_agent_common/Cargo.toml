@@ -21,7 +21,7 @@ service = [
 ]
 sdk = [
     "service",
-    "dep:daemon_common",
+    "dep:zelus_keys",
     "dep:reqwest",
     "dep:rustls",
     "dep:either",
@@ -42,9 +42,8 @@ workspace = true
 features = ["error", "io"]
 optional = true
 
-[dependencies.daemon_common]
+[dependencies.zelus_keys]
 workspace = true
-features = ["keys"]
 optional = true
 
 [dependencies.reqwest]

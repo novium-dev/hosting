@@ -6,7 +6,6 @@ use crate::subsystems::SubsystemRegistry;
 use bollard::Docker;
 use core::ops::Deref;
 use core::time::Duration;
-use daemon_common::key::{DaemonKey, DaemonRootKey};
 use database_agent_common::types::{ContainerState, StoredInstanceCreate};
 use std::collections::HashMap;
 use std::io;
@@ -14,6 +13,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{RwLock, Semaphore};
 use uuid::Uuid;
+use zelus_keys::{DaemonKey, DaemonRootKey};
 
 const RESTORE_DELAY: Duration = Duration::from_secs(5);
 

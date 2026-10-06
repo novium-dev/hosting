@@ -1,7 +1,6 @@
 mod config;
 mod instance;
 mod integrity;
-mod key;
 mod service;
 mod setup;
 mod state;
@@ -16,7 +15,6 @@ use anyhow::Context as _;
 use axum_server::Handle;
 use clap::{Arg, ArgAction, ArgMatches, command, value_parser};
 use core::time::Duration;
-use daemon_common::key::{DaemonKey, DaemonRootKey};
 use std::env;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -25,6 +23,7 @@ use tokio::signal::unix::{SignalKind, signal};
 use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
+use zelus_keys::{DaemonKey, DaemonRootKey};
 
 fn main() {
     let matches = command!()

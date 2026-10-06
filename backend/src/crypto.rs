@@ -1,11 +1,11 @@
-use daemon_common::key::rcgen::KeyPair;
-use daemon_common::key::{BackendKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
 use sqlx::{PgPool, query, query_as};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::fs;
 use tracing::info;
+use zelus_keys::rcgen::KeyPair;
+use zelus_keys::{BackendKey, DaemonRootKey};
 
 const KEY_LOCK: i64 = 0x6e6f_7669_756d_6b65;
 

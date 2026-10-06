@@ -68,9 +68,9 @@ version = "0.13"
 default-features = false
 features = ["charset", "http2", "json", "rustls"]
 
-[dependencies.daemon_common]
+[dependencies.zelus_keys]
 workspace = true
-features = ["keys"]
+features = ["server"]
 
 [dependencies.zelus]
 workspace = true

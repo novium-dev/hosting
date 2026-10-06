@@ -74,6 +74,9 @@ features = ["postgres"]
 workspace = true
 features = ["sdk"]
 
+[dependencies.zelus_keys]
+workspace = true
+
 [dependencies.daemon_common]
 workspace = true
 features = ["sdk", "backend", "ssh"]

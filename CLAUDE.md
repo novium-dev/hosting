@@ -57,7 +57,7 @@ Queries use the `sqlx::query!` family, which is checked **against a live databas
 
 ### Private dependencies
 
-Builds pull two git dependencies over SSH — `novium-dev/daemon` (`daemon`/`daemon_common`) and `0xIO32/zelus` — plus a patched `reqwest`. You need SSH access to those repos (`ssh-agent` with the deploy key) or the build won't fetch.
+Builds pull `novium-dev/daemon` (`daemon_common`, backend only) over SSH and `0xIO32/zelus` (`zelus`, `zelus_keys`), plus a patched `reqwest`. You need SSH access to those repos (`ssh-agent` with the deploy key) or the build won't fetch.
 
 ### Feature flags
 
@@ -119,7 +119,7 @@ The backend runs as several instances behind a load balancer, so **nothing reque
 
 **Proxy subsystems (`database_agent/src/subsystems/`)** are the point of the agent. One TCP listener per engine (5432/3306/27017/6379) serves every instance of that engine. A client connects as `u<8 hex>_<label>` (`database_agent_common::identifier`); the agent parses the username, looks it up in the `DatabaseRouteManager`, authenticates the client itself (SCRAM-SHA-256 for postgres/mongodb, `mysql_native_password` for mariadb, `AUTH`/`HELLO` for redis), re-authenticates against the instance's socket, then `copy_bidirectional`s. Suspended instances and unknown users are rejected before any relay. The protocol modules carry module-level `#![expect(...)]` blocks for the endianness and cast lints — wire formats fix both, so those lints don't apply there.
 
-**Agent auth is mTLS, identical to the daemon's.** The agent serves TLS with `agent.pem` (a `DaemonKey`, CN/SAN `node-{host_id}`) and a `WebPkiClientVerifier` built from the CA in `agent_root.pem`; the middleware over zelus's `with_auth` group rejects any request that arrives without a peer certificate. The backend presents its `BackendKey` as the client certificate and pins the host id as the server name (`DatabaseAgentSDK::builder().with_root_key(..).with_backend_key(..)`), exactly like `DaemonSDK`. Both key types come from `daemon_common::key`, so a database host is signed by the same CA as the nodes.
+**Agent auth is mTLS, identical to the daemon's.** The agent serves TLS with `agent.pem` (a `DaemonKey`, CN/SAN `node-{host_id}`) and a `WebPkiClientVerifier` built from the CA in `agent_root.pem`, both through `zelus_keys::server` (`server_config`, `CertResolver`, `TlsAcceptor`) which the daemon uses too; the middleware over zelus's `with_auth` group rejects any request that arrives without a peer certificate. The backend presents its `BackendKey` as the client certificate and pins the host id as the server name (`DatabaseAgentSDK::builder().with_root_key(..).with_backend_key(..)`), exactly like `DaemonSDK`. Both key types come from `zelus_keys` (which `daemon_common::key` re-exports), so a database host is signed by the same CA as the nodes.
 
 **Agent setup mirrors the daemon's.** With no `config.toml` in `DATABASE_AGENT_DATA_DIR` the agent runs `setup` (`--setup-url`/`SETUP_URL`, `--setup-token`/`SETUP_TOKEN`, `--port`) instead of serving: it pulls the CA (`GET /api/internal/database_agent/root_key`) and the intended config (`/config`), generates a keypair, brings up a temporary mTLS server so the backend can prove it is reachable, `POST`s its CSR to `/register`, and only then writes `config.toml`, `agent_root.pem` and `agent.pem`. The backend side is `create_database_host`, which no longer takes a URL and token but returns a setup code (`/admin/database/host/registrations` lists, updates and extends the pending ones, like the node ones).
 

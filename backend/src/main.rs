@@ -35,8 +35,6 @@ use crate::templates::generic::python::PythonTemplate;
 use crate::templates::generic::rust::RustTemplate;
 use crate::templates::generic::web::WebTemplate;
 use core::time::Duration;
-use daemon_common::key::rcgen::KeyPair;
-use daemon_common::key::{BackendKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
 use redis::aio::ConnectionManager as CacheConnectionManager;
 use sqlx::PgPool;
@@ -54,6 +52,8 @@ use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
 use uuid::Uuid;
+use zelus_keys::rcgen::KeyPair;
+use zelus_keys::{BackendKey, DaemonRootKey};
 
 const CACHE_PREFIX: &str = "novium:";
 

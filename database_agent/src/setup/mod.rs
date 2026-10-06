@@ -1,14 +1,10 @@
 use crate::config::{AgentConfig, ApiConfig, DockerConfig, StoreConfig, SubsystemConfig};
-use crate::key::{AgentCertResolver, TlsAcceptor};
 use crate::service::middleware;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use axum_server::Server;
-use axum_server::tls_rustls::{RustlsAcceptor, RustlsConfig};
 use core::net::SocketAddr;
 use core::time::Duration;
-use daemon_common::key::rcgen::{KeyPair, PKCS_ECDSA_P256_SHA256, PKCS_RSA_SHA256};
-use daemon_common::key::{DaemonKey, DaemonRootKey};
 use database_agent_common::service::framework_router;
 use database_agent_common::service::setup::SetupService;
 use database_agent_common::service::setup::setup_service_error::ConfigError;
@@ -16,14 +12,15 @@ use database_agent_common::types::{
     AgentRegistrationRequest, BackendAgentConfig, DatabaseType, SetupAgentConfig,
 };
 use reqwest::{Client, StatusCode};
-use rustls::ServerConfig;
 use rustls::pki_types::CertificateDer;
-use rustls::server::WebPkiClientVerifier;
 use std::path::Path;
 use std::sync::Arc;
 use tracing::{error, info, warn};
 use url::Url;
 use utoipa_axum::router::OpenApiRouter;
+use zelus_keys::rcgen::{KeyPair, PKCS_ECDSA_P256_SHA256, PKCS_RSA_SHA256};
+use zelus_keys::server::{CertResolver, TlsAcceptor, server_config};
+use zelus_keys::{DaemonKey, DaemonRootKey};
 
 pub const ROOT_KEY_FILE: &str = "agent_root.pem";
 pub const KEY_FILE: &str = "agent.pem";
@@ -162,17 +159,7 @@ async fn test_host(
         }
     }
 
-    let mut rustls = ServerConfig::builder()
-        .with_client_cert_verifier(
-            WebPkiClientVerifier::builder(Arc::clone(&root.cert_store))
-                .allow_unauthenticated()
-                .allow_unknown_revocation_status()
-                .build()
-                .context("failed to build client certificate verifier")?,
-        )
-        .with_cert_resolver(Arc::new(AgentCertResolver(Arc::clone(key))));
-    rustls.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-    let rustls = RustlsConfig::from_config(Arc::new(rustls));
+    let rustls = server_config(root, CertResolver::new(key))?;
 
     let (router,) =
         framework_router!(ConnectionTestWrapper ConnectionTestWrapper (default,) { SetupService });
@@ -186,7 +173,7 @@ async fn test_host(
 
     tokio::task::spawn(async move {
         let _ = Server::bind(bind)
-            .acceptor(TlsAcceptor(RustlsAcceptor::new(rustls)))
+            .acceptor(TlsAcceptor::new(rustls))
             .serve(router.into_make_service())
             .await
             .inspect_err(|err| {

@@ -99,6 +99,10 @@ features = ["axum"]
 version = "0.7.0"
 features = ["cors", "auth", "trace"]
 
+[workspace.dependencies.zelus_keys]
+git = "https://github.com/0xIO32/zelus.git"
+default-features = false
+
 [workspace.dependencies.zelus]
 git = "https://github.com/0xIO32/zelus.git"
 default-features = false

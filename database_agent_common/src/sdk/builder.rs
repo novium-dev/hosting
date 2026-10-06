@@ -1,6 +1,5 @@
 use crate::sdk::{DatabaseAgentSDK, DatabaseAgentSDKServerNameResolver};
 use core::time::Duration;
-use daemon_common::key::{BackendKey, DaemonKeyVerifier, DaemonRootKey};
 use either::Either;
 use rustls::client::WebPkiServerVerifier;
 use rustls::{ClientConfig, RootCertStore};
@@ -8,6 +7,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 use zelus::reqwest::Client;
 use zelus::url::Url;
+use zelus_keys::{BackendKey, DaemonKeyVerifier, DaemonRootKey};
 
 #[expect(private_bounds, reason = "trait should be sealed")]
 pub trait DatabaseAgentSDKBuilderState: DatabaseAgentSdkSealed {
