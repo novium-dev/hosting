@@ -221,11 +221,13 @@ pub(crate) impl DatabaseService for Backend {
             ProjectPermissions::DATABASE_MANAGE,
         )?;
 
+        let mut tx = self.database.begin().await?;
+
         let count = query_scalar!(
             r#"SELECT COUNT(*) AS "count!" FROM database_instances WHERE project = $1"#,
             &project_id
         )
-        .fetch_one(&*self.database)
+        .fetch_one(&mut *tx)
         .await?;
 
         let may_bypass = auth
@@ -258,20 +260,24 @@ pub(crate) impl DatabaseService for Backend {
             .map_err(|err| agent_failure::<CreateProjectInstanceError>(&err))?;
 
         let created = chrono::Utc::now();
-        let insert = query!(
-            "INSERT INTO database_instances (id, host, project, type, display, created)
-             VALUES ($1, $2, $3, $4, $5, $6)",
-            remote.data.uuid,
-            host.id,
-            &project_id,
-            payload.kind.as_str(),
-            payload.display,
-            created
-        )
-        .execute(&*self.database)
+        let stored = async {
+            query!(
+                "INSERT INTO database_instances (id, host, project, type, display, created)
+                 VALUES ($1, $2, $3, $4, $5, $6)",
+                remote.data.uuid,
+                host.id,
+                &project_id,
+                payload.kind.as_str(),
+                payload.display,
+                created
+            )
+            .execute(&mut *tx)
+            .await?;
+            tx.commit().await
+        }
         .await;
 
-        if let Err(err) = insert {
+        if let Err(err) = stored {
             if let Err(cleanup) = host.sdk.delete_instance(remote.data.uuid).await {
                 tracing::error!(
                     "Failed to roll back the remote instance {}: {cleanup:?}",
@@ -329,6 +335,12 @@ pub(crate) impl DatabaseService for Backend {
             .require_instance::<DeleteProjectInstanceError>(project_id, instance_id)
             .await?;
 
+        let mut tx = self.database.begin().await?;
+
+        query!("DELETE FROM database_instances WHERE id = $1", instance.id)
+            .execute(&mut *tx)
+            .await?;
+
         instance
             .host
             .sdk
@@ -336,9 +348,7 @@ pub(crate) impl DatabaseService for Backend {
             .await
             .map_err(|err| agent_failure::<DeleteProjectInstanceError>(&err))?;
 
-        query!("DELETE FROM database_instances WHERE id = $1", instance.id)
-            .execute(&*self.database)
-            .await?;
+        tx.commit().await?;
 
         Ok(())
     }

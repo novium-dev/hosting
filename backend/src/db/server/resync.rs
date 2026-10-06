@@ -1,7 +1,9 @@
 use crate::Backend;
+use crate::db::node::BackendNode;
 use crate::db::project::ProjectId;
 use crate::db::server::{ServerCustomization, ServerId};
 use crate::templates::TemplateError;
+use daemon_common::service::server::ServerBuildPayload;
 use futures::StreamExt as _;
 use serde::Serialize;
 use serde_json::Value;
@@ -208,28 +210,20 @@ impl Backend {
         }
         .apply(build);
 
-        if let Err(err) = node
-            .update_server(node_server_id, None, Some(build), None, None, None)
+        if let Err(status) = self
+            .push_build(
+                target.id,
+                &node,
+                node_server_id,
+                build,
+                migrated_extra.as_ref(),
+            )
             .await
         {
-            error!("Node refused the resync of server {}: {err:?}", target.id);
-            return result(ServerResyncStatus::NodeFailure, false);
+            return result(status, false);
         }
 
-        let status = if let Some(extra) = migrated_extra {
-            if let Err(err) = query!(
-                "UPDATE servers SET template_extra = $1 WHERE id = $2",
-                extra,
-                &target.id
-            )
-            .execute(&*self.database)
-            .await
-            {
-                error!(
-                    "Unable to store migrated configuration of server {}: {err:?}",
-                    target.id
-                );
-            }
+        let status = if migrated_extra.is_some() {
             ServerResyncStatus::Migrated
         } else {
             ServerResyncStatus::Updated
@@ -258,6 +252,44 @@ impl Backend {
                 result(status, false)
             }
         }
+    }
+}
+
+impl Backend {
+    async fn push_build(
+        &self,
+        server_id: ServerId,
+        node: &BackendNode,
+        node_server_id: u32,
+        build: ServerBuildPayload,
+        migrated_extra: Option<&Value>,
+    ) -> Result<(), ServerResyncStatus> {
+        let database_failure = |err: sqlx::Error| {
+            error!("Unable to store the resync of server {server_id}: {err:?}");
+            ServerResyncStatus::Failure
+        };
+
+        let mut tx = self.database.begin().await.map_err(database_failure)?;
+
+        if let Some(extra) = migrated_extra {
+            query!(
+                "UPDATE servers SET template_extra = $1 WHERE id = $2",
+                extra,
+                &server_id
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(database_failure)?;
+        }
+
+        node.update_server(node_server_id, None, Some(build), None, None, None)
+            .await
+            .map_err(|err| {
+                error!("Node refused the resync of server {server_id}: {err:?}");
+                ServerResyncStatus::NodeFailure
+            })?;
+
+        tx.commit().await.map_err(database_failure)
     }
 }
 

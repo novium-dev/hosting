@@ -1102,6 +1102,17 @@ pub(crate) impl ServerService for Backend {
 
         let new_build = server.customization().apply(new_build);
 
+        let mut tx = self.database.begin().await?;
+
+        query!(
+            "UPDATE servers SET template_extra = $1 WHERE id = $2",
+            new_extra,
+            &server_id
+        )
+        .execute(&mut *tx)
+        .await
+        .inspect_err(|err| error!("Failed to update server variables (template_extra): {err:?}"))?;
+
         server
             .node
             .update_server(
@@ -1118,14 +1129,7 @@ pub(crate) impl ServerService for Backend {
                 UpdateVariablesError::NodeFailure
             })?;
 
-        query!(
-            "UPDATE servers SET template_extra = $1 WHERE id = $2",
-            new_extra,
-            &server_id
-        )
-        .execute(&*self.database)
-        .await
-        .inspect_err(|err| error!("Failed to update server variables (template_extra): {err:?}"))?;
+        tx.commit().await?;
 
         Ok(())
     }
@@ -1260,14 +1264,7 @@ pub(crate) impl ServerService for Backend {
         }
         .apply(build);
 
-        server
-            .node
-            .update_server(server.node_server_id, None, Some(build), None, None, None)
-            .await
-            .map_err(|err| {
-                error!("Failed to update the startup of server {server_id}: {err:?}");
-                UpdateStartupError::NodeFailure
-            })?;
+        let mut tx = self.database.begin().await?;
 
         query!(
             "UPDATE servers SET custom_environment = $1, env_file_enabled = $2, env_file_path = $3
@@ -1277,9 +1274,20 @@ pub(crate) impl ServerService for Backend {
             env_file_path,
             &server_id
         )
-        .execute(&*self.database)
+        .execute(&mut *tx)
         .await
         .inspect_err(|err| error!("Failed to update server startup: {err:?}"))?;
+
+        server
+            .node
+            .update_server(server.node_server_id, None, Some(build), None, None, None)
+            .await
+            .map_err(|err| {
+                error!("Failed to update the startup of server {server_id}: {err:?}");
+                UpdateStartupError::NodeFailure
+            })?;
+
+        tx.commit().await?;
 
         Ok(())
     }

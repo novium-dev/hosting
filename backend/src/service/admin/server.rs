@@ -292,6 +292,18 @@ pub(crate) impl ServerAdminService for Backend {
                 })?;
         }
 
+        let mut tx = self.database.begin().await?;
+
+        query!(
+            "UPDATE servers SET template = $1, template_extra = $2, custom_dockerfile = NULL WHERE id = $3",
+            template.id(),
+            &extra,
+            &server_id
+        )
+        .execute(&mut *tx)
+        .await
+        .inspect_err(|err| error!("Failed to store the new template: {err:?}"))?;
+
         server
             .node
             .update_server(server.node_server_id, None, Some(build), None, None, None)
@@ -301,15 +313,7 @@ pub(crate) impl ServerAdminService for Backend {
                 ChangeServerTemplateError::NodeFailure
             })?;
 
-        query!(
-            "UPDATE servers SET template = $1, template_extra = $2, custom_dockerfile = NULL WHERE id = $3",
-            template.id(),
-            &extra,
-            &server_id
-        )
-        .execute(&*self.database)
-        .await
-        .inspect_err(|err| error!("Failed to store the new template: {err:?}"))?;
+        tx.commit().await?;
 
         Ok(())
     }
