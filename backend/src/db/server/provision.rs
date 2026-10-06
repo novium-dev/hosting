@@ -197,8 +197,9 @@ impl Backend {
                 })?;
 
             let id = ServerId::generate();
+            let created_on = Arc::clone(&node);
 
-            conn.transaction(|tx| Box::pin(async move {
+            let inserted = conn.transaction(|tx| Box::pin(async move {
                 query!("INSERT INTO servers (id,node,node_server_id,project,storage,cpu,ram,swap,disk,template,template_extra,name,internet_access,backup_limit,group_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
                         &id, &node.id, new_server.cast_signed(), project.as_str(), &storage, resource.cpu, resource.ram.map(u32::cast_signed), resource.swap.map(u32::cast_signed), resource.disk.map(u64::cast_signed), template.id(), &extra, &name, internet_access, backup_limit.map(u32::cast_signed), group)
                     .execute(&mut **tx)
@@ -214,7 +215,15 @@ impl Backend {
                 }
                 Ok(id)
             }))
-                .await
+                .await;
+
+            if inserted.is_err()
+                && let Err(err) = created_on.delete_server(new_server).await
+            {
+                error!("Failed to remove server {new_server} from node {} after storing it failed: {err:?}", created_on.id);
+            }
+
+            inserted
         }).await
             .expect("Unable to execute create server task")
     }

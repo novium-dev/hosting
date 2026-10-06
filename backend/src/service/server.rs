@@ -560,27 +560,13 @@ pub(crate) impl ServerService for Backend {
             None
         };
 
-        if resource.is_some() || internet_access.is_some() || new_build.is_some() || group.is_some()
-        {
-            server
-                .node
-                .update_server(
-                    server.node_server_id,
-                    resource.clone(),
-                    new_build,
-                    None,
-                    internet_access.map(|internet_access| ServerNetworkPayload {
-                        internet_access,
-                        networks: Vec::new(),
-                    }),
-                    daemon_group,
-                )
-                .await
-                .map_err(|err| {
-                    error!("Failed to update server: {err:?}");
-                    UpdateServerError::NodeFailure
-                })?;
-        }
+        let updates_daemon = resource.is_some()
+            || internet_access.is_some()
+            || new_build.is_some()
+            || group.is_some();
+        let daemon_resource = resource.clone();
+        let node = Arc::clone(&server.node);
+        let node_server_id = server.node_server_id;
 
         let mut conn = self.database.acquire().await?;
         conn.transaction(|tx| {
@@ -686,6 +672,25 @@ pub(crate) impl ServerService for Backend {
                     .await
                     .inspect_err(|err| {
                         error!("Failed to update server (resource): {err:?}");
+                    })?;
+                }
+
+                if updates_daemon {
+                    node.update_server(
+                        node_server_id,
+                        daemon_resource,
+                        new_build,
+                        None,
+                        internet_access.map(|internet_access| ServerNetworkPayload {
+                            internet_access,
+                            networks: Vec::new(),
+                        }),
+                        daemon_group,
+                    )
+                    .await
+                    .map_err(|err| {
+                        error!("Failed to update server: {err:?}");
+                        UpdateServerError::NodeFailure
                     })?;
                 }
 
