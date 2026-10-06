@@ -38,8 +38,14 @@ sed_escape() {
 HTML_APP_NAME=$(sed_escape "$(html_escape "$APP_NAME")")
 HTML_DESCRIPTION=$(sed_escape "$(html_escape "$APP_NAME game panel for managing your servers.")")
 
-sed -i \
+INDEX_HTML=/usr/share/nginx/html/index.html
+RENDERED_HTML=$(mktemp)
+
+sed \
   -e "s|<title>[^<]*</title>|<title>${HTML_APP_NAME}</title>|" \
   -e "/property=\"og:\(site_name\|title\)\"/ s|content=\"[^\"]*\"|content=\"${HTML_APP_NAME}\"|" \
   -e "/\(name=\"description\"\|property=\"og:description\"\)/ s|content=\"[^\"]*\"|content=\"${HTML_DESCRIPTION}\"|" \
-  /usr/share/nginx/html/index.html
+  "$INDEX_HTML" > "$RENDERED_HTML"
+
+cat "$RENDERED_HTML" > "$INDEX_HTML"
+rm -f "$RENDERED_HTML"
