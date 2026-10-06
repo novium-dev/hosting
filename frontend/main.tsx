@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import "@/app/globals.css";
 import "@/lib/i18n";
+import "@/lib/session-expiry";
 import { router } from "@/router";
 import { appConfig } from "@/constants/config";
 
