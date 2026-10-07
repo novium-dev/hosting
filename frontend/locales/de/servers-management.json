@@ -21,11 +21,6 @@
       "permissions": "Berechtigungen",
       "unarchive": "Entpacken"
     },
-    "fallbacks": {
-      "thisItem": "dieses Element",
-      "thisDirectory": "dieses Verzeichnis",
-      "thisArchive": "dieses Archiv"
-    },
     "renameDialog": {
       "description": "{{name}} umbenennen.",
       "placeholder": "Neuer Name"

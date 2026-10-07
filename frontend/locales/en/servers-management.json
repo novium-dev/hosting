@@ -21,11 +21,6 @@
       "permissions": "Permissions",
       "unarchive": "Unarchive"
     },
-    "fallbacks": {
-      "thisItem": "this item",
-      "thisDirectory": "this directory",
-      "thisArchive": "this archive"
-    },
     "renameDialog": {
       "description": "Rename {{name}}.",
       "placeholder": "New name"

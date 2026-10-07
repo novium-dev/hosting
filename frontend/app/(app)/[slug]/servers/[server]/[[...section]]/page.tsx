@@ -32,7 +32,7 @@ import { ServerConsole } from "../components/server-console";
 import { ServerResourceGraphs } from "../components/resource-graphs";
 import { BackupsManager } from "../components/backups-manager";
 import { FileEditor } from "../components/file-editor";
-import { FilesManager } from "../components/files-manager";
+import { FilesManager } from "../components/files-manager/files-manager";
 import { NetworkPorts } from "../components/network-ports";
 import { RoutesManager } from "../components/routes-manager";
 import { SchedulesManager } from "../components/schedules-manager";
