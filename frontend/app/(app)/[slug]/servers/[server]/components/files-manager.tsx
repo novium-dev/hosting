@@ -166,6 +166,15 @@ type UndoableAction =
 
 type ArchiveCompression = "zstd" | "xz" | "zlib" | "lz4" | "gzip" | "bzip2";
 
+const ARCHIVE_EXTENSIONS: Record<ArchiveCompression, string> = {
+  zstd: ".tar.zst",
+  xz: ".tar.xz",
+  zlib: ".tar.zlib",
+  lz4: ".tar.lz4",
+  bzip2: ".tar.bz2",
+  gzip: ".tar.gz",
+};
+
 const ARCHIVE_COMPRESSION_VALUES: ArchiveCompression[] = [
   "zstd",
   "xz",
@@ -2584,28 +2593,8 @@ export function FilesManager({
                     /\.(tar\.(gz|zst|xz|zlib|lz4|bz2)|tgz|tbz2|zip)$/i,
                     "",
                   );
-                  let extension = "";
-
-                  switch (value) {
-                    case "zstd":
-                      extension = ".tar.zst";
-                      break;
-                    case "xz":
-                      extension = ".tar.xz";
-                      break;
-                    case "zlib":
-                      extension = ".tar.zlib";
-                      break;
-                    case "lz4":
-                      extension = ".tar.lz4";
-                      break;
-                    case "bzip2":
-                      extension = ".tar.bz2";
-                      break;
-                    case "gzip":
-                    default:
-                      extension = ".tar.gz";
-                  }
+                  const extension =
+                    ARCHIVE_EXTENSIONS[value as ArchiveCompression] ?? ".tar.gz";
 
                   return `${baseName}${extension}`;
                 });
