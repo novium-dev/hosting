@@ -533,7 +533,6 @@ export function ServerManagementBar({
                 msg: res.error.error?.msg,
               }),
             );
-            return;
           }
           break;
         }
