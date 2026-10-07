@@ -41,7 +41,6 @@ database_agent_common = { path = "database_agent_common", default-features = fal
 
 [workspace.dependencies.daemon_common]
 git = "ssh://git@github.com/novium-dev/daemon.git"
-branch = "refactor/zelus-keys"
 default-features = false
 
 [workspace.dependencies.reqwest]
@@ -99,13 +98,11 @@ version = "0.7.1"
 features = ["cors", "auth", "trace"]
 
 [workspace.dependencies.zelus_keys]
-git = "https://github.com/0xIO32/zelus.git"
-branch = "feat/zelus-keys"
+git = "https://git2.novium.world/hosting/zelus_keys.git"
 default-features = false
 
 [workspace.dependencies.zelus]
 git = "https://github.com/0xIO32/zelus.git"
-branch = "feat/zelus-keys"
 default-features = false
 
 [profile.dev.package.sqlx-macros]
