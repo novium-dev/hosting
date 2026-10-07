@@ -1,13 +1,11 @@
 use crate::Backend;
-use crate::cluster::SyncTarget;
 use crate::db::project::ProjectId;
 use core::str::FromStr as _;
 use database_agent_common::sdk::DatabaseAgentSDK;
 use database_agent_common::types::DatabaseType;
-use sqlx::{PgConnection, Postgres, Transaction, query, query_scalar};
+use sqlx::{PgConnection, query, query_scalar};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::error;
 use url::Url;
 use uuid::Uuid;
 
@@ -42,47 +40,34 @@ pub struct ProjectInstance {
 }
 
 impl Backend {
-    pub async fn sync_database_hosts(
+    pub(crate) async fn load_database_hosts(
         &self,
-        tx: &mut Transaction<'_, Postgres>,
+        conn: &mut PgConnection,
     ) -> Result<(), sqlx::Error> {
-        self.load_database_hosts(tx).await?;
-        self.notify_sync(tx, SyncTarget::DatabaseHosts).await
-    }
+        let mut ports: HashMap<Uuid, HashMap<DatabaseType, u16>> = HashMap::new();
+        for row in query!("SELECT host, kind, port FROM database_host_ports")
+            .fetch_all(&mut *conn)
+            .await?
+        {
+            if let (Ok(kind), Ok(port)) =
+                (DatabaseType::from_str(&row.kind), u16::try_from(row.port))
+            {
+                ports.entry(row.host).or_default().insert(kind, port);
+            }
+        }
 
-    pub async fn load_database_hosts(&self, conn: &mut PgConnection) -> Result<(), sqlx::Error> {
         let mut hosts = HashMap::new();
 
         for host in query!(
             r#"SELECT id, display, url, public_host,
-                   maintenance AS "maintenance: bool"
+                   maintenance AS "maintenance: bool",
+                   ARRAY(SELECT group_id FROM database_host_groups WHERE host = database_hosts.id)
+                       AS "groups!"
                FROM database_hosts"#
         )
         .fetch_all(&mut *conn)
         .await?
         {
-            let ports = query!(
-                r#"SELECT kind, port FROM database_host_ports WHERE host = $1"#,
-                host.id
-            )
-            .fetch_all(&mut *conn)
-            .await
-            .inspect_err(|err| error!("Failed to select database host ports: {err:?}"))?
-            .into_iter()
-            .filter_map(|row| {
-                let kind = DatabaseType::from_str(&row.kind).ok()?;
-                Some((kind, u16::try_from(row.port).ok()?))
-            })
-            .collect();
-
-            let groups = query_scalar!(
-                "SELECT group_id FROM database_host_groups WHERE host = $1",
-                host.id
-            )
-            .fetch_all(&mut *conn)
-            .await
-            .inspect_err(|err| error!("Failed to select database host groups: {err:?}"))?;
-
             let sdk = DatabaseAgentSDK::builder()
                 .with_identifier(host.id)
                 .with_root_key(Arc::clone(&self.root_key))
@@ -95,10 +80,10 @@ impl Backend {
                 Arc::new(BackendDatabaseHost {
                     id: host.id,
                     display: host.display,
-                    groups,
+                    groups: host.groups,
                     public_host: host.public_host,
                     maintenance: host.maintenance,
-                    ports,
+                    ports: ports.remove(&host.id).unwrap_or_default(),
                     sdk: Arc::new(sdk),
                 }),
             );

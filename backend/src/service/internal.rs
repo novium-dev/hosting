@@ -1,4 +1,5 @@
 use super::*;
+use crate::cluster::SyncTarget;
 use crate::db::node::insert_storages;
 use crate::registration::{DatabaseHostRegistration, NodeRegistration};
 use crate::service::internal::internal_service_error::{AuthPasswordError, AuthPublickeyError};
@@ -176,7 +177,7 @@ pub(crate) impl InternalService for Backend {
                     )
                     .await?;
 
-                    backend.sync_nodes(tx).await?;
+                    backend.sync(tx, SyncTarget::Nodes).await?;
 
                     Ok(signed.to_vec())
                 })
@@ -298,7 +299,7 @@ pub(crate) impl InternalService for Backend {
                         .inspect_err(|err| error!("Failed to insert database host port: {err:?}"))?;
                     }
 
-                    backend.sync_database_hosts(tx).await?;
+                    backend.sync(tx, SyncTarget::DatabaseHosts).await?;
 
                     Ok(signed.to_vec())
                 })

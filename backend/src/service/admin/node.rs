@@ -1,3 +1,4 @@
+use crate::cluster::SyncTarget;
 use tracing::error;
 
 use serde::{Deserialize, Serialize};
@@ -198,7 +199,7 @@ pub(crate) impl NodeAdminService for Backend {
 
                 replace_storages(tx, &node_id, storages, backups).await?;
 
-                backend.sync_nodes(tx).await?;
+                backend.sync(tx, SyncTarget::Nodes).await?;
 
                 Ok(())
             })
@@ -374,7 +375,7 @@ pub(crate) impl NodeAdminService for Backend {
                     .execute(&mut **tx)
                     .await?;
 
-                backend.sync_nodes(tx).await?;
+                backend.sync(tx, SyncTarget::Nodes).await?;
 
                 Ok(())
             })
@@ -412,7 +413,7 @@ pub(crate) impl NodeAdminService for Backend {
                 .execute(&mut **tx)
                 .await?;
 
-                backend.sync_nodes(tx).await?;
+                backend.sync(tx, SyncTarget::Nodes).await?;
 
                 Ok(())
             })
@@ -543,7 +544,7 @@ pub(crate) impl NodeAdminService for Backend {
                 .await?
                 .id;
 
-                backend.sync_nodes(tx).await?;
+                backend.sync(tx, SyncTarget::Nodes).await?;
 
                 Ok(id)
             })
@@ -611,7 +612,7 @@ pub(crate) impl NodeAdminService for Backend {
                 .execute(&mut **tx)
                 .await?;
 
-                backend.sync_nodes(tx).await?;
+                backend.sync(tx, SyncTarget::Nodes).await?;
 
                 Ok(())
             })
@@ -708,7 +709,7 @@ pub(crate) impl NodeAdminService for Backend {
                 .execute(&mut **tx)
                 .await?;
 
-                backend.sync_nodes(tx).await?;
+                backend.sync(tx, SyncTarget::Nodes).await?;
 
                 Ok(())
             })

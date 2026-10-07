@@ -1,5 +1,4 @@
 use crate::Backend;
-use crate::cluster::SyncTarget;
 use crate::db::server::ports::NetworkProtocol;
 use core::ops::Deref;
 use daemon_common::sdk::DaemonSDK;
@@ -56,77 +55,66 @@ impl BackendNode {
 }
 
 impl Backend {
-    pub async fn sync_nodes(&self, tx: &mut Transaction<'_, Postgres>) -> Result<(), sqlx::Error> {
-        self.load_nodes(tx).await?;
-        self.notify_sync(tx, SyncTarget::Nodes).await
-    }
+    pub(crate) async fn load_nodes(&self, conn: &mut PgConnection) -> Result<(), sqlx::Error> {
+        let mut ports: HashMap<Uuid, Vec<NodePortAllocation>> = HashMap::new();
+        for port in query_as!(
+            NodePortAllocation,
+            r#"SELECT id, node, protocol AS "protocol: NetworkProtocol", start, "end" FROM node_ports"#
+        )
+        .fetch_all(&mut *conn)
+        .await?
+        {
+            ports.entry(port.node).or_default().push(port);
+        }
 
-    pub async fn load_nodes(&self, conn: &mut PgConnection) -> Result<(), sqlx::Error> {
         let mut nodes = HashMap::new();
 
-        for node in query!(r#"SELECT id,url,display,maintenance AS "maintenance: bool",default_host,default_bind,ssh_host,ssh_port,overallocation FROM nodes"#)
-            .fetch_all(&mut *conn)
-            .await? {
-
-            let server_storages = query!(
-                "SELECT * FROM node_server_storages WHERE node = $1",
-                node.id
-            )
-            .fetch_all(&mut *conn)
-            .await
-            .inspect_err(|err| error!("Failed to select server storages: {err:?}"))?
-            .into_iter()
-            .map(|row| row.storage)
-            .collect();
-
-            let backup_storages = query!(
-                "SELECT * FROM node_backup_storages WHERE node = $1",
-                node.id
-            )
-                .fetch_all(&mut *conn)
-                .await
-                .inspect_err(|err| error!("Failed to select backup storages: {err:?}"))?
-                .into_iter()
-                .map(|row| row.storage)
-                .collect();
-
-            let ports = query_as!(
-                NodePortAllocation,
-                r#"SELECT id,node,protocol AS "protocol: NetworkProtocol", start, "end" FROM node_ports WHERE node = $1"#,
-                node.id
-            )
-            .fetch_all(&mut *conn)
-            .await.inspect_err(|err| error!("Failed to select allocated ports: {err:?}"))?;
-
+        for node in query!(
+            r#"SELECT
+                id, url, display, maintenance AS "maintenance: bool", default_host, default_bind,
+                ssh_host, ssh_port, overallocation,
+                ARRAY(SELECT storage FROM node_server_storages WHERE node = nodes.id)
+                    AS "server_storages!",
+                ARRAY(SELECT storage FROM node_backup_storages WHERE node = nodes.id)
+                    AS "backup_storages!"
+             FROM nodes"#
+        )
+        .fetch_all(&mut *conn)
+        .await?
+        {
             let id = node.id;
 
-            let sdk = Arc::new(DaemonSDK::builder()
-                .with_identifier(id)
-                .with_root_key(Arc::clone(&self.root_key))
-                .with_backend_key(Arc::clone(&self.key))
-                .with_url(Url::parse(&node.url)
-                    .map_err(|err| sqlx::Error::Decode(Box::new(err)))?)
-                .with_user_key(self.user_key.clone())
-                .build());
+            let sdk = Arc::new(
+                DaemonSDK::builder()
+                    .with_identifier(id)
+                    .with_root_key(Arc::clone(&self.root_key))
+                    .with_backend_key(Arc::clone(&self.key))
+                    .with_url(
+                        Url::parse(&node.url).map_err(|err| sqlx::Error::Decode(Box::new(err)))?,
+                    )
+                    .with_user_key(self.user_key.clone())
+                    .build(),
+            );
 
             let services = sdk;
 
-            nodes.insert(id, Arc::new(BackendNode {
+            nodes.insert(
                 id,
-                services,
-                display: node.display,
-                maintenance: node.maintenance,
-                default_host: node.default_host,
-                default_bind: node.default_bind,
-                ssh_host: node.ssh_host,
-                ssh_port: node
-                    .ssh_port
-                    .and_then(|port| u16::try_from(port).ok()),
-                server_storages,
-                backup_storages,
-                ports,
-                overallocation: u16::try_from(node.overallocation).unwrap_or(100),
-            }));
+                Arc::new(BackendNode {
+                    id,
+                    services,
+                    display: node.display,
+                    maintenance: node.maintenance,
+                    default_host: node.default_host,
+                    default_bind: node.default_bind,
+                    ssh_host: node.ssh_host,
+                    ssh_port: node.ssh_port.and_then(|port| u16::try_from(port).ok()),
+                    server_storages: node.server_storages,
+                    backup_storages: node.backup_storages,
+                    ports: ports.remove(&id).unwrap_or_default(),
+                    overallocation: u16::try_from(node.overallocation).unwrap_or(100),
+                }),
+            );
         }
 
         *self.nodes.write().await = nodes;

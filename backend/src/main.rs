@@ -309,20 +309,10 @@ async fn main0() {
         user_key,
     };
 
-    let mut conn = backend
-        .database
-        .acquire()
-        .await
-        .expect("Unable to acquire database connection");
     backend
-        .load_nodes(&mut conn)
+        .reload(None)
         .await
-        .expect("Unable to sync nodes cache");
-    backend
-        .load_database_hosts(&mut conn)
-        .await
-        .expect("Unable to sync database hosts cache");
-    drop(conn);
+        .expect("Unable to load the nodes and database hosts");
 
     backend.spawn_cluster_sync();
 

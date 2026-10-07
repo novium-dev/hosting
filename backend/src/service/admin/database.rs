@@ -1,6 +1,7 @@
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
+use crate::cluster::SyncTarget;
 use crate::db::group::{GroupRef, all_groups_exist, group_labels, group_refs};
 use crate::db::project::ProjectId;
 use crate::registration::{DatabaseHostRegistration, Pending};
@@ -123,15 +124,6 @@ define_path_variable!(code "The database host registration code");
 fn agent_failure<E: FromDatabaseAgentError>(error: &impl core::fmt::Debug) -> E {
     tracing::error!("The database agent returned an error: {error:?}");
     <E as FromDatabaseAgentError>::from()
-}
-
-impl Backend {
-    async fn reload_database_hosts(&self) -> Result<(), sqlx::Error> {
-        let backend = self.clone();
-        let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| Box::pin(async move { backend.sync_database_hosts(tx).await }))
-            .await
-    }
 }
 
 #[service(path = "/admin/database", tag = "database", no_sdk)]
@@ -399,7 +391,7 @@ pub(crate) impl DatabaseAdminService for Backend {
             }
         }
 
-        self.reload_database_hosts().await?;
+        self.resync(SyncTarget::DatabaseHosts).await?;
 
         Ok(())
     }
@@ -438,7 +430,7 @@ pub(crate) impl DatabaseAdminService for Backend {
             return Err(DeleteDatabaseHostError::DatabaseHostNotFound);
         }
 
-        self.reload_database_hosts().await?;
+        self.resync(SyncTarget::DatabaseHosts).await?;
 
         Ok(())
     }

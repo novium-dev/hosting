@@ -5,7 +5,7 @@ use redis::{ExistenceCheck, SetExpiry, SetOptions};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use sqlx::postgres::PgListener;
-use sqlx::{PgConnection, query};
+use sqlx::{Connection as _, PgConnection, Postgres, Transaction, query};
 use tokio_util::sync::{CancellationToken, DropGuard};
 use tracing::{debug, error, warn};
 
@@ -59,14 +59,36 @@ impl Backend {
         Ok(())
     }
 
-    async fn reload(&self, target: Option<SyncTarget>) -> Result<(), sqlx::Error> {
+    async fn load(&self, conn: &mut PgConnection, target: SyncTarget) -> Result<(), sqlx::Error> {
+        match target {
+            SyncTarget::Nodes => self.load_nodes(conn).await,
+            SyncTarget::DatabaseHosts => self.load_database_hosts(conn).await,
+        }
+    }
+
+    pub(crate) async fn sync(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        target: SyncTarget,
+    ) -> Result<(), sqlx::Error> {
+        self.load(tx, target).await?;
+        self.notify_sync(tx, target).await
+    }
+
+    pub(crate) async fn resync(&self, target: SyncTarget) -> Result<(), sqlx::Error> {
+        let backend = self.clone();
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| Box::pin(async move { backend.sync(tx, target).await }))
+            .await
+    }
+
+    pub(crate) async fn reload(&self, target: Option<SyncTarget>) -> Result<(), sqlx::Error> {
         let mut conn = self.database.acquire().await?;
         match target {
-            Some(SyncTarget::Nodes) => self.load_nodes(&mut conn).await,
-            Some(SyncTarget::DatabaseHosts) => self.load_database_hosts(&mut conn).await,
+            Some(target) => self.load(&mut conn, target).await,
             None => {
-                self.load_nodes(&mut conn).await?;
-                self.load_database_hosts(&mut conn).await
+                self.load(&mut conn, SyncTarget::Nodes).await?;
+                self.load(&mut conn, SyncTarget::DatabaseHosts).await
             }
         }
     }
