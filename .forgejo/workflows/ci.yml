@@ -34,7 +34,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
     env:
       BACKEND_DATABASE_URL: postgres://postgres:postgres@db/backend
-      DAEMON_SSH_KEY: ${{ secrets.DAEMON_SSH_KEY }}
+      DAEMON_SSH_KEY: ${{ secrets.DEPLOY_KEY }}
       RUSTFLAGS: -C opt-level=0 -C linker=clang-22 -C link-arg=-fuse-ld=lld
     steps:
       - run: apk add --no-cache nodejs git
@@ -64,7 +64,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
     env:
       BACKEND_DATABASE_URL: postgres://postgres:postgres@db/backend
-      DAEMON_SSH_KEY: ${{ secrets.DAEMON_SSH_KEY }}
+      DAEMON_SSH_KEY: ${{ secrets.DEPLOY_KEY }}
       CARGO_PROFILE_TEST_DEBUG: "0"
       RUSTFLAGS: -C opt-level=0 -C linker=clang-22 -C link-arg=-fuse-ld=lld
     steps:
@@ -88,7 +88,7 @@ jobs:
     runs-on: docker
     container: rust:1.99.0-alpine
     env:
-      DAEMON_SSH_KEY: ${{ secrets.DAEMON_SSH_KEY }}
+      DAEMON_SSH_KEY: ${{ secrets.DEPLOY_KEY }}
     steps:
       - run: apk add --no-cache nodejs git
       - uses: actions/checkout@v4
@@ -149,7 +149,7 @@ jobs:
             context: .
             ssh: --ssh default
     env:
-      DAEMON_SSH_KEY: ${{ secrets.DAEMON_SSH_KEY }}
+      DAEMON_SSH_KEY: ${{ secrets.DEPLOY_KEY }}
       IMAGE: ${{ vars.REGISTRY }}/${{ vars.IMAGE || github.repository }}${{ matrix.suffix }}
     steps:
       - run: apk add --no-cache nodejs git openssh-client-default
@@ -160,5 +160,5 @@ jobs:
           eval "$(ssh-agent -s)"
           printf '%s\n' "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
           echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
-      - run: printf '%s' "${{ secrets.REGISTRY_PASSWORD }}" | docker login "${{ vars.REGISTRY }}" -u "${{ secrets.REGISTRY_USER }}" --password-stdin
+      - run: printf '%s' "${{ secrets.REGISTRY_TOKEN }}" | docker login "${{ vars.REGISTRY }}" -u "${{ secrets.REGISTRY_USER }}" --password-stdin
       - run: ./scripts/ci/publish-image.sh "$IMAGE" ${{ matrix.dockerfile }} ${{ matrix.context }} ${{ matrix.ssh }}
