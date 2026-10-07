@@ -35,7 +35,7 @@ import { FileEditor } from "../components/file-editor";
 import { FilesManager } from "../components/files-manager/files-manager";
 import { NetworkPorts } from "../components/network-ports";
 import { RoutesManager } from "../components/routes-manager";
-import { SchedulesManager } from "../components/schedules-manager";
+import { SchedulesManager } from "../components/schedules/schedules-manager";
 import { ServerSettings } from "../components/server-settings";
 import { StartupConfiguration } from "../components/startup-configuration";
 import { StartupVariables } from "../components/startup-variables";
