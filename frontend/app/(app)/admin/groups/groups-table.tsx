@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useMemo, useState } from "react";
 import {
   CornerDownRight,
@@ -125,7 +126,7 @@ export function GroupsTable({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("admin-infra:groups.deleteError"),
+          apiErrorMessage(response.error, t("admin-infra:groups.deleteError")),
         );
         return;
       }
@@ -369,7 +370,7 @@ function CreateGroupDialog({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("admin-infra:groups.createError"),
+          apiErrorMessage(response.error, t("admin-infra:groups.createError")),
         );
         return;
       }

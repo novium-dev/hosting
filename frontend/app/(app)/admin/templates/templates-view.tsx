@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import {
   refreshTemplateCacheAction,
   resyncTemplateAction,
@@ -82,7 +83,10 @@ export function TemplatesView() {
     const response = await listTemplateUsage();
     if (response.error) {
       throw new Error(
-        response.error.error?.msg ?? t("admin-infra:templates.view.loadError"),
+        apiErrorMessage(
+          response.error,
+          t("admin-infra:templates.view.loadError"),
+        ),
       );
     }
     return response.data ?? [];

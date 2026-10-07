@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import {
   useEffect,
   useEffectEvent,
@@ -582,10 +583,12 @@ export function FilesManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
-            (direction === "undo"
+          apiErrorMessage(
+            response.error,
+            direction === "undo"
               ? t("servers-management:filesManager.toasts.undoFailedRename")
-              : t("servers-management:filesManager.toasts.redoFailedRename")),
+              : t("servers-management:filesManager.toasts.redoFailedRename"),
+          ),
         );
         return false;
       }
@@ -605,8 +608,10 @@ export function FilesManager({
 
         if (response.error) {
           toast.error(
-            response.error.error?.msg ??
+            apiErrorMessage(
+              response.error,
               t("servers-management:filesManager.toasts.undoFailedCopy"),
+            ),
           );
           return false;
         }
@@ -624,8 +629,10 @@ export function FilesManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers-management:filesManager.toasts.redoFailedCopy"),
+          ),
         );
         return false;
       }
@@ -644,8 +651,10 @@ export function FilesManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers-management:filesManager.toasts.undoFailedCreate"),
+          ),
         );
         return false;
       }
@@ -663,8 +672,10 @@ export function FilesManager({
 
     if (response.error) {
       toast.error(
-        response.error.error?.msg ??
+        apiErrorMessage(
+          response.error,
           t("servers-management:filesManager.toasts.redoFailedCreate"),
+        ),
       );
       return false;
     }
@@ -942,10 +953,12 @@ export function FilesManager({
           updateUploadTask(id, { status: "error" });
           errorCount += 1;
           toast.error(
-            uploadUrlResponse.error?.error?.msg ??
+            apiErrorMessage(
+              uploadUrlResponse.error,
               t("servers-management:filesManager.toasts.uploadUrlFailed", {
                 fileName: file.name,
               }),
+            ),
           );
           continue;
         }
@@ -1088,8 +1101,10 @@ export function FilesManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers-management:filesManager.toasts.moveFailed"),
+          ),
         );
         return;
       }
@@ -1244,8 +1259,10 @@ export function FilesManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers-management:filesManager.toasts.renameFailed"),
+          ),
         );
         return;
       }
@@ -1297,8 +1314,10 @@ export function FilesManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers-management:filesManager.toasts.copyFailed"),
+          ),
         );
         return;
       }
@@ -1347,8 +1366,10 @@ export function FilesManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers-management:filesManager.toasts.deleteFailed"),
+          ),
         );
         return;
       }
@@ -1397,8 +1418,10 @@ export function FilesManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers-management:filesManager.toasts.archiveFailed"),
+          ),
         );
         return;
       }
@@ -1473,8 +1496,10 @@ export function FilesManager({
 
         if (response.error) {
           toast.error(
-            response.error.error?.msg ??
+            apiErrorMessage(
+              response.error,
               t("servers-management:filesManager.toasts.chmodFailed"),
+            ),
           );
           return;
         }
@@ -1488,8 +1513,10 @@ export function FilesManager({
 
         if (response.error) {
           toast.error(
-            response.error.error?.msg ??
+            apiErrorMessage(
+              response.error,
               t("servers-management:filesManager.toasts.chownFailed"),
+            ),
           );
           return;
         }
@@ -1661,8 +1688,10 @@ export function FilesManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers-management:filesManager.toasts.unarchiveFailed"),
+          ),
         );
         return;
       }
@@ -1692,8 +1721,10 @@ export function FilesManager({
 
       if (response.error || !response.data?.url) {
         toast.error(
-          response.error?.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers-management:filesManager.toasts.downloadUrlFailed"),
+          ),
         );
         return;
       }
@@ -1749,10 +1780,12 @@ export function FilesManager({
 
       if (uploadUrlResponse.error || !uploadUrlResponse.data?.url) {
         toast.error(
-          uploadUrlResponse.error?.error?.msg ??
+          apiErrorMessage(
+            uploadUrlResponse.error,
             t("servers-management:filesManager.toasts.uploadUrlFailed", {
               fileName,
             }),
+          ),
         );
         return;
       }
@@ -1811,8 +1844,10 @@ export function FilesManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers-management:filesManager.toasts.createDirectoryFailed"),
+          ),
         );
         return;
       }

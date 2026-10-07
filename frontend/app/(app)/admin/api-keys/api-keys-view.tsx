@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
@@ -24,7 +25,7 @@ export function AdminApiKeysView() {
     const response = await listAllApiKeys();
     if (response.error) {
       throw new Error(
-        response.error.error?.msg ?? t("admin-core:apiKeys.loadFailed"),
+        apiErrorMessage(response.error, t("admin-core:apiKeys.loadFailed")),
       );
     }
     return response.data ?? [];

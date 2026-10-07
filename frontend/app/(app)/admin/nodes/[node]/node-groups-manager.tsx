@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import {
   CornerDownRight,
@@ -217,10 +218,12 @@ export function NodeGroupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
-            (editing
+          apiErrorMessage(
+            response.error,
+            editing
               ? t("admin-infra:nodes.groupsManager.updateError")
-              : t("admin-infra:nodes.groupsManager.createError")),
+              : t("admin-infra:nodes.groupsManager.createError"),
+          ),
         );
         return;
       }
@@ -248,8 +251,10 @@ export function NodeGroupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:nodes.groupsManager.deleteError"),
+          ),
         );
         return;
       }

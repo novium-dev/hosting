@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import { Boxes, PencilIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
@@ -84,8 +85,10 @@ export function DatabaseInstancesTable({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:databases.instancesTable.deleteError"),
+          ),
         );
         return;
       }

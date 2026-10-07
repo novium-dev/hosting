@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -209,8 +210,10 @@ export function ServerAdminSettings({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:servers.adminSettings.updateError"),
+          ),
         );
         return;
       }

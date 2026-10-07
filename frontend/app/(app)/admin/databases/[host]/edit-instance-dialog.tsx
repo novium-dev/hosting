@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -78,8 +79,10 @@ function EditInstanceForm({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:databases.editInstanceDialog.saveError"),
+          ),
         );
         return;
       }

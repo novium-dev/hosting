@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import { FolderInput } from "lucide-react";
 import { toast } from "sonner";
@@ -70,8 +71,10 @@ export function ServerMoveCard({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:servers.moveCard.moveError"),
+          ),
         );
         return;
       }

@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -132,8 +133,10 @@ function DatabaseHostForm({
 
         if (response.error) {
           toast.error(
-            response.error.error?.msg ??
+            apiErrorMessage(
+              response.error,
               t("admin-infra:databases.hostDialog.saveError"),
+            ),
           );
           return;
         }
@@ -160,8 +163,10 @@ function DatabaseHostForm({
 
         if (response.error) {
           toast.error(
-            response.error.error?.msg ??
+            apiErrorMessage(
+              response.error,
               t("admin-infra:databases.hostDialog.saveError"),
+            ),
           );
           return;
         }
@@ -176,8 +181,10 @@ function DatabaseHostForm({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:databases.hostDialog.saveError"),
+          ),
         );
         return;
       }

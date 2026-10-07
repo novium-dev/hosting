@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useCallback, useMemo, useState } from "react";
 import { Loader2, Plus, RefreshCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -195,8 +196,10 @@ export function NodePortsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:nodes.portsManager.addError"),
+          ),
         );
         return;
       }
@@ -227,8 +230,10 @@ export function NodePortsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:nodes.portsManager.removeError"),
+          ),
         );
         return;
       }

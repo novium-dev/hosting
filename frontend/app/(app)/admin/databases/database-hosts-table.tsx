@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useMemo, useState } from "react";
 import {
   Clock,
@@ -112,8 +113,10 @@ export function DatabaseHostsTable({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:databases.hostsTable.extendFailed"),
+          ),
         );
         return;
       }
@@ -136,8 +139,10 @@ export function DatabaseHostsTable({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:databases.hostsTable.deleteError"),
+          ),
         );
         return;
       }

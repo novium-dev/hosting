@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import {
@@ -299,7 +300,9 @@ export function MinecraftPlayerManager({
           deop: "servers-management:minecraftPlayerManager.toasts.deopFailed",
         };
 
-        toast.error(response.error.error?.msg ?? t(actionFailedKeys[action]));
+        toast.error(
+          apiErrorMessage(response.error, t(actionFailedKeys[action])),
+        );
         return;
       }
 

@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import { createServer, templateInfo } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
@@ -67,7 +68,7 @@ export const createServerAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to create server",
+        apiErrorMessage(response.error, "Failed to create server"),
       );
     }
 

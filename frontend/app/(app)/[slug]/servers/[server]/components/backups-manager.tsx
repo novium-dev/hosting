@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
 import {
@@ -190,7 +191,10 @@ export function BackupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("servers:backups.toasts.createFailed"),
+          apiErrorMessage(
+            response.error,
+            t("servers:backups.toasts.createFailed"),
+          ),
         );
         return;
       }
@@ -261,8 +265,10 @@ export function BackupsManager({
 
       if (response.error || !response.data) {
         toast.error(
-          response.error?.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers:backups.toasts.downloadUrlFailed"),
+          ),
         );
         return;
       }
@@ -286,7 +292,10 @@ export function BackupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("servers:backups.toasts.renameFailed"),
+          apiErrorMessage(
+            response.error,
+            t("servers:backups.toasts.renameFailed"),
+          ),
         );
         return;
       }
@@ -320,8 +329,10 @@ export function BackupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers:backups.toasts.protectFailed"),
+          ),
         );
         return;
       }
@@ -350,8 +361,10 @@ export function BackupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers:backups.toasts.restoreFailed"),
+          ),
         );
         return;
       }
@@ -372,7 +385,10 @@ export function BackupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("servers:backups.toasts.deleteFailed"),
+          apiErrorMessage(
+            response.error,
+            t("servers:backups.toasts.deleteFailed"),
+          ),
         );
         return;
       }

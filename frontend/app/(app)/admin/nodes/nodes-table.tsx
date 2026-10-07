@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import Link from "@/components/link";
 import { useMemo, useState } from "react";
 import {
@@ -152,8 +153,10 @@ export function NodesTable({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:nodes.table.extendFailed"),
+          ),
         );
         return;
       }
@@ -174,8 +177,10 @@ export function NodesTable({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:nodes.deleteDialog.failed"),
+          ),
         );
         return;
       }

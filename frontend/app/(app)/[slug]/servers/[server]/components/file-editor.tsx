@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import type { EditorProps } from "@monaco-editor/react";
 import Link from "@/components/link";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
@@ -224,8 +225,10 @@ export function FileEditor({
 
         if (statResponse.error || !statResponse.data) {
           toast.error(
-            statResponse.error?.error?.msg ??
+            apiErrorMessage(
+              statResponse.error,
               t("servers:fileEditor.toasts.inspectFailed"),
+            ),
           );
           setMode("empty");
           return;
@@ -263,8 +266,10 @@ export function FileEditor({
 
         if (downloadResponse.error || !downloadResponse.data?.url) {
           toast.error(
-            downloadResponse.error?.error?.msg ??
+            apiErrorMessage(
+              downloadResponse.error,
               t("servers:fileEditor.toasts.downloadUrlFailed"),
+            ),
           );
           setMode("empty");
           return;
@@ -339,8 +344,10 @@ export function FileEditor({
 
       if (uploadUrlResponse.error || !uploadUrlResponse.data?.url) {
         toast.error(
-          uploadUrlResponse.error?.error?.msg ??
+          apiErrorMessage(
+            uploadUrlResponse.error,
             t("servers:fileEditor.toasts.uploadUrlFailed"),
+          ),
         );
         return;
       }

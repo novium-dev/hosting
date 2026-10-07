@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import useSWR from "swr";
 import { CheckCircle2, ExternalLink, ScrollText } from "lucide-react";
@@ -81,7 +82,7 @@ export function ServerLicenseNotice({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("servers:licenses.toasts.failed"),
+          apiErrorMessage(response.error, t("servers:licenses.toasts.failed")),
         );
         return;
       }

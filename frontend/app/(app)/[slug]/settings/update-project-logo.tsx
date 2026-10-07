@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -49,7 +50,10 @@ export function UpdateProjectLogo({ project }: { project: AppProject }) {
 
     if (response.error) {
       toast.error(
-        response.error.error?.msg ?? t("project:settings.logoCard.uploadError"),
+        apiErrorMessage(
+          response.error,
+          t("project:settings.logoCard.uploadError"),
+        ),
       );
       return;
     }
@@ -67,7 +71,10 @@ export function UpdateProjectLogo({ project }: { project: AppProject }) {
 
     if (response.error) {
       toast.error(
-        response.error.error?.msg ?? t("project:settings.logoCard.removeError"),
+        apiErrorMessage(
+          response.error,
+          t("project:settings.logoCard.removeError"),
+        ),
       );
       return;
     }

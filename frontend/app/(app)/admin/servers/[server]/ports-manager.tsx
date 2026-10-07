@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
@@ -359,8 +360,10 @@ export function PortsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:servers.portsManager.createError"),
+          ),
         );
         return;
       }
@@ -401,8 +404,10 @@ export function PortsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:servers.portsManager.updateError"),
+          ),
         );
         return;
       }
@@ -430,8 +435,10 @@ export function PortsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:servers.portsManager.removeError"),
+          ),
         );
         return;
       }

@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import useSWR from "swr";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -110,8 +111,10 @@ export default function AdminDeployConfigsPage() {
       });
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:deployConfigs.deleteError"),
+          ),
         );
         return;
       }

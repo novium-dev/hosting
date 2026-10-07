@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { useSettingsDialog } from "@/hooks/use-settings-dialog";
@@ -154,8 +155,10 @@ export function ServerSettings({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers:settings.toasts.updateFailed"),
+          ),
         );
         return;
       }
@@ -180,7 +183,10 @@ export function ServerSettings({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("servers:settings.toasts.wipeFailed"),
+          apiErrorMessage(
+            response.error,
+            t("servers:settings.toasts.wipeFailed"),
+          ),
         );
         return;
       }

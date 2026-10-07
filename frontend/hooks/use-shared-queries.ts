@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import useSWR, { type SWRConfiguration } from "swr";
 import {
   availablePorts,
@@ -29,7 +30,7 @@ export function useProjectInstances(
       });
       if (response.error) {
         throw new Error(
-          response.error.error?.msg ?? "Failed to load instances",
+          apiErrorMessage(response.error, "Failed to load instances"),
         );
       }
       return response.data ?? [];
@@ -47,7 +48,7 @@ export function useInstanceDatabases(projectId: string, instanceId: string) {
       });
       if (response.error) {
         throw new Error(
-          response.error.error?.msg ?? "Failed to load databases",
+          apiErrorMessage(response.error, "Failed to load databases"),
         );
       }
       return response.data ?? [];
@@ -66,7 +67,9 @@ export function useRouteDomains(enabled: boolean) {
   return useSWR(enabled ? "admin/route-domains" : null, async () => {
     const response = await listRouteDomainsAdmin();
     if (response.error) {
-      throw new Error(response.error.error?.msg ?? "Failed to load domains");
+      throw new Error(
+        apiErrorMessage(response.error, "Failed to load domains"),
+      );
     }
     return response.data ?? [];
   });

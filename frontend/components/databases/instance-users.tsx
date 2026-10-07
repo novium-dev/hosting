@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import useSWR from "swr";
 
 import {
@@ -189,7 +190,9 @@ export function InstanceUsers({
         path: { project_id: projectId, instance_id: instanceId },
       });
       if (response.error) {
-        throw new Error(response.error.error?.msg ?? "Failed to load users");
+        throw new Error(
+          apiErrorMessage(response.error, "Failed to load users"),
+        );
       }
       return response.data ?? [];
     },
