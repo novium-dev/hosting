@@ -91,8 +91,7 @@ export function InstanceDeleteCard({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
+              onClick={() => {
                 void remove.executeAsync({
                   projectId,
                   instanceId: instance.id,

@@ -20,7 +20,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
 import { useAction } from "@/lib/action-hooks";
 import type { AppProject } from "@/lib/auth";
 import { useRouter } from "@/lib/navigation";
@@ -114,9 +113,8 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
                   {t("common:actions.cancel")}
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  className={buttonVariants({ variant: "destructive" })}
-                  onClick={(event) => {
-                    event.preventDefault();
+                  variant="destructive"
+                  onClick={() => {
                     deleteProject.execute({ id: project.id });
                   }}
                   disabled={deleteProject.isExecuting}

@@ -233,8 +233,7 @@ export function InstanceDatabases({
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
+              onClick={() => {
                 if (!pendingDelete) return;
                 void remove.executeAsync({
                   projectId,

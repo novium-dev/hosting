@@ -295,10 +295,7 @@ export default function AdminDeployConfigsPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void handleDelete();
-              }}
+              onClick={() => void handleDelete()}
               disabled={isDeleting}
             >
               {t("common:actions.delete")}

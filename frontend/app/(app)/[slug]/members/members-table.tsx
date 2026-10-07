@@ -238,8 +238,7 @@ export function MembersTable({
               {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
+              onClick={() => {
                 if (!removeMember) return;
                 remove.execute({ projectId, userId: removeMember.id });
               }}

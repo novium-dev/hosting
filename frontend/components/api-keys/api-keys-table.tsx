@@ -280,8 +280,7 @@ export function ApiKeysTable({
               {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
+              onClick={() => {
                 if (!deleteKey) return;
                 remove.execute({ id: deleteKey.id, admin });
               }}

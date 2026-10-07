@@ -2590,10 +2590,7 @@ export function FilesManager({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void handleDelete();
-              }}
+              onClick={() => void handleDelete()}
               disabled={isActionLoading || filesBlocked}
             >
               {t("common:actions.delete")}
@@ -2932,10 +2929,7 @@ export function FilesManager({
               {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void handleMassDelete();
-              }}
+              onClick={() => void handleMassDelete()}
               disabled={isActionLoading || filesBlocked}
               className="bg-destructive hover:bg-destructive/90"
             >

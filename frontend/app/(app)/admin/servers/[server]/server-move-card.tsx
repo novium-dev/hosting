@@ -166,10 +166,7 @@ export function ServerMoveCard({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void onMove();
-              }}
+              onClick={() => void onMove()}
               disabled={!canMove || !target || isMoving}
             >
               {t("admin-infra:servers.moveCard.moveButton")}

@@ -678,10 +678,7 @@ export function AdminDomainsView() {
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={isSubmitting}
-              onClick={(event) => {
-                event.preventDefault();
-                void remove();
-              }}
+              onClick={() => void remove()}
             >
               {t("common:actions.delete")}
             </AlertDialogAction>

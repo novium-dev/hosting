@@ -316,8 +316,7 @@ export function TemplatesView() {
               {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
+              onClick={() => {
                 resync.execute({ template: target ?? undefined, restart });
               }}
               disabled={resync.isExecuting}

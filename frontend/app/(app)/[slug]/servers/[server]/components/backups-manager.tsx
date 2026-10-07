@@ -789,10 +789,7 @@ export function BackupsManager({
               {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void handleRestore();
-              }}
+              onClick={() => void handleRestore()}
               disabled={isActionLoading || restoreLock.locked}
             >
               {t("servers:backups.restoreButton")}
@@ -829,10 +826,7 @@ export function BackupsManager({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void handleDelete();
-              }}
+              onClick={() => void handleDelete()}
               disabled={isActionLoading || storageLock.locked}
             >
               {t("common:actions.delete")}

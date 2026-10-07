@@ -227,10 +227,7 @@ export function ServerTemplateCard({
               {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void onSwitch();
-              }}
+              onClick={() => void onSwitch()}
               disabled={isSwitching}
             >
               {isSwitching

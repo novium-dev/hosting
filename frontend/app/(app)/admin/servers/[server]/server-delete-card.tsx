@@ -108,10 +108,7 @@ export function ServerDeleteCard({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void onDelete();
-              }}
+              onClick={() => void onDelete()}
               disabled={!canDelete || isDeleting}
             >
               {t("admin-infra:servers.deleteCard.deleteButton")}

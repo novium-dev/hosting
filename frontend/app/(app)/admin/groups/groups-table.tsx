@@ -323,12 +323,7 @@ export function GroupsTable({
             <AlertDialogCancel disabled={isDeletePending}>
               {t("common:actions.cancel")}
             </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void handleDelete();
-              }}
-            >
+            <AlertDialogAction onClick={() => void handleDelete()}>
               {t("common:actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>

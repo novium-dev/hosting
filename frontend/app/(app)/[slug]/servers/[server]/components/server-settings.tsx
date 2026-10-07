@@ -471,10 +471,7 @@ export function ServerSettings({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void onWipe();
-              }}
+              onClick={() => void onWipe()}
               disabled={isWiping || !canWipe || wipeLock.locked}
             >
               {wipeWithBackup
