@@ -13,7 +13,10 @@ RUN RUSTFLAGS="-C opt-level=0 -C codegen-units=40" cargo install sqlx-cli --no-d
 
 FROM chef AS dependencies
 
-RUN apk add --no-cache ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm22-static llvm22-dev git postgresql18 postgresql18-client musl-dev llvm22 clang22 clang22-static mold curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+RUN apk add --no-cache ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm22-static llvm22-dev git openssh-client postgresql18 postgresql18-client musl-dev llvm22 clang22 clang22-static mold curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+
+RUN mkdir -p -m 0700 /root/.ssh && ssh-keyscan git-ssh.novium.world >> /root/.ssh/known_hosts
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 
 FROM chef AS planner
 COPY . .

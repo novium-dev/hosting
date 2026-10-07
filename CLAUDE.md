@@ -19,7 +19,7 @@ sqlx migrate run --source backend/migrations --database-url postgres://postgres:
 ```
 
 - `sqlx::query!` is checked against a live, migrated database at compile time (no offline cache). If a build fails on query macros, Postgres is down or missing a migration; run the migrate command above. The agent compiles against `dev/database_agent.db` (rerun the script after adding an agent migration).
-- Builds fetch `novium-dev/daemon` and `0xIO32/zelus` over SSH.
+- Builds fetch `daemon` and `zelus_keys` from `git-ssh.novium.world` over SSH (CI uses the `DEPLOY_KEY` secret).
 - The backend reads only `BACKEND_*` environment variables (`backend/.env.example`), never a `.env` file. The agent reads `config.toml` from `DATABASE_AGENT_DATA_DIR`.
 - `auth_dev` adds `GET /api/auth/login/dev`, which signs in as a seeded admin. Swagger is at `/api/docs` in debug builds.
 

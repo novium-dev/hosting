@@ -12,153 +12,188 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+  # Incremental artifacts are useless in CI and bloat the cache
   CARGO_INCREMENTAL: "0"
+  # Skip debuginfo: faster builds, smaller cache
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  CARGO_DENY_VERSION: "0.20.2"
+  SQLX_CLI_VERSION: "0.9.0"
 
 jobs:
   fmt:
     runs-on: docker
-    container: rust:1.99.0-alpine
+    container:
+      image: rust:1.99.0-alpine
     steps:
       - run: apk add --no-cache nodejs git
       - uses: actions/checkout@v4
       - run: rustup component add rustfmt
-      - run: cargo fmt --all --check
+      - run: cargo fmt --check --all
+
+  deny:
+    runs-on: docker
+    container:
+      image: rust:1.99.0-alpine
+    steps:
+      - run: apk add --no-cache nodejs git openssh-client curl
+      - uses: actions/checkout@v4
+      - run: ./scripts/ci/deploy-key.sh
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+      - name: Install cargo-deny (prebuilt)
+        run: |
+          curl -sSfL "https://github.com/EmbarkStudios/cargo-deny/releases/download/${CARGO_DENY_VERSION}/cargo-deny-${CARGO_DENY_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+            | tar xz --strip-components=1 -C /usr/local/bin "cargo-deny-${CARGO_DENY_VERSION}-x86_64-unknown-linux-musl/cargo-deny"
+      - run: cargo-deny check
 
   clippy:
     runs-on: docker
-    container: rust:1.99.0-alpine
+    container:
+      image: rust:1.99.0-alpine
     services:
-      db:
+      clippy-db:
         image: postgres:18-alpine
         env:
           POSTGRES_PASSWORD: postgres
     env:
-      BACKEND_DATABASE_URL: postgres://postgres:postgres@db/backend
-      DAEMON_SSH_KEY: ${{ secrets.DEPLOY_KEY }}
-      RUSTFLAGS: -C opt-level=0 -C linker=clang-22 -C link-arg=-fuse-ld=lld
+      BACKEND_DATABASE_URL: postgres://postgres:postgres@clippy-db/backend
+      CARGO_HOME: ${{ github.workspace }}/.cargo_home
+      RUSTFLAGS: "-C opt-level=0 -C linker=clang-22 -C link-arg=-fuse-ld=lld"
     steps:
-      - run: apk add --no-cache nodejs git
+      - name: Install build dependencies
+        run: apk add --no-cache nodejs git openssh-client curl musl-dev zlib-dev zlib-static zstd-dev zstd-static clang22 lld22 postgresql18-client sqlite --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
       - uses: actions/checkout@v4
-      - run: ./scripts/ci/setup-rust.sh
+      - run: ./scripts/ci/deploy-key.sh
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+      - uses: actions/cache@v4
+        with:
+          path: .ci/sqlx-cli
+          key: sqlx-cli-${{ env.SQLX_CLI_VERSION }}
       - uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            .ci/sqlx-cli
-            target
-          key: clippy-${{ hashFiles('Cargo.lock') }}
-          restore-keys: clippy-
-      - run: ./scripts/ci/setup-database.sh
+            .cargo_home/registry/index/
+            .cargo_home/registry/cache/
+            .cargo_home/git/db/
+            target/
+          key: rust-clippy-${{ hashFiles('Cargo.lock') }}
+          restore-keys: rust-clippy-
+      - run: ./scripts/ci/setup-database.sh clippy-db
       - run: rustup component add clippy
       - run: cargo clippy --all-targets --workspace --no-deps
 
   test:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: docker
-    container: rust:1.99.0-alpine
+    container:
+      image: rust:1.99.0-alpine
     services:
-      db:
+      test-db:
         image: postgres:18-alpine
         env:
           POSTGRES_PASSWORD: postgres
     env:
-      BACKEND_DATABASE_URL: postgres://postgres:postgres@db/backend
-      DAEMON_SSH_KEY: ${{ secrets.DEPLOY_KEY }}
-      CARGO_PROFILE_TEST_DEBUG: "0"
-      RUSTFLAGS: -C opt-level=0 -C linker=clang-22 -C link-arg=-fuse-ld=lld
+      BACKEND_DATABASE_URL: postgres://postgres:postgres@test-db/backend
+      CARGO_HOME: ${{ github.workspace }}/.cargo_home
+      RUSTFLAGS: "-C opt-level=0 -C linker=clang-22 -C link-arg=-fuse-ld=lld"
     steps:
-      - run: apk add --no-cache nodejs git
+      - name: Install build dependencies
+        run: apk add --no-cache nodejs git openssh-client curl musl-dev zlib-dev zlib-static zstd-dev zstd-static clang22 lld22 postgresql18-client sqlite --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
       - uses: actions/checkout@v4
-      - run: ./scripts/ci/setup-rust.sh
+      - run: ./scripts/ci/deploy-key.sh
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+      - uses: actions/cache@v4
+        with:
+          path: .ci/sqlx-cli
+          key: sqlx-cli-${{ env.SQLX_CLI_VERSION }}
       - uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            .ci/sqlx-cli
-            target
-          key: test-${{ hashFiles('Cargo.lock') }}
-          restore-keys: test-
-      - run: ./scripts/ci/setup-database.sh
+            .cargo_home/registry/index/
+            .cargo_home/registry/cache/
+            .cargo_home/git/db/
+            target/
+          key: rust-test-${{ hashFiles('Cargo.lock') }}
+          restore-keys: rust-test-
+      - run: ./scripts/ci/setup-database.sh test-db
       - run: cargo test --workspace --locked
-
-  deny:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: docker
-    container: rust:1.99.0-alpine
-    env:
-      DAEMON_SSH_KEY: ${{ secrets.DEPLOY_KEY }}
-    steps:
-      - run: apk add --no-cache nodejs git
-      - uses: actions/checkout@v4
-      - run: ./scripts/ci/setup-rust.sh
-      - uses: actions/cache@v4
-        with:
-          path: .ci/cargo-deny
-          key: cargo-deny
-      - run: test -x .ci/cargo-deny/bin/cargo-deny || cargo install --locked cargo-deny --root .ci/cargo-deny
-      - run: .ci/cargo-deny/bin/cargo-deny check
 
   frontend:
     runs-on: docker
-    container: node:22
+    container:
+      image: node:22
+    env:
+      COREPACK_HOME: ${{ github.workspace }}/.corepack
+      npm_config_store_dir: ${{ github.workspace }}/.pnpm-store
     defaults:
       run:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
-      - run: corepack enable
       - uses: actions/cache@v4
         with:
-          path: ~/.local/share/pnpm/store
-          key: pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          path: |
+            .corepack
+            .pnpm-store
+          key: pnpm-${{ hashFiles('frontend/pnpm-lock.yaml', 'frontend/package.json') }}
           restore-keys: pnpm-
-      - run: pnpm install --frozen-lockfile
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile --prefer-offline
       - run: pnpm run typecheck
       - run: pnpm run lint
       - run: pnpm run format:check
       - run: pnpm run build
 
   publish:
+    # Auto deploy on push to prod, manual deploy from dev via workflow_dispatch
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/prod') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/dev')
-    needs: [fmt, clippy, frontend]
+    needs: [fmt, deny, clippy, test, frontend]
     runs-on: docker
     container:
-      image: docker:cli
+      image: docker:latest
       volumes:
         - /var/run/docker.sock:/var/run/docker.sock
     strategy:
       matrix:
         include:
-          - name: backend
-            suffix: ""
+          - suffix: ""
             dockerfile: backend.Dockerfile
             context: .
-            ssh: --ssh default
-          - name: frontend
-            suffix: /frontend
+          - suffix: /frontend
             dockerfile: frontend/Dockerfile
             context: frontend
-            ssh: ""
-          - name: database-agent
-            suffix: /database-agent
+          - suffix: /database-agent
             dockerfile: database_agent.Dockerfile
             context: .
-            ssh: --ssh default
     env:
-      DAEMON_SSH_KEY: ${{ secrets.DEPLOY_KEY }}
-      IMAGE: ${{ vars.REGISTRY }}/${{ vars.IMAGE || github.repository }}${{ matrix.suffix }}
+      DOCKER_HOST: unix:///var/run/docker.sock
+      REGISTRY: ${{ vars.REGISTRY }}
+      IMAGE_PATH: ${{ vars.IMAGE || github.repository }}${{ matrix.suffix }}
     steps:
-      - run: apk add --no-cache nodejs git openssh-client-default
+      - run: apk add --no-cache nodejs git
       - uses: actions/checkout@v4
-      - name: start ssh agent
-        if: matrix.ssh != ''
+      - name: Build and push image
         run: |
-          eval "$(ssh-agent -s)"
-          printf '%s\n' "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
-          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
-      - run: printf '%s' "${{ secrets.REGISTRY_TOKEN }}" | docker login "${{ vars.REGISTRY }}" -u "${{ secrets.REGISTRY_USER }}" --password-stdin
-      - run: ./scripts/ci/publish-image.sh "$IMAGE" ${{ matrix.dockerfile }} ${{ matrix.context }} ${{ matrix.ssh }}
+          REGISTRY="${REGISTRY:-${GITHUB_SERVER_URL#*://}}"
+          IMAGE="$REGISTRY/$IMAGE_PATH"
+          SHORT_SHA="$(echo "$GITHUB_SHA" | cut -c1-8)"
+          KEY="$(mktemp)"
+          printf '%s\n' "${{ secrets.DEPLOY_KEY }}" > "$KEY"
+          echo "${{ secrets.REGISTRY_TOKEN }}" | docker login "$REGISTRY" -u "${{ secrets.REGISTRY_USER }}" --password-stdin
+          # docker-container driver can export the cache of all stages (inline cache only covers the final one).
+          # The builder persists on the host, so its local layer cache is reused across runs too.
+          docker buildx inspect ci-builder >/dev/null 2>&1 || docker buildx create --name ci-builder --driver docker-container
+          docker buildx use ci-builder
+          docker buildx build \
+            --ssh "default=$KEY" \
+            --cache-from "type=registry,ref=$IMAGE:buildcache" \
+            --cache-to "type=registry,ref=$IMAGE:buildcache,mode=max,image-manifest=true,oci-mediatypes=true" \
+            --tag "$IMAGE:$SHORT_SHA" --tag "$IMAGE:latest" \
+            --file "${{ matrix.dockerfile }}" \
+            --push "${{ matrix.context }}"
+          rm -f "$KEY"
