@@ -1,5 +1,6 @@
 use crate::Backend;
 use crate::auth::effective::EffectivePermissions;
+use crate::auth::grant::resolve_grant;
 use crate::auth::permissions::{HasPermission, Permission, Role};
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
@@ -108,7 +109,8 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
                 id,
                 "user",
                 project AS "project: ProjectId",
-                permissions"#,
+                permissions,
+                known_permissions"#,
             token.hash()
         )
         .fetch_optional(&mut *conn)
@@ -135,7 +137,10 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
 
         let effective = EffectivePermissions::load(&mut conn, key.user, role)
             .await?
-            .masked(key.permissions, key.project);
+            .masked(
+                resolve_grant(key.permissions, key.known_permissions),
+                key.project,
+            );
 
         Ok(Some(Self {
             user: key.user,

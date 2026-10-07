@@ -1,5 +1,6 @@
 use crate::Backend;
 use crate::auth::Authentication;
+use crate::auth::grant::resolve_grant;
 use crate::auth::permissions::ManagementPermissions;
 use crate::db::project::ProjectId;
 use crate::service::admin::api_key::api_key_admin_service_error::{
@@ -37,6 +38,7 @@ pub(crate) impl ApiKeyAdminService for Backend {
                 api_keys.project AS "project: ProjectId",
                 projects.slug AS "project_slug?",
                 api_keys.permissions,
+                api_keys.known_permissions,
                 api_keys."user",
                 users.username,
                 api_keys.created_at,
@@ -55,7 +57,7 @@ pub(crate) impl ApiKeyAdminService for Backend {
             prefix: key.token_prefix,
             project: key.project,
             project_slug: key.project_slug,
-            permissions: key.permissions,
+            permissions: resolve_grant(key.permissions, key.known_permissions),
             user: key.user,
             username: key.username,
             created_at: key.created_at.timestamp(),

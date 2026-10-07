@@ -1,6 +1,7 @@
 use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
+use crate::auth::grant::{KNOWN_PERMISSIONS, resolve_grant};
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
 use crate::db::project::ProjectId;
 use crate::logo::{LOGO_MAX_BYTES, LogoFormat};
@@ -493,6 +494,7 @@ pub(crate) impl ProjectService for Backend {
                 users.email,
                 users.avatar_url,
                 project_users.permissions,
+                project_users.known_permissions,
                 project_users.expires_at
              FROM project_users
              JOIN users ON users.id = project_users."user"
@@ -518,7 +520,7 @@ pub(crate) impl ProjectService for Backend {
             username: user.username,
             email: user.email,
             avatar_url: user.avatar_url.unwrap_or_default(),
-            permissions: user.permissions,
+            permissions: resolve_grant(user.permissions, user.known_permissions),
             expires_at: user.expires_at,
         }))
         .apply_pagesplit(&mut page)
@@ -556,14 +558,16 @@ pub(crate) impl ProjectService for Backend {
         }
 
         query!(
-            r#"INSERT INTO project_users ("user", project, permissions, expires_at)
-             VALUES ($1, $2, $3, $4)
+            r#"INSERT INTO project_users ("user", project, permissions, known_permissions, expires_at)
+             VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT ("user", project) DO UPDATE SET
                 permissions = EXCLUDED.permissions,
+                known_permissions = EXCLUDED.known_permissions,
                 expires_at = EXCLUDED.expires_at"#,
             user_id,
             &project_id,
             permissions,
+            KNOWN_PERMISSIONS,
             expires_at
         )
         .execute(&*self.database)

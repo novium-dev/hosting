@@ -1,5 +1,6 @@
 use crate::Backend;
 use crate::auth::Authentication;
+use crate::auth::grant::resolve_grant;
 use crate::auth::permissions::{
     ManagementPermissions, ProjectPermissions, Role, ServerPermissions,
 };
@@ -119,6 +120,7 @@ pub(crate) impl UserAdminService for Backend {
                 projects.name,
                 (projects.owner = $1) AS "owner!",
                 COALESCE(project_users.permissions, 0) AS "permissions!",
+                COALESCE(project_users.known_permissions, 0) AS "known_permissions!",
                 (SELECT COUNT(*) FROM servers WHERE servers.project = projects.id) AS "server_count!"
              FROM projects
              LEFT JOIN project_users
@@ -140,7 +142,7 @@ pub(crate) impl UserAdminService for Backend {
             permissions: if project.owner {
                 owner_permissions
             } else {
-                project.permissions
+                resolve_grant(project.permissions, project.known_permissions)
             },
             server_count: project.server_count,
         })

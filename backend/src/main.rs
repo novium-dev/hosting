@@ -15,7 +15,6 @@ mod shutdown;
 pub(crate) mod templates;
 mod utils;
 
-use crate::auth::backfill::apply_permission_backfills;
 use crate::auth::oauth::AuthService;
 use crate::config::BackendConfig;
 use crate::db::database::BackendDatabaseHost;
@@ -250,10 +249,6 @@ async fn main0() {
         .run(&*database)
         .await
         .expect("Unable to run migrations");
-
-    apply_permission_backfills(&database)
-        .await
-        .expect("Unable to apply the permission backfills");
 
     let (root_key, root_privkey, user_key, backend_key) =
         crypto::load_keys(&database, &data_dir).await;

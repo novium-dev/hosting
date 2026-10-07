@@ -4,6 +4,7 @@ use crate::registration::{DatabaseHostRegistration, NodeRegistration};
 use crate::service::internal::internal_service_error::{AuthPasswordError, AuthPublickeyError};
 use crate::{
     Backend,
+    auth::grant::resolve_grant,
     auth::permissions::{ManagementPermissions, ProjectPermissions, Role, ServerPermissions},
     service::internal::{
         error_internal_daemon_key_invalid::FromInternalDaemonKeyInvalid,
@@ -421,7 +422,8 @@ where
             servers.suspended AS "suspended: bool",
             nodes.maintenance AS "maintenance: bool",
             projects.owner,
-            project_users.permissions AS "permissions?"
+            project_users.permissions AS "permissions?",
+            project_users.known_permissions AS "known_permissions?"
          FROM servers
          JOIN nodes ON nodes.id = servers.node
          JOIN projects ON projects.id = servers.project
@@ -445,7 +447,10 @@ where
     .await?;
 
     for server in server_records {
-        let project_permissions = server.permissions;
+        let project_permissions = server
+            .permissions
+            .zip(server.known_permissions)
+            .map(|(permissions, known)| resolve_grant(permissions, known));
         let owner = server.owner;
         let suspended = server.suspended;
         let maintenance = server.maintenance;

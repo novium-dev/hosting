@@ -1,6 +1,7 @@
 use super::*;
 use crate::Backend;
 use crate::auth::api_key::ApiKeyToken;
+use crate::auth::grant::{KNOWN_PERMISSIONS, resolve_grant};
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
 use crate::auth::user::UserAuthentication;
 use crate::db::project::ProjectId;
@@ -61,6 +62,7 @@ pub(crate) impl ApiKeyService for Backend {
                 api_keys.project AS "project: ProjectId",
                 projects.slug AS "project_slug?",
                 api_keys.permissions,
+                api_keys.known_permissions,
                 api_keys."user",
                 users.username,
                 api_keys.created_at,
@@ -81,7 +83,7 @@ pub(crate) impl ApiKeyService for Backend {
             prefix: key.token_prefix,
             project: key.project,
             project_slug: key.project_slug,
-            permissions: key.permissions,
+            permissions: resolve_grant(key.permissions, key.known_permissions),
             user: key.user,
             username: key.username,
             created_at: key.created_at.timestamp(),
@@ -120,6 +122,7 @@ pub(crate) impl ApiKeyService for Backend {
                 api_keys.project AS "project: ProjectId",
                 projects.slug AS "project_slug?",
                 api_keys.permissions,
+                api_keys.known_permissions,
                 api_keys."user",
                 users.username,
                 api_keys.created_at,
@@ -143,7 +146,7 @@ pub(crate) impl ApiKeyService for Backend {
             prefix: key.token_prefix,
             project: key.project,
             project_slug: key.project_slug,
-            permissions: key.permissions,
+            permissions: resolve_grant(key.permissions, key.known_permissions),
             user: key.user,
             username: key.username,
             created_at: key.created_at.timestamp(),
@@ -176,15 +179,17 @@ pub(crate) impl ApiKeyService for Backend {
 
         let token = ApiKeyToken::generate();
         let record = query!(
-            r#"INSERT INTO api_keys (name, token_hash, token_prefix, "user", project, permissions)
-             VALUES ($1, $2, $3, $4, $5, $6)
+            r#"INSERT INTO api_keys
+                (name, token_hash, token_prefix, "user", project, permissions, known_permissions)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING id"#,
             name,
             token.hash(),
             token.display_prefix(),
             auth.id,
             project.as_ref().map(|project| project.as_str()),
-            permissions
+            permissions,
+            KNOWN_PERMISSIONS
         )
         .fetch_one(&*self.database)
         .await?;
@@ -226,8 +231,10 @@ pub(crate) impl ApiKeyService for Backend {
                 grantable_permissions::<UpdateApiKeyError>(&auth, key.project, permissions)?;
 
             query!(
-                r#"UPDATE api_keys SET permissions = $1 WHERE id = $2 AND "user" = $3"#,
+                r#"UPDATE api_keys SET permissions = $1, known_permissions = $2
+                 WHERE id = $3 AND "user" = $4"#,
                 permissions,
+                KNOWN_PERMISSIONS,
                 api_key_id,
                 auth.id
             )
