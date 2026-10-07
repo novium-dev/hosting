@@ -19,7 +19,7 @@ use daemon_common::service::server::{
     ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
 };
 use redis::RedisError;
-use sqlx::query;
+use sqlx::{Connection as _, query};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::error;
@@ -166,95 +166,100 @@ impl Backend {
             None => String::new(),
         };
 
-        let mut tx = self.database.begin().await?;
+        let mut conn = self.database.acquire().await?;
         tokio::task::spawn(async move {
-            let node_server_id = node
-                .create_server(
-                    storage.clone(),
-                    resource.clone(),
-                    build,
-                    node_ports,
-                    ServerNetworkPayload {
-                        networks: Vec::new(),
-                        internet_access,
-                    },
-                    daemon_group,
-                )
-                .await
-                .map_err(|daemon_err| match daemon_err {
-                    err @ (DaemonCreateServerError::Communication(_)
-                    | DaemonCreateServerError::AuthInvalid
-                    | DaemonCreateServerError::SqlFailure
-                    | DaemonCreateServerError::ServerImageDifferent
-                    | DaemonCreateServerError::ServerImageMissingTag
-                    | DaemonCreateServerError::GroupInvalidName) => {
-                        error!("Failed to create server: {err:?}");
-                        <E as FromNodeFailure>::from()
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    let node_server_id = node
+                        .create_server(
+                            storage.clone(),
+                            resource.clone(),
+                            build,
+                            node_ports,
+                            ServerNetworkPayload {
+                                networks: Vec::new(),
+                                internet_access,
+                            },
+                            daemon_group,
+                        )
+                        .await
+                        .map_err(|daemon_err| match daemon_err {
+                            err @ (DaemonCreateServerError::Communication(_)
+                            | DaemonCreateServerError::AuthInvalid
+                            | DaemonCreateServerError::SqlFailure
+                            | DaemonCreateServerError::ServerImageDifferent
+                            | DaemonCreateServerError::ServerImageMissingTag
+                            | DaemonCreateServerError::GroupInvalidName) => {
+                                error!("Failed to create server: {err:?}");
+                                <E as FromNodeFailure>::from()
+                            }
+                            DaemonCreateServerError::StorageLocationNotFound => {
+                                <E as FromServerStorageNotFound>::from()
+                            }
+                        })?;
+
+                    let id = ServerId::generate();
+                    let stored = async {
+                        query!(
+                            "INSERT INTO servers (id, node, node_server_id, project, storage, cpu, ram, swap, disk,
+                                 template, template_extra, name, internet_access, backup_limit, group_id)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+                            &id,
+                            &node.id,
+                            node_server_id.cast_signed(),
+                            project.as_str(),
+                            &storage,
+                            resource.cpu,
+                            resource.ram.map(u32::cast_signed),
+                            resource.swap.map(u32::cast_signed),
+                            resource.disk.map(u64::cast_signed),
+                            template.id(),
+                            &extra,
+                            &name,
+                            internet_access,
+                            backup_limit.map(u32::cast_signed),
+                            group
+                        )
+                        .execute(&mut **tx)
+                        .await?;
+
+                        for port in &network_ports {
+                            query!(
+                                "INSERT INTO server_ports (server, host, name, internal_port, bind, external_port, protocol, http)
+                                 VALUES ($1, $2, $3, $4, $5, int4range($6, $7, '[]'), $8, $9)",
+                                &id,
+                                &port.host,
+                                port.name,
+                                i32::from(port.internal_port),
+                                port.bind.as_deref().unwrap_or_else(|| node.default_bind()),
+                                i32::from(port.external_port_start),
+                                i32::from(port.external_port_end),
+                                port.protocol as NetworkProtocol,
+                                port.http
+                            )
+                            .execute(&mut **tx)
+                            .await?;
+                        }
+
+                        Ok::<(), sqlx::Error>(())
                     }
-                    DaemonCreateServerError::StorageLocationNotFound => {
-                        <E as FromServerStorageNotFound>::from()
+                    .await;
+
+                    if let Err(err) = stored {
+                        error!("Failed to store server {id}: {err:?}");
+                        if let Err(cleanup) = node.delete_server(node_server_id).await {
+                            error!(
+                                "Failed to remove server {node_server_id} from node {} after storing it failed: {cleanup:?}",
+                                node.id
+                            );
+                        }
+                        return Err(err.into());
                     }
-                })?;
 
-            let id = ServerId::generate();
-            let stored = async {
-                query!(
-                    "INSERT INTO servers (id, node, node_server_id, project, storage, cpu, ram, swap, disk,
-                         template, template_extra, name, internet_access, backup_limit, group_id)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
-                    &id,
-                    &node.id,
-                    node_server_id.cast_signed(),
-                    project.as_str(),
-                    &storage,
-                    resource.cpu,
-                    resource.ram.map(u32::cast_signed),
-                    resource.swap.map(u32::cast_signed),
-                    resource.disk.map(u64::cast_signed),
-                    template.id(),
-                    &extra,
-                    &name,
-                    internet_access,
-                    backup_limit.map(u32::cast_signed),
-                    group
-                )
-                .execute(&mut *tx)
-                .await?;
-
-                for port in &network_ports {
-                    query!(
-                        "INSERT INTO server_ports (server, host, name, internal_port, bind, external_port, protocol, http)
-                         VALUES ($1, $2, $3, $4, $5, int4range($6, $7, '[]'), $8, $9)",
-                        &id,
-                        &port.host,
-                        port.name,
-                        i32::from(port.internal_port),
-                        port.bind.as_deref().unwrap_or_else(|| node.default_bind()),
-                        i32::from(port.external_port_start),
-                        i32::from(port.external_port_end),
-                        port.protocol as NetworkProtocol,
-                        port.http
-                    )
-                    .execute(&mut *tx)
-                    .await?;
-                }
-
-                tx.commit().await
-            }
-            .await;
-
-            if let Err(err) = stored {
-                error!("Failed to store server {id}: {err:?}");
-                if let Err(cleanup) = node.delete_server(node_server_id).await {
-                    error!(
-                        "Failed to remove server {node_server_id} from node {} after storing it failed: {cleanup:?}",
-                        node.id
-                    );
-                }
-                return Err(err.into());
-            }
-
-            Ok(id)
+                    Ok(id)
+                })
+            })
+            .await
         })
         .await
         .expect("Unable to execute create server task")

@@ -19,7 +19,7 @@ use database_agent_common::types::{
 use docker::{DockerHandle, ExecOptions};
 use futures_util::StreamExt as _;
 use manager::RouteInserter;
-use sqlx::SqliteConnection;
+use sqlx::{Connection as _, SqliteConnection};
 use std::path::PathBuf;
 use std::sync::{Arc, Weak};
 use tokio::io::{AsyncRead, AsyncWriteExt as _};
@@ -168,25 +168,30 @@ impl Instance {
     pub async fn ensure_mongodb_root(&self) -> anyhow::Result<()> {
         let socket = self.socket_path().await;
         let mut data = self.data.write().await;
-
-        let result = async {
-            if data.root_password.is_some() {
-                return Ok(());
-            }
-
-            let password = generate_password();
-            let mut tx = self.agent.store.begin().await?;
-            data::set_root_password(&mut *tx, self.uuid, &password).await?;
-            connection::mongodb::MongodbConnection::new(socket, None)?
-                .create_root(&password)
-                .await?;
-            tx.commit().await?;
-
-            data.root_password = Some(password);
-
-            Ok(())
+        if data.root_password.is_some() {
+            return Ok(());
         }
-        .await;
+
+        let password = generate_password();
+        let uuid = self.uuid;
+        let stored = password.clone();
+        let mut conn = self.agent.store.write().acquire().await?;
+        let result = conn
+            .transaction(|tx| {
+                Box::pin(async move {
+                    data::set_root_password(&mut **tx, uuid, &stored).await?;
+                    connection::mongodb::MongodbConnection::new(socket, None)?
+                        .create_root(&stored)
+                        .await?;
+
+                    Ok::<_, anyhow::Error>(())
+                })
+            })
+            .await;
+
+        if result.is_ok() {
+            data.root_password = Some(password);
+        }
         drop(data);
 
         result
@@ -215,34 +220,47 @@ impl Instance {
         }
         self.require_online("create a database").await?;
 
-        let mut tx = self.agent.store.begin().await?;
-        let database = data::insert_database(&mut *tx, self.uuid, name).await?;
-        self.connection().await?.create_database(name).await?;
-        tx.commit().await?;
+        let connection = self.connection().await?;
+        let uuid = self.uuid;
+        let name = name.to_owned();
+        let mut conn = self.agent.store.write().acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let database = data::insert_database(&mut **tx, uuid, &name).await?;
+                connection.create_database(&name).await?;
 
-        Ok(database)
+                Ok(database)
+            })
+        })
+        .await
     }
 
     pub async fn delete_database(&self, database: &StoredDatabase) -> anyhow::Result<()> {
         self.require_online("delete a database").await?;
 
         let connection = self.connection().await?;
-        let mut tx = self.agent.store.begin().await?;
-        let revoked: Vec<UserIdentifier> = self
-            .database_grants(&mut tx, database)
-            .await?
-            .into_iter()
-            .map(|grant| grant.user)
-            .collect();
+        let instance = self.clone();
+        let database = database.clone();
+        let mut conn = self.agent.store.write().acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let revoked: Vec<UserIdentifier> = instance
+                    .database_grants(tx, &database)
+                    .await?
+                    .into_iter()
+                    .map(|grant| grant.user)
+                    .collect();
 
-        data::delete_database(&mut *tx, database.uuid).await?;
-        connection
-            .sync_grants(&database.name, &[], &revoked)
-            .await?;
-        connection.delete_database(&database.name).await?;
-        tx.commit().await?;
+                data::delete_database(&mut **tx, database.uuid).await?;
+                connection
+                    .sync_grants(&database.name, &[], &revoked)
+                    .await?;
+                connection.delete_database(&database.name).await?;
 
-        Ok(())
+                Ok(())
+            })
+        })
+        .await
     }
 
     pub async fn recreate_database(&self, database: &StoredDatabase) -> anyhow::Result<()> {
@@ -332,21 +350,31 @@ impl Instance {
 
         let connection = self.connection().await?;
         let password = generate_password();
+        let instance = self.clone();
+        let username = username.to_owned();
+        let grants = grants.to_vec();
+        let stored = password.clone();
+        let mut conn = self.agent.store.write().acquire().await?;
+        let (user, identifier) = conn
+            .transaction(|tx| {
+                Box::pin(async move {
+                    let user =
+                        data::insert_user(tx, instance.uuid, &username, &stored, &grants).await?;
+                    let identifier = identifier(&user)?;
 
-        let mut tx = self.agent.store.begin().await?;
-        let user = data::insert_user(&mut tx, self.uuid, username, &password, grants).await?;
-        let identifier = identifier(&user)?;
+                    connection.create_user(&identifier, &stored).await?;
 
-        connection.create_user(&identifier, &password).await?;
+                    if let Err(err) = instance.sync_grants(tx, &connection, &user, &[]).await {
+                        if let Err(cleanup) = connection.delete_user(&identifier, &[]).await {
+                            tracing::error!(instance = %instance.uuid, "failed to roll back user {identifier}: {cleanup}");
+                        }
+                        return Err(err);
+                    }
 
-        if let Err(err) = self.sync_grants(&mut tx, &connection, &user, &[]).await {
-            if let Err(cleanup) = connection.delete_user(&identifier, &[]).await {
-                tracing::error!(instance = %self.uuid, "failed to roll back user {identifier}: {cleanup}");
-            }
-            return Err(err);
-        }
-
-        tx.commit().await?;
+                    Ok((user, identifier))
+                })
+            })
+            .await?;
 
         self.route_inserter.insert(identifier, password);
 
@@ -361,35 +389,46 @@ impl Instance {
         self.require_online("change a user's grants").await?;
 
         let connection = self.connection().await?;
-
-        let mut tx = self.agent.store.begin().await?;
-        data::replace_grants(&mut tx, user.uuid, grants).await?;
-
+        let instance = self.clone();
+        let previous = user.grants.clone();
         let updated = StoredUser {
             grants: grants.to_vec(),
             ..user.clone()
         };
+        let mut conn = self.agent.store.write().acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                data::replace_grants(tx, updated.uuid, &updated.grants).await?;
+                instance
+                    .sync_grants(tx, &connection, &updated, &previous)
+                    .await?;
 
-        self.sync_grants(&mut tx, &connection, &updated, &user.grants)
-            .await?;
-        tx.commit().await?;
-
-        Ok(updated)
+                Ok(updated)
+            })
+        })
+        .await
     }
 
     pub async fn rotate_password(&self, user: &StoredUser) -> anyhow::Result<String> {
         self.require_online("rotate a password").await?;
 
+        let connection = self.connection().await?;
         let password = generate_password();
         let identifier = identifier(user)?;
+        let user_uuid = user.uuid;
+        let stored = password.clone();
+        let mut conn = self.agent.store.write().acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                data::set_user_password(&mut **tx, user_uuid, &stored).await?;
+                connection
+                    .update_user_password(&identifier, &stored)
+                    .await?;
 
-        let mut tx = self.agent.store.begin().await?;
-        data::set_user_password(&mut *tx, user.uuid, &password).await?;
-        self.connection()
-            .await?
-            .update_user_password(&identifier, &password)
-            .await?;
-        tx.commit().await?;
+                Ok::<_, anyhow::Error>(())
+            })
+        })
+        .await?;
 
         self.route_inserter.remove(&identifier);
         self.route_inserter.insert(identifier, password.as_str());
@@ -413,13 +452,18 @@ impl Instance {
             })
             .collect();
 
-        let mut tx = self.agent.store.begin().await?;
-        data::delete_user(&mut *tx, user.uuid).await?;
-        self.connection()
-            .await?
-            .delete_user(&identifier, &granted)
-            .await?;
-        tx.commit().await?;
+        let connection = self.connection().await?;
+        let user_uuid = user.uuid;
+        let mut conn = self.agent.store.write().acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                data::delete_user(&mut **tx, user_uuid).await?;
+                connection.delete_user(&identifier, &granted).await?;
+
+                Ok::<_, anyhow::Error>(())
+            })
+        })
+        .await?;
 
         self.route_inserter.remove(&identifier);
 
@@ -462,13 +506,20 @@ impl Instance {
         let mut updated = data.clone();
         data::apply_update(&mut updated, update);
 
-        let mut tx = self.agent.store.begin().await?;
-        data::update_instance(&mut *tx, &updated).await?;
         let handle = self.handle.read().await.clone();
-        if let Some(handle) = handle {
-            handle.update_resources(&updated).await?;
-        }
-        tx.commit().await?;
+        let mut conn = self.agent.store.write().acquire().await?;
+        let updated = conn
+            .transaction(|tx| {
+                Box::pin(async move {
+                    data::update_instance(&mut **tx, &updated).await?;
+                    if let Some(handle) = handle {
+                        handle.update_resources(&updated).await?;
+                    }
+
+                    Ok::<_, anyhow::Error>(updated)
+                })
+            })
+            .await?;
 
         *data = updated;
         drop(data);

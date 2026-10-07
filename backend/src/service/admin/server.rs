@@ -25,7 +25,7 @@ use daemon_common::service::server::{
     ServerBuildPayload, ServerPortEntryPayload, ServerResourcePayload,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{PgConnection, query, query_scalar};
+use sqlx::{Connection as _, PgConnection, query, query_scalar};
 use std::collections::HashMap;
 use tracing::error;
 use uuid::Uuid;
@@ -129,40 +129,44 @@ pub(crate) impl ServerAdminService for Backend {
 
         let routes = self.server_routes(server_id).await?;
 
-        let mut tx = self.database.begin().await?;
+        let backend = self.clone();
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let Some(server) = backend.resolve_server(&mut **tx, server_id).await? else {
+                    return Err(DeleteServerError::ServerNotFound);
+                };
 
-        let Some(server) = self.resolve_server(&mut *tx, server_id).await? else {
-            return Err(DeleteServerError::ServerNotFound);
-        };
+                query!("DELETE FROM servers WHERE id = $1", &server_id)
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to delete server: {err:?}"))?;
 
-        query!("DELETE FROM servers WHERE id = $1", &server_id)
-            .execute(&mut *tx)
-            .await
-            .inspect_err(|err| error!("Failed to delete server: {err:?}"))?;
+                let deleted = tokio::task::spawn(async move {
+                    server.node.delete_server(server.node_server_id).await
+                })
+                .await
+                .expect("server deletion task failed");
+                match deleted {
+                    Ok(()) | Err(DaemonDeleteServerError::ServerNotFound) => {}
+                    Err(DaemonDeleteServerError::ServerMutexLocked) => {
+                        return Err(DeleteServerError::ServerUnavailable);
+                    }
+                    Err(
+                        err @ (DaemonDeleteServerError::Communication(_)
+                        | DaemonDeleteServerError::AuthInvalid
+                        | DaemonDeleteServerError::DockerFailure
+                        | DaemonDeleteServerError::SqlFailure),
+                    ) => {
+                        error!("Failed to delete server: {err:?}");
+                        return Err(DeleteServerError::NodeFailure);
+                    }
+                }
 
-        let deleted =
-            tokio::task::spawn(
-                async move { server.node.delete_server(server.node_server_id).await },
-            )
-            .await
-            .expect("server deletion task failed");
-        match deleted {
-            Ok(()) | Err(DaemonDeleteServerError::ServerNotFound) => {}
-            Err(DaemonDeleteServerError::ServerMutexLocked) => {
-                return Err(DeleteServerError::ServerUnavailable);
-            }
-            Err(
-                err @ (DaemonDeleteServerError::Communication(_)
-                | DaemonDeleteServerError::AuthInvalid
-                | DaemonDeleteServerError::DockerFailure
-                | DaemonDeleteServerError::SqlFailure),
-            ) => {
-                error!("Failed to delete server: {err:?}");
-                return Err(DeleteServerError::NodeFailure);
-            }
-        }
-
-        tx.commit().await?;
+                Ok::<_, DeleteServerError>(())
+            })
+        })
+        .await?;
 
         self.deprovision_routes(&routes).await;
 
@@ -298,30 +302,32 @@ pub(crate) impl ServerAdminService for Backend {
                 })?;
         }
 
-        let mut tx = self.database.begin().await?;
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                query!(
+                    "UPDATE servers SET template = $1, template_extra = $2, custom_dockerfile = NULL WHERE id = $3",
+                    template.id(),
+                    &extra,
+                    &server_id
+                )
+                .execute(&mut **tx)
+                .await
+                .inspect_err(|err| error!("Failed to store the new template: {err:?}"))?;
 
-        query!(
-            "UPDATE servers SET template = $1, template_extra = $2, custom_dockerfile = NULL WHERE id = $3",
-            template.id(),
-            &extra,
-            &server_id
-        )
-        .execute(&mut *tx)
+                server
+                    .node
+                    .update_server(server.node_server_id, None, Some(build), None, None, None)
+                    .await
+                    .map_err(|err| {
+                        error!("Failed to push the new template of server {server_id}: {err:?}");
+                        ChangeServerTemplateError::NodeFailure
+                    })?;
+
+                Ok(())
+            })
+        })
         .await
-        .inspect_err(|err| error!("Failed to store the new template: {err:?}"))?;
-
-        server
-            .node
-            .update_server(server.node_server_id, None, Some(build), None, None, None)
-            .await
-            .map_err(|err| {
-                error!("Failed to push the new template of server {server_id}: {err:?}");
-                ChangeServerTemplateError::NodeFailure
-            })?;
-
-        tx.commit().await?;
-
-        Ok(())
     }
 
     /// Moves a server into a different project.
@@ -351,52 +357,54 @@ pub(crate) impl ServerAdminService for Backend {
         auth.require::<_, _, MoveServerError>(server_id, ProjectPermissions::VIEW)?;
         auth.require::<_, _, MoveServerError>((), ManagementPermissions::SERVER_MANAGE)?;
 
-        let mut tx = self.database.begin().await?;
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let current = query_scalar!(
+                    r#"SELECT project AS "project: ProjectId" FROM servers WHERE id = $1 FOR UPDATE"#,
+                    &server_id
+                )
+                .fetch_optional(&mut **tx)
+                .await?
+                .ok_or(MoveServerError::ServerNotFound)?;
 
-        let current = query_scalar!(
-            r#"SELECT project AS "project: ProjectId" FROM servers WHERE id = $1 FOR UPDATE"#,
-            &server_id
-        )
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(MoveServerError::ServerNotFound)?;
+                if current == project {
+                    return Ok(());
+                }
 
-        if current == project {
-            return Ok(());
-        }
+                let unshared_routes = query_scalar!(
+                    r#"SELECT (COUNT(*) > 0) AS "exists!"
+                       FROM routes
+                       JOIN route_domains ON route_domains.id = routes.domain
+                       WHERE routes.server = $1
+                         AND route_domains.private
+                         AND NOT EXISTS (
+                             SELECT 1 FROM route_domain_projects
+                             WHERE route_domain_projects.domain = routes.domain
+                               AND route_domain_projects.project = $2
+                         )"#,
+                    &server_id,
+                    &project
+                )
+                .fetch_one(&mut **tx)
+                .await?;
+                if unshared_routes {
+                    return Err(MoveServerError::RouteDomainNotShared);
+                }
 
-        let unshared_routes = query_scalar!(
-            r#"SELECT (COUNT(*) > 0) AS "exists!"
-               FROM routes
-               JOIN route_domains ON route_domains.id = routes.domain
-               WHERE routes.server = $1
-                 AND route_domains.private
-                 AND NOT EXISTS (
-                     SELECT 1 FROM route_domain_projects
-                     WHERE route_domain_projects.domain = routes.domain
-                       AND route_domain_projects.project = $2
-                 )"#,
-            &server_id,
-            &project
-        )
-        .fetch_one(&mut *tx)
-        .await?;
-        if unshared_routes {
-            return Err(MoveServerError::RouteDomainNotShared);
-        }
+                query!(
+                    "UPDATE servers SET project = $1 WHERE id = $2",
+                    &project,
+                    &server_id
+                )
+                .execute(&mut **tx)
+                .await
+                .inspect_err(|err| error!("Failed to move server {server_id}: {err:?}"))?;
 
-        query!(
-            "UPDATE servers SET project = $1 WHERE id = $2",
-            &project,
-            &server_id
-        )
-        .execute(&mut *tx)
+                Ok(())
+            })
+        })
         .await
-        .inspect_err(|err| error!("Failed to move server {server_id}: {err:?}"))?;
-
-        tx.commit().await?;
-
-        Ok(())
     }
 
     /// Allocates a new port for the server.
@@ -448,80 +456,82 @@ pub(crate) impl ServerAdminService for Backend {
             .await
             .map_err(TemplateError::into::<AddPortError>)?;
 
-        let mut tx = self.database.begin().await?;
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let allocated = query_scalar!(
+                    r#"SELECT (COUNT(*) > 0) as "exists!"
+                       FROM node_ports
+                       WHERE node = $1
+                       AND protocol = $2
+                       AND start <= $3
+                       AND "end" >= $4"#,
+                    server.node.id,
+                    protocol as NetworkProtocol,
+                    i32::from(*external.start()),
+                    i32::from(*external.end())
+                )
+                .fetch_one(&mut **tx)
+                .await?;
 
-        let allocated = query_scalar!(
-            r#"SELECT (COUNT(*) > 0) as "exists!"
-               FROM node_ports
-               WHERE node = $1
-               AND protocol = $2
-               AND start <= $3
-               AND "end" >= $4"#,
-            server.node.id,
-            protocol as NetworkProtocol,
-            i32::from(*external.start()),
-            i32::from(*external.end())
-        )
-        .fetch_one(&mut *tx)
-        .await?;
+                if !allocated {
+                    return Err(AddPortError::PortNotAllocated);
+                }
 
-        if !allocated {
-            return Err(AddPortError::PortNotAllocated);
-        }
+                let collision = query_scalar!(
+                    r#"SELECT (COUNT(*) > 0) as "exists!"
+                       FROM server_ports
+                       JOIN servers ON server_ports.server = servers.id
+                       WHERE servers.node = $1
+                       AND server_ports.protocol = $2
+                       AND server_ports.external_port && int4range($3, $4, '[]')"#,
+                    server.node.id,
+                    protocol as NetworkProtocol,
+                    i32::from(*external.start()),
+                    i32::from(*external.end())
+                )
+                .fetch_one(&mut **tx)
+                .await?;
 
-        let collision = query_scalar!(
-            r#"SELECT (COUNT(*) > 0) as "exists!"
-               FROM server_ports
-               JOIN servers ON server_ports.server = servers.id
-               WHERE servers.node = $1
-               AND server_ports.protocol = $2
-               AND server_ports.external_port && int4range($3, $4, '[]')"#,
-            server.node.id,
-            protocol as NetworkProtocol,
-            i32::from(*external.start()),
-            i32::from(*external.end())
-        )
-        .fetch_one(&mut *tx)
-        .await?;
+                if collision {
+                    return Err(AddPortError::PortInvalid);
+                }
 
-        if collision {
-            return Err(AddPortError::PortInvalid);
-        }
+                query!(
+                    "INSERT INTO server_ports (server, host, name, protocol, internal_port, external_port, bind, http)
+                     VALUES ($1, $2, $3, $4, $5, int4range($6, $7, '[]'), $8, $9)",
+                    &server.id,
+                    server.node.default_host(),
+                    name,
+                    protocol as NetworkProtocol,
+                    i32::from(internal_port),
+                    i32::from(*external.start()),
+                    i32::from(*external.end()),
+                    server.node.default_bind(),
+                    http.unwrap_or(false) && protocol == NetworkProtocol::Tcp
+                )
+                .execute(&mut **tx)
+                .await?;
 
-        query!(
-            "INSERT INTO server_ports (server, host, name, protocol, internal_port, external_port, bind, http)
-             VALUES ($1, $2, $3, $4, $5, int4range($6, $7, '[]'), $8, $9)",
-            &server.id,
-            server.node.default_host(),
-            name,
-            protocol as NetworkProtocol,
-            i32::from(internal_port),
-            i32::from(*external.start()),
-            i32::from(*external.end()),
-            server.node.default_bind(),
-            http.unwrap_or(false) && protocol == NetworkProtocol::Tcp
-        )
-        .execute(&mut *tx)
-        .await?;
+                let (build, ports) = node_ports(tx, &server, build).await?;
 
-        let (build, ports) = node_ports(&mut tx, &server, build).await?;
+                server
+                    .node
+                    .update_server(
+                        server.node_server_id,
+                        None,
+                        Some(build),
+                        Some(ports),
+                        None,
+                        None,
+                    )
+                    .await
+                    .map_err(|_err| AddPortError::NodeFailure)?;
 
-        server
-            .node
-            .update_server(
-                server.node_server_id,
-                None,
-                Some(build),
-                Some(ports),
-                None,
-                None,
-            )
-            .await
-            .map_err(|_err| AddPortError::NodeFailure)?;
-
-        tx.commit().await?;
-
-        Ok(())
+                Ok(())
+            })
+        })
+        .await
     }
 
     /// Updates an existing port allocation for the server.
@@ -595,181 +605,183 @@ pub(crate) impl ServerAdminService for Backend {
             .await
             .map_err(TemplateError::into::<UpdatePortError>)?;
 
-        let mut tx = self.database.begin().await?;
-
-        let current = query!(
-            r#"SELECT protocol AS "protocol: NetworkProtocol", internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!"
-             FROM server_ports WHERE id = $1 AND server = $2"#,
-            port_id,
-            &server.id
-        )
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(UpdatePortError::ServerNotFound)?;
-
-        let protocol_parsed = protocol.unwrap_or(current.protocol);
-
-        let internal = internal_port.unwrap_or_else(|| {
-            u16::try_from(current.internal_port)
-                .expect("database port constraints ensure a u16 value")
-        });
-
-        let (start, end) = external_port.as_ref().map_or_else(
-            || {
-                (
-                    u16::try_from(current.external_port_start)
-                        .expect("database port constraints ensure a u16 value"),
-                    u16::try_from(current.external_port_end)
-                        .expect("database port constraints ensure a u16 value"),
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let current = query!(
+                    r#"SELECT protocol AS "protocol: NetworkProtocol", internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!"
+                     FROM server_ports WHERE id = $1 AND server = $2"#,
+                    port_id,
+                    &server.id
                 )
-            },
-            |range| (range.start, range.end),
-        );
+                .fetch_optional(&mut **tx)
+                .await?
+                .ok_or(UpdatePortError::ServerNotFound)?;
 
-        if start > end {
-            return Err(UpdatePortError::PortInvalid);
-        }
+                let protocol_parsed = protocol.unwrap_or(current.protocol);
 
-        if (u32::from(internal) + u32::from(end - start)) > u32::from(u16::MAX) {
-            return Err(UpdatePortError::PortInvalid);
-        }
+                let internal = internal_port.unwrap_or_else(|| {
+                    u16::try_from(current.internal_port)
+                        .expect("database port constraints ensure a u16 value")
+                });
 
-        let allocated = query_scalar!(
-            r#"SELECT (COUNT(*) > 0) as "exists!"
-               FROM node_ports
-               WHERE node = $1
-               AND protocol = $2
-               AND start <= $3
-               AND "end" >= $4"#,
-            server.node.id,
-            protocol_parsed as NetworkProtocol,
-            i32::from(start),
-            i32::from(end)
-        )
-        .fetch_one(&mut *tx)
-        .await?;
+                let (start, end) = external_port.as_ref().map_or_else(
+                    || {
+                        (
+                            u16::try_from(current.external_port_start)
+                                .expect("database port constraints ensure a u16 value"),
+                            u16::try_from(current.external_port_end)
+                                .expect("database port constraints ensure a u16 value"),
+                        )
+                    },
+                    |range| (range.start, range.end),
+                );
 
-        if !allocated {
-            return Err(UpdatePortError::PortNotAllocated);
-        }
+                if start > end {
+                    return Err(UpdatePortError::PortInvalid);
+                }
 
-        let collision = query_scalar!(
-            r#"SELECT (COUNT(*) > 0) as "exists!"
-               FROM server_ports
-               JOIN servers ON server_ports.server = servers.id
-               WHERE servers.node = $1
-               AND server_ports.protocol = $2
-               AND server_ports.id != $3
-               AND server_ports.external_port && int4range($4, $5, '[]')"#,
-            server.node.id,
-            protocol_parsed as NetworkProtocol,
-            port_id,
-            i32::from(start),
-            i32::from(end)
-        )
-        .fetch_one(&mut *tx)
-        .await?;
+                if (u32::from(internal) + u32::from(end - start)) > u32::from(u16::MAX) {
+                    return Err(UpdatePortError::PortInvalid);
+                }
 
-        if collision {
-            return Err(UpdatePortError::PortCollision);
-        }
+                let allocated = query_scalar!(
+                    r#"SELECT (COUNT(*) > 0) as "exists!"
+                       FROM node_ports
+                       WHERE node = $1
+                       AND protocol = $2
+                       AND start <= $3
+                       AND "end" >= $4"#,
+                    server.node.id,
+                    protocol_parsed as NetworkProtocol,
+                    i32::from(start),
+                    i32::from(end)
+                )
+                .fetch_one(&mut **tx)
+                .await?;
 
-        if let Some(name) = name {
-            query!(
-                "UPDATE server_ports SET name=$1 WHERE id=$2 AND server=$3",
-                name,
-                port_id,
-                &server.id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                if !allocated {
+                    return Err(UpdatePortError::PortNotAllocated);
+                }
 
-        if let Some(http) = http {
-            query!(
-                "UPDATE server_ports SET http=$1 WHERE id=$2 AND server=$3",
-                http && protocol_parsed == NetworkProtocol::Tcp,
-                port_id,
-                &server.id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                let collision = query_scalar!(
+                    r#"SELECT (COUNT(*) > 0) as "exists!"
+                       FROM server_ports
+                       JOIN servers ON server_ports.server = servers.id
+                       WHERE servers.node = $1
+                       AND server_ports.protocol = $2
+                       AND server_ports.id != $3
+                       AND server_ports.external_port && int4range($4, $5, '[]')"#,
+                    server.node.id,
+                    protocol_parsed as NetworkProtocol,
+                    port_id,
+                    i32::from(start),
+                    i32::from(end)
+                )
+                .fetch_one(&mut **tx)
+                .await?;
 
-        if let Some(protocol) = protocol {
-            query!(
-                "UPDATE server_ports SET protocol=$1 WHERE id=$2 AND server=$3",
-                protocol as NetworkProtocol,
-                port_id,
-                &server.id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                if collision {
+                    return Err(UpdatePortError::PortCollision);
+                }
 
-        if let Some(internal) = internal_port {
-            query!(
-                "UPDATE server_ports SET internal_port=$1 WHERE id=$2 AND server=$3",
-                i32::from(internal),
-                port_id,
-                &server.id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                if let Some(name) = name {
+                    query!(
+                        "UPDATE server_ports SET name=$1 WHERE id=$2 AND server=$3",
+                        name,
+                        port_id,
+                        &server.id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        if let Some(range) = external_port.as_ref() {
-            query!(
-                "UPDATE server_ports SET external_port=int4range($1, $2, '[]') WHERE id=$3 AND server=$4",
-                i32::from(range.start),
-                i32::from(range.end),
-                port_id,
-                &server.id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                if let Some(http) = http {
+                    query!(
+                        "UPDATE server_ports SET http=$1 WHERE id=$2 AND server=$3",
+                        http && protocol_parsed == NetworkProtocol::Tcp,
+                        port_id,
+                        &server.id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        if let Some(host) = host {
-            query!(
-                "UPDATE server_ports SET host=$1 WHERE id=$2 AND server=$3",
-                host,
-                port_id,
-                &server.id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                if let Some(protocol) = protocol {
+                    query!(
+                        "UPDATE server_ports SET protocol=$1 WHERE id=$2 AND server=$3",
+                        protocol as NetworkProtocol,
+                        port_id,
+                        &server.id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        if let Some(bind) = bind {
-            query!(
-                "UPDATE server_ports SET bind=$1 WHERE id=$2 AND server=$3",
-                bind,
-                port_id,
-                &server.id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                if let Some(internal) = internal_port {
+                    query!(
+                        "UPDATE server_ports SET internal_port=$1 WHERE id=$2 AND server=$3",
+                        i32::from(internal),
+                        port_id,
+                        &server.id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        let (build, ports) = node_ports(&mut tx, &server, build).await?;
+                if let Some(range) = external_port.as_ref() {
+                    query!(
+                        "UPDATE server_ports SET external_port=int4range($1, $2, '[]') WHERE id=$3 AND server=$4",
+                        i32::from(range.start),
+                        i32::from(range.end),
+                        port_id,
+                        &server.id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        server
-            .node
-            .update_server(
-                server.node_server_id,
-                None,
-                Some(build),
-                Some(ports),
-                None,
-                None,
-            )
-            .await
-            .map_err(|_err| UpdatePortError::NodeFailure)?;
+                if let Some(host) = host {
+                    query!(
+                        "UPDATE server_ports SET host=$1 WHERE id=$2 AND server=$3",
+                        host,
+                        port_id,
+                        &server.id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        tx.commit().await?;
+                if let Some(bind) = bind {
+                    query!(
+                        "UPDATE server_ports SET bind=$1 WHERE id=$2 AND server=$3",
+                        bind,
+                        port_id,
+                        &server.id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        Ok(())
+                let (build, ports) = node_ports(tx, &server, build).await?;
+
+                server
+                    .node
+                    .update_server(
+                        server.node_server_id,
+                        None,
+                        Some(build),
+                        Some(ports),
+                        None,
+                        None,
+                    )
+                    .await
+                    .map_err(|_err| UpdatePortError::NodeFailure)?;
+
+                Ok(())
+            })
+        })
+        .await
     }
 
     /// Removes a port allocation from the server.
@@ -807,36 +819,40 @@ pub(crate) impl ServerAdminService for Backend {
 
         let routes = self.port_routes(port_id).await?;
 
-        let mut tx = self.database.begin().await?;
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let result = query!(
+                    "DELETE FROM server_ports WHERE id=$1 AND server=$2",
+                    port_id,
+                    &server.id
+                )
+                .execute(&mut **tx)
+                .await?;
 
-        let result = query!(
-            "DELETE FROM server_ports WHERE id=$1 AND server=$2",
-            port_id,
-            &server.id
-        )
-        .execute(&mut *tx)
+                if result.rows_affected() == 0 {
+                    return Err(DeletePortError::ServerNotFound);
+                }
+
+                let (build, ports) = node_ports(tx, &server, build).await?;
+
+                server
+                    .node
+                    .update_server(
+                        server.node_server_id,
+                        None,
+                        Some(build),
+                        Some(ports),
+                        None,
+                        None,
+                    )
+                    .await
+                    .map_err(|_err| DeletePortError::NodeFailure)?;
+
+                Ok::<_, DeletePortError>(())
+            })
+        })
         .await?;
-
-        if result.rows_affected() == 0 {
-            return Err(DeletePortError::ServerNotFound);
-        }
-
-        let (build, ports) = node_ports(&mut tx, &server, build).await?;
-
-        server
-            .node
-            .update_server(
-                server.node_server_id,
-                None,
-                Some(build),
-                Some(ports),
-                None,
-                None,
-            )
-            .await
-            .map_err(|_err| DeletePortError::NodeFailure)?;
-
-        tx.commit().await?;
 
         self.deprovision_routes(&routes).await;
 

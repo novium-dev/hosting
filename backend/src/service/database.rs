@@ -21,7 +21,8 @@ use database_agent_common::types::{
     UserGrant, validate_database_name,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{query, query_scalar};
+use sqlx::{Connection as _, query, query_scalar};
+use std::sync::Arc;
 use tracing::debug;
 use uuid::Uuid;
 use zelus::service;
@@ -219,21 +220,9 @@ pub(crate) impl DatabaseService for Backend {
             ProjectPermissions::DATABASE_MANAGE,
         )?;
 
-        let mut tx = self.database.begin().await?;
-
-        let count = query_scalar!(
-            r#"SELECT COUNT(*) AS "count!" FROM database_instances WHERE project = $1"#,
-            &project_id
-        )
-        .fetch_one(&mut *tx)
-        .await?;
-
         let may_bypass = auth
             .require::<_, _, CreateProjectInstanceError>((), ManagementPermissions::LIMITS_BYPASS)
             .is_ok();
-        if count >= MAX_PROJECT_INSTANCES && !may_bypass {
-            return Err(CreateProjectInstanceError::DatabaseLimitExceeded);
-        }
 
         let defaults = self
             .config
@@ -246,44 +235,63 @@ pub(crate) impl DatabaseService for Backend {
             payload.kind
         );
 
+        let create = defaults.to_create(payload.kind);
         let host = self
             .pick_database_host::<CreateProjectInstanceError>(project_id)
             .await?
             .ok_or(CreateProjectInstanceError::DatabaseTypeUnavailable)?;
 
-        let remote = host
-            .sdk
-            .create_instance(defaults.to_create(payload.kind))
-            .await
-            .map_err(|err| agent_failure::<CreateProjectInstanceError>(&err))?;
-
+        let agent = Arc::clone(&host);
+        let display = payload.display.clone();
         let created = chrono::Utc::now();
-        let stored = async {
-            query!(
-                "INSERT INTO database_instances (id, host, project, kind, display, created)
-                 VALUES ($1, $2, $3, $4, $5, $6)",
-                remote.data.uuid,
-                host.id,
-                &project_id,
-                payload.kind.as_str(),
-                payload.display,
-                created
-            )
-            .execute(&mut *tx)
-            .await?;
-            tx.commit().await
-        }
-        .await;
+        let mut conn = self.database.acquire().await?;
+        let remote = conn
+            .transaction(|tx| {
+                Box::pin(async move {
+                    let count = query_scalar!(
+                        r#"SELECT COUNT(*) AS "count!" FROM database_instances WHERE project = $1"#,
+                        &project_id
+                    )
+                    .fetch_one(&mut **tx)
+                    .await?;
 
-        if let Err(err) = stored {
-            if let Err(cleanup) = host.sdk.delete_instance(remote.data.uuid).await {
-                tracing::error!(
-                    "Failed to roll back the remote instance {}: {cleanup:?}",
-                    remote.data.uuid
-                );
-            }
-            return Err(err.into());
-        }
+                    if count >= MAX_PROJECT_INSTANCES && !may_bypass {
+                        return Err(CreateProjectInstanceError::DatabaseLimitExceeded);
+                    }
+
+                    let remote = agent
+                        .sdk
+                        .create_instance(create)
+                        .await
+                        .map_err(|err| agent_failure::<CreateProjectInstanceError>(&err))?;
+
+                    let stored = query!(
+                        "INSERT INTO database_instances (id, host, project, kind, display, created)
+                         VALUES ($1, $2, $3, $4, $5, $6)",
+                        remote.data.uuid,
+                        agent.id,
+                        &project_id,
+                        payload.kind.as_str(),
+                        display,
+                        created
+                    )
+                    .execute(&mut **tx)
+                    .await;
+
+                    if let Err(err) = stored {
+                        if let Err(cleanup) = agent.sdk.delete_instance(remote.data.uuid).await {
+                            tracing::error!(
+                                "Failed to roll back the remote instance {}: {cleanup:?}",
+                                remote.data.uuid
+                            );
+                        }
+                        return Err(err.into());
+                    }
+
+                    Ok(remote)
+                })
+            })
+            .await?;
 
         if let Err(err) = host
             .sdk
@@ -333,22 +341,24 @@ pub(crate) impl DatabaseService for Backend {
             .require_instance::<DeleteProjectInstanceError>(project_id, instance_id)
             .await?;
 
-        let mut tx = self.database.begin().await?;
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                query!("DELETE FROM database_instances WHERE id = $1", instance.id)
+                    .execute(&mut **tx)
+                    .await?;
 
-        query!("DELETE FROM database_instances WHERE id = $1", instance.id)
-            .execute(&mut *tx)
-            .await?;
+                instance
+                    .host
+                    .sdk
+                    .delete_instance(instance.id)
+                    .await
+                    .map_err(|err| agent_failure::<DeleteProjectInstanceError>(&err))?;
 
-        instance
-            .host
-            .sdk
-            .delete_instance(instance.id)
-            .await
-            .map_err(|err| agent_failure::<DeleteProjectInstanceError>(&err))?;
-
-        tx.commit().await?;
-
-        Ok(())
+                Ok(())
+            })
+        })
+        .await
     }
 
     /// Starts, stops, restarts or kills an instance.

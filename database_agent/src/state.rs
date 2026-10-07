@@ -7,6 +7,7 @@ use bollard::Docker;
 use core::ops::Deref;
 use core::time::Duration;
 use database_agent_common::types::{ContainerState, StoredInstanceCreate};
+use sqlx::Connection as _;
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
@@ -170,10 +171,17 @@ impl Agent {
     }
 
     pub async fn remove_instance(&self, instance: &Instance) -> anyhow::Result<()> {
-        let mut tx = self.store.begin().await?;
-        data::delete_instance(&mut *tx, instance.uuid).await?;
-        instance.destroy_container().await?;
-        tx.commit().await?;
+        let target = instance.clone();
+        let mut conn = self.store.write().acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                data::delete_instance(&mut **tx, target.uuid).await?;
+                target.destroy_container().await?;
+
+                Ok::<_, anyhow::Error>(())
+            })
+        })
+        .await?;
 
         for directory in [
             self.config.socket_dir(instance.uuid),

@@ -7,8 +7,9 @@ use daemon_common::service::server::ServerBuildPayload;
 use futures::StreamExt as _;
 use serde::Serialize;
 use serde_json::Value;
-use sqlx::{query, types::JsonValue};
+use sqlx::{Connection as _, query, types::JsonValue};
 use std::collections::HashMap;
+use std::sync::Arc;
 use tracing::{error, warn};
 
 const RUNNING_LABELS: [&str; 4] = ["running", "unhealthy", "starting", "restarting"];
@@ -213,10 +214,10 @@ impl Backend {
         if let Err(status) = self
             .push_build(
                 target.id,
-                &node,
+                Arc::clone(&node),
                 node_server_id,
                 build,
-                migrated_extra.as_ref(),
+                migrated_extra.clone(),
             )
             .await
         {
@@ -255,41 +256,61 @@ impl Backend {
     }
 }
 
+enum PushFailure {
+    Database(sqlx::Error),
+    Node,
+}
+
+impl From<sqlx::Error> for PushFailure {
+    fn from(err: sqlx::Error) -> Self {
+        Self::Database(err)
+    }
+}
+
 impl Backend {
     async fn push_build(
         &self,
         server_id: ServerId,
-        node: &BackendNode,
+        node: Arc<BackendNode>,
         node_server_id: u32,
         build: ServerBuildPayload,
-        migrated_extra: Option<&Value>,
+        migrated_extra: Option<Value>,
     ) -> Result<(), ServerResyncStatus> {
-        let database_failure = |err: sqlx::Error| {
-            error!("Unable to store the resync of server {server_id}: {err:?}");
-            ServerResyncStatus::Failure
-        };
+        let pushed = async {
+            let mut conn = self.database.acquire().await?;
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    if let Some(extra) = migrated_extra {
+                        query!(
+                            "UPDATE servers SET template_extra = $1 WHERE id = $2",
+                            extra,
+                            &server_id
+                        )
+                        .execute(&mut **tx)
+                        .await?;
+                    }
 
-        let mut tx = self.database.begin().await.map_err(database_failure)?;
+                    node.update_server(node_server_id, None, Some(build), None, None, None)
+                        .await
+                        .map_err(|err| {
+                            error!("Node refused the resync of server {server_id}: {err:?}");
+                            PushFailure::Node
+                        })?;
 
-        if let Some(extra) = migrated_extra {
-            query!(
-                "UPDATE servers SET template_extra = $1 WHERE id = $2",
-                extra,
-                &server_id
-            )
-            .execute(&mut *tx)
+                    Ok(())
+                })
+            })
             .await
-            .map_err(database_failure)?;
         }
+        .await;
 
-        node.update_server(node_server_id, None, Some(build), None, None, None)
-            .await
-            .map_err(|err| {
-                error!("Node refused the resync of server {server_id}: {err:?}");
-                ServerResyncStatus::NodeFailure
-            })?;
-
-        tx.commit().await.map_err(database_failure)
+        pushed.map_err(|failure| match failure {
+            PushFailure::Database(err) => {
+                error!("Unable to store the resync of server {server_id}: {err:?}");
+                ServerResyncStatus::Failure
+            }
+            PushFailure::Node => ServerResyncStatus::NodeFailure,
+        })
     }
 }
 

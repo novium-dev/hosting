@@ -38,7 +38,7 @@ use rustls::{
     RootCertStore,
     pki_types::{CertificateDer, CertificateSigningRequestDer},
 };
-use sqlx::query;
+use sqlx::{Connection as _, query};
 use std::sync::Arc;
 use tracing::{debug, error};
 use url::Url;
@@ -148,36 +148,39 @@ pub(crate) impl InternalService for Backend {
                 .inspect_err(|err| error!("Unable to sign daemon cert: {err:?}"))
                 .map_err(|_err| DaemonRegisterError::InternalDaemonSignFailed)?;
 
-            let mut tx = self.database.begin().await?;
+            let backend = self.clone();
+            let mut conn = self.database.acquire().await?;
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    query!(
+                        "INSERT INTO nodes (id, display, url, default_bind, default_host, ssh_host, ssh_port)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                        &uuid,
+                        registration.name,
+                        config.base_url.as_str(),
+                        &default_bind,
+                        &default_host,
+                        ssh_host,
+                        ssh_port
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to insert node: {err:?}"))?;
 
-            query!(
-                "INSERT INTO nodes (id, display, url, default_bind, default_host, ssh_host, ssh_port)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)",
-                &uuid,
-                registration.name,
-                config.base_url.as_str(),
-                &default_bind,
-                &default_host,
-                ssh_host,
-                ssh_port
-            )
-            .execute(&mut *tx)
+                    insert_storages(
+                        tx,
+                        &uuid,
+                        config.storages.keys().cloned().collect(),
+                        config.backups.keys().cloned().collect(),
+                    )
+                    .await?;
+
+                    backend.sync_nodes(tx).await?;
+
+                    Ok(signed.to_vec())
+                })
+            })
             .await
-            .inspect_err(|err| error!("Failed to insert node: {err:?}"))?;
-
-            insert_storages(
-                &mut tx,
-                &uuid,
-                config.storages.keys().cloned().collect(),
-                config.backups.keys().cloned().collect(),
-            )
-            .await?;
-
-            self.sync_nodes(&mut tx).await?;
-
-            tx.commit().await?;
-
-            Ok(signed.to_vec())
         } else {
             Err(DaemonRegisterError::AuthInvalid)
         }
@@ -258,45 +261,48 @@ pub(crate) impl InternalService for Backend {
                 .inspect_err(|err| error!("Unable to sign database agent cert: {err:?}"))
                 .map_err(|_err| DatabaseAgentRegisterError::InternalDaemonSignFailed)?;
 
-            let mut tx = self.database.begin().await?;
+            let backend = self.clone();
+            let mut conn = self.database.acquire().await?;
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    query!(
+                        "INSERT INTO database_hosts (id, display, url, public_host) VALUES ($1, $2, $3, $4)",
+                        &uuid,
+                        registration.display,
+                        config.base_url.as_str(),
+                        registration.public_host
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to insert database host: {err:?}"))?;
 
-            query!(
-                "INSERT INTO database_hosts (id, display, url, public_host) VALUES ($1, $2, $3, $4)",
-                &uuid,
-                registration.display,
-                config.base_url.as_str(),
-                registration.public_host
-            )
-            .execute(&mut *tx)
+                    query!(
+                        "INSERT INTO database_host_groups (host, group_id) SELECT $1, id FROM groups WHERE id = ANY($2)",
+                        &uuid,
+                        &registration.groups
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to insert database host groups: {err:?}"))?;
+
+                    for (kind, port) in config.ports {
+                        query!(
+                            "INSERT INTO database_host_ports (host, kind, port) VALUES ($1, $2, $3)",
+                            &uuid,
+                            kind.as_str(),
+                            i32::from(port)
+                        )
+                        .execute(&mut **tx)
+                        .await
+                        .inspect_err(|err| error!("Failed to insert database host port: {err:?}"))?;
+                    }
+
+                    backend.sync_database_hosts(tx).await?;
+
+                    Ok(signed.to_vec())
+                })
+            })
             .await
-            .inspect_err(|err| error!("Failed to insert database host: {err:?}"))?;
-
-            query!(
-                "INSERT INTO database_host_groups (host, group_id) SELECT $1, id FROM groups WHERE id = ANY($2)",
-                &uuid,
-                &registration.groups
-            )
-            .execute(&mut *tx)
-            .await
-            .inspect_err(|err| error!("Failed to insert database host groups: {err:?}"))?;
-
-            for (kind, port) in config.ports {
-                query!(
-                    "INSERT INTO database_host_ports (host, kind, port) VALUES ($1, $2, $3)",
-                    &uuid,
-                    kind.as_str(),
-                    i32::from(port)
-                )
-                .execute(&mut *tx)
-                .await
-                .inspect_err(|err| error!("Failed to insert database host port: {err:?}"))?;
-            }
-
-            self.sync_database_hosts(&mut tx).await?;
-
-            tx.commit().await?;
-
-            Ok(signed.to_vec())
         } else {
             Err(DatabaseAgentRegisterError::AuthInvalid)
         }

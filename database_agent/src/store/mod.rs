@@ -3,8 +3,8 @@ pub mod data;
 use crate::config::AgentConfig;
 use anyhow::Context as _;
 use core::str::FromStr as _;
+use sqlx::SqlitePool;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
-use sqlx::{Sqlite, SqlitePool, Transaction};
 
 pub struct Store {
     read: SqlitePool,
@@ -55,9 +55,5 @@ impl Store {
 
     pub const fn write(&self) -> &SqlitePool {
         &self.write
-    }
-
-    pub async fn begin(&self) -> sqlx::Result<Transaction<'static, Sqlite>> {
-        self.write.begin().await
     }
 }

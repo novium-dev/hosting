@@ -21,7 +21,7 @@ use daemon_common::service::schedule::schedule_service_error::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::types::JsonValue;
-use sqlx::{query, query_scalar};
+use sqlx::{Connection as _, query, query_scalar};
 use tracing::error;
 use zelus::service;
 
@@ -346,66 +346,67 @@ pub(crate) impl ScheduleService for Backend {
             .node_payload(&payload)
             .ok_or(CreateScheduleError::ScheduleCronInvalid)?;
 
-        let mut tx = self.database.begin().await?;
+        let backend = self.clone();
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                if !bypasses_limits {
+                    let current = query_scalar!(
+                        r#"SELECT count(*) AS "count!" FROM server_schedules WHERE server = $1"#,
+                        &server_id
+                    )
+                    .fetch_one(&mut **tx)
+                    .await?;
 
-        if !bypasses_limits {
-            let current = query_scalar!(
-                r#"SELECT count(*) AS "count!" FROM server_schedules WHERE server = $1"#,
-                &server_id
-            )
-            .fetch_one(&mut *tx)
-            .await?;
+                    if current >= MAX_SERVER_SCHEDULES {
+                        return Err(CreateScheduleError::ScheduleLimitExceeded);
+                    }
+                }
 
-            if current >= MAX_SERVER_SCHEDULES {
-                return Err(CreateScheduleError::ScheduleLimitExceeded);
-            }
-        }
+                let tasks = serde_json::to_value(&valid.tasks).unwrap_or_default();
+                let schedule_id = query_scalar!(
+                    r#"INSERT INTO server_schedules (server, name, enabled, policy, cron, timezone, tasks)
+                       VALUES ($1, $2, $3, $4, $5, $6, $7)
+                       RETURNING id"#,
+                    &server_id,
+                    valid.name,
+                    payload.enabled,
+                    payload.policy as SchedulePolicy,
+                    valid.cron,
+                    valid.timezone,
+                    tasks,
+                )
+                .fetch_one(&mut **tx)
+                .await?;
 
-        let tasks = serde_json::to_value(&valid.tasks).unwrap_or_default();
-        let schedule_id = query_scalar!(
-            r#"INSERT INTO server_schedules (server, name, enabled, policy, cron, timezone, tasks)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)
-               RETURNING id"#,
-            &server_id,
-            valid.name,
-            payload.enabled,
-            payload.policy as SchedulePolicy,
-            valid.cron,
-            valid.timezone,
-            tasks,
-        )
-        .fetch_one(&mut *tx)
-        .await?;
+                let node_schedule_id = backend
+                    .sync_schedule::<CreateScheduleError>(&server, payload.enabled, None, node_payload)
+                    .await?;
 
-        let node_schedule_id = self
-            .sync_schedule::<CreateScheduleError>(&server, payload.enabled, None, node_payload)
-            .await?;
+                let stored = query!(
+                    "UPDATE server_schedules SET node_schedule_id = $1 WHERE id = $2",
+                    node_schedule_id,
+                    schedule_id
+                )
+                .execute(&mut **tx)
+                .await;
 
-        let stored = async {
-            query!(
-                "UPDATE server_schedules SET node_schedule_id = $1 WHERE id = $2",
-                node_schedule_id,
-                schedule_id
-            )
-            .execute(&mut *tx)
-            .await?;
-            tx.commit().await
-        }
-        .await;
+                if let Err(err) = stored {
+                    if let Some(id) = node_schedule_id
+                        && let Err(cleanup) = server
+                            .node
+                            .delete_schedule(server.node_server_id, id.cast_unsigned())
+                            .await
+                    {
+                        error!("Unable to remove the orphaned node schedule: {cleanup:?}");
+                    }
+                    return Err(err.into());
+                }
 
-        if let Err(err) = stored {
-            if let Some(id) = node_schedule_id
-                && let Err(cleanup) = server
-                    .node
-                    .delete_schedule(server.node_server_id, id.cast_unsigned())
-                    .await
-            {
-                error!("Unable to remove the orphaned node schedule: {cleanup:?}");
-            }
-            return Err(err.into());
-        }
-
-        Ok(schedule_id)
+                Ok(schedule_id)
+            })
+        })
+        .await
     }
 
     /// Replaces a schedule's configuration and steps.
@@ -489,47 +490,50 @@ pub(crate) impl ScheduleService for Backend {
             .node_payload(&payload)
             .ok_or(UpdateScheduleError::ScheduleCronInvalid)?;
 
-        let mut tx = self.database.begin().await?;
+        let backend = self.clone();
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let tasks = serde_json::to_value(&valid.tasks).unwrap_or_default();
+                let current_node_schedule_id = query_scalar!(
+                    r#"UPDATE server_schedules
+                       SET name = $1, enabled = $2, policy = $3, cron = $4, timezone = $5, tasks = $6
+                       WHERE id = $7 AND server = $8
+                       RETURNING node_schedule_id"#,
+                    valid.name,
+                    payload.enabled,
+                    payload.policy as SchedulePolicy,
+                    valid.cron,
+                    valid.timezone,
+                    tasks,
+                    schedule_id,
+                    &server_id,
+                )
+                .fetch_optional(&mut **tx)
+                .await?
+                .ok_or(UpdateScheduleError::ScheduleNotFound)?;
 
-        let tasks = serde_json::to_value(&valid.tasks).unwrap_or_default();
-        let current_node_schedule_id = query_scalar!(
-            r#"UPDATE server_schedules
-               SET name = $1, enabled = $2, policy = $3, cron = $4, timezone = $5, tasks = $6
-               WHERE id = $7 AND server = $8
-               RETURNING node_schedule_id"#,
-            valid.name,
-            payload.enabled,
-            payload.policy as SchedulePolicy,
-            valid.cron,
-            valid.timezone,
-            tasks,
-            schedule_id,
-            &server_id,
-        )
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(UpdateScheduleError::ScheduleNotFound)?;
+                let node_schedule_id = backend
+                    .sync_schedule::<UpdateScheduleError>(
+                        &server,
+                        payload.enabled,
+                        current_node_schedule_id,
+                        node_payload,
+                    )
+                    .await?;
 
-        let node_schedule_id = self
-            .sync_schedule::<UpdateScheduleError>(
-                &server,
-                payload.enabled,
-                current_node_schedule_id,
-                node_payload,
-            )
-            .await?;
+                query!(
+                    "UPDATE server_schedules SET node_schedule_id = $1 WHERE id = $2",
+                    node_schedule_id,
+                    schedule_id
+                )
+                .execute(&mut **tx)
+                .await?;
 
-        query!(
-            "UPDATE server_schedules SET node_schedule_id = $1 WHERE id = $2",
-            node_schedule_id,
-            schedule_id
-        )
-        .execute(&mut *tx)
-        .await?;
-
-        tx.commit().await?;
-
-        Ok(())
+                Ok(())
+            })
+        })
+        .await
     }
 
     /// Runs a schedule's steps on the node right now, whatever its cron says.
@@ -613,34 +617,36 @@ pub(crate) impl ScheduleService for Backend {
             .await?
             .ok_or(DeleteScheduleError::ServerNotFound)?;
 
-        let mut tx = self.database.begin().await?;
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                let node_schedule_id = query_scalar!(
+                    "DELETE FROM server_schedules WHERE id = $1 AND server = $2 RETURNING node_schedule_id",
+                    schedule_id,
+                    &server_id
+                )
+                .fetch_optional(&mut **tx)
+                .await?
+                .ok_or(DeleteScheduleError::ScheduleNotFound)?;
 
-        let node_schedule_id = query_scalar!(
-            "DELETE FROM server_schedules WHERE id = $1 AND server = $2 RETURNING node_schedule_id",
-            schedule_id,
-            &server_id
-        )
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(DeleteScheduleError::ScheduleNotFound)?;
-
-        if let Some(id) = node_schedule_id {
-            match server
-                .node
-                .delete_schedule(server.node_server_id, id.cast_unsigned())
-                .await
-            {
-                Ok(()) | Err(NodeDeleteScheduleError::ServerNotFound) => {}
-                Err(err) => {
-                    error!("The node refused to delete schedule {schedule_id}: {err:?}");
-                    return Err(DeleteScheduleError::NodeFailure);
+                if let Some(id) = node_schedule_id {
+                    match server
+                        .node
+                        .delete_schedule(server.node_server_id, id.cast_unsigned())
+                        .await
+                    {
+                        Ok(()) | Err(NodeDeleteScheduleError::ServerNotFound) => {}
+                        Err(err) => {
+                            error!("The node refused to delete schedule {schedule_id}: {err:?}");
+                            return Err(DeleteScheduleError::NodeFailure);
+                        }
+                    }
                 }
-            }
-        }
 
-        tx.commit().await?;
-
-        Ok(())
+                Ok(())
+            })
+        })
+        .await
     }
 }
 
