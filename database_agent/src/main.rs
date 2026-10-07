@@ -15,6 +15,7 @@ use anyhow::Context as _;
 use axum_server::Handle;
 use clap::{Arg, ArgAction, ArgMatches, command, value_parser};
 use core::time::Duration;
+use database_agent_common::AGENT_KEY_PREFIX;
 use std::env;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -179,7 +180,7 @@ async fn read_keys(data_dir: &Path) -> anyhow::Result<(Arc<DaemonRootKey>, Arc<D
     let root = DaemonRootKey::parse(&root)
         .with_context(|| format!("failed to parse {}", root_path.display()))?
         .0;
-    let key = DaemonKey::parse(&root, &key)
+    let key = DaemonKey::parse(&root, &key, AGENT_KEY_PREFIX)
         .with_context(|| format!("failed to parse {}", key_path.display()))?;
 
     Ok((Arc::new(root), Arc::new(key)))

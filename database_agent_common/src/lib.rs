@@ -7,3 +7,5 @@ pub mod sdk;
 #[cfg(feature = "service")]
 pub mod service;
 pub mod types;
+
+pub const AGENT_KEY_PREFIX: &str = "node";

@@ -68,7 +68,7 @@ features = ["charset", "http2", "json", "rustls"]
 
 [dependencies.zelus_keys]
 workspace = true
-features = ["server"]
+features = ["setup"]
 
 [dependencies.zelus]
 workspace = true

@@ -2,25 +2,21 @@ use crate::config::{AgentConfig, ApiConfig, DockerConfig, StoreConfig, Subsystem
 use crate::service::middleware;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use axum_server::Server;
 use core::net::SocketAddr;
 use core::time::Duration;
+use database_agent_common::AGENT_KEY_PREFIX;
 use database_agent_common::service::framework_router;
 use database_agent_common::service::setup::SetupService;
 use database_agent_common::service::setup::setup_service_error::ConfigError;
 use database_agent_common::types::{
     AgentRegistrationRequest, BackendAgentConfig, DatabaseType, SetupAgentConfig,
 };
-use reqwest::{Client, StatusCode};
-use rustls::pki_types::CertificateDer;
+use reqwest::Client;
 use std::path::Path;
-use std::sync::Arc;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 use url::Url;
 use utoipa_axum::router::OpenApiRouter;
-use zelus_keys::rcgen::{KeyPair, PKCS_ECDSA_P256_SHA256, PKCS_RSA_SHA256};
-use zelus_keys::server::{CertResolver, TlsAcceptor, server_config};
-use zelus_keys::{DaemonKey, DaemonRootKey};
+use zelus_keys::setup::{PendingKey, SetupClient, serve_connection_test};
 
 pub const ROOT_KEY_FILE: &str = "agent_root.pem";
 pub const KEY_FILE: &str = "agent.pem";
@@ -30,68 +26,40 @@ pub async fn setup(data_dir: &Path, url: &str, code: &str, port: u16) -> anyhow:
     info!("Starting Setup...");
 
     let backend = Url::parse(url).context("SETUP_URL is not a valid URL")?;
-    let client = Client::builder()
+    let http = Client::builder()
         .timeout(Duration::from_secs(30))
         .build()
         .context("failed to build the setup http client")?;
+    let client = SetupClient::new(http, &backend, "/api/internal/database_agent", code)?;
 
     info!("Retrieving daemon root key...");
-    let Some((root, rsa)) = read_root_key(&client, &backend, code).await? else {
+    let Some(offer) = client.root_key().await? else {
+        warn!("Code is invalid");
         return Ok(());
     };
-    let root = Arc::new(root);
 
     info!("Retrieving agent config...");
-    let remote = read_config(&client, &backend, code).await?;
+    let remote: SetupAgentConfig = client.config().await?;
     let config = to_agent_config(&remote, port);
 
-    let keypair = KeyPair::generate_for(if rsa {
-        &PKCS_RSA_SHA256
-    } else {
-        &PKCS_ECDSA_P256_SHA256
-    })
-    .context("failed to generate key pair")?;
+    let pending = PendingKey::generate(offer.prefers_rsa, AGENT_KEY_PREFIX)?;
 
-    let csr =
-        DaemonKey::new_request(&keypair).context("failed to build certificate signing request")?;
-    let temp_key =
-        Arc::new(DaemonKey::new_temp(&keypair).context("failed to build temporary key")?);
-
-    test_host(&config, &root, &temp_key).await?;
-
-    let request = AgentRegistrationRequest {
-        cert: temp_key
-            .cert
-            .first()
-            .context("temporary key has at least one certificate")?
-            .to_vec(),
-        csr: csr.to_vec(),
-    };
+    info!("Starting temporary setup server on {}...", config.api.bind);
+    serve_connection_test(
+        [config.api.bind],
+        &offer.root,
+        &pending.temp,
+        connection_test_router(),
+    )
+    .await?;
 
     let signed = client
-        .post(
-            backend
-                .join("/api/internal/database_agent/register")
-                .context("register endpoint url is valid")?,
-        )
-        .bearer_auth(code)
-        .json(&request)
-        .send()
-        .await
-        .context("failed to send registration request")?
-        .error_for_status()
-        .context("registration request returned an error status")?
-        .bytes()
-        .await
-        .context("failed to read registration response body")?
-        .to_vec();
-
-    let key = DaemonKey::new(
-        &root,
-        CertificateDer::from(signed),
-        temp_key.privkey.clone_key(),
-    )
-    .context("failed to build signed agent key")?;
+        .register(&AgentRegistrationRequest {
+            cert: pending.certificate().to_vec(),
+            csr: pending.csr.to_vec(),
+        })
+        .await?;
+    let key = pending.finish(&offer.root, signed)?;
 
     tokio::fs::write(
         data_dir.join(CONFIG_FILE),
@@ -99,7 +67,7 @@ pub async fn setup(data_dir: &Path, url: &str, code: &str, port: u16) -> anyhow:
     )
     .await
     .context("failed to write config.toml")?;
-    tokio::fs::write(data_dir.join(ROOT_KEY_FILE), root.dump(None, None))
+    tokio::fs::write(data_dir.join(ROOT_KEY_FILE), offer.root.dump(None, None))
         .await
         .context("failed to write the root key")?;
     tokio::fs::write(data_dir.join(KEY_FILE), key.dump())
@@ -144,11 +112,7 @@ fn to_agent_config(remote: &SetupAgentConfig, port: u16) -> AgentConfig {
     }
 }
 
-async fn test_host(
-    config: &AgentConfig,
-    root: &Arc<DaemonRootKey>,
-    key: &Arc<DaemonKey>,
-) -> anyhow::Result<()> {
+fn connection_test_router() -> axum::Router {
     #[derive(Clone)]
     struct ConnectionTestWrapper;
 
@@ -159,65 +123,11 @@ async fn test_host(
         }
     }
 
-    let rustls = server_config(root, CertResolver::new(key))?;
-
     let (router,) =
         framework_router!(ConnectionTestWrapper ConnectionTestWrapper (default,) { SetupService });
-    let router = OpenApiRouter::new()
+    OpenApiRouter::new()
         .merge(router.into_openapi())
-        .layer(axum::middleware::from_fn(middleware));
-    let (router, _) = router.split_for_parts();
-
-    let bind = config.api.bind;
-    info!("Starting temporary setup server on {bind}...");
-
-    tokio::task::spawn(async move {
-        let _ = Server::bind(bind)
-            .acceptor(TlsAcceptor::new(rustls))
-            .serve(router.into_make_service())
-            .await
-            .inspect_err(|err| {
-                error!("failed to serve the temporary setup server on {bind}: {err}");
-            });
-    });
-
-    tokio::time::sleep(Duration::from_secs(5)).await;
-
-    Ok(())
-}
-
-async fn read_root_key(
-    client: &Client,
-    url: &Url,
-    code: &str,
-) -> anyhow::Result<Option<(DaemonRootKey, bool)>> {
-    let response = client
-        .get(
-            url.join("/api/internal/database_agent/root_key")
-                .context("root_key endpoint url is valid")?,
-        )
-        .bearer_auth(code)
-        .send()
-        .await?;
-    if response.status() == StatusCode::UNAUTHORIZED {
-        warn!("Code is invalid");
-        return Ok(None);
-    }
-    let rsa = response.headers().contains_key("X-Prefer-RSA-Key");
-    let pem: String = response.error_for_status()?.json().await?;
-    Ok(Some((DaemonRootKey::parse(pem)?.0, rsa)))
-}
-
-async fn read_config(client: &Client, url: &Url, code: &str) -> anyhow::Result<SetupAgentConfig> {
-    Ok(client
-        .get(
-            url.join("/api/internal/database_agent/config")
-                .context("config endpoint url is valid")?,
-        )
-        .bearer_auth(code)
-        .send()
-        .await?
-        .error_for_status()?
-        .json()
-        .await?)
+        .layer(axum::middleware::from_fn(middleware))
+        .split_for_parts()
+        .0
 }

@@ -19,6 +19,7 @@ use axum_extra::{
     TypedHeader,
     headers::{Authorization, authorization::Bearer},
 };
+use daemon_common::DAEMON_KEY_PREFIX;
 use daemon_common::node::{BackendAuthServerPermissions, SetupNodeConfig};
 use daemon_common::ssh::{DaemonBackendAuthResponse, DaemonBackendAuthServer};
 use daemon_common::{
@@ -27,6 +28,7 @@ use daemon_common::{
     sdk::DaemonSDK,
     service::setup::{SetupService as _, setup_service_error::ConfigError},
 };
+use database_agent_common::AGENT_KEY_PREFIX;
 use database_agent_common::sdk::DatabaseAgentSDK;
 use database_agent_common::service::setup::{
     SetupService as _, setup_service_error::ConfigError as AgentConfigError,
@@ -135,14 +137,14 @@ pub(crate) impl InternalService for Backend {
             let Some(common_name) = csr.params.distinguished_name.get(&DnType::CommonName) else {
                 return Err(DaemonRegisterError::InternalDaemonKeyInvalid);
             };
-            if !common_name.eq(&DnValue::from("node")) {
+            if !common_name.eq(&DnValue::from(DAEMON_KEY_PREFIX)) {
                 return Err(DaemonRegisterError::InternalDaemonKeyInvalid);
             }
 
             let uuid = Uuid::new_v4();
             let signed = self
                 .root_key
-                .sign_daemon_key(&self.root_privkey, csr.public_key, uuid)
+                .sign_daemon_key(&self.root_privkey, csr.public_key, DAEMON_KEY_PREFIX, uuid)
                 .inspect_err(|err| error!("Unable to sign daemon cert: {err:?}"))
                 .map_err(|_err| DaemonRegisterError::InternalDaemonSignFailed)?;
 
@@ -245,14 +247,14 @@ pub(crate) impl InternalService for Backend {
             let Some(common_name) = csr.params.distinguished_name.get(&DnType::CommonName) else {
                 return Err(DatabaseAgentRegisterError::InternalDaemonKeyInvalid);
             };
-            if !common_name.eq(&DnValue::from("node")) {
+            if !common_name.eq(&DnValue::from(AGENT_KEY_PREFIX)) {
                 return Err(DatabaseAgentRegisterError::InternalDaemonKeyInvalid);
             }
 
             let uuid = Uuid::new_v4();
             let signed = self
                 .root_key
-                .sign_daemon_key(&self.root_privkey, csr.public_key, uuid)
+                .sign_daemon_key(&self.root_privkey, csr.public_key, AGENT_KEY_PREFIX, uuid)
                 .inspect_err(|err| error!("Unable to sign database agent cert: {err:?}"))
                 .map_err(|_err| DatabaseAgentRegisterError::InternalDaemonSignFailed)?;
 

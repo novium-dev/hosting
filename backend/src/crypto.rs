@@ -1,3 +1,4 @@
+use daemon_common::{DAEMON_BACKEND_KEY_COMMON_NAME, DAEMON_ROOT_KEY_COMMON_NAME};
 use ed25519_dalek::SigningKey;
 use sqlx::{PgPool, query, query_as};
 use std::path::Path;
@@ -31,12 +32,20 @@ fn generate() -> StoredKeys {
     let user_key = SigningKey::generate(&mut rand::rng());
 
     let root_privkey = KeyPair::generate().expect("Unable to generate root key");
-    let root_key = DaemonRootKey::new(&root_privkey, Some(user_key.verifying_key()))
-        .expect("Unable to generate x509 root key");
+    let root_key = DaemonRootKey::new(
+        &root_privkey,
+        DAEMON_ROOT_KEY_COMMON_NAME,
+        Some(user_key.verifying_key()),
+    )
+    .expect("Unable to generate x509 root key");
 
     let backend_keypair = KeyPair::generate().expect("Unable to generate backend key");
     let backend_key = root_key
-        .new_backend_key(&root_privkey, &backend_keypair)
+        .new_backend_key(
+            &root_privkey,
+            &backend_keypair,
+            DAEMON_BACKEND_KEY_COMMON_NAME,
+        )
         .expect("Unable to create backend key");
 
     StoredKeys {
