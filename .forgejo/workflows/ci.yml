@@ -1,0 +1,164 @@
+name: ci
+
+on:
+  push:
+    branches: [dev, prod]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  fmt:
+    runs-on: docker
+    container: rust:1.99.0-alpine
+    steps:
+      - run: apk add --no-cache nodejs git
+      - uses: actions/checkout@v4
+      - run: rustup component add rustfmt
+      - run: cargo fmt --all --check
+
+  clippy:
+    runs-on: docker
+    container: rust:1.99.0-alpine
+    services:
+      db:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+    env:
+      BACKEND_DATABASE_URL: postgres://postgres:postgres@db/backend
+      DAEMON_SSH_KEY: ${{ secrets.DAEMON_SSH_KEY }}
+      RUSTFLAGS: -C opt-level=0 -C linker=clang-22 -C link-arg=-fuse-ld=lld
+    steps:
+      - run: apk add --no-cache nodejs git
+      - uses: actions/checkout@v4
+      - run: ./scripts/ci/setup-rust.sh
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .ci/sqlx-cli
+            target
+          key: clippy-${{ hashFiles('Cargo.lock') }}
+          restore-keys: clippy-
+      - run: ./scripts/ci/setup-database.sh
+      - run: rustup component add clippy
+      - run: cargo clippy --all-targets --workspace --no-deps
+
+  test:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: docker
+    container: rust:1.99.0-alpine
+    services:
+      db:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+    env:
+      BACKEND_DATABASE_URL: postgres://postgres:postgres@db/backend
+      DAEMON_SSH_KEY: ${{ secrets.DAEMON_SSH_KEY }}
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      RUSTFLAGS: -C opt-level=0 -C linker=clang-22 -C link-arg=-fuse-ld=lld
+    steps:
+      - run: apk add --no-cache nodejs git
+      - uses: actions/checkout@v4
+      - run: ./scripts/ci/setup-rust.sh
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .ci/sqlx-cli
+            target
+          key: test-${{ hashFiles('Cargo.lock') }}
+          restore-keys: test-
+      - run: ./scripts/ci/setup-database.sh
+      - run: cargo test --workspace --locked
+
+  deny:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: docker
+    container: rust:1.99.0-alpine
+    env:
+      DAEMON_SSH_KEY: ${{ secrets.DAEMON_SSH_KEY }}
+    steps:
+      - run: apk add --no-cache nodejs git
+      - uses: actions/checkout@v4
+      - run: ./scripts/ci/setup-rust.sh
+      - uses: actions/cache@v4
+        with:
+          path: .ci/cargo-deny
+          key: cargo-deny
+      - run: test -x .ci/cargo-deny/bin/cargo-deny || cargo install --locked cargo-deny --root .ci/cargo-deny
+      - run: .ci/cargo-deny/bin/cargo-deny check
+
+  frontend:
+    runs-on: docker
+    container: node:22
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: pnpm-
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run lint
+      - run: pnpm run format:check
+      - run: pnpm run build
+
+  publish:
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/prod') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/dev')
+    needs: [fmt, clippy, frontend]
+    runs-on: docker
+    container:
+      image: docker:cli
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+    strategy:
+      matrix:
+        include:
+          - name: backend
+            suffix: ""
+            dockerfile: backend.Dockerfile
+            context: .
+            ssh: --ssh default
+          - name: frontend
+            suffix: /frontend
+            dockerfile: frontend/Dockerfile
+            context: frontend
+            ssh: ""
+          - name: database-agent
+            suffix: /database-agent
+            dockerfile: database_agent.Dockerfile
+            context: .
+            ssh: --ssh default
+    env:
+      DAEMON_SSH_KEY: ${{ secrets.DAEMON_SSH_KEY }}
+      IMAGE: ${{ vars.REGISTRY }}/${{ vars.IMAGE || github.repository }}${{ matrix.suffix }}
+    steps:
+      - run: apk add --no-cache nodejs git openssh-client-default
+      - uses: actions/checkout@v4
+      - name: start ssh agent
+        if: matrix.ssh != ''
+        run: |
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$DAEMON_SSH_KEY" | tr -d '\r' | ssh-add -
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+      - run: printf '%s' "${{ secrets.REGISTRY_PASSWORD }}" | docker login "${{ vars.REGISTRY }}" -u "${{ secrets.REGISTRY_USER }}" --password-stdin
+      - run: ./scripts/ci/publish-image.sh "$IMAGE" ${{ matrix.dockerfile }} ${{ matrix.context }} ${{ matrix.ssh }}
