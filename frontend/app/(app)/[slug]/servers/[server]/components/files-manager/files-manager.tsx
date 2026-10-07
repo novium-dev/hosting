@@ -42,7 +42,7 @@ import { useServerTaskLock } from "@/stores/server-tasks";
 import {
   DISK_USAGE_EVENT,
   type DiskUsageEventDetail,
-} from "../server-management-bar";
+} from "@/lib/server-status";
 import type { EntryAction } from "./entry-actions";
 import {
   ArchiveDialog,

@@ -502,3 +502,10 @@ export function controlsFromState(state: ServerLifecycleState): ControlState {
       return { canStart: true, canStop: false, canKill: false };
   }
 }
+
+export const DISK_USAGE_EVENT = "server-disk-usage";
+
+export type DiskUsageEventDetail = {
+  serverId: string;
+  percent: number | null;
+};
