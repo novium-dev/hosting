@@ -4,7 +4,7 @@ use core::fmt::Write as _;
 use daemon_common::integrity::{
     IntegrityCategory, IntegrityFinding, IntegritySchema, IntegritySchemaTable,
 };
-use sqlx::{PgPool, Row as _, query, query_scalar};
+use sqlx::{PgPool, query, query_scalar};
 use std::collections::BTreeMap;
 
 struct Column {
@@ -15,80 +15,61 @@ struct Column {
 }
 
 pub(crate) async fn dump(pool: &PgPool) -> Result<IntegritySchema, sqlx::Error> {
-    let database: String = query_scalar("SELECT current_database()")
+    let database = query_scalar!(r#"SELECT current_database() AS "database!""#)
         .fetch_one(pool)
         .await?;
 
     let mut columns: BTreeMap<String, Vec<Column>> = BTreeMap::new();
-    for row in query(
-        "SELECT c.relname, a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull,
-                pg_get_expr(d.adbin, d.adrelid)
-         FROM pg_class c
-         JOIN pg_namespace n ON n.oid = c.relnamespace
-         JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
-         LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
-         WHERE c.relkind = 'r' AND n.nspname = 'public'
-         ORDER BY c.relname, a.attnum",
+    for row in query!(
+        r#"SELECT c.relname::text AS "table!", a.attname::text AS "name!",
+                  format_type(a.atttypid, a.atttypmod) AS "kind!", a.attnotnull AS "not_null!",
+                  pg_get_expr(d.adbin, d.adrelid) AS "default"
+           FROM pg_class c
+           JOIN pg_namespace n ON n.oid = c.relnamespace
+           JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+           LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
+           WHERE c.relkind = 'r' AND n.nspname = 'public'
+           ORDER BY c.relname, a.attnum"#
     )
     .fetch_all(pool)
     .await?
     {
-        let (Ok(table), Ok(name), Ok(kind), Ok(not_null)) = (
-            row.try_get::<String, _>(0usize),
-            row.try_get::<String, _>(1usize),
-            row.try_get::<String, _>(2usize),
-            row.try_get::<bool, _>(3usize),
-        ) else {
-            continue;
-        };
-        columns.entry(table).or_default().push(Column {
-            name,
-            kind,
-            not_null,
-            default: row.try_get::<Option<String>, _>(4usize).unwrap_or(None),
+        columns.entry(row.table).or_default().push(Column {
+            name: row.name,
+            kind: row.kind,
+            not_null: row.not_null,
+            default: row.default,
         });
     }
 
     let mut constraints: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for row in query(
-        "SELECT c.relname, con.conname, pg_get_constraintdef(con.oid)
-         FROM pg_constraint con
-         JOIN pg_class c ON c.oid = con.conrelid
-         JOIN pg_namespace n ON n.oid = c.relnamespace
-         WHERE n.nspname = 'public' AND con.contype <> 'n'
-         ORDER BY c.relname, con.conname",
+    for row in query!(
+        r#"SELECT c.relname::text AS "table!", con.conname::text AS "name!",
+                  pg_get_constraintdef(con.oid) AS "definition!"
+           FROM pg_constraint con
+           JOIN pg_class c ON c.oid = con.conrelid
+           JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname = 'public' AND con.contype <> 'n'
+           ORDER BY c.relname, con.conname"#
     )
     .fetch_all(pool)
     .await?
     {
-        let (Ok(table), Ok(name), Ok(definition)) = (
-            row.try_get::<String, _>(0usize),
-            row.try_get::<String, _>(1usize),
-            row.try_get::<String, _>(2usize),
-        ) else {
-            continue;
-        };
         constraints
-            .entry(table)
+            .entry(row.table)
             .or_default()
-            .push(format!("CONSTRAINT {name} {definition}"));
+            .push(format!("CONSTRAINT {} {}", row.name, row.definition));
     }
 
     let mut indexes: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for row in query(
-        "SELECT tablename, indexdef FROM pg_indexes
-         WHERE schemaname = 'public' ORDER BY tablename, indexname",
+    for row in query!(
+        r#"SELECT tablename::text AS "table!", indexdef AS "definition!" FROM pg_indexes
+           WHERE schemaname = 'public' ORDER BY tablename, indexname"#
     )
     .fetch_all(pool)
     .await?
     {
-        let (Ok(table), Ok(definition)) = (
-            row.try_get::<String, _>(0usize),
-            row.try_get::<String, _>(1usize),
-        ) else {
-            continue;
-        };
-        indexes.entry(table).or_default().push(definition);
+        indexes.entry(row.table).or_default().push(row.definition);
     }
 
     let tables = columns
