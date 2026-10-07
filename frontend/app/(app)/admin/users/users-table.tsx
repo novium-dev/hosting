@@ -145,6 +145,12 @@ export function UsersTable() {
         />
       </div>
       <Select
+        items={[
+          { value: "all", label: t("admin-core:users.roleFilter.all") },
+          { value: "admin", label: t("common:roles.admin") },
+          { value: "moderator", label: t("admin-core:users.roles.moderator") },
+          { value: "user", label: t("common:roles.user") },
+        ]}
         value={role}
         onValueChange={(value) => setRole(value as typeof role)}
       >
@@ -160,15 +166,11 @@ export function UsersTable() {
           <SelectItem value="all">
             {t("admin-core:users.roleFilter.all")}
           </SelectItem>
-          <SelectItem value="admin">
-            {t("common:roles.admin")}
-          </SelectItem>
+          <SelectItem value="admin">{t("common:roles.admin")}</SelectItem>
           <SelectItem value="moderator">
             {t("admin-core:users.roles.moderator")}
           </SelectItem>
-          <SelectItem value="user">
-            {t("common:roles.user")}
-          </SelectItem>
+          <SelectItem value="user">{t("common:roles.user")}</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -186,9 +188,7 @@ export function UsersTable() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold">
-            {t("common:nav.users")}
-          </h1>
+          <h1 className="text-xl font-semibold">{t("common:nav.users")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("admin-core:users.description")}
           </p>
@@ -252,7 +252,10 @@ export function UsersTable() {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="size-8">
-                        <AvatarImage src={user.avatar_url} alt={user.username} />
+                        <AvatarImage
+                          src={user.avatar_url}
+                          alt={user.username}
+                        />
                         <AvatarFallback className="text-xs">
                           {user.username.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
@@ -277,10 +280,13 @@ export function UsersTable() {
                     <RoleBadge role={user.role} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button asChild size="sm" variant="outline">
-                      <Link href={`/admin/users/${user.id}`}>
-                        {t("common:resources.manage")}
-                      </Link>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      render={<Link href={`/admin/users/${user.id}`} />}
+                      nativeButton={false}
+                    >
+                      {t("common:resources.manage")}
                     </Button>
                   </TableCell>
                 </TableRow>

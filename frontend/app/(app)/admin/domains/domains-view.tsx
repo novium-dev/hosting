@@ -74,11 +74,7 @@ export function AdminDomainsView() {
     ManagementPermission.DOMAINS_MANAGE,
   );
 
-  const {
-    data: domains,
-    isLoading,
-    mutate,
-  } = useRouteDomains(true);
+  const { data: domains, isLoading, mutate } = useRouteDomains(true);
 
   const { data: backends } = useSWR("admin-route-backends", async () => {
     const response = await routeBackends();
@@ -129,7 +125,10 @@ export function AdminDomainsView() {
 
       if (response.error) {
         throw new Error(
-          apiErrorMessage(response.error, t("admin-core:domains.toast.addFailed")),
+          apiErrorMessage(
+            response.error,
+            t("admin-core:domains.toast.addFailed"),
+          ),
         );
       }
 
@@ -485,7 +484,9 @@ export function AdminDomainsView() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("admin-core:domains.createDialog.title")}</DialogTitle>
+            <DialogTitle>
+              {t("admin-core:domains.createDialog.title")}
+            </DialogTitle>
             <DialogDescription>
               {t("admin-core:domains.createDialog.description")}
             </DialogDescription>
@@ -499,7 +500,9 @@ export function AdminDomainsView() {
               <Input
                 id="domain-name"
                 value={domain}
-                placeholder={t("admin-core:domains.createDialog.domainPlaceholder")}
+                placeholder={t(
+                  "admin-core:domains.createDialog.domainPlaceholder",
+                )}
                 autoComplete="off"
                 onChange={(event) =>
                   setDomain(event.target.value.trim().toLowerCase())
@@ -585,7 +588,9 @@ export function AdminDomainsView() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("admin-core:domains.grantDialog.title")}</DialogTitle>
+            <DialogTitle>
+              {t("admin-core:domains.grantDialog.title")}
+            </DialogTitle>
             <DialogDescription>
               {t("admin-core:domains.grantDialog.description", {
                 domain: grantTarget?.domain,
@@ -593,10 +598,29 @@ export function AdminDomainsView() {
             </DialogDescription>
           </DialogHeader>
 
-          <Select value={grantProject} onValueChange={setGrantProject}>
+          <Select
+            items={[
+              ...(projects
+                ?.filter(
+                  (project) => !grantTarget?.projects.includes(project.id),
+                )
+                .map((project) => ({
+                  value: project.id,
+                  label: (
+                    <>
+                      {project.name}({project.slug})
+                    </>
+                  ),
+                })) ?? []),
+            ]}
+            value={grantProject}
+            onValueChange={(value) => setGrantProject(value ?? "")}
+          >
             <SelectTrigger className="w-full">
               <SelectValue
-                placeholder={t("admin-core:domains.grantDialog.projectPlaceholder")}
+                placeholder={t(
+                  "admin-core:domains.grantDialog.projectPlaceholder",
+                )}
               />
             </SelectTrigger>
             <SelectContent>

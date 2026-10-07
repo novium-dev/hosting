@@ -366,7 +366,10 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
-                    runSearch(searchQuery, event.shiftKey ? "previous" : "next");
+                    runSearch(
+                      searchQuery,
+                      event.shiftKey ? "previous" : "next",
+                    );
                     return;
                   }
 
@@ -425,17 +428,19 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
             </Button>
 
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-8"
-                  aria-label={t("servers:console.toolbar.reconnect")}
-                  onClick={reconnect}
-                >
-                  <RotateCw className="size-4" />
-                </Button>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    aria-label={t("servers:console.toolbar.reconnect")}
+                    onClick={reconnect}
+                  />
+                }
+              >
+                <RotateCw className="size-4" />
               </TooltipTrigger>
               <TooltipContent>
                 {t("servers:console.toolbar.reconnect")}

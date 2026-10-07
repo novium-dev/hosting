@@ -170,10 +170,12 @@ export default function ClientServerSectionPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild variant="outline">
-              <Link href={`/${slug}`}>
-                {t("servers:shared.backToServerList")}
-              </Link>
+            <Button
+              variant="outline"
+              render={<Link href={`/${slug}`} />}
+              nativeButton={false}
+            >
+              {t("servers:shared.backToServerList")}
             </Button>
           </CardContent>
         </Card>

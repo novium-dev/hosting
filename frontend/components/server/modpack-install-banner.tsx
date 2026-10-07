@@ -94,7 +94,7 @@ export function ModpackInstallBanner({
 
           {running ? (
             <Progress
-              value={percent ?? undefined}
+              value={percent}
               className={cn("mt-2 h-2", percent === null && "animate-pulse")}
             />
           ) : null}

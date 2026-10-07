@@ -101,8 +101,18 @@ export function ServerMoveCard({
             {t("admin-infra:servers.moveCard.targetLabel")}
           </Label>
           <Select
+            items={[
+              ...targets.map((entry) => ({
+                value: entry.id,
+                label: (
+                  <>
+                    {entry.name}({entry.slug})
+                  </>
+                ),
+              })),
+            ]}
             value={project}
-            onValueChange={setProject}
+            onValueChange={(value) => setProject(value ?? "")}
             disabled={!canMove || isMoving}
           >
             <SelectTrigger id="move-project" className="w-full sm:w-72">

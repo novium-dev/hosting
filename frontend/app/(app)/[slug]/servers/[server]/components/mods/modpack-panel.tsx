@@ -306,8 +306,21 @@ function LinkedPack({
               {t("servers-management:mods.versionLabel")}
             </Label>
             <Select
+              items={[
+                ...available.map((entry) => ({
+                  value: entry.id,
+                  label: (
+                    <>
+                      {versionLabel(entry)}
+                      {entry.id === pack.version
+                        ? ` · ${t("servers-management:mods.pack.currentSuffix")}`
+                        : ""}
+                    </>
+                  ),
+                })),
+              ]}
               value={versionId}
-              onValueChange={setSelected}
+              onValueChange={(value) => setSelected(value ?? "")}
               disabled={available.length === 0}
             >
               <SelectTrigger id="linked-pack-version" className="w-full">
@@ -381,22 +394,24 @@ function LinkedPack({
         <Separator />
 
         <Collapsible open={contentsOpen} onOpenChange={setContentsOpen}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between px-2">
-              <span className="flex items-center gap-2">
-                <Boxes className="size-4" />
-                {t("servers-management:mods.pack.contents", {
-                  mods: pack.mods.length,
-                  files: pack.other_files,
-                })}
-              </span>
-              <ChevronDown
-                className={cn(
-                  "size-4 transition-transform",
-                  contentsOpen && "rotate-180",
-                )}
-              />
-            </Button>
+          <CollapsibleTrigger
+            render={
+              <Button variant="ghost" className="w-full justify-between px-2" />
+            }
+          >
+            <span className="flex items-center gap-2">
+              <Boxes className="size-4" />
+              {t("servers-management:mods.pack.contents", {
+                mods: pack.mods.length,
+                files: pack.other_files,
+              })}
+            </span>
+            <ChevronDown
+              className={cn(
+                "size-4 transition-transform",
+                contentsOpen && "rotate-180",
+              )}
+            />
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 flex flex-col gap-2">
             {pack.mods.length === 0 ? (
@@ -460,7 +475,12 @@ function LinkedPack({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void onUnlink()}>
+            <AlertDialogAction
+              onClick={() => {
+                setUnlinkOpen(false);
+                void onUnlink();
+              }}
+            >
               {t("servers-management:mods.pack.unlinkButton")}
             </AlertDialogAction>
           </AlertDialogFooter>

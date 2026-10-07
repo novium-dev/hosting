@@ -556,8 +556,7 @@ export function ServerManagementBar({
   const canCopyAddress = address !== null;
   const displayAddress =
     address ?? t("servers:managementBar.addressUnavailable");
-  const uptimeMs =
-    startedAt !== null ? now - startedAt : null;
+  const uptimeMs = startedAt !== null ? now - startedAt : null;
   const playerCount = players
     ? players.max !== null
       ? `${players.online}/${players.max}`
@@ -619,7 +618,9 @@ export function ServerManagementBar({
       {staleLimits && (
         <Alert className="border-amber-500/40 bg-amber-500/10">
           <RotateCcw className="size-4 text-amber-600 dark:text-amber-400" />
-          <AlertTitle>{t("servers:managementBar.staleLimits.title")}</AlertTitle>
+          <AlertTitle>
+            {t("servers:managementBar.staleLimits.title")}
+          </AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-3">
             <span>{t("servers:managementBar.staleLimits.description")}</span>
             <Button
@@ -717,11 +718,13 @@ export function ServerManagementBar({
                 )}
                 {playerCount && (
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex items-center gap-1.5">
-                        <Users className="size-4" />
-                        {playerCount}
-                      </span>
+                    <TooltipTrigger
+                      render={
+                        <span className="inline-flex items-center gap-1.5" />
+                      }
+                    >
+                      <Users className="size-4" />
+                      {playerCount}
                     </TooltipTrigger>
                     <TooltipContent>
                       {playerNames.length > 0 ? (
@@ -739,10 +742,8 @@ export function ServerManagementBar({
                 {suspended &&
                   (suspensionReason ? (
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="destructive">
-                          {t("servers:managementBar.suspendedBadge")}
-                        </Badge>
+                      <TooltipTrigger render={<Badge variant="destructive" />}>
+                        {t("servers:managementBar.suspendedBadge")}
                       </TooltipTrigger>
                       <TooltipContent>{suspensionReason}</TooltipContent>
                     </Tooltip>
@@ -767,11 +768,14 @@ export function ServerManagementBar({
 
             <div className="flex flex-wrap items-center gap-2">
               {adminHref && (
-                <Button asChild size="sm" variant="outline">
-                  <Link href={adminHref}>
-                    <Shield className="mr-2 size-4" />
-                    {t("servers:managementBar.adminUiButton")}
-                  </Link>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  render={<Link href={adminHref} />}
+                  nativeButton={false}
+                >
+                  <Shield className="mr-2 size-4" />
+                  {t("servers:managementBar.adminUiButton")}
                 </Button>
               )}
               <Button

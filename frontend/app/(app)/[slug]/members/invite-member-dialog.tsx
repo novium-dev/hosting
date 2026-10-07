@@ -53,18 +53,18 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
           toast.success(t("project:members.inviteDialog.success"));
         },
         onError: (error) => {
-          toast.error(error.error.serverError ?? t("common:state.genericError"));
+          toast.error(
+            error.error.serverError ?? t("common:state.genericError"),
+          );
         },
       },
     });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <UserPlus className="h-4 w-4" />
-          {t("project:members.inviteDialog.trigger")}
-        </Button>
+      <DialogTrigger render={<Button />}>
+        <UserPlus className="h-4 w-4" />
+        {t("project:members.inviteDialog.trigger")}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -86,7 +86,9 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
                     <Input
                       {...field}
                       type="email"
-                      placeholder={t("project:members.inviteDialog.emailPlaceholder")}
+                      placeholder={t(
+                        "project:members.inviteDialog.emailPlaceholder",
+                      )}
                     />
                   </FormControl>
                   <FormMessage />

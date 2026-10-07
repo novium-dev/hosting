@@ -68,7 +68,8 @@ function initialForm(config: DeployConfig | null): FormState {
     ram: config ? String(config.ram) : "1024",
     swap: config ? String(config.swap) : "0",
     disk: config?.disk != null ? String(config.disk) : "",
-    backupLimit: config?.backup_limit != null ? String(config.backup_limit) : "",
+    backupLimit:
+      config?.backup_limit != null ? String(config.backup_limit) : "",
     internetAccess: config?.internet_access ?? true,
   };
 }
@@ -283,9 +284,15 @@ export function DeployConfigDialog({
                 {t("admin-infra:deployConfigs.groupLabel")}
               </Label>
               <Select
+                items={[
+                  ...groups.map((group) => ({
+                    value: String(group.id),
+                    label: group.label,
+                  })),
+                ]}
                 value={form.group}
                 onValueChange={(value) =>
-                  setForm((prev) => ({ ...prev, group: value }))
+                  setForm((prev) => ({ ...prev, group: value ?? "" }))
                 }
               >
                 <SelectTrigger id="deploy-config-group" className="w-full">
@@ -311,7 +318,7 @@ export function DeployConfigDialog({
               <Select
                 value={form.template}
                 onValueChange={(value) =>
-                  setForm((prev) => ({ ...prev, template: value }))
+                  setForm((prev) => ({ ...prev, template: value ?? "" }))
                 }
               >
                 <SelectTrigger id="deploy-config-template" className="w-full">

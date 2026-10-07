@@ -47,34 +47,35 @@ export function SearchableSelect({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          disabled={disabled}
-          className={cn(
-            "w-full justify-between font-normal",
-            !selected && "text-muted-foreground",
-            className,
-          )}
-        >
-          <span className="truncate">
-            {selected
-              ? (selected.label ?? selected.value)
-              : (placeholder ?? t("searchableSelect.placeholder"))}
-          </span>
-          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-[var(--radix-popover-trigger-width)] p-0"
-        align="start"
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className={cn(
+              "w-full justify-between font-normal",
+              !selected && "text-muted-foreground",
+              className,
+            )}
+          />
+        }
       >
+        <span className="truncate">
+          {selected
+            ? (selected.label ?? selected.value)
+            : (placeholder ?? t("searchableSelect.placeholder"))}
+        </span>
+        <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--anchor-width)] p-0" align="start">
         <Command>
           <CommandInput
-            placeholder={searchPlaceholder ?? t("searchableSelect.searchPlaceholder")}
+            placeholder={
+              searchPlaceholder ?? t("searchableSelect.searchPlaceholder")
+            }
           />
           <CommandList>
             <CommandEmpty>

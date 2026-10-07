@@ -252,7 +252,10 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
 
       if (response.error || !response.data) {
         throw new Error(
-          apiErrorMessage(response.error, t("servers:routes.toasts.createFailed")),
+          apiErrorMessage(
+            response.error,
+            t("servers:routes.toasts.createFailed"),
+          ),
         );
       }
 
@@ -293,7 +296,10 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
 
       if (response.error) {
         throw new Error(
-          apiErrorMessage(response.error, t("servers:routes.toasts.deleteFailed")),
+          apiErrorMessage(
+            response.error,
+            t("servers:routes.toasts.deleteFailed"),
+          ),
         );
       }
 
@@ -318,7 +324,9 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
               <CardTitle>{t("servers:routes.title")}</CardTitle>
-              <CardDescription>{t("servers:routes.description")}</CardDescription>
+              <CardDescription>
+                {t("servers:routes.description")}
+              </CardDescription>
             </div>
             {canManage ? (
               <Button
@@ -451,7 +459,24 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                 {t("servers:routes.manualDns.description")}
               </CardDescription>
             </div>
-            <Select value={manualPortId} onValueChange={setManualPortId}>
+            <Select
+              items={[
+                ...ports.map((port) => ({
+                  value: String(port.id),
+                  label: (
+                    <>
+                      {port.name}— {port.host}:{port.external_port_start}(
+                      {port.http
+                        ? t("common:resources.http")
+                        : String(port.protocol).toUpperCase()}
+                      )
+                    </>
+                  ),
+                })),
+              ]}
+              value={manualPortId}
+              onValueChange={(value) => setManualPortId(value ?? "")}
+            >
               <SelectTrigger className="w-full sm:w-[280px]">
                 <SelectValue placeholder={t("common:labels.port")} />
               </SelectTrigger>
@@ -552,8 +577,22 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                   }
                 />
                 <Select
+                  items={[
+                    ...domains.map((domain) => ({
+                      value: String(domain.id),
+                      label: (
+                        <>
+                          .{domain.domain}
+                          {domain.private
+                            ? ` (${t("servers:routes.privateLabel")})`
+                            : ""}
+                        </>
+                      ),
+                    })),
+                  ]}
                   value={domainId}
                   onValueChange={(value) => {
+                    if (value === null) return;
                     setDomainId(value);
                     const domain = domains.find(
                       (entry) => String(entry.id) === value,
@@ -599,7 +638,24 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
 
             <div className="space-y-2">
               <Label htmlFor="route-port">{t("common:labels.port")}</Label>
-              <Select value={portId} onValueChange={setPortId}>
+              <Select
+                items={[
+                  ...selectablePorts.map((port) => ({
+                    value: String(port.id),
+                    label: (
+                      <>
+                        {port.name}— {port.host}:{port.external_port_start}(
+                        {port.http
+                          ? t("common:resources.http")
+                          : String(port.protocol).toUpperCase()}
+                        )
+                      </>
+                    ),
+                  })),
+                ]}
+                value={portId}
+                onValueChange={(value) => setPortId(value ?? "")}
+              >
                 <SelectTrigger id="route-port" className="w-full">
                   <SelectValue placeholder={t("common:labels.port")} />
                 </SelectTrigger>
@@ -652,7 +708,8 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                   i18nKey="servers:routes.dialog.createsRecordHelp"
                   values={{
                     record: `_${srvService}._${srvProtocol}.${
-                      subdomain || t("servers:routes.dialog.yourNamePlaceholder")
+                      subdomain ||
+                      t("servers:routes.dialog.yourNamePlaceholder")
                     }.${
                       selectedDomain?.domain ??
                       t("servers:routes.dialog.theDomainPlaceholder")

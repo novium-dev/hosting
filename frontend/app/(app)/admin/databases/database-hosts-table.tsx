@@ -222,15 +222,20 @@ export function DatabaseHostsTable({
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="flex items-center">
-                              <Clock className="size-4 shrink-0 text-amber-500" />
-                            </span>
+                          <TooltipTrigger
+                            render={<span className="flex items-center" />}
+                          >
+                            <Clock className="size-4 shrink-0 text-amber-500" />
                           </TooltipTrigger>
                           <TooltipContent>
-                            {t("admin-infra:databases.hostsTable.pendingTooltip", {
-                              expires: formatCountdown(registration.expires_in),
-                            })}
+                            {t(
+                              "admin-infra:databases.hostsTable.pendingTooltip",
+                              {
+                                expires: formatCountdown(
+                                  registration.expires_in,
+                                ),
+                              },
+                            )}
                           </TooltipContent>
                         </Tooltip>
                         <div>
@@ -274,21 +279,25 @@ export function DatabaseHostsTable({
                             <PencilIcon className="size-4" />
                           </Button>
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                loading={extending === registration.code}
-                                onClick={() =>
-                                  void handleExtend(registration.code)
-                                }
-                              >
-                                <TimerResetIcon className="size-4" />
-                              </Button>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  loading={extending === registration.code}
+                                  onClick={() =>
+                                    void handleExtend(registration.code)
+                                  }
+                                />
+                              }
+                            >
+                              <TimerResetIcon className="size-4" />
                             </TooltipTrigger>
                             <TooltipContent>
-                              {t("admin-infra:databases.hostsTable.extendTooltip")}
+                              {t(
+                                "admin-infra:databases.hostsTable.extendTooltip",
+                              )}
                             </TooltipContent>
                           </Tooltip>
                         </div>
@@ -297,67 +306,67 @@ export function DatabaseHostsTable({
                   </TableRow>
                 ))}
                 {rows.map((host) => (
-                <TableRow key={host.id}>
-                  <TableCell className="font-medium">
-                    <Link
-                      href={`/admin/databases/${host.id}`}
-                      className="hover:underline"
-                    >
-                      {host.display}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <GroupBadges groups={host.groups} />
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {host.public_host}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {Object.entries(host.ports)
-                      .map(([type, port]) => `${type}:${port}`)
-                      .join(" ") ||
-                      t("admin-infra:databases.hostsTable.portsDefaultLabel")}
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {host.instance_count}
-                  </TableCell>
-                  <TableCell>
-                    {host.maintenance ? (
-                      <Badge variant="secondary">
-                        {t("admin-infra:shared.maintenance")}
-                      </Badge>
-                    ) : (
-                      <Badge>{t("common:status.active")}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {canManage ? (
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setEditing(host)}
-                          aria-label={t(
-                            "admin-infra:databases.hostsTable.editAria",
-                          )}
-                        >
-                          <PencilIcon className="size-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleting(host)}
-                          aria-label={t(
-                            "admin-infra:databases.hostsTable.deleteAria",
-                          )}
-                        >
-                          <Trash2Icon className="size-4" />
-                        </Button>
-                      </div>
-                    ) : null}
-                  </TableCell>
+                  <TableRow key={host.id}>
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/admin/databases/${host.id}`}
+                        className="hover:underline"
+                      >
+                        {host.display}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <GroupBadges groups={host.groups} />
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {host.public_host}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {Object.entries(host.ports)
+                        .map(([type, port]) => `${type}:${port}`)
+                        .join(" ") ||
+                        t("admin-infra:databases.hostsTable.portsDefaultLabel")}
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      {host.instance_count}
+                    </TableCell>
+                    <TableCell>
+                      {host.maintenance ? (
+                        <Badge variant="secondary">
+                          {t("admin-infra:shared.maintenance")}
+                        </Badge>
+                      ) : (
+                        <Badge>{t("common:status.active")}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {canManage ? (
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditing(host)}
+                            aria-label={t(
+                              "admin-infra:databases.hostsTable.editAria",
+                            )}
+                          >
+                            <PencilIcon className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleting(host)}
+                            aria-label={t(
+                              "admin-infra:databases.hostsTable.deleteAria",
+                            )}
+                          >
+                            <Trash2Icon className="size-4" />
+                          </Button>
+                        </div>
+                      ) : null}
+                    </TableCell>
                   </TableRow>
                 ))}
               </>

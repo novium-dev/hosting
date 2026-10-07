@@ -1,12 +1,14 @@
 # ============================================
 # SPA build
 # ============================================
-FROM oven/bun:1 AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
-COPY package.json bun.lock* ./
-RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --no-save --frozen-lockfile
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
 COPY . .
 
@@ -14,7 +16,7 @@ COPY . .
 ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
 
-RUN bun run build
+RUN pnpm run build
 
 # ============================================
 # Static serving

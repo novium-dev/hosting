@@ -88,7 +88,8 @@ export function InstanceManagementBar({
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("project:databases.managementBar.powerError"),
+        result.error.serverError ??
+          t("project:databases.managementBar.powerError"),
       );
       setPendingAction(null);
     },
@@ -135,10 +136,8 @@ export function InstanceManagementBar({
               </Badge>
               {instance.suspended ? (
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge variant="destructive">
-                      {t("common:status.suspended")}
-                    </Badge>
+                  <TooltipTrigger render={<Badge variant="destructive" />}>
+                    {t("common:status.suspended")}
                   </TooltipTrigger>
                   <TooltipContent>
                     {t("project:databases.managementBar.suspendedTooltip")}
@@ -236,13 +235,17 @@ export function InstanceManagementBar({
 
       <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">{t("common:resources.cpu")}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("common:resources.cpu")}
+          </p>
           <p className="mt-1 text-sm font-medium">
             {formatCpuPercent(utilization?.cpu_absolute)}
           </p>
         </div>
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">{t("common:resources.memory")}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("common:resources.memory")}
+          </p>
           <p className="mt-1 text-sm font-medium">
             {formatUsageCompact(
               toMib(utilization?.memory_bytes),
@@ -251,7 +254,9 @@ export function InstanceManagementBar({
           </p>
         </div>
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground">{t("common:resources.disk")}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("common:resources.disk")}
+          </p>
           <p className="mt-1 text-sm font-medium">
             {formatUsageCompact(
               toMib(utilization?.disk_bytes),

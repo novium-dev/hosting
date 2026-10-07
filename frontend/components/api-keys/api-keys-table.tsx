@@ -93,7 +93,9 @@ export function ApiKeysTable({
       toast.success(t("project:apiKeys.table.revoked"));
     },
     onError: (actionError) => {
-      toast.error(actionError.error.serverError ?? t("common:state.genericError"));
+      toast.error(
+        actionError.error.serverError ?? t("common:state.genericError"),
+      );
     },
   });
 
@@ -115,14 +117,18 @@ export function ApiKeysTable({
             <TableRow>
               <TableHead>{t("common:labels.name")}</TableHead>
               {showScope ? (
-                <TableHead>{t("project:apiKeys.table.columns.scope")}</TableHead>
+                <TableHead>
+                  {t("project:apiKeys.table.columns.scope")}
+                </TableHead>
               ) : null}
               {showOwner ? (
                 <TableHead>{t("common:labels.owner")}</TableHead>
               ) : null}
               <TableHead>{t("common:labels.permissions")}</TableHead>
               <TableHead>{t("common:labels.created")}</TableHead>
-              <TableHead>{t("project:apiKeys.table.columns.lastUsed")}</TableHead>
+              <TableHead>
+                {t("project:apiKeys.table.columns.lastUsed")}
+              </TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
@@ -168,7 +174,9 @@ export function ApiKeysTable({
                             {apiKey.project_slug ?? apiKey.project}
                           </Badge>
                         ) : (
-                          <Badge>{t("project:apiKeys.table.instanceScope")}</Badge>
+                          <Badge>
+                            {t("project:apiKeys.table.instanceScope")}
+                          </Badge>
                         )}
                       </TableCell>
                     ) : null}
@@ -179,12 +187,10 @@ export function ApiKeysTable({
                     ) : null}
                     <TableCell>
                       <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="secondary">
-                            {t("project:shared.permissionCount", {
-                              count: labels.length,
-                            })}
-                          </Badge>
+                        <TooltipTrigger render={<Badge variant="secondary" />}>
+                          {t("project:shared.permissionCount", {
+                            count: labels.length,
+                          })}
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
                           {labels.length
@@ -194,24 +200,30 @@ export function ApiKeysTable({
                       </Tooltip>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(apiKey.created_at, t("project:apiKeys.table.never"))}
+                      {formatDate(
+                        apiKey.created_at,
+                        t("project:apiKeys.table.never"),
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(apiKey.last_used, t("project:apiKeys.table.never"))}
+                      {formatDate(
+                        apiKey.last_used,
+                        t("project:apiKeys.table.never"),
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       {canEdit(apiKey) || canDelete(apiKey) ? (
                         <DropdownMenu modal={false}>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="size-4" />
-                            </Button>
+                          <DropdownMenuTrigger
+                            render={<Button variant="ghost" size="sm" />}
+                          >
+                            <MoreHorizontal className="size-4" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {canEdit(apiKey) ? (
                               <DropdownMenuItem
                                 className="cursor-pointer"
-                                onSelect={() => {
+                                onClick={() => {
                                   setEditKey(apiKey);
                                   setEditOpen(true);
                                 }}
@@ -222,7 +234,7 @@ export function ApiKeysTable({
                             {canDelete(apiKey) ? (
                               <DropdownMenuItem
                                 className="cursor-pointer text-destructive"
-                                onSelect={() => setDeleteKey(apiKey)}
+                                onClick={() => setDeleteKey(apiKey)}
                               >
                                 {t("project:apiKeys.table.revokeAction")}
                               </DropdownMenuItem>
@@ -254,7 +266,9 @@ export function ApiKeysTable({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("project:apiKeys.table.revokeTitle")}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("project:apiKeys.table.revokeTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {t("project:apiKeys.table.revokeDescription", {
                 name: deleteKey?.name,

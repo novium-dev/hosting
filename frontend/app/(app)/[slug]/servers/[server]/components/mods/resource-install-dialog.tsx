@@ -166,8 +166,14 @@ export function ResourceInstallDialog({
                 {t("servers-management:mods.versionLabel")}
               </Label>
               <Select
+                items={[
+                  ...versions.map((entry) => ({
+                    value: entry.id,
+                    label: versionLabel(entry),
+                  })),
+                ]}
                 value={versionId}
-                onValueChange={setVersionId}
+                onValueChange={(value) => setVersionId(value ?? "")}
                 disabled={isLoading || versions.length === 0}
               >
                 <SelectTrigger id="resource-version" className="w-full">

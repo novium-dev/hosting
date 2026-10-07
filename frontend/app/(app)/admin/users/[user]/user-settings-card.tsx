@@ -95,7 +95,16 @@ export function UserSettingsCard({
           </div>
           <div className="space-y-2">
             <Label htmlFor="user-role">{t("common:labels.role")}</Label>
-            <Select value={role} onValueChange={setRole} disabled={!canManage}>
+            <Select
+              items={[
+                { value: "0", label: t("common:roles.user") },
+                { value: "1", label: t("admin-core:users.roles.moderator") },
+                { value: "2", label: t("common:roles.admin") },
+              ]}
+              value={role}
+              onValueChange={(value) => setRole(value ?? "")}
+              disabled={!canManage}
+            >
               <SelectTrigger id="user-role" className="w-full">
                 <SelectValue />
               </SelectTrigger>

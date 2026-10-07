@@ -292,9 +292,7 @@ export function MinecraftPlayerManager({
           deop: "servers-management:minecraftPlayerManager.toasts.deopFailed",
         };
 
-        toast.error(
-          response.error.error?.msg ?? t(actionFailedKeys[action]),
-        );
+        toast.error(response.error.error?.msg ?? t(actionFailedKeys[action]));
         return;
       }
 
@@ -376,13 +374,10 @@ export function MinecraftPlayerManager({
             )}
           </Badge>
           <Badge variant="secondary">
-            {t(
-              "servers-management:minecraftPlayerManager.playersOnlineBadge",
-              {
-                online,
-                maxSuffix: max === null ? "" : ` / ${max}`,
-              },
-            )}
+            {t("servers-management:minecraftPlayerManager.playersOnlineBadge", {
+              online,
+              maxSuffix: max === null ? "" : ` / ${max}`,
+            })}
           </Badge>
           {versionName ? <Badge variant="outline">{versionName}</Badge> : null}
         </div>
@@ -420,9 +415,11 @@ export function MinecraftPlayerManager({
                         <span>{player.name}</span>
                         {isOp ? (
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Crown className="size-4 text-amber-500" />
-                            </TooltipTrigger>
+                            <TooltipTrigger
+                              render={
+                                <Crown className="size-4 text-amber-500" />
+                              }
+                            />
                             <TooltipContent>
                               {t(
                                 "servers-management:minecraftPlayerManager.tooltips.operator",
@@ -438,21 +435,25 @@ export function MinecraftPlayerManager({
                     <TableCell>
                       <div className="flex justify-end gap-2">
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              disabled={
-                                !canManagePlayers ||
-                                commandLock.locked ||
-                                pendingAction === `op:${player.name}` ||
-                                isOp
-                              }
-                              onClick={() => executePlayerAction("op", player)}
-                            >
-                              <ShieldPlus />
-                            </Button>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                disabled={
+                                  !canManagePlayers ||
+                                  commandLock.locked ||
+                                  pendingAction === `op:${player.name}` ||
+                                  isOp
+                                }
+                                onClick={() =>
+                                  executePlayerAction("op", player)
+                                }
+                              />
+                            }
+                          >
+                            <ShieldPlus />
                           </TooltipTrigger>
                           <TooltipContent>
                             {t(
@@ -461,21 +462,25 @@ export function MinecraftPlayerManager({
                           </TooltipContent>
                         </Tooltip>
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              disabled={
-                                !canManagePlayers ||
-                                commandLock.locked ||
-                                pendingAction === `deop:${player.name}` ||
-                                !isOp
-                              }
-                              onClick={() => executePlayerAction("deop", player)}
-                            >
-                              <ShieldMinus />
-                            </Button>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                disabled={
+                                  !canManagePlayers ||
+                                  commandLock.locked ||
+                                  pendingAction === `deop:${player.name}` ||
+                                  !isOp
+                                }
+                                onClick={() =>
+                                  executePlayerAction("deop", player)
+                                }
+                              />
+                            }
+                          >
+                            <ShieldMinus />
                           </TooltipTrigger>
                           <TooltipContent>
                             {t(
@@ -484,20 +489,24 @@ export function MinecraftPlayerManager({
                           </TooltipContent>
                         </Tooltip>
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              disabled={
-                                !canManagePlayers ||
-                                commandLock.locked ||
-                                pendingAction === `ban:${player.name}`
-                              }
-                              onClick={() => executePlayerAction("ban", player)}
-                            >
-                              <Ban />
-                            </Button>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                disabled={
+                                  !canManagePlayers ||
+                                  commandLock.locked ||
+                                  pendingAction === `ban:${player.name}`
+                                }
+                                onClick={() =>
+                                  executePlayerAction("ban", player)
+                                }
+                              />
+                            }
+                          >
+                            <Ban />
                           </TooltipTrigger>
                           <TooltipContent>
                             {t(
@@ -574,26 +583,28 @@ export function MinecraftPlayerManager({
                       <TableCell>
                         <div className="flex justify-end">
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                disabled={
-                                  !canManagePlayers ||
-                                  commandLock.locked ||
-                                  !entry.name ||
-                                  pendingAction === `pardon:${entry.name}`
-                                }
-                                onClick={() =>
-                                  executePlayerAction("pardon", {
-                                    id: entry.uuid ?? "",
-                                    name: entry.name ?? "",
-                                  })
-                                }
-                              >
-                                <RotateCcw />
-                              </Button>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  disabled={
+                                    !canManagePlayers ||
+                                    commandLock.locked ||
+                                    !entry.name ||
+                                    pendingAction === `pardon:${entry.name}`
+                                  }
+                                  onClick={() =>
+                                    executePlayerAction("pardon", {
+                                      id: entry.uuid ?? "",
+                                      name: entry.name ?? "",
+                                    })
+                                  }
+                                />
+                              }
+                            >
+                              <RotateCcw />
                             </TooltipTrigger>
                             <TooltipContent>
                               {t(

@@ -292,19 +292,21 @@ function RetentionTaskField({
   return (
     <div className="flex w-full min-w-0 items-center gap-2 sm:flex-1">
       <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            className="min-w-0 flex-1 justify-start font-normal"
-          >
-            <Archive className="size-4 shrink-0" />
-            <span className="truncate">
-              {summary.length > 0
-                ? summary
-                : t("servers:schedules.retention.keepEverything")}
-            </span>
-          </Button>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              className="min-w-0 flex-1 justify-start font-normal"
+            />
+          }
+        >
+          <Archive className="size-4 shrink-0" />
+          <span className="truncate">
+            {summary.length > 0
+              ? summary
+              : t("servers:schedules.retention.keepEverything")}
+          </span>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-88 space-y-3">
           <div className="space-y-1">
@@ -394,14 +396,14 @@ function ScheduleTaskSummary({ tasks }: { tasks: ScheduleTask[] }) {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="cursor-default underline decoration-dotted underline-offset-4">
-          {listed} → {t("servers:schedules.table.moreTasks", { count: hidden })}
-        </span>
+      <TooltipTrigger
+        render={
+          <span className="cursor-default underline decoration-dotted underline-offset-4" />
+        }
+      >
+        {listed} → {t("servers:schedules.table.moreTasks", { count: hidden })}
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs">
-        {labels.join(" → ")}
-      </TooltipContent>
+      <TooltipContent className="max-w-xs">{labels.join(" → ")}</TooltipContent>
     </Tooltip>
   );
 }
@@ -534,7 +536,9 @@ export function SchedulesManager({
 
   const taskTypesFor = useCallback(
     (current: TaskType) =>
-      TASK_TYPES.filter((type) => type === current || isTaskTypeAvailable(type)),
+      TASK_TYPES.filter(
+        (type) => type === current || isTaskTypeAvailable(type),
+      ),
     [isTaskTypeAvailable],
   );
 
@@ -546,7 +550,10 @@ export function SchedulesManager({
 
       if (response.error || !response.data) {
         throw new Error(
-          apiErrorMessage(response.error, t("servers:schedules.toasts.loadFailed")),
+          apiErrorMessage(
+            response.error,
+            t("servers:schedules.toasts.loadFailed"),
+          ),
         );
       }
 
@@ -598,7 +605,9 @@ export function SchedulesManager({
     setCron(cronFields(schedule.cron));
     setCronMode(toSimpleSchedule(schedule.cron) ? "simple" : "advanced");
     setTimezone(schedule.timezone);
-    setTasks(schedule.tasks.length > 0 ? schedule.tasks : [{ type: "restart" }]);
+    setTasks(
+      schedule.tasks.length > 0 ? schedule.tasks : [{ type: "restart" }],
+    );
     setEditorOpen(true);
   };
 
@@ -743,7 +752,10 @@ export function SchedulesManager({
 
       if (response.error) {
         throw new Error(
-          apiErrorMessage(response.error, t("servers:schedules.toasts.runFailed")),
+          apiErrorMessage(
+            response.error,
+            t("servers:schedules.toasts.runFailed"),
+          ),
         );
       }
 
@@ -987,6 +999,14 @@ export function SchedulesManager({
                           {t("servers:schedules.dialog.frequency")}
                         </Label>
                         <Select
+                          items={[
+                            ...FREQUENCIES.map((frequency) => ({
+                              value: frequency,
+                              label: t(
+                                `servers:schedules.frequencies.${frequency}`,
+                              ),
+                            })),
+                          ]}
                           value={simple.frequency}
                           onValueChange={(value) => {
                             const frequency =
@@ -1041,6 +1061,14 @@ export function SchedulesManager({
                             {t("servers:schedules.cronFields.dayOfWeek")}
                           </Label>
                           <Select
+                            items={[
+                              ...WEEKDAYS.map((weekday) => ({
+                                value: String(weekday.ordinal),
+                                label: t(
+                                  `servers:schedules.weekdays.${weekday.key}`,
+                                ),
+                              })),
+                            ]}
                             value={String(simple.weekday)}
                             onValueChange={(value) =>
                               applySimple({ ...simple, weekday: Number(value) })
@@ -1114,7 +1142,11 @@ export function SchedulesManager({
                             onChange={(event) =>
                               applySimple({
                                 ...simple,
-                                minute: clamp(Number(event.target.value), 0, 59),
+                                minute: clamp(
+                                  Number(event.target.value),
+                                  0,
+                                  59,
+                                ),
                               })
                             }
                           />
@@ -1212,7 +1244,10 @@ export function SchedulesManager({
                 <Label htmlFor="schedule-timezone">
                   {t("servers:schedules.dialog.timezone")}
                 </Label>
-                <Select value={timezone} onValueChange={setTimezone}>
+                <Select
+                  value={timezone}
+                  onValueChange={(value) => setTimezone(value ?? "")}
+                >
                   <SelectTrigger id="schedule-timezone" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -1231,10 +1266,14 @@ export function SchedulesManager({
                   {t("servers:schedules.dialog.policy")}
                 </Label>
                 <Select
+                  items={[
+                    ...POLICIES.map((entry) => ({
+                      value: entry,
+                      label: t(`servers:schedules.policies.${entry}`),
+                    })),
+                  ]}
                   value={policy}
-                  onValueChange={(value) =>
-                    setPolicy(value as SchedulePolicy)
-                  }
+                  onValueChange={(value) => setPolicy(value as SchedulePolicy)}
                 >
                   <SelectTrigger id="schedule-policy" className="w-full">
                     <SelectValue />
@@ -1326,6 +1365,12 @@ export function SchedulesManager({
                     </button>
 
                     <Select
+                      items={[
+                        ...taskTypesFor(task.type).map((type) => ({
+                          value: type,
+                          label: t(`servers:schedules.taskTypes.${type}`),
+                        })),
+                      ]}
                       value={task.type}
                       onValueChange={(value) =>
                         setTask(index, emptyTask(value as TaskType))
@@ -1350,7 +1395,8 @@ export function SchedulesManager({
                           setTask(index, { type: "sleep", time })
                         }
                       />
-                    ) : task.type === "terminal" || task.type === "minecraft" ? (
+                    ) : task.type === "terminal" ||
+                      task.type === "minecraft" ? (
                       <Input
                         className="w-full font-mono sm:flex-1"
                         value={task.command}

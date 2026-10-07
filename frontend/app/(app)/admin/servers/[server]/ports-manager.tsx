@@ -467,10 +467,16 @@ export function PortsManager({
 
         <div className="flex flex-wrap items-center gap-2">
           <Popover>
-            <PopoverTrigger asChild>
-              <Button type="button" variant="outline" disabled={isActionLoading}>
-                {t("admin-infra:servers.shared.availableRanges")}
-              </Button>
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isActionLoading}
+                />
+              }
+            >
+              {t("admin-infra:servers.shared.availableRanges")}
             </PopoverTrigger>
             <PopoverContent align="start" className="w-80">
               <div className="space-y-2">
@@ -764,7 +770,9 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
           onChange={(event) =>
             setForm((prev) => ({ ...prev, name: event.target.value }))
           }
-          placeholder={t("admin-infra:servers.portsManager.form.namePlaceholder")}
+          placeholder={t(
+            "admin-infra:servers.portsManager.form.namePlaceholder",
+          )}
           aria-invalid={Boolean(errors.name)}
         />
         <FieldError>{errors.name}</FieldError>
@@ -772,6 +780,11 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
 
       <div className="space-y-2">
         <Select
+          items={[
+            { value: "tcp", label: t("common:resources.tcp") },
+            { value: "udp", label: t("common:resources.udp") },
+            { value: "http", label: t("common:resources.http") },
+          ]}
           value={form.http ? "http" : form.protocol}
           onValueChange={(value) =>
             setForm((prev) =>

@@ -428,11 +428,11 @@ export function BackupsManager({
 
               {canBypassLimits ? (
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge variant="secondary" className="gap-1.5">
-                      <ShieldCheck className="size-3.5" />
-                      {t("servers:backups.limit.bypassBadge")}
-                    </Badge>
+                  <TooltipTrigger
+                    render={<Badge variant="secondary" className="gap-1.5" />}
+                  >
+                    <ShieldCheck className="size-3.5" />
+                    {t("servers:backups.limit.bypassBadge")}
                   </TooltipTrigger>
                   <TooltipContent>
                     {t("servers:backups.limit.bypassTooltip")}
@@ -493,9 +493,11 @@ export function BackupsManager({
                         <span className="inline-flex items-center gap-1.5">
                           {backup.protected ? (
                             <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Lock className="size-3.5 shrink-0 text-muted-foreground" />
-                              </TooltipTrigger>
+                              <TooltipTrigger
+                                render={
+                                  <Lock className="size-3.5 shrink-0 text-muted-foreground" />
+                                }
+                              />
                               <TooltipContent>
                                 {t("servers:backups.protectedTooltip")}
                               </TooltipContent>
@@ -519,49 +521,59 @@ export function BackupsManager({
                       <TableCell className="text-right">
                         <div className="inline-flex items-center gap-2">
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedBackup(backup);
-                                  setRenameName(backup.name?.trim() ?? "");
-                                  setRenameOpen(true);
-                                }}
-                                disabled={isActionLoading || storageLock.locked}
-                                aria-label={t("common:actions.rename")}
-                              >
-                                <Pencil className="size-4" />
-                              </Button>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedBackup(backup);
+                                    setRenameName(backup.name?.trim() ?? "");
+                                    setRenameOpen(true);
+                                  }}
+                                  disabled={
+                                    isActionLoading || storageLock.locked
+                                  }
+                                  aria-label={t("common:actions.rename")}
+                                />
+                              }
+                            >
+                              <Pencil className="size-4" />
                             </TooltipTrigger>
                             <TooltipContent>
                               {t("common:actions.rename")}
                             </TooltipContent>
                           </Tooltip>
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                loading={protectingKey === backupRowKey(backup)}
-                                onClick={() => {
-                                  void handleToggleProtected(backup);
-                                }}
-                                disabled={isActionLoading || storageLock.locked}
-                                aria-label={
-                                  backup.protected
-                                    ? t("servers:backups.unprotectAction")
-                                    : t("servers:backups.protectAction")
-                                }
-                              >
-                                {backup.protected ? (
-                                  <Lock className="size-4" />
-                                ) : (
-                                  <LockOpen className="size-4" />
-                                )}
-                              </Button>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  loading={
+                                    protectingKey === backupRowKey(backup)
+                                  }
+                                  onClick={() => {
+                                    void handleToggleProtected(backup);
+                                  }}
+                                  disabled={
+                                    isActionLoading || storageLock.locked
+                                  }
+                                  aria-label={
+                                    backup.protected
+                                      ? t("servers:backups.unprotectAction")
+                                      : t("servers:backups.protectAction")
+                                  }
+                                />
+                              }
+                            >
+                              {backup.protected ? (
+                                <Lock className="size-4" />
+                              ) : (
+                                <LockOpen className="size-4" />
+                              )}
                             </TooltipTrigger>
                             <TooltipContent>
                               {backup.protected

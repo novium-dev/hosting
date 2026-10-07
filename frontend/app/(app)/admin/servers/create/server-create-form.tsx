@@ -7,12 +7,7 @@ import { useAction } from "@/lib/action-hooks";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
-import {
-  ArrowLeft,
-  Check,
-  ChevronsUpDown,
-  Loader2,
-} from "lucide-react";
+import { ArrowLeft, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 
 import { createServerAction, getTemplateInfoAction } from "@/actions/servers";
 import { Button } from "@/components/ui/button";
@@ -150,7 +145,8 @@ function buildPortGroups(definitions: TemplatePortDefinitions): PortGroup[] {
     }))
     .sort(
       (a, b) =>
-        a.internalPort - b.internalPort || a.portKeys[0]!.localeCompare(b.portKeys[0]!),
+        a.internalPort - b.internalPort ||
+        a.portKeys[0]!.localeCompare(b.portKeys[0]!),
     );
 }
 
@@ -410,9 +406,7 @@ export function ServerCreateForm({
     listNodeGroups({ path: { node_id: selectedNode.id } })
       .then((response) => {
         if (isActive && !response.error && response.data) {
-          setNodeGroups(
-            response.data.map(({ id, label }) => ({ id, label })),
-          );
+          setNodeGroups(response.data.map(({ id, label }) => ({ id, label })));
         }
       })
       .catch(() => {});
@@ -634,11 +628,13 @@ export function ServerCreateForm({
             {t("admin-infra:servers.createForm.subtitle")}
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/admin/servers">
-            <ArrowLeft className="size-4" />
-            {t("admin-infra:servers.createForm.backToServers")}
-          </Link>
+        <Button
+          variant="outline"
+          render={<Link href="/admin/servers" />}
+          nativeButton={false}
+        >
+          <ArrowLeft className="size-4" />
+          {t("admin-infra:servers.createForm.backToServers")}
         </Button>
       </div>
 
@@ -668,25 +664,24 @@ export function ServerCreateForm({
               open={ownerComboboxOpen}
               onOpenChange={setOwnerComboboxOpen}
             >
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between"
-                >
-                  {selectedProject
-                    ? formatProjectLabel(selectedProject)
-                    : t(
-                        "admin-infra:servers.createForm.selectProjectPlaceholder",
-                      )}
-                  <ChevronsUpDown className="size-4 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                className="w-(--radix-popover-trigger-width) p-0"
-                align="start"
+              <PopoverTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between"
+                  />
+                }
               >
+                {selectedProject
+                  ? formatProjectLabel(selectedProject)
+                  : t(
+                      "admin-infra:servers.createForm.selectProjectPlaceholder",
+                    )}
+                <ChevronsUpDown className="size-4 opacity-50" />
+              </PopoverTrigger>
+              <PopoverContent className="w-(--anchor-width) p-0" align="start">
                 <Command>
                   <CommandInput
                     placeholder={t(
@@ -710,7 +705,9 @@ export function ServerCreateForm({
                           <Check
                             className={cn(
                               "mr-2 size-4",
-                              owner === project.id ? "opacity-100" : "opacity-0",
+                              owner === project.id
+                                ? "opacity-100"
+                                : "opacity-0",
                             )}
                           />
                           <span>{formatProjectLabel(project)}</span>
@@ -725,7 +722,10 @@ export function ServerCreateForm({
 
           <div className="space-y-2">
             <Label>{t("admin-infra:servers.shared.templateLabel")}</Label>
-            <Select value={template} onValueChange={setTemplate}>
+            <Select
+              value={template}
+              onValueChange={(value) => setTemplate(value ?? "")}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={t(
@@ -745,7 +745,20 @@ export function ServerCreateForm({
 
           <div className="space-y-2">
             <Label>{t("admin-infra:servers.shared.nodeLabel")}</Label>
-            <Select value={node} onValueChange={setNode}>
+            <Select
+              items={[
+                ...nodes.map((nodeOption) => ({
+                  value: nodeOption.id,
+                  label: (
+                    <>
+                      {nodeOption.display}({nodeOption.id})
+                    </>
+                  ),
+                })),
+              ]}
+              value={node}
+              onValueChange={(value) => setNode(value ?? "")}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={t(
@@ -767,7 +780,10 @@ export function ServerCreateForm({
             <Label htmlFor="storage">
               {t("admin-infra:servers.createForm.storageLabel")}
             </Label>
-            <Select value={storage} onValueChange={setStorage}>
+            <Select
+              value={storage}
+              onValueChange={(value) => setStorage(value ?? "")}
+            >
               <SelectTrigger id="storage" className="w-full">
                 <SelectValue
                   placeholder={t(
@@ -789,7 +805,20 @@ export function ServerCreateForm({
             <Label htmlFor="group">
               {t("admin-infra:servers.shared.groupLabel")}
             </Label>
-            <Select value={group} onValueChange={setGroup}>
+            <Select
+              items={[
+                {
+                  value: NO_GROUP,
+                  label: t("admin-infra:servers.shared.noGroup"),
+                },
+                ...nodeGroups.map((groupOption) => ({
+                  value: String(groupOption.id),
+                  label: groupOption.label,
+                })),
+              ]}
+              value={group}
+              onValueChange={(value) => setGroup(value ?? "")}
+            >
               <SelectTrigger id="group" className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -814,6 +843,10 @@ export function ServerCreateForm({
               {t("admin-infra:servers.shared.internetAccessLabel")}
             </Label>
             <Select
+              items={[
+                { value: "enabled", label: t("common:status.enabled") },
+                { value: "disabled", label: t("common:status.disabled") },
+              ]}
               value={internetAccess ? "enabled" : "disabled"}
               onValueChange={(value) => setInternetAccess(value === "enabled")}
             >
@@ -955,15 +988,13 @@ export function ServerCreateForm({
         <Separator />
 
         <div className="space-y-3">
-          <h2 className="text-base font-semibold">
-            {t("common:nav.ports")}
-          </h2>
+          <h2 className="text-base font-semibold">{t("common:nav.ports")}</h2>
           {allowedPortRanges.length > 0 && (
             <Popover>
-              <PopoverTrigger asChild>
-                <Button type="button" variant="outline" size="sm">
-                  {t("admin-infra:servers.shared.availableRanges")}
-                </Button>
+              <PopoverTrigger
+                render={<Button type="button" variant="outline" size="sm" />}
+              >
+                {t("admin-infra:servers.shared.availableRanges")}
               </PopoverTrigger>
               <PopoverContent align="start" className="w-80">
                 <div className="space-y-2">
@@ -1021,9 +1052,12 @@ export function ServerCreateForm({
                         .map((protocol) => protocol.toUpperCase())
                         .join(" + ")}
                       {group.remappable
-                        ? t("admin-infra:servers.createForm.internalPortSuffix", {
-                            port: group.internalPort,
-                          })
+                        ? t(
+                            "admin-infra:servers.createForm.internalPortSuffix",
+                            {
+                              port: group.internalPort,
+                            },
+                          )
                         : ""}
                       )
                     </Label>
@@ -1061,7 +1095,9 @@ export function ServerCreateForm({
                       />
                       <ComboboxContent>
                         <ComboboxEmpty>
-                          {t("admin-infra:servers.createForm.noAvailablePortFound")}
+                          {t(
+                            "admin-infra:servers.createForm.noAvailablePortFound",
+                          )}
                         </ComboboxEmpty>
                         <ComboboxList>
                           <ComboboxGroup>

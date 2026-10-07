@@ -563,10 +563,15 @@ export function VariableFields({
                       }))}
                     />
                   ) : (
-                    <Select value={currentValue} onValueChange={onSelect}>
+                    <Select
+                      value={currentValue}
+                      onValueChange={(value) => onSelect(value ?? "")}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue
-                          placeholder={t("servers:variablesEditor.selectPlaceholder")}
+                          placeholder={t(
+                            "servers:variablesEditor.selectPlaceholder",
+                          )}
                         />
                       </SelectTrigger>
                       <SelectContent>
@@ -639,10 +644,15 @@ export function VariableFields({
                       options={entries.map((entry) => ({ value: entry }))}
                     />
                   ) : (
-                    <Select value={currentValue} onValueChange={onSelect}>
+                    <Select
+                      value={currentValue}
+                      onValueChange={(value) => onSelect(value ?? "")}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue
-                          placeholder={t("servers:variablesEditor.selectPlaceholder")}
+                          placeholder={t(
+                            "servers:variablesEditor.selectPlaceholder",
+                          )}
                         />
                       </SelectTrigger>
                       <SelectContent>

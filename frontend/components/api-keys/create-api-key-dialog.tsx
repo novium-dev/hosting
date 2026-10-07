@@ -63,7 +63,9 @@ export function CreateApiKeyDialog({
           onCreated();
         },
         onError: (error) => {
-          toast.error(error.error.serverError ?? t("common:state.genericError"));
+          toast.error(
+            error.error.serverError ?? t("common:state.genericError"),
+          );
         },
       },
     });
@@ -81,11 +83,9 @@ export function CreateApiKeyDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="size-4" />
-            {t("project:apiKeys.createDialog.trigger")}
-          </Button>
+        <DialogTrigger render={<Button />}>
+          <Plus className="size-4" />
+          {t("project:apiKeys.createDialog.trigger")}
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
@@ -107,7 +107,9 @@ export function CreateApiKeyDialog({
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder={t("project:apiKeys.createDialog.namePlaceholder")}
+                        placeholder={t(
+                          "project:apiKeys.createDialog.namePlaceholder",
+                        )}
                       />
                     </FormControl>
                     <FormMessage />

@@ -118,7 +118,10 @@ export function ServerSettings({
   const sshCommand = useMemo(() => {
     const host = nodeHostname || t("common:status.unknown");
     const portPart = sshPort ? ` -p ${sshPort}` : "";
-    const target = initialName.replace(/[\\"$`]/g, (character) => `\\${character}`);
+    const target = initialName.replace(
+      /[\\"$`]/g,
+      (character) => `\\${character}`,
+    );
 
     return `ssh -t${portPart} ${username}@${host} "${target}"`;
   }, [initialName, nodeHostname, sshPort, t, username]);
@@ -355,11 +358,14 @@ export function ServerSettings({
                   <Copy className="size-4" />
                   {t("common:actions.copy")}
                 </Button>
-                <Button asChild variant="outline" className="shrink-0">
-                  <a href={sftpUrl}>
-                    <FolderOpen className="size-4" />
-                    {t("servers:settings.sftp.openButton")}
-                  </a>
+                <Button
+                  variant="outline"
+                  className="shrink-0"
+                  render={<a href={sftpUrl} />}
+                  nativeButton={false}
+                >
+                  <FolderOpen className="size-4" />
+                  {t("servers:settings.sftp.openButton")}
                 </Button>
               </div>
             </div>

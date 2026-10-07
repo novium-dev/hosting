@@ -3,7 +3,13 @@ import {
   useNavigate,
   useRouteError,
 } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, FileQuestion, Home, RotateCw } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  FileQuestion,
+  Home,
+  RotateCw,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import Link from "@/components/link";
@@ -23,11 +29,9 @@ export function NotFound() {
       description={t("app:notFound.description")}
       actions={
         <>
-          <Button asChild>
-            <Link href="/">
-              <Home className="size-4" />
-              {t("common:actions.backToDashboard")}
-            </Link>
+          <Button render={<Link href="/" />} nativeButton={false}>
+            <Home className="size-4" />
+            {t("common:actions.backToDashboard")}
           </Button>
           <Button variant="outline" onClick={() => navigate(-1)}>
             <ArrowLeft className="size-4" />
@@ -70,11 +74,13 @@ export function RouteErrorBoundary() {
             <RotateCw className="size-4" />
             {t("common:actions.reload")}
           </Button>
-          <Button asChild variant="outline">
-            <Link href="/">
-              <Home className="size-4" />
-              {t("common:actions.backToDashboard")}
-            </Link>
+          <Button
+            variant="outline"
+            render={<Link href="/" />}
+            nativeButton={false}
+          >
+            <Home className="size-4" />
+            {t("common:actions.backToDashboard")}
           </Button>
         </>
       }

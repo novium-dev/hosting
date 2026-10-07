@@ -44,75 +44,77 @@ export function NavUserMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        {isSidebar ? (
-          <SidebarMenuButton size="lg">
-            <Avatar className="size-8 rounded-lg">
-              <AvatarImage
-                src={session?.user?.image ?? ""}
-                alt={session?.user?.name}
-              />
-              <AvatarFallback className="rounded-lg">
-                {session?.user?.name?.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-semibold">
-                {session?.user?.name}
-              </span>
-              <span className="truncate text-xs text-muted-foreground">
-                {session?.user?.email}
-              </span>
-            </div>
-            <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
-          </SidebarMenuButton>
-        ) : (
-          <Button variant="ghost" className="h-9 gap-2 px-2">
-            <Avatar className="h-7 w-7 rounded-lg">
-              <AvatarImage
-                src={session?.user?.image ?? ""}
-                alt={session?.user?.name}
-              />
-              <AvatarFallback className="rounded-lg">
-                {session?.user?.name?.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="hidden max-w-36 text-left text-sm leading-tight md:grid">
-              <span className="truncate font-semibold">
-                {session?.user?.name}
-              </span>
-            </div>
-            <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
-          </Button>
-        )}
-      </DropdownMenuTrigger>
+      {isSidebar ? (
+        <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
+          <Avatar className="size-8 rounded-lg">
+            <AvatarImage
+              src={session?.user?.image ?? ""}
+              alt={session?.user?.name}
+            />
+            <AvatarFallback className="rounded-lg">
+              {session?.user?.name?.charAt(0)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="grid flex-1 text-left text-sm leading-tight">
+            <span className="truncate font-semibold">
+              {session?.user?.name}
+            </span>
+            <span className="truncate text-xs text-muted-foreground">
+              {session?.user?.email}
+            </span>
+          </div>
+          <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+        </DropdownMenuTrigger>
+      ) : (
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" className="h-9 gap-2 px-2" />}
+        >
+          <Avatar className="h-7 w-7 rounded-lg">
+            <AvatarImage
+              src={session?.user?.image ?? ""}
+              alt={session?.user?.name}
+            />
+            <AvatarFallback className="rounded-lg">
+              {session?.user?.name?.charAt(0)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="hidden max-w-36 text-left text-sm leading-tight md:grid">
+            <span className="truncate font-semibold">
+              {session?.user?.name}
+            </span>
+          </div>
+          <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+        </DropdownMenuTrigger>
+      )}
       <DropdownMenuContent
         className="min-w-56 rounded-lg"
         side={isSidebar ? "right" : "bottom"}
         align="end"
         sideOffset={8}
       >
-        <DropdownMenuLabel className="p-0 font-normal">
-          <div className="flex items-center gap-2 px-2 py-1.5 text-left text-sm">
-            <Avatar className="h-8 w-8 rounded-lg">
-              <AvatarImage
-                src={session?.user?.image ?? ""}
-                alt={session?.user?.name}
-              />
-              <AvatarFallback className="rounded-lg">
-                {session?.user?.name?.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-semibold">
-                {session?.user?.name}
-              </span>
-              <span className="truncate text-xs text-muted-foreground">
-                {session?.user?.email}
-              </span>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="p-0 font-normal">
+            <div className="flex items-center gap-2 px-2 py-1.5 text-left text-sm">
+              <Avatar className="h-8 w-8 rounded-lg">
+                <AvatarImage
+                  src={session?.user?.image ?? ""}
+                  alt={session?.user?.name}
+                />
+                <AvatarFallback className="rounded-lg">
+                  {session?.user?.name?.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">
+                  {session?.user?.name}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {session?.user?.email}
+                </span>
+              </div>
             </div>
-          </div>
-        </DropdownMenuLabel>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem

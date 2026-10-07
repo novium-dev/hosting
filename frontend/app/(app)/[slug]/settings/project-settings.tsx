@@ -92,10 +92,10 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
             {t("project:settings.dangerZone.deleteWarning")}
           </p>
           <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm">
-                {t("project:settings.dangerZone.deleteButton")}
-              </Button>
+            <AlertDialogTrigger
+              render={<Button variant="destructive" size="sm" />}
+            >
+              {t("project:settings.dangerZone.deleteButton")}
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>

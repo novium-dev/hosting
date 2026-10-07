@@ -187,15 +187,15 @@ Never edit a migration after it got committed (except if user asks for it)
 
 ## Frontend
 
-`frontend/` ("hephaestus") is a **client-only SPA** — Vite + React 19 + React Router v7 (library mode, `createBrowserRouter`), Tailwind v4 (via `@tailwindcss/vite`), shadcn/radix UI, SWR for data fetching, and react-hook-form + zod for forms. There is **no frontend server**: the built `dist/` is served by the backend at the same origin (see Part B / `backend/src/http.rs` `ServeDir` fallback and `BACKEND_FRONTEND_DIR`), so auth is the backend's httpOnly session cookie and API calls go same-origin (`credentials: "include"`). It is bundled into the one all-in-one Docker image and validated in CI by the `frontend` job.
+`frontend/` ("hephaestus") is a **client-only SPA** — Vite + React 19 + React Router v7 (library mode, `createBrowserRouter`), Tailwind v4 (via `@tailwindcss/vite`), shadcn on Base UI (`components.json` style `base-vega`), SWR for data fetching, and react-hook-form + zod for forms. There is **no frontend server**: the built `dist/` is served by the backend at the same origin (see Part B / `backend/src/http.rs` `ServeDir` fallback and `BACKEND_FRONTEND_DIR`), so auth is the backend's httpOnly session cookie and API calls go same-origin (`credentials: "include"`). It is bundled into the one all-in-one Docker image and validated in CI by the `frontend` job.
 
 ```bash
 cd frontend
-bun install
-bun run dev        # Vite dev server on :3000; proxies /api -> VITE_DEV_API_URL (see vite.config.ts)
-bun run build      # type-agnostic Vite build -> dist/
-bun run typecheck  # tsc --noEmit (full type check)
-bun run gen        # regenerate the hey-api client in lib/api from the backend's /docs/openapi.json
+pnpm install
+pnpm run dev       # Vite dev server on :3000; proxies /api -> VITE_DEV_API_URL (see vite.config.ts)
+pnpm run build     # type-agnostic Vite build -> dist/
+pnpm run typecheck # tsc --noEmit (full type check)
+pnpm run gen       # regenerate the hey-api client in lib/api from the backend's /docs/openapi.json
 ```
 
 Conventions:
@@ -206,8 +206,8 @@ Conventions:
 - **Data & navigation** — pages are client components: fetch with `useSWR`, read params with `useParams`, redirect with `<Navigate/>`. `lib/navigation.ts` is a small `next/navigation` compatibility shim (`useRouter`/`usePathname`/`useSearchParams`); `components/link.tsx` is a `next/link` replacement accepting `href`.
 - **SWR keys** — SWR caches by key alone, so two components that use the same key with different fetchers get each other's data (React error #31 when one stores objects and the other renders strings). A key used by more than one component lives in `hooks/use-shared-queries.ts` together with its one fetcher; components call that hook and derive what they need from the result. Keys used in one place only stay inline but must be unique.
 - **Actions** — former server actions in `actions/` are plain async functions using the `lib/safe-action.ts` builder; components consume them via `lib/action-hooks.ts` (`useAction` / `useHookFormAction`).
-- Run `bun run build` (and ideally `bun run typecheck`) before finishing a frontend change; `bun run build` is what CI enforces.
-- **Don't verify UI changes in a browser.** `bun run typecheck` + `bun run build` passing is enough — don't start a dev server, drive the browser, or take screenshots to check a change. Never add a throwaway route (e.g. `/preview`) rendering components with mock data just to look at them; those temp files end up committed. The user reviews UI changes themselves.
+- Run `pnpm run build` (and ideally `pnpm run typecheck`) before finishing a frontend change; `pnpm run build` is what CI enforces.
+- **Don't verify UI changes in a browser.** `pnpm run typecheck` + `pnpm run build` passing is enough — don't start a dev server, drive the browser, or take screenshots to check a change. Never add a throwaway route (e.g. `/preview`) rendering components with mock data just to look at them; those temp files end up committed. The user reviews UI changes themselves.
 - **i18n** — all user-facing strings go through `i18next`/`react-i18next`, initialized in `lib/i18n.ts` and wrapped around the app by `I18nextProvider` in `components/providers.tsx`. Translations are static JSON, one file per `{language}/{namespace}`, imported eagerly (no lazy backend) in `locales/{en,de}/*.json`; `lib/i18n.ts`'s `namespaces` array and `resources` object are the source of truth for which files exist — register a new namespace there before using it. Currently: `common` (shared vocabulary — buttons, generic labels/statuses, pagination, confirm-delete boilerplate, nav/resource nouns) plus one namespace per feature area (`app`, `project`, `navigation`, `settings`, `servers`, `servers-management`, `admin-core`, `admin-infra`).
   - In components, call `useTranslation()` and always reference keys with an explicit `"namespace:dot.path"` prefix (e.g. `t("common:actions.save")`, `t("org:members.inviteDialog.title")`) — never a bare key — so resolution doesn't depend on which namespaces were passed to the hook.
   - For strings with embedded markup (e.g. inline links), use `<Trans i18nKey="ns:key" components={{ someLink: <Link href="/x" /> }} />` with `<someLink>text</someLink>` in the JSON value.

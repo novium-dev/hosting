@@ -3,6 +3,7 @@ import { SessionProvider } from "@/contexts/session-provider";
 import i18n from "@/lib/i18n";
 import { ThemeProvider } from "./theme-provider";
 import { Toaster } from "./ui/sonner";
+import { TooltipProvider } from "./ui/tooltip";
 
 export const Providers = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -13,8 +14,10 @@ export const Providers = ({ children }: { children: React.ReactNode }) => {
         disableTransitionOnChange
       >
         <SessionProvider>
-          {children}
-          <Toaster richColors />
+          <TooltipProvider>
+            {children}
+            <Toaster richColors />
+          </TooltipProvider>
         </SessionProvider>
       </ThemeProvider>
     </I18nextProvider>

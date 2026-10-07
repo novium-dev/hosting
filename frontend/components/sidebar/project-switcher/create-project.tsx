@@ -7,34 +7,39 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Plus } from "lucide-react";
 import { useRouter } from "@/lib/navigation";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-export function CreateProjectModal() {
-  const [open, setOpen] = useState(false);
+export function CreateProjectItem({ onSelect }: { onSelect: () => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <DropdownMenuItem className="gap-2 p-2 cursor-pointer" onClick={onSelect}>
+      <div className="flex size-6 items-center justify-center rounded-md border">
+        <Plus className="size-4" />
+      </div>
+      <span className="font-medium">
+        {t("navigation:projectSwitcher.createProject")}
+      </span>
+    </DropdownMenuItem>
+  );
+}
+
+export function CreateProjectModal({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const router = useRouter();
   const { t } = useTranslation();
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <DropdownMenuItem
-          className="gap-2 p-2 cursor-pointer"
-          onSelect={(e) => e.preventDefault()}
-        >
-          <div className="flex size-6 items-center justify-center rounded-md border">
-            <Plus className="size-4" />
-          </div>
-          <span className="font-medium">
-            {t("navigation:projectSwitcher.createProject")}
-          </span>
-        </DropdownMenuItem>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
@@ -48,7 +53,7 @@ export function CreateProjectModal() {
           <div className="space-y-6 p-0">
             <CreateProjectForm
               onSuccess={({ slug }) => {
-                setOpen(false);
+                onOpenChange(false);
                 router.push(`/${slug}`);
               }}
             />

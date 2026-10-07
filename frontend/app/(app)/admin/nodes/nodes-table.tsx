@@ -2,7 +2,13 @@
 
 import Link from "@/components/link";
 import { useMemo, useState } from "react";
-import { Clock, Network, Search, TimerResetIcon, Trash2Icon } from "lucide-react";
+import {
+  Clock,
+  Network,
+  Search,
+  TimerResetIcon,
+  Trash2Icon,
+} from "lucide-react";
 import useSWR from "swr";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -48,7 +54,8 @@ import {
 import type { NodeRow } from "@/types/api";
 import { formatCountdown } from "@/lib/format";
 
-type NodeColumn = "display" | "groups" | "host" | "ports" | "servers" | "status";
+type NodeColumn =
+  "display" | "groups" | "host" | "ports" | "servers" | "status";
 
 export function NodesTable({
   nodes,
@@ -121,11 +128,14 @@ export function NodesTable({
     [],
   );
 
-  const { rows: sortedNodes, sort, toggle } = useTableSort<NodeRow, NodeColumn>(
-    filteredNodes,
-    accessors,
-    { column: "display", direction: "asc" },
-  );
+  const {
+    rows: sortedNodes,
+    sort,
+    toggle,
+  } = useTableSort<NodeRow, NodeColumn>(filteredNodes, accessors, {
+    column: "display",
+    direction: "asc",
+  });
 
   const isEmpty =
     sortedNodes.length === 0 && filteredRegistrations.length === 0;
@@ -177,9 +187,7 @@ export function NodesTable({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">
-            {t("common:nav.nodes")}
-          </h1>
+          <h1 className="text-xl font-semibold">{t("common:nav.nodes")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("admin-infra:nodes.table.description")}
           </p>
@@ -250,10 +258,10 @@ export function NodesTable({
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="flex items-center">
-                              <Clock className="size-4 shrink-0 text-amber-500" />
-                            </span>
+                          <TooltipTrigger
+                            render={<span className="flex items-center" />}
+                          >
+                            <Clock className="size-4 shrink-0 text-amber-500" />
                           </TooltipTrigger>
                           <TooltipContent>
                             {t("admin-infra:nodes.table.pendingTooltip", {
@@ -288,16 +296,20 @@ export function NodesTable({
                           onSaved={() => void mutateRegistrations()}
                         />
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              disabled={!canManage}
-                              loading={extending === registration.code}
-                              onClick={() => void handleExtend(registration.code)}
-                            >
-                              <TimerResetIcon className="size-4" />
-                            </Button>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                disabled={!canManage}
+                                loading={extending === registration.code}
+                                onClick={() =>
+                                  void handleExtend(registration.code)
+                                }
+                              />
+                            }
+                          >
+                            <TimerResetIcon className="size-4" />
                           </TooltipTrigger>
                           <TooltipContent>
                             {t("admin-infra:nodes.table.extendTooltip")}
@@ -346,23 +358,26 @@ export function NodesTable({
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/admin/nodes/${node.id}`}>
-                            {t("common:resources.manage")}
-                          </Link>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          render={<Link href={`/admin/nodes/${node.id}`} />}
+                          nativeButton={false}
+                        >
+                          {t("common:resources.manage")}
                         </Button>
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="flex items-center">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                disabled={!canManage || node.server_count > 0}
-                                onClick={() => setDeleting(node)}
-                              >
-                                <Trash2Icon className="size-4" />
-                              </Button>
-                            </span>
+                          <TooltipTrigger
+                            render={<span className="flex items-center" />}
+                          >
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              disabled={!canManage || node.server_count > 0}
+                              onClick={() => setDeleting(node)}
+                            >
+                              <Trash2Icon className="size-4" />
+                            </Button>
                           </TooltipTrigger>
                           <TooltipContent>
                             {node.server_count > 0

@@ -145,18 +145,16 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href="/admin">
-                <AppLogo className="size-7 shrink-0" />
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">
-                    {appConfig.appName}
-                  </span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {t("navigation:adminSidebar.subtitle")}
-                  </span>
-                </div>
-              </Link>
+            <SidebarMenuButton size="lg" render={<Link href="/admin" />}>
+              <AppLogo className="size-7 shrink-0" />
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">
+                  {appConfig.appName}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {t("navigation:adminSidebar.subtitle")}
+                </span>
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -168,14 +166,12 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  asChild
                   tooltip={t("common:nav.overview")}
                   isActive={pathname === "/admin"}
+                  render={<Link href="/admin" />}
                 >
-                  <Link href="/admin">
-                    <LayoutDashboard />
-                    <span>{t("common:nav.overview")}</span>
-                  </Link>
+                  <LayoutDashboard />
+                  <span>{t("common:nav.overview")}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -190,17 +186,15 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
                 {group.items.map((item) => (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
-                      asChild
                       tooltip={item.title}
                       isActive={
                         pathname === item.href ||
                         pathname.startsWith(`${item.href}/`)
                       }
+                      render={<Link href={item.href} />}
                     >
-                      <Link href={item.href}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
+                      <item.icon />
+                      <span>{item.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -214,13 +208,11 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              asChild
               tooltip={t("navigation:adminSidebar.backToApp")}
+              render={<Link href="/" />}
             >
-              <Link href="/">
-                <Home />
-                <span>{t("navigation:adminSidebar.backToApp")}</span>
-              </Link>
+              <Home />
+              <span>{t("navigation:adminSidebar.backToApp")}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

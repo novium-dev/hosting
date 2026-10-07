@@ -70,9 +70,7 @@ export function DaemonAuthSection() {
   const [keyName, setKeyName] = useState("");
   const [publicKey, setPublicKey] = useState("");
 
-  const loadDaemonPassword = async (
-    setLoading: (loading: boolean) => void,
-  ) => {
+  const loadDaemonPassword = async (setLoading: (loading: boolean) => void) => {
     if (daemonPasswordValue) {
       return daemonPasswordValue;
     }
@@ -134,7 +132,10 @@ export function DaemonAuthSection() {
 
     if (response.error || !response.data) {
       toast.error(
-        apiErrorMessage(response.error, t("settings:daemonAuth.regenerateError")),
+        apiErrorMessage(
+          response.error,
+          t("settings:daemonAuth.regenerateError"),
+        ),
       );
       return;
     }
@@ -189,7 +190,10 @@ export function DaemonAuthSection() {
 
     if (response.error) {
       toast.error(
-        apiErrorMessage(response.error, t("settings:daemonAuth.deleteKeyError")),
+        apiErrorMessage(
+          response.error,
+          t("settings:daemonAuth.deleteKeyError"),
+        ),
       );
       return;
     }
@@ -228,25 +232,27 @@ export function DaemonAuthSection() {
           </div>
           <div className="flex gap-2">
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={toggleDaemonPassword}
-                  loading={daemonLoading}
-                  aria-label={
-                    showDaemonPassword
-                      ? t("settings:daemonAuth.hidePassword")
-                      : t("settings:daemonAuth.revealPassword")
-                  }
-                >
-                  {showDaemonPassword ? (
-                    <EyeOff className="size-4" />
-                  ) : (
-                    <Eye className="size-4" />
-                  )}
-                </Button>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={toggleDaemonPassword}
+                    loading={daemonLoading}
+                    aria-label={
+                      showDaemonPassword
+                        ? t("settings:daemonAuth.hidePassword")
+                        : t("settings:daemonAuth.revealPassword")
+                    }
+                  />
+                }
+              >
+                {showDaemonPassword ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
+                )}
               </TooltipTrigger>
               <TooltipContent>
                 {showDaemonPassword
@@ -255,19 +261,21 @@ export function DaemonAuthSection() {
               </TooltipContent>
             </Tooltip>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    void handleCopyDaemonPassword();
-                  }}
-                  loading={copyLoading}
-                  aria-label={t("settings:daemonAuth.copyPasswordAriaLabel")}
-                >
-                  <Copy className="size-4" />
-                </Button>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      void handleCopyDaemonPassword();
+                    }}
+                    loading={copyLoading}
+                    aria-label={t("settings:daemonAuth.copyPasswordAriaLabel")}
+                  />
+                }
+              >
+                <Copy className="size-4" />
               </TooltipTrigger>
               <TooltipContent>
                 {t("settings:daemonAuth.copyPasswordTooltip")}
@@ -299,24 +307,26 @@ export function DaemonAuthSection() {
             </p>
           </div>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => setShowSshKeys((value) => !value)}
-                aria-label={
-                  showSshKeys
-                    ? t("settings:daemonAuth.hideSshKeys")
-                    : t("settings:daemonAuth.revealSshKeys")
-                }
-              >
-                {showSshKeys ? (
-                  <EyeOff className="size-4" />
-                ) : (
-                  <Eye className="size-4" />
-                )}
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowSshKeys((value) => !value)}
+                  aria-label={
+                    showSshKeys
+                      ? t("settings:daemonAuth.hideSshKeys")
+                      : t("settings:daemonAuth.revealSshKeys")
+                  }
+                />
+              }
+            >
+              {showSshKeys ? (
+                <EyeOff className="size-4" />
+              ) : (
+                <Eye className="size-4" />
+              )}
             </TooltipTrigger>
             <TooltipContent>
               {showSshKeys
@@ -355,44 +365,51 @@ export function DaemonAuthSection() {
                 </div>
                 <div className="flex gap-2 sm:pt-0.5">
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        disabled={!showSshKeys}
-                        onClick={() =>
-                          void handleCopy(
-                            sshKey.public_key,
-                            t("settings:daemonAuth.sshKeyLabel"),
-                          )
-                        }
-                        aria-label={t("settings:daemonAuth.copyKeyAriaLabel", {
-                          name: sshKey.name,
-                        })}
-                      >
-                        <Copy className="size-4" />
-                      </Button>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          disabled={!showSshKeys}
+                          onClick={() =>
+                            void handleCopy(
+                              sshKey.public_key,
+                              t("settings:daemonAuth.sshKeyLabel"),
+                            )
+                          }
+                          aria-label={t(
+                            "settings:daemonAuth.copyKeyAriaLabel",
+                            {
+                              name: sshKey.name,
+                            },
+                          )}
+                        />
+                      }
+                    >
+                      <Copy className="size-4" />
                     </TooltipTrigger>
                     <TooltipContent>
                       {t("settings:daemonAuth.copyKeyTooltip")}
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        loading={deletingKeyId === sshKey.id}
-                        onClick={() => void handleDeleteSshKey(sshKey.id)}
-                        aria-label={t(
-                          "settings:daemonAuth.deleteKeyAriaLabel",
-                          { name: sshKey.name },
-                        )}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          loading={deletingKeyId === sshKey.id}
+                          onClick={() => void handleDeleteSshKey(sshKey.id)}
+                          aria-label={t(
+                            "settings:daemonAuth.deleteKeyAriaLabel",
+                            { name: sshKey.name },
+                          )}
+                        />
+                      }
+                    >
+                      <Trash2 className="size-4" />
                     </TooltipTrigger>
                     <TooltipContent>
                       {t("settings:daemonAuth.deleteKeyTooltip")}

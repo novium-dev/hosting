@@ -139,7 +139,7 @@ type ActionMenuItem = ComponentType<{
   children?: ReactNode;
   className?: string;
   disabled?: boolean;
-  onSelect?: (event: Event) => void;
+  onClick?: () => void;
 }>;
 
 /*
@@ -235,9 +235,7 @@ function formatSymbolicMode(mode: number) {
   return [6, 3, 0]
     .map((shift) =>
       flags
-        .map((flag, index) =>
-          (mode >> (shift + 2 - index)) & 1 ? flag : "-",
-        )
+        .map((flag, index) => ((mode >> (shift + 2 - index)) & 1 ? flag : "-"))
         .join(""),
     )
     .join("");
@@ -397,7 +395,9 @@ export function FilesManager({
     () =>
       ARCHIVE_COMPRESSION_VALUES.map((value) => ({
         value,
-        label: t(`servers-management:filesManager.archiveDialog.compressionOptions.${value}`),
+        label: t(
+          `servers-management:filesManager.archiveDialog.compressionOptions.${value}`,
+        ),
       })),
     [t],
   );
@@ -1900,7 +1900,7 @@ export function FilesManager({
         <Item
           key={`${entry.relative_path}-${action}`}
           disabled={filesBlocked}
-          onSelect={() => {
+          onClick={() => {
             void onAction(entry, action);
           }}
           className={
@@ -2065,30 +2065,32 @@ export function FilesManager({
           </Button>
 
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isActionLoading || !canWriteFiles || filesBlocked}
-              >
-                <Plus className="size-4" />
-                <ChevronDown className="size-4 text-muted-foreground" />
-              </Button>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isActionLoading || !canWriteFiles || filesBlocked}
+                />
+              }
+            >
+              <Plus className="size-4" />
+              <ChevronDown className="size-4 text-muted-foreground" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onSelect={() => {
+                onClick={() => {
                   handleUpload();
                 }}
               >
                 <Upload className="size-4 text-muted-foreground" />
                 {t("common:actions.upload")}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setCreateFileOpen(true)}>
+              <DropdownMenuItem onClick={() => setCreateFileOpen(true)}>
                 <FilePlus className="size-4 text-muted-foreground" />
                 {t("servers-management:filesManager.newFileButton")}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setCreateDirectoryOpen(true)}>
+              <DropdownMenuItem onClick={() => setCreateDirectoryOpen(true)}>
                 <FolderPlus className="size-4 text-muted-foreground" />
                 {t("servers-management:filesManager.newFolderButton")}
               </DropdownMenuItem>
@@ -2173,10 +2175,8 @@ export function FilesManager({
                 <TableRow>
                   <TableHead className="w-10">
                     <Checkbox
-                      checked={
-                        allSelected ||
-                        (selectedNames.length > 0 && "indeterminate")
-                      }
+                      checked={allSelected}
+                      indeterminate={!allSelected && selectedNames.length > 0}
                       onCheckedChange={toggleSelectAll}
                       aria-label={t(
                         "servers-management:filesManager.selection.selectAll",
@@ -2202,118 +2202,124 @@ export function FilesManager({
                     <ContextMenu
                       key={entry.relative_path || `${entry.name}-${entry.mode}`}
                     >
-                      <ContextMenuTrigger asChild>
-                        <TableRow
-                          className={
-                            directory &&
-                            dropTargetPath ===
-                              normalizePath(joinPath(currentPath, entry.name))
-                              ? "bg-primary/5"
-                              : ""
-                          }
-                          onDragOver={
-                            directory
-                              ? (event) =>
-                                  handleDragOverTarget(
-                                    event,
-                                    normalizePath(
-                                      joinPath(currentPath, entry.name),
-                                    ),
-                                  )
-                              : undefined
-                          }
-                          onDragLeave={
-                            directory
-                              ? () =>
-                                  handleDragLeaveTarget(
-                                    normalizePath(
-                                      joinPath(currentPath, entry.name),
-                                    ),
-                                  )
-                              : undefined
-                          }
-                          onDrop={
-                            directory
-                              ? (event) => {
-                                  void handleDropToPath(
-                                    event,
-                                    normalizePath(
-                                      joinPath(currentPath, entry.name),
-                                    ),
-                                  );
-                                }
-                              : undefined
-                          }
-                        >
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedNames.includes(entry.name)}
-                              onCheckedChange={() => toggleEntrySelection(entry)}
-                              aria-label={t(
-                                "servers-management:filesManager.selection.selectEntry",
-                                { name: entry.name },
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {directory ? (
-                              <button
-                                type="button"
-                                draggable
-                                onDragStart={(event) =>
-                                  handleEntryDragStart(event, entry)
-                                }
-                                onDragEnd={handleEntryDragEnd}
-                                onClick={() =>
-                                  void refresh(
-                                    joinPath(currentPath, entry.name),
-                                  )
-                                }
-                                className="inline-flex cursor-grab items-center gap-2 font-medium hover:text-primary active:cursor-grabbing"
-                              >
-                                <Folder className="size-4" />
-                                {entry.name}
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                draggable
-                                onDragStart={(event) =>
-                                  handleEntryDragStart(event, entry)
-                                }
-                                onDragEnd={handleEntryDragEnd}
-                                onClick={() => handleFileClick(entry)}
-                                className="inline-flex cursor-grab items-center gap-2 hover:text-primary active:cursor-grabbing"
-                              >
-                                <File className="size-4" />
-                                {entry.name}
-                              </button>
+                      <ContextMenuTrigger
+                        render={
+                          <TableRow
+                            className={
+                              directory &&
+                              dropTargetPath ===
+                                normalizePath(joinPath(currentPath, entry.name))
+                                ? "bg-primary/5"
+                                : ""
+                            }
+                            onDragOver={
+                              directory
+                                ? (event) =>
+                                    handleDragOverTarget(
+                                      event,
+                                      normalizePath(
+                                        joinPath(currentPath, entry.name),
+                                      ),
+                                    )
+                                : undefined
+                            }
+                            onDragLeave={
+                              directory
+                                ? () =>
+                                    handleDragLeaveTarget(
+                                      normalizePath(
+                                        joinPath(currentPath, entry.name),
+                                      ),
+                                    )
+                                : undefined
+                            }
+                            onDrop={
+                              directory
+                                ? (event) => {
+                                    void handleDropToPath(
+                                      event,
+                                      normalizePath(
+                                        joinPath(currentPath, entry.name),
+                                      ),
+                                    );
+                                  }
+                                : undefined
+                            }
+                          />
+                        }
+                      >
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedNames.includes(entry.name)}
+                            onCheckedChange={() => toggleEntrySelection(entry)}
+                            aria-label={t(
+                              "servers-management:filesManager.selection.selectEntry",
+                              { name: entry.name },
                             )}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {directory
-                              ? "-"
-                              : formatBytes(
-                                  entry.size,
-                                  t("common:status.unknown"),
-                                )}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">
-                            {formatMode(entry.mode)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button type="button" size="sm" variant="ghost">
-                                  <MoreHorizontal className="size-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-44">
-                                {renderEntryActions(entry, DropdownMenuItem)}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {directory ? (
+                            <button
+                              type="button"
+                              draggable
+                              onDragStart={(event) =>
+                                handleEntryDragStart(event, entry)
+                              }
+                              onDragEnd={handleEntryDragEnd}
+                              onClick={() =>
+                                void refresh(joinPath(currentPath, entry.name))
+                              }
+                              className="inline-flex cursor-grab items-center gap-2 font-medium hover:text-primary active:cursor-grabbing"
+                            >
+                              <Folder className="size-4" />
+                              {entry.name}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              draggable
+                              onDragStart={(event) =>
+                                handleEntryDragStart(event, entry)
+                              }
+                              onDragEnd={handleEntryDragEnd}
+                              onClick={() => handleFileClick(entry)}
+                              className="inline-flex cursor-grab items-center gap-2 hover:text-primary active:cursor-grabbing"
+                            >
+                              <File className="size-4" />
+                              {entry.name}
+                            </button>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {directory
+                            ? "-"
+                            : formatBytes(
+                                entry.size,
+                                t("common:status.unknown"),
+                              )}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {formatMode(entry.mode)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              render={
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                />
+                              }
+                            >
+                              <MoreHorizontal className="size-4" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              {renderEntryActions(entry, DropdownMenuItem)}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
                       </ContextMenuTrigger>
                       <ContextMenuContent className="w-44">
                         {renderEntryActions(entry, ContextMenuItem)}
@@ -2584,6 +2590,12 @@ export function FilesManager({
               )}
             </p>
             <Select
+              items={[
+                ...archiveCompressionOptions.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                })),
+              ]}
               value={archiveCompression}
               onValueChange={(value) => {
                 setArchiveCompression(value as ArchiveCompression);
@@ -2594,7 +2606,8 @@ export function FilesManager({
                     "",
                   );
                   const extension =
-                    ARCHIVE_EXTENSIONS[value as ArchiveCompression] ?? ".tar.gz";
+                    ARCHIVE_EXTENSIONS[value as ArchiveCompression] ??
+                    ".tar.gz";
 
                   return `${baseName}${extension}`;
                 });
@@ -2746,7 +2759,9 @@ export function FilesManager({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <p className="text-sm font-medium">
-                {t("servers-management:filesManager.permissionsDialog.uidLabel")}
+                {t(
+                  "servers-management:filesManager.permissionsDialog.uidLabel",
+                )}
               </p>
               <Input
                 value={permissionsUidInput}
@@ -2757,7 +2772,9 @@ export function FilesManager({
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">
-                {t("servers-management:filesManager.permissionsDialog.gidLabel")}
+                {t(
+                  "servers-management:filesManager.permissionsDialog.gidLabel",
+                )}
               </p>
               <Input
                 value={permissionsGidInput}

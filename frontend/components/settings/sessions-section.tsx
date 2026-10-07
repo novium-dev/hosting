@@ -119,7 +119,10 @@ export function SessionsSection() {
 
     if (response.error) {
       toast.error(
-        apiErrorMessage(response.error, t("settings:sessions.revokeOthersError")),
+        apiErrorMessage(
+          response.error,
+          t("settings:sessions.revokeOthersError"),
+        ),
       );
       return;
     }
@@ -218,20 +221,22 @@ export function SessionsSection() {
                     </Button>
                   ) : (
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="shrink-0"
-                          loading={revokingId === session.id}
-                          onClick={() => void handleRevoke(session.id)}
-                          aria-label={t("settings:sessions.revokeAriaLabel", {
-                            name: label,
-                          })}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="shrink-0"
+                            loading={revokingId === session.id}
+                            onClick={() => void handleRevoke(session.id)}
+                            aria-label={t("settings:sessions.revokeAriaLabel", {
+                              name: label,
+                            })}
+                          />
+                        }
+                      >
+                        <Trash2 className="size-4" />
                       </TooltipTrigger>
                       <TooltipContent>
                         {t("settings:sessions.revoke")}

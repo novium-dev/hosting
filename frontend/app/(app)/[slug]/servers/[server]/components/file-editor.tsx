@@ -41,7 +41,8 @@ type FileEditorProps = {
   modpackInstalling?: boolean;
 };
 
-type EditorMode = "loading" | "empty" | "archive" | "directory" | "image" | "text";
+type EditorMode =
+  "loading" | "empty" | "archive" | "directory" | "image" | "text";
 
 const LazyMonaco = lazy(() => import("@monaco-editor/react"));
 
@@ -171,7 +172,10 @@ export function FileEditor({
   const { t } = useTranslation();
   const storageLock = useServerTaskLock(serverId, "storage", "read");
   const writable = canWriteFiles && !modpackInstalling;
-  const normalizedPath = useMemo(() => (path ? normalizePath(path) : ""), [path]);
+  const normalizedPath = useMemo(
+    () => (path ? normalizePath(path) : ""),
+    [path],
+  );
   const fileName = useMemo(
     () =>
       normalizedPath
@@ -387,17 +391,25 @@ export function FileEditor({
                 {formatBytes(size, t("common:status.unknown"))}
               </Badge>
             ) : null}
-            <Button asChild type="button" variant="outline">
-              <Link href={filesHref}>
-                {t("servers:fileEditor.backToFiles")}
-              </Link>
+            <Button
+              type="button"
+              variant="outline"
+              render={<Link href={filesHref} />}
+              nativeButton={false}
+            >
+              {t("servers:fileEditor.backToFiles")}
             </Button>
             {downloadUrl ? (
-              <Button asChild type="button" variant="outline">
-                <a href={downloadUrl} target="_blank" rel="noreferrer">
-                  <Download className="size-4" />
-                  {t("common:actions.download")}
-                </a>
+              <Button
+                type="button"
+                variant="outline"
+                render={
+                  <a href={downloadUrl} target="_blank" rel="noreferrer" />
+                }
+                nativeButton={false}
+              >
+                <Download className="size-4" />
+                {t("common:actions.download")}
               </Button>
             ) : null}
             <Button

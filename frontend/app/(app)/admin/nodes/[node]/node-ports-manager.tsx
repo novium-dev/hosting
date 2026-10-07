@@ -341,7 +341,9 @@ export function NodePortsManager({
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("admin-infra:nodes.portsManager.availableTitle")}</CardTitle>
+          <CardTitle>
+            {t("admin-infra:nodes.portsManager.availableTitle")}
+          </CardTitle>
           <CardDescription>
             {t("admin-infra:nodes.portsManager.availableDescription")}
           </CardDescription>
@@ -403,6 +405,10 @@ export function NodePortsManager({
               inputMode="numeric"
             />
             <Select
+              items={[
+                { value: "tcp", label: "TCP" },
+                { value: "udp", label: "UDP" },
+              ]}
               value={form.protocol}
               onValueChange={(value) =>
                 setForm((prev) => ({

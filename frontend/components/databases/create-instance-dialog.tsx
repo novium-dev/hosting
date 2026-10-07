@@ -70,18 +70,18 @@ export function CreateInstanceDialog({
           toast.success(t("project:databases.createDialog.created"));
         },
         onError: (error) => {
-          toast.error(error.error.serverError ?? t("common:state.genericError"));
+          toast.error(
+            error.error.serverError ?? t("common:state.genericError"),
+          );
         },
       },
     });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button disabled={atLimit}>
-          <Plus className="size-4" />
-          {t("project:databases.createDialog.trigger")}
-        </Button>
+      <DialogTrigger render={<Button disabled={atLimit} />}>
+        <Plus className="size-4" />
+        {t("project:databases.createDialog.trigger")}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -98,7 +98,15 @@ export function CreateInstanceDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("project:databases.engineLabel")}</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    items={[
+                      ...Object.entries(DATABASE_TYPE_LABELS).map(
+                        ([value, label]) => ({ value: value, label: label }),
+                      ),
+                    ]}
+                    onValueChange={field.onChange}
+                    value={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger className="w-full">
                         <SelectValue />
@@ -127,7 +135,9 @@ export function CreateInstanceDialog({
                   <FormControl>
                     <Input
                       {...field}
-                      placeholder={t("project:databases.createDialog.namePlaceholder")}
+                      placeholder={t(
+                        "project:databases.createDialog.namePlaceholder",
+                      )}
                     />
                   </FormControl>
                   <FormDescription>

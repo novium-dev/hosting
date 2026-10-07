@@ -18,11 +18,13 @@ export default function ErrorPage() {
             <RotateCw className="size-4" />
             Retry
           </Button>
-          <Button asChild variant="outline">
-            <Link href="/">
-              <Home className="size-4" />
-              Back to dashboard
-            </Link>
+          <Button
+            variant="outline"
+            render={<Link href="/" />}
+            nativeButton={false}
+          >
+            <Home className="size-4" />
+            Back to dashboard
           </Button>
         </>
       }
