@@ -35,7 +35,7 @@ utoipa-swagger-ui.workspace = true
 
 rustls.workspace = true
 url.workspace = true
-clap = { version = "4.5", features = ["cargo", "env"] }
+clap = { version = "4.6", features = ["cargo", "env"] }
 
 subtle = "2.6.1"
 hmac = "0.13.0"
@@ -46,8 +46,8 @@ socket2 = { version = "0.6.5", features = ["all"] }
 
 bollard = "0.21.1"
 bson = "3.1.0"
-mongodb = "3.8.1"
-mysql_async = { version = "0.37.0", default-features = false, features = [
+mongodb = "3.9.1"
+mysql_async = { version = "0.37.1", default-features = false, features = [
     "minimal",
 ] }
 postgres-protocol = "0.6.12"

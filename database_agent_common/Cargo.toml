@@ -53,7 +53,7 @@ workspace = true
 optional = true
 
 [dependencies.either]
-version = "1.18.0"
+version = "1.19.0"
 optional = true
 
 [dependencies.http]
