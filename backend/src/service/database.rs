@@ -12,6 +12,7 @@ use crate::service::database::database_service_error::{
 };
 use crate::service::error_database_agent_error::FromDatabaseAgentError;
 use crate::service::error_database_instance_not_found::FromDatabaseInstanceNotFound;
+use crate::utils::task::detached;
 use database_agent_common::identifier::{LABEL_MAX_LENGTH, LABEL_MIN_LENGTH};
 use database_agent_common::service::database::DatabaseService as _;
 use database_agent_common::service::instance::InstanceService as _;
@@ -245,8 +246,8 @@ pub(crate) impl DatabaseService for Backend {
         let display = payload.display.clone();
         let created = chrono::Utc::now();
         let mut conn = self.database.acquire().await?;
-        let remote = conn
-            .transaction(|tx| {
+        let remote = detached(async move {
+            conn.transaction(|tx| {
                 Box::pin(async move {
                     let count = query_scalar!(
                         r#"SELECT COUNT(*) AS "count!" FROM database_instances WHERE project = $1"#,
@@ -291,7 +292,9 @@ pub(crate) impl DatabaseService for Backend {
                     Ok(remote)
                 })
             })
-            .await?;
+            .await
+        })
+        .await?;
 
         if let Err(err) = host
             .sdk
@@ -342,21 +345,24 @@ pub(crate) impl DatabaseService for Backend {
             .await?;
 
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                query!("DELETE FROM database_instances WHERE id = $1", instance.id)
-                    .execute(&mut **tx)
-                    .await?;
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    query!("DELETE FROM database_instances WHERE id = $1", instance.id)
+                        .execute(&mut **tx)
+                        .await?;
 
-                instance
-                    .host
-                    .sdk
-                    .delete_instance(instance.id)
-                    .await
-                    .map_err(|err| agent_failure::<DeleteProjectInstanceError>(&err))?;
+                    instance
+                        .host
+                        .sdk
+                        .delete_instance(instance.id)
+                        .await
+                        .map_err(|err| agent_failure::<DeleteProjectInstanceError>(&err))?;
 
-                Ok(())
+                    Ok(())
+                })
             })
+            .await
         })
         .await
     }

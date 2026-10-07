@@ -20,6 +20,7 @@ use crate::service::server::server_service_error::{
 use crate::service::template::*;
 use crate::templates::variable::VariablePayload;
 use crate::templates::{ENV_FILE_ENVIRONMENT, TemplateError};
+use crate::utils::task::detached;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use daemon_common::service::backup::backup_service_error::{
     ServerCreateBackupOrderError, ServerListBackupsError,
@@ -568,7 +569,7 @@ pub(crate) impl ServerService for Backend {
         let node_server_id = server.node_server_id;
 
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| {
+        detached(async move { conn.transaction(|tx| {
             Box::pin(async move {
                 if let Some(name) = name {
                     query!(
@@ -702,10 +703,10 @@ pub(crate) impl ServerService for Backend {
                 Ok::<_, UpdateServerError>(())
             })
         })
-        .await?;
+        .await }).await?;
 
         if suspended == Some(true) {
-            let _ = tokio::task::spawn(async move { node.stop_server(node_server_id).await }).await;
+            let _ = detached(async move { node.stop_server(node_server_id).await }).await;
         }
 
         Ok(())
@@ -1106,37 +1107,40 @@ pub(crate) impl ServerService for Backend {
         let new_build = server.customization().apply(new_build);
 
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                query!(
-                    "UPDATE servers SET template_extra = $1 WHERE id = $2",
-                    new_extra,
-                    &server_id
-                )
-                .execute(&mut **tx)
-                .await
-                .inspect_err(|err| {
-                    error!("Failed to update server variables (template_extra): {err:?}");
-                })?;
-
-                server
-                    .node
-                    .update_server(
-                        server.node_server_id,
-                        None,
-                        Some(new_build),
-                        None,
-                        None,
-                        None,
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    query!(
+                        "UPDATE servers SET template_extra = $1 WHERE id = $2",
+                        new_extra,
+                        &server_id
                     )
+                    .execute(&mut **tx)
                     .await
-                    .map_err(|err| {
-                        error!("Failed to update server variables: {err:?}");
-                        UpdateVariablesError::NodeFailure
+                    .inspect_err(|err| {
+                        error!("Failed to update server variables (template_extra): {err:?}");
                     })?;
 
-                Ok(())
+                    server
+                        .node
+                        .update_server(
+                            server.node_server_id,
+                            None,
+                            Some(new_build),
+                            None,
+                            None,
+                            None,
+                        )
+                        .await
+                        .map_err(|err| {
+                            error!("Failed to update server variables: {err:?}");
+                            UpdateVariablesError::NodeFailure
+                        })?;
+
+                    Ok(())
+                })
             })
+            .await
         })
         .await
     }
@@ -1275,7 +1279,7 @@ pub(crate) impl ServerService for Backend {
         let env_file_path = env_file_path.clone();
 
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| {
+        detached(async move { conn.transaction(|tx| {
             Box::pin(async move {
                 query!(
                     "UPDATE servers SET custom_environment = $1, env_file_enabled = $2, env_file_path = $3
@@ -1301,7 +1305,7 @@ pub(crate) impl ServerService for Backend {
                 Ok(())
             })
         })
-        .await
+        .await }).await
     }
 
     /// Lists the licenses the server's template requires, together with their acceptance state.

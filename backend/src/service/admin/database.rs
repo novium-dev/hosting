@@ -12,6 +12,7 @@ use crate::service::admin::database::database_admin_service_error::{
 };
 use crate::service::error_database_agent_error::FromDatabaseAgentError;
 use crate::service::*;
+use crate::utils::task::detached;
 use core::str::FromStr as _;
 use database_agent_common::service::instance::InstanceService as _;
 use database_agent_common::types::{
@@ -531,10 +532,11 @@ pub(crate) impl DatabaseAdminService for Backend {
             .ok_or(UpdateDatabaseInstanceError::DatabaseHostNotFound)?;
 
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                if let Some(display) = payload.display {
-                    let updated = query!(
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    if let Some(display) = payload.display {
+                        let updated = query!(
                         "UPDATE database_instances SET display = $1 WHERE id = $2 AND host = $3",
                         display,
                         instance_id,
@@ -542,27 +544,29 @@ pub(crate) impl DatabaseAdminService for Backend {
                     )
                     .execute(&mut **tx)
                     .await?;
-                    if updated.rows_affected() == 0 {
-                        return Err(UpdateDatabaseInstanceError::DatabaseInstanceNotFound);
+                        if updated.rows_affected() == 0 {
+                            return Err(UpdateDatabaseInstanceError::DatabaseInstanceNotFound);
+                        }
                     }
-                }
 
-                let update = StoredInstanceUpdate {
-                    memory: payload.memory,
-                    swap: payload.swap,
-                    disk: payload.disk,
-                    cpu: payload.cpu,
-                    suspended: payload.suspended,
-                    ..Default::default()
-                };
+                    let update = StoredInstanceUpdate {
+                        memory: payload.memory,
+                        swap: payload.swap,
+                        disk: payload.disk,
+                        cpu: payload.cpu,
+                        suspended: payload.suspended,
+                        ..Default::default()
+                    };
 
-                host.sdk
-                    .update_instance(instance_id, update)
-                    .await
-                    .map_err(|err| agent_failure::<UpdateDatabaseInstanceError>(&err))?;
+                    host.sdk
+                        .update_instance(instance_id, update)
+                        .await
+                        .map_err(|err| agent_failure::<UpdateDatabaseInstanceError>(&err))?;
 
-                Ok(())
+                    Ok(())
+                })
             })
+            .await
         })
         .await
     }
@@ -592,26 +596,29 @@ pub(crate) impl DatabaseAdminService for Backend {
             .ok_or(DeleteDatabaseInstanceError::DatabaseHostNotFound)?;
 
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                let deleted = query!(
-                    "DELETE FROM database_instances WHERE id = $1 AND host = $2",
-                    instance_id,
-                    host_id
-                )
-                .execute(&mut **tx)
-                .await?;
-                if deleted.rows_affected() == 0 {
-                    return Err(DeleteDatabaseInstanceError::DatabaseInstanceNotFound);
-                }
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    let deleted = query!(
+                        "DELETE FROM database_instances WHERE id = $1 AND host = $2",
+                        instance_id,
+                        host_id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                    if deleted.rows_affected() == 0 {
+                        return Err(DeleteDatabaseInstanceError::DatabaseInstanceNotFound);
+                    }
 
-                host.sdk
-                    .delete_instance(instance_id)
-                    .await
-                    .map_err(|err| agent_failure::<DeleteDatabaseInstanceError>(&err))?;
+                    host.sdk
+                        .delete_instance(instance_id)
+                        .await
+                        .map_err(|err| agent_failure::<DeleteDatabaseInstanceError>(&err))?;
 
-                Ok(())
+                    Ok(())
+                })
             })
+            .await
         })
         .await
     }

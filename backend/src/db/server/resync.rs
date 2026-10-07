@@ -3,6 +3,7 @@ use crate::db::node::BackendNode;
 use crate::db::project::ProjectId;
 use crate::db::server::{ServerCustomization, ServerId};
 use crate::templates::TemplateError;
+use crate::utils::task::detached;
 use daemon_common::service::server::ServerBuildPayload;
 use futures::StreamExt as _;
 use serde::Serialize;
@@ -278,27 +279,30 @@ impl Backend {
     ) -> Result<(), ServerResyncStatus> {
         let pushed = async {
             let mut conn = self.database.acquire().await?;
-            conn.transaction(|tx| {
-                Box::pin(async move {
-                    if let Some(extra) = migrated_extra {
-                        query!(
-                            "UPDATE servers SET template_extra = $1 WHERE id = $2",
-                            extra,
-                            &server_id
-                        )
-                        .execute(&mut **tx)
-                        .await?;
-                    }
+            detached(async move {
+                conn.transaction(|tx| {
+                    Box::pin(async move {
+                        if let Some(extra) = migrated_extra {
+                            query!(
+                                "UPDATE servers SET template_extra = $1 WHERE id = $2",
+                                extra,
+                                &server_id
+                            )
+                            .execute(&mut **tx)
+                            .await?;
+                        }
 
-                    node.update_server(node_server_id, None, Some(build), None, None, None)
-                        .await
-                        .map_err(|err| {
-                            error!("Node refused the resync of server {server_id}: {err:?}");
-                            PushFailure::Node
-                        })?;
+                        node.update_server(node_server_id, None, Some(build), None, None, None)
+                            .await
+                            .map_err(|err| {
+                                error!("Node refused the resync of server {server_id}: {err:?}");
+                                PushFailure::Node
+                            })?;
 
-                    Ok(())
+                        Ok(())
+                    })
                 })
+                .await
             })
             .await
         }

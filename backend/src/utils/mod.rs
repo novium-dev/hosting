@@ -17,6 +17,7 @@ use zelus::types::{DataStream, DocumentedType};
 pub mod id;
 pub mod serde;
 pub mod server;
+pub mod task;
 
 mod header {
     use http::HeaderName;

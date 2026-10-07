@@ -14,6 +14,7 @@ use crate::service::template::error_template_port_definition_unknown::FromTempla
 use crate::service::template::error_template_unavailable::FromTemplateUnavailable;
 use crate::templates::{TemplateError, TemplateInner, ThinTemplateError};
 use crate::utils::server::port_environment_key;
+use crate::utils::task::detached;
 use daemon_common::service::server::server_service_error::CreateServerError as DaemonCreateServerError;
 use daemon_common::service::server::{
     ServerNetworkPayload, ServerPortEntryPayload, ServerResourcePayload,
@@ -167,7 +168,7 @@ impl Backend {
         };
 
         let mut conn = self.database.acquire().await?;
-        tokio::task::spawn(async move {
+        detached(async move {
             conn.transaction(|tx| {
                 Box::pin(async move {
                     let node_server_id = node
@@ -262,7 +263,6 @@ impl Backend {
             .await
         })
         .await
-        .expect("Unable to execute create server task")
     }
 }
 
