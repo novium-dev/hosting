@@ -175,25 +175,24 @@ jobs:
       REGISTRY: ${{ vars.REGISTRY }}
       IMAGE_PATH: ${{ vars.IMAGE || github.repository }}${{ matrix.suffix }}
     steps:
-      - run: apk add --no-cache nodejs git
+      - run: apk add --no-cache nodejs git openssh-client
       - uses: actions/checkout@v4
       - name: Build and push image
         run: |
           REGISTRY="${REGISTRY:-${GITHUB_SERVER_URL#*://}}"
           IMAGE="$REGISTRY/$IMAGE_PATH"
           SHORT_SHA="$(echo "$GITHUB_SHA" | cut -c1-8)"
-          KEY="$(mktemp)"
-          printf '%s\n' "${{ secrets.DEPLOY_KEY }}" > "$KEY"
           echo "${{ secrets.REGISTRY_TOKEN }}" | docker login "$REGISTRY" -u "${{ secrets.REGISTRY_USER }}" --password-stdin
           # docker-container driver can export the cache of all stages (inline cache only covers the final one).
           # The builder persists on the host, so its local layer cache is reused across runs too.
           docker buildx inspect ci-builder >/dev/null 2>&1 || docker buildx create --name ci-builder --driver docker-container
           docker buildx use ci-builder
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "${{ secrets.DEPLOY_KEY }}" | ssh-add -
           docker buildx build \
-            --ssh "default=$KEY" \
+            --ssh default \
             --cache-from "type=registry,ref=$IMAGE:buildcache" \
             --cache-to "type=registry,ref=$IMAGE:buildcache,mode=max,image-manifest=true,oci-mediatypes=true" \
             --tag "$IMAGE:$SHORT_SHA" --tag "$IMAGE:latest" \
             --file "${{ matrix.dockerfile }}" \
             --push "${{ matrix.context }}"
-          rm -f "$KEY"
