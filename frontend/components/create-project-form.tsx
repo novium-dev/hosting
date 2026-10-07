@@ -3,14 +3,13 @@
 import { createProjectAction } from "@/actions/projects";
 import { Button } from "@/components/ui/button";
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldError,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   InputGroup,
@@ -31,6 +30,7 @@ import {
   createProjectSchema,
 } from "@/types/project.schema";
 import { slugify } from "@/lib/utils";
+import { Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
 import { IconCheck, IconX } from "@tabler/icons-react";
@@ -133,129 +133,129 @@ export function CreateProjectForm({
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={handleSubmitWithAction}>
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <ProjectAvatar
-              projectId="preview"
-              projectName={form.watch("name")}
-              className="w-10 h-10"
-            />
-            <div className="flex flex-col">
-              <TextEllipsis width={140}>{form.watch("name")}</TextEllipsis>
-              <TextEllipsis width={140} className="text-xs">
-                {form.watch("slug")}
-              </TextEllipsis>
-            </div>
+    <form onSubmit={handleSubmitWithAction}>
+      <FieldGroup className="gap-4">
+        <div className="flex items-center gap-2">
+          <ProjectAvatar
+            projectId="preview"
+            projectName={form.watch("name")}
+            className="size-10"
+          />
+          <div className="flex flex-col">
+            <TextEllipsis width={140}>{form.watch("name")}</TextEllipsis>
+            <TextEllipsis width={140} className="text-xs">
+              {form.watch("slug")}
+            </TextEllipsis>
           </div>
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("common:labels.name")}</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    onChange={(event) => {
-                      field.onChange(event);
-                      applyNameToSlug(event.target.value);
-                    }}
-                    type="text"
-                    placeholder={t("app:createProjectForm.namePlaceholder")}
-                  />
-                </FormControl>
-                <FormMessage />
-                <FormDescription>
-                  {t("app:createProjectForm.nameDescription")}
-                </FormDescription>
-              </FormItem>
-            )}
-          />
-          {owners ? (
-            <FormField
-              control={form.control}
-              name="owner"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("common:labels.owner")}</FormLabel>
-                  <FormControl>
-                    <SearchableSelect
-                      value={field.value ? String(field.value) : ""}
-                      onChange={(value) => field.onChange(Number(value))}
-                      options={owners.map((owner) => ({
-                        value: String(owner.id),
-                        label: owner.username,
-                      }))}
-                      placeholder={t("app:createProjectForm.ownerPlaceholder")}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                  <FormDescription>
-                    {t("app:createProjectForm.ownerDescription")}
-                  </FormDescription>
-                </FormItem>
-              )}
-            />
-          ) : null}
-          <FormField
-            control={form.control}
-            name="slug"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("app:createProjectForm.slugLabel")}</FormLabel>
-                <FormControl>
-                  <InputGroup>
-                    <InputGroupInput
-                      {...field}
-                      placeholder={t("app:createProjectForm.slugPlaceholder")}
-                      onChange={(e) => {
-                        field.onChange(e);
-                        setSlugToCheck(e.target.value);
-                      }}
-                    />
-                    <InputGroupAddon>
-                      <InputGroupText>/</InputGroupText>
-                    </InputGroupAddon>
-                    <InputGroupAddon align="inline-end">
-                      {isValidatingSlug ? (
-                        <Spinner />
-                      ) : !field.value ? null : hasSlugError ? (
-                        <div className="bg-destructive text-white flex size-4 items-center justify-center rounded-full">
-                          <IconX className="size-3" />
-                        </div>
-                      ) : (
-                        <div className="bg-primary text-primary-foreground flex size-4 items-center justify-center rounded-full">
-                          <IconCheck className="size-3" />
-                        </div>
-                      )}
-                    </InputGroupAddon>
-                  </InputGroup>
-                </FormControl>
-                <FormMessage />
-                <FormDescription>
-                  {t("app:createProjectForm.slugDescription")}
-                </FormDescription>
-              </FormItem>
-            )}
-          />
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={
-              action.isExecuting ||
-              !form.formState.isValid ||
-              isValidatingSlug ||
-              hasSlugError ||
-              (owners !== undefined && !form.watch("owner"))
-            }
-            loading={action.isExecuting}
-          >
-            {t("app:createProjectForm.submit")}
-          </Button>
         </div>
-      </form>
-    </Form>
+        <Controller
+          control={form.control}
+          name="name"
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>
+                {t("common:labels.name")}
+              </FieldLabel>
+              <Input
+                id={field.name}
+                aria-invalid={fieldState.invalid}
+                {...field}
+                onChange={(event) => {
+                  field.onChange(event);
+                  applyNameToSlug(event.target.value);
+                }}
+                type="text"
+                placeholder={t("app:createProjectForm.namePlaceholder")}
+              />
+              <FieldDescription>
+                {t("app:createProjectForm.nameDescription")}
+              </FieldDescription>
+              <FieldError errors={[fieldState.error]} />
+            </Field>
+          )}
+        />
+        {owners ? (
+          <Controller
+            control={form.control}
+            name="owner"
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldTitle>{t("common:labels.owner")}</FieldTitle>
+                <SearchableSelect
+                  value={field.value ? String(field.value) : ""}
+                  onChange={(value) => field.onChange(Number(value))}
+                  options={owners.map((owner) => ({
+                    value: String(owner.id),
+                    label: owner.username,
+                  }))}
+                  placeholder={t("app:createProjectForm.ownerPlaceholder")}
+                />
+                <FieldDescription>
+                  {t("app:createProjectForm.ownerDescription")}
+                </FieldDescription>
+                <FieldError errors={[fieldState.error]} />
+              </Field>
+            )}
+          />
+        ) : null}
+        <Controller
+          control={form.control}
+          name="slug"
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>
+                {t("app:createProjectForm.slugLabel")}
+              </FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  id={field.name}
+                  aria-invalid={fieldState.invalid}
+                  {...field}
+                  placeholder={t("app:createProjectForm.slugPlaceholder")}
+                  onChange={(e) => {
+                    field.onChange(e);
+                    setSlugToCheck(e.target.value);
+                  }}
+                />
+                <InputGroupAddon>
+                  <InputGroupText>/</InputGroupText>
+                </InputGroupAddon>
+                <InputGroupAddon align="inline-end">
+                  {isValidatingSlug ? (
+                    <Spinner />
+                  ) : !field.value ? null : hasSlugError ? (
+                    <div className="bg-destructive text-white flex size-4 items-center justify-center rounded-full">
+                      <IconX className="size-3" />
+                    </div>
+                  ) : (
+                    <div className="bg-primary text-primary-foreground flex size-4 items-center justify-center rounded-full">
+                      <IconCheck className="size-3" />
+                    </div>
+                  )}
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldDescription>
+                {t("app:createProjectForm.slugDescription")}
+              </FieldDescription>
+              <FieldError errors={[fieldState.error]} />
+            </Field>
+          )}
+        />
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={
+            action.isExecuting ||
+            !form.formState.isValid ||
+            isValidatingSlug ||
+            hasSlugError ||
+            (owners !== undefined && !form.watch("owner"))
+          }
+          loading={action.isExecuting}
+        >
+          {t("app:createProjectForm.submit")}
+        </Button>
+      </FieldGroup>
+    </form>
   );
 }

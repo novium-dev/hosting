@@ -12,14 +12,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+  Field,
+  FieldGroup,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -30,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { useHookFormAction } from "@/lib/action-hooks";
 import { createInstanceSchema } from "@/types/database.schema";
+import { Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
 import { useState } from "react";
@@ -90,14 +89,16 @@ export function CreateInstanceDialog({
             {t("project:databases.createDialog.description")}
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={handleSubmitWithAction} className="space-y-4">
-            <FormField
+        <form onSubmit={handleSubmitWithAction}>
+          <FieldGroup className="gap-4">
+            <Controller
               control={form.control}
               name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("project:databases.engineLabel")}</FormLabel>
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>
+                    {t("project:databases.engineLabel")}
+                  </FieldLabel>
                   <Select
                     items={[
                       ...Object.entries(DATABASE_TYPE_LABELS).map(
@@ -107,11 +108,13 @@ export function CreateInstanceDialog({
                     onValueChange={field.onChange}
                     value={field.value}
                   >
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
+                    <SelectTrigger
+                      id={field.name}
+                      aria-invalid={fieldState.invalid}
+                      className="w-full"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {Object.entries(DATABASE_TYPE_LABELS).map(
                         ([value, label]) => (
@@ -122,29 +125,31 @@ export function CreateInstanceDialog({
                       )}
                     </SelectContent>
                   </Select>
-                  <FormMessage />
-                </FormItem>
+                  <FieldError errors={[fieldState.error]} />
+                </Field>
               )}
             />
-            <FormField
+            <Controller
               control={form.control}
               name="display"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("common:labels.name")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder={t(
-                        "project:databases.createDialog.namePlaceholder",
-                      )}
-                    />
-                  </FormControl>
-                  <FormDescription>
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>
+                    {t("common:labels.name")}
+                  </FieldLabel>
+                  <Input
+                    id={field.name}
+                    aria-invalid={fieldState.invalid}
+                    {...field}
+                    placeholder={t(
+                      "project:databases.createDialog.namePlaceholder",
+                    )}
+                  />
+                  <FieldDescription>
                     {t("project:databases.createDialog.nameDescription")}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
+                  </FieldDescription>
+                  <FieldError errors={[fieldState.error]} />
+                </Field>
               )}
             />
             <DialogFooter>
@@ -156,8 +161,8 @@ export function CreateInstanceDialog({
                 {t("project:databases.createDialog.submit")}
               </Button>
             </DialogFooter>
-          </form>
-        </Form>
+          </FieldGroup>
+        </form>
       </DialogContent>
     </Dialog>
   );

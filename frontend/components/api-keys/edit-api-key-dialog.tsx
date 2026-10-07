@@ -12,16 +12,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+  Field,
+  FieldGroup,
+  FieldError,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useHookFormAction } from "@/lib/action-hooks";
 import { updateApiKeySchema } from "@/types/api-key.schema";
+import { Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -85,38 +85,40 @@ export function EditApiKeyDialog({
             {t("project:apiKeys.editDialog.description")}
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={handleSubmitWithAction} className="space-y-4">
-            <FormField
+        <form onSubmit={handleSubmitWithAction}>
+          <FieldGroup className="gap-4">
+            <Controller
               control={form.control}
               name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("common:labels.name")}</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>
+                    {t("common:labels.name")}
+                  </FieldLabel>
+                  <Input
+                    id={field.name}
+                    aria-invalid={fieldState.invalid}
+                    {...field}
+                  />
+                  <FieldError errors={[fieldState.error]} />
+                </Field>
               )}
             />
-            <FormField
+            <Controller
               control={form.control}
               name="permissions"
-              render={({ field }) => (
-                <FormItem>
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
                   {apiKey?.project ? (
-                    <FormLabel>{t("common:labels.permissions")}</FormLabel>
+                    <FieldTitle>{t("common:labels.permissions")}</FieldTitle>
                   ) : null}
-                  <FormControl>
-                    <ApiKeyPermissionsField
-                      scoped={Boolean(apiKey?.project)}
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+                  <ApiKeyPermissionsField
+                    scoped={Boolean(apiKey?.project)}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                  <FieldError errors={[fieldState.error]} />
+                </Field>
               )}
             />
             <Button
@@ -126,8 +128,8 @@ export function EditApiKeyDialog({
             >
               {t("common:resources.saveChanges")}
             </Button>
-          </form>
-        </Form>
+          </FieldGroup>
+        </form>
       </DialogContent>
     </Dialog>
   );
