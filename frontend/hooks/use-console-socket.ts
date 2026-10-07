@@ -33,7 +33,10 @@ export function useConsoleSocket({
   onFail,
   getSize,
 }: ConsoleSocketOptions) {
-  const [status, setStatus] = useState<ConsoleSocketStatus>("connecting");
+  const [statusEntry, setStatusEntry] = useState<{
+    connection: string;
+    status: ConsoleSocketStatus;
+  } | null>(null);
   const [canWrite, setCanWrite] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
@@ -48,8 +51,9 @@ export function useConsoleSocket({
   useEffect(() => {
     let disposed = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
-
-    setStatus("connecting");
+    const connection = `${serverId}:${attempt}`;
+    const setStatus = (status: ConsoleSocketStatus) =>
+      setStatusEntry({ connection, status });
 
     const scheduleRetry = () => {
       if (autoRetriesRef.current >= AUTO_RETRY_LIMIT) return false;
@@ -81,11 +85,6 @@ export function useConsoleSocket({
       } catch {
         setCanWrite(false);
       }
-
-      // if zrl contian localhost:4000 use localhost:4001
-      //if (url.includes("wss://localhost:4000")) {
-      //  url = url.replace("wss://localhost:4000", "ws://localhost:4001");
-      //}
 
       const socket = new WebSocket(url);
       socket.binaryType = "arraybuffer";
@@ -160,6 +159,11 @@ export function useConsoleSocket({
     autoRetriesRef.current = 0;
     setAttempt((value) => value + 1);
   }, []);
+
+  const status =
+    statusEntry?.connection === `${serverId}:${attempt}`
+      ? statusEntry.status
+      : "connecting";
 
   return { status, canWrite, send, sendResize, reconnect };
 }

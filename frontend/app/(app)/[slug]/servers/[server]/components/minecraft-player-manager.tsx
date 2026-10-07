@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import {
   Ban,
   Crown,
@@ -124,6 +125,35 @@ function getBanKeys(entry: BanEntry) {
     .map((value) => value.toLowerCase());
 }
 
+async function loadJsonFile(
+serverId: string,
+file: string,
+): Promise<unknown[]> {
+  try {
+    const response = await downloadUser({
+      path: { server_id: serverId },
+      query: { file, limit: 1024 * 1024 },
+    });
+
+    if (response.error || !response.data?.url) {
+      return [];
+    }
+
+    const fileResponse = await fetch(response.data.url);
+    if (!fileResponse.ok) {
+      return [];
+    }
+
+    const data = (await fileResponse.json()) as unknown;
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+const NO_OPS: OpsEntry[] = [];
+const NO_BANS: BanEntry[] = [];
+
 export function MinecraftPlayerManager({
   serverId,
   canManagePlayers,
@@ -133,11 +163,22 @@ export function MinecraftPlayerManager({
   const [healthCheck, setHealthCheck] = useState<MinecraftHealthCheck | null>(
     null,
   );
-  const [ops, setOps] = useState<OpsEntry[]>([]);
-  const [bans, setBans] = useState<BanEntry[]>([]);
-  const [connection, setConnection] = useState<
-    "connecting" | "connected" | "disconnected"
-  >("connecting");
+  const { data: ops = NO_OPS, mutate: mutateOps } = useSWR(
+    ["minecraft-ops", serverId],
+    async () => (await loadJsonFile(serverId, "/ops.json")) as OpsEntry[],
+  );
+  const { data: bans = NO_BANS, mutate: mutateBans } = useSWR(
+    ["minecraft-bans", serverId],
+    async () => (await loadJsonFile(serverId, "/banned-players.json")) as BanEntry[],
+  );
+  const [connectionEntry, setConnectionEntry] = useState<{
+    serverId: string;
+    status: "connecting" | "connected" | "disconnected";
+  } | null>(null);
+  const connection =
+    connectionEntry?.serverId === serverId
+      ? connectionEntry.status
+      : "connecting";
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const players = useMemo(
@@ -149,47 +190,12 @@ export function MinecraftPlayerManager({
     [ops],
   );
 
-  const loadJsonFile = async (file: string): Promise<unknown[]> => {
-    try {
-      const response = await downloadUser({
-        path: { server_id: serverId },
-        query: { file, limit: 1024 * 1024 },
-      });
-
-      if (response.error || !response.data?.url) {
-        return [];
-      }
-
-      const fileResponse = await fetch(response.data.url);
-      if (!fileResponse.ok) {
-        return [];
-      }
-
-      const data = (await fileResponse.json()) as unknown;
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
-    }
-  };
-
-  const loadOps = async () => {
-    setOps((await loadJsonFile("/ops.json")) as OpsEntry[]);
-  };
-
-  const loadBans = async () => {
-    setBans((await loadJsonFile("/banned-players.json")) as BanEntry[]);
-  };
-
-  useEffect(() => {
-    void loadOps();
-    void loadBans();
-  }, [serverId]);
-
   useEffect(() => {
     let mounted = true;
     let socket: WebSocket | null = null;
-
-    setConnection("connecting");
+    const setConnection = (
+      status: "connecting" | "connected" | "disconnected",
+    ) => setConnectionEntry({ serverId, status });
 
     const connect = async () => {
       try {
@@ -304,47 +310,55 @@ export function MinecraftPlayerManager({
       );
 
       if (action === "op") {
-        setOps((current) => [
+        void mutateOps(
+          (current = []) => [
           ...current.filter(
             (entry) =>
               !getPlayerKeys(player).some((key) =>
                 getOpKeys(entry).includes(key),
               ),
           ),
-          { uuid: player.id ?? undefined, name: player.name },
-        ]);
+            { uuid: player.id ?? undefined, name: player.name },
+          ],
+          { revalidate: false },
+        );
       }
 
       if (action === "deop") {
-        setOps((current) =>
+        void mutateOps((current = []) =>
           current.filter(
             (entry) =>
               !getPlayerKeys(player).some((key) =>
                 getOpKeys(entry).includes(key),
               ),
           ),
+          { revalidate: false },
         );
       }
 
       if (action === "ban") {
-        setBans((current) => [
+        void mutateBans(
+          (current = []) => [
           ...current.filter(
             (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
           ),
-          { uuid: player.id ?? undefined, name: player.name },
-        ]);
+            { uuid: player.id ?? undefined, name: player.name },
+          ],
+          { revalidate: false },
+        );
       }
 
       if (action === "pardon") {
-        setBans((current) =>
+        void mutateBans((current = []) =>
           current.filter(
             (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
           ),
+          { revalidate: false },
         );
       }
 
       if (action === "ban" || action === "pardon") {
-        window.setTimeout(() => void loadBans(), 1500);
+        window.setTimeout(() => void mutateBans(), 1500);
       }
     } finally {
       setPendingAction(null);

@@ -1,9 +1,8 @@
 "use client";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const PRESET_DAYS = [1, 7, 30, 90];
@@ -32,10 +31,13 @@ export function MembershipExpiryField({
 }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState(() => toLocalInput(value));
+  const [draftValue, setDraftValue] = useState(value);
+  const [minDate] = useState(() => toLocalInput(new Date().toISOString()));
 
-  useEffect(() => {
+  if (value !== draftValue) {
+    setDraftValue(value);
     setDraft(toLocalInput(value));
-  }, [value]);
+  }
 
   return (
     <div className="space-y-3">
@@ -76,7 +78,7 @@ export function MembershipExpiryField({
             type="datetime-local"
             value={draft}
             disabled={disabled}
-            min={toLocalInput(new Date().toISOString())}
+            min={minDate}
             onChange={(event) => {
               setDraft(event.target.value);
               const parsed = new Date(event.target.value);

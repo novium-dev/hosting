@@ -1,7 +1,8 @@
 "use client";
 
 import { Search, Shield, User, Users } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import Link from "@/components/link";
@@ -78,31 +79,24 @@ function RoleBadge({ role }: { role: UserRole }) {
 
 export function UsersTable() {
   const { t } = useTranslation();
-  const [users, setUsers] = useState<AdminUser[] | null>(null);
-  const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<"all" | UserRole>("all");
 
-  const fetchUsers = useCallback(async () => {
+  const { data: users = null, error } = useSWR("admin/users-table", async () => {
     const result = await getAllUsersAction();
     if (!result.data?.success) {
-      setError(true);
-      return;
+      throw new Error("Failed to load users");
     }
-    setUsers(
-      (result.data.users ?? []).map((item) => ({
+    return (result.data.users ?? []).map(
+      (item): AdminUser => ({
         id: item.id,
         username: item.username,
         email: item.email,
         avatar_url: item.avatar_url,
         role: roleFromValue(item.role),
-      })),
+      }),
     );
-  }, []);
-
-  useEffect(() => {
-    void fetchUsers();
-  }, [fetchUsers]);
+  });
 
   const filtered = useMemo(() => {
     if (!users) return [];

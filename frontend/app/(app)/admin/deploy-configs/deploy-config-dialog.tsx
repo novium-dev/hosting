@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -31,11 +31,11 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
   createDeployConfig,
-  templateInfo,
   updateDeployConfig,
   type DeployConfigPayload,
 } from "@/lib/api";
 import type { DeployConfig } from "@/types/api";
+import { useTemplateInfo } from "@/hooks/use-shared-queries";
 import type { GroupRef } from "@/lib/api";
 
 type DeployConfigDialogProps = {
@@ -100,70 +100,45 @@ function parseInteger(value: string, min: number): number | null | undefined {
 
 export function DeployConfigDialog({
   open,
+  ...props
+}: DeployConfigDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={props.onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DeployConfigForm key={props.config?.id ?? "new"} {...props} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeployConfigForm({
   onOpenChange,
   config,
   groups,
   templates,
   onSaved,
-}: DeployConfigDialogProps) {
+}: Omit<DeployConfigDialogProps, "open">) {
   const { t } = useTranslation();
   const [form, setForm] = useState<FormState>(() => initialForm(config));
-  const [payload, setPayload] = useState<VariablePayloadLike | null>(null);
-  const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const { data: templateData, isLoading: isLoadingTemplate } =
+    useTemplateInfo(form.template);
+
+  const payload = useMemo<VariablePayloadLike | null>(() => {
+    if (!templateData) return null;
+    return config && config.template === form.template
+      ? withCurrentValues(templateData.variables, config.variables)
+      : templateData.variables;
+  }, [templateData, config, form.template]);
 
   const {
     errors: variableErrors,
     nestedPath,
     onNestedChange,
-    reset: resetVariables,
     setVariables,
     variables,
   } = useVariableEditor(payload);
-
-  useEffect(() => {
-    if (open) setForm(initialForm(config));
-  }, [open, config]);
-
-  useEffect(() => {
-    if (!open || !form.template) {
-      setPayload(null);
-      resetVariables(null);
-      return;
-    }
-
-    let isActive = true;
-    setIsLoadingTemplate(true);
-
-    templateInfo({ path: { template: form.template } })
-      .then((response) => {
-        if (!isActive) return;
-        if (response.error || !response.data) {
-          setPayload(null);
-          resetVariables(null);
-          return;
-        }
-        const next =
-          config && config.template === form.template
-            ? withCurrentValues(response.data.variables, config.variables)
-            : response.data.variables;
-        setPayload(next);
-        resetVariables(next);
-      })
-      .catch(() => {
-        if (isActive) {
-          setPayload(null);
-          resetVariables(null);
-        }
-      })
-      .finally(() => {
-        if (isActive) setIsLoadingTemplate(false);
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [open, form.template, config, resetVariables]);
 
   const handleSave = async () => {
     const name = form.name.trim();
@@ -249,8 +224,7 @@ export function DeployConfigDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+    <>
         <DialogHeader>
           <DialogTitle>
             {config
@@ -434,7 +408,6 @@ export function DeployConfigDialog({
             {config ? t("common:actions.save") : t("common:actions.create")}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }

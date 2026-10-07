@@ -401,13 +401,32 @@ export function applyNestedVariableChange({
   });
 }
 
+function initialEditorState(payload: VariablePayloadLike | null) {
+  return payload
+    ? getInitialVariableState(payload)
+    : { nestedPath: {}, variables: {} };
+}
+
 export function useVariableEditor(payload: VariablePayloadLike | null) {
   const { t } = useTranslation();
-  const [variables, setVariables] = useState<Record<string, VariableValue>>({});
+  const [syncedPayload, setSyncedPayload] = useState(payload);
+  const [variables, setVariables] = useState<Record<string, VariableValue>>(
+    () => initialEditorState(payload).variables,
+  );
   const [savedVariables, setSavedVariables] = useState<
     Record<string, VariableValue>
-  >({});
-  const [nestedPath, setNestedPath] = useState<Record<string, string>>({});
+  >(() => initialEditorState(payload).variables);
+  const [nestedPath, setNestedPath] = useState<Record<string, string>>(
+    () => initialEditorState(payload).nestedPath,
+  );
+
+  if (payload !== syncedPayload) {
+    const state = initialEditorState(payload);
+    setSyncedPayload(payload);
+    setVariables(state.variables);
+    setSavedVariables(state.variables);
+    setNestedPath(state.nestedPath);
+  }
 
   const nestedIndex = useMemo(
     () => buildNestedVariableIndex(payload),
@@ -422,16 +441,6 @@ export function useVariableEditor(payload: VariablePayloadLike | null) {
       ),
     [payload, variables, t],
   );
-
-  const reset = useCallback((next: VariablePayloadLike | null) => {
-    const state = next
-      ? getInitialVariableState(next)
-      : { nestedPath: {}, variables: {} };
-
-    setVariables(state.variables);
-    setSavedVariables(state.variables);
-    setNestedPath(state.nestedPath);
-  }, []);
 
   const onNestedChange = useCallback(
     (
@@ -484,7 +493,6 @@ export function useVariableEditor(payload: VariablePayloadLike | null) {
     markSaved,
     nestedPath,
     onNestedChange,
-    reset,
     setVariables,
     variables,
   };

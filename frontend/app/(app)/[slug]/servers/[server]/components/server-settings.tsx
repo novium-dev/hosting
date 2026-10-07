@@ -1,6 +1,6 @@
 "use client";
-
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
+import useSWR from "swr";
 import { useSettingsDialog } from "@/hooks/use-settings-dialog";
 import {
   Copy,
@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,16 +60,34 @@ export function ServerSettings({
 }: ServerSettingsProps) {
   const { t } = useTranslation();
   const { open: openSettings } = useSettingsDialog();
-  const [name, setName] = useState("");
-  const [initialName, setInitialName] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [nameDraft, setName] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [sftpUrl, setSftpUrl] = useState("");
   const [wipeOpen, setWipeOpen] = useState(false);
   const [isWiping, setIsWiping] = useState(false);
   const [wipeWithBackup, setWipeWithBackup] = useState(false);
   const [backupSlotFree, setBackupSlotFree] = useState(false);
-  const [infoState, setInfoState] = useState<string | null>(null);
+  const {
+    data: info,
+    isValidating: isLoading,
+    mutate: refresh,
+  } = useSWR(
+    ["server-settings-info", serverId],
+    async () => {
+      const response = await serverInfo({
+        path: { server_id: serverId },
+      });
+
+      if (response.error || !response.data) {
+        throw new Error(t("servers:settings.toasts.loadFailed"));
+      }
+
+      return response.data;
+    },
+    { onError: () => toast.error(t("servers:settings.toasts.loadFailed")) },
+  );
+  const initialName = info?.name ?? "";
+  const name = nameDraft ?? initialName;
+  const infoState = info?.state ?? null;
 
   const liveStatus = useServerStatus(serverId);
   const wipeLock = useServerTaskLock(serverId, "storage", "write");
@@ -81,60 +98,18 @@ export function ServerSettings({
       : liveStatus;
   const canWipe = allowsOfflineWrite(status);
 
-  const refresh = useCallback(async () => {
-    setIsLoading(true);
+  const host = nodeHostname || t("common:status.unknown");
+  const sftpUrl = `sftp://${encodeURIComponent(username)}@${host}${sshPort ? `:${sshPort}` : ""}`;
 
-    try {
-      const response = await serverInfo({
-        path: { server_id: serverId },
-      });
-
-      if (response.error || !response.data) {
-        throw new Error(t("servers:settings.toasts.loadFailed"));
-      }
-
-      const nextName = response.data.name;
-      setName(nextName);
-      setInitialName(nextName);
-      setInfoState(response.data.state ?? null);
-    } catch {
-      toast.error(t("servers:settings.toasts.loadFailed"));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [serverId, t]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  useEffect(() => {
-    const host = nodeHostname || t("common:status.unknown");
-    const portPart = sshPort ? `:${sshPort}` : "";
-
-    setSftpUrl(`sftp://${encodeURIComponent(username)}@${host}${portPart}`);
-  }, [serverId, username, nodeHostname, sshPort, t]);
-
-  const sshCommand = useMemo(() => {
-    const host = nodeHostname || t("common:status.unknown");
-    const portPart = sshPort ? ` -p ${sshPort}` : "";
-    const target = initialName.replace(
-      /[\\"$`]/g,
-      (character) => `\\${character}`,
-    );
-
-    return `ssh -t${portPart} ${username}@${host} "${target}"`;
-  }, [initialName, nodeHostname, sshPort, t, username]);
+  const sshTarget = initialName.replace(
+    /[\\"$`]/g,
+    (character) => `\\${character}`,
+  );
+  const sshCommand = `ssh -t${sshPort ? ` -p ${sshPort}` : ""} ${username}@${host} "${sshTarget}"`;
 
   const refreshStatus = useCallback(async () => {
-    const response = await serverInfo({ path: { server_id: serverId } });
-
-    if (response.error || !response.data) {
-      return;
-    }
-
-    setInfoState(response.data.state ?? null);
-  }, [serverId]);
+    await refresh();
+  }, [refresh]);
 
   const refreshBackupSlot = useCallback(async () => {
     if (!canCreateBackup) {
@@ -186,8 +161,8 @@ export function ServerSettings({
       }
 
       toast.success(t("servers:settings.toasts.updateSuccess"));
-      setInitialName(nextName);
-      setName(nextName);
+      setName(null);
+      await refresh();
     } finally {
       setIsSaving(false);
     }

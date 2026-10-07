@@ -1,10 +1,9 @@
 "use client";
-
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import useSWR from "swr";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -59,9 +58,7 @@ import {
   listNodes,
   serverInfo,
   updatePort,
-  type AvailablePortsResponse,
-  type NetworkProtocol,
-} from "@/lib/api";
+  type NetworkProtocol } from "@/lib/api";
 import { extractAdminPorts, type AdminPortRow } from "./port-utils";
 import { formatPortRange, type SelectablePortRange } from "@/lib/ports";
 
@@ -114,6 +111,8 @@ function parseInteger(value: string) {
   return Number.isInteger(parsed) ? parsed : null;
 }
 
+const NO_PROTOCOLS: Record<string, NetworkProtocol> = {};
+
 export function PortsManager({
   serverId,
   nodeId,
@@ -129,11 +128,36 @@ export function PortsManager({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [form, setForm] = useState<PortFormState>(EMPTY_FORM);
   const [hasSubmittedForm, setHasSubmittedForm] = useState(false);
-  const [availablePortMap, setAvailablePortMap] =
-    useState<AvailablePortsResponse | null>(null);
-  const [nodePortProtocols, setNodePortProtocols] = useState<
-    Record<string, NetworkProtocol>
-  >({});
+  const { data: availability, mutate: refreshAvailablePorts } = useSWR(
+    ["admin/server-port-availability", nodeId],
+    async () => {
+      const [nodesResponse, portsResponse] = await Promise.all([
+        listNodes(),
+        availablePorts({
+          path: { node_id: nodeId },
+        }),
+      ]);
+
+      const currentNode = nodesResponse.error
+        ? null
+        : (nodesResponse.data ?? []).find((entry) => entry.id === nodeId);
+
+      return {
+        protocols: Object.fromEntries(
+          (currentNode?.ports ?? []).map((port) => [
+            String(port.id),
+            port.protocol,
+          ]),
+        ) as Record<string, NetworkProtocol>,
+        map:
+          portsResponse.error || !portsResponse.data
+            ? null
+            : portsResponse.data,
+      };
+    },
+  );
+  const availablePortMap = availability?.map ?? null;
+  const nodePortProtocols = availability?.protocols ?? NO_PROTOCOLS;
   const [selectedPort, setSelectedPort] = useState<AdminPortRow | null>(null);
 
   const selectedPortId = useMemo(
@@ -161,37 +185,6 @@ export function PortsManager({
     });
   }, [availablePortMap, nodePortProtocols]);
 
-  const refreshAvailablePorts = useCallback(async () => {
-    try {
-      const [nodesResponse, portsResponse] = await Promise.all([
-        listNodes(),
-        availablePorts({
-          path: { node_id: nodeId },
-        }),
-      ]);
-
-      const currentNode = nodesResponse.error
-        ? null
-        : (nodesResponse.data ?? []).find((entry) => entry.id === nodeId);
-
-      setNodePortProtocols(
-        Object.fromEntries(
-          (currentNode?.ports ?? []).map((port) => [
-            String(port.id),
-            port.protocol,
-          ]),
-        ),
-      );
-
-      setAvailablePortMap(
-        portsResponse.error || !portsResponse.data ? null : portsResponse.data,
-      );
-    } catch {
-      setAvailablePortMap(null);
-      setNodePortProtocols({});
-    }
-  }, [nodeId]);
-
   const refreshPorts = useCallback(async () => {
     setIsLoading(true);
 
@@ -212,10 +205,6 @@ export function PortsManager({
       setIsLoading(false);
     }
   }, [refreshAvailablePorts, serverId, t]);
-
-  useEffect(() => {
-    void refreshAvailablePorts();
-  }, [refreshAvailablePorts]);
 
   const resetForm = () => {
     setForm(EMPTY_FORM);

@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -37,6 +38,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -183,6 +185,30 @@ const ARCHIVE_COMPRESSION_VALUES: ArchiveCompression[] = [
   "gzip",
   "bzip2",
 ];
+
+const NO_FILES: FileRow[] = [];
+
+async function loadDirectory(serverId: string, path: string) {
+  const response = await listFiles({
+    path: { server_id: serverId },
+    query: { file: path },
+  });
+
+  if (response.error || !response.data) {
+    throw new Error("Failed to load files");
+  }
+
+  return [...response.data].sort((a, b) => {
+    const aDir = isDirectory(a);
+    const bDir = isDirectory(b);
+
+    if (aDir !== bDir) {
+      return aDir ? -1 : 1;
+    }
+
+    return a.name.localeCompare(b.name);
+  });
+}
 
 function joinPath(basePath: string, childName: string) {
   if (basePath === "/") {
@@ -347,8 +373,26 @@ export function FilesManager({
   const [pathInput, setPathInput] = useState("/");
   const [isEditingPath, setIsEditingPath] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [files, setFiles] = useState<FileRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [listedServerId, setListedServerId] = useState(serverId);
+  if (listedServerId !== serverId) {
+    setListedServerId(serverId);
+    setCurrentPath("/");
+    setPathInput("/");
+    setSearchQuery("");
+  }
+  const {
+    data: files = NO_FILES,
+    isLoading,
+    mutate: mutateFiles,
+  } = useSWR(
+    ["server-files", serverId, currentPath],
+    () => loadDirectory(serverId, currentPath),
+    {
+      onError: () => {
+        toast.error(t("servers-management:filesManager.toasts.loadFailed"));
+      },
+    },
+  );
   const [selectedEntry, setSelectedEntry] = useState<FileRow | null>(null);
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -451,64 +495,40 @@ export function FilesManager({
   };
 
   const segments = useMemo(() => buildPathSegments(currentPath), [currentPath]);
+  const navigate = (targetPath: string) => {
+    const normalized = normalizePath(targetPath);
+    setPathInput(normalized);
+    setIsEditingPath(false);
+
+    if (normalized === currentPath) {
+      return false;
+    }
+
+    setCurrentPath(normalized);
+    setSearchQuery("");
+    setSelectedNames([]);
+    return true;
+  };
+
   const refresh = async (
     targetPath = currentPath,
     options?: { preserveScroll?: boolean },
   ) => {
-    const normalized = normalizePath(targetPath);
-    const previousScrollY =
-      options?.preserveScroll && typeof window !== "undefined"
-        ? window.scrollY
-        : null;
+    if (navigate(targetPath)) {
+      return;
+    }
 
-    setIsLoading(true);
+    const previousScrollY = options?.preserveScroll ? window.scrollY : null;
 
-    try {
-      const response = await listFiles({
-        path: { server_id: serverId },
-        query: { file: normalized },
+    await mutateFiles();
+    setSelectedNames([]);
+
+    if (previousScrollY !== null) {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: previousScrollY, behavior: "auto" });
       });
-
-      if (response.error || !response.data) {
-        throw new Error("Failed to load files");
-      }
-
-      const sorted = [...response.data].sort((a, b) => {
-        const aDir = isDirectory(a);
-        const bDir = isDirectory(b);
-
-        if (aDir !== bDir) {
-          return aDir ? -1 : 1;
-        }
-
-        return a.name.localeCompare(b.name);
-      });
-
-      setFiles(sorted);
-      setSelectedNames([]);
-      if (normalized !== currentPath) {
-        setSearchQuery("");
-      }
-
-      setCurrentPath(normalized);
-      setPathInput(normalized);
-      setIsEditingPath(false);
-    } catch {
-      toast.error(t("servers-management:filesManager.toasts.loadFailed"));
-    } finally {
-      setIsLoading(false);
-
-      if (previousScrollY !== null && typeof window !== "undefined") {
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: previousScrollY, behavior: "auto" });
-        });
-      }
     }
   };
-
-  useEffect(() => {
-    void refresh("/");
-  }, [serverId]);
 
   useEffect(() => {
     const onDiskUsage = (event: Event) => {
@@ -712,44 +732,45 @@ export function FilesManager({
     }
   };
 
+  const onHistoryKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if (!(event.ctrlKey || event.metaKey)) {
+      return;
+    }
+
+    const target = event.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+
+    const key = event.key.toLowerCase();
+    const undoPressed = key === "z" && !event.shiftKey;
+    const redoPressed = key === "y" || (key === "z" && event.shiftKey);
+
+    if (undoPressed) {
+      event.preventDefault();
+      void handleUndo();
+      return;
+    }
+
+    if (redoPressed) {
+      event.preventDefault();
+      void handleRedo();
+    }
+  });
+
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey)) {
-        return;
-      }
-
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-      const undoPressed = key === "z" && !event.shiftKey;
-      const redoPressed = key === "y" || (key === "z" && event.shiftKey);
-
-      if (undoPressed) {
-        event.preventDefault();
-        void handleUndo();
-        return;
-      }
-
-      if (redoPressed) {
-        event.preventDefault();
-        void handleRedo();
-      }
-    };
-
+    const onKeyDown = (event: KeyboardEvent) => onHistoryKeyDown(event);
     window.addEventListener("keydown", onKeyDown);
 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [currentPath]);
+  }, []);
 
   useEffect(() => {
     return () => {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import useSWR from "swr";
 import { Loader2, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -22,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { serverInfo, type NetworkPort } from "@/lib/api";
+import { serverInfo } from "@/lib/api";
 
 type NetworkPortsProps = {
   serverId: string;
@@ -79,32 +80,28 @@ function toPortRows(
 
 export function NetworkPorts({ serverId }: NetworkPortsProps) {
   const { t } = useTranslation();
-  const [ports, setPorts] = useState<PortRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    data: ports = [],
+    isValidating: isLoading,
+    mutate,
+  } = useSWR<PortRow[]>(
+    ["server-network-ports", serverId],
+    async () => {
+    const response = await serverInfo({
+      path: { server_id: serverId },
+    });
 
-  const refresh = useCallback(async () => {
-    setIsLoading(true);
-
-    try {
-      const response = await serverInfo({
-        path: { server_id: serverId },
-      });
-
-      if (response.error || !response.data) {
-        throw new Error(t("servers:networkPorts.toasts.loadFailed"));
-      }
-
-      setPorts(toPortRows(response.data));
-    } catch {
-      toast.error(t("servers:networkPorts.toasts.loadFailed"));
-    } finally {
-      setIsLoading(false);
+    if (response.error || !response.data) {
+      throw new Error(t("servers:networkPorts.toasts.loadFailed"));
     }
-  }, [serverId, t]);
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    return toPortRows(response.data);
+    },
+    { onError: () => toast.error(t("servers:networkPorts.toasts.loadFailed")) },
+  );
+  const refresh = useCallback(async () => {
+    await mutate();
+  }, [mutate]);
 
   const hasPorts = useMemo(() => ports.length > 0, [ports]);
 

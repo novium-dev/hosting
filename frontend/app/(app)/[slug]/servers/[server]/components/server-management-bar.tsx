@@ -44,7 +44,6 @@ import {
 } from "@/components/ui/tooltip";
 import {
   readServerPlayers,
-  supportsPlayers,
   type ServerPlayers,
 } from "@/lib/server-players";
 import {
@@ -203,13 +202,13 @@ export function ServerManagementBar({
     initialStartedAt ?? null,
   );
   const [now, setNow] = useState<number>(() => Date.now());
-  const [players, setPlayers] = useState<ServerPlayers | null>(null);
+  const [livePlayers, setPlayers] = useState<ServerPlayers | null>(null);
   const [controls, setControls] = useState<ControlState>(() =>
     controlsFromState(seededStatus),
   );
-  const [runningLimits, setRunningLimits] = useState<RunningLimits | null>(() =>
-    readRunningLimits(initialStats),
-  );
+  const [liveRunningLimits, setRunningLimits] =
+    useState<RunningLimits | null>(() => readRunningLimits(initialStats));
+  const [usageSource, setUsageSource] = useState(initialUsage);
   const [highUsageVisible, setHighUsageVisible] = useState(false);
   const [highUsageAlert, setHighUsageAlert] = useState<{
     cpu: number | null;
@@ -251,10 +250,11 @@ export function ServerManagementBar({
     return "disconnected";
   }, [connection]);
 
-  useEffect(() => {
+  if (initialUsage !== usageSource) {
+    setUsageSource(initialUsage);
     setUsage(initialUsage.usage);
     setUsagePercents(initialUsage.percents);
-  }, [initialUsage]);
+  }
 
   const limitsRef = useRef({ cpuLimit, diskLimit, ramLimit, swapLimit });
   useEffect(() => {
@@ -275,9 +275,13 @@ export function ServerManagementBar({
       return;
     }
 
-    setNow(Date.now());
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
+    const tick = () => setNow(Date.now());
+    const immediate = setTimeout(tick, 0);
+    const interval = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(immediate);
+      clearInterval(interval);
+    };
   }, [status, startedAt]);
 
   useEffect(() => {
@@ -467,19 +471,11 @@ export function ServerManagementBar({
       mounted = false;
       socket?.close();
     };
-  }, [serverId, template, publishTasks, publishStats]);
+  }, [serverId, template, publishTasks, publishStats, t]);
 
-  useEffect(() => {
-    if (status !== "running") {
-      setPlayers(null);
-    }
-  }, [status]);
-
-  useEffect(() => {
-    if (status !== "running" && status !== "unhealthy") {
-      setRunningLimits(null);
-    }
-  }, [status]);
+  const players = status === "running" ? livePlayers : null;
+  const runningLimits =
+    status === "running" || status === "unhealthy" ? liveRunningLimits : null;
 
   const executePowerAction = async (action: PowerAction) => {
     setPendingAction(action);
@@ -601,16 +597,17 @@ export function ServerManagementBar({
     return () => window.clearTimeout(timeout);
   }, [highUsage, highUsageVisible]);
 
-  useEffect(() => {
-    if (!highUsage) {
-      return;
-    }
-
-    setHighUsageAlert({
-      cpu: cpuHigh ? usagePercents.cpu : null,
-      ram: ramHigh ? usagePercents.ram : null,
-    });
-  }, [highUsage, cpuHigh, ramHigh, usagePercents]);
+  const nextHighUsageAlert = {
+    cpu: cpuHigh ? usagePercents.cpu : null,
+    ram: ramHigh ? usagePercents.ram : null,
+  };
+  if (
+    highUsage &&
+    (nextHighUsageAlert.cpu !== highUsageAlert.cpu ||
+      nextHighUsageAlert.ram !== highUsageAlert.ram)
+  ) {
+    setHighUsageAlert(nextHighUsageAlert);
+  }
 
   return (
     <div className="space-y-4">

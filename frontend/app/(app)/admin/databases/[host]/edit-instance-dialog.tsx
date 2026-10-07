@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -19,42 +19,49 @@ import { Switch } from "@/components/ui/switch";
 import { updateDatabaseInstance } from "@/lib/api";
 import type { DatabaseInstanceRow } from "./database-instances-table";
 
-export function EditInstanceDialog({
-  hostId,
-  instance,
-  open,
-  onOpenChange,
-  onSaved,
-}: {
+type EditInstanceProps = {
   hostId: string;
-  instance?: DatabaseInstanceRow;
-  open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
+};
+
+export function EditInstanceDialog({
+  instance,
+  open,
+  ...props
+}: EditInstanceProps & {
+  instance?: DatabaseInstanceRow;
+  open: boolean;
 }) {
+  return (
+    <Dialog open={open} onOpenChange={props.onOpenChange}>
+      <DialogContent>
+        {instance && (
+          <EditInstanceForm key={instance.id} instance={instance} {...props} />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditInstanceForm({
+  hostId,
+  instance,
+  onOpenChange,
+  onSaved,
+}: EditInstanceProps & { instance: DatabaseInstanceRow }) {
   const { t } = useTranslation();
-  const [display, setDisplay] = useState("");
-  const [memory, setMemory] = useState("");
-  const [swap, setSwap] = useState("");
-  const [disk, setDisk] = useState("");
-  const [cpu, setCpu] = useState("");
-  const [suspended, setSuspended] = useState(false);
+  const [display, setDisplay] = useState(instance.display);
+  const [memory, setMemory] = useState(String(instance.remote?.memory ?? ""));
+  const [swap, setSwap] = useState(String(instance.remote?.swap ?? ""));
+  const [disk, setDisk] = useState(String(instance.remote?.disk ?? ""));
+  const [cpu, setCpu] = useState(String(instance.remote?.cpu ?? ""));
+  const [suspended, setSuspended] = useState(
+    instance.remote?.suspended ?? false,
+  );
   const [isPending, setIsPending] = useState(false);
 
-  useEffect(() => {
-    if (!open || !instance) return;
-
-    setDisplay(instance.display);
-    setMemory(String(instance.remote?.memory ?? ""));
-    setSwap(String(instance.remote?.swap ?? ""));
-    setDisk(String(instance.remote?.disk ?? ""));
-    setCpu(String(instance.remote?.cpu ?? ""));
-    setSuspended(instance.remote?.suspended ?? false);
-  }, [open, instance]);
-
   const submit = async () => {
-    if (!instance) return;
-
     setIsPending(true);
     try {
       const response = await updateDatabaseInstance({
@@ -90,17 +97,16 @@ export function EditInstanceDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <>
         <DialogHeader>
           <DialogTitle>
             {t("admin-infra:databases.editInstanceDialog.title", {
-              name: instance?.display,
+              name: instance.display,
             })}
           </DialogTitle>
           <DialogDescription>
             {t("admin-infra:databases.editInstanceDialog.description", {
-              project: instance?.project_slug,
+              project: instance.project_slug,
             })}
           </DialogDescription>
         </DialogHeader>
@@ -189,7 +195,6 @@ export function EditInstanceDialog({
             {t("common:resources.saveChanges")}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }

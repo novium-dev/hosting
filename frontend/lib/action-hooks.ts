@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import {
   type FieldValues,
   type Resolver,
@@ -27,7 +27,9 @@ export function useAction<I, O>(
   const [isExecuting, setIsExecuting] = useState(false);
   const [result, setResult] = useState<SafeActionResult<O>>({});
   const callbacksRef = useRef(callbacks);
-  callbacksRef.current = callbacks;
+  useLayoutEffect(() => {
+    callbacksRef.current = callbacks;
+  });
 
   const executeAsync = useCallback(
     async (input: I) => {

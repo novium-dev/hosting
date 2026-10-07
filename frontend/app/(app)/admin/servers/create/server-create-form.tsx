@@ -1,15 +1,12 @@
 "use client";
-
 import Link from "@/components/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "@/lib/navigation";
 import { useAction } from "@/lib/action-hooks";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-
 import { ArrowLeft, Loader2 } from "lucide-react";
-
-import { createServerAction, getTemplateInfoAction } from "@/actions/servers";
+import { createServerAction } from "@/actions/servers";
 import { Button } from "@/components/ui/button";
 import {
   Combobox,
@@ -26,6 +23,11 @@ import {
   variableValuesToStrings,
 } from "@/components/server/variables-editor";
 import { SearchableSelect } from "@/components/searchable-select";
+import {
+  useAvailablePorts,
+  useNodeGroups,
+  useTemplateInfo,
+} from "@/hooks/use-shared-queries";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -41,13 +43,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
-import { availablePorts, listNodeGroups } from "@/lib/api";
 import type {
-  AvailablePortsResponse,
   NodePortAllocation,
-  TemplateInfoResponse,
-} from "@/lib/api";
+  TemplateInfoResponse } from "@/lib/api";
 import { formatPortRange, type SelectablePortRange } from "@/lib/ports";
 import type { GroupRef } from "@/lib/api";
 
@@ -307,9 +305,8 @@ export function ServerCreateForm({
   const [owner, setOwner] = useState<string>(projects[0]?.id ?? "");
   const [template, setTemplate] = useState<string>(templates[0] ?? "");
   const [node, setNode] = useState<string>(nodes[0]?.id ?? "");
-  const [storage, setStorage] = useState(nodes[0]?.serverStorages?.[0] ?? "");
-  const [group, setGroup] = useState(NO_GROUP);
-  const [nodeGroups, setNodeGroups] = useState<GroupRef[]>([]);
+  const [storageChoice, setStorage] = useState("");
+  const [groupChoice, setGroupChoice] = useState({ node: "", group: NO_GROUP });
 
   const [cpu, setCpu] = useState("1");
   const [ram, setRam] = useState("1024");
@@ -318,24 +315,42 @@ export function ServerCreateForm({
   const [backupLimit, setBackupLimit] = useState("0");
   const [internetAccess, setInternetAccess] = useState(true);
 
-  const [ports, setPorts] = useState<Record<string, number>>({});
-  const [templateDetails, setTemplateDetails] =
-    useState<TemplateInfoResponse | null>(null);
+  const [portEdits, setPortEdits] = useState<{
+    key: string;
+    ports: Record<string, number>;
+  }>({ key: "", ports: {} });
+
+  const { data: templateDetails = null, isLoading: isLoadingTemplate } =
+    useTemplateInfo(template);
 
   const {
     errors: variableErrors,
     nestedPath,
     onNestedChange,
-    reset: resetVariables,
     setVariables,
     variables,
   } = useVariableEditor(templateDetails?.variables ?? null);
-  const [availablePortMap, setAvailablePortMap] =
-    useState<AvailablePortsResponse | null>(null);
 
   const selectedNode = useMemo(() => {
     return nodes.find((entry) => entry.id === node) ?? null;
   }, [nodes, node]);
+
+  const { data: availablePortMap = null } = useAvailablePorts(selectedNode?.id);
+  const { data: nodeGroupRows } = useNodeGroups(
+    selectedNode?.id ?? "",
+    !!selectedNode,
+  );
+  const nodeGroups: GroupRef[] = (nodeGroupRows ?? []).map(({ id, label }) => ({
+    id,
+    label,
+  }));
+
+  const storage =
+    selectedNode?.serverStorages.includes(storageChoice)
+      ? storageChoice
+      : (selectedNode?.serverStorages[0] ?? "");
+  const group = groupChoice.node === node ? groupChoice.group : NO_GROUP;
+  const setGroup = (value: string) => setGroupChoice({ node, group: value });
 
   const allowedPortRanges = useMemo<SelectablePortRange[]>(() => {
     if (!selectedNode) {
@@ -374,72 +389,6 @@ export function ServerCreateForm({
   const hasConfiguredPortRanges =
     (selectedNode?.portAllocations.length ?? 0) > 0;
 
-  useEffect(() => {
-    if (!selectedNode) {
-      setStorage("");
-      setAvailablePortMap(null);
-      return;
-    }
-
-    if (!selectedNode.serverStorages.includes(storage)) {
-      setStorage(selectedNode.serverStorages[0] ?? "");
-    }
-  }, [selectedNode, storage]);
-
-  useEffect(() => {
-    setGroup(NO_GROUP);
-    setNodeGroups([]);
-    if (!selectedNode) {
-      return;
-    }
-
-    let isActive = true;
-
-    listNodeGroups({ path: { node_id: selectedNode.id } })
-      .then((response) => {
-        if (isActive && !response.error && response.data) {
-          setNodeGroups(response.data.map(({ id, label }) => ({ id, label })));
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      isActive = false;
-    };
-  }, [selectedNode]);
-
-  useEffect(() => {
-    if (!selectedNode) {
-      setAvailablePortMap(null);
-      return;
-    }
-
-    let isActive = true;
-    setAvailablePortMap(null);
-
-    availablePorts({ path: { node_id: selectedNode.id } })
-      .then((response) => {
-        if (!isActive) {
-          return;
-        }
-
-        setAvailablePortMap(
-          response.error || !response.data ? null : response.data,
-        );
-      })
-      .catch(() => {
-        if (isActive) {
-          setAvailablePortMap(null);
-        }
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [selectedNode]);
-
-  const templateInfoAction = useAction(getTemplateInfoAction);
-  const executeTemplateInfo = templateInfoAction.executeAsync;
   const createServer = useAction(createServerAction, {
     onSuccess: (result) => {
       if (result.data?.success) {
@@ -454,42 +403,27 @@ export function ServerCreateForm({
     },
   });
 
-  useEffect(() => {
-    if (!template) {
-      setTemplateDetails(null);
-      resetVariables(null);
-      setPorts({});
-      return;
-    }
-
-    setTemplateDetails(null);
-    setPorts({});
-
-    executeTemplateInfo({ template })
-      .then((result) => {
-        const info = result?.data?.data;
-        if (!info) {
-          setTemplateDetails(null);
-          resetVariables(null);
-          setPorts({});
-          return;
-        }
-
-        resetVariables(info.variables);
-        setTemplateDetails(info);
-      })
-      .catch(() => {
-        toast.error(t("admin-infra:servers.createForm.loadTemplateInfoError"));
-      });
-  }, [template, executeTemplateInfo, resetVariables, t]);
-
-  useEffect(() => {
-    if (!templateDetails) {
-      return;
-    }
-
-    setPorts(buildDefaultPorts(templateDetails.ports, allowedPortRanges));
-  }, [templateDetails, allowedPortRanges]);
+  const defaultPorts = useMemo(
+    () =>
+      templateDetails
+        ? buildDefaultPorts(templateDetails.ports, allowedPortRanges)
+        : {},
+    [templateDetails, allowedPortRanges],
+  );
+  const portEditKey = `${template}:${node}`;
+  const ports =
+    portEdits.key === portEditKey
+      ? { ...defaultPorts, ...portEdits.ports }
+      : defaultPorts;
+  const setPorts = (
+    update: (current: Record<string, number>) => Record<string, number>,
+  ) =>
+    setPortEdits({
+      key: portEditKey,
+      ports: update(
+        portEdits.key === portEditKey ? portEdits.ports : {},
+      ),
+    });
 
   const selectedProject = useMemo(() => {
     return projects.find((project) => project.id === owner);
@@ -909,7 +843,7 @@ export function ServerCreateForm({
             <p className="text-sm text-muted-foreground">
               {t("admin-infra:servers.createForm.selectTemplateFirst")}
             </p>
-          ) : templateInfoAction.isExecuting ? (
+          ) : isLoadingTemplate ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
               {t("admin-infra:servers.createForm.loadingTemplateDetails")}

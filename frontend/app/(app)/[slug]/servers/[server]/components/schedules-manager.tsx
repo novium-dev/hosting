@@ -1,7 +1,8 @@
 "use client";
 
 import type { DragEvent } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
+import { useCallback, useMemo, useState } from "react";
 import {
   Archive,
   CalendarClock,
@@ -488,6 +489,8 @@ function taskFitsBackupLimit(task: ScheduleTask, backupLimit: number | null) {
   return ceiling !== null && ceiling <= backupLimit;
 }
 
+const NO_SCHEDULES: Schedule[] = [];
+
 export function SchedulesManager({
   serverId,
   canManage,
@@ -498,8 +501,35 @@ export function SchedulesManager({
   isMinecraftServer,
 }: SchedulesManagerProps) {
   const { t, i18n } = useTranslation();
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    data: schedules = NO_SCHEDULES,
+    isValidating: isLoading,
+    mutate,
+  } = useSWR(
+    ["server-schedules", serverId],
+    async () => {
+      const response = await listSchedules({ path: { server_id: serverId } });
+
+      if (response.error || !response.data) {
+        throw new Error(
+          apiErrorMessage(
+            response.error,
+            t("servers:schedules.toasts.loadFailed"),
+          ),
+        );
+      }
+
+      return response.data;
+    },
+    {
+      onError: (error) =>
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : t("servers:schedules.toasts.loadFailed"),
+        ),
+    },
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Schedule | null>(null);
@@ -517,7 +547,7 @@ export function SchedulesManager({
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [draggableIndex, setDraggableIndex] = useState<number | null>(null);
 
-  const zones = useMemo(timezones, []);
+  const zones = useMemo(() => timezones(), []);
   const isTaskTypeAvailable = useCallback(
     (type: TaskType) => {
       if (type === "minecraft") return isMinecraftServer;
@@ -543,35 +573,8 @@ export function SchedulesManager({
   );
 
   const refresh = useCallback(async () => {
-    setIsLoading(true);
-
-    try {
-      const response = await listSchedules({ path: { server_id: serverId } });
-
-      if (response.error || !response.data) {
-        throw new Error(
-          apiErrorMessage(
-            response.error,
-            t("servers:schedules.toasts.loadFailed"),
-          ),
-        );
-      }
-
-      setSchedules(response.data);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t("servers:schedules.toasts.loadFailed"),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [serverId, t]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    await mutate();
+  }, [mutate]);
 
   const formatNextRun = useCallback(
     (value: string | null | undefined) => {

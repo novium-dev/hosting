@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import useSWR from "swr";
 import {
   Download,
   HardDrive,
@@ -131,8 +132,26 @@ export function BackupsManager({
   const { t } = useTranslation();
   const storageLock = useServerTaskLock(serverId, "storage", "read");
   const restoreLock = useServerTaskLock(serverId, "storage", "write");
-  const [backups, setBackups] = useState<BackupRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    data: backups = [],
+    isValidating: isLoading,
+    mutate,
+  } = useSWR<BackupRow[]>(
+    ["server-backups", serverId],
+    async () => {
+    const response = await listBackups({
+      path: { server_id: serverId },
+    });
+
+    if (response.error || !response.data) {
+      throw new Error(t("servers:backups.toasts.loadFailed"));
+    }
+
+    const sorted = [...response.data].sort((a, b) => b.time - a.time);
+    return sorted;
+    },
+    { onError: () => toast.error(t("servers:backups.toasts.loadFailed")) },
+  );
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
@@ -153,31 +172,9 @@ export function BackupsManager({
     () => (selectedBackup ? backupIdFromRow(selectedBackup) : null),
     [selectedBackup],
   );
-
   const refresh = useCallback(async () => {
-    setIsLoading(true);
-
-    try {
-      const response = await listBackups({
-        path: { server_id: serverId },
-      });
-
-      if (response.error || !response.data) {
-        throw new Error(t("servers:backups.toasts.loadFailed"));
-      }
-
-      const sorted = [...response.data].sort((a, b) => b.time - a.time);
-      setBackups(sorted);
-    } catch {
-      toast.error(t("servers:backups.toasts.loadFailed"));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [serverId, t]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    await mutate();
+  }, [mutate]);
 
   const handleCreateBackup = async () => {
     setIsActionLoading(true);

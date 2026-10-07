@@ -138,9 +138,13 @@ function ServerRow({
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!isRunning || startedAt === null) return;
-    setNow(Date.now());
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
+    const tick = () => setNow(Date.now());
+    const immediate = setTimeout(tick, 0);
+    const interval = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(immediate);
+      clearInterval(interval);
+    };
   }, [isRunning, startedAt]);
 
   const uptime = startedAt !== null ? formatUptime(now - startedAt) : null;

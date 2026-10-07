@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import useSWR from "swr";
 import { Copy, ExternalLink, Globe, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Trans, useTranslation } from "react-i18next";
@@ -88,26 +89,21 @@ function serviceName(name: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+const NO_ROUTE_DATA: { routes: Route[]; domains: Domain[]; ports: NetworkPort[] } = {
+  routes: [],
+  domains: [],
+  ports: [],
+};
+
 export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
   const { t } = useTranslation();
-  const [routes, setRoutes] = useState<Route[]>([]);
-  const [domains, setDomains] = useState<Domain[]>([]);
-  const [ports, setPorts] = useState<NetworkPort[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<Route | null>(null);
-
-  const [manualPortId, setManualPortId] = useState<string>("");
-  const [subdomain, setSubdomain] = useState("");
-  const [domainId, setDomainId] = useState<string>("");
-  const [portId, setPortId] = useState<string>("");
-  const [https, setHttps] = useState(true);
-
-  const refresh = useCallback(async () => {
-    setIsLoading(true);
-
-    try {
+  const {
+    data,
+    isValidating: isLoading,
+    mutate,
+  } = useSWR(
+    ["server-routes", serverId],
+    async () => {
       const [routesResponse, serverResponse] = await Promise.all([
         listRoutes({ path: { server_id: serverId } }),
         serverInfo({ path: { server_id: serverId } }),
@@ -122,28 +118,40 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
         );
       }
 
-      setRoutes(routesResponse.data);
-      setPorts(serverResponse.data?.network?.ports ?? []);
-
       const project = serverResponse.data?.project;
       const domainsResponse = await listRouteDomains(
         project ? { query: { project } } : {},
       );
-      setDomains(domainsResponse.data ?? []);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t("servers:routes.toasts.loadFailed"),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [serverId, t]);
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+      return {
+        routes: routesResponse.data,
+        ports: serverResponse.data?.network?.ports ?? [],
+        domains: domainsResponse.data ?? [],
+      };
+    },
+    {
+      onError: (error) =>
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : t("servers:routes.toasts.loadFailed"),
+        ),
+    },
+  );
+  const { routes, domains, ports } = data ?? NO_ROUTE_DATA;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Route | null>(null);
+
+  const [manualPortId, setManualPortId] = useState<string>("");
+  const [subdomain, setSubdomain] = useState("");
+  const [domainId, setDomainId] = useState<string>("");
+  const [portId, setPortId] = useState<string>("");
+  const [https, setHttps] = useState(true);
+
+  const refresh = useCallback(async () => {
+    await mutate();
+  }, [mutate]);
 
   const selectedDomain = useMemo(
     () => domains.find((domain) => String(domain.id) === domainId),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -41,55 +41,60 @@ const DEFAULT_PORTS: Record<DatabaseType, number> = {
   redis: 6379,
 };
 
+type DatabaseHostFormProps = {
+  onOpenChange: (open: boolean) => void;
+  host?: DatabaseHostRow;
+  registration?: DatabaseHostRegistrationRow;
+  groups: GroupRef[];
+  onSaved: () => void;
+};
+
 export function DatabaseHostDialog({
   open,
+  ...props
+}: DatabaseHostFormProps & { open: boolean }) {
+  return (
+    <Dialog open={open} onOpenChange={props.onOpenChange}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
+        <DatabaseHostForm
+          key={props.host?.id ?? props.registration?.code ?? "new"}
+          {...props}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DatabaseHostForm({
   onOpenChange,
   host,
   registration,
   groups,
   onSaved,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  /** Editing a registered host when set. */
-  host?: DatabaseHostRow;
-  /** Editing a setup code that no agent has claimed yet when set. */
-  registration?: DatabaseHostRegistrationRow;
-  groups: GroupRef[];
-  onSaved: () => void;
-}) {
+}: DatabaseHostFormProps) {
   const { t } = useTranslation();
-  const [display, setDisplay] = useState("");
-  const [selectedGroups, setSelectedGroups] = useState<number[]>([]);
-  const [url, setUrl] = useState("");
-  const [publicHost, setPublicHost] = useState("");
-  const [maintenance, setMaintenance] = useState(false);
-  const [ports, setPorts] = useState<Record<string, string>>({});
+  const [display, setDisplay] = useState(
+    host?.display ?? registration?.display ?? "",
+  );
+  const [selectedGroups, setSelectedGroups] = useState<number[]>(() =>
+    (host?.groups ?? registration?.groups ?? []).map((group) => group.id),
+  );
+  const [url, setUrl] = useState(host?.url ?? registration?.base_url ?? "");
+  const [publicHost, setPublicHost] = useState(
+    host?.public_host ?? registration?.public_host ?? "",
+  );
+  const [maintenance, setMaintenance] = useState(host?.maintenance ?? false);
+  const [ports, setPorts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      ENGINES.map((engine) => {
+        const port = host?.ports?.[engine] ?? registration?.ports?.[engine];
+        return [engine, port ? String(port) : ""];
+      }),
+    ),
+  );
   const [isPending, setIsPending] = useState(false);
   const [setupCode, setSetupCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-
-    setDisplay(host?.display ?? registration?.display ?? "");
-    setSelectedGroups(
-      (host?.groups ?? registration?.groups ?? []).map((group) => group.id),
-    );
-    setUrl(host?.url ?? registration?.base_url ?? "");
-    setPublicHost(host?.public_host ?? registration?.public_host ?? "");
-    setMaintenance(host?.maintenance ?? false);
-    setSetupCode(null);
-    setCopied(false);
-    setPorts(
-      Object.fromEntries(
-        ENGINES.map((engine) => {
-          const port = host?.ports?.[engine] ?? registration?.ports?.[engine];
-          return [engine, port ? String(port) : ""];
-        }),
-      ),
-    );
-  }, [open, host, registration]);
 
   const collectPorts = () =>
     Object.fromEntries(
@@ -190,8 +195,7 @@ export function DatabaseHostDialog({
     publicHost.trim() !== "";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto">
+    <>
         {setupCode ? (
           <>
             <DialogHeader>
@@ -409,7 +413,6 @@ export function DatabaseHostDialog({
             </DialogFooter>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }

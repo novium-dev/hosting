@@ -125,19 +125,13 @@ export function CreateProjectForm({ onSuccess, owners }: CreateProjectFormProps)
     return () => clearTimeout(timer);
   }, [slugToCheck, handleSlugCheck]);
 
-  const watchName = form.watch("name");
   const hasSlugError = isSlugError || form.formState.errors.slug !== undefined;
 
-  useEffect(() => {
-    if (watchName.trim() === "") {
-      form.setValue("slug", "");
-      setSlugToCheck("");
-      return;
-    }
-    const slug = slugify(watchName, SLUG_MAX_LENGTH);
+  const applyNameToSlug = (name: string) => {
+    const slug = name.trim() === "" ? "" : slugify(name, SLUG_MAX_LENGTH);
     setSlugToCheck(slug);
-    form.setValue("slug", slug, { shouldValidate: true });
-  }, [watchName, form]);
+    form.setValue("slug", slug, { shouldValidate: slug !== "" });
+  };
 
   return (
     <Form {...form}>
@@ -165,6 +159,10 @@ export function CreateProjectForm({ onSuccess, owners }: CreateProjectFormProps)
                 <FormControl>
                   <Input
                     {...field}
+                    onChange={(event) => {
+                      field.onChange(event);
+                      applyNameToSlug(event.target.value);
+                    }}
                     type="text"
                     placeholder={t("app:createProjectForm.namePlaceholder")}
                   />

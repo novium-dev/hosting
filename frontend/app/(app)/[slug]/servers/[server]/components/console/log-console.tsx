@@ -215,6 +215,8 @@ function loadCommandHistory() {
 }
 
 export default function LogConsole({ serverId }: { serverId: string }) {
+  "use no memo";
+
   const { t } = useTranslation();
 
   const {
