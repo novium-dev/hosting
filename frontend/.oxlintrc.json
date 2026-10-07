@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "oxc"],
+  "env": {
+    "browser": true
+  },
+  "ignorePatterns": ["lib/api/**", "dist/**", ".next/**"],
+  "rules": {
+    "no-unused-vars": "off",
+    "typescript/no-explicit-any": "off"
+  }
+}
