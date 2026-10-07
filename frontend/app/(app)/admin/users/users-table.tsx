@@ -82,21 +82,22 @@ export function UsersTable() {
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<"all" | UserRole>("all");
 
-  const { data: users = null, error } = useSWR("admin/users-table", async () => {
-    const result = await getAllUsersAction();
-    if (!result.data?.success) {
-      throw new Error("Failed to load users");
-    }
-    return (result.data.users ?? []).map(
-      (item): AdminUser => ({
+  const { data: users = null, error } = useSWR(
+    "admin/users-table",
+    async () => {
+      const result = await getAllUsersAction();
+      if (!result.data?.success) {
+        throw new Error("Failed to load users");
+      }
+      return (result.data.users ?? []).map((item): AdminUser => ({
         id: item.id,
         username: item.username,
         email: item.email,
         avatar_url: item.avatar_url,
         role: roleFromValue(item.role),
-      }),
-    );
-  });
+      }));
+    },
+  );
 
   const filtered = useMemo(() => {
     if (!users) return [];

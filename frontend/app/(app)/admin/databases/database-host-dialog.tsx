@@ -190,229 +190,227 @@ function DatabaseHostForm({
   };
 
   const canSubmit =
-    display.trim() !== "" &&
-    url.trim() !== "" &&
-    publicHost.trim() !== "";
+    display.trim() !== "" && url.trim() !== "" && publicHost.trim() !== "";
 
   return (
     <>
-        {setupCode ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>
-                {t("admin-infra:databases.hostDialog.setupCodeTitle")}
-              </DialogTitle>
-              <DialogDescription>
-                {t("admin-infra:databases.hostDialog.setupCodeDescription")}
-              </DialogDescription>
-            </DialogHeader>
+      {setupCode ? (
+        <>
+          <DialogHeader>
+            <DialogTitle>
+              {t("admin-infra:databases.hostDialog.setupCodeTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("admin-infra:databases.hostDialog.setupCodeDescription")}
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="rounded-md border bg-muted/40 p-3">
-              <code className="block break-all font-mono text-sm">
-                {setupCode}
-              </code>
+          <div className="rounded-md border bg-muted/40 p-3">
+            <code className="block break-all font-mono text-sm">
+              {setupCode}
+            </code>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void copyCode(setupCode)}
+            >
+              {copied ? (
+                <CheckIcon data-icon="inline-start" />
+              ) : (
+                <CopyIcon data-icon="inline-start" />
+              )}
+              {t("admin-infra:databases.hostDialog.copyCodeButton")}
+            </Button>
+            <Button type="button" onClick={() => onOpenChange(false)}>
+              {t("admin-infra:shared.done")}
+            </Button>
+          </DialogFooter>
+        </>
+      ) : (
+        <>
+          <DialogHeader>
+            <DialogTitle>
+              {host
+                ? t("admin-infra:databases.hostDialog.editTitle")
+                : registration
+                  ? t("admin-infra:databases.hostDialog.editRegistrationTitle")
+                  : t("admin-infra:databases.hostDialog.registerTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {host
+                ? t("admin-infra:databases.hostDialog.description")
+                : t("admin-infra:databases.hostDialog.setupDescription")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {registration ? (
+              <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/40 p-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">
+                    {t("admin-infra:databases.hostDialog.setupCodeTitle")}
+                  </p>
+                  <code className="block break-all font-mono text-sm">
+                    {registration.code}
+                  </code>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void copyCode(registration.code)}
+                >
+                  {copied ? (
+                    <CheckIcon data-icon="inline-start" />
+                  ) : (
+                    <CopyIcon data-icon="inline-start" />
+                  )}
+                  {t("admin-infra:databases.hostDialog.copyCodeButton")}
+                </Button>
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <Label htmlFor="display">{t("common:labels.name")}</Label>
+              <Input
+                id="display"
+                value={display}
+                onChange={(event) => setDisplay(event.target.value)}
+                placeholder="db-eu-1"
+              />
             </div>
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void copyCode(setupCode)}
-              >
-                {copied ? (
-                  <CheckIcon data-icon="inline-start" />
-                ) : (
-                  <CopyIcon data-icon="inline-start" />
-                )}
-                {t("admin-infra:databases.hostDialog.copyCodeButton")}
-              </Button>
-              <Button type="button" onClick={() => onOpenChange(false)}>
-                {t("admin-infra:shared.done")}
-              </Button>
-            </DialogFooter>
-          </>
-        ) : (
-          <>
-            <DialogHeader>
-              <DialogTitle>
-                {host
-                  ? t("admin-infra:databases.hostDialog.editTitle")
-                  : registration
-                    ? t("admin-infra:databases.hostDialog.editRegistrationTitle")
-                    : t("admin-infra:databases.hostDialog.registerTitle")}
-              </DialogTitle>
-              <DialogDescription>
-                {host
-                  ? t("admin-infra:databases.hostDialog.description")
-                  : t("admin-infra:databases.hostDialog.setupDescription")}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              {registration ? (
-                <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/40 p-3">
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">
-                      {t("admin-infra:databases.hostDialog.setupCodeTitle")}
-                    </p>
-                    <code className="block break-all font-mono text-sm">
-                      {registration.code}
-                    </code>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void copyCode(registration.code)}
-                  >
-                    {copied ? (
-                      <CheckIcon data-icon="inline-start" />
-                    ) : (
-                      <CopyIcon data-icon="inline-start" />
-                    )}
-                    {t("admin-infra:databases.hostDialog.copyCodeButton")}
-                  </Button>
-                </div>
-              ) : null}
-
-              <div className="space-y-2">
-                <Label htmlFor="display">{t("common:labels.name")}</Label>
-                <Input
-                  id="display"
-                  value={display}
-                  onChange={(event) => setDisplay(event.target.value)}
-                  placeholder="db-eu-1"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>{t("navigation:adminSidebar.items.groups")}</Label>
-                {groups.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("admin-infra:databases.hostDialog.noGroups")}
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-md border p-3">
-                    {groups.map((group) => (
-                      <label
-                        key={group.id}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <Checkbox
-                          checked={selectedGroups.includes(group.id)}
-                          onCheckedChange={(checked) =>
-                            setSelectedGroups((current) =>
-                              checked === true
-                                ? [...current, group.id]
-                                : current.filter((entry) => entry !== group.id),
-                            )
-                          }
-                        />
-                        {group.label}
-                      </label>
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  {t("admin-infra:databases.hostDialog.groupsDescription")}
+            <div className="space-y-2">
+              <Label>{t("navigation:adminSidebar.items.groups")}</Label>
+              {groups.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("admin-infra:databases.hostDialog.noGroups")}
                 </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="url">
-                  {t("admin-infra:databases.hostDialog.urlLabel")}
-                </Label>
-                <Input
-                  id="url"
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
-                  placeholder="https://db-eu-1.example.com:8090"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t("admin-infra:databases.hostDialog.urlDescription")}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="public-host">
-                  {t("admin-infra:databases.hostDialog.publicHostLabel")}
-                </Label>
-                <Input
-                  id="public-host"
-                  value={publicHost}
-                  onChange={(event) => setPublicHost(event.target.value)}
-                  placeholder="db-eu-1.example.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>
-                  {t("admin-infra:databases.hostDialog.publicPortsLabel")}
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  {t("admin-infra:databases.hostDialog.publicPortsDescription")}
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {ENGINES.map((engine) => (
-                    <div key={engine} className="space-y-1">
-                      <Label
-                        htmlFor={`port-${engine}`}
-                        className="text-xs font-normal text-muted-foreground"
-                      >
-                        {DATABASE_TYPE_LABELS[engine]}
-                      </Label>
-                      <Input
-                        id={`port-${engine}`}
-                        inputMode="numeric"
-                        value={ports[engine] ?? ""}
-                        onChange={(event) =>
-                          setPorts((current) => ({
-                            ...current,
-                            [engine]: event.target.value,
-                          }))
+              ) : (
+                <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-md border p-3">
+                  {groups.map((group) => (
+                    <label
+                      key={group.id}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <Checkbox
+                        checked={selectedGroups.includes(group.id)}
+                        onCheckedChange={(checked) =>
+                          setSelectedGroups((current) =>
+                            checked === true
+                              ? [...current, group.id]
+                              : current.filter((entry) => entry !== group.id),
+                          )
                         }
-                        placeholder={String(DEFAULT_PORTS[engine])}
                       />
-                    </div>
+                      {group.label}
+                    </label>
                   ))}
                 </div>
-              </div>
-
-              {host ? (
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <Label htmlFor="maintenance">
-                      {t("admin-infra:shared.maintenance")}
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      {t(
-                        "admin-infra:databases.hostDialog.maintenanceDescription",
-                      )}
-                    </p>
-                  </div>
-                  <Switch
-                    id="maintenance"
-                    checked={maintenance}
-                    onCheckedChange={setMaintenance}
-                  />
-                </div>
-              ) : null}
+              )}
+              <p className="text-xs text-muted-foreground">
+                {t("admin-infra:databases.hostDialog.groupsDescription")}
+              </p>
             </div>
 
-            <DialogFooter>
-              <Button
-                type="button"
-                onClick={() => void submit()}
-                disabled={!canSubmit || isPending}
-                loading={isPending}
-              >
-                {host || registration
-                  ? t("common:resources.saveChanges")
-                  : t("admin-infra:databases.hostDialog.registerButton")}
-              </Button>
-            </DialogFooter>
-          </>
-        )}
+            <div className="space-y-2">
+              <Label htmlFor="url">
+                {t("admin-infra:databases.hostDialog.urlLabel")}
+              </Label>
+              <Input
+                id="url"
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="https://db-eu-1.example.com:8090"
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("admin-infra:databases.hostDialog.urlDescription")}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="public-host">
+                {t("admin-infra:databases.hostDialog.publicHostLabel")}
+              </Label>
+              <Input
+                id="public-host"
+                value={publicHost}
+                onChange={(event) => setPublicHost(event.target.value)}
+                placeholder="db-eu-1.example.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>
+                {t("admin-infra:databases.hostDialog.publicPortsLabel")}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t("admin-infra:databases.hostDialog.publicPortsDescription")}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {ENGINES.map((engine) => (
+                  <div key={engine} className="space-y-1">
+                    <Label
+                      htmlFor={`port-${engine}`}
+                      className="text-xs font-normal text-muted-foreground"
+                    >
+                      {DATABASE_TYPE_LABELS[engine]}
+                    </Label>
+                    <Input
+                      id={`port-${engine}`}
+                      inputMode="numeric"
+                      value={ports[engine] ?? ""}
+                      onChange={(event) =>
+                        setPorts((current) => ({
+                          ...current,
+                          [engine]: event.target.value,
+                        }))
+                      }
+                      placeholder={String(DEFAULT_PORTS[engine])}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {host ? (
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <Label htmlFor="maintenance">
+                    {t("admin-infra:shared.maintenance")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t(
+                      "admin-infra:databases.hostDialog.maintenanceDescription",
+                    )}
+                  </p>
+                </div>
+                <Switch
+                  id="maintenance"
+                  checked={maintenance}
+                  onCheckedChange={setMaintenance}
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => void submit()}
+              disabled={!canSubmit || isPending}
+              loading={isPending}
+            >
+              {host || registration
+                ? t("common:resources.saveChanges")
+                : t("admin-infra:databases.hostDialog.registerButton")}
+            </Button>
+          </DialogFooter>
+        </>
+      )}
     </>
   );
 }

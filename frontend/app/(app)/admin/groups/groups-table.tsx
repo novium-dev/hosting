@@ -108,8 +108,7 @@ export function GroupsTable({
       let current: GroupRow | undefined = group;
       while (current && !visible.has(current.id)) {
         visible.add(current.id);
-        current =
-          current.parent != null ? byId.get(current.parent) : undefined;
+        current = current.parent != null ? byId.get(current.parent) : undefined;
       }
     }
     return groups.filter((group) => visible.has(group.id));

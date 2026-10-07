@@ -100,5 +100,10 @@ export function useHookFormAction<S extends FieldValues, O>(
     actionHook.reset();
   }, [form, actionHook]);
 
-  return { form, action: actionHook, handleSubmitWithAction, resetFormAndAction };
+  return {
+    form,
+    action: actionHook,
+    handleSubmitWithAction,
+    resetFormAndAction,
+  };
 }

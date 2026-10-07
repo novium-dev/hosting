@@ -63,7 +63,9 @@ export function UnsavedChangesGuard({ when }: Readonly<{ when: boolean }>) {
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t("common:unsavedChanges.title")}</AlertDialogTitle>
+          <AlertDialogTitle>
+            {t("common:unsavedChanges.title")}
+          </AlertDialogTitle>
           <AlertDialogDescription>
             {t("common:unsavedChanges.description")}
           </AlertDialogDescription>

@@ -55,7 +55,12 @@ import type { NodeRow } from "@/types/api";
 import { formatCountdown } from "@/lib/format";
 
 type NodeColumn =
-  "display" | "groups" | "host" | "ports" | "servers" | "status";
+  | "display"
+  | "groups"
+  | "host"
+  | "ports"
+  | "servers"
+  | "status";
 
 export function NodesTable({
   nodes,

@@ -14,7 +14,9 @@ type SessionContextValue = {
   refresh: () => Promise<void>;
 };
 
-const SessionContext = createContext<SessionContextValue | undefined>(undefined);
+const SessionContext = createContext<SessionContextValue | undefined>(
+  undefined,
+);
 
 // Fetches the current user exactly once and shares it with the whole tree via
 // context. The value is backed by the Zustand session store so logout can clear

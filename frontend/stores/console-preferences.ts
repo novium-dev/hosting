@@ -37,8 +37,7 @@ export const useConsolePreferences = create<ConsolePreferencesState>()(
       toggleTimestamps: () =>
         set((state) => ({ showTimestamps: !state.showTimestamps })),
       toggleSource: () => set((state) => ({ showSource: !state.showSource })),
-      toggleWrapLines: () =>
-        set((state) => ({ wrapLines: !state.wrapLines })),
+      toggleWrapLines: () => set((state) => ({ wrapLines: !state.wrapLines })),
       toggleLevel: (level) =>
         set((state) => ({
           hiddenLevels: state.hiddenLevels.includes(level)

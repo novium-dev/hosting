@@ -203,7 +203,9 @@ export function NodeSettingsCard({
               disabled={isMaintenanceSaving || !canManage}
             />
             <span className="text-sm text-muted-foreground">
-              {isMaintenanceSaving ? t("common:state.saving") : maintenanceLabel}
+              {isMaintenanceSaving
+                ? t("common:state.saving")
+                : maintenanceLabel}
             </span>
           </div>
         </div>

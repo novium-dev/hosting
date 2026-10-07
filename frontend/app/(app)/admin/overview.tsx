@@ -140,10 +140,13 @@ export function AdminOverview({ permissions }: { permissions: number }) {
     return response.error ? [] : (response.data ?? []);
   });
 
-  const groups = useList(canViewNodes ? "admin/overview/groups" : null, async () => {
-    const response = await listGroups();
-    return response.error ? [] : (response.data ?? []);
-  });
+  const groups = useList(
+    canViewNodes ? "admin/overview/groups" : null,
+    async () => {
+      const response = await listGroups();
+      return response.error ? [] : (response.data ?? []);
+    },
+  );
 
   const nodeRegistrations = useList(
     canViewNodes ? "admin/node/registrations" : null,

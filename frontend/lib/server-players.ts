@@ -11,7 +11,9 @@ export type ServerPlayers = {
   list: ServerPlayer[] | null;
 };
 
-type PlayerSource = (healthCheck: Record<string, unknown>) => ServerPlayers | null;
+type PlayerSource = (
+  healthCheck: Record<string, unknown>,
+) => ServerPlayers | null;
 
 function readMinecraftPlayers(
   healthCheck: Record<string, unknown>,

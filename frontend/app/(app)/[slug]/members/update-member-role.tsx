@@ -62,7 +62,9 @@ export function UpdateMemberRoleDialog({
           toast.success(t("project:members.updateDialog.success"));
         },
         onError: (error) => {
-          toast.error(error.error.serverError ?? t("common:state.genericError"));
+          toast.error(
+            error.error.serverError ?? t("common:state.genericError"),
+          );
         },
       },
     });

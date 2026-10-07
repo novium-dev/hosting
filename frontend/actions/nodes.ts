@@ -37,7 +37,9 @@ const nodeConfigSchema = z.object({
       port: z.number().int().min(1).max(65535),
     })
     .optional(),
-  storages: z.array(storageEntrySchema).min(1, "At least one storage is required"),
+  storages: z
+    .array(storageEntrySchema)
+    .min(1, "At least one storage is required"),
   backups: z.array(backupEntrySchema),
 });
 

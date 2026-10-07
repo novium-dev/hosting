@@ -126,8 +126,8 @@ function getBanKeys(entry: BanEntry) {
 }
 
 async function loadJsonFile(
-serverId: string,
-file: string,
+  serverId: string,
+  file: string,
 ): Promise<unknown[]> {
   try {
     const response = await downloadUser({
@@ -169,7 +169,8 @@ export function MinecraftPlayerManager({
   );
   const { data: bans = NO_BANS, mutate: mutateBans } = useSWR(
     ["minecraft-bans", serverId],
-    async () => (await loadJsonFile(serverId, "/banned-players.json")) as BanEntry[],
+    async () =>
+      (await loadJsonFile(serverId, "/banned-players.json")) as BanEntry[],
   );
   const [connectionEntry, setConnectionEntry] = useState<{
     serverId: string;
@@ -312,12 +313,12 @@ export function MinecraftPlayerManager({
       if (action === "op") {
         void mutateOps(
           (current = []) => [
-          ...current.filter(
-            (entry) =>
-              !getPlayerKeys(player).some((key) =>
-                getOpKeys(entry).includes(key),
-              ),
-          ),
+            ...current.filter(
+              (entry) =>
+                !getPlayerKeys(player).some((key) =>
+                  getOpKeys(entry).includes(key),
+                ),
+            ),
             { uuid: player.id ?? undefined, name: player.name },
           ],
           { revalidate: false },
@@ -325,13 +326,14 @@ export function MinecraftPlayerManager({
       }
 
       if (action === "deop") {
-        void mutateOps((current = []) =>
-          current.filter(
-            (entry) =>
-              !getPlayerKeys(player).some((key) =>
-                getOpKeys(entry).includes(key),
-              ),
-          ),
+        void mutateOps(
+          (current = []) =>
+            current.filter(
+              (entry) =>
+                !getPlayerKeys(player).some((key) =>
+                  getOpKeys(entry).includes(key),
+                ),
+            ),
           { revalidate: false },
         );
       }
@@ -339,9 +341,9 @@ export function MinecraftPlayerManager({
       if (action === "ban") {
         void mutateBans(
           (current = []) => [
-          ...current.filter(
-            (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
-          ),
+            ...current.filter(
+              (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
+            ),
             { uuid: player.id ?? undefined, name: player.name },
           ],
           { revalidate: false },
@@ -349,10 +351,11 @@ export function MinecraftPlayerManager({
       }
 
       if (action === "pardon") {
-        void mutateBans((current = []) =>
-          current.filter(
-            (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
-          ),
+        void mutateBans(
+          (current = []) =>
+            current.filter(
+              (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
+            ),
           { revalidate: false },
         );
       }

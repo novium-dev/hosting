@@ -48,10 +48,11 @@ function stateBadge(instance: DatabaseInstanceRow, t: TFunction) {
     return <Badge variant="destructive">{t("common:status.suspended")}</Badge>;
 
   const state = instance.remote.utilization?.state;
-  if (state === "running")
-    return <Badge>{t("common:status.running")}</Badge>;
+  if (state === "running") return <Badge>{t("common:status.running")}</Badge>;
 
-  return <Badge variant="secondary">{state ?? t("common:status.offline")}</Badge>;
+  return (
+    <Badge variant="secondary">{state ?? t("common:status.offline")}</Badge>
+  );
 }
 
 export function DatabaseInstancesTable({
@@ -123,12 +124,8 @@ export function DatabaseInstancesTable({
                 {t("admin-infra:databases.instancesTable.columns.engine")}
               </TableHead>
               <TableHead>{t("common:labels.status")}</TableHead>
-              <TableHead>
-                {t("common:resources.memory")}
-              </TableHead>
-              <TableHead>
-                {t("common:resources.disk")}
-              </TableHead>
+              <TableHead>{t("common:resources.memory")}</TableHead>
+              <TableHead>{t("common:resources.disk")}</TableHead>
               <TableHead className="text-right">
                 {t("common:resources.manage")}
               </TableHead>
@@ -141,7 +138,9 @@ export function DatabaseInstancesTable({
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <Boxes className="size-5 text-muted-foreground" />
                     <p className="text-sm font-medium">
-                      {t("admin-infra:databases.instancesTable.emptyState.title")}
+                      {t(
+                        "admin-infra:databases.instancesTable.emptyState.title",
+                      )}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {t(

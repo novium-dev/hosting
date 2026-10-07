@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "ignorePatterns": [
+    ".agents/**",
+    "components/ui/**",
+    "dist/**",
+    "lib/api/**",
+    "pnpm-lock.yaml"
+  ]
+}

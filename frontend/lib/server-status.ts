@@ -485,7 +485,6 @@ export function allowsOfflineWrite(status: ServerLifecycleState): boolean {
   return status === "stopped" || status === "unknown";
 }
 
-
 /**
  * Best-effort control availability derived from the lifecycle state, used
  * before the websocket delivers authoritative flags.

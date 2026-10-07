@@ -47,35 +47,34 @@ type CreateProjectFormProps = {
   owners?: ProjectOwnerOption[];
 };
 
-export function CreateProjectForm({ onSuccess, owners }: CreateProjectFormProps) {
+export function CreateProjectForm({
+  onSuccess,
+  owners,
+}: CreateProjectFormProps) {
   const { t } = useTranslation(["app", "common"]);
   const [isValidatingSlug, setIsValidatingSlug] = useState(false);
   const [isSlugError, setIsSlugError] = useState(false);
   const [slugToCheck, setSlugToCheck] = useState("");
 
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
-    useHookFormAction(
-      createProjectAction,
-      zodResolver(createProjectSchema),
-      {
-        formProps: {
-          mode: "onChange",
-          defaultValues: { name: "", slug: "", owner: undefined },
+    useHookFormAction(createProjectAction, zodResolver(createProjectSchema), {
+      formProps: {
+        mode: "onChange",
+        defaultValues: { name: "", slug: "", owner: undefined },
+      },
+      actionProps: {
+        onSuccess: (args) => {
+          resetFormAndAction();
+          if (args.data?.data) {
+            onSuccess?.(args.data.data);
+          }
+          toast.success(t("app:createProjectForm.createdSuccess"));
         },
-        actionProps: {
-          onSuccess: (args) => {
-            resetFormAndAction();
-            if (args.data?.data) {
-              onSuccess?.(args.data.data);
-            }
-            toast.success(t("app:createProjectForm.createdSuccess"));
-          },
-          onError: (error) => {
-            toast.error(error.error.serverError);
-          },
+        onError: (error) => {
+          toast.error(error.error.serverError);
         },
       },
-    );
+    });
 
   const handleSlugCheck = useCallback(
     async (slug: string) => {

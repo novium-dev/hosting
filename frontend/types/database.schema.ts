@@ -13,10 +13,7 @@ export type PowerAction = (typeof powerActions)[number];
 
 export const createInstanceSchema = z.object({
   projectId: z.string(),
-  display: z
-    .string()
-    .min(1, "Name is required")
-    .max(64, "Name is too long"),
+  display: z.string().min(1, "Name is required").max(64, "Name is too long"),
   type: z.enum(databaseTypes),
 });
 

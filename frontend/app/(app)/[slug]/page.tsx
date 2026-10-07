@@ -99,16 +99,12 @@ function ResourceBar({
   );
 }
 
-function ServerRow({
-  slug,
-  server,
-}: {
-  slug: string;
-  server: ServerListItem;
-}) {
+function ServerRow({ slug, server }: { slug: string; server: ServerListItem }) {
   const { t } = useTranslation();
   const banner = templateBanner(server.template);
-  const state = server.status ? statusFromLabel(server.status.state) : "unknown";
+  const state = server.status
+    ? statusFromLabel(server.status.state)
+    : "unknown";
   const tone = statusTone(state);
   const startedAt = server.status?.started_at ?? null;
   const isRunning = state === "running";

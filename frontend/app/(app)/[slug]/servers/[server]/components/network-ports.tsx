@@ -87,15 +87,15 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
   } = useSWR<PortRow[]>(
     ["server-network-ports", serverId],
     async () => {
-    const response = await serverInfo({
-      path: { server_id: serverId },
-    });
+      const response = await serverInfo({
+        path: { server_id: serverId },
+      });
 
-    if (response.error || !response.data) {
-      throw new Error(t("servers:networkPorts.toasts.loadFailed"));
-    }
+      if (response.error || !response.data) {
+        throw new Error(t("servers:networkPorts.toasts.loadFailed"));
+      }
 
-    return toPortRows(response.data);
+      return toPortRows(response.data);
     },
     { onError: () => toast.error(t("servers:networkPorts.toasts.loadFailed")) },
   );
@@ -151,10 +151,18 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("common:labels.name")}</TableHead>
-                    <TableHead>{t("servers:networkPorts.table.protocol")}</TableHead>
-                    <TableHead>{t("servers:networkPorts.table.internal")}</TableHead>
-                    <TableHead>{t("servers:networkPorts.table.external")}</TableHead>
-                    <TableHead>{t("servers:networkPorts.table.hostBind")}</TableHead>
+                    <TableHead>
+                      {t("servers:networkPorts.table.protocol")}
+                    </TableHead>
+                    <TableHead>
+                      {t("servers:networkPorts.table.internal")}
+                    </TableHead>
+                    <TableHead>
+                      {t("servers:networkPorts.table.external")}
+                    </TableHead>
+                    <TableHead>
+                      {t("servers:networkPorts.table.hostBind")}
+                    </TableHead>
                     <TableHead>{t("common:labels.role")}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -163,9 +171,7 @@ export function NetworkPorts({ serverId }: NetworkPortsProps) {
                     <TableRow key={port.id}>
                       <TableCell className="font-medium">{port.name}</TableCell>
                       <TableCell>
-                        {port.http
-                          ? t("common:resources.http")
-                          : port.protocol}
+                        {port.http ? t("common:resources.http") : port.protocol}
                       </TableCell>
                       <TableCell>{port.internalPort}</TableCell>
                       <TableCell>

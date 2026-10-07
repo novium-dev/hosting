@@ -42,7 +42,12 @@ type FileEditorProps = {
 };
 
 type EditorMode =
-  "loading" | "empty" | "archive" | "directory" | "image" | "text";
+  | "loading"
+  | "empty"
+  | "archive"
+  | "directory"
+  | "image"
+  | "text";
 
 const LazyMonaco = lazy(() => import("@monaco-editor/react"));
 

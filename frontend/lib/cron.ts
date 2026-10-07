@@ -113,7 +113,11 @@ export function parseCronField(
       const [start, end] = range.split("-");
       const parsedStart = ordinal(start, spec);
       const parsedEnd = ordinal(end, spec);
-      if (parsedStart === null || parsedEnd === null || parsedStart > parsedEnd) {
+      if (
+        parsedStart === null ||
+        parsedEnd === null ||
+        parsedStart > parsedEnd
+      ) {
         return null;
       }
       from = parsedStart;

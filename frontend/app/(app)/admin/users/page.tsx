@@ -1,6 +1,9 @@
 import { NotFoundView } from "@/components/not-found-view";
 import { authClient } from "@/lib/auth-client";
-import { hasManagementPermission, ManagementPermission } from "@/lib/permissions";
+import {
+  hasManagementPermission,
+  ManagementPermission,
+} from "@/lib/permissions";
 import { UsersTable } from "./users-table";
 
 export default function UsersPage() {

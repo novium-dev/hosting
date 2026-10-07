@@ -69,7 +69,8 @@ function readKind(descriptor: Record<string, unknown>): string | null {
   }
 
   return (
-    Object.keys(descriptor).find((key) => !DESCRIPTOR_KEYS.includes(key)) ?? null
+    Object.keys(descriptor).find((key) => !DESCRIPTOR_KEYS.includes(key)) ??
+    null
   );
 }
 

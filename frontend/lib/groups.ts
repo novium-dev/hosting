@@ -27,7 +27,9 @@ export function formatGroupLimits(
 type TreeItem = { id: number; parent?: number | null };
 
 export function groupDepths(groups: TreeItem[]) {
-  const parents = new Map(groups.map((group) => [group.id, group.parent ?? null]));
+  const parents = new Map(
+    groups.map((group) => [group.id, group.parent ?? null]),
+  );
   const depths = new Map<number, number>();
   for (const group of groups) {
     let depth = 0;

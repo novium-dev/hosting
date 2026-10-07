@@ -53,7 +53,9 @@ export function SearchableSelect({
         className={cn("w-full", className)}
       />
       <ComboboxContent>
-        <ComboboxEmpty>{emptyText ?? t("searchableSelect.noResults")}</ComboboxEmpty>
+        <ComboboxEmpty>
+          {emptyText ?? t("searchableSelect.noResults")}
+        </ComboboxEmpty>
         <ComboboxList>
           {(item: Item) => (
             <ComboboxItem key={item.value} value={item}>

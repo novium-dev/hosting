@@ -4,7 +4,6 @@ import { appConfig } from "@/constants/config";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
-
 const CURRENT_YEAR = new Date().getFullYear();
 const AUTHOR_URL = "https://github.com/InvalidJoker";
 const AUTHOR_NAME = "InvalidJoker";

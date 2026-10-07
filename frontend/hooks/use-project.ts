@@ -10,8 +10,7 @@ export function useProject(slug: string | undefined) {
 
   const { isLoading } = useSWR(
     slug && !cached ? ["full-project", slug] : null,
-    ([, projectSlug]) =>
-      auth.api.getFullProject({ query: { projectSlug } }),
+    ([, projectSlug]) => auth.api.getFullProject({ query: { projectSlug } }),
     {
       onSuccess: (project) => {
         if (slug && project) setProject(slug, project);

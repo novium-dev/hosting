@@ -89,7 +89,11 @@ function serviceName(name: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-const NO_ROUTE_DATA: { routes: Route[]; domains: Domain[]; ports: NetworkPort[] } = {
+const NO_ROUTE_DATA: {
+  routes: Route[];
+  domains: Domain[];
+  ports: NetworkPort[];
+} = {
   routes: [],
   domains: [],
   ports: [],

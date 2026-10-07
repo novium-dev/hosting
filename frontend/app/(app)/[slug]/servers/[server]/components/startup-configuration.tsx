@@ -161,7 +161,9 @@ export function StartupConfiguration({
       }
 
       if (seen.has(key)) {
-        errors[row.id] = t("servers:startupConfig.environment.errors.duplicate");
+        errors[row.id] = t(
+          "servers:startupConfig.environment.errors.duplicate",
+        );
         continue;
       }
 
@@ -323,63 +325,61 @@ export function StartupConfiguration({
       </Alert>
 
       <Card>
-          <CardHeader>
-            <CardTitle>
-              {t("servers:startupConfig.environment.title")}
-            </CardTitle>
-            <CardDescription>
-              {t("servers:startupConfig.environment.description")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-start gap-2 rounded-md border px-3 py-2">
-              <FileCode className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                {payload.environment.file_enabled ? (
-                  <Trans
-                    components={{
-                      path: <code className="font-mono text-foreground" />,
-                    }}
-                    i18nKey="servers:startupConfig.envFile.cardEnabled"
-                    values={{ path: payload.environment.file_path }}
-                  />
-                ) : (
-                  t("servers:startupConfig.envFile.cardDisabled")
-                )}
-              </p>
-            </div>
-            {environmentEntries.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {t("servers:startupConfig.environment.empty")}
-              </p>
-            ) : (
-              <dl className="divide-y rounded-md border">
-                {environmentEntries.map(([key, value]) => (
-                  <div
-                    className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:gap-4"
-                    key={key}
-                  >
-                    <dt className="font-mono text-xs font-medium sm:w-64 sm:shrink-0">
-                      {key}
-                    </dt>
-                    <dd className="font-mono text-xs break-all text-muted-foreground">
-                      {value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-          </CardContent>
-          <CardFooter className="justify-end">
-            <Button
-              disabled={!canEdit}
-              onClick={openEnvironmentDialog}
-              variant="outline"
-            >
-              <Pencil className="size-4" />
-              {t("common:actions.edit")}
-            </Button>
-          </CardFooter>
+        <CardHeader>
+          <CardTitle>{t("servers:startupConfig.environment.title")}</CardTitle>
+          <CardDescription>
+            {t("servers:startupConfig.environment.description")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-2 rounded-md border px-3 py-2">
+            <FileCode className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              {payload.environment.file_enabled ? (
+                <Trans
+                  components={{
+                    path: <code className="font-mono text-foreground" />,
+                  }}
+                  i18nKey="servers:startupConfig.envFile.cardEnabled"
+                  values={{ path: payload.environment.file_path }}
+                />
+              ) : (
+                t("servers:startupConfig.envFile.cardDisabled")
+              )}
+            </p>
+          </div>
+          {environmentEntries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("servers:startupConfig.environment.empty")}
+            </p>
+          ) : (
+            <dl className="divide-y rounded-md border">
+              {environmentEntries.map(([key, value]) => (
+                <div
+                  className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:gap-4"
+                  key={key}
+                >
+                  <dt className="font-mono text-xs font-medium sm:w-64 sm:shrink-0">
+                    {key}
+                  </dt>
+                  <dd className="font-mono text-xs break-all text-muted-foreground">
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button
+            disabled={!canEdit}
+            onClick={openEnvironmentDialog}
+            variant="outline"
+          >
+            <Pencil className="size-4" />
+            {t("common:actions.edit")}
+          </Button>
+        </CardFooter>
       </Card>
 
       <Dialog onOpenChange={setEnvironmentOpen} open={environmentOpen}>

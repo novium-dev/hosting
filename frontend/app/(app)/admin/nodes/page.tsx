@@ -3,7 +3,10 @@ import useSWR from "swr";
 import { NotFoundView } from "@/components/not-found-view";
 import { listNodes } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
-import { hasManagementPermission, ManagementPermission } from "@/lib/permissions";
+import {
+  hasManagementPermission,
+  ManagementPermission,
+} from "@/lib/permissions";
 import { NodesTable } from "./nodes-table";
 
 export default function AdminNodesPage() {

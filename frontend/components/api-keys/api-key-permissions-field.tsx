@@ -37,19 +37,26 @@ export function ApiKeyPermissionsField({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <FormLabel>{t("project:apiKeys.permissionsField.instanceLabel")}</FormLabel>
+        <FormLabel>
+          {t("project:apiKeys.permissionsField.instanceLabel")}
+        </FormLabel>
         <ManagementPermissionsField
           className="h-48"
           value={maskPermissions(value, allManagementPermissions)}
           onChange={(next) =>
             onChange(
-              mergePermissions(maskPermissions(value, allServerPermissions), next),
+              mergePermissions(
+                maskPermissions(value, allServerPermissions),
+                next,
+              ),
             )
           }
         />
       </div>
       <div className="space-y-2">
-        <FormLabel>{t("project:apiKeys.permissionsField.serverLabel")}</FormLabel>
+        <FormLabel>
+          {t("project:apiKeys.permissionsField.serverLabel")}
+        </FormLabel>
         <FormDescription>
           {t("project:apiKeys.permissionsField.serverDescription")}
         </FormDescription>

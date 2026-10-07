@@ -42,10 +42,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  readServerPlayers,
-  type ServerPlayers,
-} from "@/lib/server-players";
+import { readServerPlayers, type ServerPlayers } from "@/lib/server-players";
 import {
   useForgetServerStats,
   usePublishServerStats,
@@ -206,8 +203,9 @@ export function ServerManagementBar({
   const [controls, setControls] = useState<ControlState>(() =>
     controlsFromState(seededStatus),
   );
-  const [liveRunningLimits, setRunningLimits] =
-    useState<RunningLimits | null>(() => readRunningLimits(initialStats));
+  const [liveRunningLimits, setRunningLimits] = useState<RunningLimits | null>(
+    () => readRunningLimits(initialStats),
+  );
   const [usageSource, setUsageSource] = useState(initialUsage);
   const [highUsageVisible, setHighUsageVisible] = useState(false);
   const [highUsageAlert, setHighUsageAlert] = useState<{

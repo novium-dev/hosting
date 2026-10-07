@@ -43,9 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import type {
-  NodePortAllocation,
-  TemplateInfoResponse } from "@/lib/api";
+import type { NodePortAllocation, TemplateInfoResponse } from "@/lib/api";
 import { formatPortRange, type SelectablePortRange } from "@/lib/ports";
 import type { GroupRef } from "@/lib/api";
 
@@ -345,10 +343,9 @@ export function ServerCreateForm({
     label,
   }));
 
-  const storage =
-    selectedNode?.serverStorages.includes(storageChoice)
-      ? storageChoice
-      : (selectedNode?.serverStorages[0] ?? "");
+  const storage = selectedNode?.serverStorages.includes(storageChoice)
+    ? storageChoice
+    : (selectedNode?.serverStorages[0] ?? "");
   const group = groupChoice.node === node ? groupChoice.group : NO_GROUP;
   const setGroup = (value: string) => setGroupChoice({ node, group: value });
 
@@ -420,9 +417,7 @@ export function ServerCreateForm({
   ) =>
     setPortEdits({
       key: portEditKey,
-      ports: update(
-        portEdits.key === portEditKey ? portEdits.ports : {},
-      ),
+      ports: update(portEdits.key === portEditKey ? portEdits.ports : {}),
     });
 
   const selectedProject = useMemo(() => {

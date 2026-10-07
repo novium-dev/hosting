@@ -59,7 +59,9 @@ export function EditApiKeyDialog({
           toast.success(t("project:apiKeys.editDialog.updated"));
         },
         onError: (error) => {
-          toast.error(error.error.serverError ?? t("common:state.genericError"));
+          toast.error(
+            error.error.serverError ?? t("common:state.genericError"),
+          );
         },
       },
     });

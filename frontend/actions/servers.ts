@@ -27,7 +27,6 @@ const createServerSchema = z.object({
 export const getTemplateInfoAction = authActionClient
   .inputSchema(templateInfoSchema)
   .action(async ({ parsedInput }) => {
-
     const response = await templateInfo({
       path: { template: parsedInput.template },
     });
@@ -45,7 +44,6 @@ export const getTemplateInfoAction = authActionClient
 export const createServerAction = authActionClient
   .inputSchema(createServerSchema)
   .action(async ({ parsedInput }) => {
-
     const response = await createServer({
       body: {
         name: parsedInput.name,

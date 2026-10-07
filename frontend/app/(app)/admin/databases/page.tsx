@@ -1,4 +1,3 @@
-
 import { NotFoundView } from "@/components/not-found-view";
 import { useDatabaseHosts, useGroups } from "@/hooks/use-shared-queries";
 import { authClient } from "@/lib/auth-client";

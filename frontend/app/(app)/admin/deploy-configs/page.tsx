@@ -187,9 +187,7 @@ export default function AdminDeployConfigsPage() {
                         {config.name}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">
-                          {config.group.label}
-                        </Badge>
+                        <Badge variant="outline">{config.group.label}</Badge>
                       </TableCell>
                       <TableCell>{config.template}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">

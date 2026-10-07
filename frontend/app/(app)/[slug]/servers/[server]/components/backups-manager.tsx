@@ -139,16 +139,16 @@ export function BackupsManager({
   } = useSWR<BackupRow[]>(
     ["server-backups", serverId],
     async () => {
-    const response = await listBackups({
-      path: { server_id: serverId },
-    });
+      const response = await listBackups({
+        path: { server_id: serverId },
+      });
 
-    if (response.error || !response.data) {
-      throw new Error(t("servers:backups.toasts.loadFailed"));
-    }
+      if (response.error || !response.data) {
+        throw new Error(t("servers:backups.toasts.loadFailed"));
+      }
 
-    const sorted = [...response.data].sort((a, b) => b.time - a.time);
-    return sorted;
+      const sorted = [...response.data].sort((a, b) => b.time - a.time);
+      return sorted;
     },
     { onError: () => toast.error(t("servers:backups.toasts.loadFailed")) },
   );

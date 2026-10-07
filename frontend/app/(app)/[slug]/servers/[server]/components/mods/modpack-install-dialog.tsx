@@ -97,7 +97,8 @@ export function ModpackInstallDialog({
   const backup = ownChoice.backup ?? backupAvailable;
   const setVersionId = (next: string) =>
     setChoice({ ...ownChoice, versionId: next });
-  const setBackup = (next: boolean) => setChoice({ ...ownChoice, backup: next });
+  const setBackup = (next: boolean) =>
+    setChoice({ ...ownChoice, backup: next });
 
   const version = versions.find((entry) => entry.id === versionId) ?? null;
   const isCurrent = Boolean(
