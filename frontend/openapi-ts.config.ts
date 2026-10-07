@@ -1,18 +1,15 @@
-import { defineConfig } from "@hey-api/openapi-ts";
-
-export default defineConfig({
+export default {
   input: "http://localhost:8080/api/docs/openapi.json",
   logs: {
     path: "./logs",
   },
   output: {
     path: "./lib/api",
-    postProcess: ["eslint"],
   },
   plugins: [
     {
       name: "@hey-api/client-next",
-      runtimeConfigPath: "../api-client",
+      runtimeConfigPath: "./lib/api-client",
     },
     "@hey-api/sdk",
     {
@@ -20,4 +17,4 @@ export default defineConfig({
       name: "@hey-api/typescript",
     },
   ],
-});
+};
