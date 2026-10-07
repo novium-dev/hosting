@@ -7,7 +7,7 @@ import { useAction } from "@/lib/action-hooks";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
-import { ArrowLeft, Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { createServerAction, getTemplateInfoAction } from "@/actions/servers";
 import { Button } from "@/components/ui/button";
@@ -25,14 +25,7 @@ import {
   VariableFields,
   variableValuesToStrings,
 } from "@/components/server/variables-editor";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { SearchableSelect } from "@/components/searchable-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -339,7 +332,6 @@ export function ServerCreateForm({
   } = useVariableEditor(templateDetails?.variables ?? null);
   const [availablePortMap, setAvailablePortMap] =
     useState<AvailablePortsResponse | null>(null);
-  const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
 
   const selectedNode = useMemo(() => {
     return nodes.find((entry) => entry.id === node) ?? null;
@@ -660,64 +652,18 @@ export function ServerCreateForm({
 
           <div className="space-y-2">
             <Label>{t("admin-infra:servers.createForm.ownerLabel")}</Label>
-            <Popover
-              open={ownerComboboxOpen}
-              onOpenChange={setOwnerComboboxOpen}
-            >
-              <PopoverTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between"
-                  />
-                }
-              >
-                {selectedProject
-                  ? formatProjectLabel(selectedProject)
-                  : t(
-                      "admin-infra:servers.createForm.selectProjectPlaceholder",
-                    )}
-                <ChevronsUpDown className="size-4 opacity-50" />
-              </PopoverTrigger>
-              <PopoverContent className="w-(--anchor-width) p-0" align="start">
-                <Command>
-                  <CommandInput
-                    placeholder={t(
-                      "admin-infra:servers.createForm.searchProjectPlaceholder",
-                    )}
-                  />
-                  <CommandList>
-                    <CommandEmpty>
-                      {t("admin-infra:servers.createForm.noProjectFound")}
-                    </CommandEmpty>
-                    <CommandGroup>
-                      {projects.map((project) => (
-                        <CommandItem
-                          key={project.id}
-                          value={`${project.name} ${project.slug} ${project.id}`}
-                          onSelect={() => {
-                            setOwner(project.id);
-                            setOwnerComboboxOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 size-4",
-                              owner === project.id
-                                ? "opacity-100"
-                                : "opacity-0",
-                            )}
-                          />
-                          <span>{formatProjectLabel(project)}</span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <SearchableSelect
+              value={owner}
+              onChange={setOwner}
+              options={projects.map((project) => ({
+                value: project.id,
+                label: formatProjectLabel(project),
+              }))}
+              placeholder={t(
+                "admin-infra:servers.createForm.selectProjectPlaceholder",
+              )}
+              emptyText={t("admin-infra:servers.createForm.noProjectFound")}
+            />
           </div>
 
           <div className="space-y-2">

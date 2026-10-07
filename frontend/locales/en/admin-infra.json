@@ -393,7 +393,6 @@
       "serverNamePlaceholder": "My game server",
       "ownerLabel": "Owner (Project)",
       "selectProjectPlaceholder": "Select project",
-      "searchProjectPlaceholder": "Search project...",
       "noProjectFound": "No project found.",
       "selectTemplatePlaceholder": "Select template",
       "selectNodePlaceholder": "Select node",
