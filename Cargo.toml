@@ -40,7 +40,7 @@ axum-server = { version = "0.8.0", features = ["tls-rustls"] }
 database_agent_common = { path = "database_agent_common", default-features = false }
 
 [workspace.dependencies.daemon_common]
-git = "ssh://git@github.com/novium-dev/daemon.git"
+git = "ssh://git@git-ssh.novium.world/hosting/daemon.git"
 default-features = false
 
 [workspace.dependencies.reqwest]
@@ -98,7 +98,7 @@ version = "0.7.1"
 features = ["cors", "auth", "trace"]
 
 [workspace.dependencies.zelus_keys]
-git = "https://git2.novium.world/hosting/zelus_keys.git"
+git = "ssh://git@git-ssh.novium.world/hosting/zelus_keys.git"
 default-features = false
 
 [workspace.dependencies.zelus]
