@@ -41,7 +41,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import { useTranslation } from "react-i18next";
-import type { ProjectMember } from "./members-view";
+import type { ProjectMember } from "@/types/api";
 import { UpdateMemberRoleDialog } from "./update-member-role";
 
 function formatExpiry(value: string, language: string) {
@@ -135,9 +135,11 @@ export function MembersTable({
                     </TextEllipsis>
                     {member.id === ownerId && (
                       <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Crown className="size-3.5 shrink-0 text-amber-500" />
-                        </TooltipTrigger>
+                        <TooltipTrigger
+                          render={
+                            <Crown className="size-3.5 shrink-0 text-amber-500" />
+                          }
+                        />
                         <TooltipContent>
                           {t("project:members.table.ownerTooltip")}
                         </TooltipContent>
@@ -147,12 +149,10 @@ export function MembersTable({
                   <TableCell>{member.email}</TableCell>
                   <TableCell>
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="secondary">
-                          {t("project:shared.permissionCount", {
-                            count: permissionLabels.length,
-                          })}
-                        </Badge>
+                      <TooltipTrigger render={<Badge variant="secondary" />}>
+                        {t("project:shared.permissionCount", {
+                          count: permissionLabels.length,
+                        })}
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
                         {permissionLabels.length
@@ -177,15 +177,15 @@ export function MembersTable({
                   <TableCell className="text-right">
                     {member.id !== ownerId && (
                       <DropdownMenu modal={false}>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                        <DropdownMenuTrigger
+                          render={<Button variant="ghost" size="sm" />}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             className="cursor-pointer"
-                            onSelect={() => {
+                            onClick={() => {
                               setMember(member);
                               setUpdateOpen(true);
                             }}
@@ -194,7 +194,7 @@ export function MembersTable({
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="cursor-pointer text-destructive"
-                            onSelect={() => setRemoveMember(member)}
+                            onClick={() => setRemoveMember(member)}
                           >
                             {t("project:members.table.removeAction")}
                           </DropdownMenuItem>
@@ -238,8 +238,7 @@ export function MembersTable({
               {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
+              onClick={() => {
                 if (!removeMember) return;
                 remove.execute({ projectId, userId: removeMember.id });
               }}

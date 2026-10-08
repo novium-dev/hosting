@@ -1,7 +1,8 @@
 "use client";
 
 import { Search, Shield, User, Users } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import Link from "@/components/link";
@@ -78,31 +79,25 @@ function RoleBadge({ role }: { role: UserRole }) {
 
 export function UsersTable() {
   const { t } = useTranslation();
-  const [users, setUsers] = useState<AdminUser[] | null>(null);
-  const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<"all" | UserRole>("all");
 
-  const fetchUsers = useCallback(async () => {
-    const result = await getAllUsersAction();
-    if (!result.data?.success) {
-      setError(true);
-      return;
-    }
-    setUsers(
-      (result.data.users ?? []).map((item) => ({
+  const { data: users = null, error } = useSWR(
+    "admin/users-table",
+    async () => {
+      const result = await getAllUsersAction();
+      if (!result.data?.success) {
+        throw new Error("Failed to load users");
+      }
+      return (result.data.users ?? []).map((item): AdminUser => ({
         id: item.id,
         username: item.username,
         email: item.email,
         avatar_url: item.avatar_url,
         role: roleFromValue(item.role),
-      })),
-    );
-  }, []);
-
-  useEffect(() => {
-    void fetchUsers();
-  }, [fetchUsers]);
+      }));
+    },
+  );
 
   const filtered = useMemo(() => {
     if (!users) return [];
@@ -145,6 +140,12 @@ export function UsersTable() {
         />
       </div>
       <Select
+        items={[
+          { value: "all", label: t("admin-core:users.roleFilter.all") },
+          { value: "admin", label: t("common:roles.admin") },
+          { value: "moderator", label: t("admin-core:users.roles.moderator") },
+          { value: "user", label: t("common:roles.user") },
+        ]}
         value={role}
         onValueChange={(value) => setRole(value as typeof role)}
       >
@@ -160,15 +161,11 @@ export function UsersTable() {
           <SelectItem value="all">
             {t("admin-core:users.roleFilter.all")}
           </SelectItem>
-          <SelectItem value="admin">
-            {t("common:roles.admin")}
-          </SelectItem>
+          <SelectItem value="admin">{t("common:roles.admin")}</SelectItem>
           <SelectItem value="moderator">
             {t("admin-core:users.roles.moderator")}
           </SelectItem>
-          <SelectItem value="user">
-            {t("common:roles.user")}
-          </SelectItem>
+          <SelectItem value="user">{t("common:roles.user")}</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -186,9 +183,7 @@ export function UsersTable() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold">
-            {t("common:nav.users")}
-          </h1>
+          <h1 className="text-xl font-semibold">{t("common:nav.users")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("admin-core:users.description")}
           </p>
@@ -252,7 +247,10 @@ export function UsersTable() {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="size-8">
-                        <AvatarImage src={user.avatar_url} alt={user.username} />
+                        <AvatarImage
+                          src={user.avatar_url}
+                          alt={user.username}
+                        />
                         <AvatarFallback className="text-xs">
                           {user.username.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
@@ -277,10 +275,13 @@ export function UsersTable() {
                     <RoleBadge role={user.role} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button asChild size="sm" variant="outline">
-                      <Link href={`/admin/users/${user.id}`}>
-                        {t("common:resources.manage")}
-                      </Link>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      render={<Link href={`/admin/users/${user.id}`} />}
+                      nativeButton={false}
+                    >
+                      {t("common:resources.manage")}
                     </Button>
                   </TableCell>
                 </TableRow>

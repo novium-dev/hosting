@@ -1,32 +1,23 @@
-import { Check, ChevronsUpDown } from "lucide-react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/components/ui/button";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
 
 type Option = { value: string; label?: string };
+type Item = { value: string; label: string };
 
-// A searchable select (combobox). Useful when a select has many options.
 export function SearchableSelect({
   value,
   onChange,
   options,
   placeholder,
-  searchPlaceholder,
   emptyText,
   disabled,
   className,
@@ -35,74 +26,44 @@ export function SearchableSelect({
   onChange: (value: string) => void;
   options: Option[];
   placeholder?: string;
-  searchPlaceholder?: string;
   emptyText?: string;
   disabled?: boolean;
   className?: string;
 }) {
   const { t } = useTranslation("app");
-  const [open, setOpen] = useState(false);
 
-  const selected = options.find((option) => option.value === value);
+  const items: Item[] = options.map((option) => ({
+    value: option.value,
+    label: option.label ?? option.value,
+  }));
+  const selected = items.find((item) => item.value === value) ?? null;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          disabled={disabled}
-          className={cn(
-            "w-full justify-between font-normal",
-            !selected && "text-muted-foreground",
-            className,
+    <Combobox
+      items={items}
+      value={selected}
+      onValueChange={(item: Item | null) => {
+        if (item) onChange(item.value);
+      }}
+      disabled={disabled}
+    >
+      <ComboboxInput
+        placeholder={placeholder ?? t("searchableSelect.placeholder")}
+        disabled={disabled}
+        className={cn("w-full", className)}
+      />
+      <ComboboxContent>
+        <ComboboxEmpty>
+          {emptyText ?? t("searchableSelect.noResults")}
+        </ComboboxEmpty>
+        <ComboboxList>
+          {(item: Item) => (
+            <ComboboxItem key={item.value} value={item}>
+              {item.label}
+            </ComboboxItem>
           )}
-        >
-          <span className="truncate">
-            {selected
-              ? (selected.label ?? selected.value)
-              : (placeholder ?? t("searchableSelect.placeholder"))}
-          </span>
-          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-[var(--radix-popover-trigger-width)] p-0"
-        align="start"
-      >
-        <Command>
-          <CommandInput
-            placeholder={searchPlaceholder ?? t("searchableSelect.searchPlaceholder")}
-          />
-          <CommandList>
-            <CommandEmpty>
-              {emptyText ?? t("searchableSelect.noResults")}
-            </CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.label ?? option.value}
-                  onSelect={() => {
-                    onChange(option.value);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 size-4",
-                      option.value === value ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                  {option.label ?? option.value}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }

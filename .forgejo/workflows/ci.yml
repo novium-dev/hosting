@@ -1,0 +1,198 @@
+name: ci
+
+on:
+  push:
+    branches: [dev, prod]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+  # Incremental artifacts are useless in CI and bloat the cache
+  CARGO_INCREMENTAL: "0"
+  # Skip debuginfo: faster builds, smaller cache
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  CARGO_DENY_VERSION: "0.20.2"
+  SQLX_CLI_VERSION: "0.9.0"
+
+jobs:
+  fmt:
+    runs-on: docker
+    container:
+      image: rust:1.99.0-alpine
+    steps:
+      - run: apk add --no-cache nodejs git
+      - uses: actions/checkout@v4
+      - run: rustup component add rustfmt
+      - run: cargo fmt --check --all
+
+  deny:
+    runs-on: docker
+    container:
+      image: rust:1.99.0-alpine
+    steps:
+      - run: apk add --no-cache nodejs git openssh-client curl
+      - uses: actions/checkout@v4
+      - run: ./scripts/ci/deploy-key.sh
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+      - name: Install cargo-deny (prebuilt)
+        run: |
+          curl -sSfL "https://github.com/EmbarkStudios/cargo-deny/releases/download/${CARGO_DENY_VERSION}/cargo-deny-${CARGO_DENY_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+            | tar xz --strip-components=1 -C /usr/local/bin "cargo-deny-${CARGO_DENY_VERSION}-x86_64-unknown-linux-musl/cargo-deny"
+      - run: cargo-deny check
+
+  clippy:
+    runs-on: docker
+    container:
+      image: rust:1.99.0-alpine
+    services:
+      clippy-db:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+    env:
+      BACKEND_DATABASE_URL: postgres://postgres:postgres@clippy-db/backend
+      CARGO_HOME: ${{ github.workspace }}/.cargo_home
+      RUSTFLAGS: "-C opt-level=0 -C linker=clang-22 -C link-arg=-fuse-ld=lld"
+    steps:
+      - name: Install build dependencies
+        run: apk add --no-cache nodejs git openssh-client curl musl-dev zlib-dev zlib-static zstd-dev zstd-static clang22 lld22 postgresql18-client sqlite --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+      - uses: actions/checkout@v4
+      - run: ./scripts/ci/deploy-key.sh
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+      - uses: actions/cache@v4
+        with:
+          path: .ci/sqlx-cli
+          key: sqlx-cli-${{ env.SQLX_CLI_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .cargo_home/registry/index/
+            .cargo_home/registry/cache/
+            .cargo_home/git/db/
+            target/
+          key: rust-clippy-${{ hashFiles('Cargo.lock') }}
+          restore-keys: rust-clippy-
+      - run: ./scripts/ci/setup-database.sh clippy-db
+      - run: rustup component add clippy
+      - run: cargo clippy --all-targets --workspace --no-deps
+
+  test:
+    runs-on: docker
+    container:
+      image: rust:1.99.0-alpine
+    services:
+      test-db:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+    env:
+      BACKEND_DATABASE_URL: postgres://postgres:postgres@test-db/backend
+      CARGO_HOME: ${{ github.workspace }}/.cargo_home
+      RUSTFLAGS: "-C opt-level=0 -C linker=clang-22 -C link-arg=-fuse-ld=lld"
+    steps:
+      - name: Install build dependencies
+        run: apk add --no-cache nodejs git openssh-client curl musl-dev zlib-dev zlib-static zstd-dev zstd-static clang22 lld22 postgresql18-client sqlite --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+      - uses: actions/checkout@v4
+      - run: ./scripts/ci/deploy-key.sh
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+      - uses: actions/cache@v4
+        with:
+          path: .ci/sqlx-cli
+          key: sqlx-cli-${{ env.SQLX_CLI_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .cargo_home/registry/index/
+            .cargo_home/registry/cache/
+            .cargo_home/git/db/
+            target/
+          key: rust-test-${{ hashFiles('Cargo.lock') }}
+          restore-keys: rust-test-
+      - run: ./scripts/ci/setup-database.sh test-db
+      - run: cargo test --workspace --locked
+
+  frontend:
+    runs-on: docker
+    container:
+      image: node:22
+    env:
+      COREPACK_HOME: ${{ github.workspace }}/.corepack
+      npm_config_store_dir: ${{ github.workspace }}/.pnpm-store
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .corepack
+            .pnpm-store
+          key: pnpm-${{ hashFiles('frontend/pnpm-lock.yaml', 'frontend/package.json') }}
+          restore-keys: pnpm-
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile --prefer-offline
+      - run: pnpm run typecheck
+      - run: pnpm run lint
+      - run: pnpm run format:check
+      - run: pnpm run build
+
+  publish:
+    # Auto deploy on push to prod, manual deploy from dev via workflow_dispatch
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/prod') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/dev')
+    needs: [fmt, deny, clippy, test, frontend]
+    runs-on: docker
+    container:
+      image: docker:latest
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+    strategy:
+      matrix:
+        include:
+          - suffix: ""
+            dockerfile: backend.Dockerfile
+            context: .
+          - suffix: /frontend
+            dockerfile: frontend/Dockerfile
+            context: frontend
+          - suffix: /database-agent
+            dockerfile: database_agent.Dockerfile
+            context: .
+    env:
+      DOCKER_HOST: unix:///var/run/docker.sock
+      REGISTRY: ${{ vars.REGISTRY }}
+      IMAGE_PATH: ${{ vars.IMAGE || github.repository }}${{ matrix.suffix }}
+    steps:
+      - run: apk add --no-cache nodejs git openssh-client
+      - uses: actions/checkout@v4
+      - name: Build and push image
+        run: |
+          REGISTRY="${REGISTRY:-${GITHUB_SERVER_URL#*://}}"
+          IMAGE="$REGISTRY/$IMAGE_PATH"
+          SHORT_SHA="$(echo "$GITHUB_SHA" | cut -c1-8)"
+          echo "${{ secrets.REGISTRY_TOKEN }}" | docker login "$REGISTRY" -u "${{ secrets.REGISTRY_USER }}" --password-stdin
+          # docker-container driver can export the cache of all stages (inline cache only covers the final one).
+          # The builder persists on the host, so its local layer cache is reused across runs too.
+          docker buildx inspect ci-builder >/dev/null 2>&1 || docker buildx create --name ci-builder --driver docker-container
+          docker buildx use ci-builder
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "${{ secrets.DEPLOY_KEY }}" | ssh-add -
+          docker buildx build \
+            --ssh default \
+            --cache-from "type=registry,ref=$IMAGE:buildcache" \
+            --cache-to "type=registry,ref=$IMAGE:buildcache,mode=max,image-manifest=true,oci-mediatypes=true" \
+            --tag "$IMAGE:$SHORT_SHA" --tag "$IMAGE:latest" \
+            --file "${{ matrix.dockerfile }}" \
+            --push "${{ matrix.context }}"

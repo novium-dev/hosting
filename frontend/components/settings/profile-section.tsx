@@ -52,8 +52,7 @@ export function ProfileSection() {
         <Label>{t("common:labels.role")}</Label>
         <div>
           <Badge variant="secondary">
-            {roleLabels[user?.role ?? "user"] ??
-              t("common:roles.user")}
+            {roleLabels[user?.role ?? "user"] ?? t("common:roles.user")}
           </Badge>
         </div>
       </div>

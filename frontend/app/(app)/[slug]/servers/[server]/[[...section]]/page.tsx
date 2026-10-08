@@ -32,10 +32,10 @@ import { ServerConsole } from "../components/server-console";
 import { ServerResourceGraphs } from "../components/resource-graphs";
 import { BackupsManager } from "../components/backups-manager";
 import { FileEditor } from "../components/file-editor";
-import { FilesManager } from "../components/files-manager";
+import { FilesManager } from "../components/files-manager/files-manager";
 import { NetworkPorts } from "../components/network-ports";
 import { RoutesManager } from "../components/routes-manager";
-import { SchedulesManager } from "../components/schedules-manager";
+import { SchedulesManager } from "../components/schedules/schedules-manager";
 import { ServerSettings } from "../components/server-settings";
 import { StartupConfiguration } from "../components/startup-configuration";
 import { StartupVariables } from "../components/startup-variables";
@@ -170,10 +170,12 @@ export default function ClientServerSectionPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild variant="outline">
-              <Link href={`/${slug}`}>
-                {t("servers:shared.backToServerList")}
-              </Link>
+            <Button
+              variant="outline"
+              render={<Link href={`/${slug}`} />}
+              nativeButton={false}
+            >
+              {t("servers:shared.backToServerList")}
             </Button>
           </CardContent>
         </Card>

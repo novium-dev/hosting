@@ -1,10 +1,13 @@
 use super::*;
+use crate::cluster::SyncTarget;
 use crate::db::node::insert_storages;
 use crate::registration::{DatabaseHostRegistration, NodeRegistration};
 use crate::service::internal::internal_service_error::{AuthPasswordError, AuthPublickeyError};
 use crate::{
     Backend,
-    auth::permissions::{ManagementPermissions, ProjectPermissions, Role, ServerPermissions},
+    auth::effective::EffectivePermissions,
+    auth::permissions::{PermissionSet as _, ProjectPermissions, Role, ServerPermissions},
+    db::server::ServerId,
     service::internal::{
         error_internal_daemon_key_invalid::FromInternalDaemonKeyInvalid,
         error_internal_daemon_unreachable::FromInternalDaemonUnreachable,
@@ -19,6 +22,7 @@ use axum_extra::{
     TypedHeader,
     headers::{Authorization, authorization::Bearer},
 };
+use daemon_common::DAEMON_KEY_PREFIX;
 use daemon_common::node::{BackendAuthServerPermissions, SetupNodeConfig};
 use daemon_common::ssh::{DaemonBackendAuthResponse, DaemonBackendAuthServer};
 use daemon_common::{
@@ -27,6 +31,7 @@ use daemon_common::{
     sdk::DaemonSDK,
     service::setup::{SetupService as _, setup_service_error::ConfigError},
 };
+use database_agent_common::AGENT_KEY_PREFIX;
 use database_agent_common::sdk::DatabaseAgentSDK;
 use database_agent_common::service::setup::{
     SetupService as _, setup_service_error::ConfigError as AgentConfigError,
@@ -135,34 +140,50 @@ pub(crate) impl InternalService for Backend {
             let Some(common_name) = csr.params.distinguished_name.get(&DnType::CommonName) else {
                 return Err(DaemonRegisterError::InternalDaemonKeyInvalid);
             };
-            if !common_name.eq(&DnValue::from("node")) {
+            if !common_name.eq(&DnValue::from(DAEMON_KEY_PREFIX)) {
                 return Err(DaemonRegisterError::InternalDaemonKeyInvalid);
             }
 
             let uuid = Uuid::new_v4();
             let signed = self
                 .root_key
-                .sign_daemon_key(&self.root_privkey, csr.public_key, uuid)
+                .sign_daemon_key(&self.root_privkey, csr.public_key, DAEMON_KEY_PREFIX, uuid)
                 .inspect_err(|err| error!("Unable to sign daemon cert: {err:?}"))
                 .map_err(|_err| DaemonRegisterError::InternalDaemonSignFailed)?;
 
             let backend = self.clone();
-            self.database.acquire().await?
-                .transaction(move |tx| Box::pin(async move {
-                    query!("INSERT INTO nodes (id,display,url,default_bind,default_host,ssh_host,ssh_port) VALUES ($1, $2, $3, $4, $5, $6, $7)", &uuid, registration.name, config.base_url.as_str(), &default_bind, &default_host, ssh_host, ssh_port)
-                        .execute(&mut **tx)
-                        .await
-                        .inspect_err(|err| error!("Failed to insert node: {err:?}"))?;
+            let mut conn = self.database.acquire().await?;
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    query!(
+                        "INSERT INTO nodes (id, display, url, default_bind, default_host, ssh_host, ssh_port)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                        &uuid,
+                        registration.name,
+                        config.base_url.as_str(),
+                        &default_bind,
+                        &default_host,
+                        ssh_host,
+                        ssh_port
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to insert node: {err:?}"))?;
 
-                    insert_storages(tx, &uuid, config.storages.keys().cloned().collect(), config.backups.keys().cloned().collect()).await?;
+                    insert_storages(
+                        tx,
+                        &uuid,
+                        config.storages.keys().cloned().collect(),
+                        config.backups.keys().cloned().collect(),
+                    )
+                    .await?;
 
-                    backend.sync_nodes(tx).await?;
+                    backend.sync(tx, SyncTarget::Nodes).await?;
 
-                    Ok::<_, DaemonRegisterError>(())
-                }))
-                .await?;
-
-            Ok(signed.to_vec())
+                    Ok(signed.to_vec())
+                })
+            })
+            .await
         } else {
             Err(DaemonRegisterError::AuthInvalid)
         }
@@ -232,63 +253,59 @@ pub(crate) impl InternalService for Backend {
             let Some(common_name) = csr.params.distinguished_name.get(&DnType::CommonName) else {
                 return Err(DatabaseAgentRegisterError::InternalDaemonKeyInvalid);
             };
-            if !common_name.eq(&DnValue::from("node")) {
+            if !common_name.eq(&DnValue::from(AGENT_KEY_PREFIX)) {
                 return Err(DatabaseAgentRegisterError::InternalDaemonKeyInvalid);
             }
 
             let uuid = Uuid::new_v4();
             let signed = self
                 .root_key
-                .sign_daemon_key(&self.root_privkey, csr.public_key, uuid)
+                .sign_daemon_key(&self.root_privkey, csr.public_key, AGENT_KEY_PREFIX, uuid)
                 .inspect_err(|err| error!("Unable to sign database agent cert: {err:?}"))
                 .map_err(|_err| DatabaseAgentRegisterError::InternalDaemonSignFailed)?;
 
             let backend = self.clone();
-            self.database
-                .acquire()
-                .await?
-                .transaction(move |tx| {
-                    Box::pin(async move {
+            let mut conn = self.database.acquire().await?;
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    query!(
+                        "INSERT INTO database_hosts (id, display, url, public_host) VALUES ($1, $2, $3, $4)",
+                        &uuid,
+                        registration.display,
+                        config.base_url.as_str(),
+                        registration.public_host
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to insert database host: {err:?}"))?;
+
+                    query!(
+                        "INSERT INTO database_host_groups (host, group_id) SELECT $1, id FROM groups WHERE id = ANY($2)",
+                        &uuid,
+                        &registration.groups
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to insert database host groups: {err:?}"))?;
+
+                    for (kind, port) in config.ports {
                         query!(
-                            "INSERT INTO database_hosts (id, display, url, public_host) VALUES ($1, $2, $3, $4)",
+                            "INSERT INTO database_host_ports (host, kind, port) VALUES ($1, $2, $3)",
                             &uuid,
-                            registration.display,
-                            config.base_url.as_str(),
-                            registration.public_host
+                            kind.as_str(),
+                            i32::from(port)
                         )
                         .execute(&mut **tx)
                         .await
-                        .inspect_err(|err| error!("Failed to insert database host: {err:?}"))?;
+                        .inspect_err(|err| error!("Failed to insert database host port: {err:?}"))?;
+                    }
 
-                        query!(
-                            "INSERT INTO database_host_groups (host, group_id) SELECT $1, id FROM groups WHERE id = ANY($2)",
-                            &uuid,
-                            &registration.groups
-                        )
-                        .execute(&mut **tx)
-                        .await
-                        .inspect_err(|err| error!("Failed to insert database host groups: {err:?}"))?;
+                    backend.sync(tx, SyncTarget::DatabaseHosts).await?;
 
-                        for (kind, port) in config.ports {
-                            query!(
-                                "INSERT INTO database_host_ports (host, type, port) VALUES ($1, $2, $3)",
-                                &uuid,
-                                kind.as_str(),
-                                i32::from(port)
-                            )
-                            .execute(&mut **tx)
-                            .await
-                            .inspect_err(|err| error!("Failed to insert database host port: {err:?}"))?;
-                        }
-
-                        backend.sync_database_hosts(tx).await?;
-
-                        Ok::<_, DatabaseAgentRegisterError>(())
-                    })
+                    Ok(signed.to_vec())
                 })
-                .await?;
-
-            Ok(signed.to_vec())
+            })
+            .await
         } else {
             Err(DatabaseAgentRegisterError::AuthInvalid)
         }
@@ -388,89 +405,36 @@ async fn auth_servers_for_user<E>(
     backend: &Backend,
     node: Uuid,
     user_id: i32,
-    role_value: i32,
+    role: i32,
 ) -> Result<DaemonBackendAuthResponse, E>
 where
     E: From<sqlx::Error>,
 {
-    let mut response = Vec::new();
-    let role = u8::try_from(role_value)
-        .ok()
-        .and_then(|role| Role::try_from(role).ok())
-        .unwrap_or(Role::User);
-    let role_permissions = role.project_permissions().bits() | role.server_permissions().bits();
+    let mut conn = backend.database.acquire().await?;
+    let access = EffectivePermissions::load(&mut conn, user_id, Role::from_db(role)).await?;
 
-    let server_records = query!(
-        r#"SELECT
-            servers.name,
-            servers.node_server_id,
-            servers.suspended AS "suspended: bool",
-            nodes.maintenance AS "maintenance: bool",
-            projects.owner,
-            project_users.permissions AS "permissions?"
+    let servers = query!(
+        r#"SELECT id AS "id: ServerId", name, node_server_id
          FROM servers
-         JOIN nodes ON nodes.id = servers.node
-         JOIN projects ON projects.id = servers.project
-         LEFT JOIN project_users
-            ON project_users.project = servers.project
-            AND project_users."user" = $1
-            AND (project_users.expires_at IS NULL OR project_users.expires_at > now())
-         WHERE servers.node = $2
-            AND (
-                projects.owner = $3
-                OR project_users."user" IS NOT NULL
-                OR $4
-            )
-         ORDER BY servers.node_server_id"#,
-        user_id,
-        node,
-        user_id,
-        ProjectPermissions::from_bits_retain(role_permissions).contains(ProjectPermissions::VIEW)
+         WHERE node = $1
+         ORDER BY node_server_id"#,
+        node
     )
-    .fetch_all(&*backend.database)
+    .fetch_all(&mut *conn)
     .await?;
 
-    for server in server_records {
-        let project_permissions = server.permissions;
-        let owner = server.owner;
-        let suspended = server.suspended;
-        let maintenance = server.maintenance;
-
-        let permissions = if owner == user_id {
-            ProjectPermissions::all().bits() | ServerPermissions::all().bits()
-        } else {
-            project_permissions.unwrap_or(role_permissions)
-        };
-
-        let permissions = if (suspended
-            && !role
-                .management_permissions()
-                .contains(ManagementPermissions::SERVER_SUSPEND))
-            || (maintenance
-                && !role
-                    .management_permissions()
-                    .contains(ManagementPermissions::SERVER_MANAGE))
-        {
-            ProjectPermissions::VIEW.bits()
-        } else {
-            permissions
-        };
-
-        if ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW) {
-            response.push(DaemonBackendAuthServer {
-                id: server.node_server_id.cast_unsigned(),
-                name: server.name,
-                permissions: daemon_auth_permissions(permissions),
-            });
-        }
-    }
-
-    Ok(response)
+    Ok(servers
+        .into_iter()
+        .filter(|server| access.has(server.id, ProjectPermissions::VIEW))
+        .map(|server| DaemonBackendAuthServer {
+            id: server.node_server_id.cast_unsigned(),
+            name: server.name,
+            permissions: daemon_auth_permissions(access.permissions(server.id)),
+        })
+        .collect())
 }
 
-fn daemon_auth_permissions(permissions: i64) -> BackendAuthServerPermissions {
-    let server_permissions = ServerPermissions::from_bits_retain(permissions);
-
+fn daemon_auth_permissions(server_permissions: ServerPermissions) -> BackendAuthServerPermissions {
     let mut daemon_permissions = BackendAuthServerPermissions::empty();
     if server_permissions.grants(ServerPermissions::TERMINAL_READ) {
         daemon_permissions |= BackendAuthServerPermissions::TERMINAL_READ;

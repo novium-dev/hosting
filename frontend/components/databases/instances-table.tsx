@@ -11,12 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { ListProjectInstancesResponses } from "@/lib/api";
+
 import { Database } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DATABASE_TYPE_LABELS } from "./database-type";
-
-export type ProjectInstance = ListProjectInstancesResponses[200][number];
+import type { ProjectInstance } from "@/types/api";
+import { formatOptionalMib } from "@/lib/format";
 
 interface InstancesTableProps {
   slug: string;
@@ -42,11 +42,6 @@ function StateBadge({ instance }: { instance: ProjectInstance }) {
     default:
       return <Badge variant="outline">{t("common:status.offline")}</Badge>;
   }
-}
-
-function formatMib(value: number | null | undefined) {
-  if (!value) return "—";
-  return value >= 1024 ? `${(value / 1024).toFixed(1)} GiB` : `${value} MiB`;
 }
 
 export function InstancesTable({
@@ -125,7 +120,7 @@ export function InstancesTable({
                 {instance.host}:{instance.port}
               </TableCell>
               <TableCell className="text-muted-foreground">
-                {formatMib(instance.memory_limit)}
+                {formatOptionalMib(instance.memory_limit)}
               </TableCell>
             </TableRow>
           ))}

@@ -485,7 +485,6 @@ export function allowsOfflineWrite(status: ServerLifecycleState): boolean {
   return status === "stopped" || status === "unknown";
 }
 
-
 /**
  * Best-effort control availability derived from the lifecycle state, used
  * before the websocket delivers authoritative flags.
@@ -503,3 +502,10 @@ export function controlsFromState(state: ServerLifecycleState): ControlState {
       return { canStart: true, canStop: false, canKill: false };
   }
 }
+
+export const DISK_USAGE_EVENT = "server-disk-usage";
+
+export type DiskUsageEventDetail = {
+  serverId: string;
+  percent: number | null;
+};

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import useSWR from "swr";
 import { Copy, ExternalLink, Globe, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Trans, useTranslation } from "react-i18next";
@@ -60,6 +61,7 @@ import {
   type ListRoutesResponse,
   type NetworkPort,
 } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type RoutesManagerProps = {
   serverId: string;
@@ -87,19 +89,60 @@ function serviceName(name: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-function errorMessage(
-  error: { error?: { msg?: string } } | undefined,
-  fallback: string,
-) {
-  return error?.error?.msg ?? fallback;
-}
+const NO_ROUTE_DATA: {
+  routes: Route[];
+  domains: Domain[];
+  ports: NetworkPort[];
+} = {
+  routes: [],
+  domains: [],
+  ports: [],
+};
 
 export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
   const { t } = useTranslation();
-  const [routes, setRoutes] = useState<Route[]>([]);
-  const [domains, setDomains] = useState<Domain[]>([]);
-  const [ports, setPorts] = useState<NetworkPort[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    data,
+    isValidating: isLoading,
+    mutate,
+  } = useSWR(
+    ["server-routes", serverId],
+    async () => {
+      const [routesResponse, serverResponse] = await Promise.all([
+        listRoutes({ path: { server_id: serverId } }),
+        serverInfo({ path: { server_id: serverId } }),
+      ]);
+
+      if (routesResponse.error || !routesResponse.data) {
+        throw new Error(
+          apiErrorMessage(
+            routesResponse.error,
+            t("servers:routes.toasts.loadFailed"),
+          ),
+        );
+      }
+
+      const project = serverResponse.data?.project;
+      const domainsResponse = await listRouteDomains(
+        project ? { query: { project } } : {},
+      );
+
+      return {
+        routes: routesResponse.data,
+        ports: serverResponse.data?.network?.ports ?? [],
+        domains: domainsResponse.data ?? [],
+      };
+    },
+    {
+      onError: (error) =>
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : t("servers:routes.toasts.loadFailed"),
+        ),
+    },
+  );
+  const { routes, domains, ports } = data ?? NO_ROUTE_DATA;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Route | null>(null);
@@ -111,45 +154,8 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
   const [https, setHttps] = useState(true);
 
   const refresh = useCallback(async () => {
-    setIsLoading(true);
-
-    try {
-      const [routesResponse, serverResponse] = await Promise.all([
-        listRoutes({ path: { server_id: serverId } }),
-        serverInfo({ path: { server_id: serverId } }),
-      ]);
-
-      if (routesResponse.error || !routesResponse.data) {
-        throw new Error(
-          errorMessage(
-            routesResponse.error,
-            t("servers:routes.toasts.loadFailed"),
-          ),
-        );
-      }
-
-      setRoutes(routesResponse.data);
-      setPorts(serverResponse.data?.network?.ports ?? []);
-
-      const project = serverResponse.data?.project;
-      const domainsResponse = await listRouteDomains(
-        project ? { query: { project } } : {},
-      );
-      setDomains(domainsResponse.data ?? []);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t("servers:routes.toasts.loadFailed"),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [serverId, t]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    await mutate();
+  }, [mutate]);
 
   const selectedDomain = useMemo(
     () => domains.find((domain) => String(domain.id) === domainId),
@@ -258,7 +264,10 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
 
       if (response.error || !response.data) {
         throw new Error(
-          errorMessage(response.error, t("servers:routes.toasts.createFailed")),
+          apiErrorMessage(
+            response.error,
+            t("servers:routes.toasts.createFailed"),
+          ),
         );
       }
 
@@ -299,7 +308,10 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
 
       if (response.error) {
         throw new Error(
-          errorMessage(response.error, t("servers:routes.toasts.deleteFailed")),
+          apiErrorMessage(
+            response.error,
+            t("servers:routes.toasts.deleteFailed"),
+          ),
         );
       }
 
@@ -324,7 +336,9 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
               <CardTitle>{t("servers:routes.title")}</CardTitle>
-              <CardDescription>{t("servers:routes.description")}</CardDescription>
+              <CardDescription>
+                {t("servers:routes.description")}
+              </CardDescription>
             </div>
             {canManage ? (
               <Button
@@ -457,7 +471,24 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                 {t("servers:routes.manualDns.description")}
               </CardDescription>
             </div>
-            <Select value={manualPortId} onValueChange={setManualPortId}>
+            <Select
+              items={[
+                ...ports.map((port) => ({
+                  value: String(port.id),
+                  label: (
+                    <>
+                      {port.name}— {port.host}:{port.external_port_start}(
+                      {port.http
+                        ? t("common:resources.http")
+                        : String(port.protocol).toUpperCase()}
+                      )
+                    </>
+                  ),
+                })),
+              ]}
+              value={manualPortId}
+              onValueChange={(value) => setManualPortId(value ?? "")}
+            >
               <SelectTrigger className="w-full sm:w-[280px]">
                 <SelectValue placeholder={t("common:labels.port")} />
               </SelectTrigger>
@@ -558,8 +589,22 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                   }
                 />
                 <Select
+                  items={[
+                    ...domains.map((domain) => ({
+                      value: String(domain.id),
+                      label: (
+                        <>
+                          .{domain.domain}
+                          {domain.private
+                            ? ` (${t("servers:routes.privateLabel")})`
+                            : ""}
+                        </>
+                      ),
+                    })),
+                  ]}
                   value={domainId}
                   onValueChange={(value) => {
+                    if (value === null) return;
                     setDomainId(value);
                     const domain = domains.find(
                       (entry) => String(entry.id) === value,
@@ -605,7 +650,24 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
 
             <div className="space-y-2">
               <Label htmlFor="route-port">{t("common:labels.port")}</Label>
-              <Select value={portId} onValueChange={setPortId}>
+              <Select
+                items={[
+                  ...selectablePorts.map((port) => ({
+                    value: String(port.id),
+                    label: (
+                      <>
+                        {port.name}— {port.host}:{port.external_port_start}(
+                        {port.http
+                          ? t("common:resources.http")
+                          : String(port.protocol).toUpperCase()}
+                        )
+                      </>
+                    ),
+                  })),
+                ]}
+                value={portId}
+                onValueChange={(value) => setPortId(value ?? "")}
+              >
                 <SelectTrigger id="route-port" className="w-full">
                   <SelectValue placeholder={t("common:labels.port")} />
                 </SelectTrigger>
@@ -658,7 +720,8 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                   i18nKey="servers:routes.dialog.createsRecordHelp"
                   values={{
                     record: `_${srvService}._${srvProtocol}.${
-                      subdomain || t("servers:routes.dialog.yourNamePlaceholder")
+                      subdomain ||
+                      t("servers:routes.dialog.yourNamePlaceholder")
                     }.${
                       selectedDomain?.domain ??
                       t("servers:routes.dialog.theDomainPlaceholder")
@@ -715,10 +778,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={isSubmitting}
-              onClick={(event) => {
-                event.preventDefault();
-                void remove();
-              }}
+              onClick={() => void remove()}
             >
               {t("common:actions.delete")}
             </AlertDialogAction>

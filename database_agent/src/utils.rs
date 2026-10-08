@@ -37,8 +37,6 @@ pub fn generate_password() -> String {
     String::from_utf8_lossy(&password).into_owned()
 }
 
-/// Compares two byte strings without leaking where they first differ. Unequal
-/// lengths compare false, in constant time for the common length.
 #[must_use]
 pub fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
     left.ct_eq(right).into()
@@ -154,3 +152,13 @@ pub trait SafeArrayExt: AsRef<[u8]> {
 }
 
 impl<Target: AsRef<[u8]> + ?Sized> SafeArrayExt for Target {}
+
+pub async fn detached<F>(future: F) -> F::Output
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    tokio::spawn(future)
+        .await
+        .expect("a detached task panicked")
+}

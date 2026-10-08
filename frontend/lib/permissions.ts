@@ -92,7 +92,10 @@ function contains(permissions: number, permission: number) {
 
 function withServerDependencies(permission: number) {
   let result = permission;
-  if (result !== 0) result += contains(result, ServerPermission.VIEW) ? 0 : ServerPermission.VIEW;
+  if (result !== 0)
+    result += contains(result, ServerPermission.VIEW)
+      ? 0
+      : ServerPermission.VIEW;
 
   for (const [base, dependency] of serverDependencyMap) {
     if (contains(result, base) && !contains(result, dependency)) {
@@ -147,7 +150,11 @@ export function hasPermissionBit(permissions: number, bit: number) {
 }
 
 /** Toggle a single permission bit on/off, preserving every other bit. */
-export function setPermissionBit(permissions: number, bit: number, on: boolean) {
+export function setPermissionBit(
+  permissions: number,
+  bit: number,
+  on: boolean,
+) {
   const current = BigInt(permissions);
   const mask = BigInt(bit);
   return Number(on ? current | mask : current & ~mask);
@@ -184,7 +191,10 @@ export const SERVER_PERMISSION_GROUPS: {
     group: "General",
     permissions: [
       { bit: ServerPermission.VIEW, label: "View server" },
-      { bit: ServerPermission.POWER, label: "Control power (start/stop/restart)" },
+      {
+        bit: ServerPermission.POWER,
+        label: "Control power (start/stop/restart)",
+      },
     ],
   },
   {
@@ -231,20 +241,31 @@ export const SERVER_PERMISSION_GROUPS: {
   },
   {
     group: "Network",
-    permissions: [{ bit: ServerPermission.NETWORK_VIEW, label: "View network & ports" }],
+    permissions: [
+      { bit: ServerPermission.NETWORK_VIEW, label: "View network & ports" },
+    ],
   },
   {
     group: "Databases",
     permissions: [
-      { bit: ServerPermission.DATABASE_VIEW, label: "View databases & credentials" },
-      { bit: ServerPermission.DATABASE_MANAGE, label: "Create & delete databases" },
+      {
+        bit: ServerPermission.DATABASE_VIEW,
+        label: "View databases & credentials",
+      },
+      {
+        bit: ServerPermission.DATABASE_MANAGE,
+        label: "Create & delete databases",
+      },
     ],
   },
   {
     group: "Schedules",
     permissions: [
       { bit: ServerPermission.SCHEDULE_VIEW, label: "View schedules" },
-      { bit: ServerPermission.SCHEDULE_MANAGE, label: "Create & delete schedules" },
+      {
+        bit: ServerPermission.SCHEDULE_MANAGE,
+        label: "Create & delete schedules",
+      },
     ],
   },
 ];
@@ -260,7 +281,10 @@ export const MANAGEMENT_PERMISSION_GROUPS: {
   {
     group: "Servers",
     permissions: [
-      { bit: ManagementPermission.SERVER_MANAGE, label: "Create & manage servers" },
+      {
+        bit: ManagementPermission.SERVER_MANAGE,
+        label: "Create & manage servers",
+      },
       { bit: ManagementPermission.SERVER_SUSPEND, label: "Suspend servers" },
       { bit: ManagementPermission.SERVER_DELETE, label: "Delete servers" },
       {

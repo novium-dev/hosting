@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
 } from "react";
 
 type Theme = "dark" | "light" | "system";
@@ -59,6 +60,12 @@ function applyTheme(resolved: ResolvedTheme, disableTransition: boolean) {
   restore?.();
 }
 
+function subscribeToSystemTheme(onChange: () => void) {
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
 export function ThemeProvider({
   children,
   defaultTheme = "system",
@@ -68,29 +75,16 @@ export function ThemeProvider({
   const [theme, setThemeState] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme | null) ?? defaultTheme,
   );
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
-    theme === "system" ? getSystemTheme() : theme,
+  const systemTheme = useSyncExternalStore(
+    subscribeToSystemTheme,
+    getSystemTheme,
+    () => "light" as const,
   );
+  const resolvedTheme: ResolvedTheme = theme === "system" ? systemTheme : theme;
 
-  // Apply the current theme to <html> whenever it changes.
   useEffect(() => {
-    const resolved = theme === "system" ? getSystemTheme() : theme;
-    setResolvedTheme(resolved);
-    applyTheme(resolved, disableTransitionOnChange);
-  }, [theme, disableTransitionOnChange]);
-
-  // Follow OS preference changes while in "system" mode.
-  useEffect(() => {
-    if (theme !== "system") return;
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => {
-      const resolved = getSystemTheme();
-      setResolvedTheme(resolved);
-      applyTheme(resolved, disableTransitionOnChange);
-    };
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, [theme, disableTransitionOnChange]);
+    applyTheme(resolvedTheme, disableTransitionOnChange);
+  }, [resolvedTheme, disableTransitionOnChange]);
 
   const setTheme = useCallback(
     (next: Theme) => {

@@ -110,7 +110,14 @@ export async function uploadToSignedUrl({
   formData.append("file", file, fileName);
   onProgress?.(0, file.size);
 
-  const post = await sendUpload(url, "POST", formData, null, onProgress, signal);
+  const post = await sendUpload(
+    url,
+    "POST",
+    formData,
+    null,
+    onProgress,
+    signal,
+  );
 
   if (post.ok) {
     onProgress?.(file.size, file.size);

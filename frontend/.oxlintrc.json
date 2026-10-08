@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "oxc"],
+  "env": {
+    "browser": true
+  },
+  "ignorePatterns": ["lib/api/**", "dist/**", ".next/**"],
+  "rules": {
+    "no-unused-vars": "off",
+    "typescript/no-explicit-any": "off"
+  },
+  "overrides": [
+    {
+      "files": [
+        "app/(app)/[[]slug]/servers/[[]server]/components/console/log-console.tsx"
+      ],
+      "rules": {
+        "react/incompatible-library": "off"
+      }
+    }
+  ]
+}

@@ -6,6 +6,7 @@ use crate::service::admin::group::group_admin_service_error::{
     AssignGroupNodeError, CreateGroupError, DeleteGroupError, ListGroupsError, RemoveGroupNodeError,
 };
 use crate::service::*;
+use crate::utils::task::detached;
 use daemon_common::service::group::group_service_error::ConfigureGroupError;
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
@@ -151,43 +152,46 @@ pub(crate) impl GroupAdminService for Backend {
 
         let backend = self.clone();
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                let group = group_path(&mut **tx, group_id)
-                    .await?
-                    .ok_or(DeleteGroupError::GroupNotFound)?;
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    let group = group_path(&mut **tx, group_id)
+                        .await?
+                        .ok_or(DeleteGroupError::GroupNotFound)?;
 
-                let has_subgroups = query_scalar!(
-                    r#"SELECT EXISTS (SELECT 1 FROM groups WHERE parent = $1) AS "exists!""#,
-                    group_id
-                )
-                .fetch_one(&mut **tx)
-                .await?;
-                if has_subgroups {
-                    return Err(DeleteGroupError::GroupHasSubgroups);
-                }
+                    let has_subgroups = query_scalar!(
+                        r#"SELECT EXISTS (SELECT 1 FROM groups WHERE parent = $1) AS "exists!""#,
+                        group_id
+                    )
+                    .fetch_one(&mut **tx)
+                    .await?;
+                    if has_subgroups {
+                        return Err(DeleteGroupError::GroupHasSubgroups);
+                    }
 
-                let members: Vec<Uuid> =
-                    query_scalar!("SELECT node FROM node_groups WHERE group_id = $1", group_id)
-                        .fetch_all(&mut **tx)
+                    let members: Vec<Uuid> =
+                        query_scalar!("SELECT node FROM node_groups WHERE group_id = $1", group_id)
+                            .fetch_all(&mut **tx)
+                            .await?;
+
+                    query!("DELETE FROM groups WHERE id = $1", group_id)
+                        .execute(&mut **tx)
                         .await?;
 
-                query!("DELETE FROM groups WHERE id = $1", group_id)
-                    .execute(&mut **tx)
-                    .await?;
+                    let nodes = backend.nodes.read().await.clone();
+                    for node in members.iter().filter_map(|id| nodes.get(id)) {
+                        node.delete_group(group.daemon_name.clone())
+                            .await
+                            .map_err(|err| {
+                                error!("Failed to delete group on node {}: {err:?}", node.id);
+                                DeleteGroupError::NodeFailure
+                            })?;
+                    }
 
-                let nodes = backend.nodes.read().await.clone();
-                for node in members.iter().filter_map(|id| nodes.get(id)) {
-                    node.delete_group(group.daemon_name.clone())
-                        .await
-                        .map_err(|err| {
-                            error!("Failed to delete group on node {}: {err:?}", node.id);
-                            DeleteGroupError::NodeFailure
-                        })?;
-                }
-
-                Ok(())
+                    Ok(())
+                })
             })
+            .await
         })
         .await
     }
@@ -222,51 +226,52 @@ pub(crate) impl GroupAdminService for Backend {
             .ok_or(AssignGroupNodeError::NodeNotFound)?;
 
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                let group = group_path(&mut **tx, group_id)
-                    .await?
-                    .ok_or(AssignGroupNodeError::GroupNotFound)?;
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    let group = group_path(&mut **tx, group_id)
+                        .await?
+                        .ok_or(AssignGroupNodeError::GroupNotFound)?;
 
-                if let Some(parent) = group.parent {
-                    let parent_on_node = query_scalar!(
-                        r#"SELECT EXISTS (SELECT 1 FROM node_groups WHERE node = $1 AND group_id = $2) AS "exists!""#,
-                        node_id,
-                        parent
-                    )
-                    .fetch_one(&mut **tx)
-                    .await?;
-                    if !parent_on_node {
-                        return Err(AssignGroupNodeError::GroupParentNotOnNode);
+                    if let Some(parent) = group.parent {
+                        let parent_on_node = query_scalar!(
+                            r#"SELECT EXISTS (SELECT 1 FROM node_groups WHERE node = $1 AND group_id = $2) AS "exists!""#,
+                            node_id,
+                            parent
+                        )
+                        .fetch_one(&mut **tx)
+                        .await?;
+                        if !parent_on_node {
+                            return Err(AssignGroupNodeError::GroupParentNotOnNode);
+                        }
                     }
-                }
 
-                query!(
-                    r#"INSERT INTO node_groups (node, group_id, cpu, ram, swap) VALUES ($1, $2, $3, $4, $5)
-                       ON CONFLICT (node, group_id) DO UPDATE SET cpu = $3, ram = $4, swap = $5"#,
-                    node_id,
-                    group_id,
-                    limits.cpu,
-                    limits.ram.map(u32::cast_signed),
-                    limits.swap.map(u32::cast_signed),
-                )
-                .execute(&mut **tx)
-                .await?;
+                    query!(
+                        r#"INSERT INTO node_groups (node, group_id, cpu, ram, swap) VALUES ($1, $2, $3, $4, $5)
+                           ON CONFLICT (node, group_id) DO UPDATE SET cpu = $3, ram = $4, swap = $5"#,
+                        node_id,
+                        group_id,
+                        limits.cpu,
+                        limits.ram.map(u32::cast_signed),
+                        limits.swap.map(u32::cast_signed),
+                    )
+                    .execute(&mut **tx)
+                    .await?;
 
-                node.configure_group(group.daemon_name, limits.cpu, limits.ram, limits.swap)
-                    .await
-                    .map_err(|err| match err {
-                        ConfigureGroupError::GroupInvalidName => {
-                            AssignGroupNodeError::GroupInvalidName
-                        }
-                        err => {
-                            error!("Failed to configure group: {err:?}");
-                            AssignGroupNodeError::NodeFailure
-                        }
-                    })?;
+                    node.configure_group(group.daemon_name, limits.cpu, limits.ram, limits.swap)
+                        .await
+                        .map_err(|err| match err {
+                            ConfigureGroupError::GroupInvalidName => AssignGroupNodeError::GroupInvalidName,
+                            err => {
+                                error!("Failed to configure group: {err:?}");
+                                AssignGroupNodeError::NodeFailure
+                            }
+                        })?;
 
-                Ok(())
+                    Ok(())
+                })
             })
+            .await
         })
         .await
     }
@@ -295,46 +300,49 @@ pub(crate) impl GroupAdminService for Backend {
             .ok_or(RemoveGroupNodeError::NodeNotFound)?;
 
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                let group = group_path(&mut **tx, group_id)
-                    .await?
-                    .ok_or(RemoveGroupNodeError::GroupNotOnNode)?;
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    let group = group_path(&mut **tx, group_id)
+                        .await?
+                        .ok_or(RemoveGroupNodeError::GroupNotOnNode)?;
 
-                let subgroups_on_node = query_scalar!(
-                    r#"SELECT EXISTS (
+                    let subgroups_on_node = query_scalar!(
+                        r#"SELECT EXISTS (
                            SELECT 1 FROM node_groups
                            JOIN groups ON groups.id = node_groups.group_id
                            WHERE node_groups.node = $1 AND groups.parent = $2
                        ) AS "exists!""#,
-                    node_id,
-                    group_id
-                )
-                .fetch_one(&mut **tx)
-                .await?;
-                if subgroups_on_node {
-                    return Err(RemoveGroupNodeError::GroupSubgroupsOnNode);
-                }
+                        node_id,
+                        group_id
+                    )
+                    .fetch_one(&mut **tx)
+                    .await?;
+                    if subgroups_on_node {
+                        return Err(RemoveGroupNodeError::GroupSubgroupsOnNode);
+                    }
 
-                let deleted = query!(
-                    "DELETE FROM node_groups WHERE node = $1 AND group_id = $2",
-                    node_id,
-                    group_id,
-                )
-                .execute(&mut **tx)
-                .await?
-                .rows_affected();
-                if deleted == 0 {
-                    return Err(RemoveGroupNodeError::GroupNotOnNode);
-                }
+                    let deleted = query!(
+                        "DELETE FROM node_groups WHERE node = $1 AND group_id = $2",
+                        node_id,
+                        group_id,
+                    )
+                    .execute(&mut **tx)
+                    .await?
+                    .rows_affected();
+                    if deleted == 0 {
+                        return Err(RemoveGroupNodeError::GroupNotOnNode);
+                    }
 
-                node.delete_group(group.daemon_name).await.map_err(|err| {
-                    error!("Failed to delete group: {err:?}");
-                    RemoveGroupNodeError::NodeFailure
-                })?;
+                    node.delete_group(group.daemon_name).await.map_err(|err| {
+                        error!("Failed to delete group: {err:?}");
+                        RemoveGroupNodeError::NodeFailure
+                    })?;
 
-                Ok(())
+                    Ok(())
+                })
             })
+            .await
         })
         .await
     }

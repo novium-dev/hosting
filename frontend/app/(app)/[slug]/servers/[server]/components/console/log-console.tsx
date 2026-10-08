@@ -35,6 +35,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -214,6 +215,8 @@ function loadCommandHistory() {
 }
 
 export default function LogConsole({ serverId }: { serverId: string }) {
+  "use no memo";
+
   const { t } = useTranslation();
 
   const {
@@ -261,7 +264,9 @@ export default function LogConsole({ serverId }: { serverId: string }) {
     bufferRef.current = [];
     setLines((previous) => {
       const next = previous.concat(pending);
-      return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
+      return next.length > MAX_LINES
+        ? next.slice(next.length - MAX_LINES)
+        : next;
     });
   }, []);
 
@@ -432,12 +437,9 @@ export default function LogConsole({ serverId }: { serverId: string }) {
     return result;
   }, [visibleLines, groupOverrides]);
 
-  const toggleGroup = useCallback(
-    (id: number, expanded: boolean) => {
-      setGroupOverrides((previous) => ({ ...previous, [id]: expanded }));
-    },
-    [],
-  );
+  const toggleGroup = useCallback((id: number, expanded: boolean) => {
+    setGroupOverrides((previous) => ({ ...previous, [id]: expanded }));
+  }, []);
 
   const sourceColumn = showSource && anySource;
 
@@ -659,38 +661,41 @@ export default function LogConsole({ serverId }: { serverId: string }) {
           </Button>
 
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant={hiddenLevels.length > 0 ? "secondary" : "ghost"}
-                size="icon"
-                className="size-8"
-                title={t("servers:console.toolbar.levels")}
-                aria-label={t("servers:console.toolbar.levels")}
-              >
-                <ListFilter className="size-4" />
-              </Button>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant={hiddenLevels.length > 0 ? "secondary" : "ghost"}
+                  size="icon"
+                  className="size-8"
+                  title={t("servers:console.toolbar.levels")}
+                  aria-label={t("servers:console.toolbar.levels")}
+                />
+              }
+            >
+              <ListFilter className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuLabel>
-                {t("servers:console.toolbar.levels")}
-              </DropdownMenuLabel>
-              {consoleLevels.map((level) => (
-                <DropdownMenuCheckboxItem
-                  key={level}
-                  checked={!hiddenLevels.includes(level)}
-                  onCheckedChange={() => toggleLevel(level)}
-                  onSelect={(event) => event.preventDefault()}
-                >
-                  <span className={LEVEL_TEXT[level]}>
-                    {t(`servers:console.levels.${level}`)}
-                  </span>
-                </DropdownMenuCheckboxItem>
-              ))}
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>
+                  {t("servers:console.toolbar.levels")}
+                </DropdownMenuLabel>
+                {consoleLevels.map((level) => (
+                  <DropdownMenuCheckboxItem
+                    key={level}
+                    checked={!hiddenLevels.includes(level)}
+                    onCheckedChange={() => toggleLevel(level)}
+                  >
+                    <span className={LEVEL_TEXT[level]}>
+                      {t(`servers:console.levels.${level}`)}
+                    </span>
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 disabled={hiddenLevels.length === 0}
-                onSelect={() => resetLevels()}
+                onClick={() => resetLevels()}
               >
                 {t("common:actions.reset")}
               </DropdownMenuItem>
@@ -698,35 +703,39 @@ export default function LogConsole({ serverId }: { serverId: string }) {
           </DropdownMenu>
 
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                disabled={visibleLines.length === 0}
-                aria-label={t("servers:console.toolbar.copy")}
-                onClick={() => void copyVisible()}
-              >
-                <Copy className="size-4" />
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  disabled={visibleLines.length === 0}
+                  aria-label={t("servers:console.toolbar.copy")}
+                  onClick={() => void copyVisible()}
+                />
+              }
+            >
+              <Copy className="size-4" />
             </TooltipTrigger>
             <TooltipContent>{t("servers:console.toolbar.copy")}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                disabled={lines.length === 0}
-                aria-label={t("servers:console.toolbar.download")}
-                onClick={download}
-              >
-                <Download className="size-4" />
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  disabled={lines.length === 0}
+                  aria-label={t("servers:console.toolbar.download")}
+                  onClick={download}
+                />
+              }
+            >
+              <Download className="size-4" />
             </TooltipTrigger>
             <TooltipContent>
               {t("servers:console.toolbar.download")}
@@ -734,39 +743,39 @@ export default function LogConsole({ serverId }: { serverId: string }) {
           </Tooltip>
 
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                aria-label={t("servers:console.toolbar.more")}
-              >
-                <MoreVertical className="size-4" />
-              </Button>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  aria-label={t("servers:console.toolbar.more")}
+                />
+              }
+            >
+              <MoreVertical className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuCheckboxItem
                 checked={showSource}
                 onCheckedChange={toggleSource}
-                onSelect={(event) => event.preventDefault()}
               >
                 {t("servers:console.toolbar.source")}
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={wrapLines}
                 onCheckedChange={toggleWrapLines}
-                onSelect={(event) => event.preventDefault()}
               >
                 <WrapText className="size-4" />
                 {t("servers:console.toolbar.wrap")}
               </DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => reconnect()}>
+              <DropdownMenuItem onClick={() => reconnect()}>
                 <RotateCw className="size-4" />
                 {t("servers:console.toolbar.reconnect")}
               </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onSelect={clear}>
+              <DropdownMenuItem variant="destructive" onClick={clear}>
                 <Trash2 className="size-4" />
                 {t("servers:console.toolbar.clear")}
               </DropdownMenuItem>
@@ -936,7 +945,8 @@ export default function LogConsole({ serverId }: { serverId: string }) {
           variant="outline"
           className={cn(
             "shrink-0 gap-1.5 font-normal",
-            isLive && "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
+            isLive &&
+              "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
           )}
         >
           <span

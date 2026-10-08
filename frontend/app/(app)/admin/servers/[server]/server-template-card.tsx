@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import { Boxes, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -71,8 +72,10 @@ export function ServerTemplateCard({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:servers.templateCard.changeError"),
+          ),
         );
         return;
       }
@@ -115,7 +118,7 @@ export function ServerTemplateCard({
             </Label>
             <Select
               value={template}
-              onValueChange={setTemplate}
+              onValueChange={(value) => setTemplate(value ?? "")}
               disabled={!canManage}
             >
               <SelectTrigger id="template" className="w-full sm:w-72">
@@ -199,26 +202,24 @@ export function ServerTemplateCard({
                     : "",
               })}
             </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2">
-                <p>
-                  {t("admin-infra:servers.templateCard.switchDescription", {
-                    template,
-                  })}
-                </p>
-                <ul className="list-inside list-disc">
-                  <li>
-                    {backup
-                      ? t("admin-infra:servers.templateCard.backupTakenYes")
-                      : t("admin-infra:servers.templateCard.backupTakenNo")}
-                  </li>
-                  <li>
-                    {wipe
-                      ? t("admin-infra:servers.templateCard.wipeYes")
-                      : t("admin-infra:servers.templateCard.wipeNo")}
-                  </li>
-                </ul>
-              </div>
+            <AlertDialogDescription render={<div className="space-y-2" />}>
+              <p>
+                {t("admin-infra:servers.templateCard.switchDescription", {
+                  template,
+                })}
+              </p>
+              <ul className="list-inside list-disc">
+                <li>
+                  {backup
+                    ? t("admin-infra:servers.templateCard.backupTakenYes")
+                    : t("admin-infra:servers.templateCard.backupTakenNo")}
+                </li>
+                <li>
+                  {wipe
+                    ? t("admin-infra:servers.templateCard.wipeYes")
+                    : t("admin-infra:servers.templateCard.wipeNo")}
+                </li>
+              </ul>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -226,10 +227,7 @@ export function ServerTemplateCard({
               {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void onSwitch();
-              }}
+              onClick={() => void onSwitch()}
               disabled={isSwitching}
             >
               {isSwitching

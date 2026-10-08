@@ -1,4 +1,4 @@
-import type { z } from "zod";
+import { z } from "zod";
 
 // Minimal client-side replacement for next-safe-action. Actions are plain async
 // functions that run in the browser and hit the backend API (cookie auth). The
@@ -25,7 +25,7 @@ class ActionBuilder<I> {
   constructor(private readonly schema?: z.ZodType<I>) {}
 
   inputSchema<S extends z.ZodType>(schema: S): ActionBuilder<z.infer<S>> {
-    return new ActionBuilder(schema);
+    return new ActionBuilder<z.infer<S>>(schema as z.ZodType<z.infer<S>>);
   }
 
   action<O>(handler: Handler<I, O>): SafeActionFn<I, O> {
@@ -35,7 +35,7 @@ class ActionBuilder<I> {
       if (schema) {
         const parsed = schema.safeParse(input);
         if (!parsed.success) {
-          return { validationErrors: parsed.error.flatten() };
+          return { validationErrors: z.flattenError(parsed.error) };
         }
         parsedInput = parsed.data;
       }

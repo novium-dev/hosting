@@ -92,7 +92,7 @@ const TextEllipsis = React.forwardRef<HTMLDivElement, TextEllipsisProps>(
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>{content}</TooltipTrigger>
+          <TooltipTrigger render={content} />
           <TooltipContent side="top" align="start">
             <p className="text-xs">{children}</p>
           </TooltipContent>

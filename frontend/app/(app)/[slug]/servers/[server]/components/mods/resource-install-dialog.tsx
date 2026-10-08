@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { Download, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-
 import {
   installResourceVersionAction,
   listResourceVersionsAction,
@@ -55,7 +54,11 @@ export function ResourceInstallDialog({
   onInstalled,
 }: ResourceInstallDialogProps) {
   const { t } = useTranslation();
-  const [versionId, setVersionId] = useState("");
+  const projectKey = project ? `${project.provider}:${project.id}` : "";
+  const [versionChoice, setVersionChoice] = useState({
+    projectKey,
+    versionId: "",
+  });
   const [isInstalling, setIsInstalling] = useState(false);
 
   const { data: versions = [], isLoading } = useSWR(
@@ -84,14 +87,12 @@ export function ResourceInstallDialog({
     },
   );
 
-  useEffect(() => {
-    setVersionId("");
-  }, [project?.provider, project?.id]);
-
-  useEffect(() => {
-    if (versionId || versions.length === 0) return;
-    setVersionId(versions[0].id);
-  }, [versionId, versions]);
+  const versionId =
+    (versionChoice.projectKey === projectKey && versionChoice.versionId) ||
+    versions[0]?.id ||
+    "";
+  const setVersionId = (next: string) =>
+    setVersionChoice({ projectKey, versionId: next });
 
   const version = versions.find((entry) => entry.id === versionId) ?? null;
 
@@ -166,8 +167,14 @@ export function ResourceInstallDialog({
                 {t("servers-management:mods.versionLabel")}
               </Label>
               <Select
+                items={[
+                  ...versions.map((entry) => ({
+                    value: entry.id,
+                    label: versionLabel(entry),
+                  })),
+                ]}
                 value={versionId}
-                onValueChange={setVersionId}
+                onValueChange={(value) => setVersionId(value ?? "")}
                 disabled={isLoading || versions.length === 0}
               >
                 <SelectTrigger id="resource-version" className="w-full">

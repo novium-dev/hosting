@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { apiErrorMessage } from "@/lib/api-error";
+import { useCallback, useMemo, useState } from "react";
+import useSWR from "swr";
 import {
   Download,
   HardDrive,
@@ -131,8 +133,26 @@ export function BackupsManager({
   const { t } = useTranslation();
   const storageLock = useServerTaskLock(serverId, "storage", "read");
   const restoreLock = useServerTaskLock(serverId, "storage", "write");
-  const [backups, setBackups] = useState<BackupRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    data: backups = [],
+    isValidating: isLoading,
+    mutate,
+  } = useSWR<BackupRow[]>(
+    ["server-backups", serverId],
+    async () => {
+      const response = await listBackups({
+        path: { server_id: serverId },
+      });
+
+      if (response.error || !response.data) {
+        throw new Error(t("servers:backups.toasts.loadFailed"));
+      }
+
+      const sorted = [...response.data].sort((a, b) => b.time - a.time);
+      return sorted;
+    },
+    { onError: () => toast.error(t("servers:backups.toasts.loadFailed")) },
+  );
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
@@ -153,31 +173,9 @@ export function BackupsManager({
     () => (selectedBackup ? backupIdFromRow(selectedBackup) : null),
     [selectedBackup],
   );
-
   const refresh = useCallback(async () => {
-    setIsLoading(true);
-
-    try {
-      const response = await listBackups({
-        path: { server_id: serverId },
-      });
-
-      if (response.error || !response.data) {
-        throw new Error(t("servers:backups.toasts.loadFailed"));
-      }
-
-      const sorted = [...response.data].sort((a, b) => b.time - a.time);
-      setBackups(sorted);
-    } catch {
-      toast.error(t("servers:backups.toasts.loadFailed"));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [serverId, t]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    await mutate();
+  }, [mutate]);
 
   const handleCreateBackup = async () => {
     setIsActionLoading(true);
@@ -193,7 +191,10 @@ export function BackupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("servers:backups.toasts.createFailed"),
+          apiErrorMessage(
+            response.error,
+            t("servers:backups.toasts.createFailed"),
+          ),
         );
         return;
       }
@@ -264,8 +265,10 @@ export function BackupsManager({
 
       if (response.error || !response.data) {
         toast.error(
-          response.error?.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers:backups.toasts.downloadUrlFailed"),
+          ),
         );
         return;
       }
@@ -289,7 +292,10 @@ export function BackupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("servers:backups.toasts.renameFailed"),
+          apiErrorMessage(
+            response.error,
+            t("servers:backups.toasts.renameFailed"),
+          ),
         );
         return;
       }
@@ -323,8 +329,10 @@ export function BackupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers:backups.toasts.protectFailed"),
+          ),
         );
         return;
       }
@@ -353,8 +361,10 @@ export function BackupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("servers:backups.toasts.restoreFailed"),
+          ),
         );
         return;
       }
@@ -375,7 +385,10 @@ export function BackupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("servers:backups.toasts.deleteFailed"),
+          apiErrorMessage(
+            response.error,
+            t("servers:backups.toasts.deleteFailed"),
+          ),
         );
         return;
       }
@@ -428,11 +441,11 @@ export function BackupsManager({
 
               {canBypassLimits ? (
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge variant="secondary" className="gap-1.5">
-                      <ShieldCheck className="size-3.5" />
-                      {t("servers:backups.limit.bypassBadge")}
-                    </Badge>
+                  <TooltipTrigger
+                    render={<Badge variant="secondary" className="gap-1.5" />}
+                  >
+                    <ShieldCheck className="size-3.5" />
+                    {t("servers:backups.limit.bypassBadge")}
                   </TooltipTrigger>
                   <TooltipContent>
                     {t("servers:backups.limit.bypassTooltip")}
@@ -493,9 +506,11 @@ export function BackupsManager({
                         <span className="inline-flex items-center gap-1.5">
                           {backup.protected ? (
                             <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Lock className="size-3.5 shrink-0 text-muted-foreground" />
-                              </TooltipTrigger>
+                              <TooltipTrigger
+                                render={
+                                  <Lock className="size-3.5 shrink-0 text-muted-foreground" />
+                                }
+                              />
                               <TooltipContent>
                                 {t("servers:backups.protectedTooltip")}
                               </TooltipContent>
@@ -519,49 +534,59 @@ export function BackupsManager({
                       <TableCell className="text-right">
                         <div className="inline-flex items-center gap-2">
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedBackup(backup);
-                                  setRenameName(backup.name?.trim() ?? "");
-                                  setRenameOpen(true);
-                                }}
-                                disabled={isActionLoading || storageLock.locked}
-                                aria-label={t("common:actions.rename")}
-                              >
-                                <Pencil className="size-4" />
-                              </Button>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedBackup(backup);
+                                    setRenameName(backup.name?.trim() ?? "");
+                                    setRenameOpen(true);
+                                  }}
+                                  disabled={
+                                    isActionLoading || storageLock.locked
+                                  }
+                                  aria-label={t("common:actions.rename")}
+                                />
+                              }
+                            >
+                              <Pencil className="size-4" />
                             </TooltipTrigger>
                             <TooltipContent>
                               {t("common:actions.rename")}
                             </TooltipContent>
                           </Tooltip>
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                loading={protectingKey === backupRowKey(backup)}
-                                onClick={() => {
-                                  void handleToggleProtected(backup);
-                                }}
-                                disabled={isActionLoading || storageLock.locked}
-                                aria-label={
-                                  backup.protected
-                                    ? t("servers:backups.unprotectAction")
-                                    : t("servers:backups.protectAction")
-                                }
-                              >
-                                {backup.protected ? (
-                                  <Lock className="size-4" />
-                                ) : (
-                                  <LockOpen className="size-4" />
-                                )}
-                              </Button>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  loading={
+                                    protectingKey === backupRowKey(backup)
+                                  }
+                                  onClick={() => {
+                                    void handleToggleProtected(backup);
+                                  }}
+                                  disabled={
+                                    isActionLoading || storageLock.locked
+                                  }
+                                  aria-label={
+                                    backup.protected
+                                      ? t("servers:backups.unprotectAction")
+                                      : t("servers:backups.protectAction")
+                                  }
+                                />
+                              }
+                            >
+                              {backup.protected ? (
+                                <Lock className="size-4" />
+                              ) : (
+                                <LockOpen className="size-4" />
+                              )}
                             </TooltipTrigger>
                             <TooltipContent>
                               {backup.protected
@@ -764,10 +789,7 @@ export function BackupsManager({
               {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void handleRestore();
-              }}
+              onClick={() => void handleRestore()}
               disabled={isActionLoading || restoreLock.locked}
             >
               {t("servers:backups.restoreButton")}
@@ -804,10 +826,7 @@ export function BackupsManager({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void handleDelete();
-              }}
+              onClick={() => void handleDelete()}
               disabled={isActionLoading || storageLock.locked}
             >
               {t("common:actions.delete")}

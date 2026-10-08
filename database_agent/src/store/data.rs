@@ -5,7 +5,7 @@ use database_agent_common::types::{
     ContainerState, DatabaseAccess, DatabaseType, StoredDatabase, StoredInstance,
     StoredInstanceCreate, StoredInstanceUpdate, StoredUser, UserGrant, VolumeMapping,
 };
-use sqlx::{SqlitePool, query, query_scalar};
+use sqlx::{SqliteConnection, SqliteExecutor, SqlitePool, query, query_scalar};
 use std::collections::{BTreeMap, HashMap};
 use uuid::Uuid;
 
@@ -66,7 +66,7 @@ pub async fn all_instances(pool: &SqlitePool) -> anyhow::Result<Vec<StoredInstan
 }
 
 pub async fn insert_instance(
-    pool: &SqlitePool,
+    conn: &mut SqliteConnection,
     create: StoredInstanceCreate,
 ) -> anyhow::Result<StoredInstance> {
     let volumes = serde_json::to_string(&create.volumes)?;
@@ -103,7 +103,7 @@ pub async fn insert_instance(
             cmd,
             created
         )
-        .execute(pool)
+        .execute(&mut *conn)
         .await;
 
         match result {
@@ -136,7 +136,10 @@ pub async fn insert_instance(
     }
 }
 
-pub async fn update_instance(pool: &SqlitePool, data: &StoredInstance) -> anyhow::Result<()> {
+pub async fn update_instance(
+    executor: impl SqliteExecutor<'_>,
+    data: &StoredInstance,
+) -> anyhow::Result<()> {
     let volumes = serde_json::to_string(&data.volumes)?;
     let env = serde_json::to_string(&data.env)?;
     let cmd = data.cmd.as_ref().map(serde_json::to_string).transpose()?;
@@ -161,14 +164,14 @@ pub async fn update_instance(pool: &SqlitePool, data: &StoredInstance) -> anyhow
         cmd,
         data.uuid
     )
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     Ok(())
 }
 
 pub async fn set_root_password(
-    pool: &SqlitePool,
+    executor: impl SqliteExecutor<'_>,
     instance: Uuid,
     password: &str,
 ) -> anyhow::Result<()> {
@@ -177,7 +180,7 @@ pub async fn set_root_password(
         password,
         instance
     )
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     Ok(())
@@ -197,7 +200,7 @@ pub async fn instance_states(pool: &SqlitePool) -> anyhow::Result<HashMap<Uuid, 
 }
 
 pub async fn set_instance_state(
-    pool: &SqlitePool,
+    executor: impl SqliteExecutor<'_>,
     instance: Uuid,
     state: ContainerState,
 ) -> anyhow::Result<()> {
@@ -207,15 +210,18 @@ pub async fn set_instance_state(
         state,
         instance
     )
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     Ok(())
 }
 
-pub async fn delete_instance(pool: &SqlitePool, instance: Uuid) -> anyhow::Result<()> {
+pub async fn delete_instance(
+    executor: impl SqliteExecutor<'_>,
+    instance: Uuid,
+) -> anyhow::Result<()> {
     query!("DELETE FROM instances WHERE uuid = ?", instance)
-        .execute(pool)
+        .execute(executor)
         .await?;
 
     Ok(())
@@ -261,7 +267,10 @@ fn replace<T>(target: &mut T, value: Option<T>) {
     }
 }
 
-pub async fn databases(pool: &SqlitePool, instance: Uuid) -> anyhow::Result<Vec<StoredDatabase>> {
+pub async fn databases(
+    executor: impl SqliteExecutor<'_>,
+    instance: Uuid,
+) -> anyhow::Result<Vec<StoredDatabase>> {
     Ok(sqlx::query_as!(
         StoredDatabase,
         r#"SELECT uuid AS "uuid: Uuid", instance_uuid AS "instance_uuid: Uuid", name,
@@ -269,7 +278,7 @@ pub async fn databases(pool: &SqlitePool, instance: Uuid) -> anyhow::Result<Vec<
            FROM databases WHERE instance_uuid = ? ORDER BY name"#,
         instance
     )
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await?)
 }
 
@@ -300,7 +309,7 @@ pub async fn database_count(pool: &SqlitePool, instance: Uuid) -> anyhow::Result
 }
 
 pub async fn insert_database(
-    pool: &SqlitePool,
+    executor: impl SqliteExecutor<'_>,
     instance: Uuid,
     name: &str,
 ) -> anyhow::Result<StoredDatabase> {
@@ -314,7 +323,7 @@ pub async fn insert_database(
         name,
         created
     )
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     Ok(StoredDatabase {
@@ -325,9 +334,12 @@ pub async fn insert_database(
     })
 }
 
-pub async fn delete_database(pool: &SqlitePool, database: Uuid) -> anyhow::Result<()> {
+pub async fn delete_database(
+    executor: impl SqliteExecutor<'_>,
+    database: Uuid,
+) -> anyhow::Result<()> {
     query!("DELETE FROM databases WHERE uuid = ?", database)
-        .execute(pool)
+        .execute(executor)
         .await?;
 
     Ok(())
@@ -361,7 +373,7 @@ impl UserRow {
 }
 
 async fn instance_grants(
-    pool: &SqlitePool,
+    executor: impl SqliteExecutor<'_>,
     instance: Uuid,
 ) -> anyhow::Result<HashMap<Uuid, Vec<UserGrant>>> {
     let mut grouped: HashMap<Uuid, Vec<UserGrant>> = HashMap::new();
@@ -374,7 +386,7 @@ async fn instance_grants(
            WHERE users.instance_uuid = ?"#,
         instance
     )
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await?
     {
         grouped.entry(row.user_uuid).or_default().push(UserGrant {
@@ -386,8 +398,8 @@ async fn instance_grants(
     Ok(grouped)
 }
 
-pub async fn users(pool: &SqlitePool, instance: Uuid) -> anyhow::Result<Vec<StoredUser>> {
-    let mut grants = instance_grants(pool, instance).await?;
+pub async fn users(conn: &mut SqliteConnection, instance: Uuid) -> anyhow::Result<Vec<StoredUser>> {
+    let mut grants = instance_grants(&mut *conn, instance).await?;
 
     Ok(sqlx::query_as!(
         UserRow,
@@ -396,7 +408,7 @@ pub async fn users(pool: &SqlitePool, instance: Uuid) -> anyhow::Result<Vec<Stor
            FROM users WHERE instance_uuid = ? ORDER BY username"#,
         instance
     )
-    .fetch_all(pool)
+    .fetch_all(&mut *conn)
     .await?
     .into_iter()
     .map(|row| row.into_user(&mut grants))
@@ -404,11 +416,11 @@ pub async fn users(pool: &SqlitePool, instance: Uuid) -> anyhow::Result<Vec<Stor
 }
 
 pub async fn database_users(
-    pool: &SqlitePool,
+    conn: &mut SqliteConnection,
     instance: Uuid,
     database: Uuid,
 ) -> anyhow::Result<Vec<StoredUser>> {
-    Ok(users(pool, instance)
+    Ok(users(conn, instance)
         .await?
         .into_iter()
         .filter(|user| user.access(database).is_some())
@@ -436,7 +448,7 @@ pub async fn user(
 }
 
 pub async fn insert_user(
-    pool: &SqlitePool,
+    conn: &mut SqliteConnection,
     instance: Uuid,
     username: &str,
     password: &str,
@@ -457,12 +469,12 @@ pub async fn insert_user(
             password,
             created
         )
-        .execute(pool)
+        .execute(&mut *conn)
         .await;
 
         match result {
             Ok(_) => {
-                replace_grants(pool, uuid, grants).await?;
+                replace_grants(conn, uuid, grants).await?;
 
                 return Ok(StoredUser {
                     uuid,
@@ -481,14 +493,12 @@ pub async fn insert_user(
 }
 
 pub async fn replace_grants(
-    pool: &SqlitePool,
+    conn: &mut SqliteConnection,
     user: Uuid,
     grants: &[UserGrant],
 ) -> anyhow::Result<()> {
-    let mut tx = pool.begin().await?;
-
     query!("DELETE FROM user_grants WHERE user_uuid = ?", user)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
 
     for grant in grants {
@@ -499,17 +509,15 @@ pub async fn replace_grants(
             grant.database_uuid,
             access
         )
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
     }
-
-    tx.commit().await?;
 
     Ok(())
 }
 
 pub async fn set_user_password(
-    pool: &SqlitePool,
+    executor: impl SqliteExecutor<'_>,
     user: Uuid,
     password: &str,
 ) -> anyhow::Result<()> {
@@ -518,15 +526,15 @@ pub async fn set_user_password(
         password,
         user
     )
-    .execute(pool)
+    .execute(executor)
     .await?;
 
     Ok(())
 }
 
-pub async fn delete_user(pool: &SqlitePool, user: Uuid) -> anyhow::Result<()> {
+pub async fn delete_user(executor: impl SqliteExecutor<'_>, user: Uuid) -> anyhow::Result<()> {
     query!("DELETE FROM users WHERE uuid = ?", user)
-        .execute(pool)
+        .execute(executor)
         .await?;
 
     Ok(())

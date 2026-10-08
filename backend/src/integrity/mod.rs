@@ -24,8 +24,6 @@ static DAEMON_API_HASH: OnceLock<String> = OnceLock::new();
 static AGENT_API_HASH: OnceLock<String> = OnceLock::new();
 
 impl Backend {
-    /// The fingerprint of the daemon API this backend was compiled against,
-    /// built from the same service definitions a node reports its own from.
     pub(crate) fn daemon_api_hash(&self) -> &'static str {
         DAEMON_API_HASH.get_or_init(|| {
             let probe = DaemonSDK::builder()
@@ -39,8 +37,6 @@ impl Backend {
         })
     }
 
-    /// The fingerprint of the database agent API this backend was compiled
-    /// against, built the same way a host reports its own.
     pub(crate) fn agent_api_hash(&self) -> &'static str {
         AGENT_API_HASH.get_or_init(|| {
             let probe = DatabaseAgentSDK::builder()
@@ -151,8 +147,6 @@ pub(crate) trait Check: Send + Sync {
     async fn run(&self, backend: &Backend) -> Result<Vec<IntegrityFinding>, CheckError>;
 }
 
-/// A check that examines one node, so its findings land on that node's report
-/// instead of being buried in the backend's.
 #[async_trait]
 pub(crate) trait NodeCheck: Send + Sync {
     fn id(&self) -> &'static str;
@@ -171,7 +165,6 @@ pub(crate) trait NodeCheck: Send + Sync {
     ) -> Result<Vec<IntegrityFinding>, CheckError>;
 }
 
-/// The database host counterpart of [`NodeCheck`].
 #[async_trait]
 pub(crate) trait HostCheck: Send + Sync {
     fn id(&self) -> &'static str;
@@ -190,9 +183,6 @@ pub(crate) trait HostCheck: Send + Sync {
     ) -> Result<Vec<IntegrityFinding>, CheckError>;
 }
 
-/// Turns a transport failure into a message that says which layer gave up, so
-/// an unreachable node can be told apart from one that answered with a
-/// certificate the backend does not trust.
 pub(crate) fn describe_transport(err: &zelus::reqwest::Error) -> String {
     let mut chain = Vec::new();
     let mut source: Option<&(dyn core::error::Error + 'static)> = Some(err);

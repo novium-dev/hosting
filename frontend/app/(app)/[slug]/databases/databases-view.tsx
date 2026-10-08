@@ -45,8 +45,7 @@ export function DatabasesView({
     session?.user.permissions ?? 0,
     ManagementPermission.LIMITS_BYPASS,
   );
-  const atLimit =
-    !bypassesLimit && (instances?.length ?? 0) >= INSTANCE_LIMIT;
+  const atLimit = !bypassesLimit && (instances?.length ?? 0) >= INSTANCE_LIMIT;
 
   return (
     <div className="space-y-6">
@@ -57,7 +56,9 @@ export function DatabasesView({
             {t("project:databases.description")}{" "}
             {bypassesLimit
               ? t("project:databases.descriptionBypass")
-              : t("project:databases.descriptionLimit", { limit: INSTANCE_LIMIT })}
+              : t("project:databases.descriptionLimit", {
+                  limit: INSTANCE_LIMIT,
+                })}
           </p>
         </div>
         {canManage ? (

@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useRouter } from "@/lib/navigation";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
@@ -52,8 +53,10 @@ export function ServerDeleteCard({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:servers.deleteCard.deleteError"),
+          ),
         );
         return;
       }
@@ -105,10 +108,7 @@ export function ServerDeleteCard({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void onDelete();
-              }}
+              onClick={() => void onDelete()}
               disabled={!canDelete || isDeleting}
             >
               {t("admin-infra:servers.deleteCard.deleteButton")}

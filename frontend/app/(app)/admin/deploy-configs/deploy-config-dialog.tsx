@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { apiErrorMessage } from "@/lib/api-error";
+import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -31,20 +32,18 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
   createDeployConfig,
-  templateInfo,
   updateDeployConfig,
-  type ListDeployConfigsResponses,
   type DeployConfigPayload,
 } from "@/lib/api";
-import type { GroupOption } from "@/lib/groups";
-
-type DeployConfig = ListDeployConfigsResponses[200][number];
+import type { DeployConfig } from "@/types/api";
+import { useTemplateInfo } from "@/hooks/use-shared-queries";
+import type { GroupRef } from "@/lib/api";
 
 type DeployConfigDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   config: DeployConfig | null;
-  groups: GroupOption[];
+  groups: GroupRef[];
   templates: string[];
   onSaved: () => void;
 };
@@ -70,7 +69,8 @@ function initialForm(config: DeployConfig | null): FormState {
     ram: config ? String(config.ram) : "1024",
     swap: config ? String(config.swap) : "0",
     disk: config?.disk != null ? String(config.disk) : "",
-    backupLimit: config?.backup_limit != null ? String(config.backup_limit) : "",
+    backupLimit:
+      config?.backup_limit != null ? String(config.backup_limit) : "",
     internetAccess: config?.internet_access ?? true,
   };
 }
@@ -101,70 +101,46 @@ function parseInteger(value: string, min: number): number | null | undefined {
 
 export function DeployConfigDialog({
   open,
+  ...props
+}: DeployConfigDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={props.onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DeployConfigForm key={props.config?.id ?? "new"} {...props} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeployConfigForm({
   onOpenChange,
   config,
   groups,
   templates,
   onSaved,
-}: DeployConfigDialogProps) {
+}: Omit<DeployConfigDialogProps, "open">) {
   const { t } = useTranslation();
   const [form, setForm] = useState<FormState>(() => initialForm(config));
-  const [payload, setPayload] = useState<VariablePayloadLike | null>(null);
-  const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const { data: templateData, isLoading: isLoadingTemplate } = useTemplateInfo(
+    form.template,
+  );
+
+  const payload = useMemo<VariablePayloadLike | null>(() => {
+    if (!templateData) return null;
+    return config && config.template === form.template
+      ? withCurrentValues(templateData.variables, config.variables)
+      : templateData.variables;
+  }, [templateData, config, form.template]);
 
   const {
     errors: variableErrors,
     nestedPath,
     onNestedChange,
-    reset: resetVariables,
     setVariables,
     variables,
   } = useVariableEditor(payload);
-
-  useEffect(() => {
-    if (open) setForm(initialForm(config));
-  }, [open, config]);
-
-  useEffect(() => {
-    if (!open || !form.template) {
-      setPayload(null);
-      resetVariables(null);
-      return;
-    }
-
-    let isActive = true;
-    setIsLoadingTemplate(true);
-
-    templateInfo({ path: { template: form.template } })
-      .then((response) => {
-        if (!isActive) return;
-        if (response.error || !response.data) {
-          setPayload(null);
-          resetVariables(null);
-          return;
-        }
-        const next =
-          config && config.template === form.template
-            ? withCurrentValues(response.data.variables, config.variables)
-            : response.data.variables;
-        setPayload(next);
-        resetVariables(next);
-      })
-      .catch(() => {
-        if (isActive) {
-          setPayload(null);
-          resetVariables(null);
-        }
-      })
-      .finally(() => {
-        if (isActive) setIsLoadingTemplate(false);
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [open, form.template, config, resetVariables]);
 
   const handleSave = async () => {
     const name = form.name.trim();
@@ -215,8 +191,10 @@ export function DeployConfigDialog({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:deployConfigs.dialog.saveError"),
+          ),
         );
         return;
       }
@@ -250,186 +228,190 @@ export function DeployConfigDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>
-            {config
-              ? t("admin-infra:deployConfigs.dialog.editTitle", {
-                  name: config.name,
-                })
-              : t("admin-infra:deployConfigs.dialog.createTitle")}
-          </DialogTitle>
-          <DialogDescription>
-            {t("admin-infra:deployConfigs.dialog.description")}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <DialogHeader>
+        <DialogTitle>
+          {config
+            ? t("admin-infra:deployConfigs.dialog.editTitle", {
+                name: config.name,
+              })
+            : t("admin-infra:deployConfigs.dialog.createTitle")}
+        </DialogTitle>
+        <DialogDescription>
+          {t("admin-infra:deployConfigs.dialog.description")}
+        </DialogDescription>
+      </DialogHeader>
 
-        <div className="grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="grid gap-2">
-              <Label htmlFor="deploy-config-name">
-                {t("common:labels.name")}
-              </Label>
-              <Input
-                id="deploy-config-name"
-                value={form.name}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, name: event.target.value }))
-                }
-                maxLength={64}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="deploy-config-group">
-                {t("admin-infra:deployConfigs.groupLabel")}
-              </Label>
-              <Select
-                value={form.group}
-                onValueChange={(value) =>
-                  setForm((prev) => ({ ...prev, group: value }))
-                }
-              >
-                <SelectTrigger id="deploy-config-group" className="w-full">
-                  <SelectValue
-                    placeholder={t(
-                      "admin-infra:deployConfigs.dialog.selectGroup",
-                    )}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {groups.map((group) => (
-                    <SelectItem key={group.id} value={String(group.id)}>
-                      {group.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="deploy-config-template">
-                {t("common:labels.template")}
-              </Label>
-              <Select
-                value={form.template}
-                onValueChange={(value) =>
-                  setForm((prev) => ({ ...prev, template: value }))
-                }
-              >
-                <SelectTrigger id="deploy-config-template" className="w-full">
-                  <SelectValue
-                    placeholder={t(
-                      "admin-infra:deployConfigs.dialog.selectTemplate",
-                    )}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template} value={template}>
-                      {template}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="grid gap-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-2">
+            <Label htmlFor="deploy-config-name">
+              {t("common:labels.name")}
+            </Label>
+            <Input
+              id="deploy-config-name"
+              value={form.name}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, name: event.target.value }))
+              }
+              maxLength={64}
+            />
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            {numberField(
-              "cpu",
-              t("admin-infra:nodes.groupsManager.cpuLabel"),
-              "decimal",
-            )}
-            {numberField(
-              "ram",
-              t("admin-infra:nodes.groupsManager.ramLabel"),
-              "numeric",
-            )}
-            {numberField(
-              "swap",
-              t("admin-infra:nodes.groupsManager.swapLabel"),
-              "numeric",
-            )}
-            {numberField(
-              "disk",
-              t("admin-infra:deployConfigs.diskLabel"),
-              "numeric",
-              t("admin-infra:nodes.groupsManager.unlimited"),
-            )}
-            {numberField(
-              "backupLimit",
-              t("admin-infra:servers.shared.backupLimitLabel"),
-              "numeric",
-              t("admin-infra:nodes.groupsManager.unlimited"),
-            )}
-            <div className="flex items-center justify-between gap-2 rounded-md border px-3">
-              <Label htmlFor="deploy-config-internet">
-                {t("admin-infra:servers.shared.internetAccessLabel")}
-              </Label>
-              <Switch
-                id="deploy-config-internet"
-                checked={form.internetAccess}
-                onCheckedChange={(checked) =>
-                  setForm((prev) => ({ ...prev, internetAccess: checked }))
-                }
-              />
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="deploy-config-group">
+              {t("admin-infra:deployConfigs.groupLabel")}
+            </Label>
+            <Select
+              items={[
+                ...groups.map((group) => ({
+                  value: String(group.id),
+                  label: group.label,
+                })),
+              ]}
+              value={form.group}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, group: value ?? "" }))
+              }
+            >
+              <SelectTrigger id="deploy-config-group" className="w-full">
+                <SelectValue
+                  placeholder={t(
+                    "admin-infra:deployConfigs.dialog.selectGroup",
+                  )}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {groups.map((group) => (
+                  <SelectItem key={group.id} value={String(group.id)}>
+                    {group.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-
-          <Separator />
-
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold">
-              {t("admin-infra:servers.createForm.templateVariablesTitle")}
-            </h3>
-            {!form.template ? (
-              <p className="text-sm text-muted-foreground">
-                {t("admin-infra:servers.createForm.selectTemplateFirst")}
-              </p>
-            ) : isLoadingTemplate ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                {t("admin-infra:servers.createForm.loadingTemplateDetails")}
-              </div>
-            ) : !payload ? (
-              <p className="text-sm text-muted-foreground">
-                {t("admin-infra:servers.createForm.noTemplateDetails")}
-              </p>
-            ) : (
-              <VariableFields
-                canViewSecrets
-                errors={variableErrors}
-                nestedPath={nestedPath}
-                onNestedChange={onNestedChange}
-                payload={payload}
-                setVariables={setVariables}
-                variables={variables}
-              />
-            )}
+          <div className="grid gap-2">
+            <Label htmlFor="deploy-config-template">
+              {t("common:labels.template")}
+            </Label>
+            <Select
+              value={form.template}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, template: value ?? "" }))
+              }
+            >
+              <SelectTrigger id="deploy-config-template" className="w-full">
+                <SelectValue
+                  placeholder={t(
+                    "admin-infra:deployConfigs.dialog.selectTemplate",
+                  )}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map((template) => (
+                  <SelectItem key={template} value={template}>
+                    {template}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isSaving}
-          >
-            {t("common:actions.cancel")}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              void handleSave();
-            }}
-            loading={isSaving}
-            disabled={isLoadingTemplate}
-          >
-            {config ? t("common:actions.save") : t("common:actions.create")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {numberField(
+            "cpu",
+            t("admin-infra:nodes.groupsManager.cpuLabel"),
+            "decimal",
+          )}
+          {numberField(
+            "ram",
+            t("admin-infra:nodes.groupsManager.ramLabel"),
+            "numeric",
+          )}
+          {numberField(
+            "swap",
+            t("admin-infra:nodes.groupsManager.swapLabel"),
+            "numeric",
+          )}
+          {numberField(
+            "disk",
+            t("admin-infra:deployConfigs.diskLabel"),
+            "numeric",
+            t("admin-infra:nodes.groupsManager.unlimited"),
+          )}
+          {numberField(
+            "backupLimit",
+            t("admin-infra:servers.shared.backupLimitLabel"),
+            "numeric",
+            t("admin-infra:nodes.groupsManager.unlimited"),
+          )}
+          <div className="flex items-center justify-between gap-2 rounded-md border px-3">
+            <Label htmlFor="deploy-config-internet">
+              {t("admin-infra:servers.shared.internetAccessLabel")}
+            </Label>
+            <Switch
+              id="deploy-config-internet"
+              checked={form.internetAccess}
+              onCheckedChange={(checked) =>
+                setForm((prev) => ({ ...prev, internetAccess: checked }))
+              }
+            />
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold">
+            {t("admin-infra:servers.createForm.templateVariablesTitle")}
+          </h3>
+          {!form.template ? (
+            <p className="text-sm text-muted-foreground">
+              {t("admin-infra:servers.createForm.selectTemplateFirst")}
+            </p>
+          ) : isLoadingTemplate ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              {t("admin-infra:servers.createForm.loadingTemplateDetails")}
+            </div>
+          ) : !payload ? (
+            <p className="text-sm text-muted-foreground">
+              {t("admin-infra:servers.createForm.noTemplateDetails")}
+            </p>
+          ) : (
+            <VariableFields
+              canViewSecrets
+              errors={variableErrors}
+              nestedPath={nestedPath}
+              onNestedChange={onNestedChange}
+              payload={payload}
+              setVariables={setVariables}
+              variables={variables}
+            />
+          )}
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onOpenChange(false)}
+          disabled={isSaving}
+        >
+          {t("common:actions.cancel")}
+        </Button>
+        <Button
+          type="button"
+          onClick={() => {
+            void handleSave();
+          }}
+          loading={isSaving}
+          disabled={isLoadingTemplate}
+        >
+          {config ? t("common:actions.save") : t("common:actions.create")}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

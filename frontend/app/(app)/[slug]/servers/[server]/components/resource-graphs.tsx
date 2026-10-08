@@ -141,7 +141,10 @@ function ResourceGraph({
             {t("servers:graphs.waiting")}
           </div>
         ) : (
-          <ChartContainer config={config} className="aspect-auto h-[9rem] w-full">
+          <ChartContainer
+            config={config}
+            className="aspect-auto h-[9rem] w-full"
+          >
             <AreaChart data={points} margin={{ left: 4, right: 8, top: 8 }}>
               <defs>
                 <linearGradient

@@ -19,20 +19,7 @@ import type { ListSessionsResponse } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { appConfig } from "@/constants/config";
 import { useRouter } from "@/lib/navigation";
-
-type ApiError = {
-  error?: {
-    msg?: string;
-  };
-};
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === "object" && "error" in error) {
-    return (error as ApiError).error?.msg ?? fallback;
-  }
-
-  return fallback;
-}
+import { apiErrorMessage } from "@/lib/api-error";
 
 const browsers = [
   { name: "Edge", match: /edg(?:e|a|ios)?\//i },
@@ -64,7 +51,7 @@ function describeUserAgent(userAgent: string | null | undefined) {
 async function fetchSessions(fallback: string) {
   const response = await listSessions();
   if (response.error) {
-    throw new Error(errorMessage(response.error, fallback));
+    throw new Error(apiErrorMessage(response.error, fallback));
   }
 
   return response.data ?? [];
@@ -115,7 +102,7 @@ export function SessionsSection() {
 
     if (response.error) {
       toast.error(
-        errorMessage(response.error, t("settings:sessions.revokeError")),
+        apiErrorMessage(response.error, t("settings:sessions.revokeError")),
       );
       return;
     }
@@ -132,7 +119,10 @@ export function SessionsSection() {
 
     if (response.error) {
       toast.error(
-        errorMessage(response.error, t("settings:sessions.revokeOthersError")),
+        apiErrorMessage(
+          response.error,
+          t("settings:sessions.revokeOthersError"),
+        ),
       );
       return;
     }
@@ -231,20 +221,22 @@ export function SessionsSection() {
                     </Button>
                   ) : (
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="shrink-0"
-                          loading={revokingId === session.id}
-                          onClick={() => void handleRevoke(session.id)}
-                          aria-label={t("settings:sessions.revokeAriaLabel", {
-                            name: label,
-                          })}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="shrink-0"
+                            loading={revokingId === session.id}
+                            onClick={() => void handleRevoke(session.id)}
+                            aria-label={t("settings:sessions.revokeAriaLabel", {
+                              name: label,
+                            })}
+                          />
+                        }
+                      >
+                        <Trash2 className="size-4" />
                       </TooltipTrigger>
                       <TooltipContent>
                         {t("settings:sessions.revoke")}

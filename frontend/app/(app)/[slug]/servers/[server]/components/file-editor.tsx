@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import type { EditorProps } from "@monaco-editor/react";
 import Link from "@/components/link";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
@@ -31,6 +32,7 @@ import { appConfig } from "@/constants/config";
 import { FileMode, modeToType } from "@/lib/files";
 import { useServerTaskLock } from "@/stores/server-tasks";
 import { TaskLockNotice } from "@/components/server/task-lock-notice";
+import { normalizePath } from "@/lib/files";
 
 type FileEditorProps = {
   serverId: string;
@@ -40,7 +42,13 @@ type FileEditorProps = {
   modpackInstalling?: boolean;
 };
 
-type EditorMode = "loading" | "empty" | "archive" | "directory" | "image" | "text";
+type EditorMode =
+  | "loading"
+  | "empty"
+  | "archive"
+  | "directory"
+  | "image"
+  | "text";
 
 const LazyMonaco = lazy(() => import("@monaco-editor/react"));
 
@@ -59,16 +67,6 @@ function MonacoEditor(props: EditorProps) {
       <LazyMonaco {...props} />
     </Suspense>
   );
-}
-
-function normalizePath(input: string) {
-  const trimmed = input.trim();
-  if (!trimmed || trimmed === "/") {
-    return "/";
-  }
-
-  const cleaned = trimmed.replace(/\/+/g, "/").replace(/\/$/, "");
-  return cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
 }
 
 function getFileName(path: string) {
@@ -180,7 +178,10 @@ export function FileEditor({
   const { t } = useTranslation();
   const storageLock = useServerTaskLock(serverId, "storage", "read");
   const writable = canWriteFiles && !modpackInstalling;
-  const normalizedPath = useMemo(() => (path ? normalizePath(path) : ""), [path]);
+  const normalizedPath = useMemo(
+    () => (path ? normalizePath(path) : ""),
+    [path],
+  );
   const fileName = useMemo(
     () =>
       normalizedPath
@@ -224,8 +225,10 @@ export function FileEditor({
 
         if (statResponse.error || !statResponse.data) {
           toast.error(
-            statResponse.error?.error?.msg ??
+            apiErrorMessage(
+              statResponse.error,
               t("servers:fileEditor.toasts.inspectFailed"),
+            ),
           );
           setMode("empty");
           return;
@@ -263,8 +266,10 @@ export function FileEditor({
 
         if (downloadResponse.error || !downloadResponse.data?.url) {
           toast.error(
-            downloadResponse.error?.error?.msg ??
+            apiErrorMessage(
+              downloadResponse.error,
               t("servers:fileEditor.toasts.downloadUrlFailed"),
+            ),
           );
           setMode("empty");
           return;
@@ -339,8 +344,10 @@ export function FileEditor({
 
       if (uploadUrlResponse.error || !uploadUrlResponse.data?.url) {
         toast.error(
-          uploadUrlResponse.error?.error?.msg ??
+          apiErrorMessage(
+            uploadUrlResponse.error,
             t("servers:fileEditor.toasts.uploadUrlFailed"),
+          ),
         );
         return;
       }
@@ -396,17 +403,25 @@ export function FileEditor({
                 {formatBytes(size, t("common:status.unknown"))}
               </Badge>
             ) : null}
-            <Button asChild type="button" variant="outline">
-              <Link href={filesHref}>
-                {t("servers:fileEditor.backToFiles")}
-              </Link>
+            <Button
+              type="button"
+              variant="outline"
+              render={<Link href={filesHref} />}
+              nativeButton={false}
+            >
+              {t("servers:fileEditor.backToFiles")}
             </Button>
             {downloadUrl ? (
-              <Button asChild type="button" variant="outline">
-                <a href={downloadUrl} target="_blank" rel="noreferrer">
-                  <Download className="size-4" />
-                  {t("common:actions.download")}
-                </a>
+              <Button
+                type="button"
+                variant="outline"
+                render={
+                  <a href={downloadUrl} target="_blank" rel="noreferrer" />
+                }
+                nativeButton={false}
+              >
+                <Download className="size-4" />
+                {t("common:actions.download")}
               </Button>
             ) : null}
             <Button

@@ -1,5 +1,3 @@
-#![expect(dead_code, reason = "work in progress")]
-
 mod config;
 mod crypto;
 pub(crate) mod db;
@@ -17,7 +15,6 @@ mod shutdown;
 pub(crate) mod templates;
 mod utils;
 
-use crate::auth::backfill::apply_permission_backfills;
 use crate::auth::oauth::AuthService;
 use crate::config::BackendConfig;
 use crate::db::database::BackendDatabaseHost;
@@ -35,8 +32,6 @@ use crate::templates::generic::python::PythonTemplate;
 use crate::templates::generic::rust::RustTemplate;
 use crate::templates::generic::web::WebTemplate;
 use core::time::Duration;
-use daemon_common::key::rcgen::KeyPair;
-use daemon_common::key::{BackendKey, DaemonRootKey};
 use ed25519_dalek::SigningKey;
 use redis::aio::ConnectionManager as CacheConnectionManager;
 use sqlx::PgPool;
@@ -47,15 +42,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use templates::games::minecraft::MinecraftTemplate;
 use templates::games::minecraft_proxy::MinecraftProxyTemplate;
-use tokio::sync::broadcast::Sender;
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinSet;
+use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
 use uuid::Uuid;
-
-const CACHE_PREFIX: &str = "novium:";
+use zelus_keys::rcgen::KeyPair;
+use zelus_keys::{BackendKey, DaemonRootKey};
 
 pub const CACHE_KEY_PREFIX: &str = "novium:";
 
@@ -82,10 +77,8 @@ pub(crate) struct Backend {
 
     pub(crate) integrity: Arc<RwLock<crate::integrity::IntegrityRun>>,
 
-    pub(crate) server_task_cancellable: Arc<Mutex<JoinSet<()>>>,
-    pub(crate) server_task: Arc<Mutex<JoinSet<()>>>,
-    pub(crate) shutdown_task: Arc<Mutex<JoinSet<()>>>,
-    pub(crate) shutdown_channel: Arc<Sender<()>>,
+    pub(crate) jobs: Arc<Mutex<JoinSet<()>>>,
+    pub(crate) shutdown: CancellationToken,
 
     pub(crate) root_key: Arc<DaemonRootKey>,
     pub(crate) root_privkey: Arc<KeyPair>,
@@ -255,10 +248,6 @@ async fn main0() {
         .await
         .expect("Unable to run migrations");
 
-    apply_permission_backfills(&database)
-        .await
-        .expect("Unable to apply the permission backfills");
-
     let (root_key, root_privkey, user_key, backend_key) =
         crypto::load_keys(&database, &data_dir).await;
 
@@ -307,10 +296,8 @@ async fn main0() {
         modpack_jobs: Arc::default(),
         integrity: Arc::default(),
 
-        shutdown_channel: Arc::new(Sender::new(1)),
-        server_task: Arc::default(),
-        server_task_cancellable: Arc::default(),
-        shutdown_task: Arc::default(),
+        jobs: Arc::default(),
+        shutdown: CancellationToken::new(),
 
         root_key,
         root_privkey: Arc::new(root_privkey),
@@ -318,20 +305,10 @@ async fn main0() {
         user_key,
     };
 
-    let mut conn = backend
-        .database
-        .acquire()
-        .await
-        .expect("Unable to acquire database connection");
     backend
-        .load_nodes(&mut conn)
+        .reload(None)
         .await
-        .expect("Unable to sync nodes cache");
-    backend
-        .load_database_hosts(&mut conn)
-        .await
-        .expect("Unable to sync database hosts cache");
-    drop(conn);
+        .expect("Unable to load the nodes and database hosts");
 
     backend.spawn_cluster_sync();
 
@@ -343,16 +320,16 @@ async fn main0() {
 
     info!("Starting Webserver...");
 
+    backend.hook_signals();
+
     backend
         .serve_http()
         .await
         .expect("Unable to serve http server");
 
-    backend.hook_signals();
-
-    info!("Ready");
-
-    backend.await_shutdown().await;
+    info!("Shutting backend down...");
+    backend.jobs.lock().await.shutdown().await;
+    info!("Backend shutdown complete");
 }
 
 #[cfg(all(not(debug_assertions), feature = "auth_dev"))]

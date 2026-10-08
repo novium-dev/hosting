@@ -1,6 +1,12 @@
 "use client";
 
-import { CheckIcon, ClockIcon, CopyIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import {
+  CheckIcon,
+  ClockIcon,
+  CopyIcon,
+  PlusIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -25,7 +31,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { createNodeAction, updateNodeRegistrationAction } from "@/actions/nodes";
+import {
+  createNodeAction,
+  updateNodeRegistrationAction,
+} from "@/actions/nodes";
 import {
   type BackupStorage,
   type ListNodeRegistrationsResponses,
@@ -388,6 +397,20 @@ function NodeRegistrationDialog({
                   <div className="space-y-2">
                     <Label>{t("common:labels.type")}</Label>
                     <Select
+                      items={[
+                        {
+                          value: "directory",
+                          label: t(
+                            "admin-infra:nodes.createDialog.storageTypeDirectory",
+                          ),
+                        },
+                        {
+                          value: "btrfs",
+                          label: t(
+                            "admin-infra:nodes.createDialog.storageTypeBtrfs",
+                          ),
+                        },
+                      ]}
                       value={entry.type}
                       onValueChange={(value) =>
                         updateStorage(index, { type: value as StorageType })
@@ -415,7 +438,9 @@ function NodeRegistrationDialog({
                       size="icon"
                       disabled={storages.length <= 1}
                       onClick={() =>
-                        setStorages((prev) => prev.filter((_, i) => i !== index))
+                        setStorages((prev) =>
+                          prev.filter((_, i) => i !== index),
+                        )
                       }
                     >
                       <Trash2Icon className="size-4" />
@@ -489,6 +514,18 @@ function NodeRegistrationDialog({
                     <div className="space-y-2">
                       <Label>{t("common:labels.type")}</Label>
                       <Select
+                        items={[
+                          {
+                            value: "archive",
+                            label: t("common:resources.archive"),
+                          },
+                          {
+                            value: "btrfs",
+                            label: t(
+                              "admin-infra:nodes.createDialog.storageTypeBtrfs",
+                            ),
+                          },
+                        ]}
                         value={entry.type}
                         onValueChange={(value) =>
                           updateBackup(index, { type: value as BackupType })

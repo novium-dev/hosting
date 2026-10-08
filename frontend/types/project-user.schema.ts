@@ -14,9 +14,12 @@ export const setProjectUserSchema = z.object({
     .string()
     .datetime()
     .nullable()
-    .refine((expiresAt) => expiresAt === null || Date.parse(expiresAt) > Date.now(), {
-      message: "The access expiry must be in the future",
-    }),
+    .refine(
+      (expiresAt) => expiresAt === null || Date.parse(expiresAt) > Date.now(),
+      {
+        message: "The access expiry must be in the future",
+      },
+    ),
 });
 
 export type SetProjectUser = z.infer<typeof setProjectUserSchema>;

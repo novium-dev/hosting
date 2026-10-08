@@ -1,7 +1,9 @@
 "use client";
 
-
-import { createDatabaseAction, deleteDatabaseAction } from "@/actions/databases";
+import {
+  createDatabaseAction,
+  deleteDatabaseAction,
+} from "@/actions/databases";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,9 +43,7 @@ import {
 } from "@/components/ui/table";
 import { useInstanceDatabases } from "@/hooks/use-shared-queries";
 import { useAction } from "@/lib/action-hooks";
-import {
-  type ListInstanceDatabasesResponses,
-} from "@/lib/api";
+import { type ListInstanceDatabasesResponses } from "@/lib/api";
 import { Plus, Table2, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -88,7 +88,8 @@ export function InstanceDatabases({
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("project:databases.databasesCard.createError"),
+        result.error.serverError ??
+          t("project:databases.databasesCard.createError"),
       );
     },
   });
@@ -101,7 +102,8 @@ export function InstanceDatabases({
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("project:databases.databasesCard.deleteError"),
+        result.error.serverError ??
+          t("project:databases.databasesCard.deleteError"),
       );
     },
   });
@@ -231,8 +233,7 @@ export function InstanceDatabases({
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
+              onClick={() => {
                 if (!pendingDelete) return;
                 void remove.executeAsync({
                   projectId,

@@ -57,12 +57,12 @@ export function DatabaseAccessMatrix({
             {database.name}
           </code>
           <ToggleGroup
-            type="single"
             variant="outline"
             size="sm"
             disabled={disabled}
-            value={value[database.uuid] ?? "none"}
-            onValueChange={(level) => {
+            value={[value[database.uuid] ?? "none"]}
+            onValueChange={(levels) => {
+              const level = levels[0];
               if (!level) return;
               onChange({ ...value, [database.uuid]: level as AccessLevel });
             }}

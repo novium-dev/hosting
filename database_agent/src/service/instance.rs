@@ -1,6 +1,6 @@
 use super::{OrInstanceFailure as _, OrStoreFailure as _};
 use crate::state::Agent;
-use crate::store::data;
+use crate::utils::detached;
 use database_agent_common::service::DataStream;
 use database_agent_common::service::FileResponse;
 use database_agent_common::service::instance::InstanceService;
@@ -39,8 +39,8 @@ impl InstanceService for Agent {
         &self,
         create: StoredInstanceCreate,
     ) -> Result<ApiInstance, CreateInstanceError> {
-        let instance = self
-            .spawn_instance(create)
+        let agent = self.clone();
+        let instance = detached(async move { agent.spawn_instance(create).await })
             .await
             .or_instance_failure::<CreateInstanceError>("failed to create an instance")?;
 
@@ -69,18 +69,10 @@ impl InstanceService for Agent {
             .await
             .ok_or(UpdateInstanceError::InstanceNotFound)?;
 
-        let mut stored = instance.data.write().await;
-        data::apply_update(&mut stored, update);
-        let stored_result = data::update_instance(self.store.write(), &stored).await;
-        drop(stored);
-        stored_result.or_store_failure::<UpdateInstanceError>("failed to update an instance")?;
-
-        instance
-            .sync_container_resources()
+        let target = instance.clone();
+        detached(async move { target.update(update).await })
             .await
-            .or_instance_failure::<UpdateInstanceError>(
-                "failed to apply the new container limits",
-            )?;
+            .or_instance_failure::<UpdateInstanceError>("failed to update an instance")?;
 
         instance
             .to_api_response()
@@ -94,7 +86,8 @@ impl InstanceService for Agent {
             .await
             .ok_or(DeleteInstanceError::InstanceNotFound)?;
 
-        self.remove_instance(&instance)
+        let agent = self.clone();
+        detached(async move { agent.remove_instance(&instance).await })
             .await
             .or_instance_failure("failed to delete an instance")
     }
@@ -115,15 +108,18 @@ impl InstanceService for Agent {
             return Err(PowerInstanceError::InstanceDiskFull);
         }
 
-        match action {
-            PowerAction::Kill => instance.kill().await,
-            PowerAction::Restart => {
-                let _ = instance.stop().await;
-                instance.start().await
+        detached(async move {
+            match action {
+                PowerAction::Kill => instance.kill().await,
+                PowerAction::Restart => {
+                    let _ = instance.stop().await;
+                    instance.start().await
+                }
+                PowerAction::Start => instance.start().await,
+                PowerAction::Stop => instance.stop().await,
             }
-            PowerAction::Start => instance.start().await,
-            PowerAction::Stop => instance.stop().await,
-        }
+        })
+        .await
         .or_instance_failure("failed to change the instance power state")
     }
 

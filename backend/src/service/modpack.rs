@@ -699,7 +699,7 @@ pub(crate) impl ModpackService for Backend {
 
         let backend = self.clone();
         let url = resolved.url;
-        self.server_task_cancellable.lock().await.spawn(async move {
+        self.jobs.lock().await.spawn(async move {
             let heartbeat = backend.hold_lock(lock.clone());
             backend
                 .run_modpack_install(server, payload, pack_file, url)

@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import {
   createInstanceDatabase,
   createProjectInstance,
@@ -34,7 +35,7 @@ export const createInstanceAction = authActionClient
 
     if (response.error || !response.data) {
       throw new ActionError(
-        response.error?.error?.msg || "Failed to create the instance",
+        apiErrorMessage(response.error, "Failed to create the instance"),
       );
     }
 
@@ -53,7 +54,7 @@ export const deleteInstanceAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to delete the instance",
+        apiErrorMessage(response.error, "Failed to delete the instance"),
       );
     }
 
@@ -73,7 +74,7 @@ export const powerInstanceAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to change the power state",
+        apiErrorMessage(response.error, "Failed to change the power state"),
       );
     }
 
@@ -93,7 +94,7 @@ export const createDatabaseAction = authActionClient
 
     if (response.error || !response.data) {
       throw new ActionError(
-        response.error?.error?.msg || "Failed to create the database",
+        apiErrorMessage(response.error, "Failed to create the database"),
       );
     }
 
@@ -113,7 +114,7 @@ export const deleteDatabaseAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to delete the database",
+        apiErrorMessage(response.error, "Failed to delete the database"),
       );
     }
 
@@ -136,7 +137,7 @@ export const createUserAction = authActionClient
 
     if (response.error || !response.data) {
       throw new ActionError(
-        response.error?.error?.msg || "Failed to create the user",
+        apiErrorMessage(response.error, "Failed to create the user"),
       );
     }
 
@@ -157,7 +158,7 @@ export const setUserGrantsAction = authActionClient
 
     if (response.error || !response.data) {
       throw new ActionError(
-        response.error?.error?.msg || "Failed to update the database access",
+        apiErrorMessage(response.error, "Failed to update the database access"),
       );
     }
 
@@ -177,7 +178,7 @@ export const deleteUserAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to delete the user",
+        apiErrorMessage(response.error, "Failed to delete the user"),
       );
     }
 
@@ -197,7 +198,7 @@ export const rotateUserPasswordAction = authActionClient
 
     if (response.error || !response.data) {
       throw new ActionError(
-        response.error?.error?.msg || "Failed to rotate the password",
+        apiErrorMessage(response.error, "Failed to rotate the password"),
       );
     }
 

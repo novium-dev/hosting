@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import z from "zod";
 import { authActionClient } from "../lib/safe-action";
 import { createNode, updateNodeRegistration } from "../lib/api";
@@ -37,7 +38,9 @@ const nodeConfigSchema = z.object({
       port: z.number().int().min(1).max(65535),
     })
     .optional(),
-  storages: z.array(storageEntrySchema).min(1, "At least one storage is required"),
+  storages: z
+    .array(storageEntrySchema)
+    .min(1, "At least one storage is required"),
   backups: z.array(backupEntrySchema),
 });
 
@@ -79,7 +82,7 @@ export const createNodeAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to create node",
+        apiErrorMessage(response.error, "Failed to create node"),
       );
     }
 
@@ -101,7 +104,7 @@ export const updateNodeRegistrationAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to update node registration",
+        apiErrorMessage(response.error, "Failed to update node registration"),
       );
     }
 

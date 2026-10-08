@@ -1,6 +1,7 @@
 use super::{OrDatabaseFailure as _, OrStoreFailure as _};
 use crate::state::Agent;
 use crate::store::data;
+use crate::utils::detached;
 use database_agent_common::service::database::DatabaseService;
 use database_agent_common::service::database::database_service_error::{
     CreateDatabaseError, DatabaseSizeError, DeleteDatabaseError, GetDatabaseError,
@@ -48,8 +49,7 @@ impl DatabaseService for Agent {
             return Err(CreateDatabaseError::DatabaseNameTaken);
         }
 
-        instance
-            .create_database(&name)
+        detached(async move { instance.create_database(&name).await })
             .await
             .or_database_failure("failed to create a database")
     }
@@ -83,8 +83,7 @@ impl DatabaseService for Agent {
             .or_store_failure::<DeleteDatabaseError>("failed to read a database")?
             .ok_or(DeleteDatabaseError::DatabaseNotFound)?;
 
-        instance
-            .delete_database(&database)
+        detached(async move { instance.delete_database(&database).await })
             .await
             .or_database_failure("failed to delete a database")
     }

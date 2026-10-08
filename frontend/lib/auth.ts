@@ -9,12 +9,12 @@ import {
   updateProject,
 } from "@/lib/api";
 import type {
-  ListProjectUsersResponse,
   ListProjectsResponse,
   ListUsersResponse,
   MeResponse,
 } from "@/lib/api";
 import type { AuthClientMember } from "@/lib/auth-client";
+import type { ProjectMember } from "@/types/api";
 
 export type AppUser = {
   id: string;
@@ -35,8 +35,6 @@ export type AppSession = {
 };
 
 type Project = ListProjectsResponse[number];
-type ProjectMember = ListProjectUsersResponse[number];
-
 export type AppProject = Project & {
   members?: AuthClientMember[];
 };

@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   type ITerminalInitOnlyOptions,
   type ITerminalOptions,
@@ -137,6 +145,10 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
     sendResizeRef.current(size);
   }, []);
 
+  const currentTheme = useEffectEvent(() =>
+    resolvedTheme === "dark" ? DARK_THEME : LIGHT_THEME,
+  );
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -154,7 +166,7 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
       scrollback: 10000,
       fontFamily: "JetBrains Mono, monospace",
       fontSize: 14,
-      theme: resolvedTheme === "dark" ? DARK_THEME : LIGHT_THEME,
+      theme: currentTheme(),
     };
 
     const term = new Terminal(options);
@@ -270,8 +282,10 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
     getSize,
   });
 
-  sendRef.current = send;
-  sendResizeRef.current = sendResize;
+  useLayoutEffect(() => {
+    sendRef.current = send;
+    sendResizeRef.current = sendResize;
+  });
 
   useEffect(() => {
     const term = terminalRef.current;
@@ -366,7 +380,10 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
-                    runSearch(searchQuery, event.shiftKey ? "previous" : "next");
+                    runSearch(
+                      searchQuery,
+                      event.shiftKey ? "previous" : "next",
+                    );
                     return;
                   }
 
@@ -425,17 +442,19 @@ export default function XtermConsole({ serverId }: { serverId: string }) {
             </Button>
 
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-8"
-                  aria-label={t("servers:console.toolbar.reconnect")}
-                  onClick={reconnect}
-                >
-                  <RotateCw className="size-4" />
-                </Button>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    aria-label={t("servers:console.toolbar.reconnect")}
+                    onClick={reconnect}
+                  />
+                }
+              >
+                <RotateCw className="size-4" />
               </TooltipTrigger>
               <TooltipContent>
                 {t("servers:console.toolbar.reconnect")}

@@ -99,16 +99,12 @@ function ResourceBar({
   );
 }
 
-function ServerRow({
-  slug,
-  server,
-}: {
-  slug: string;
-  server: ServerListItem;
-}) {
+function ServerRow({ slug, server }: { slug: string; server: ServerListItem }) {
   const { t } = useTranslation();
   const banner = templateBanner(server.template);
-  const state = server.status ? statusFromLabel(server.status.state) : "unknown";
+  const state = server.status
+    ? statusFromLabel(server.status.state)
+    : "unknown";
   const tone = statusTone(state);
   const startedAt = server.status?.started_at ?? null;
   const isRunning = state === "running";
@@ -138,9 +134,13 @@ function ServerRow({
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!isRunning || startedAt === null) return;
-    setNow(Date.now());
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
+    const tick = () => setNow(Date.now());
+    const immediate = setTimeout(tick, 0);
+    const interval = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(immediate);
+      clearInterval(interval);
+    };
   }, [isRunning, startedAt]);
 
   const uptime = startedAt !== null ? formatUptime(now - startedAt) : null;

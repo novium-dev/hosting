@@ -41,7 +41,6 @@
   },
   "searchableSelect": {
     "placeholder": "Wert auswählen",
-    "searchPlaceholder": "Suchen...",
     "noResults": "Keine Ergebnisse."
   }
 }

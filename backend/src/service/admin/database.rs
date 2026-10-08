@@ -1,6 +1,7 @@
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
+use crate::cluster::SyncTarget;
 use crate::db::group::{GroupRef, all_groups_exist, group_labels, group_refs};
 use crate::db::project::ProjectId;
 use crate::registration::{DatabaseHostRegistration, Pending};
@@ -12,6 +13,7 @@ use crate::service::admin::database::database_admin_service_error::{
 };
 use crate::service::error_database_agent_error::FromDatabaseAgentError;
 use crate::service::*;
+use crate::utils::task::detached;
 use core::str::FromStr as _;
 use database_agent_common::service::instance::InstanceService as _;
 use database_agent_common::types::{
@@ -101,11 +103,6 @@ pub(crate) struct DatabaseInstanceInfo {
     pub(crate) remote: Option<ApiInstance>,
 }
 
-#[derive(Debug, Serialize, utoipa::ToSchema)]
-pub(crate) struct CreatedId {
-    pub(crate) id: Uuid,
-}
-
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub(crate) struct UpdateDatabaseInstance {
     #[serde(default)]
@@ -127,17 +124,6 @@ define_path_variable!(code "The database host registration code");
 fn agent_failure<E: FromDatabaseAgentError>(error: &impl core::fmt::Debug) -> E {
     tracing::error!("The database agent returned an error: {error:?}");
     <E as FromDatabaseAgentError>::from()
-}
-
-impl Backend {
-    async fn reload_database_hosts(&self) -> Result<(), sqlx::Error> {
-        let backend = self.clone();
-        self.database
-            .acquire()
-            .await?
-            .transaction(|tx| Box::pin(async move { backend.sync_database_hosts(tx).await }))
-            .await
-    }
 }
 
 #[service(path = "/admin/database", tag = "database", no_sdk)]
@@ -173,7 +159,7 @@ pub(crate) impl DatabaseAdminService for Backend {
         let mut hosts = Vec::with_capacity(rows.len());
         for row in rows {
             let ports = query!(
-                r#"SELECT type, port FROM database_host_ports WHERE host = $1"#,
+                r#"SELECT kind, port FROM database_host_ports WHERE host = $1"#,
                 row.id
             )
             .fetch_all(&*self.database)
@@ -181,7 +167,7 @@ pub(crate) impl DatabaseAdminService for Backend {
             .into_iter()
             .filter_map(|port| {
                 Some((
-                    DatabaseType::from_str(&port.r#type).ok()?,
+                    DatabaseType::from_str(&port.kind).ok()?,
                     u16::try_from(port.port).ok()?,
                 ))
             })
@@ -395,7 +381,7 @@ pub(crate) impl DatabaseAdminService for Backend {
 
             for (kind, port) in ports {
                 query!(
-                    "INSERT INTO database_host_ports (host, type, port) VALUES ($1, $2, $3)",
+                    "INSERT INTO database_host_ports (host, kind, port) VALUES ($1, $2, $3)",
                     host_id,
                     kind.as_str(),
                     i32::from(port)
@@ -405,7 +391,7 @@ pub(crate) impl DatabaseAdminService for Backend {
             }
         }
 
-        self.reload_database_hosts().await?;
+        self.resync(SyncTarget::DatabaseHosts).await?;
 
         Ok(())
     }
@@ -444,7 +430,7 @@ pub(crate) impl DatabaseAdminService for Backend {
             return Err(DeleteDatabaseHostError::DatabaseHostNotFound);
         }
 
-        self.reload_database_hosts().await?;
+        self.resync(SyncTarget::DatabaseHosts).await?;
 
         Ok(())
     }
@@ -480,7 +466,7 @@ pub(crate) impl DatabaseAdminService for Backend {
 
         Ok(query!(
             r#"SELECT database_instances.id, database_instances.host,
-                   database_instances.type AS kind, database_instances.display,
+                   database_instances.kind, database_instances.display,
                    database_instances.project AS "project: ProjectId",
                    projects.slug AS project_slug, database_instances.created
                FROM database_instances
@@ -537,35 +523,44 @@ pub(crate) impl DatabaseAdminService for Backend {
             .await
             .ok_or(UpdateDatabaseInstanceError::DatabaseHostNotFound)?;
 
-        if let Some(display) = payload.display {
-            let updated = query!(
-                "UPDATE database_instances SET display = $1 WHERE id = $2 AND host = $3",
-                display,
-                instance_id,
-                host_id
-            )
-            .execute(&*self.database)
-            .await?;
-            if updated.rows_affected() == 0 {
-                return Err(UpdateDatabaseInstanceError::DatabaseInstanceNotFound);
-            }
-        }
+        let mut conn = self.database.acquire().await?;
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    if let Some(display) = payload.display {
+                        let updated = query!(
+                        "UPDATE database_instances SET display = $1 WHERE id = $2 AND host = $3",
+                        display,
+                        instance_id,
+                        host_id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                        if updated.rows_affected() == 0 {
+                            return Err(UpdateDatabaseInstanceError::DatabaseInstanceNotFound);
+                        }
+                    }
 
-        let update = StoredInstanceUpdate {
-            memory: payload.memory,
-            swap: payload.swap,
-            disk: payload.disk,
-            cpu: payload.cpu,
-            suspended: payload.suspended,
-            ..Default::default()
-        };
+                    let update = StoredInstanceUpdate {
+                        memory: payload.memory,
+                        swap: payload.swap,
+                        disk: payload.disk,
+                        cpu: payload.cpu,
+                        suspended: payload.suspended,
+                        ..Default::default()
+                    };
 
-        host.sdk
-            .update_instance(instance_id, update)
+                    host.sdk
+                        .update_instance(instance_id, update)
+                        .await
+                        .map_err(|err| agent_failure::<UpdateDatabaseInstanceError>(&err))?;
+
+                    Ok(())
+                })
+            })
             .await
-            .map_err(|err| agent_failure::<UpdateDatabaseInstanceError>(&err))?;
-
-        Ok(())
+        })
+        .await
     }
 
     /// Deletes a database instance and everything stored in it.
@@ -592,22 +587,31 @@ pub(crate) impl DatabaseAdminService for Backend {
             .await
             .ok_or(DeleteDatabaseInstanceError::DatabaseHostNotFound)?;
 
-        host.sdk
-            .delete_instance(instance_id)
+        let mut conn = self.database.acquire().await?;
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    let deleted = query!(
+                        "DELETE FROM database_instances WHERE id = $1 AND host = $2",
+                        instance_id,
+                        host_id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                    if deleted.rows_affected() == 0 {
+                        return Err(DeleteDatabaseInstanceError::DatabaseInstanceNotFound);
+                    }
+
+                    host.sdk
+                        .delete_instance(instance_id)
+                        .await
+                        .map_err(|err| agent_failure::<DeleteDatabaseInstanceError>(&err))?;
+
+                    Ok(())
+                })
+            })
             .await
-            .map_err(|err| agent_failure::<DeleteDatabaseInstanceError>(&err))?;
-
-        let deleted = query!(
-            "DELETE FROM database_instances WHERE id = $1 AND host = $2",
-            instance_id,
-            host_id
-        )
-        .execute(&*self.database)
-        .await?;
-        if deleted.rows_affected() == 0 {
-            return Err(DeleteDatabaseInstanceError::DatabaseInstanceNotFound);
-        }
-
-        Ok(())
+        })
+        .await
     }
 }

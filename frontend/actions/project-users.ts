@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import { removeProjectUser, setProjectUser } from "@/lib/api";
 import { resolveServerPermissions } from "@/lib/permissions";
 import { authActionClient } from "@/lib/safe-action";
@@ -24,7 +25,7 @@ export const setProjectUserAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to update project member",
+        apiErrorMessage(response.error, "Failed to update project member"),
       );
     }
 
@@ -42,7 +43,7 @@ export const removeProjectUserAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to remove project member",
+        apiErrorMessage(response.error, "Failed to remove project member"),
       );
     }
 

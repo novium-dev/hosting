@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useState,
+  useTransition,
+} from "react";
 import { toast } from "sonner";
 
 import { searchResourceProjectsAction } from "@/actions/mod-browser";
@@ -27,8 +33,6 @@ export function useResourceSearch({
   const [query, setQuery] = useState("");
   const [projects, setProjects] = useState<ResourceProject[]>([]);
   const [isSearching, startSearch] = useTransition();
-  const latestQuery = useRef(query);
-  latestQuery.current = query;
 
   const search = useCallback(
     (nextQuery: string) => {
@@ -56,8 +60,10 @@ export function useResourceSearch({
     [serverId, loader, provider, kind, gameVersion],
   );
 
+  const searchCurrentQuery = useEffectEvent(() => search(query));
+
   useEffect(() => {
-    search(latestQuery.current);
+    searchCurrentQuery();
   }, [search]);
 
   return {
@@ -65,6 +71,6 @@ export function useResourceSearch({
     setQuery,
     projects,
     isSearching,
-    submit: () => search(latestQuery.current),
+    submit: () => search(query),
   };
 }

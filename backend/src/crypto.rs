@@ -1,11 +1,12 @@
-use daemon_common::key::rcgen::KeyPair;
-use daemon_common::key::{BackendKey, DaemonRootKey};
+use daemon_common::{DAEMON_BACKEND_KEY_COMMON_NAME, DAEMON_ROOT_KEY_COMMON_NAME};
 use ed25519_dalek::SigningKey;
-use sqlx::{PgPool, query, query_as};
+use sqlx::{Connection as _, PgPool, query, query_as};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::fs;
 use tracing::info;
+use zelus_keys::rcgen::KeyPair;
+use zelus_keys::{BackendKey, DaemonRootKey};
 
 const KEY_LOCK: i64 = 0x6e6f_7669_756d_6b65;
 
@@ -31,12 +32,20 @@ fn generate() -> StoredKeys {
     let user_key = SigningKey::generate(&mut rand::rng());
 
     let root_privkey = KeyPair::generate().expect("Unable to generate root key");
-    let root_key = DaemonRootKey::new(&root_privkey, Some(user_key.verifying_key()))
-        .expect("Unable to generate x509 root key");
+    let root_key = DaemonRootKey::new(
+        &root_privkey,
+        DAEMON_ROOT_KEY_COMMON_NAME,
+        Some(user_key.verifying_key()),
+    )
+    .expect("Unable to generate x509 root key");
 
     let backend_keypair = KeyPair::generate().expect("Unable to generate backend key");
     let backend_key = root_key
-        .new_backend_key(&root_privkey, &backend_keypair)
+        .new_backend_key(
+            &root_privkey,
+            &backend_keypair,
+            DAEMON_BACKEND_KEY_COMMON_NAME,
+        )
         .expect("Unable to create backend key");
 
     StoredKeys {
@@ -46,45 +55,48 @@ fn generate() -> StoredKeys {
 }
 
 async fn load_or_store(database: &PgPool, data_dir: &Path) -> Result<StoredKeys, sqlx::Error> {
-    let mut tx = database.begin().await?;
+    let data_dir = data_dir.to_owned();
+    let mut conn = database.acquire().await?;
+    conn.transaction(|tx| {
+        Box::pin(async move {
+            query!("SELECT pg_advisory_xact_lock($1)", KEY_LOCK)
+                .execute(&mut **tx)
+                .await?;
 
-    query!("SELECT pg_advisory_xact_lock($1)", KEY_LOCK)
-        .execute(&mut *tx)
-        .await?;
+            if let Some(keys) =
+                query_as!(StoredKeys, "SELECT root_key, backend_key FROM backend_keys")
+                    .fetch_optional(&mut **tx)
+                    .await?
+            {
+                return Ok(keys);
+            }
 
-    if let Some(keys) = query_as!(StoredKeys, "SELECT root_key, backend_key FROM backend_keys")
-        .fetch_optional(&mut *tx)
-        .await?
-    {
-        tx.commit().await?;
-        return Ok(keys);
-    }
-
-    let keys = read_legacy(data_dir).await.map_or_else(
-        || {
-            info!("Generating new backend keys");
-            generate()
-        },
-        |keys| {
-            info!(
-                "Importing the backend keys from {} into the database",
-                data_dir.display()
+            let keys = read_legacy(&data_dir).await.map_or_else(
+                || {
+                    info!("Generating new backend keys");
+                    generate()
+                },
+                |keys| {
+                    info!(
+                        "Importing the backend keys from {} into the database",
+                        data_dir.display()
+                    );
+                    keys
+                },
             );
-            keys
-        },
-    );
 
-    query!(
-        "INSERT INTO backend_keys (root_key, backend_key) VALUES ($1, $2)",
-        keys.root_key,
-        keys.backend_key
-    )
-    .execute(&mut *tx)
-    .await?;
+            query!(
+                "INSERT INTO backend_keys (root_key, backend_key) VALUES ($1, $2)",
+                keys.root_key,
+                keys.backend_key
+            )
+            .execute(&mut **tx)
+            .await?;
 
-    tx.commit().await?;
-
-    Ok(keys)
+            Ok(keys)
+        })
+    })
+    .await
 }
 
 pub async fn load_keys(

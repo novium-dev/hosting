@@ -145,16 +145,19 @@ export default function AdminServerManagementPage() {
             </div>
 
             {panelPath ? (
-              <Button asChild>
-                <Link
-                  href={panelPath}
-                  className="inline-flex items-center gap-2"
-                >
-                  <ExternalLink className="size-4" />
-                  {t("admin-infra:servers.detailPage.viewInHephaestus", {
-                    appName: appConfig.appName,
-                  })}
-                </Link>
+              <Button
+                render={
+                  <Link
+                    href={panelPath}
+                    className="inline-flex items-center gap-2"
+                  />
+                }
+                nativeButton={false}
+              >
+                <ExternalLink className="size-4" />
+                {t("admin-infra:servers.detailPage.viewInHephaestus", {
+                  appName: appConfig.appName,
+                })}
               </Button>
             ) : (
               <Button type="button" disabled>

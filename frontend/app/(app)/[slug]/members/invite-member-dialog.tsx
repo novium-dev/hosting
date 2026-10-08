@@ -11,18 +11,18 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+  Field,
+  FieldGroup,
+  FieldError,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { PermissionsField } from "@/components/permissions-field";
 import { MembershipExpiryField } from "./membership-expiry-field";
 import { ServerPermission } from "@/lib/permissions";
 import { setProjectUserSchema } from "@/types/project-user.schema";
+import { Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
 import { UserPlus } from "lucide-react";
@@ -53,18 +53,18 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
           toast.success(t("project:members.inviteDialog.success"));
         },
         onError: (error) => {
-          toast.error(error.error.serverError ?? t("common:state.genericError"));
+          toast.error(
+            error.error.serverError ?? t("common:state.genericError"),
+          );
         },
       },
     });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <UserPlus className="h-4 w-4" />
-          {t("project:members.inviteDialog.trigger")}
-        </Button>
+      <DialogTrigger render={<Button />}>
+        <UserPlus className="h-4 w-4" />
+        {t("project:members.inviteDialog.trigger")}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -73,56 +73,56 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
             {t("project:members.inviteDialog.description")}
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={handleSubmitWithAction} className="space-y-4">
+        <form onSubmit={handleSubmitWithAction}>
+          <FieldGroup className="gap-4">
             <input type="hidden" {...form.register("projectId")} />
-            <FormField
+            <Controller
               control={form.control}
               name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("common:labels.email")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      type="email"
-                      placeholder={t("project:members.inviteDialog.emailPlaceholder")}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>
+                    {t("common:labels.email")}
+                  </FieldLabel>
+                  <Input
+                    id={field.name}
+                    aria-invalid={fieldState.invalid}
+                    {...field}
+                    type="email"
+                    placeholder={t(
+                      "project:members.inviteDialog.emailPlaceholder",
+                    )}
+                  />
+                  <FieldError errors={[fieldState.error]} />
+                </Field>
               )}
             />
-            <FormField
+            <Controller
               control={form.control}
               name="permissions"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("common:labels.permissions")}</FormLabel>
-                  <FormControl>
-                    <PermissionsField
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldTitle>{t("common:labels.permissions")}</FieldTitle>
+                  <PermissionsField
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                  <FieldError errors={[fieldState.error]} />
+                </Field>
               )}
             />
-            <FormField
+            <Controller
               control={form.control}
               name="expiresAt"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("project:members.expiry.label")}</FormLabel>
-                  <FormControl>
-                    <MembershipExpiryField
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldTitle>{t("project:members.expiry.label")}</FieldTitle>
+                  <MembershipExpiryField
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                  <FieldError errors={[fieldState.error]} />
+                </Field>
               )}
             />
             <Button
@@ -132,8 +132,8 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
             >
               {t("project:members.inviteDialog.submit")}
             </Button>
-          </form>
-        </Form>
+          </FieldGroup>
+        </form>
       </DialogContent>
     </Dialog>
   );

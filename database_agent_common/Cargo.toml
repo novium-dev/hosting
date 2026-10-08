@@ -13,15 +13,11 @@ service = [
     "dep:zelus",
     "dep:utoipa-axum",
     "dep:sha2",
-    "dep:axum",
-    "dep:tokio",
-    "dep:tokio-util",
     "dep:bytes",
-    "dep:futures-util",
 ]
 sdk = [
     "service",
-    "dep:daemon_common",
+    "dep:zelus_keys",
     "dep:reqwest",
     "dep:rustls",
     "dep:either",
@@ -31,7 +27,7 @@ sdk = [
 [dependencies]
 arrayvec.workspace = true
 serde.workspace = true
-url.workspace = true
+url = { workspace = true, features = ["serde"] }
 serde_json.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
@@ -42,9 +38,8 @@ workspace = true
 features = ["error", "io"]
 optional = true
 
-[dependencies.daemon_common]
+[dependencies.zelus_keys]
 workspace = true
-features = ["keys"]
 optional = true
 
 [dependencies.reqwest]
@@ -58,7 +53,7 @@ workspace = true
 optional = true
 
 [dependencies.either]
-version = "1.18.0"
+version = "1.19.0"
 optional = true
 
 [dependencies.http]
@@ -73,22 +68,6 @@ optional = true
 workspace = true
 optional = true
 
-[dependencies.axum]
-workspace = true
-optional = true
-
-[dependencies.tokio]
-workspace = true
-optional = true
-
-[dependencies.tokio-util]
-workspace = true
-optional = true
-
 [dependencies.bytes]
-workspace = true
-optional = true
-
-[dependencies.futures-util]
 workspace = true
 optional = true

@@ -44,7 +44,6 @@ export function StartupVariables({
     markSaved,
     nestedPath,
     onNestedChange,
-    reset,
     setVariables,
     variables,
   } = useVariableEditor(payload ?? null);
@@ -69,7 +68,6 @@ export function StartupVariables({
         }
 
         setPayload(response.data);
-        reset(response.data);
       } catch {
         if (mounted) {
           toast.error(t("servers:startup.toasts.loadFailed"));
@@ -86,7 +84,7 @@ export function StartupVariables({
     return () => {
       mounted = false;
     };
-  }, [serverId, reset, t]);
+  }, [serverId, t]);
 
   const saveVariables = async () => {
     setIsSaving(true);

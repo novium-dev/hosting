@@ -1,3 +1,4 @@
+use crate::cluster::SyncTarget;
 use tracing::error;
 
 use serde::{Deserialize, Serialize};
@@ -182,8 +183,8 @@ pub(crate) impl NodeAdminService for Backend {
 
         let ssh_port: Option<i32> = ssh_port.map(i32::from);
 
-        let mut conn = self.database.acquire().await?;
         let backend = self.clone();
+        let mut conn = self.database.acquire().await?;
         conn.transaction(|tx| {
             Box::pin(async move {
                 query!(
@@ -198,9 +199,9 @@ pub(crate) impl NodeAdminService for Backend {
 
                 replace_storages(tx, &node_id, storages, backups).await?;
 
-                backend.sync_nodes(tx).await?;
+                backend.sync(tx, SyncTarget::Nodes).await?;
 
-                Ok::<_, UpdateNodeError>(())
+                Ok(())
             })
         })
         .await
@@ -355,8 +356,8 @@ pub(crate) impl NodeAdminService for Backend {
             return Err(DeleteNodeError::NodeNotFound);
         }
 
-        let mut conn = self.database.acquire().await?;
         let backend = self.clone();
+        let mut conn = self.database.acquire().await?;
         conn.transaction(|tx| {
             Box::pin(async move {
                 let has_servers = query_scalar!(
@@ -374,9 +375,9 @@ pub(crate) impl NodeAdminService for Backend {
                     .execute(&mut **tx)
                     .await?;
 
-                backend.sync_nodes(tx).await?;
+                backend.sync(tx, SyncTarget::Nodes).await?;
 
-                Ok::<_, DeleteNodeError>(())
+                Ok(())
             })
         })
         .await
@@ -400,8 +401,8 @@ pub(crate) impl NodeAdminService for Backend {
             return Err(UpdateMaintenanceError::NodeNotFound);
         }
 
-        let mut conn = self.database.acquire().await?;
         let backend = self.clone();
+        let mut conn = self.database.acquire().await?;
         conn.transaction(|tx| {
             Box::pin(async move {
                 query!(
@@ -412,9 +413,9 @@ pub(crate) impl NodeAdminService for Backend {
                 .execute(&mut **tx)
                 .await?;
 
-                backend.sync_nodes(tx).await?;
+                backend.sync(tx, SyncTarget::Nodes).await?;
 
-                Ok::<_, UpdateMaintenanceError>(())
+                Ok(())
             })
         })
         .await
@@ -528,8 +529,8 @@ pub(crate) impl NodeAdminService for Backend {
             return Err(AddNodePortError::NodeNotFound);
         }
 
-        let mut conn = self.database.acquire().await?;
         let backend = self.clone();
+        let mut conn = self.database.acquire().await?;
         conn.transaction(|tx| {
             Box::pin(async move {
                 let id = query!(
@@ -543,9 +544,9 @@ pub(crate) impl NodeAdminService for Backend {
                 .await?
                 .id;
 
-                backend.sync_nodes(tx).await?;
+                backend.sync(tx, SyncTarget::Nodes).await?;
 
-                Ok::<_, AddNodePortError>(id)
+                Ok(id)
             })
         })
         .await
@@ -569,8 +570,8 @@ pub(crate) impl NodeAdminService for Backend {
             return Err(DeleteNodePortError::NodeNotFound);
         }
 
-        let mut conn = self.database.acquire().await?;
         let backend = self.clone();
+        let mut conn = self.database.acquire().await?;
         conn.transaction(|tx| {
             Box::pin(async move {
                 let Some(port) = query!(
@@ -581,7 +582,7 @@ pub(crate) impl NodeAdminService for Backend {
                 .fetch_optional(&mut **tx)
                 .await?
                 else {
-                    return Ok::<_, DeleteNodePortError>(());
+                    return Ok(());
                 };
 
                 let in_use = query_scalar!(
@@ -611,9 +612,9 @@ pub(crate) impl NodeAdminService for Backend {
                 .execute(&mut **tx)
                 .await?;
 
-                backend.sync_nodes(tx).await?;
+                backend.sync(tx, SyncTarget::Nodes).await?;
 
-                Ok::<_, DeleteNodePortError>(())
+                Ok(())
             })
         })
         .await
@@ -696,8 +697,8 @@ pub(crate) impl NodeAdminService for Backend {
             return Err(UpdateNodeOverallocationError::NodeNotFound);
         }
 
-        let mut conn = self.database.acquire().await?;
         let backend = self.clone();
+        let mut conn = self.database.acquire().await?;
         conn.transaction(|tx| {
             Box::pin(async move {
                 query!(
@@ -708,9 +709,9 @@ pub(crate) impl NodeAdminService for Backend {
                 .execute(&mut **tx)
                 .await?;
 
-                backend.sync_nodes(tx).await?;
+                backend.sync(tx, SyncTarget::Nodes).await?;
 
-                Ok::<_, UpdateNodeOverallocationError>(())
+                Ok(())
             })
         })
         .await

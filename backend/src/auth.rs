@@ -1,18 +1,16 @@
 use crate::auth::api_key::ApiKeyAuthentication;
-use crate::auth::permissions::{HasPermission, Permission};
+use crate::auth::effective::EffectivePermissions;
+use crate::auth::permissions::{Resolve, Scope};
 use crate::auth::user::UserAuthentication;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::error_auth_unreachable::FromAuthUnreachable;
 use http::request::Parts;
-use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
-use utoipa::openapi::schema::SchemaType;
-use utoipa::openapi::{Object, RefOr, Required, Schema, Type};
+use utoipa::openapi::path::OperationBuilder;
 use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
 pub mod api_key;
-pub mod backfill;
 pub mod client;
 pub mod csrf;
 pub mod effective;
@@ -29,40 +27,39 @@ pub enum Authentication {
 }
 
 impl Authentication {
-    pub fn require<P: Permission<Extra, E>, Extra, E: FromAuthPermissionDenied>(
+    fn access(&self) -> Option<&EffectivePermissions> {
+        match self {
+            Self::User(auth) => Some(auth),
+            Self::ApiKey(auth) => Some(auth),
+            Self::None => None,
+        }
+    }
+
+    pub fn require<P: Resolve<S>, S: Scope<E>, E: FromAuthPermissionDenied>(
         &self,
-        extra: Extra,
+        scope: S,
         permission: P,
     ) -> Result<(), E> {
-        match self {
-            Self::User(auth) => auth.require(extra, permission),
-            Self::ApiKey(auth) => auth.require(extra, permission),
-            Self::None => Err(E::from()),
-        }
+        self.access().map_or_else(
+            || Err(E::from()),
+            |access| access.require(scope, permission),
+        )
     }
 
-    pub fn has<P: HasPermission<Extra>, Extra>(&self, extra: Extra, permission: P) -> bool {
-        match self {
-            Self::User(auth) => auth.has(extra, permission),
-            Self::ApiKey(auth) => auth.has(extra, permission),
-            Self::None => false,
-        }
+    pub fn has<P: Resolve<S>, S>(&self, scope: S, permission: P) -> bool {
+        self.access()
+            .is_some_and(|access| access.has(scope, permission))
     }
 
-    pub fn permissions<P: HasPermission<Extra>, Extra>(&self, extra: Extra) -> P {
-        match self {
-            Self::User(auth) => auth.permissions(extra),
-            Self::ApiKey(auth) => auth.permissions(extra),
-            Self::None => P::default(),
-        }
+    pub fn permissions<P: Resolve<S>, S>(&self, scope: S) -> P {
+        self.access()
+            .map(|access| access.permissions(scope))
+            .unwrap_or_default()
     }
 
     pub fn is_project_member(&self, project: crate::db::project::ProjectId) -> bool {
-        match self {
-            Self::User(auth) => auth.is_project_member(project),
-            Self::ApiKey(auth) => auth.is_project_member(project),
-            Self::None => false,
-        }
+        self.access()
+            .is_some_and(|access| access.is_project_member(project))
     }
 
     pub const fn user_id(&self) -> Option<i32> {
@@ -96,18 +93,6 @@ impl DocumentedType for Authentication {
     fn openapi(operations: OperationBuilder) -> OperationBuilder {
         operations
             .parameter(session::session_cookie_parameter())
-            .parameter(
-                ParameterBuilder::new()
-                    .name("Authorization")
-                    .parameter_in(ParameterIn::Header)
-                    .description(Some("The api key"))
-                    .schema(Some(RefOr::T(Schema::Object(
-                        Object::builder()
-                            .schema_type(SchemaType::Type(Type::String))
-                            .pattern(Some(api_key::API_KEY_REGEX.as_str()))
-                            .build(),
-                    ))))
-                    .required(Required::False),
-            )
+            .parameter(api_key::api_key_parameter())
     }
 }

@@ -1,6 +1,5 @@
 use crate::sdk::{DatabaseAgentSDK, DatabaseAgentSDKServerNameResolver};
 use core::time::Duration;
-use daemon_common::key::{BackendKey, DaemonKeyVerifier, DaemonRootKey};
 use either::Either;
 use rustls::client::WebPkiServerVerifier;
 use rustls::{ClientConfig, RootCertStore};
@@ -8,8 +7,8 @@ use std::sync::Arc;
 use uuid::Uuid;
 use zelus::reqwest::Client;
 use zelus::url::Url;
+use zelus_keys::{BackendKey, DaemonKeyVerifier, DaemonRootKey};
 
-#[expect(private_bounds, reason = "trait should be sealed")]
 pub trait DatabaseAgentSDKBuilderState: DatabaseAgentSdkSealed {
     type Inner;
 }
@@ -117,12 +116,16 @@ impl DatabaseAgentSDKBuilder<()> {
 
         let mut tls = ClientConfig::builder()
             .dangerous()
-            .with_custom_certificate_verifier(Arc::new(DaemonKeyVerifier(
-                identifier,
-                WebPkiServerVerifier::builder(cert_store)
-                    .build()
-                    .expect("Unable to build webpki server verifier"),
-            )))
+            .with_custom_certificate_verifier(Arc::new(
+                DaemonKeyVerifier::new(
+                    crate::AGENT_KEY_PREFIX,
+                    identifier,
+                    WebPkiServerVerifier::builder(cert_store)
+                        .build()
+                        .expect("Unable to build webpki server verifier"),
+                )
+                .expect("the agent key prefix forms a valid dns name"),
+            ))
             .with_client_auth_cert(
                 backend_key.tls_cert.cert.clone(),
                 backend_key.privkey.clone_key(),

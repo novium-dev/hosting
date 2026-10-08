@@ -1,5 +1,4 @@
 mod fabric;
-mod forge;
 pub(crate) mod maven;
 mod neoforge;
 mod paper;
@@ -38,7 +37,6 @@ pub(crate) const PAPER_URL: &str = "https://fill.papermc.io/";
 pub(crate) const PURPUR_URL: &str = "https://api.purpurmc.org/";
 pub(crate) const FABRIC_URL: &str = "https://meta.fabricmc.net/v2";
 pub(crate) const QUILT_URL: &str = "https://meta.quiltmc.org/v3";
-pub(crate) const FORGE_URL: &str = "https://maven.minecraftforge.net";
 pub(crate) const NEOFORGE_URL: &str = "https://maven.neoforged.net";
 
 #[derive(Debug, Readable, Writable, Hash, Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
@@ -62,7 +60,6 @@ pub(crate) enum MinecraftDownloadBackend {
     Paper(&'static str, &'static str),
     Purpur(&'static str, &'static str),
     Fabric(&'static str),
-    Forge(&'static str),
     NeoForge(&'static str),
 }
 
@@ -153,11 +150,6 @@ impl MinecraftServerModification {
 
     const fn is_fabric(self) -> bool {
         matches!(self, Self::Fabric | Self::Quilt)
-    }
-
-    #[expect(clippy::unused_self, reason = "forge is unimplemented")]
-    const fn is_forge(self) -> bool {
-        false
     }
 
     const fn is_neoforge(self) -> bool {
@@ -784,9 +776,6 @@ impl Template for MinecraftTemplate {
         if modification.is_fabric() {
             features.insert("minecraft_mods_fabric");
         }
-        if modification.is_forge() {
-            features.insert("minecraft_mods_forge");
-        }
         if modification.is_neoforge() {
             features.insert("minecraft_mods_neoforge");
         }
@@ -931,9 +920,6 @@ pub(crate) async fn resolve_cache() -> Result<VersionCache, ()> {
             }
             MinecraftDownloadBackend::Fabric(url) => {
                 fabric::resolve(&client, modification, &mut cache, url).await?;
-            }
-            MinecraftDownloadBackend::Forge(url) => {
-                forge::resolve(&client, modification, &mut cache, url).await?;
             }
             MinecraftDownloadBackend::NeoForge(url) => {
                 neoforge::resolve(&client, modification, &mut cache, url).await?;

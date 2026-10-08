@@ -693,7 +693,9 @@ export function consoleLineToText(
   offset = line.clockOffset,
 ) {
   if (!withTimestamp) return line.raw;
-  return line.timestamp ? line.raw : `${formatLineTime(line, offset)} ${line.raw}`;
+  return line.timestamp
+    ? line.raw
+    : `${formatLineTime(line, offset)} ${line.raw}`;
 }
 
 /**

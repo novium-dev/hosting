@@ -3,27 +3,22 @@ use crate::state::Agent;
 use database_agent_common::integrity::{
     IntegrityCategory, IntegrityFinding, IntegritySchema, IntegritySchemaTable,
 };
-use sqlx::{Row as _, SqlitePool, query};
+use sqlx::{SqlitePool, query};
 use zelus::async_trait;
 
 pub async fn dump(pool: &SqlitePool) -> Result<IntegritySchema, sqlx::Error> {
-    let rows = query(
-        "SELECT name, sql FROM sqlite_master \
-         WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type, name",
+    let tables = query!(
+        r#"SELECT name AS "name!", sql AS "definition!" FROM sqlite_master
+           WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type, name"#
     )
     .fetch_all(pool)
-    .await?;
-
-    let mut tables = Vec::new();
-    for row in rows {
-        let (Ok(name), Ok(definition)) = (
-            row.try_get::<String, _>(0usize),
-            row.try_get::<String, _>(1usize),
-        ) else {
-            continue;
-        };
-        tables.push(IntegritySchemaTable { name, definition });
-    }
+    .await?
+    .into_iter()
+    .map(|row| IntegritySchemaTable {
+        name: row.name,
+        definition: row.definition,
+    })
+    .collect();
 
     Ok(IntegritySchema {
         engine: "sqlite".to_owned(),

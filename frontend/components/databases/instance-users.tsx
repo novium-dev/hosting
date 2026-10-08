@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import useSWR from "swr";
 
 import {
@@ -60,18 +61,26 @@ import {
 } from "@/components/ui/table";
 import { useInstanceDatabases } from "@/hooks/use-shared-queries";
 import { useAction } from "@/lib/action-hooks";
+import { listInstanceUsers, type ListInstanceUsersResponses } from "@/lib/api";
 import {
-  listInstanceUsers,
-  type ListInstanceUsersResponses,
-} from "@/lib/api";
-import { Copy, Eye, EyeOff, MoreHorizontal, Plus, UserRound } from "lucide-react";
+  Copy,
+  Eye,
+  EyeOff,
+  MoreHorizontal,
+  Plus,
+  UserRound,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 export type ProjectUser = ListInstanceUsersResponses[200][number];
 
-async function copyValue(value: string, successMessage: string, errorMessage: string) {
+async function copyValue(
+  value: string,
+  successMessage: string,
+  errorMessage: string,
+) {
   try {
     await navigator.clipboard.writeText(value);
     toast.success(successMessage);
@@ -87,9 +96,7 @@ function ConnectionCell({ user }: { user: ProjectUser }) {
   return (
     <div className="flex items-center gap-2">
       <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1 font-mono text-xs">
-        {revealed
-          ? user.uri
-          : user.uri.replace(user.password, "•".repeat(12))}
+        {revealed ? user.uri : user.uri.replace(user.password, "•".repeat(12))}
       </code>
       <Button
         variant="ghost"
@@ -183,7 +190,9 @@ export function InstanceUsers({
         path: { project_id: projectId, instance_id: instanceId },
       });
       if (response.error) {
-        throw new Error(response.error.error?.msg ?? "Failed to load users");
+        throw new Error(
+          apiErrorMessage(response.error, "Failed to load users"),
+        );
       }
       return response.data ?? [];
     },
@@ -201,7 +210,8 @@ export function InstanceUsers({
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("project:databases.usersCard.createError"),
+        result.error.serverError ??
+          t("project:databases.usersCard.createError"),
       );
     },
   });
@@ -214,7 +224,8 @@ export function InstanceUsers({
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("project:databases.usersCard.deleteError"),
+        result.error.serverError ??
+          t("project:databases.usersCard.deleteError"),
       );
     },
   });
@@ -227,7 +238,8 @@ export function InstanceUsers({
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("project:databases.usersCard.accessError"),
+        result.error.serverError ??
+          t("project:databases.usersCard.accessError"),
       );
     },
   });
@@ -239,7 +251,8 @@ export function InstanceUsers({
     },
     onError: (result) => {
       toast.error(
-        result.error.serverError ?? t("project:databases.usersCard.rotateError"),
+        result.error.serverError ??
+          t("project:databases.usersCard.rotateError"),
       );
     },
   });
@@ -288,8 +301,12 @@ export function InstanceUsers({
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("common:resources.username")}</TableHead>
-                    <TableHead>{t("project:databases.usersCard.accessColumn")}</TableHead>
-                    <TableHead>{t("project:databases.usersCard.connectionColumn")}</TableHead>
+                    <TableHead>
+                      {t("project:databases.usersCard.accessColumn")}
+                    </TableHead>
+                    <TableHead>
+                      {t("project:databases.usersCard.connectionColumn")}
+                    </TableHead>
                     <TableHead className="w-0" />
                   </TableRow>
                 </TableHeader>
@@ -308,14 +325,14 @@ export function InstanceUsers({
                       <TableCell>
                         {canManage ? (
                           <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="size-4" />
-                              </Button>
+                            <DropdownMenuTrigger
+                              render={<Button variant="ghost" size="icon" />}
+                            >
+                              <MoreHorizontal className="size-4" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                onSelect={() => {
+                                onClick={() => {
                                   setEditing(user);
                                   setEditingAccess(grantsToAccess(user.grants));
                                 }}
@@ -323,7 +340,7 @@ export function InstanceUsers({
                                 {t("project:databases.usersCard.manageAccess")}
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onSelect={() =>
+                                onClick={() =>
                                   void rotate.executeAsync({
                                     projectId,
                                     instanceId,
@@ -331,11 +348,13 @@ export function InstanceUsers({
                                   })
                                 }
                               >
-                                {t("project:databases.usersCard.rotatePassword")}
+                                {t(
+                                  "project:databases.usersCard.rotatePassword",
+                                )}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 variant="destructive"
-                                onSelect={() => setPendingDelete(user)}
+                                onClick={() => setPendingDelete(user)}
                               >
                                 {t("common:actions.delete")}
                               </DropdownMenuItem>
@@ -355,21 +374,23 @@ export function InstanceUsers({
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("project:databases.usersCard.createDialogTitle")}</DialogTitle>
+            <DialogTitle>
+              {t("project:databases.usersCard.createDialogTitle")}
+            </DialogTitle>
             <DialogDescription>
               {t("project:databases.usersCard.createDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">
-                {t("common:resources.username")}
-              </Label>
+              <Label htmlFor="username">{t("common:resources.username")}</Label>
               <Input
                 id="username"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                placeholder={t("project:databases.usersCard.usernamePlaceholder")}
+                placeholder={t(
+                  "project:databases.usersCard.usernamePlaceholder",
+                )}
               />
             </div>
             <div className="space-y-2">
@@ -464,8 +485,7 @@ export function InstanceUsers({
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
+              onClick={() => {
                 if (!pendingDelete) return;
                 void remove.executeAsync({
                   projectId,

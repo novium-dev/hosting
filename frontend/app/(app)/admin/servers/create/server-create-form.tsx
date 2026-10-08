@@ -1,20 +1,12 @@
 "use client";
-
 import Link from "@/components/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "@/lib/navigation";
 import { useAction } from "@/lib/action-hooks";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
-import {
-  ArrowLeft,
-  Check,
-  ChevronsUpDown,
-  Loader2,
-} from "lucide-react";
-
-import { createServerAction, getTemplateInfoAction } from "@/actions/servers";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { createServerAction } from "@/actions/servers";
 import { Button } from "@/components/ui/button";
 import {
   Combobox,
@@ -30,14 +22,12 @@ import {
   VariableFields,
   variableValuesToStrings,
 } from "@/components/server/variables-editor";
+import { SearchableSelect } from "@/components/searchable-select";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+  useAvailablePorts,
+  useNodeGroups,
+  useTemplateInfo,
+} from "@/hooks/use-shared-queries";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -53,14 +43,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
-import { availablePorts, listNodeGroups } from "@/lib/api";
-import type { GroupOption } from "@/lib/groups";
-import type {
-  AvailablePortsResponse,
-  NodePortAllocation,
-  TemplateInfoResponse,
-} from "@/lib/api";
+import type { NodePortAllocation, TemplateInfoResponse } from "@/lib/api";
+import { formatPortRange, type SelectablePortRange } from "@/lib/ports";
+import type { GroupRef } from "@/lib/api";
 
 const NO_GROUP = "__none__";
 
@@ -78,12 +63,6 @@ type NodeOption = {
 };
 
 type TemplatePortDefinitions = TemplateInfoResponse["ports"];
-type SelectablePortRange = Pick<
-  NodePortAllocation,
-  "end" | "protocol" | "start"
-> & {
-  exclude?: number[];
-};
 type PortOption = {
   label: string;
   value: number;
@@ -155,7 +134,8 @@ function buildPortGroups(definitions: TemplatePortDefinitions): PortGroup[] {
     }))
     .sort(
       (a, b) =>
-        a.internalPort - b.internalPort || a.portKeys[0]!.localeCompare(b.portKeys[0]!),
+        a.internalPort - b.internalPort ||
+        a.portKeys[0]!.localeCompare(b.portKeys[0]!),
     );
 }
 
@@ -223,20 +203,6 @@ function buildDefaultPorts(
   }
 
   return defaultPorts;
-}
-
-function formatPortRange(range: SelectablePortRange, t: TFunction) {
-  const base =
-    range.start === range.end
-      ? `${range.protocol.toUpperCase()} ${range.start}`
-      : `${range.protocol.toUpperCase()} ${range.start}-${range.end}`;
-
-  return range.exclude?.length
-    ? t("admin-infra:servers.shared.rangeExcluding", {
-        base,
-        exclude: range.exclude.join(", "),
-      })
-    : base;
 }
 
 function buildPortOptions({
@@ -337,9 +303,8 @@ export function ServerCreateForm({
   const [owner, setOwner] = useState<string>(projects[0]?.id ?? "");
   const [template, setTemplate] = useState<string>(templates[0] ?? "");
   const [node, setNode] = useState<string>(nodes[0]?.id ?? "");
-  const [storage, setStorage] = useState(nodes[0]?.serverStorages?.[0] ?? "");
-  const [group, setGroup] = useState(NO_GROUP);
-  const [nodeGroups, setNodeGroups] = useState<GroupOption[]>([]);
+  const [storageChoice, setStorage] = useState("");
+  const [groupChoice, setGroupChoice] = useState({ node: "", group: NO_GROUP });
 
   const [cpu, setCpu] = useState("1");
   const [ram, setRam] = useState("1024");
@@ -348,26 +313,41 @@ export function ServerCreateForm({
   const [backupLimit, setBackupLimit] = useState("0");
   const [internetAccess, setInternetAccess] = useState(true);
 
-  const [ports, setPorts] = useState<Record<string, number>>({});
-  const [templateDetails, setTemplateDetails] =
-    useState<TemplateInfoResponse | null>(null);
+  const [portEdits, setPortEdits] = useState<{
+    key: string;
+    ports: Record<string, number>;
+  }>({ key: "", ports: {} });
+
+  const { data: templateDetails = null, isLoading: isLoadingTemplate } =
+    useTemplateInfo(template);
 
   const {
     errors: variableErrors,
     nestedPath,
     onNestedChange,
-    reset: resetVariables,
     setVariables,
     variables,
   } = useVariableEditor(templateDetails?.variables ?? null);
-  const [availablePortMap, setAvailablePortMap] =
-    useState<AvailablePortsResponse | null>(null);
-  const [ownerComboboxOpen, setOwnerComboboxOpen] = useState(false);
 
   const selectedNode = useMemo(() => {
     return nodes.find((entry) => entry.id === node) ?? null;
   }, [nodes, node]);
 
+  const { data: availablePortMap = null } = useAvailablePorts(selectedNode?.id);
+  const { data: nodeGroupRows } = useNodeGroups(
+    selectedNode?.id ?? "",
+    !!selectedNode,
+  );
+  const nodeGroups: GroupRef[] = (nodeGroupRows ?? []).map(({ id, label }) => ({
+    id,
+    label,
+  }));
+
+  const storage = selectedNode?.serverStorages.includes(storageChoice)
+    ? storageChoice
+    : (selectedNode?.serverStorages[0] ?? "");
+  const group = groupChoice.node === node ? groupChoice.group : NO_GROUP;
+  const setGroup = (value: string) => setGroupChoice({ node, group: value });
 
   const allowedPortRanges = useMemo<SelectablePortRange[]>(() => {
     if (!selectedNode) {
@@ -406,74 +386,6 @@ export function ServerCreateForm({
   const hasConfiguredPortRanges =
     (selectedNode?.portAllocations.length ?? 0) > 0;
 
-  useEffect(() => {
-    if (!selectedNode) {
-      setStorage("");
-      setAvailablePortMap(null);
-      return;
-    }
-
-    if (!selectedNode.serverStorages.includes(storage)) {
-      setStorage(selectedNode.serverStorages[0] ?? "");
-    }
-  }, [selectedNode, storage]);
-
-  useEffect(() => {
-    setGroup(NO_GROUP);
-    setNodeGroups([]);
-    if (!selectedNode) {
-      return;
-    }
-
-    let isActive = true;
-
-    listNodeGroups({ path: { node_id: selectedNode.id } })
-      .then((response) => {
-        if (isActive && !response.error && response.data) {
-          setNodeGroups(
-            response.data.map(({ id, label }) => ({ id, label })),
-          );
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      isActive = false;
-    };
-  }, [selectedNode]);
-
-  useEffect(() => {
-    if (!selectedNode) {
-      setAvailablePortMap(null);
-      return;
-    }
-
-    let isActive = true;
-    setAvailablePortMap(null);
-
-    availablePorts({ path: { node_id: selectedNode.id } })
-      .then((response) => {
-        if (!isActive) {
-          return;
-        }
-
-        setAvailablePortMap(
-          response.error || !response.data ? null : response.data,
-        );
-      })
-      .catch(() => {
-        if (isActive) {
-          setAvailablePortMap(null);
-        }
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [selectedNode]);
-
-  const templateInfoAction = useAction(getTemplateInfoAction);
-  const executeTemplateInfo = templateInfoAction.executeAsync;
   const createServer = useAction(createServerAction, {
     onSuccess: (result) => {
       if (result.data?.success) {
@@ -488,42 +400,25 @@ export function ServerCreateForm({
     },
   });
 
-  useEffect(() => {
-    if (!template) {
-      setTemplateDetails(null);
-      resetVariables(null);
-      setPorts({});
-      return;
-    }
-
-    setTemplateDetails(null);
-    setPorts({});
-
-    executeTemplateInfo({ template })
-      .then((result) => {
-        const info = result?.data?.data;
-        if (!info) {
-          setTemplateDetails(null);
-          resetVariables(null);
-          setPorts({});
-          return;
-        }
-
-        resetVariables(info.variables);
-        setTemplateDetails(info);
-      })
-      .catch(() => {
-        toast.error(t("admin-infra:servers.createForm.loadTemplateInfoError"));
-      });
-  }, [template, executeTemplateInfo, resetVariables, t]);
-
-  useEffect(() => {
-    if (!templateDetails) {
-      return;
-    }
-
-    setPorts(buildDefaultPorts(templateDetails.ports, allowedPortRanges));
-  }, [templateDetails, allowedPortRanges]);
+  const defaultPorts = useMemo(
+    () =>
+      templateDetails
+        ? buildDefaultPorts(templateDetails.ports, allowedPortRanges)
+        : {},
+    [templateDetails, allowedPortRanges],
+  );
+  const portEditKey = `${template}:${node}`;
+  const ports =
+    portEdits.key === portEditKey
+      ? { ...defaultPorts, ...portEdits.ports }
+      : defaultPorts;
+  const setPorts = (
+    update: (current: Record<string, number>) => Record<string, number>,
+  ) =>
+    setPortEdits({
+      key: portEditKey,
+      ports: update(portEdits.key === portEditKey ? portEdits.ports : {}),
+    });
 
   const selectedProject = useMemo(() => {
     return projects.find((project) => project.id === owner);
@@ -654,11 +549,13 @@ export function ServerCreateForm({
             {t("admin-infra:servers.createForm.subtitle")}
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/admin/servers">
-            <ArrowLeft className="size-4" />
-            {t("admin-infra:servers.createForm.backToServers")}
-          </Link>
+        <Button
+          variant="outline"
+          render={<Link href="/admin/servers" />}
+          nativeButton={false}
+        >
+          <ArrowLeft className="size-4" />
+          {t("admin-infra:servers.createForm.backToServers")}
         </Button>
       </div>
 
@@ -684,68 +581,26 @@ export function ServerCreateForm({
 
           <div className="space-y-2">
             <Label>{t("admin-infra:servers.createForm.ownerLabel")}</Label>
-            <Popover
-              open={ownerComboboxOpen}
-              onOpenChange={setOwnerComboboxOpen}
-            >
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between"
-                >
-                  {selectedProject
-                    ? formatProjectLabel(selectedProject)
-                    : t(
-                        "admin-infra:servers.createForm.selectProjectPlaceholder",
-                      )}
-                  <ChevronsUpDown className="size-4 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                className="w-(--radix-popover-trigger-width) p-0"
-                align="start"
-              >
-                <Command>
-                  <CommandInput
-                    placeholder={t(
-                      "admin-infra:servers.createForm.searchProjectPlaceholder",
-                    )}
-                  />
-                  <CommandList>
-                    <CommandEmpty>
-                      {t("admin-infra:servers.createForm.noProjectFound")}
-                    </CommandEmpty>
-                    <CommandGroup>
-                      {projects.map((project) => (
-                        <CommandItem
-                          key={project.id}
-                          value={`${project.name} ${project.slug} ${project.id}`}
-                          onSelect={() => {
-                            setOwner(project.id);
-                            setOwnerComboboxOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 size-4",
-                              owner === project.id ? "opacity-100" : "opacity-0",
-                            )}
-                          />
-                          <span>{formatProjectLabel(project)}</span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <SearchableSelect
+              value={owner}
+              onChange={setOwner}
+              options={projects.map((project) => ({
+                value: project.id,
+                label: formatProjectLabel(project),
+              }))}
+              placeholder={t(
+                "admin-infra:servers.createForm.selectProjectPlaceholder",
+              )}
+              emptyText={t("admin-infra:servers.createForm.noProjectFound")}
+            />
           </div>
 
           <div className="space-y-2">
             <Label>{t("admin-infra:servers.shared.templateLabel")}</Label>
-            <Select value={template} onValueChange={setTemplate}>
+            <Select
+              value={template}
+              onValueChange={(value) => setTemplate(value ?? "")}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={t(
@@ -765,7 +620,20 @@ export function ServerCreateForm({
 
           <div className="space-y-2">
             <Label>{t("admin-infra:servers.shared.nodeLabel")}</Label>
-            <Select value={node} onValueChange={setNode}>
+            <Select
+              items={[
+                ...nodes.map((nodeOption) => ({
+                  value: nodeOption.id,
+                  label: (
+                    <>
+                      {nodeOption.display}({nodeOption.id})
+                    </>
+                  ),
+                })),
+              ]}
+              value={node}
+              onValueChange={(value) => setNode(value ?? "")}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={t(
@@ -787,7 +655,10 @@ export function ServerCreateForm({
             <Label htmlFor="storage">
               {t("admin-infra:servers.createForm.storageLabel")}
             </Label>
-            <Select value={storage} onValueChange={setStorage}>
+            <Select
+              value={storage}
+              onValueChange={(value) => setStorage(value ?? "")}
+            >
               <SelectTrigger id="storage" className="w-full">
                 <SelectValue
                   placeholder={t(
@@ -809,7 +680,20 @@ export function ServerCreateForm({
             <Label htmlFor="group">
               {t("admin-infra:servers.shared.groupLabel")}
             </Label>
-            <Select value={group} onValueChange={setGroup}>
+            <Select
+              items={[
+                {
+                  value: NO_GROUP,
+                  label: t("admin-infra:servers.shared.noGroup"),
+                },
+                ...nodeGroups.map((groupOption) => ({
+                  value: String(groupOption.id),
+                  label: groupOption.label,
+                })),
+              ]}
+              value={group}
+              onValueChange={(value) => setGroup(value ?? "")}
+            >
               <SelectTrigger id="group" className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -834,6 +718,10 @@ export function ServerCreateForm({
               {t("admin-infra:servers.shared.internetAccessLabel")}
             </Label>
             <Select
+              items={[
+                { value: "enabled", label: t("common:status.enabled") },
+                { value: "disabled", label: t("common:status.disabled") },
+              ]}
               value={internetAccess ? "enabled" : "disabled"}
               onValueChange={(value) => setInternetAccess(value === "enabled")}
             >
@@ -950,7 +838,7 @@ export function ServerCreateForm({
             <p className="text-sm text-muted-foreground">
               {t("admin-infra:servers.createForm.selectTemplateFirst")}
             </p>
-          ) : templateInfoAction.isExecuting ? (
+          ) : isLoadingTemplate ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
               {t("admin-infra:servers.createForm.loadingTemplateDetails")}
@@ -975,15 +863,13 @@ export function ServerCreateForm({
         <Separator />
 
         <div className="space-y-3">
-          <h2 className="text-base font-semibold">
-            {t("common:nav.ports")}
-          </h2>
+          <h2 className="text-base font-semibold">{t("common:nav.ports")}</h2>
           {allowedPortRanges.length > 0 && (
             <Popover>
-              <PopoverTrigger asChild>
-                <Button type="button" variant="outline" size="sm">
-                  {t("admin-infra:servers.shared.availableRanges")}
-                </Button>
+              <PopoverTrigger
+                render={<Button type="button" variant="outline" size="sm" />}
+              >
+                {t("admin-infra:servers.shared.availableRanges")}
               </PopoverTrigger>
               <PopoverContent align="start" className="w-80">
                 <div className="space-y-2">
@@ -1041,9 +927,12 @@ export function ServerCreateForm({
                         .map((protocol) => protocol.toUpperCase())
                         .join(" + ")}
                       {group.remappable
-                        ? t("admin-infra:servers.createForm.internalPortSuffix", {
-                            port: group.internalPort,
-                          })
+                        ? t(
+                            "admin-infra:servers.createForm.internalPortSuffix",
+                            {
+                              port: group.internalPort,
+                            },
+                          )
                         : ""}
                       )
                     </Label>
@@ -1081,7 +970,9 @@ export function ServerCreateForm({
                       />
                       <ComboboxContent>
                         <ComboboxEmpty>
-                          {t("admin-infra:servers.createForm.noAvailablePortFound")}
+                          {t(
+                            "admin-infra:servers.createForm.noAvailablePortFound",
+                          )}
                         </ComboboxEmpty>
                         <ComboboxList>
                           <ComboboxGroup>

@@ -21,6 +21,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
+  Command,
+  CommandCollection,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -63,7 +65,6 @@ export function SidebarCommand({
   const { theme, setTheme } = useTheme();
   const { open: openSettings } = useSettingsDialog();
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
   const { t } = useTranslation();
 
   // Handle keyboard shortcut
@@ -231,45 +232,55 @@ export function SidebarCommand({
       </div>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput
-          placeholder={t("navigation:command.inputPlaceholder")}
-          value={query}
-          onValueChange={setQuery}
-        />
-        <CommandList>
+        <Command
+          items={filteredSections}
+          itemToStringValue={(item) => (item as CommandMenuItem).label}
+          filter={(item, query) => matchesQuery(item as CommandMenuItem, query)}
+        >
+          <CommandInput
+            placeholder={t("navigation:command.inputPlaceholder")}
+          />
           <CommandEmpty>{t("common:state.noResultsFound")}</CommandEmpty>
-
-          {filteredSections.map((section) => (
-            <CommandGroup key={section.heading} heading={section.heading}>
-              {section.items
-                .filter(
-                  (item) =>
-                    !query ||
-                    item.label.toLowerCase().includes(query.toLowerCase()) ||
-                    item.keywords?.some((keyword) =>
-                      keyword.toLowerCase().includes(query.toLowerCase()),
-                    ),
-                )
-                .map((item) => (
-                  <CommandItem
-                    key={item.label}
-                    onSelect={() => (item.disabled ? null : runCommand(item))}
-                    className={cn(
-                      "cursor-pointer",
-                      item.disabled && "cursor-not-allowed opacity-50",
-                    )}
-                  >
-                    <item.icon className="mr-2 h-4 w-4" />
-                    <span>{item.label}</span>
-                    {item.shortcut && (
-                      <CommandShortcut>{item.shortcut}</CommandShortcut>
-                    )}
-                  </CommandItem>
-                ))}
-            </CommandGroup>
-          ))}
-        </CommandList>
+          <CommandList>
+            {(section: CommandMenuSection) => (
+              <CommandGroup
+                key={section.heading}
+                items={section.items}
+                heading={section.heading}
+              >
+                <CommandCollection>
+                  {(item: CommandMenuItem) => (
+                    <CommandItem
+                      key={item.label}
+                      value={item}
+                      disabled={item.disabled}
+                      onClick={() => runCommand(item)}
+                      className="cursor-pointer"
+                    >
+                      <item.icon className="mr-2 h-4 w-4" />
+                      <span>{item.label}</span>
+                      {item.shortcut && (
+                        <CommandShortcut>{item.shortcut}</CommandShortcut>
+                      )}
+                    </CommandItem>
+                  )}
+                </CommandCollection>
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
       </CommandDialog>
     </div>
+  );
+}
+
+function matchesQuery(item: CommandMenuItem, query: string) {
+  const needle = query.trim().toLowerCase();
+  return (
+    !needle ||
+    item.label.toLowerCase().includes(needle) ||
+    (item.keywords ?? []).some((keyword) =>
+      keyword.toLowerCase().includes(needle),
+    )
   );
 }

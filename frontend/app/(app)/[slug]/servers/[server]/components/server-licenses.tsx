@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import useSWR from "swr";
 import { CheckCircle2, ExternalLink, ScrollText } from "lucide-react";
@@ -44,11 +45,14 @@ function LicenseLink({ license }: Readonly<{ license: ServerLicense }>) {
   const { t } = useTranslation();
 
   return (
-    <Button asChild variant="outline" size="sm">
-      <a href={license.url} target="_blank" rel="noreferrer">
-        <ExternalLink className="size-4" />
-        {t("servers:licenses.readLicense")}
-      </a>
+    <Button
+      variant="outline"
+      size="sm"
+      render={<a href={license.url} target="_blank" rel="noreferrer" />}
+      nativeButton={false}
+    >
+      <ExternalLink className="size-4" />
+      {t("servers:licenses.readLicense")}
     </Button>
   );
 }
@@ -78,7 +82,7 @@ export function ServerLicenseNotice({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ?? t("servers:licenses.toasts.failed"),
+          apiErrorMessage(response.error, t("servers:licenses.toasts.failed")),
         );
         return;
       }
@@ -97,10 +101,7 @@ export function ServerLicenseNotice({
   return (
     <div className="flex flex-col gap-4">
       {pending.map((license) => (
-        <Card
-          key={license.id}
-          className="border-amber-500/40 bg-amber-500/5"
-        >
+        <Card key={license.id} className="border-amber-500/40 bg-amber-500/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ScrollText className="size-5 text-amber-600 dark:text-amber-400" />
@@ -195,8 +196,7 @@ export function ServerLicenseList({
                 {license.accepted
                   ? license.accepted_at
                     ? t("servers:licenses.acceptedBy", {
-                        user:
-                          license.accepted_by ?? t("common:status.unknown"),
+                        user: license.accepted_by ?? t("common:status.unknown"),
                         date: new Date(
                           license.accepted_at * 1000,
                         ).toLocaleDateString(i18n.language),

@@ -25,10 +25,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { useProject } from "@/hooks/use-project";
-import {
-  useProjectInstances,
-  useServerInfo,
-} from "@/hooks/use-shared-queries";
+import { useProjectInstances, useServerInfo } from "@/hooks/use-shared-queries";
 import { authClient } from "@/lib/auth-client";
 import { useProjectRoute } from "@/lib/project-route";
 import {
@@ -152,7 +149,6 @@ export function ProjectSidebar() {
               {visibleProjectItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
-                    asChild
                     tooltip={item.title}
                     isActive={
                       item.exact
@@ -160,11 +156,10 @@ export function ProjectSidebar() {
                         : pathname === item.href ||
                           pathname.startsWith(`${item.href}/`)
                     }
+                    render={<Link href={item.href} />}
                   >
-                    <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
+                    <item.icon />
+                    <span>{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -175,8 +170,7 @@ export function ProjectSidebar() {
         {serverSections.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="truncate">
-              {serverData?.name ??
-                t("navigation:projectSidebar.groups.server")}
+              {serverData?.name ?? t("navigation:projectSidebar.groups.server")}
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -186,14 +180,16 @@ export function ProjectSidebar() {
                   return (
                     <SidebarMenuItem key={entry.key}>
                       <SidebarMenuButton
-                        asChild
                         tooltip={title}
                         isActive={activeServerSection === entry.key}
+                        render={
+                          <Link
+                            href={serverSectionHref(slug, server, entry.key)}
+                          />
+                        }
                       >
-                        <Link href={serverSectionHref(slug, server, entry.key)}>
-                          <entry.icon />
-                          <span>{title}</span>
-                        </Link>
+                        <entry.icon />
+                        <span>{title}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   );
@@ -217,16 +213,20 @@ export function ProjectSidebar() {
                   return (
                     <SidebarMenuItem key={entry.key}>
                       <SidebarMenuButton
-                        asChild
                         tooltip={title}
                         isActive={activeInstanceSection === entry.key}
+                        render={
+                          <Link
+                            href={instanceSectionHref(
+                              slug,
+                              instance,
+                              entry.key,
+                            )}
+                          />
+                        }
                       >
-                        <Link
-                          href={instanceSectionHref(slug, instance, entry.key)}
-                        >
-                          <entry.icon />
-                          <span>{title}</span>
-                        </Link>
+                        <entry.icon />
+                        <span>{title}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   );
@@ -241,11 +241,12 @@ export function ProjectSidebar() {
         {canAccessAdmin && (
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip={t("common:nav.admin")}>
-                <Link href="/admin">
-                  <Shield />
-                  <span>{t("common:nav.admin")}</span>
-                </Link>
+              <SidebarMenuButton
+                tooltip={t("common:nav.admin")}
+                render={<Link href="/admin" />}
+              >
+                <Shield />
+                <span>{t("common:nav.admin")}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

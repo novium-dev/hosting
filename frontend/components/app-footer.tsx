@@ -4,6 +4,7 @@ import { appConfig } from "@/constants/config";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
+const CURRENT_YEAR = new Date().getFullYear();
 const AUTHOR_URL = "https://github.com/InvalidJoker";
 const AUTHOR_NAME = "InvalidJoker";
 
@@ -56,7 +57,7 @@ export function AppFooter({ className }: AppFooterProps) {
         </a>
       ) : null}
       <span>
-        &copy; {new Date().getFullYear()}{" "}
+        &copy; {CURRENT_YEAR}{" "}
         <a
           href={AUTHOR_URL}
           target="_blank"

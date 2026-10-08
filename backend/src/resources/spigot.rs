@@ -25,10 +25,6 @@ struct Resource {
     likes: u64,
     #[serde(default)]
     tested_versions: Vec<String>,
-    #[serde(default)]
-    external: bool,
-    #[serde(default)]
-    premium: bool,
     icon: Option<Icon>,
 }
 

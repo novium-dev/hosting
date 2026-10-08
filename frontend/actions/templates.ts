@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import { refreshTemplateCache, resyncTemplate } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
@@ -17,7 +18,7 @@ export const resyncTemplateAction = authActionClient
 
     if (response.error || !response.data) {
       throw new ActionError(
-        response.error?.error?.msg || "Failed to resync servers",
+        apiErrorMessage(response.error, "Failed to resync servers"),
       );
     }
 
@@ -33,7 +34,7 @@ export const refreshTemplateCacheAction = authActionClient
 
     if (response.error || !response.data) {
       throw new ActionError(
-        response.error?.error?.msg || "Failed to refresh template cache",
+        apiErrorMessage(response.error, "Failed to refresh template cache"),
       );
     }
 

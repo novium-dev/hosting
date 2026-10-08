@@ -77,6 +77,12 @@ export function SearchBar({
 
         {loaders.length > 1 && loader && onLoaderChange ? (
           <Select
+            items={[
+              ...loaders.map((entry) => ({
+                value: entry,
+                label: LOADER_LABELS[entry],
+              })),
+            ]}
             value={loader}
             onValueChange={(value) => onLoaderChange(value as ResourceLoader)}
           >
@@ -95,6 +101,12 @@ export function SearchBar({
 
         {providers.length > 1 && provider ? (
           <Select
+            items={[
+              ...providers.map((entry) => ({
+                value: entry,
+                label: PROVIDER_LABELS[entry],
+              })),
+            ]}
             value={provider}
             onValueChange={(value) =>
               onProviderChange(value as ResourceProvider)

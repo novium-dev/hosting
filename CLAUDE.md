@@ -1,171 +1,38 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Game server hosting platform ("novium"), a Cargo workspace (Rust 2024) plus a React SPA:
 
-## What this is
-
-A Cargo workspace for a game-server hosting platform ("novium"), Rust edition 2024:
-
-- **`backend/`** — the control-plane API. An Axum service that manages projects, servers, users, and files, and orchestrates work on remote **nodes** (daemons) over the network. State lives in Postgres (source of truth) and Valkey/Redis (session cache, OAuth flows, template caches).
-- **`database_agent/`** — a separate application that runs database engines (postgres, mariadb, mongodb, redis) in Docker containers and fronts them with a shared-port proxy. Its own state lives in SQLite.
-- **`database_agent_common/`** — shared DTOs, the zelus service traits, and the `DatabaseAgentSDK` the backend uses to talk to an agent. Same split as `daemon` / `daemon_common`.
-- **`frontend/`** — the client-only SPA (see Part B), served by the backend.
+- `backend/` - Axum API. Postgres is the source of truth, Valkey is cache and short-lived shared state. Talks to remote nodes (daemons) and database hosts over mTLS.
+- `database_agent/` - runs database engines in Docker and proxies them on shared ports. State in SQLite.
+- `database_agent_common/` - DTOs, service traits and the `DatabaseAgentSDK` the backend uses.
+- `frontend/` - Vite + React SPA, its own nginx image.
 
 ## Commands
 
 ```bash
-# Bring up the local infra (Postgres on :5432, Valkey on :6379, MariaDB on :3306)
-docker compose -f dev/compose.yml up -d
-
-# Prepare the sqlite database the database_agent's query macros compile against
-./scripts/dev/database_agent_db.sh
-
-# Build / check / run (requires a running, migrated Postgres — see sqlx note below)
-cargo check --workspace
-cargo run -p backend           # configured from the environment, keeps its keys in Postgres
-cargo run -p database_agent    # reads ./config.toml from DATABASE_AGENT_DATA_DIR (default ".")
-
-# Lint & format (CI enforces both; the clippy config is very strict — see below)
-cargo fmt --all --check
-cargo clippy --all-targets --workspace
-
-# Tests (single test)
-cargo test <name> -- --nocapture
-
-# Migrations run automatically at startup; to run them manually:
+docker compose -f dev/compose.yml up -d    # Postgres, Valkey, MariaDB
+./scripts/dev/database_agent_db.sh         # sqlite db the agent's query macros compile against
+set -a && . ./.env && set +a && cargo run -p backend --features auth_dev
+cargo fmt --all
+cargo clippy --all-targets --workspace     # must pass clean before a change is done
 sqlx migrate run --source backend/migrations --database-url postgres://postgres:postgres@localhost/backend
 ```
 
-Swagger UI is served at `/docs` in debug builds only (`/api/docs` for the backend).
+- `sqlx::query!` is checked against a live, migrated database at compile time (no offline cache). If a build fails on query macros, Postgres is down or missing a migration; run the migrate command above. The agent compiles against `dev/database_agent.db` (rerun the script after adding an agent migration).
+- Builds fetch `daemon` and `zelus_keys` from `git-ssh.novium.world` over SSH (CI uses the `DEPLOY_KEY` secret).
+- The backend reads only `BACKEND_*` environment variables (`backend/.env.example`), never a `.env` file. The agent reads `config.toml` from `DATABASE_AGENT_DATA_DIR`.
+- `auth_dev` adds `GET /api/auth/login/dev`, which signs in as a seeded admin. Swagger is at `/api/docs` in debug builds.
 
-### Images
+## Backend rules
 
-Three, built and deployed independently (see `deploy/README.md`):
-
-```bash
-docker build --ssh default -f backend.Dockerfile -t novium/backend:latest .
-docker build -f frontend/Dockerfile -t novium/frontend:latest frontend
-docker build --ssh default -f database_agent.Dockerfile -t novium/database-agent:latest .
-```
-
-### sqlx compile-time verification (important)
-
-Queries use the `sqlx::query!` family, which is checked **against a live database at compile time**. There is no `.sqlx` offline cache, so `cargo check`/`clippy`/`build` all require a reachable, migrated database.
-
-- **backend** — `backend/build.rs` sets `DATABASE_URL` to `BACKEND_DATABASE_URL` if present, otherwise `postgres://postgres:postgres@localhost/backend`. If a build fails on query macros, your Postgres is down or missing a migration.
-- **database_agent** — `database_agent/build.rs` sets `DATABASE_URL` to `DATABASE_AGENT_DATABASE_URL` if present, otherwise `sqlite://dev/database_agent.db`. That file is gitignored; create it with `./scripts/dev/database_agent_db.sh` and re-run the script after adding a migration.
-
-### Private dependencies
-
-Builds pull two git dependencies over SSH — `novium-dev/daemon` (`daemon`/`daemon_common`) and `0xIO32/zelus` — plus a patched `reqwest`. You need SSH access to those repos (`ssh-agent` with the deploy key) or the build won't fetch.
-
-### Feature flags
-
-- `auth_dev` — enables a dev-only auth router. A `compile_error!` forbids it in release builds.
-
-`GET /api/auth/login/dev?redirect_url=…` seeds an admin user (id 1, `auth_id` `dev`), attaches the session cookie and redirects, exactly like the OAuth callback — so the panel is usable without an OIDC provider:
-
-```bash
-cargo run -p backend --features auth_dev
-```
-
-The sign-in page renders a matching "Sign in as dev admin" button whenever `import.meta.env.DEV` is set (the Vite dev server); production bundles drop the button and the client helper behind it.
-
-## Configuration
-
-The **backend has no config file** — `BackendConfig::from_env` (`backend/src/config.rs`) builds the whole config from `BACKEND_*` environment variables and fails at startup with the name of the first missing or unparseable one. `backend/.env.example` is the reference. The CA and backend keys live in the `backend_keys` table (`backend/src/crypto.rs`), generated by the first instance under an advisory lock; `BACKEND_DATA_DIR` is only read to import `backend_root.pem`/`backend.pem` from an older deployment.
-
-The backend **never reads a `.env` file itself** — there is no `dotenvy`, in debug builds or otherwise. The `.env` files in the repo are for your shell (and for Vite, which does read the root one); export them yourself before running the backend:
-
-```bash
-set -a && . ./.env && set +a && cargo run -p backend --features auth_dev
-```
-
-Two shapes are worth knowing. A **single OAuth provider** is read from `BACKEND_AUTH_*`, registered under the name in `BACKEND_AUTH_PROVIDER` (default `user`), which is the `{provider}` segment of `/api/auth/login/{provider}` and must match the frontend's `VITE_PROVIDERS`. **Database engine defaults** are built in (`InstanceDefaults::builtin`) rather than configured: image uid/gid, socket path, volumes and command are facts about the engine image, so only `BACKEND_DB_<ENGINE>_IMAGE` and the `_MEMORY`/`_SWAP`/`_DISK`/`_CPU` limits are settable, plus `_ENABLED=false` to withdraw an engine. All four engines are available unless disabled.
-
-The **database agent still uses `config.toml`** (`database_agent/config.toml.example`), read from `DATABASE_AGENT_DATA_DIR`.
-
-## Architecture
-
-**`Backend` (`backend/src/main.rs`)** is the cloneable shared-state handle threaded through everything: `PgPool`, Valkey `ConnectionManager` (cache), `AuthService`, loaded config, the in-memory `nodes` map, the `templates` registry, and the crypto keys. It's registered as an Axum `Extension` and extracted by request guards.
-
-**Services (`backend/src/service/`)** are the HTTP layer. Each is an `impl` block annotated with zelus's `#[service]` macro; individual handlers use `#[route(...)]` and declare their error surface with `#[error(...)]`. Error variants come from `define_error!` groups in `backend/src/service/mod.rs` (e.g. `auth`, `project`, `db`), and the `<- [sql:...]` mappings turn sqlx errors into typed API errors (`sql:not_found`, `sql:foreign_key`, `sql:*`). All services are wired into the router in `backend/src/http.rs` via `framework_router!`. `internal.rs` is the daemon-facing service (node registration, SSH auth callbacks); the `admin/` services are gated behind `ManagementPermissions`.
-
-**Auth (`backend/src/auth/`)** — Users sign in via OAuth/OIDC (`auth/oauth/`); `get_or_create_user` upserts them keyed on `auth_id` (the OIDC `sub`). Sessions are **rows in the `sessions` table** (`auth/session.rs`): a random 48-byte token travels in the httpOnly `session` cookie, only its SHA-256 hash is stored, and the row carries the user agent, client IP, `created_at`/`last_used`, a sliding `expires_at` (`BACKEND_SESSION_LIFETIME`) and a hard `absolute_expires_at` (`BACKEND_SESSION_MAX_LIFETIME`) that the sliding expiry can never pass. Valkey is only a **cache** in front of that table, keyed on the token hash: a hit skips the query, and the row is touched at most once a minute; a cache outage degrades to plain Postgres reads rather than logging everyone out. Revoking a session deletes the row and the cache key, and a background task prunes expired rows every 30 minutes.
-
-The cookie is the **only** way a session travels — there is no `Authorization: Session` header any more, programmatic clients use API keys (`auth/api_key.rs`). The backend sets the cookie on the OAuth callback via the `WithCookies<T>` response wrapper (revoking the previous session first, so signing in twice does not leave a phantom one behind) and clears it on logout. Cookie `Secure` is derived from `config.public_url`'s scheme; same-origin serving keeps `SameSite=Lax`. `/auth/sessions` lists the current user's sessions, `DELETE /auth/sessions/{id}` revokes one (clearing the cookie when it is the current one) and `DELETE /auth/sessions` revokes all the others; the panel surfaces them in the settings dialog's Sessions section. Request guards `Authentication` (optional) and `UserAuthentication` (required) resolve the session, then eagerly load the user's full permission picture (owned projects, `project_users` grants, per-server effective permissions) into the guard. `ClientInfo` (`auth/client.rs`) is the `#[special]` extractor that reads the user agent and the client IP (`X-Forwarded-For`, then `X-Real-IP`, then the peer address) recorded on a new session.
-
-**Permissions (`backend/src/auth/permissions.rs`)** are `i64` bitflags in three scopes: `ProjectPermissions`, `ServerPermissions`, and instance-wide `ManagementPermissions`. Checks go through `auth.require(extra, PERM)` where `extra` is a `ProjectId`/`ServerId`/`()` — the `Permission` impls resolve the effective permission from role defaults + project grants + server overrides. Permissions have **dependencies** (`with_dependencies`): e.g. `USER_EDIT` implies `USER_VIEW`, `FILES_WRITE` implies `FILES_READ`. A `require` that fails returns `permission_denied` if the user can otherwise `VIEW` the resource, or `not_found` if they can't (so non-members can't probe existence). `Role` (User/Moderator/Admin) maps to baseline permission sets.
-
-Grants are stored as bitmasks in `project_users.permissions` and `api_keys.permissions`, so **a permission added later is missing from every grant made before it** and reads as denied for existing members. Adding a bit therefore means adding an entry to `PERMISSION_BACKFILLS` (`backend/src/auth/backfill.rs`) naming the permission a grant must already hold to receive the new one — `SCHEDULE_MANAGE` went to everyone who could already `POWER` the server. `apply_permission_backfills` runs after the migrations at startup, applies each entry exactly once and records it in `permission_backfills`, so a permission an admin revokes afterwards stays revoked. Role-derived permissions (Admin/Moderator) and project owners resolve dynamically and need no backfill.
-
-**IDs** — Projects/servers use 6-char nanoids (`GenericNanoId`, `backend/src/utils/id.rs`) created via the `define_id!` macro; they serialize as strings and encode/decode transparently for sqlx. Users and nodes use integer / UUID ids respectively.
-
-**Nodes (`backend/src/db/node/`)** are remote daemons. `load_nodes` loads them from the `nodes` table into the in-memory `nodes` map at startup, building a `DaemonSDK` client per node. After changing node tables inside a transaction, call `sync_nodes(tx)`: it reloads the local map and `pg_notify`s the other instances (delivered on commit), which reload theirs (`backend/src/cluster.rs`). `BackendNode` derefs to the daemon services trait, so backend code calls daemon RPCs directly on the node handle.
-
-**Templates (`backend/src/templates/`)** define how a given server type is built and configured (Minecraft variants, Satisfactory, and generic Go/Java/Python/Rust/Docker). The `Template` trait (typed) is object-safed behind `TemplateInner` (JSON-`Value`-based) so heterogeneous templates live in one `HashMap`. Templates keep a Valkey-backed cache (e.g. upstream version lists) refreshed on a background task; `.Dockerfile` files colocated in the tree are the build recipes. Templates are initialized once at startup in `load_templates`.
-
-**Databases (`backend/src/db/database.rs`, `backend/src/service/database.rs`)** — a project may hold up to `MAX_PROJECT_DATABASES` (4) databases; going beyond that needs `ManagementPermissions::LIMITS_BYPASS`. `sync_database_hosts`/`load_database_hosts` mirror `sync_nodes`/`load_nodes`: they load the `database_hosts` table into an in-memory map, building a `DatabaseAgentSDK` per host from the root and backend keys. Creating a project database picks an instance of the requested engine (host not in maintenance, hosts sharing a group with the project's nodes preferred, fewest databases), then calls the agent to create the database and its user. `backend/src/service/admin/database.rs` issues host setup codes, manages their public ports and manages instances.
-
-## Running several instances
-
-The backend runs as several instances behind a load balancer, so **nothing request-visible may live only in one process's memory**. Durable state goes in Postgres (including the keys), short-lived shared state in Valkey. Node and database host setup codes are Valkey keys with a one-hour TTL, handled by the generic store in `backend/src/registration.rs` (`create_registration`, `registration`, `claim_registration`, `update_registration`, `extend_registration`, `list_registrations`, typed by the `Registration` trait). The in-memory `nodes`/`database_hosts` maps are caches kept in step by `sync_nodes`/`sync_database_hosts`. Background jobs whose progress is polled (modpack installs, integrity runs) run on one instance, mirror their state to Valkey with `store_shared`, and hold a lock via `try_lock` + `hold_lock` so the "already running" check is cluster-wide; a `Running` job whose lock expired reads as failed. Periodic tasks must be idempotent or claim a Valkey lock first (see the template cache refresh). `GET /api/health` is the load balancer probe.
-
-## The database agent
-
-**`Agent` (`database_agent/src/state.rs`)** is the cloneable handle (config, SQLite `Store`, `bollard::Docker`, the instance list, the route table, the subsystem registry). Instances hold an `Agent` back-reference, mirroring the reference implementation.
-
-**Instances (`database_agent/src/instance/`)** are Docker containers running a database engine. `docker.rs` holds the concrete `bollard` calls — there is deliberately **no executor trait**, the agent only supports Docker. Containers run with `network_mode: none`; the only way in is a bind-mounted unix socket. `connection/` provisions databases and users per engine through that socket, dispatched by the `Connection` enum (no `Box<dyn>`).
-
-**Proxy subsystems (`database_agent/src/subsystems/`)** are the point of the agent. One TCP listener per engine (5432/3306/27017/6379) serves every instance of that engine. A client connects as `u<8 hex>_<label>` (`database_agent_common::identifier`); the agent parses the username, looks it up in the `DatabaseRouteManager`, authenticates the client itself (SCRAM-SHA-256 for postgres/mongodb, `mysql_native_password` for mariadb, `AUTH`/`HELLO` for redis), re-authenticates against the instance's socket, then `copy_bidirectional`s. Suspended instances and unknown users are rejected before any relay. The protocol modules carry module-level `#![expect(...)]` blocks for the endianness and cast lints — wire formats fix both, so those lints don't apply there.
-
-**Agent auth is mTLS, identical to the daemon's.** The agent serves TLS with `agent.pem` (a `DaemonKey`, CN/SAN `node-{host_id}`) and a `WebPkiClientVerifier` built from the CA in `agent_root.pem`; the middleware over zelus's `with_auth` group rejects any request that arrives without a peer certificate. The backend presents its `BackendKey` as the client certificate and pins the host id as the server name (`DatabaseAgentSDK::builder().with_root_key(..).with_backend_key(..)`), exactly like `DaemonSDK`. Both key types come from `daemon_common::key`, so a database host is signed by the same CA as the nodes.
-
-**Agent setup mirrors the daemon's.** With no `config.toml` in `DATABASE_AGENT_DATA_DIR` the agent runs `setup` (`--setup-url`/`SETUP_URL`, `--setup-token`/`SETUP_TOKEN`, `--port`) instead of serving: it pulls the CA (`GET /api/internal/database_agent/root_key`) and the intended config (`/config`), generates a keypair, brings up a temporary mTLS server so the backend can prove it is reachable, `POST`s its CSR to `/register`, and only then writes `config.toml`, `agent_root.pem` and `agent.pem`. The backend side is `create_database_host`, which no longer takes a URL and token but returns a setup code (`/admin/database/host/registrations` lists, updates and extends the pending ones, like the node ones).
-
-### Running the agent on macOS
-
-The agent must run on **Linux**, not on the macOS host. It reaches its instances over a bind-mounted unix socket, and a macOS process cannot connect to one: the socket file shows up on the shared filesystem, but the listening socket lives inside the Docker VM, so `connect()` fails with `ECONNREFUSED`.
-
-Run it in an OrbStack Linux machine instead, which shares the same Docker daemon — bind mounts and unix sockets then behave exactly as in production:
-
-```bash
-./scripts/dev/database_agent_orb.sh forward         # expose its ports on macOS
-./scripts/dev/database_agent_orb.sh setup <code>    # register against the backend
-./scripts/dev/database_agent_orb.sh start           # build + run as a systemd --user unit
-./scripts/dev/database_agent_orb.sh logs
-```
-
-The agent has to register before it can serve, so create the database host in the admin panel first and pass its setup code to `setup`. Run `forward` before that and register the host as `https://127.0.0.1:18090` — the backend connection-tests the base URL during registration, and `<machine>.orb.local` routing is not reliable on every Mac. `setup` rewrites the generated config to the OrbStack layout afterwards (the two specifics below).
-
-The script builds inside the machine with a machine-local `CARGO_TARGET_DIR`, so the macOS `target/` is untouched, and seeds cargo's git cache from `~/.cargo/git/db` on first run — the workspace lockfile pins the SSH-only `daemon` repo, which a fresh machine cannot fetch itself.
-
-Two OrbStack specifics land in `~/database-agent/config.toml`:
-
-- `[docker] socket` is `/run/user/<uid>/docker.sock`, not `/var/run/docker.sock`. The latter exists but is `root:docker`, and the agent's user is not in that group.
-- `[docker] rootless = true`. OrbStack's per-user daemon remaps container uids, so chowning the socket and volume directories to the image's uid — what the agent does otherwise — makes them *unreadable* to the container, and the engine fails to start with `Permission denied`.
-
-Host↔machine routing (`<machine>.orb.local`) is not reliable on every Mac, so `forward` tunnels the ports over OrbStack's SSH instead:
-
-```bash
-psql "postgresql://u1a2b3c4d_app:<password>@127.0.0.1:15432/<database>"
-```
-
-A relay stays up as long as the client's TCP connection is half-open, so with the tunnel in place `system/status` can keep counting a connection for ~30s after the client exits — that is ssh's channel teardown, not a leak.
-
-## Before finishing a change
-
-Always run `cargo fmt --all` to format, then `cargo clippy --all-targets --workspace` to verify. Both are enforced in CI and the clippy config is strict, so a change isn't done until clippy passes clean.
-
-## Conventions
-
-The clippy config in `Cargo.toml` is deliberately strict (`pedantic` + `nursery` + a large `restriction` set, mostly at `deny`/`forbid`). Notably **denied**: `unwrap_used`, `panic`, `expect_used` is *allowed* but `unwrap` is not, `indexing_slicing`, `print_stdout`/`print_stderr` (use `tracing`), `dbg_macro`, `exit`, `str_to_string`, `create_dir`, endianness-implicit byte conversions. Prefer `?` with the typed service errors over panicking. `min_ident_chars` is denied except in autogenerated code. Match the existing pattern: raw SQL via `query!`/`query_scalar!`/`query_as!`, `#[error(...)]` mappings for fallible handlers, and permission checks (`auth.require`) as the first lines of a handler before any DB work.
-
-### Comments
-
-No comments in the code, period — no file/module headers, no explanatory `//` or `///` notes, no commented-out code, no TODOs. Code should read clearly enough on its own (naming, structure) that it doesn't need narration. The one exception is route documentation, below.
-
-Every `#[route(...)]` handler must have a `///` doc comment directly above it describing what the endpoint does (these feed the OpenAPI docs at `/docs`). If the handler calls `auth.require`, add a `# Permissions` section listing the required permission(s), e.g.:
+- Several instances run behind a load balancer, so nothing request-visible may live only in one process's memory. Durable state goes in Postgres, short-lived shared state in Valkey. Polled background jobs hold a lock (`try_lock` + `hold_lock`) and mirror their state with `store_shared`; periodic tasks must be idempotent or take a lock.
+- The in-memory `nodes` and `database_hosts` maps are caches. After changing those tables in a transaction, call `backend.sync(tx, SyncTarget::…)` so every instance reloads.
+- Database writes that also call a node or agent: open a transaction, write, make the remote call, commit only if it succeeded.
+- Handlers check permissions (`auth.require`) first, before any DB work.
+- Grants are bitmasks in `project_users.permissions` and `api_keys.permissions`. When adding a permission bit that existing grants should receive, add a migration that ORs it into both columns for grants holding the implying permission (see `20261008000000_drop_permission_backfills.sql`).
+- The clippy config is very strict (`unwrap`, `panic`, indexing, `print*` and short identifiers are denied). Use `?` with the typed service errors and `tracing` for logs.
+- Raw SQL via `query!` / `query_scalar!` / `query_as!`.
+- No comments in Rust code. The only exception: every `#[route(...)]` handler has a `///` doc comment (it feeds the OpenAPI docs), with a `# Permissions` section when it calls `auth.require`:
 
 ```rust
 /// Restarts the server.
@@ -175,42 +42,38 @@ Every `#[route(...)]` handler must have a `///` doc comment directly above it de
 #[route("/{server_id}/restart", method = GET)]
 ```
 
-### Legacy compatibility
+- Never edit a committed migration unless asked.
+- Code that only exists for older deployments or data gets an entry in `docs/legacy-compat.md`.
 
-Code that only exists to keep older deployments or data working is listed in `docs/legacy-compat.md`, with what removing it takes. Add an entry there whenever you add such code.
+## Database agent on macOS
 
-### Migrations
+The agent must run on Linux (it reaches instances over bind-mounted unix sockets, which a macOS process cannot connect to). Use the OrbStack script:
 
-Migrations live in `backend/migrations/` for the backend and `database_agent/migrations/` for the agent. They are run automatically at startup, but can be run manually with `sqlx migrate run`.
+```bash
+./scripts/dev/database_agent_orb.sh forward         # expose its ports on macOS
+./scripts/dev/database_agent_orb.sh setup <code>    # setup code from the admin panel
+./scripts/dev/database_agent_orb.sh start
+./scripts/dev/database_agent_orb.sh logs
+```
 
-Never edit a migration after it got committed (except if user asks for it)
+Run `forward` first and register the host as `https://127.0.0.1:18090`.
 
 ## Frontend
 
-`frontend/` ("hephaestus") is a **client-only SPA** — Vite + React 19 + React Router v7 (library mode, `createBrowserRouter`), Tailwind v4 (via `@tailwindcss/vite`), shadcn/radix UI, SWR for data fetching, and react-hook-form + zod for forms. There is **no frontend server**: the built `dist/` is served by the backend at the same origin (see Part B / `backend/src/http.rs` `ServeDir` fallback and `BACKEND_FRONTEND_DIR`), so auth is the backend's httpOnly session cookie and API calls go same-origin (`credentials: "include"`). It is bundled into the one all-in-one Docker image and validated in CI by the `frontend` job.
-
 ```bash
 cd frontend
-bun install
-bun run dev        # Vite dev server on :3000; proxies /api -> VITE_DEV_API_URL (see vite.config.ts)
-bun run build      # type-agnostic Vite build -> dist/
-bun run typecheck  # tsc --noEmit (full type check)
-bun run gen        # regenerate the hey-api client in lib/api from the backend's /docs/openapi.json
+pnpm install
+pnpm run dev        # :3000, proxies /api to VITE_DEV_API_URL
+pnpm run typecheck
+pnpm run lint       # oxlint
+pnpm run format     # oxfmt
+pnpm run build
+pnpm run gen        # regenerate lib/api from a running backend's OpenAPI spec
 ```
 
-Conventions:
-- **Configuration** — `frontend/.env.example` documents every `VITE_*` variable. Branding and the other runtime settings are not baked into the bundle: `constants/config.ts` reads them from `window.__RUNTIME_CONFIG__`, which `index.html` defines inline from the `__RUNTIME_CONFIG_JSON__` placeholder. `vite dev` fills it (and `__APP_NAME__`) from `.env`; the nginx image renders `index.html` from `/usr/share/nginx/index.html.template` at every container start (`docker-entrypoint.d/40-generate-runtime-config.sh`), passing every `VITE_*` variable of the container environment. A new runtime variable therefore only needs its key in the `Window` type in `vite-env.d.ts` and a read in `constants/config.ts`. `VITE_API_URL` and `VITE_PROVIDERS` remain build-time `import.meta.env` values.
-- **API client** — the generated hey-api client lives in `lib/api` (committed, framework-agnostic); its runtime config is `lib/api-client.ts` (base URL `""` in prod, `/api` proxy in dev, `credentials: "include"`). The `lib/auth.ts` / `lib/auth-client.ts` shims wrap those calls.
-- **Cached session/org** — the current user is fetched once by `SessionProvider` (`contexts/session-provider.tsx`, backed by the Zustand store `stores/session.ts`) and read via `authClient.useSession()` / `useSession()` (`{ data, isLoading }`); logout clears it. Full organizations are cached per-slug in `stores/organizations.ts` via the `useOrganization(slug)` hook (fetch-once); mutations should call the store's `invalidate(slug)` / `clear()` to refresh.
-- **Routing** — routes are declared in `router.tsx`, mapping the `app/` tree (Next-style folders kept for familiarity) to route objects. Layouts render `<Outlet/>`. The auth guard lives in `app/(app)/layout.tsx` (redirects to `/signin`); the old Next `middleware.ts` and `/api` proxy are gone.
-- **Data & navigation** — pages are client components: fetch with `useSWR`, read params with `useParams`, redirect with `<Navigate/>`. `lib/navigation.ts` is a small `next/navigation` compatibility shim (`useRouter`/`usePathname`/`useSearchParams`); `components/link.tsx` is a `next/link` replacement accepting `href`.
-- **SWR keys** — SWR caches by key alone, so two components that use the same key with different fetchers get each other's data (React error #31 when one stores objects and the other renders strings). A key used by more than one component lives in `hooks/use-shared-queries.ts` together with its one fetcher; components call that hook and derive what they need from the result. Keys used in one place only stay inline but must be unique.
-- **Actions** — former server actions in `actions/` are plain async functions using the `lib/safe-action.ts` builder; components consume them via `lib/action-hooks.ts` (`useAction` / `useHookFormAction`).
-- Run `bun run build` (and ideally `bun run typecheck`) before finishing a frontend change; `bun run build` is what CI enforces.
-- **Don't verify UI changes in a browser.** `bun run typecheck` + `bun run build` passing is enough — don't start a dev server, drive the browser, or take screenshots to check a change. Never add a throwaway route (e.g. `/preview`) rendering components with mock data just to look at them; those temp files end up committed. The user reviews UI changes themselves.
-- **i18n** — all user-facing strings go through `i18next`/`react-i18next`, initialized in `lib/i18n.ts` and wrapped around the app by `I18nextProvider` in `components/providers.tsx`. Translations are static JSON, one file per `{language}/{namespace}`, imported eagerly (no lazy backend) in `locales/{en,de}/*.json`; `lib/i18n.ts`'s `namespaces` array and `resources` object are the source of truth for which files exist — register a new namespace there before using it. Currently: `common` (shared vocabulary — buttons, generic labels/statuses, pagination, confirm-delete boilerplate, nav/resource nouns) plus one namespace per feature area (`app`, `project`, `navigation`, `settings`, `servers`, `servers-management`, `admin-core`, `admin-infra`).
-  - In components, call `useTranslation()` and always reference keys with an explicit `"namespace:dot.path"` prefix (e.g. `t("common:actions.save")`, `t("org:members.inviteDialog.title")`) — never a bare key — so resolution doesn't depend on which namespaces were passed to the hook.
-  - For strings with embedded markup (e.g. inline links), use `<Trans i18nKey="ns:key" components={{ someLink: <Link href="/x" /> }} />` with `<someLink>text</someLink>` in the JSON value.
-  - Plain functions outside component scope that need translated strings take a `t: TFunction` parameter (import `TFunction` from `i18next`, not `react-i18next`); closures defined inside a component body can just close over `t` from `useTranslation()`.
-  - Before adding a new key, check `locales/en/common.json` — reuse an existing shared key (button verbs, status words, generic labels, resource/nav nouns like `nav.servers`/`resources.cpu`) rather than duplicating the string into a feature namespace. `en` and `de` must always have identical key structures in every namespace file.
-  - `components/auth/simple-auth.tsx` and `components/language-switcher.tsx` are worked examples of the pattern end-to-end, including the `Trans` usage and a `Select`-based language switcher.
+- Run typecheck, lint, format and build before finishing a change. Don't verify UI changes in a browser and never add throwaway preview routes; the user reviews UI themselves.
+- shadcn on Base UI (`render` prop, not `asChild`). The React Compiler is on, so follow its rules (no setState in effects, no ref writes during render).
+- Fetch with SWR. SWR caches by key alone: a key used by more than one component lives in `hooks/use-shared-queries.ts` with its single fetcher; other keys must be unique.
+- Show API errors with `apiErrorMessage(response.error, fallback)`.
+- All user-facing strings go through i18next with an explicit namespace (`t("common:actions.save")`). Reuse keys from `locales/en/common.json` where possible. `en` and `de` must have identical keys. New namespaces are registered in `lib/i18n.ts`.
+- Runtime settings come from `window.__RUNTIME_CONFIG__` (`constants/config.ts`); a new one needs its key in `vite-env.d.ts`. `VITE_API_URL` and `VITE_PROVIDERS` are build-time.

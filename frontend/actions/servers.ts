@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import { createServer, templateInfo } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
@@ -27,7 +28,6 @@ const createServerSchema = z.object({
 export const getTemplateInfoAction = authActionClient
   .inputSchema(templateInfoSchema)
   .action(async ({ parsedInput }) => {
-
     const response = await templateInfo({
       path: { template: parsedInput.template },
     });
@@ -45,7 +45,6 @@ export const getTemplateInfoAction = authActionClient
 export const createServerAction = authActionClient
   .inputSchema(createServerSchema)
   .action(async ({ parsedInput }) => {
-
     const response = await createServer({
       body: {
         name: parsedInput.name,
@@ -69,7 +68,7 @@ export const createServerAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to create server",
+        apiErrorMessage(response.error, "Failed to create server"),
       );
     }
 

@@ -10,7 +10,7 @@ use crate::service::admin::user::user_admin_service_error::{
 use crate::service::*;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use serde::Serialize;
-use sqlx::query;
+use sqlx::{Connection as _, query};
 use zelus::service;
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -161,52 +161,54 @@ pub(crate) impl UserAdminService for Backend {
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateUserError>((), ManagementPermissions::USER_MANAGE)?;
 
-        let mut tx = self.database.begin().await?;
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                if let Some(username) = username {
+                    query!(
+                        "UPDATE users SET username = $1 WHERE id = $2",
+                        username,
+                        user_id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        if let Some(username) = username {
-            query!(
-                "UPDATE users SET username = $1 WHERE id = $2",
-                username,
-                user_id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                if let Some(auth_id) = auth_id {
+                    query!(
+                        "UPDATE users SET auth_id = $1 WHERE id = $2",
+                        auth_id,
+                        user_id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        if let Some(auth_id) = auth_id {
-            query!(
-                "UPDATE users SET auth_id = $1 WHERE id = $2",
-                auth_id,
-                user_id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                if let Some(role) = role {
+                    let role = Role::try_from(role).map_err(|()| UpdateUserError::DbFailure)?;
+                    query!(
+                        "UPDATE users SET role = $1 WHERE id = $2",
+                        role as i32,
+                        user_id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        if let Some(role) = role {
-            let role = Role::try_from(role).map_err(|()| UpdateUserError::DbFailure)?;
-            query!(
-                "UPDATE users SET role = $1 WHERE id = $2",
-                role as i32,
-                user_id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                if let Some(email) = email {
+                    query!("UPDATE users SET email = $1 WHERE id = $2", email, user_id)
+                        .execute(&mut **tx)
+                        .await?;
+                }
 
-        if let Some(email) = email {
-            query!("UPDATE users SET email = $1 WHERE id = $2", email, user_id)
-                .execute(&mut *tx)
-                .await?;
-        }
+                query!("SELECT id FROM users WHERE id = $1", user_id)
+                    .fetch_one(&mut **tx)
+                    .await?;
 
-        query!("SELECT id FROM users WHERE id = $1", user_id)
-            .fetch_one(&mut *tx)
-            .await?;
-
-        tx.commit().await?;
-
-        Ok(())
+                Ok(())
+            })
+        })
+        .await
     }
 
     /// Deletes a user if they do not own projects.

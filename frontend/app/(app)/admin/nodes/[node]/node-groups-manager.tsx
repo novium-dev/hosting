@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import {
   CornerDownRight,
@@ -66,6 +67,7 @@ import {
 import { useGroups, useNodeGroups } from "@/hooks/use-shared-queries";
 import { formatMib, groupDepths } from "@/lib/groups";
 import { Progress } from "@/components/ui/progress";
+import type { GroupLimits } from "@/lib/api";
 
 type NodeGroupRow = ListNodeGroupsResponses[200][number];
 
@@ -80,12 +82,6 @@ type GroupForm = {
   cpu: string;
   ram: string;
   swap: string;
-};
-
-type GroupLimits = {
-  cpu: number | null;
-  ram: number | null;
-  swap: number | null;
 };
 
 const EMPTY_FORM: GroupForm = { group: "", cpu: "", ram: "", swap: "" };
@@ -169,12 +165,7 @@ export function NodeGroupsManager({
   const [form, setForm] = useState<GroupForm>(EMPTY_FORM);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
-  const {
-    data: groups,
-    error,
-    isValidating,
-    mutate,
-  } = useNodeGroups(nodeId);
+  const { data: groups, error, isValidating, mutate } = useNodeGroups(nodeId);
 
   const { data: allGroups } = useGroups(canManage);
 
@@ -227,10 +218,12 @@ export function NodeGroupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
-            (editing
+          apiErrorMessage(
+            response.error,
+            editing
               ? t("admin-infra:nodes.groupsManager.updateError")
-              : t("admin-infra:nodes.groupsManager.createError")),
+              : t("admin-infra:nodes.groupsManager.createError"),
+          ),
         );
         return;
       }
@@ -258,8 +251,10 @@ export function NodeGroupsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:nodes.groupsManager.deleteError"),
+          ),
         );
         return;
       }
@@ -291,10 +286,12 @@ export function NodeGroupsManager({
             <Plus className="size-4" />
             {t("admin-infra:nodes.groupsManager.addButton")}
           </Button>
-          <Button asChild variant="ghost">
-            <Link href="/admin/groups">
-              {t("admin-infra:nodes.groupsManager.manageGroupsLink")}
-            </Link>
+          <Button
+            variant="ghost"
+            render={<Link href="/admin/groups" />}
+            nativeButton={false}
+          >
+            {t("admin-infra:nodes.groupsManager.manageGroupsLink")}
           </Button>
           <Button
             type="button"
@@ -370,7 +367,9 @@ export function NodeGroupsManager({
                       <TableCell>
                         <ResourceMeter
                           used={usage?.cpu_used ?? null}
-                          limit={usage ? usage.cpu_limit_effective : group.limits.cpu}
+                          limit={
+                            usage ? usage.cpu_limit_effective : group.limits.cpu
+                          }
                           own={group.limits.cpu}
                           format={cores}
                         />
@@ -378,7 +377,9 @@ export function NodeGroupsManager({
                       <TableCell>
                         <ResourceMeter
                           used={usage?.mem_used ?? null}
-                          limit={usage ? usage.mem_limit_effective : group.limits.ram}
+                          limit={
+                            usage ? usage.mem_limit_effective : group.limits.ram
+                          }
                           own={group.limits.ram}
                           format={formatMib}
                         />
@@ -386,7 +387,11 @@ export function NodeGroupsManager({
                       <TableCell>
                         <ResourceMeter
                           used={usage?.swap_used ?? null}
-                          limit={usage ? usage.swap_limit_effective : group.limits.swap}
+                          limit={
+                            usage
+                              ? usage.swap_limit_effective
+                              : group.limits.swap
+                          }
                           own={group.limits.swap}
                           format={formatMib}
                         />
@@ -456,9 +461,15 @@ export function NodeGroupsManager({
                   </p>
                 ) : (
                   <Select
+                    items={[
+                      ...availableGroups.map((group) => ({
+                        value: String(group.id),
+                        label: group.label,
+                      })),
+                    ]}
                     value={form.group}
                     onValueChange={(value) =>
-                      setForm((prev) => ({ ...prev, group: value }))
+                      setForm((prev) => ({ ...prev, group: value ?? "" }))
                     }
                   >
                     <SelectTrigger id="node-group-name" className="w-full">
@@ -571,10 +582,7 @@ export function NodeGroupsManager({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void handleDelete();
-              }}
+              onClick={() => void handleDelete()}
               disabled={isActionLoading || !canManage}
             >
               {t("common:actions.delete")}

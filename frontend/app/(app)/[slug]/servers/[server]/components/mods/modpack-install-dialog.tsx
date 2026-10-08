@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { Boxes, Download, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
-
 import {
   installModpackAction,
   listResourceVersionsAction,
@@ -65,8 +64,13 @@ export function ModpackInstallDialog({
   onStarted,
 }: ModpackInstallDialogProps) {
   const { t } = useTranslation();
-  const [versionId, setVersionId] = useState(initialVersionId ?? "");
-  const [backup, setBackup] = useState(backupAvailable);
+  const targetKey = target ? `${target.provider}:${target.project}` : "";
+  const [choice, setChoice] = useState<{
+    targetKey: string;
+    versionId?: string;
+    backup?: boolean;
+  }>({ targetKey });
+  const ownChoice = choice.targetKey === targetKey ? choice : { targetKey };
   const [wipe, setWipe] = useState(true);
   const [isStarting, setIsStarting] = useState(false);
 
@@ -88,19 +92,13 @@ export function ModpackInstallDialog({
     },
   );
 
-  useEffect(() => {
-    setBackup(backupAvailable);
-  }, [backupAvailable, target]);
-
-  useEffect(() => {
-    if (!target) return;
-    setVersionId(initialVersionId ?? "");
-  }, [target, initialVersionId]);
-
-  useEffect(() => {
-    if (versionId || versions.length === 0) return;
-    setVersionId(initialVersionId ?? versions[0].id);
-  }, [initialVersionId, versionId, versions]);
+  const versionId =
+    ownChoice.versionId || initialVersionId || versions[0]?.id || "";
+  const backup = ownChoice.backup ?? backupAvailable;
+  const setVersionId = (next: string) =>
+    setChoice({ ...ownChoice, versionId: next });
+  const setBackup = (next: boolean) =>
+    setChoice({ ...ownChoice, backup: next });
 
   const version = versions.find((entry) => entry.id === versionId) ?? null;
   const isCurrent = Boolean(
@@ -173,8 +171,14 @@ export function ModpackInstallDialog({
               {t("servers-management:mods.versionLabel")}
             </Label>
             <Select
+              items={[
+                ...versions.map((entry) => ({
+                  value: entry.id,
+                  label: versionLabel(entry),
+                })),
+              ]}
               value={versionId}
-              onValueChange={setVersionId}
+              onValueChange={(value) => setVersionId(value ?? "")}
               disabled={isLoading || versions.length === 0}
             >
               <SelectTrigger id="modpack-version" className="w-full">

@@ -1,11 +1,10 @@
 "use client";
-
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { apiErrorMessage } from "@/lib/api-error";
+import { useCallback, useMemo, useState } from "react";
+import useSWR from "swr";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
-
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -60,10 +59,10 @@ import {
   listNodes,
   serverInfo,
   updatePort,
-  type AvailablePortsResponse,
   type NetworkProtocol,
 } from "@/lib/api";
 import { extractAdminPorts, type AdminPortRow } from "./port-utils";
+import { formatPortRange, type SelectablePortRange } from "@/lib/ports";
 
 type PortsManagerProps = {
   serverId: string;
@@ -94,13 +93,6 @@ const EMPTY_FORM: PortFormState = {
   http: false,
 };
 
-type SelectablePortRange = {
-  end: number;
-  exclude?: number[];
-  protocol: NetworkProtocol;
-  start: number;
-};
-
 type PortFormErrors = Partial<Record<keyof PortFormState, string>>;
 
 function formFromPort(port: AdminPortRow): PortFormState {
@@ -116,24 +108,12 @@ function formFromPort(port: AdminPortRow): PortFormState {
   };
 }
 
-function formatPortRange(range: SelectablePortRange, t: TFunction) {
-  const base =
-    range.start === range.end
-      ? `${range.protocol.toUpperCase()} ${range.start}`
-      : `${range.protocol.toUpperCase()} ${range.start}-${range.end}`;
-
-  return range.exclude?.length
-    ? t("admin-infra:servers.shared.rangeExcluding", {
-        base,
-        exclude: range.exclude.join(", "),
-      })
-    : base;
-}
-
 function parseInteger(value: string) {
   const parsed = Number(value);
   return Number.isInteger(parsed) ? parsed : null;
 }
+
+const NO_PROTOCOLS: Record<string, NetworkProtocol> = {};
 
 export function PortsManager({
   serverId,
@@ -150,11 +130,36 @@ export function PortsManager({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [form, setForm] = useState<PortFormState>(EMPTY_FORM);
   const [hasSubmittedForm, setHasSubmittedForm] = useState(false);
-  const [availablePortMap, setAvailablePortMap] =
-    useState<AvailablePortsResponse | null>(null);
-  const [nodePortProtocols, setNodePortProtocols] = useState<
-    Record<string, NetworkProtocol>
-  >({});
+  const { data: availability, mutate: refreshAvailablePorts } = useSWR(
+    ["admin/server-port-availability", nodeId],
+    async () => {
+      const [nodesResponse, portsResponse] = await Promise.all([
+        listNodes(),
+        availablePorts({
+          path: { node_id: nodeId },
+        }),
+      ]);
+
+      const currentNode = nodesResponse.error
+        ? null
+        : (nodesResponse.data ?? []).find((entry) => entry.id === nodeId);
+
+      return {
+        protocols: Object.fromEntries(
+          (currentNode?.ports ?? []).map((port) => [
+            String(port.id),
+            port.protocol,
+          ]),
+        ) as Record<string, NetworkProtocol>,
+        map:
+          portsResponse.error || !portsResponse.data
+            ? null
+            : portsResponse.data,
+      };
+    },
+  );
+  const availablePortMap = availability?.map ?? null;
+  const nodePortProtocols = availability?.protocols ?? NO_PROTOCOLS;
   const [selectedPort, setSelectedPort] = useState<AdminPortRow | null>(null);
 
   const selectedPortId = useMemo(
@@ -182,37 +187,6 @@ export function PortsManager({
     });
   }, [availablePortMap, nodePortProtocols]);
 
-  const refreshAvailablePorts = useCallback(async () => {
-    try {
-      const [nodesResponse, portsResponse] = await Promise.all([
-        listNodes(),
-        availablePorts({
-          path: { node_id: nodeId },
-        }),
-      ]);
-
-      const currentNode = nodesResponse.error
-        ? null
-        : (nodesResponse.data ?? []).find((entry) => entry.id === nodeId);
-
-      setNodePortProtocols(
-        Object.fromEntries(
-          (currentNode?.ports ?? []).map((port) => [
-            String(port.id),
-            port.protocol,
-          ]),
-        ),
-      );
-
-      setAvailablePortMap(
-        portsResponse.error || !portsResponse.data ? null : portsResponse.data,
-      );
-    } catch {
-      setAvailablePortMap(null);
-      setNodePortProtocols({});
-    }
-  }, [nodeId]);
-
   const refreshPorts = useCallback(async () => {
     setIsLoading(true);
 
@@ -233,10 +207,6 @@ export function PortsManager({
       setIsLoading(false);
     }
   }, [refreshAvailablePorts, serverId, t]);
-
-  useEffect(() => {
-    void refreshAvailablePorts();
-  }, [refreshAvailablePorts]);
 
   const resetForm = () => {
     setForm(EMPTY_FORM);
@@ -390,8 +360,10 @@ export function PortsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:servers.portsManager.createError"),
+          ),
         );
         return;
       }
@@ -432,8 +404,10 @@ export function PortsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:servers.portsManager.updateError"),
+          ),
         );
         return;
       }
@@ -461,8 +435,10 @@ export function PortsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:servers.portsManager.removeError"),
+          ),
         );
         return;
       }
@@ -488,10 +464,16 @@ export function PortsManager({
 
         <div className="flex flex-wrap items-center gap-2">
           <Popover>
-            <PopoverTrigger asChild>
-              <Button type="button" variant="outline" disabled={isActionLoading}>
-                {t("admin-infra:servers.shared.availableRanges")}
-              </Button>
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isActionLoading}
+                />
+              }
+            >
+              {t("admin-infra:servers.shared.availableRanges")}
             </PopoverTrigger>
             <PopoverContent align="start" className="w-80">
               <div className="space-y-2">
@@ -744,10 +726,7 @@ export function PortsManager({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void handleDelete();
-              }}
+              onClick={() => void handleDelete()}
               disabled={isActionLoading || !canManage}
             >
               {t("common:actions.remove")}
@@ -785,7 +764,9 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
           onChange={(event) =>
             setForm((prev) => ({ ...prev, name: event.target.value }))
           }
-          placeholder={t("admin-infra:servers.portsManager.form.namePlaceholder")}
+          placeholder={t(
+            "admin-infra:servers.portsManager.form.namePlaceholder",
+          )}
           aria-invalid={Boolean(errors.name)}
         />
         <FieldError>{errors.name}</FieldError>
@@ -793,6 +774,11 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
 
       <div className="space-y-2">
         <Select
+          items={[
+            { value: "tcp", label: t("common:resources.tcp") },
+            { value: "udp", label: t("common:resources.udp") },
+            { value: "http", label: t("common:resources.http") },
+          ]}
           value={form.http ? "http" : form.protocol}
           onValueChange={(value) =>
             setForm((prev) =>

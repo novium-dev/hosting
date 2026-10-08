@@ -1,10 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { useProject } from "@/hooks/use-project";
-import {
-  useProjectInstances,
-  useServerInfo,
-} from "@/hooks/use-shared-queries";
+import { useProjectInstances, useServerInfo } from "@/hooks/use-shared-queries";
 import {
   getActiveInstanceSection,
   INSTANCE_SECTIONS,
@@ -18,13 +15,7 @@ const sectionTitleKeys: Record<string, string> = {
   settings: "common:nav.settings",
 };
 
-function HeaderTitle({
-  title,
-  subtitle,
-}: {
-  title: string;
-  subtitle: string;
-}) {
+function HeaderTitle({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
       <span className="truncate">{title}</span>
@@ -70,7 +61,8 @@ export function ProjectHeaderTitle() {
     return (
       <HeaderTitle
         title={
-          instanceData?.display ?? t("navigation:projectSidebar.groups.instance")
+          instanceData?.display ??
+          t("navigation:projectSidebar.groups.instance")
         }
         subtitle={t(entry?.titleKey ?? "common:nav.databases")}
       />

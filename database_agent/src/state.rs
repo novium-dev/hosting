@@ -6,14 +6,15 @@ use crate::subsystems::SubsystemRegistry;
 use bollard::Docker;
 use core::ops::Deref;
 use core::time::Duration;
-use daemon_common::key::{DaemonKey, DaemonRootKey};
 use database_agent_common::types::{ContainerState, StoredInstanceCreate};
+use sqlx::Connection as _;
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{RwLock, Semaphore};
 use uuid::Uuid;
+use zelus_keys::{DaemonKey, DaemonRootKey};
 
 const RESTORE_DELAY: Duration = Duration::from_secs(5);
 
@@ -151,7 +152,8 @@ impl Agent {
     }
 
     pub async fn spawn_instance(&self, create: StoredInstanceCreate) -> anyhow::Result<Instance> {
-        let stored = data::insert_instance(self.store.write(), create).await?;
+        let stored =
+            data::insert_instance(&mut *self.store.write().acquire().await?, create).await?;
         let uuid = stored.uuid;
 
         let instance = Instance::new(self.clone(), stored);
@@ -169,7 +171,17 @@ impl Agent {
     }
 
     pub async fn remove_instance(&self, instance: &Instance) -> anyhow::Result<()> {
-        instance.destroy_container().await?;
+        let target = instance.clone();
+        let mut conn = self.store.write().acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                data::delete_instance(&mut **tx, target.uuid).await?;
+                target.destroy_container().await?;
+
+                Ok::<_, anyhow::Error>(())
+            })
+        })
+        .await?;
 
         for directory in [
             self.config.socket_dir(instance.uuid),
@@ -182,7 +194,6 @@ impl Agent {
             }
         }
 
-        data::delete_instance(self.store.write(), instance.uuid).await?;
         self.routes.mariadb_versions.remove(instance.uuid);
         self.instances
             .write()

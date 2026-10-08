@@ -1,6 +1,8 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import {
   Ban,
   Crown,
@@ -124,6 +126,35 @@ function getBanKeys(entry: BanEntry) {
     .map((value) => value.toLowerCase());
 }
 
+async function loadJsonFile(
+  serverId: string,
+  file: string,
+): Promise<unknown[]> {
+  try {
+    const response = await downloadUser({
+      path: { server_id: serverId },
+      query: { file, limit: 1024 * 1024 },
+    });
+
+    if (response.error || !response.data?.url) {
+      return [];
+    }
+
+    const fileResponse = await fetch(response.data.url);
+    if (!fileResponse.ok) {
+      return [];
+    }
+
+    const data = (await fileResponse.json()) as unknown;
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+const NO_OPS: OpsEntry[] = [];
+const NO_BANS: BanEntry[] = [];
+
 export function MinecraftPlayerManager({
   serverId,
   canManagePlayers,
@@ -133,11 +164,23 @@ export function MinecraftPlayerManager({
   const [healthCheck, setHealthCheck] = useState<MinecraftHealthCheck | null>(
     null,
   );
-  const [ops, setOps] = useState<OpsEntry[]>([]);
-  const [bans, setBans] = useState<BanEntry[]>([]);
-  const [connection, setConnection] = useState<
-    "connecting" | "connected" | "disconnected"
-  >("connecting");
+  const { data: ops = NO_OPS, mutate: mutateOps } = useSWR(
+    ["minecraft-ops", serverId],
+    async () => (await loadJsonFile(serverId, "/ops.json")) as OpsEntry[],
+  );
+  const { data: bans = NO_BANS, mutate: mutateBans } = useSWR(
+    ["minecraft-bans", serverId],
+    async () =>
+      (await loadJsonFile(serverId, "/banned-players.json")) as BanEntry[],
+  );
+  const [connectionEntry, setConnectionEntry] = useState<{
+    serverId: string;
+    status: "connecting" | "connected" | "disconnected";
+  } | null>(null);
+  const connection =
+    connectionEntry?.serverId === serverId
+      ? connectionEntry.status
+      : "connecting";
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const players = useMemo(
@@ -149,48 +192,12 @@ export function MinecraftPlayerManager({
     [ops],
   );
 
-  const loadJsonFile = async (file: string): Promise<unknown[]> => {
-    try {
-      const response = await downloadUser({
-        path: { server_id: serverId },
-        query: { file, limit: 1024 * 1024 },
-      });
-
-      if (response.error || !response.data?.url) {
-        return [];
-      }
-
-      const fileResponse = await fetch(response.data.url);
-      if (!fileResponse.ok) {
-        return [];
-      }
-
-      const data = (await fileResponse.json()) as unknown;
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
-    }
-  };
-
-  const loadOps = async () => {
-    setOps((await loadJsonFile("/ops.json")) as OpsEntry[]);
-  };
-
-  const loadBans = async () => {
-    setBans((await loadJsonFile("/banned-players.json")) as BanEntry[]);
-  };
-
-  useEffect(() => {
-    void loadOps();
-    void loadBans();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverId]);
-
   useEffect(() => {
     let mounted = true;
     let socket: WebSocket | null = null;
-
-    setConnection("connecting");
+    const setConnection = (
+      status: "connecting" | "connected" | "disconnected",
+    ) => setConnectionEntry({ serverId, status });
 
     const connect = async () => {
       try {
@@ -294,7 +301,7 @@ export function MinecraftPlayerManager({
         };
 
         toast.error(
-          response.error.error?.msg ?? t(actionFailedKeys[action]),
+          apiErrorMessage(response.error, t(actionFailedKeys[action])),
         );
         return;
       }
@@ -307,47 +314,57 @@ export function MinecraftPlayerManager({
       );
 
       if (action === "op") {
-        setOps((current) => [
-          ...current.filter(
-            (entry) =>
-              !getPlayerKeys(player).some((key) =>
-                getOpKeys(entry).includes(key),
-              ),
-          ),
-          { uuid: player.id ?? undefined, name: player.name },
-        ]);
+        void mutateOps(
+          (current = []) => [
+            ...current.filter(
+              (entry) =>
+                !getPlayerKeys(player).some((key) =>
+                  getOpKeys(entry).includes(key),
+                ),
+            ),
+            { uuid: player.id ?? undefined, name: player.name },
+          ],
+          { revalidate: false },
+        );
       }
 
       if (action === "deop") {
-        setOps((current) =>
-          current.filter(
-            (entry) =>
-              !getPlayerKeys(player).some((key) =>
-                getOpKeys(entry).includes(key),
-              ),
-          ),
+        void mutateOps(
+          (current = []) =>
+            current.filter(
+              (entry) =>
+                !getPlayerKeys(player).some((key) =>
+                  getOpKeys(entry).includes(key),
+                ),
+            ),
+          { revalidate: false },
         );
       }
 
       if (action === "ban") {
-        setBans((current) => [
-          ...current.filter(
-            (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
-          ),
-          { uuid: player.id ?? undefined, name: player.name },
-        ]);
+        void mutateBans(
+          (current = []) => [
+            ...current.filter(
+              (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
+            ),
+            { uuid: player.id ?? undefined, name: player.name },
+          ],
+          { revalidate: false },
+        );
       }
 
       if (action === "pardon") {
-        setBans((current) =>
-          current.filter(
-            (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
-          ),
+        void mutateBans(
+          (current = []) =>
+            current.filter(
+              (entry) => !getBanKeys(entry).includes(player.name.toLowerCase()),
+            ),
+          { revalidate: false },
         );
       }
 
       if (action === "ban" || action === "pardon") {
-        window.setTimeout(() => void loadBans(), 1500);
+        window.setTimeout(() => void mutateBans(), 1500);
       }
     } finally {
       setPendingAction(null);
@@ -377,13 +394,10 @@ export function MinecraftPlayerManager({
             )}
           </Badge>
           <Badge variant="secondary">
-            {t(
-              "servers-management:minecraftPlayerManager.playersOnlineBadge",
-              {
-                online,
-                maxSuffix: max === null ? "" : ` / ${max}`,
-              },
-            )}
+            {t("servers-management:minecraftPlayerManager.playersOnlineBadge", {
+              online,
+              maxSuffix: max === null ? "" : ` / ${max}`,
+            })}
           </Badge>
           {versionName ? <Badge variant="outline">{versionName}</Badge> : null}
         </div>
@@ -421,9 +435,11 @@ export function MinecraftPlayerManager({
                         <span>{player.name}</span>
                         {isOp ? (
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Crown className="size-4 text-amber-500" />
-                            </TooltipTrigger>
+                            <TooltipTrigger
+                              render={
+                                <Crown className="size-4 text-amber-500" />
+                              }
+                            />
                             <TooltipContent>
                               {t(
                                 "servers-management:minecraftPlayerManager.tooltips.operator",
@@ -439,21 +455,25 @@ export function MinecraftPlayerManager({
                     <TableCell>
                       <div className="flex justify-end gap-2">
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              disabled={
-                                !canManagePlayers ||
-                                commandLock.locked ||
-                                pendingAction === `op:${player.name}` ||
-                                isOp
-                              }
-                              onClick={() => executePlayerAction("op", player)}
-                            >
-                              <ShieldPlus />
-                            </Button>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                disabled={
+                                  !canManagePlayers ||
+                                  commandLock.locked ||
+                                  pendingAction === `op:${player.name}` ||
+                                  isOp
+                                }
+                                onClick={() =>
+                                  executePlayerAction("op", player)
+                                }
+                              />
+                            }
+                          >
+                            <ShieldPlus />
                           </TooltipTrigger>
                           <TooltipContent>
                             {t(
@@ -462,21 +482,25 @@ export function MinecraftPlayerManager({
                           </TooltipContent>
                         </Tooltip>
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              disabled={
-                                !canManagePlayers ||
-                                commandLock.locked ||
-                                pendingAction === `deop:${player.name}` ||
-                                !isOp
-                              }
-                              onClick={() => executePlayerAction("deop", player)}
-                            >
-                              <ShieldMinus />
-                            </Button>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                disabled={
+                                  !canManagePlayers ||
+                                  commandLock.locked ||
+                                  pendingAction === `deop:${player.name}` ||
+                                  !isOp
+                                }
+                                onClick={() =>
+                                  executePlayerAction("deop", player)
+                                }
+                              />
+                            }
+                          >
+                            <ShieldMinus />
                           </TooltipTrigger>
                           <TooltipContent>
                             {t(
@@ -485,20 +509,24 @@ export function MinecraftPlayerManager({
                           </TooltipContent>
                         </Tooltip>
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              disabled={
-                                !canManagePlayers ||
-                                commandLock.locked ||
-                                pendingAction === `ban:${player.name}`
-                              }
-                              onClick={() => executePlayerAction("ban", player)}
-                            >
-                              <Ban />
-                            </Button>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                disabled={
+                                  !canManagePlayers ||
+                                  commandLock.locked ||
+                                  pendingAction === `ban:${player.name}`
+                                }
+                                onClick={() =>
+                                  executePlayerAction("ban", player)
+                                }
+                              />
+                            }
+                          >
+                            <Ban />
                           </TooltipTrigger>
                           <TooltipContent>
                             {t(
@@ -575,26 +603,28 @@ export function MinecraftPlayerManager({
                       <TableCell>
                         <div className="flex justify-end">
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                disabled={
-                                  !canManagePlayers ||
-                                  commandLock.locked ||
-                                  !entry.name ||
-                                  pendingAction === `pardon:${entry.name}`
-                                }
-                                onClick={() =>
-                                  executePlayerAction("pardon", {
-                                    id: entry.uuid ?? "",
-                                    name: entry.name ?? "",
-                                  })
-                                }
-                              >
-                                <RotateCcw />
-                              </Button>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  disabled={
+                                    !canManagePlayers ||
+                                    commandLock.locked ||
+                                    !entry.name ||
+                                    pendingAction === `pardon:${entry.name}`
+                                  }
+                                  onClick={() =>
+                                    executePlayerAction("pardon", {
+                                      id: entry.uuid ?? "",
+                                      name: entry.name ?? "",
+                                    })
+                                  }
+                                />
+                              }
+                            >
+                              <RotateCcw />
                             </TooltipTrigger>
                             <TooltipContent>
                               {t(

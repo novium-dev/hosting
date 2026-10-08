@@ -20,7 +20,9 @@ export function AppearanceSection() {
   return (
     <div className="space-y-3">
       <div className="space-y-0.5">
-        <h3 className="text-sm font-medium">{t("settings:appearance.title")}</h3>
+        <h3 className="text-sm font-medium">
+          {t("settings:appearance.title")}
+        </h3>
         <p className="text-sm text-muted-foreground">
           {t("settings:appearance.description")}
         </p>

@@ -1,6 +1,7 @@
 use super::{OrStoreFailure as _, OrUserFailure as _};
 use crate::state::Agent;
 use crate::store::data;
+use crate::utils::detached;
 use database_agent_common::identifier::{LABEL_MAX_LENGTH, LABEL_MIN_LENGTH};
 use database_agent_common::service::error_database_not_found::FromDatabaseNotFound;
 use database_agent_common::service::error_store_failure::FromStoreFailure;
@@ -20,8 +21,6 @@ fn validate_username(username: &str) -> bool {
 }
 
 impl Agent {
-    /// Collapses repeated grants on the same database, keeping the last one,
-    /// and rejects databases the instance does not hold.
     async fn resolve_grants<E>(
         &self,
         instance_id: Uuid,
@@ -63,7 +62,14 @@ impl UserService for Agent {
             .await
             .ok_or(ListUsersError::InstanceNotFound)?;
 
-        data::users(self.store.read(), instance_id)
+        let mut store = self
+            .store
+            .read()
+            .acquire()
+            .await
+            .map_err(anyhow::Error::from)
+            .or_store_failure::<ListUsersError>("failed to read the store")?;
+        data::users(&mut store, instance_id)
             .await
             .or_store_failure("failed to list the users")
     }
@@ -87,8 +93,7 @@ impl UserService for Agent {
             .resolve_grants::<CreateUserError>(instance_id, grants)
             .await?;
 
-        instance
-            .create_user(&username, &grants)
+        detached(async move { instance.create_user(&username, &grants).await })
             .await
             .or_user_failure("failed to create a user")
     }
@@ -123,8 +128,7 @@ impl UserService for Agent {
             .resolve_grants::<SetUserGrantsError>(instance_id, grants)
             .await?;
 
-        instance
-            .set_grants(&user, &grants)
+        detached(async move { instance.set_grants(&user, &grants).await })
             .await
             .or_user_failure("failed to change a user's grants")
     }
@@ -139,8 +143,7 @@ impl UserService for Agent {
             .or_store_failure::<DeleteUserError>("failed to read a user")?
             .ok_or(DeleteUserError::UserNotFound)?;
 
-        instance
-            .delete_user(&user)
+        detached(async move { instance.delete_user(&user).await })
             .await
             .or_user_failure("failed to delete a user")
     }
@@ -159,8 +162,7 @@ impl UserService for Agent {
             .or_store_failure::<RotateUserPasswordError>("failed to read a user")?
             .ok_or(RotateUserPasswordError::UserNotFound)?;
 
-        instance
-            .rotate_password(&user)
+        detached(async move { instance.rotate_password(&user).await })
             .await
             .or_user_failure("failed to rotate a password")
     }

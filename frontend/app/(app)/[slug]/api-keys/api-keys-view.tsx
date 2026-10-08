@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
@@ -28,7 +29,9 @@ export function ApiKeysView({ projectId, permissions }: ApiKeysViewProps) {
       path: { project_id: projectId },
     });
     if (response.error) {
-      throw new Error(response.error.error?.msg ?? "Failed to load API keys");
+      throw new Error(
+        apiErrorMessage(response.error, "Failed to load API keys"),
+      );
     }
     return response.data ?? [];
   });

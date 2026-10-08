@@ -7,14 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import {
   InputGroup,
   InputGroupAddon,
@@ -25,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
 import { updateProjectSlugSchema } from "@/types/project.schema";
+import { Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useHookFormAction } from "@/lib/action-hooks";
 import { IconCheck, IconX } from "@tabler/icons-react";
@@ -107,73 +101,73 @@ export function UpdateProjectSlug({ project }: { project: AppProject }) {
     slug.value === slug.initialValue;
 
   return (
-    <Form {...form}>
-      <form onSubmit={handleSubmitWithAction} className="space-y-4">
-        <input type="hidden" {...form.register("id")} />
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("project:settings.slugCard.title")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FormField
-              control={form.control}
-              name="slug"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("project:settings.slugCard.label")}</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupInput
-                        {...field}
-                        onChange={(e) => {
-                          field.onChange(e);
-                          setSlug((prev) => ({
-                            ...prev,
-                            value: e.target.value,
-                          }));
-                        }}
-                        placeholder={t("project:settings.slugCard.placeholder")}
-                        className="pl-1!"
-                      />
-                      <InputGroupAddon>
-                        <InputGroupText>/</InputGroupText>
-                      </InputGroupAddon>
-                      <InputGroupAddon align="inline-end">
-                        {slug.isValidating ? (
-                          <Spinner />
-                        ) : slug.isError ? (
-                          <div className="bg-destructive text-white flex size-4 items-center justify-center rounded-full">
-                            <IconX className="size-3" />
-                          </div>
-                        ) : (
-                          <div className="bg-primary text-primary-foreground flex size-4 items-center justify-center rounded-full">
-                            <IconCheck className="size-3" />
-                          </div>
-                        )}
-                      </InputGroupAddon>
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-          <Separator />
-          <CardFooter className="flex flex-row justify-between gap-4">
-            <p className="text-sm text-muted-foreground">
-              {t("project:settings.slugCard.hint")}
-            </p>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={disabledForm}
-              loading={action.isExecuting}
-            >
-              {t("common:actions.save")}
-            </Button>
-          </CardFooter>
-        </Card>
-      </form>
-    </Form>
+    <form onSubmit={handleSubmitWithAction} className="space-y-4">
+      <input type="hidden" {...form.register("id")} />
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("project:settings.slugCard.title")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Controller
+            control={form.control}
+            name="slug"
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor={field.name}>
+                  {t("project:settings.slugCard.label")}
+                </FieldLabel>
+                <InputGroup>
+                  <InputGroupInput
+                    id={field.name}
+                    aria-invalid={fieldState.invalid}
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      setSlug((prev) => ({
+                        ...prev,
+                        value: e.target.value,
+                      }));
+                    }}
+                    placeholder={t("project:settings.slugCard.placeholder")}
+                    className="pl-1!"
+                  />
+                  <InputGroupAddon>
+                    <InputGroupText>/</InputGroupText>
+                  </InputGroupAddon>
+                  <InputGroupAddon align="inline-end">
+                    {slug.isValidating ? (
+                      <Spinner />
+                    ) : slug.isError ? (
+                      <div className="bg-destructive text-white flex size-4 items-center justify-center rounded-full">
+                        <IconX className="size-3" />
+                      </div>
+                    ) : (
+                      <div className="bg-primary text-primary-foreground flex size-4 items-center justify-center rounded-full">
+                        <IconCheck className="size-3" />
+                      </div>
+                    )}
+                  </InputGroupAddon>
+                </InputGroup>
+                <FieldError errors={[fieldState.error]} />
+              </Field>
+            )}
+          />
+        </CardContent>
+        <Separator />
+        <CardFooter className="flex flex-row justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            {t("project:settings.slugCard.hint")}
+          </p>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={disabledForm}
+            loading={action.isExecuting}
+          >
+            {t("common:actions.save")}
+          </Button>
+        </CardFooter>
+      </Card>
+    </form>
   );
 }

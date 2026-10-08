@@ -25,7 +25,7 @@ import {
 } from "@/lib/permissions";
 import { ModpackInstallBanner } from "@/components/server/modpack-install-banner";
 import { hasResourceSupport } from "@/lib/mod-browser/types";
-import { ServerManagementBar } from "./components/server-management-bar";
+import { ServerManagementBar } from "./components/management-bar/server-management-bar";
 import { ServerLicenseNotice } from "./components/server-licenses";
 
 function getServerAddress(
@@ -102,10 +102,12 @@ export default function ServerLayout() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild variant="outline">
-              <Link href={`/${slug}`}>
-                {t("servers:shared.backToServerList")}
-              </Link>
+            <Button
+              variant="outline"
+              render={<Link href={`/${slug}`} />}
+              nativeButton={false}
+            >
+              {t("servers:shared.backToServerList")}
             </Button>
           </CardContent>
         </Card>

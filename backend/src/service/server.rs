@@ -20,6 +20,7 @@ use crate::service::server::server_service_error::{
 use crate::service::template::*;
 use crate::templates::variable::VariablePayload;
 use crate::templates::{ENV_FILE_ENVIRONMENT, TemplateError};
+use crate::utils::task::detached;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use daemon_common::service::backup::backup_service_error::{
     ServerCreateBackupOrderError, ServerListBackupsError,
@@ -300,11 +301,11 @@ pub(crate) impl ServerService for Backend {
 
         let ports = query!(
             r#"SELECT
-            	id,
-            	name,
-            	host,
+                id,
+                name,
+                host,
                 protocol AS "protocol: NetworkProtocol",
-                external_ip,
+                bind,
                 internal_port,
                 http,
                 lower(external_port) AS "external_port_start!",
@@ -323,7 +324,7 @@ pub(crate) impl ServerService for Backend {
                     http: record.http,
                     bind: auth
                         .has((), ManagementPermissions::SERVER_MANAGE)
-                        .then_some(record.external_ip),
+                        .then_some(record.bind),
                     name: record.name,
                     protocol: record.protocol,
                     internal_port: u16::try_from(record.internal_port)
@@ -414,7 +415,7 @@ pub(crate) impl ServerService for Backend {
             node_server_id: auth
                 .has((), ManagementPermissions::SERVER_MANAGE)
                 .then_some(server.node_server_id),
-            group: match server.group {
+            group: match server.group_id {
                 Some(group) if auth.has((), ManagementPermissions::SERVER_MANAGE) => {
                     group_path(&*self.database, group)
                         .await?
@@ -564,145 +565,104 @@ pub(crate) impl ServerService for Backend {
             || internet_access.is_some()
             || new_build.is_some()
             || group.is_some();
-        let daemon_resource = resource.clone();
         let node = Arc::clone(&server.node);
         let node_server_id = server.node_server_id;
 
+        let suspension_reason_changed = suspended.is_some() || suspension_reason.is_some();
+        let suspension_reason = match suspended {
+            Some(suspended) => suspended.then_some(suspension_reason).flatten(),
+            None => suspension_reason,
+        };
+        let backup_limit_changed = backup_limit.is_some();
+        let backup_limit = backup_limit.flatten().map(u32::cast_signed);
+        let group_changed = group.is_some();
+        let group_id = group.flatten();
+        let custom_dockerfile_changed = custom_dockerfile.is_some();
+        let resource_changed = resource.is_some();
+        let cpu = resource.as_ref().and_then(|resource| resource.cpu);
+        let ram = resource
+            .as_ref()
+            .and_then(|resource| resource.ram)
+            .map(u32::cast_signed);
+        let swap = resource
+            .as_ref()
+            .and_then(|resource| resource.swap)
+            .map(u32::cast_signed);
+        let disk = resource
+            .as_ref()
+            .and_then(|resource| resource.disk)
+            .map(u64::cast_signed);
+
         let mut conn = self.database.acquire().await?;
-        conn.transaction(|tx| {
-            Box::pin(async move {
-                if let Some(name) = name {
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
                     query!(
-                        "UPDATE servers SET name = $1 WHERE id = $2",
+                        r#"UPDATE servers SET
+                               name = COALESCE($2, name),
+                               custom_dockerfile = CASE WHEN $3 THEN $4 ELSE custom_dockerfile END,
+                               suspended = COALESCE($5, suspended),
+                               suspension_reason = CASE WHEN $6 THEN $7 ELSE suspension_reason END,
+                               internet_access = COALESCE($8, internet_access),
+                               backup_limit = CASE WHEN $9 THEN $10 ELSE backup_limit END,
+                               group_id = CASE WHEN $11 THEN $12 ELSE group_id END,
+                               cpu = CASE WHEN $13 THEN $14 ELSE cpu END,
+                               ram = CASE WHEN $13 THEN $15 ELSE ram END,
+                               swap = CASE WHEN $13 THEN $16 ELSE swap END,
+                               disk = CASE WHEN $13 THEN $17 ELSE disk END
+                           WHERE id = $1"#,
+                        &server_id,
                         name,
-                        &server_id
-                    )
-                    .execute(&mut **tx)
-                    .await
-                    .inspect_err(|err| error!("Failed to update server (name): {err:?}"))?;
-                }
-
-                if let Some(custom_dockerfile) = custom_dockerfile {
-               		query!("UPDATE servers SET custom_dockerfile = $1 WHERE id = $2", custom_dockerfile, &server_id)
-                 		.execute(&mut **tx)
-                  		.await
-                   		.inspect_err(|err| {
-                    		error!("Failed to update server (custom_dockerfile): {err:?}");
-                    	})?;
-                }
-
-                match (suspended, suspension_reason) {
-                    (Some(suspended), reason) => {
-                        query!(
-                            "UPDATE servers SET suspended = $1, suspension_reason = $2 WHERE id = $3",
-                            suspended,
-                            suspended.then_some(reason).flatten(),
-                            &server_id
-                        )
-                        .execute(&mut **tx)
-                        .await
-                        .inspect_err(|err| {
-                            error!("Failed to update server (suspended): {err:?}");
-                        })?;
-                    }
-                    (None, Some(reason)) => {
-                        query!(
-                            "UPDATE servers SET suspension_reason = $1 WHERE id = $2",
-                            reason,
-                            &server_id
-                        )
-                        .execute(&mut **tx)
-                        .await
-                        .inspect_err(|err| {
-                            error!("Failed to update server (suspension_reason): {err:?}");
-                        })?;
-                    }
-                    (None, None) => {}
-                }
-
-                if let Some(internet_access) = internet_access {
-                    query!(
-                        "UPDATE servers SET internet_access = $1 WHERE id = $2",
+                        custom_dockerfile_changed,
+                        custom_dockerfile.flatten(),
+                        suspended,
+                        suspension_reason_changed,
+                        suspension_reason,
                         internet_access,
-                        &server_id
+                        backup_limit_changed,
+                        backup_limit,
+                        group_changed,
+                        group_id,
+                        resource_changed,
+                        cpu,
+                        ram,
+                        swap,
+                        disk
                     )
                     .execute(&mut **tx)
                     .await
-                    .inspect_err(|err| {
-                        error!("Failed to update server (internet_access): {err:?}");
-                    })?;
-                }
+                    .inspect_err(|err| error!("Failed to update server {server_id}: {err:?}"))?;
 
-                if let Some(backup_limit) = backup_limit {
-                    query!(
-                        "UPDATE servers SET backup_limit = $1 WHERE id = $2",
-                        backup_limit.map(u32::cast_signed),
-                        &server_id
-                    )
-                    .execute(&mut **tx)
-                    .await
-                    .inspect_err(|err| {
-                        error!("Failed to update server (backup_limit): {err:?}");
-                    })?;
-                }
+                    if updates_daemon {
+                        server
+                            .node
+                            .update_server(
+                                server.node_server_id,
+                                resource,
+                                new_build,
+                                None,
+                                internet_access.map(|internet_access| ServerNetworkPayload {
+                                    internet_access,
+                                    networks: Vec::new(),
+                                }),
+                                daemon_group,
+                            )
+                            .await
+                            .map_err(|err| {
+                                error!("Failed to update server: {err:?}");
+                                UpdateServerError::NodeFailure
+                            })?;
+                    }
 
-                if let Some(group) = group {
-                    query!(
-                        "UPDATE servers SET group_id = $1 WHERE id = $2",
-                        group,
-                        &server_id
-                    )
-                    .execute(&mut **tx)
-                    .await
-                    .inspect_err(|err| {
-                        error!("Failed to update server (group): {err:?}");
-                    })?;
-                }
-
-                if let Some(resource) = resource {
-                    query!(
-                        "UPDATE servers SET cpu = $1, ram = $2, swap = $3, disk = $4 WHERE id = $5",
-                        resource.cpu,
-                        resource.ram.map(u32::cast_signed),
-                        resource.swap.map(u32::cast_signed),
-                        resource.disk.map(u64::cast_signed),
-                        &server_id
-                    )
-                    .execute(&mut **tx)
-                    .await
-                    .inspect_err(|err| {
-                        error!("Failed to update server (resource): {err:?}");
-                    })?;
-                }
-
-                if updates_daemon {
-                    node.update_server(
-                        node_server_id,
-                        daemon_resource,
-                        new_build,
-                        None,
-                        internet_access.map(|internet_access| ServerNetworkPayload {
-                            internet_access,
-                            networks: Vec::new(),
-                        }),
-                        daemon_group,
-                    )
-                    .await
-                    .map_err(|err| {
-                        error!("Failed to update server: {err:?}");
-                        UpdateServerError::NodeFailure
-                    })?;
-                }
-
-                Ok::<(), UpdateServerError>(())
+                    Ok::<_, UpdateServerError>(())
+                })
             })
+            .await
         })
         .await?;
 
         if suspended == Some(true) {
-            let node = Arc::clone(&server.node);
-            let node_server_id = server.node_server_id;
-            let _ = tokio::task::spawn(async move { node.stop_server(node_server_id).await }).await;
+            let _ = detached(async move { node.stop_server(node_server_id).await }).await;
         }
 
         Ok(())
@@ -1102,32 +1062,43 @@ pub(crate) impl ServerService for Backend {
 
         let new_build = server.customization().apply(new_build);
 
-        server
-            .node
-            .update_server(
-                server.node_server_id,
-                None,
-                Some(new_build),
-                None,
-                None,
-                None,
-            )
+        let mut conn = self.database.acquire().await?;
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    query!(
+                        "UPDATE servers SET template_extra = $1 WHERE id = $2",
+                        new_extra,
+                        &server_id
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| {
+                        error!("Failed to update server variables (template_extra): {err:?}");
+                    })?;
+
+                    server
+                        .node
+                        .update_server(
+                            server.node_server_id,
+                            None,
+                            Some(new_build),
+                            None,
+                            None,
+                            None,
+                        )
+                        .await
+                        .map_err(|err| {
+                            error!("Failed to update server variables: {err:?}");
+                            UpdateVariablesError::NodeFailure
+                        })?;
+
+                    Ok(())
+                })
+            })
             .await
-            .map_err(|err| {
-                error!("Failed to update server variables: {err:?}");
-                UpdateVariablesError::NodeFailure
-            })?;
-
-        query!(
-            "UPDATE servers SET template_extra = $1 WHERE id = $2",
-            new_extra,
-            &server_id
-        )
-        .execute(&*self.database)
+        })
         .await
-        .inspect_err(|err| error!("Failed to update server variables (template_extra): {err:?}"))?;
-
-        Ok(())
     }
 
     /// Gets the server's custom environment variables.
@@ -1259,29 +1230,41 @@ pub(crate) impl ServerService for Backend {
             ..server.customization()
         }
         .apply(build);
+        let custom_environment =
+            serde_json::to_value(variables).expect("environment variables are serializable");
+        let env_file_path = env_file_path.clone();
 
-        server
-            .node
-            .update_server(server.node_server_id, None, Some(build), None, None, None)
+        let mut conn = self.database.acquire().await?;
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    query!(
+                        "UPDATE servers SET custom_environment = $1, env_file_enabled = $2, env_file_path = $3
+                         WHERE id = $4",
+                        custom_environment,
+                        env_file_enabled,
+                        env_file_path,
+                        &server_id
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| error!("Failed to update server startup: {err:?}"))?;
+
+                    server
+                        .node
+                        .update_server(server.node_server_id, None, Some(build), None, None, None)
+                        .await
+                        .map_err(|err| {
+                            error!("Failed to update the startup of server {server_id}: {err:?}");
+                            UpdateStartupError::NodeFailure
+                        })?;
+
+                    Ok(())
+                })
+            })
             .await
-            .map_err(|err| {
-                error!("Failed to update the startup of server {server_id}: {err:?}");
-                UpdateStartupError::NodeFailure
-            })?;
-
-        query!(
-            "UPDATE servers SET custom_environment = $1, env_file_enabled = $2, env_file_path = $3
-             WHERE id = $4",
-            serde_json::to_value(variables).expect("environment variables are serializable"),
-            env_file_enabled,
-            env_file_path,
-            &server_id
-        )
-        .execute(&*self.database)
+        })
         .await
-        .inspect_err(|err| error!("Failed to update server startup: {err:?}"))?;
-
-        Ok(())
     }
 
     /// Lists the licenses the server's template requires, together with their acceptance state.

@@ -54,9 +54,7 @@ export function PermissionsField({
           <Checkbox
             checked={allSelected}
             disabled={disabled}
-            onCheckedChange={(next) =>
-              onChange(next === true ? allBits : 0)
-            }
+            onCheckedChange={(next) => onChange(next === true ? allBits : 0)}
           />
           {t("common:actions.selectAll")}
         </label>

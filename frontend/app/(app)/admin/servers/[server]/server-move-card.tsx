@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import { FolderInput } from "lucide-react";
 import { toast } from "sonner";
@@ -70,8 +71,10 @@ export function ServerMoveCard({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:servers.moveCard.moveError"),
+          ),
         );
         return;
       }
@@ -101,8 +104,18 @@ export function ServerMoveCard({
             {t("admin-infra:servers.moveCard.targetLabel")}
           </Label>
           <Select
+            items={[
+              ...targets.map((entry) => ({
+                value: entry.id,
+                label: (
+                  <>
+                    {entry.name}({entry.slug})
+                  </>
+                ),
+              })),
+            ]}
             value={project}
-            onValueChange={setProject}
+            onValueChange={(value) => setProject(value ?? "")}
             disabled={!canMove || isMoving}
           >
             <SelectTrigger id="move-project" className="w-full sm:w-72">
@@ -153,10 +166,7 @@ export function ServerMoveCard({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void onMove();
-              }}
+              onClick={() => void onMove()}
               disabled={!canMove || !target || isMoving}
             >
               {t("admin-infra:servers.moveCard.moveButton")}

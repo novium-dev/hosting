@@ -1,4 +1,5 @@
 import type { TFunction } from "i18next";
+import { asFiniteNumber, asRecord } from "@/lib/utils";
 
 export const TASKS_MESSAGE_PREFIX = "TASKS!";
 
@@ -46,18 +47,8 @@ export const UNLOCKED: TaskLock = {
 
 const DESCRIPTOR_KEYS = ["id", "time", "write"];
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function readNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
 function readProgress(value: unknown): TaskProgress | null {
-  const direct = readNumber(value);
+  const direct = asFiniteNumber(value);
   if (direct !== null) {
     return { current: direct, max: null };
   }
@@ -67,8 +58,8 @@ function readProgress(value: unknown): TaskProgress | null {
     return null;
   }
 
-  const current = readNumber(record.current);
-  return current === null ? null : { current, max: readNumber(record.max) };
+  const current = asFiniteNumber(record.current);
+  return current === null ? null : { current, max: asFiniteNumber(record.max) };
 }
 
 function readKind(descriptor: Record<string, unknown>): string | null {
@@ -78,7 +69,8 @@ function readKind(descriptor: Record<string, unknown>): string | null {
   }
 
   return (
-    Object.keys(descriptor).find((key) => !DESCRIPTOR_KEYS.includes(key)) ?? null
+    Object.keys(descriptor).find((key) => !DESCRIPTOR_KEYS.includes(key)) ??
+    null
   );
 }
 
@@ -99,8 +91,8 @@ function readTask(value: unknown): ServerTaskEntry | null {
   }
 
   return {
-    id: readNumber(descriptor.id) ?? 0,
-    time: readNumber(descriptor.time) ?? 0,
+    id: asFiniteNumber(descriptor.id) ?? 0,
+    time: asFiniteNumber(descriptor.time) ?? 0,
     write: descriptor.write === true,
     kind,
     detail: readDetail(descriptor),

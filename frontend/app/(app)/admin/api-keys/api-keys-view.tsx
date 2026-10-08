@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
@@ -24,7 +25,7 @@ export function AdminApiKeysView() {
     const response = await listAllApiKeys();
     if (response.error) {
       throw new Error(
-        response.error.error?.msg ?? t("admin-core:apiKeys.loadFailed"),
+        apiErrorMessage(response.error, t("admin-core:apiKeys.loadFailed")),
       );
     }
     return response.data ?? [];
@@ -39,9 +40,7 @@ export function AdminApiKeysView() {
     <div className="space-y-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-xl font-semibold">
-            {t("common:nav.apiKeys")}
-          </h1>
+          <h1 className="text-xl font-semibold">{t("common:nav.apiKeys")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("admin-core:apiKeys.description")}
           </p>

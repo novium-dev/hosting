@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useCallback, useMemo, useState } from "react";
 import { Loader2, Plus, RefreshCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -53,11 +54,10 @@ import {
   availablePorts,
   deleteNodePort,
   listNodes,
-  type ListNodesResponses,
   type NetworkProtocol,
 } from "@/lib/api";
+import type { NodeRow } from "@/types/api";
 
-type NodeRow = ListNodesResponses[200][number];
 type NodePortRow = NodeRow["ports"][number];
 type AvailablePortRangeValue = {
   start: number;
@@ -196,8 +196,10 @@ export function NodePortsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:nodes.portsManager.addError"),
+          ),
         );
         return;
       }
@@ -228,8 +230,10 @@ export function NodePortsManager({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:nodes.portsManager.removeError"),
+          ),
         );
         return;
       }
@@ -342,7 +346,9 @@ export function NodePortsManager({
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("admin-infra:nodes.portsManager.availableTitle")}</CardTitle>
+          <CardTitle>
+            {t("admin-infra:nodes.portsManager.availableTitle")}
+          </CardTitle>
           <CardDescription>
             {t("admin-infra:nodes.portsManager.availableDescription")}
           </CardDescription>
@@ -404,6 +410,10 @@ export function NodePortsManager({
               inputMode="numeric"
             />
             <Select
+              items={[
+                { value: "tcp", label: "TCP" },
+                { value: "udp", label: "UDP" },
+              ]}
               value={form.protocol}
               onValueChange={(value) =>
                 setForm((prev) => ({
@@ -473,10 +483,7 @@ export function NodePortsManager({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void handleDelete();
-              }}
+              onClick={() => void handleDelete()}
               disabled={isActionLoading || !canManage}
             >
               {t("common:actions.remove")}

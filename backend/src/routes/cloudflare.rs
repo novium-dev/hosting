@@ -110,7 +110,6 @@ impl CloudflareClient {
         self.config.ttl.unwrap_or(DEFAULT_TTL)
     }
 
-    /// Looks the zone of a domain up by name, keeping resolved zones in memory.
     pub async fn zone(&self, domain: &str) -> Result<String, RouteError> {
         if let Some(zone) = self.zones.read().await.get(domain) {
             return Ok(zone.clone());

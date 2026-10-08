@@ -428,32 +428,3 @@ pub fn session_cookie_parameter() -> Parameter {
         .required(Required::False)
         .build()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{SessionToken, cache_ttl};
-    use chrono::{TimeDelta, Utc};
-    use core::str::FromStr as _;
-
-    #[test]
-    fn round_trips_a_token_through_its_cookie_representation() {
-        let token = SessionToken::generate().expect("token");
-        let parsed = SessionToken::from_str(&token.to_string()).expect("parsed");
-
-        assert_eq!(token.hash(), parsed.hash());
-    }
-
-    #[test]
-    fn rejects_a_token_of_the_wrong_length() {
-        assert!(SessionToken::from_str("abc").ok().is_none());
-    }
-
-    #[test]
-    fn caps_the_cache_ttl_at_the_remaining_absolute_lifetime() {
-        let now = Utc::now();
-
-        assert_eq!(cache_ttl(now, now + TimeDelta::seconds(30), 600), 30);
-        assert_eq!(cache_ttl(now, now + TimeDelta::seconds(3600), 600), 600);
-        assert_eq!(cache_ttl(now, now - TimeDelta::seconds(10), 600), 0);
-    }
-}

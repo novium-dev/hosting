@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import { z } from "zod";
 
 import {
@@ -39,7 +40,7 @@ function unwrap<T>(
   fallback: string,
 ): T {
   if (response.error || response.data === undefined) {
-    throw new ActionError(response.error?.error?.msg ?? fallback);
+    throw new ActionError(apiErrorMessage(response.error, fallback));
   }
 
   return response.data;
@@ -279,7 +280,7 @@ export const unlinkModpackAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg ?? "Failed to unlink the modpack",
+        apiErrorMessage(response.error, "Failed to unlink the modpack"),
       );
     }
 
@@ -328,7 +329,7 @@ export const uninstallResourceAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg ?? "Failed to remove resource",
+        apiErrorMessage(response.error, "Failed to remove resource"),
       );
     }
 

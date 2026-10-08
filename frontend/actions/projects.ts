@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import { auth } from "@/lib/auth";
 import { deleteProject } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
@@ -61,7 +62,7 @@ export const deleteProjectAction = authActionClient
     });
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to delete the project",
+        apiErrorMessage(response.error, "Failed to delete the project"),
       );
     }
     return { success: true, message: "Project deleted successfully" };

@@ -1,5 +1,7 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import useSWR, { type SWRConfiguration } from "swr";
 import {
+  availablePorts,
   listDatabaseHosts,
   listGroups,
   listInstanceDatabases,
@@ -7,6 +9,7 @@ import {
   listProjectInstances,
   listRouteDomainsAdmin,
   serverInfo,
+  templateInfo,
 } from "@/lib/api";
 
 export function useServerInfo(serverId: string | null | undefined) {
@@ -26,7 +29,9 @@ export function useProjectInstances(
         path: { project_id: id },
       });
       if (response.error) {
-        throw new Error(response.error.error?.msg ?? "Failed to load instances");
+        throw new Error(
+          apiErrorMessage(response.error, "Failed to load instances"),
+        );
       }
       return response.data ?? [];
     },
@@ -42,7 +47,9 @@ export function useInstanceDatabases(projectId: string, instanceId: string) {
         path: { project_id: project, instance_id: instance },
       });
       if (response.error) {
-        throw new Error(response.error.error?.msg ?? "Failed to load databases");
+        throw new Error(
+          apiErrorMessage(response.error, "Failed to load databases"),
+        );
       }
       return response.data ?? [];
     },
@@ -60,20 +67,25 @@ export function useRouteDomains(enabled: boolean) {
   return useSWR(enabled ? "admin/route-domains" : null, async () => {
     const response = await listRouteDomainsAdmin();
     if (response.error) {
-      throw new Error(response.error.error?.msg ?? "Failed to load domains");
+      throw new Error(
+        apiErrorMessage(response.error, "Failed to load domains"),
+      );
     }
     return response.data ?? [];
   });
 }
 
 export function useNodeGroups(nodeId: string, enabled = true) {
-  return useSWR(enabled ? ["admin/node-groups", nodeId] : null, async ([, id]) => {
-    const response = await listNodeGroups({ path: { node_id: id } });
-    if (response.error || !response.data) {
-      throw new Error("Failed to load node groups");
-    }
-    return response.data;
-  });
+  return useSWR(
+    enabled ? ["admin/node-groups", nodeId] : null,
+    async ([, id]) => {
+      const response = await listNodeGroups({ path: { node_id: id } });
+      if (response.error || !response.data) {
+        throw new Error("Failed to load node groups");
+      }
+      return response.data;
+    },
+  );
 }
 
 export function useGroups(enabled: boolean) {
@@ -84,4 +96,30 @@ export function useGroups(enabled: boolean) {
     }
     return response.data;
   });
+}
+
+export function useTemplateInfo(template: string | null | undefined) {
+  return useSWR(
+    template ? ["template-info", template] : null,
+    async ([, name]) => {
+      const response = await templateInfo({ path: { template: name } });
+      if (response.error || !response.data) {
+        throw new Error("Failed to load template details");
+      }
+      return response.data;
+    },
+  );
+}
+
+export function useAvailablePorts(nodeId: string | null | undefined) {
+  return useSWR(
+    nodeId ? ["admin/available-ports", nodeId] : null,
+    async ([, id]) => {
+      const response = await availablePorts({ path: { node_id: id } });
+      if (response.error || !response.data) {
+        throw new Error("Failed to load available ports");
+      }
+      return response.data;
+    },
+  );
 }

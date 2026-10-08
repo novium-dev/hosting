@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import useSWR from "swr";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -37,10 +38,8 @@ import {
   listDeployConfigs,
   listGroups,
   listTemplates,
-  type ListDeployConfigsResponses,
 } from "@/lib/api";
 
-type DeployConfig = ListDeployConfigsResponses[200][number];
 import { authClient } from "@/lib/auth-client";
 import { formatMib } from "@/lib/groups";
 import {
@@ -48,6 +47,7 @@ import {
   ManagementPermission,
 } from "@/lib/permissions";
 import { DeployConfigDialog } from "./deploy-config-dialog";
+import type { DeployConfig } from "@/types/api";
 
 const DEPLOY_REQUEST_EXAMPLE = `POST /api/admin/deploy/configs/{id}/deploy
 Authorization: Bearer nvm_…
@@ -111,8 +111,10 @@ export default function AdminDeployConfigsPage() {
       });
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:deployConfigs.deleteError"),
+          ),
         );
         return;
       }
@@ -188,9 +190,7 @@ export default function AdminDeployConfigsPage() {
                         {config.name}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">
-                          {config.group.label}
-                        </Badge>
+                        <Badge variant="outline">{config.group.label}</Badge>
                       </TableCell>
                       <TableCell>{config.template}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
@@ -295,10 +295,7 @@ export default function AdminDeployConfigsPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void handleDelete();
-              }}
+              onClick={() => void handleDelete()}
               disabled={isDeleting}
             >
               {t("common:actions.delete")}

@@ -34,7 +34,10 @@ import {
   type StorageUsageEntry,
 } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
-import { hasManagementPermission, ManagementPermission } from "@/lib/permissions";
+import {
+  hasManagementPermission,
+  ManagementPermission,
+} from "@/lib/permissions";
 import { NodeGroupsManager } from "./node-groups-manager";
 import { NodePortsManager } from "./node-ports-manager";
 import { NodeSettingsCard } from "./node-settings-card";
@@ -70,11 +73,12 @@ type StorageRow = {
   entry: StorageUsageEntry;
 };
 
-function storageRows(
-  metrics: MetricsNodeResponses[200] | null,
-): StorageRow[] {
+function storageRows(metrics: MetricsNodeResponses[200] | null): StorageRow[] {
   if (!metrics) return [];
-  const rows = (kind: StorageRow["kind"], entries: Record<string, StorageUsageEntry>) =>
+  const rows = (
+    kind: StorageRow["kind"],
+    entries: Record<string, StorageUsageEntry>,
+  ) =>
     Object.entries(entries)
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([id, entry]) => ({ kind, id, entry }));
@@ -150,10 +154,12 @@ export default function AdminNodeManagementPage() {
               </CardDescription>
             </div>
 
-            <Button asChild variant="outline">
-              <Link href="/admin/nodes">
-                {t("admin-infra:nodes.detailPage.backToList")}
-              </Link>
+            <Button
+              variant="outline"
+              render={<Link href="/admin/nodes" />}
+              nativeButton={false}
+            >
+              {t("admin-infra:nodes.detailPage.backToList")}
             </Button>
           </div>
 

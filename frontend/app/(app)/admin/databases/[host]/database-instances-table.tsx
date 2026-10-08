@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import { Boxes, PencilIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
@@ -33,6 +34,7 @@ import {
   type ListDatabaseInstancesResponses,
 } from "@/lib/api";
 import { EditInstanceDialog } from "./edit-instance-dialog";
+import { formatOptionalMib } from "@/lib/format";
 
 export type DatabaseInstanceRow = ListDatabaseInstancesResponses[200][number];
 
@@ -47,15 +49,11 @@ function stateBadge(instance: DatabaseInstanceRow, t: TFunction) {
     return <Badge variant="destructive">{t("common:status.suspended")}</Badge>;
 
   const state = instance.remote.utilization?.state;
-  if (state === "running")
-    return <Badge>{t("common:status.running")}</Badge>;
+  if (state === "running") return <Badge>{t("common:status.running")}</Badge>;
 
-  return <Badge variant="secondary">{state ?? t("common:status.offline")}</Badge>;
-}
-
-function formatMib(value: number | null | undefined) {
-  if (!value) return "—";
-  return value >= 1024 ? `${(value / 1024).toFixed(1)} GiB` : `${value} MiB`;
+  return (
+    <Badge variant="secondary">{state ?? t("common:status.offline")}</Badge>
+  );
 }
 
 export function DatabaseInstancesTable({
@@ -87,8 +85,10 @@ export function DatabaseInstancesTable({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:databases.instancesTable.deleteError"),
+          ),
         );
         return;
       }
@@ -127,12 +127,8 @@ export function DatabaseInstancesTable({
                 {t("admin-infra:databases.instancesTable.columns.engine")}
               </TableHead>
               <TableHead>{t("common:labels.status")}</TableHead>
-              <TableHead>
-                {t("common:resources.memory")}
-              </TableHead>
-              <TableHead>
-                {t("common:resources.disk")}
-              </TableHead>
+              <TableHead>{t("common:resources.memory")}</TableHead>
+              <TableHead>{t("common:resources.disk")}</TableHead>
               <TableHead className="text-right">
                 {t("common:resources.manage")}
               </TableHead>
@@ -145,7 +141,9 @@ export function DatabaseInstancesTable({
                   <div className="flex flex-col items-center justify-center gap-2 text-center">
                     <Boxes className="size-5 text-muted-foreground" />
                     <p className="text-sm font-medium">
-                      {t("admin-infra:databases.instancesTable.emptyState.title")}
+                      {t(
+                        "admin-infra:databases.instancesTable.emptyState.title",
+                      )}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {t(
@@ -176,10 +174,10 @@ export function DatabaseInstancesTable({
                   </TableCell>
                   <TableCell>{stateBadge(instance, t)}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {formatMib(instance.remote?.memory)}
+                    {formatOptionalMib(instance.remote?.memory)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {formatMib(instance.remote?.disk)}
+                    {formatOptionalMib(instance.remote?.disk)}
                   </TableCell>
                   <TableCell className="text-right">
                     {canManage ? (
@@ -246,10 +244,7 @@ export function DatabaseInstancesTable({
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void handleDelete();
-              }}
+              onClick={() => void handleDelete()}
               disabled={isDeletePending}
             >
               {t("common:actions.delete")}

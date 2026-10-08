@@ -1,8 +1,11 @@
+# syntax=docker/dockerfile:1
 # ============================================
 # Backend build
 # ============================================
-FROM lukemathwalker/cargo-chef:latest-rust-1.98.0-alpine AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.99.0-alpine AS chef
 WORKDIR /work
+
+RUN mkdir -p /root/.ssh && echo "git-ssh.novium.world ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBPS0cpItg26j3t/ZqMNl+7PY2GwdqVEx4r4pNJMfwf7NvccvVJubH9bD8DHtqVXsBGLtF38SDVb7ycE+7j0TgdE=" > /root/.ssh/known_hosts
 
 ARG FLAGS="-C debuginfo=0 -C codegen-units=40 -C opt-level=3 -C lto=off"
 ENV RUSTFLAGS="-C linker=clang-22 -C link-arg=-fuse-ld=mold $FLAGS"

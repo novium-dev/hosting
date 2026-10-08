@@ -1,22 +1,14 @@
 use crate::Backend;
-use crate::cluster::SyncTarget;
 use crate::db::project::ProjectId;
-use crate::define_id;
 use core::str::FromStr as _;
 use database_agent_common::sdk::DatabaseAgentSDK;
 use database_agent_common::types::DatabaseType;
-use sqlx::{PgConnection, Postgres, Transaction, query, query_scalar};
+use sqlx::{PgConnection, query, query_scalar};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::error;
 use url::Url;
 use uuid::Uuid;
 
-define_id!(DatabaseId);
-
-/// How many database instances a project may own before it needs
-/// [`ManagementPermissions::LIMITS_BYPASS`]. Databases and users inside an
-/// instance are not capped.
 pub const MAX_PROJECT_INSTANCES: i64 = 4;
 
 #[derive(Clone)]
@@ -39,8 +31,6 @@ impl BackendDatabaseHost {
     }
 }
 
-/// A project's instance together with the host it runs on, which is what every
-/// call to the agent needs.
 pub struct ProjectInstance {
     pub id: Uuid,
     pub kind: DatabaseType,
@@ -50,47 +40,34 @@ pub struct ProjectInstance {
 }
 
 impl Backend {
-    pub async fn sync_database_hosts(
+    pub(crate) async fn load_database_hosts(
         &self,
-        tx: &mut Transaction<'_, Postgres>,
+        conn: &mut PgConnection,
     ) -> Result<(), sqlx::Error> {
-        self.load_database_hosts(tx).await?;
-        self.notify_sync(tx, SyncTarget::DatabaseHosts).await
-    }
+        let mut ports: HashMap<Uuid, HashMap<DatabaseType, u16>> = HashMap::new();
+        for row in query!("SELECT host, kind, port FROM database_host_ports")
+            .fetch_all(&mut *conn)
+            .await?
+        {
+            if let (Ok(kind), Ok(port)) =
+                (DatabaseType::from_str(&row.kind), u16::try_from(row.port))
+            {
+                ports.entry(row.host).or_default().insert(kind, port);
+            }
+        }
 
-    pub async fn load_database_hosts(&self, conn: &mut PgConnection) -> Result<(), sqlx::Error> {
         let mut hosts = HashMap::new();
 
         for host in query!(
             r#"SELECT id, display, url, public_host,
-                   maintenance AS "maintenance: bool"
+                   maintenance AS "maintenance: bool",
+                   ARRAY(SELECT group_id FROM database_host_groups WHERE host = database_hosts.id)
+                       AS "groups!"
                FROM database_hosts"#
         )
         .fetch_all(&mut *conn)
         .await?
         {
-            let ports = query!(
-                r#"SELECT type, port FROM database_host_ports WHERE host = $1"#,
-                host.id
-            )
-            .fetch_all(&mut *conn)
-            .await
-            .inspect_err(|err| error!("Failed to select database host ports: {err:?}"))?
-            .into_iter()
-            .filter_map(|row| {
-                let kind = DatabaseType::from_str(&row.r#type).ok()?;
-                Some((kind, u16::try_from(row.port).ok()?))
-            })
-            .collect();
-
-            let groups = query_scalar!(
-                "SELECT group_id FROM database_host_groups WHERE host = $1",
-                host.id
-            )
-            .fetch_all(&mut *conn)
-            .await
-            .inspect_err(|err| error!("Failed to select database host groups: {err:?}"))?;
-
             let sdk = DatabaseAgentSDK::builder()
                 .with_identifier(host.id)
                 .with_root_key(Arc::clone(&self.root_key))
@@ -103,10 +80,10 @@ impl Backend {
                 Arc::new(BackendDatabaseHost {
                     id: host.id,
                     display: host.display,
-                    groups,
+                    groups: host.groups,
                     public_host: host.public_host,
                     maintenance: host.maintenance,
-                    ports,
+                    ports: ports.remove(&host.id).unwrap_or_default(),
                     sdk: Arc::new(sdk),
                 }),
             );
@@ -121,15 +98,13 @@ impl Backend {
         self.database_hosts.read().await.get(&id).cloned()
     }
 
-    /// Loads a project's instances, dropping any whose host is no longer
-    /// registered. Pass `instance` to narrow it to one.
     pub async fn project_instances<E: From<sqlx::Error>>(
         &self,
         project: ProjectId,
         instance: Option<Uuid>,
     ) -> Result<Vec<ProjectInstance>, E> {
         let rows = query!(
-            r#"SELECT id, host, type AS kind, display, created
+            r#"SELECT id, host, kind, display, created
                FROM database_instances
                WHERE project = $1 AND ($2::uuid IS NULL OR id = $2)
                ORDER BY created"#,
@@ -155,9 +130,6 @@ impl Backend {
             .collect())
     }
 
-    /// Picks where a new instance goes: a host that is not in maintenance,
-    /// preferring one that shares a group with the nodes the project's servers
-    /// run on, then the one carrying the fewest instances.
     pub async fn pick_database_host<E: From<sqlx::Error>>(
         &self,
         project: ProjectId,

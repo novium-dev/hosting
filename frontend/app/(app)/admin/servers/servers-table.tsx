@@ -87,14 +87,17 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
             {t("admin-infra:servers.table.description")}
           </p>
         </div>
-        <Button asChild>
-          <Link
-            href="/admin/servers/create"
-            className="inline-flex items-center"
-          >
-            <Plus className="size-4" />
-            {t("admin-infra:servers.shared.createServerLabel")}
-          </Link>
+        <Button
+          render={
+            <Link
+              href="/admin/servers/create"
+              className="inline-flex items-center"
+            />
+          }
+          nativeButton={false}
+        >
+          <Plus className="size-4" />
+          {t("admin-infra:servers.shared.createServerLabel")}
         </Button>
       </div>
 
@@ -209,10 +212,13 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button asChild size="sm" variant="outline">
-                      <Link href={`/admin/servers/${server.id}`}>
-                        {t("common:resources.manage")}
-                      </Link>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      render={<Link href={`/admin/servers/${server.id}`} />}
+                      nativeButton={false}
+                    >
+                      {t("common:resources.manage")}
                     </Button>
                   </TableCell>
                 </TableRow>

@@ -78,7 +78,9 @@ function parsePortCandidate(
   };
 }
 
-export function extractAdminPorts(serverData: ServerInfoResponse): AdminPortRow[] {
+export function extractAdminPorts(
+  serverData: ServerInfoResponse,
+): AdminPortRow[] {
   const byId = new Map<number, AdminPortRow>();
 
   const register = (row: AdminPortRow | null) => {

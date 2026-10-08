@@ -30,15 +30,15 @@ export function CreateProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="inline-flex items-center">
-          <Plus className="size-4" />
-          {t("admin-core:projects.createButton")}
-        </Button>
+      <DialogTrigger render={<Button className="inline-flex items-center" />}>
+        <Plus className="size-4" />
+        {t("admin-core:projects.createButton")}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("admin-core:projects.createDialog.title")}</DialogTitle>
+          <DialogTitle>
+            {t("admin-core:projects.createDialog.title")}
+          </DialogTitle>
           <DialogDescription>
             {t("admin-core:projects.createDialog.description")}
           </DialogDescription>

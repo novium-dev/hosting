@@ -127,11 +127,13 @@ export default function AdminUserPage() {
                 {user.email} · ID {user.id}
               </CardDescription>
             </div>
-            <Button asChild variant="outline">
-              <Link href="/admin/users">
-                <ArrowLeft className="size-4" />
-                {t("admin-core:users.detail.backToUsers")}
-              </Link>
+            <Button
+              variant="outline"
+              render={<Link href="/admin/users" />}
+              nativeButton={false}
+            >
+              <ArrowLeft className="size-4" />
+              {t("admin-core:users.detail.backToUsers")}
             </Button>
           </div>
         </CardHeader>
@@ -139,7 +141,10 @@ export default function AdminUserPage() {
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="overview" className="inline-flex items-center gap-2">
+          <TabsTrigger
+            value="overview"
+            className="inline-flex items-center gap-2"
+          >
             <User className="size-4" />
             {t("admin-core:users.detail.tabs.overview")}
           </TabsTrigger>
@@ -150,7 +155,10 @@ export default function AdminUserPage() {
             <FolderKanban className="size-4" />
             {t("admin-core:users.detail.tabs.projects")}
           </TabsTrigger>
-          <TabsTrigger value="settings" className="inline-flex items-center gap-2">
+          <TabsTrigger
+            value="settings"
+            className="inline-flex items-center gap-2"
+          >
             <Settings2 className="size-4" />
             {t("common:nav.settings")}
           </TabsTrigger>
@@ -238,10 +246,13 @@ export default function AdminUserPage() {
                         {project.server_count}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/${project.slug}`}>
-                            {t("admin-core:shared.open")}
-                          </Link>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          render={<Link href={`/${project.slug}`} />}
+                          nativeButton={false}
+                        >
+                          {t("admin-core:shared.open")}
                         </Button>
                       </TableCell>
                     </TableRow>

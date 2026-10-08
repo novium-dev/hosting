@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error";
 import {
   createApiKey,
   deleteAnyApiKey,
@@ -50,7 +51,7 @@ export const createApiKeyAction = authActionClient
 
     if (response.error || !response.data) {
       throw new ActionError(
-        response.error?.error?.msg || "Failed to create API key",
+        apiErrorMessage(response.error, "Failed to create API key"),
       );
     }
 
@@ -69,7 +70,7 @@ export const updateApiKeyAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to update API key",
+        apiErrorMessage(response.error, "Failed to update API key"),
       );
     }
 
@@ -87,7 +88,7 @@ export const deleteApiKeyAction = authActionClient
 
     if (response.error) {
       throw new ActionError(
-        response.error.error?.msg || "Failed to delete API key",
+        apiErrorMessage(response.error, "Failed to delete API key"),
       );
     }
 

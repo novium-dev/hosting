@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -24,8 +25,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useNodeGroups } from "@/hooks/use-shared-queries";
-import type { GroupOption } from "@/lib/groups";
 import { updateServer } from "@/lib/api";
+import type { GroupRef } from "@/lib/api";
 
 const NO_GROUP = "__none__";
 
@@ -44,7 +45,7 @@ type ServerAdminSettingsProps = {
     swap: number | null;
     disk: number | null;
     customDockerfile: string | null;
-    group: GroupOption | null;
+    group: GroupRef | null;
   };
 };
 
@@ -107,9 +108,10 @@ export function ServerAdminSettings({
   const [isSaving, setIsSaving] = useState(false);
 
   const { data: nodeGroupRows } = useNodeGroups(nodeId, canManage);
-  const nodeGroups: GroupOption[] = (nodeGroupRows ?? []).map(
-    ({ id, label }) => ({ id, label }),
-  );
+  const nodeGroups: GroupRef[] = (nodeGroupRows ?? []).map(({ id, label }) => ({
+    id,
+    label,
+  }));
   const groupOptions =
     initial.group && !nodeGroups.some((entry) => entry.id === initial.group?.id)
       ? [initial.group, ...nodeGroups]
@@ -191,7 +193,9 @@ export function ServerAdminSettings({
               disk,
             },
             ...(isFieldDirty("group") && {
-              group: { id: form.group === NO_GROUP ? null : Number(form.group) },
+              group: {
+                id: form.group === NO_GROUP ? null : Number(form.group),
+              },
             }),
           }),
           ...(canSuspend &&
@@ -206,8 +210,10 @@ export function ServerAdminSettings({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:servers.adminSettings.updateError"),
+          ),
         );
         return;
       }
@@ -258,7 +264,9 @@ export function ServerAdminSettings({
           <div className="flex items-center justify-between rounded-md border p-3">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <Label htmlFor="suspended">{t("common:status.suspended")}</Label>
+                <Label htmlFor="suspended">
+                  {t("common:status.suspended")}
+                </Label>
                 {isFieldDirty("suspended") ? (
                   <span className="text-xs font-medium text-amber-600">
                     {t("admin-infra:servers.adminSettings.editedBadge")}
@@ -430,9 +438,19 @@ export function ServerAdminSettings({
               ) : null}
             </div>
             <Select
+              items={[
+                {
+                  value: NO_GROUP,
+                  label: t("admin-infra:servers.shared.noGroup"),
+                },
+                ...groupOptions.map((groupOption) => ({
+                  value: String(groupOption.id),
+                  label: groupOption.label,
+                })),
+              ]}
               value={form.group}
               onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, group: value }))
+                setForm((prev) => ({ ...prev, group: value ?? "" }))
               }
               disabled={!canManage}
             >

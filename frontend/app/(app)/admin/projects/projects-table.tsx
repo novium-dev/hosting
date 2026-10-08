@@ -182,10 +182,13 @@ export function ProjectsTable({
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/${project.slug}`}>
-                          {t("admin-core:shared.open")}
-                        </Link>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        render={<Link href={`/${project.slug}`} />}
+                        nativeButton={false}
+                      >
+                        {t("admin-core:shared.open")}
                       </Button>
                     </div>
                   </TableCell>

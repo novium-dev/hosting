@@ -10,7 +10,10 @@ import { appConfig } from "@/constants/config";
 document.title = appConfig.appName;
 document
   .querySelector('meta[name="description"]')
-  ?.setAttribute("content", `${appConfig.appName} game panel for managing your servers.`);
+  ?.setAttribute(
+    "content",
+    `${appConfig.appName} game panel for managing your servers.`,
+  );
 
 if (appConfig.logoUrl) {
   const icon = document.createElement("link");

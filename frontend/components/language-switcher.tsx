@@ -15,8 +15,16 @@ export function LanguageSwitcher() {
 
   return (
     <Select
+      items={[
+        ...supportedLanguages.map((language) => ({
+          value: language,
+          label: t(`language.${language}`),
+        })),
+      ]}
       value={currentLanguage}
-      onValueChange={(value) => void i18n.changeLanguage(value)}
+      onValueChange={(value) => {
+        if (value) void i18n.changeLanguage(value);
+      }}
     >
       <SelectTrigger
         size="sm"

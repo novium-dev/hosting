@@ -1,7 +1,9 @@
 use super::*;
 use crate::Backend;
 use crate::auth::api_key::ApiKeyToken;
-use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
+use crate::auth::permissions::{
+    ManagementPermissions, PermissionSet as _, ProjectPermissions, ServerPermissions,
+};
 use crate::auth::user::UserAuthentication;
 use crate::db::project::ProjectId;
 use crate::service::api_key::api_key_service_error::{
@@ -176,7 +178,8 @@ pub(crate) impl ApiKeyService for Backend {
 
         let token = ApiKeyToken::generate();
         let record = query!(
-            r#"INSERT INTO api_keys (name, token_hash, token_prefix, "user", project, permissions)
+            r#"INSERT INTO api_keys
+                (name, token_hash, token_prefix, "user", project, permissions)
              VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING id"#,
             name,

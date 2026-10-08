@@ -28,12 +28,12 @@ pub enum NetworkProtocol {
 pub struct NetworkPort {
     pub id: u32,
     pub host: String,
-    pub name: String, // only for ux purposes
+    pub name: String,
     pub external_port_start: u16,
     pub external_port_end: u16,
     pub internal_port: u16,
     pub protocol: NetworkProtocol,
-    pub bind: Option<String>, // Only visible to admins
+    pub bind: Option<String>,
     pub http: bool,
 }
 
@@ -43,12 +43,6 @@ impl Display for NetworkProtocol {
             Self::Tcp => "tcp",
             Self::Udp => "udp",
         })
-    }
-}
-
-impl NetworkProtocol {
-    pub fn by_name(name: &str) -> Self {
-        if name.eq("udp") { Self::Udp } else { Self::Tcp }
     }
 }
 

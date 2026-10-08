@@ -20,7 +20,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
 import { useAction } from "@/lib/action-hooks";
 import type { AppProject } from "@/lib/auth";
 import { useRouter } from "@/lib/navigation";
@@ -92,10 +91,10 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
             {t("project:settings.dangerZone.deleteWarning")}
           </p>
           <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm">
-                {t("project:settings.dangerZone.deleteButton")}
-              </Button>
+            <AlertDialogTrigger
+              render={<Button variant="destructive" size="sm" />}
+            >
+              {t("project:settings.dangerZone.deleteButton")}
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -114,9 +113,8 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
                   {t("common:actions.cancel")}
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  className={buttonVariants({ variant: "destructive" })}
-                  onClick={(event) => {
-                    event.preventDefault();
+                  variant="destructive"
+                  onClick={() => {
                     deleteProject.execute({ id: project.id });
                   }}
                   disabled={deleteProject.isExecuting}

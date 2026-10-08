@@ -1,12 +1,16 @@
 use crate::Backend;
+use crate::db::node::BackendNode;
 use crate::db::project::ProjectId;
 use crate::db::server::{ServerCustomization, ServerId};
 use crate::templates::TemplateError;
+use crate::utils::task::detached;
+use daemon_common::service::server::ServerBuildPayload;
 use futures::StreamExt as _;
 use serde::Serialize;
 use serde_json::Value;
-use sqlx::{query, types::JsonValue};
+use sqlx::{Connection as _, query, types::JsonValue};
 use std::collections::HashMap;
+use std::sync::Arc;
 use tracing::{error, warn};
 
 const RUNNING_LABELS: [&str; 4] = ["running", "unhealthy", "starting", "restarting"];
@@ -208,28 +212,20 @@ impl Backend {
         }
         .apply(build);
 
-        if let Err(err) = node
-            .update_server(node_server_id, None, Some(build), None, None, None)
+        if let Err(status) = self
+            .push_build(
+                target.id,
+                Arc::clone(&node),
+                node_server_id,
+                build,
+                migrated_extra.clone(),
+            )
             .await
         {
-            error!("Node refused the resync of server {}: {err:?}", target.id);
-            return result(ServerResyncStatus::NodeFailure, false);
+            return result(status, false);
         }
 
-        let status = if let Some(extra) = migrated_extra {
-            if let Err(err) = query!(
-                "UPDATE servers SET template_extra = $1 WHERE id = $2",
-                extra,
-                &target.id
-            )
-            .execute(&*self.database)
-            .await
-            {
-                error!(
-                    "Unable to store migrated configuration of server {}: {err:?}",
-                    target.id
-                );
-            }
+        let status = if migrated_extra.is_some() {
             ServerResyncStatus::Migrated
         } else {
             ServerResyncStatus::Updated
@@ -258,6 +254,67 @@ impl Backend {
                 result(status, false)
             }
         }
+    }
+}
+
+enum PushFailure {
+    Database(sqlx::Error),
+    Node,
+}
+
+impl From<sqlx::Error> for PushFailure {
+    fn from(err: sqlx::Error) -> Self {
+        Self::Database(err)
+    }
+}
+
+impl Backend {
+    async fn push_build(
+        &self,
+        server_id: ServerId,
+        node: Arc<BackendNode>,
+        node_server_id: u32,
+        build: ServerBuildPayload,
+        migrated_extra: Option<Value>,
+    ) -> Result<(), ServerResyncStatus> {
+        let pushed = async {
+            let mut conn = self.database.acquire().await?;
+            detached(async move {
+                conn.transaction(|tx| {
+                    Box::pin(async move {
+                        if let Some(extra) = migrated_extra {
+                            query!(
+                                "UPDATE servers SET template_extra = $1 WHERE id = $2",
+                                extra,
+                                &server_id
+                            )
+                            .execute(&mut **tx)
+                            .await?;
+                        }
+
+                        node.update_server(node_server_id, None, Some(build), None, None, None)
+                            .await
+                            .map_err(|err| {
+                                error!("Node refused the resync of server {server_id}: {err:?}");
+                                PushFailure::Node
+                            })?;
+
+                        Ok(())
+                    })
+                })
+                .await
+            })
+            .await
+        }
+        .await;
+
+        pushed.map_err(|failure| match failure {
+            PushFailure::Database(err) => {
+                error!("Unable to store the resync of server {server_id}: {err:?}");
+                ServerResyncStatus::Failure
+            }
+            PushFailure::Node => ServerResyncStatus::NodeFailure,
+        })
     }
 }
 

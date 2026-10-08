@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -20,10 +21,8 @@ import {
   updateMaintenance,
   updateNode,
   updateNodeOverallocation,
-  type ListNodesResponses,
 } from "@/lib/api";
-
-type NodeRow = ListNodesResponses[200][number];
+import type { NodeRow } from "@/types/api";
 
 type NodeSettingsCardProps = {
   nodeId: string;
@@ -79,8 +78,10 @@ export function NodeSettingsCard({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:nodes.settingsCard.maintenanceToggleError"),
+          ),
         );
         return;
       }
@@ -113,8 +114,10 @@ export function NodeSettingsCard({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:nodes.settingsCard.overallocationError"),
+          ),
         );
         return;
       }
@@ -136,8 +139,10 @@ export function NodeSettingsCard({
 
       if (response.error) {
         toast.error(
-          response.error.error?.msg ??
+          apiErrorMessage(
+            response.error,
             t("admin-infra:nodes.settingsCard.syncError"),
+          ),
         );
         return;
       }
@@ -205,7 +210,9 @@ export function NodeSettingsCard({
               disabled={isMaintenanceSaving || !canManage}
             />
             <span className="text-sm text-muted-foreground">
-              {isMaintenanceSaving ? t("common:state.saving") : maintenanceLabel}
+              {isMaintenanceSaving
+                ? t("common:state.saving")
+                : maintenanceLabel}
             </span>
           </div>
         </div>

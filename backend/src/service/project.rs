@@ -14,7 +14,7 @@ use crate::service::project::project_service_error::{
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::{query, query_scalar};
+use sqlx::{Connection as _, query, query_scalar};
 use tokio::io::AsyncReadExt as _;
 use tracing::{error, warn};
 use url::Url;
@@ -274,48 +274,50 @@ pub(crate) impl ProjectService for Backend {
             validate_slug::<UpdateProjectError>(slug)?;
         }
 
-        let mut tx = self.database.begin().await?;
+        let mut conn = self.database.acquire().await?;
+        conn.transaction(|tx| {
+            Box::pin(async move {
+                if let Some(owner) = owner {
+                    query!(
+                        "UPDATE projects SET owner = $1 WHERE id = $2",
+                        owner,
+                        &project_id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        if let Some(owner) = owner {
-            query!(
-                "UPDATE projects SET owner = $1 WHERE id = $2",
-                owner,
-                &project_id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                if let Some(slug) = slug {
+                    query!(
+                        "UPDATE projects SET slug = $1 WHERE id = $2",
+                        slug,
+                        &project_id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        if let Some(slug) = slug {
-            query!(
-                "UPDATE projects SET slug = $1 WHERE id = $2",
-                slug,
-                &project_id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                if let Some(name) = name {
+                    query!(
+                        "UPDATE projects SET name = $1 WHERE id = $2",
+                        name,
+                        &project_id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
+                }
 
-        if let Some(name) = name {
-            query!(
-                "UPDATE projects SET name = $1 WHERE id = $2",
-                name,
-                &project_id
-            )
-            .execute(&mut *tx)
-            .await?;
-        }
+                query!(
+                    r#"SELECT id AS "id: ProjectId" FROM projects WHERE id = $1"#,
+                    &project_id
+                )
+                .fetch_one(&mut **tx)
+                .await?;
 
-        query!(
-            r#"SELECT id AS "id: ProjectId" FROM projects WHERE id = $1"#,
-            &project_id
-        )
-        .fetch_one(&mut *tx)
-        .await?;
-
-        tx.commit().await?;
-
-        Ok(())
+                Ok(())
+            })
+        })
+        .await
     }
 
     /// Deletes an empty project.

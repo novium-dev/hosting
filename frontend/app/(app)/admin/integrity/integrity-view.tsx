@@ -186,7 +186,8 @@ function CheckRow({ check }: { check: IntegrityCheckResult }) {
       <CollapsibleContent className="space-y-2 px-2 pb-3 pl-8">
         <p className="text-xs text-muted-foreground">{check.description}</p>
         <p className="font-mono text-[11px] text-muted-foreground">
-          {check.id} · {t("admin-integrity:check.duration", {
+          {check.id} ·{" "}
+          {t("admin-integrity:check.duration", {
             ms: check.duration_ms,
           })}
         </p>
@@ -219,7 +220,9 @@ function SourceCard({
   const label = useSourceLabel();
 
   const checks = (report.report?.checks ?? []).filter((check) =>
-    onlyProblems ? severityOrder[check.severity] >= severityOrder.warning : true,
+    onlyProblems
+      ? severityOrder[check.severity] >= severityOrder.warning
+      : true,
   );
 
   return (

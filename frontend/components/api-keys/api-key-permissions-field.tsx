@@ -3,7 +3,12 @@ import {
   ManagementPermissionsField,
   PermissionsField,
 } from "@/components/permissions-field";
-import { FormDescription, FormLabel } from "@/components/ui/form";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldTitle,
+} from "@/components/ui/field";
 import {
   allManagementPermissions,
   allServerPermissions,
@@ -35,24 +40,31 @@ export function ApiKeyPermissionsField({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <FormLabel>{t("project:apiKeys.permissionsField.instanceLabel")}</FormLabel>
+    <FieldGroup className="gap-4">
+      <Field>
+        <FieldTitle>
+          {t("project:apiKeys.permissionsField.instanceLabel")}
+        </FieldTitle>
         <ManagementPermissionsField
           className="h-48"
           value={maskPermissions(value, allManagementPermissions)}
           onChange={(next) =>
             onChange(
-              mergePermissions(maskPermissions(value, allServerPermissions), next),
+              mergePermissions(
+                maskPermissions(value, allServerPermissions),
+                next,
+              ),
             )
           }
         />
-      </div>
-      <div className="space-y-2">
-        <FormLabel>{t("project:apiKeys.permissionsField.serverLabel")}</FormLabel>
-        <FormDescription>
+      </Field>
+      <Field>
+        <FieldTitle>
+          {t("project:apiKeys.permissionsField.serverLabel")}
+        </FieldTitle>
+        <FieldDescription>
           {t("project:apiKeys.permissionsField.serverDescription")}
-        </FormDescription>
+        </FieldDescription>
         <PermissionsField
           className="h-48"
           value={maskPermissions(value, allServerPermissions)}
@@ -65,7 +77,7 @@ export function ApiKeyPermissionsField({
             )
           }
         />
-      </div>
-    </div>
+      </Field>
+    </FieldGroup>
   );
 }

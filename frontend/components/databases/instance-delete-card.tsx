@@ -26,7 +26,7 @@ import {
 import { deleteInstanceAction } from "@/actions/databases";
 import { useAction } from "@/lib/action-hooks";
 import { useRouter } from "@/lib/navigation";
-import type { ProjectInstance } from "@/components/databases/instances-table";
+import type { ProjectInstance } from "@/types/api";
 
 export function InstanceDeleteCard({
   projectId,
@@ -91,8 +91,7 @@ export function InstanceDeleteCard({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
+              onClick={() => {
                 void remove.executeAsync({
                   projectId,
                   instanceId: instance.id,

@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import {
   refreshTemplateCacheAction,
   resyncTemplateAction,
@@ -35,7 +36,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { ListTemplateUsageResponses, ResyncTemplateResponse } from "@/lib/api";
+import type {
+  ListTemplateUsageResponses,
+  ResyncTemplateResponse,
+} from "@/lib/api";
 import { listTemplateUsage } from "@/lib/api";
 import { useAction } from "@/lib/action-hooks";
 import { Boxes, DatabaseZap, RefreshCw } from "lucide-react";
@@ -79,7 +83,10 @@ export function TemplatesView() {
     const response = await listTemplateUsage();
     if (response.error) {
       throw new Error(
-        response.error.error?.msg ?? t("admin-infra:templates.view.loadError"),
+        apiErrorMessage(
+          response.error,
+          t("admin-infra:templates.view.loadError"),
+        ),
       );
     }
     return response.data ?? [];
@@ -100,7 +107,9 @@ export function TemplatesView() {
       }
     },
     onError: (actionError) => {
-      toast.error(actionError.error.serverError ?? t("common:state.genericError"));
+      toast.error(
+        actionError.error.serverError ?? t("common:state.genericError"),
+      );
     },
   });
 
@@ -125,7 +134,9 @@ export function TemplatesView() {
     },
     onError: (actionError) => {
       setRefreshing(undefined);
-      toast.error(actionError.error.serverError ?? t("common:state.genericError"));
+      toast.error(
+        actionError.error.serverError ?? t("common:state.genericError"),
+      );
     },
   });
 
@@ -154,9 +165,7 @@ export function TemplatesView() {
     <div className="space-y-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-xl font-semibold">
-            {t("common:nav.templates")}
-          </h1>
+          <h1 className="text-xl font-semibold">{t("common:nav.templates")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("admin-infra:templates.view.description")}
           </p>
@@ -168,7 +177,9 @@ export function TemplatesView() {
             disabled={refreshCache.isExecuting}
           >
             <DatabaseZap
-              className={refreshing === null ? "size-4 animate-pulse" : "size-4"}
+              className={
+                refreshing === null ? "size-4 animate-pulse" : "size-4"
+              }
             />
             {t("admin-infra:templates.view.refreshAllButton")}
           </Button>
@@ -190,7 +201,9 @@ export function TemplatesView() {
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>{t("admin-infra:servers.shared.templateLabel")}</TableHead>
+              <TableHead>
+                {t("admin-infra:servers.shared.templateLabel")}
+              </TableHead>
               <TableHead>{t("common:nav.servers")}</TableHead>
               <TableHead className="text-right">
                 {t("common:labels.actions")}
@@ -303,8 +316,7 @@ export function TemplatesView() {
               {t("common:actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
+              onClick={() => {
                 resync.execute({ template: target ?? undefined, restart });
               }}
               disabled={resync.isExecuting}
@@ -325,7 +337,9 @@ export function TemplatesView() {
       >
         <DialogContent className="max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t("admin-infra:templates.view.resyncFinishedTitle")}</DialogTitle>
+            <DialogTitle>
+              {t("admin-infra:templates.view.resyncFinishedTitle")}
+            </DialogTitle>
             <DialogDescription>
               {t("admin-infra:templates.view.resyncToast", {
                 count: report?.total ?? 0,
