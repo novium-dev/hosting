@@ -31,7 +31,7 @@ use axum_server::{Handle, Server};
 use core::net::SocketAddr;
 use core::time::Duration;
 use sqlx::query_scalar;
-use tokio::sync::broadcast::error::RecvError;
+use tokio::task::JoinSet;
 use tower_http::cors::Any;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
@@ -109,17 +109,13 @@ impl Backend {
         }
     }
 
-    #[expect(
-        clippy::significant_drop_tightening,
-        reason = "only runs once on start"
-    )]
     pub async fn serve_http(&self) -> Result<(), anyhow::Error> {
         let handle = Handle::new();
-        let mut server_task = self.server_task.lock().await;
+        let mut servers = JoinSet::new();
         for listener in self.config.listeners.clone() {
             let handle = handle.clone();
             let router = self.router();
-            server_task.spawn(async move {
+            servers.spawn(async move {
                 let _ = Server::bind(listener)
                     .handle(handle)
                     .serve(router.into_make_service_with_connect_info::<SocketAddr>())
@@ -127,26 +123,15 @@ impl Backend {
                     .inspect_err(|_err| error!("Failed to serve http server!"));
             });
         }
-        let mut recv = self.shutdown_channel.subscribe();
-        tokio::task::spawn(async move {
-            loop {
-                match recv.recv().await {
-                    Err(RecvError::Lagged(_)) => {}
-                    Ok(()) | Err(RecvError::Closed) => {
-                        handle.graceful_shutdown(Some(Duration::from_secs(30)));
-                        loop {
-                            tokio::time::sleep(Duration::from_secs(1)).await;
-                            let count = handle.connection_count();
-                            if count == 0 {
-                                break;
-                            }
-                            info!("HTTP Connections still alive: {}", count);
-                        }
-                        break;
-                    }
-                }
-            }
+
+        let shutdown = self.shutdown.clone();
+        tokio::spawn(async move {
+            shutdown.cancelled().await;
+            handle.graceful_shutdown(Some(Duration::from_secs(30)));
         });
+
+        info!("Ready");
+        servers.join_all().await;
         Ok(())
     }
 }

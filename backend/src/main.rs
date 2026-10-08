@@ -42,9 +42,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use templates::games::minecraft::MinecraftTemplate;
 use templates::games::minecraft_proxy::MinecraftProxyTemplate;
-use tokio::sync::broadcast::Sender;
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinSet;
+use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt as _;
 use tracing_subscriber::util::SubscriberInitExt as _;
@@ -77,10 +77,8 @@ pub(crate) struct Backend {
 
     pub(crate) integrity: Arc<RwLock<crate::integrity::IntegrityRun>>,
 
-    pub(crate) server_task_cancellable: Arc<Mutex<JoinSet<()>>>,
-    pub(crate) server_task: Arc<Mutex<JoinSet<()>>>,
-    pub(crate) shutdown_task: Arc<Mutex<JoinSet<()>>>,
-    pub(crate) shutdown_channel: Arc<Sender<()>>,
+    pub(crate) jobs: Arc<Mutex<JoinSet<()>>>,
+    pub(crate) shutdown: CancellationToken,
 
     pub(crate) root_key: Arc<DaemonRootKey>,
     pub(crate) root_privkey: Arc<KeyPair>,
@@ -298,10 +296,8 @@ async fn main0() {
         modpack_jobs: Arc::default(),
         integrity: Arc::default(),
 
-        shutdown_channel: Arc::new(Sender::new(1)),
-        server_task: Arc::default(),
-        server_task_cancellable: Arc::default(),
-        shutdown_task: Arc::default(),
+        jobs: Arc::default(),
+        shutdown: CancellationToken::new(),
 
         root_key,
         root_privkey: Arc::new(root_privkey),
@@ -324,16 +320,16 @@ async fn main0() {
 
     info!("Starting Webserver...");
 
+    backend.hook_signals();
+
     backend
         .serve_http()
         .await
         .expect("Unable to serve http server");
 
-    backend.hook_signals();
-
-    info!("Ready");
-
-    backend.await_shutdown().await;
+    info!("Shutting backend down...");
+    backend.jobs.lock().await.shutdown().await;
+    info!("Backend shutdown complete");
 }
 
 #[cfg(all(not(debug_assertions), feature = "auth_dev"))]

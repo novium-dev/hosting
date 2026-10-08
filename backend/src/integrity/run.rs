@@ -132,7 +132,7 @@ impl Backend {
         self.store_shared(RUN_KEY, &snapshot, JOB_RETENTION).await;
 
         let backend = self.clone();
-        self.server_task_cancellable.lock().await.spawn(async move {
+        self.jobs.lock().await.spawn(async move {
             let heartbeat = backend.hold_lock(RUN_LOCK.to_owned());
             backend.execute_integrity_run(selected, deep).await;
             drop(heartbeat);
