@@ -14,6 +14,7 @@ pub mod api_key;
 pub mod client;
 pub mod csrf;
 pub mod effective;
+pub mod node;
 pub mod oauth;
 pub mod permissions;
 pub mod session;
