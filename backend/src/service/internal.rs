@@ -5,8 +5,9 @@ use crate::registration::{DatabaseHostRegistration, NodeRegistration};
 use crate::service::internal::internal_service_error::{AuthPasswordError, AuthPublickeyError};
 use crate::{
     Backend,
-    auth::grant::resolve_grant,
-    auth::permissions::{ManagementPermissions, ProjectPermissions, Role, ServerPermissions},
+    auth::effective::EffectivePermissions,
+    auth::permissions::{PermissionSet as _, ProjectPermissions, Role, ServerPermissions},
+    db::server::ServerId,
     service::internal::{
         error_internal_daemon_key_invalid::FromInternalDaemonKeyInvalid,
         error_internal_daemon_unreachable::FromInternalDaemonUnreachable,
@@ -404,93 +405,36 @@ async fn auth_servers_for_user<E>(
     backend: &Backend,
     node: Uuid,
     user_id: i32,
-    role_value: i32,
+    role: i32,
 ) -> Result<DaemonBackendAuthResponse, E>
 where
     E: From<sqlx::Error>,
 {
-    let mut response = Vec::new();
-    let role = u8::try_from(role_value)
-        .ok()
-        .and_then(|role| Role::try_from(role).ok())
-        .unwrap_or(Role::User);
-    let role_permissions = role.project_permissions().bits() | role.server_permissions().bits();
+    let mut conn = backend.database.acquire().await?;
+    let access = EffectivePermissions::load(&mut conn, user_id, Role::from_db(role)).await?;
 
-    let server_records = query!(
-        r#"SELECT
-            servers.name,
-            servers.node_server_id,
-            servers.suspended AS "suspended: bool",
-            nodes.maintenance AS "maintenance: bool",
-            projects.owner,
-            project_users.permissions AS "permissions?",
-            project_users.known_permissions AS "known_permissions?"
+    let servers = query!(
+        r#"SELECT id AS "id: ServerId", name, node_server_id
          FROM servers
-         JOIN nodes ON nodes.id = servers.node
-         JOIN projects ON projects.id = servers.project
-         LEFT JOIN project_users
-            ON project_users.project = servers.project
-            AND project_users."user" = $1
-            AND (project_users.expires_at IS NULL OR project_users.expires_at > now())
-         WHERE servers.node = $2
-            AND (
-                projects.owner = $3
-                OR project_users."user" IS NOT NULL
-                OR $4
-            )
-         ORDER BY servers.node_server_id"#,
-        user_id,
-        node,
-        user_id,
-        ProjectPermissions::from_bits_retain(role_permissions).contains(ProjectPermissions::VIEW)
+         WHERE node = $1
+         ORDER BY node_server_id"#,
+        node
     )
-    .fetch_all(&*backend.database)
+    .fetch_all(&mut *conn)
     .await?;
 
-    for server in server_records {
-        let project_permissions = server
-            .permissions
-            .zip(server.known_permissions)
-            .map(|(permissions, known)| resolve_grant(permissions, known));
-        let owner = server.owner;
-        let suspended = server.suspended;
-        let maintenance = server.maintenance;
-
-        let permissions = if owner == user_id {
-            ProjectPermissions::all().bits() | ServerPermissions::all().bits()
-        } else {
-            project_permissions.unwrap_or(role_permissions)
-        };
-
-        let permissions = if (suspended
-            && !role
-                .management_permissions()
-                .contains(ManagementPermissions::SERVER_SUSPEND))
-            || (maintenance
-                && !role
-                    .management_permissions()
-                    .contains(ManagementPermissions::SERVER_MANAGE))
-        {
-            ProjectPermissions::VIEW.bits()
-        } else {
-            permissions
-        };
-
-        if ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW) {
-            response.push(DaemonBackendAuthServer {
-                id: server.node_server_id.cast_unsigned(),
-                name: server.name,
-                permissions: daemon_auth_permissions(permissions),
-            });
-        }
-    }
-
-    Ok(response)
+    Ok(servers
+        .into_iter()
+        .filter(|server| access.has(server.id, ProjectPermissions::VIEW))
+        .map(|server| DaemonBackendAuthServer {
+            id: server.node_server_id.cast_unsigned(),
+            name: server.name,
+            permissions: daemon_auth_permissions(access.permissions(server.id)),
+        })
+        .collect())
 }
 
-fn daemon_auth_permissions(permissions: i64) -> BackendAuthServerPermissions {
-    let server_permissions = ServerPermissions::from_bits_retain(permissions);
-
+fn daemon_auth_permissions(server_permissions: ServerPermissions) -> BackendAuthServerPermissions {
     let mut daemon_permissions = BackendAuthServerPermissions::empty();
     if server_permissions.grants(ServerPermissions::TERMINAL_READ) {
         daemon_permissions |= BackendAuthServerPermissions::TERMINAL_READ;

@@ -1,50 +1,62 @@
+use crate::auth::effective::EffectivePermissions;
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::error_project_not_found::FromProjectNotFound;
 use crate::service::error_server_not_found::FromServerNotFound;
-use bitflags::bitflags;
+use bitflags::{Flags, bitflags};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
-pub trait HasPermission<Extra>: Default {
-    fn permissions(
-        extra: Extra,
-        permissions: i64,
-        projects: &HashMap<ProjectId, i64>,
-        servers: &HashMap<ServerId, i64>,
-    ) -> Self
-    where
-        Self: Sized;
+pub trait PermissionSet: Flags + Copy + Default {
+    const DEPENDENCIES: &'static [(Self, Self)];
 
-    fn contains_permission(self, permission: Self) -> bool
-    where
-        Self: Sized;
+    #[must_use]
+    fn with_dependencies(mut self) -> Self {
+        for &(permission, dependency) in Self::DEPENDENCIES {
+            if self.contains(permission) {
+                self.insert(dependency);
+            }
+        }
+        self
+    }
 
-    fn has(
-        self,
-        extra: Extra,
-        permissions: i64,
-        projects: &HashMap<ProjectId, i64>,
-        servers: &HashMap<ServerId, i64>,
-    ) -> bool
-    where
-        Self: Sized,
-    {
-        Self::permissions(extra, permissions, projects, servers).contains_permission(self)
+    fn grants(self, permission: Self) -> bool {
+        self.contains(permission.with_dependencies())
     }
 }
 
-pub trait Permission<Extra, E>: HasPermission<Extra> {
-    fn require(
-        self,
-        extra: Extra,
-        permissions: i64,
-        projects: &HashMap<ProjectId, i64>,
-        servers: &HashMap<ServerId, i64>,
-    ) -> Result<(), E>
-    where
-        Self: Sized;
+pub trait Resolve<S>: PermissionSet {
+    fn resolve(scope: S, access: &EffectivePermissions) -> Self;
+}
+
+pub trait Scope<E>: Copy {
+    fn denied(self, access: &EffectivePermissions) -> E;
+}
+
+impl<E: FromAuthPermissionDenied> Scope<E> for () {
+    fn denied(self, _access: &EffectivePermissions) -> E {
+        E::from()
+    }
+}
+
+impl<E: FromAuthPermissionDenied + FromProjectNotFound> Scope<E> for ProjectId {
+    fn denied(self, access: &EffectivePermissions) -> E {
+        if access.has(self, ProjectPermissions::VIEW) {
+            <E as FromAuthPermissionDenied>::from()
+        } else {
+            <E as FromProjectNotFound>::from()
+        }
+    }
+}
+
+impl<E: FromAuthPermissionDenied + FromServerNotFound> Scope<E> for ServerId {
+    fn denied(self, access: &EffectivePermissions) -> E {
+        if access.has(self, ProjectPermissions::VIEW) {
+            <E as FromAuthPermissionDenied>::from()
+        } else {
+            <E as FromServerNotFound>::from()
+        }
+    }
 }
 
 bitflags! {
@@ -248,245 +260,78 @@ bitflags! {
     }
 }
 
-impl HasPermission<ServerId> for ServerPermissions {
-    fn permissions(
-        extra: ServerId,
-        permissions: i64,
-        projects: &HashMap<ProjectId, i64>,
-        servers: &HashMap<ServerId, i64>,
-    ) -> Self
-    where
-        Self: Sized,
-    {
-        let project_permissions =
-            ProjectPermissions::permissions(extra, permissions, projects, servers);
-        let server_permissions = servers.get(&extra).copied().unwrap_or(permissions);
+impl PermissionSet for ProjectPermissions {
+    const DEPENDENCIES: &'static [(Self, Self)] = &[
+        (Self::USER_EDIT, Self::USER_VIEW),
+        (Self::DATABASE_MANAGE, Self::DATABASE_VIEW),
+    ];
 
-        if <ProjectPermissions as HasPermission<ServerId>>::contains_permission(
-            project_permissions,
-            ProjectPermissions::VIEW,
-        ) {
-            Self::from_bits_retain(server_permissions)
+    fn with_dependencies(mut self) -> Self {
+        if !self.is_empty() {
+            self |= Self::VIEW;
+        }
+        for &(permission, dependency) in Self::DEPENDENCIES {
+            if self.contains(permission) {
+                self |= dependency;
+            }
+        }
+        self
+    }
+}
+
+impl PermissionSet for ServerPermissions {
+    const DEPENDENCIES: &'static [(Self, Self)] = &[
+        (Self::TERMINAL_WRITE, Self::TERMINAL_READ),
+        (Self::BUILD_EDIT, Self::BUILD_VIEW),
+        (Self::FILES_WRITE, Self::FILES_READ),
+        (Self::BACKUP_DOWNLOAD, Self::BACKUP_VIEW),
+        (Self::BACKUP_CREATE, Self::BACKUP_VIEW),
+        (Self::BACKUP_DELETE, Self::BACKUP_VIEW),
+        (Self::BACKUP_RESTORE, Self::BACKUP_VIEW),
+        (Self::ROUTES_VIEW, Self::NETWORK_VIEW),
+        (
+            Self::ROUTES_MANAGE,
+            Self::ROUTES_VIEW.union(Self::NETWORK_VIEW),
+        ),
+        (Self::SCHEDULE_MANAGE, Self::SCHEDULE_VIEW),
+    ];
+}
+
+impl PermissionSet for ManagementPermissions {
+    const DEPENDENCIES: &'static [(Self, Self)] = &[
+        (Self::USER_MANAGE, Self::USER_VIEW),
+        (Self::API_KEYS_MANAGE, Self::API_KEYS_VIEW),
+        (Self::NODES_MANAGE, Self::NODES_VIEW),
+        (Self::DOMAINS_MANAGE, Self::DOMAINS_VIEW),
+        (Self::DATABASE_HOSTS_MANAGE, Self::DATABASE_HOSTS_VIEW),
+    ];
+}
+
+impl Resolve<ProjectId> for ProjectPermissions {
+    fn resolve(project: ProjectId, access: &EffectivePermissions) -> Self {
+        Self::from_bits_retain(access.project(project) | access.global)
+    }
+}
+
+impl Resolve<ServerId> for ProjectPermissions {
+    fn resolve(server: ServerId, access: &EffectivePermissions) -> Self {
+        Self::from_bits_retain(access.server(server))
+    }
+}
+
+impl Resolve<ServerId> for ServerPermissions {
+    fn resolve(server: ServerId, access: &EffectivePermissions) -> Self {
+        if access.has(server, ProjectPermissions::VIEW) {
+            Self::from_bits_retain(access.server(server))
         } else {
             Self::empty()
         }
     }
-
-    fn contains_permission(self, permission: Self) -> bool
-    where
-        Self: Sized,
-    {
-        self.contains(permission.with_dependencies())
-    }
-}
-impl<E: FromAuthPermissionDenied + FromServerNotFound> Permission<ServerId, E>
-    for ServerPermissions
-{
-    fn require(
-        self,
-        extra: ServerId,
-        permissions: i64,
-        projects: &HashMap<ProjectId, i64>,
-        servers: &HashMap<ServerId, i64>,
-    ) -> Result<(), E>
-    where
-        Self: Sized,
-    {
-        if self.has(extra, permissions, projects, servers) {
-            Ok(())
-        } else if ProjectPermissions::VIEW.has(extra, permissions, projects, servers) {
-            Err(<E as FromAuthPermissionDenied>::from())
-        } else {
-            Err(<E as FromServerNotFound>::from())
-        }
-    }
 }
 
-impl HasPermission<ProjectId> for ProjectPermissions {
-    fn permissions(
-        extra: ProjectId,
-        permissions: i64,
-        projects: &HashMap<ProjectId, i64>,
-        _servers: &HashMap<ServerId, i64>,
-    ) -> Self
-    where
-        Self: Sized,
-    {
-        Self::from_bits_retain(projects.get(&extra).copied().unwrap_or_default())
-            | Self::from_bits_retain(permissions)
-    }
-
-    fn contains_permission(self, permission: Self) -> bool
-    where
-        Self: Sized,
-    {
-        self.contains(permission.with_dependencies())
-    }
-}
-
-impl HasPermission<ServerId> for ProjectPermissions {
-    fn permissions(
-        extra: ServerId,
-        permissions: i64,
-        _projects: &HashMap<ProjectId, i64>,
-        servers: &HashMap<ServerId, i64>,
-    ) -> Self
-    where
-        Self: Sized,
-    {
-        Self::from_bits_retain(servers.get(&extra).copied().unwrap_or(permissions))
-    }
-
-    fn contains_permission(self, permission: Self) -> bool
-    where
-        Self: Sized,
-    {
-        self.contains(permission.with_dependencies())
-    }
-}
-
-impl<E: FromAuthPermissionDenied + FromProjectNotFound> Permission<ProjectId, E>
-    for ProjectPermissions
-{
-    fn require(
-        self,
-        extra: ProjectId,
-        permissions: i64,
-        projects: &HashMap<ProjectId, i64>,
-        servers: &HashMap<ServerId, i64>,
-    ) -> Result<(), E>
-    where
-        Self: Sized,
-    {
-        if self.has(extra, permissions, projects, servers) {
-            Ok(())
-        } else if Self::VIEW.has(extra, permissions, projects, servers) {
-            Err(<E as FromAuthPermissionDenied>::from())
-        } else {
-            Err(<E as FromProjectNotFound>::from())
-        }
-    }
-}
-
-impl<E: FromAuthPermissionDenied + FromServerNotFound> Permission<ServerId, E>
-    for ProjectPermissions
-{
-    fn require(
-        self,
-        extra: ServerId,
-        permissions: i64,
-        projects: &HashMap<ProjectId, i64>,
-        servers: &HashMap<ServerId, i64>,
-    ) -> Result<(), E>
-    where
-        Self: Sized,
-    {
-        if self.has(extra, permissions, projects, servers) {
-            Ok(())
-        } else if Self::VIEW.has(extra, permissions, projects, servers) {
-            Err(<E as FromAuthPermissionDenied>::from())
-        } else {
-            Err(<E as FromServerNotFound>::from())
-        }
-    }
-}
-
-impl HasPermission<()> for ManagementPermissions {
-    fn permissions(
-        _extra: (),
-        permissions: i64,
-        _projects: &HashMap<ProjectId, i64>,
-        _servers: &HashMap<ServerId, i64>,
-    ) -> Self
-    where
-        Self: Sized,
-    {
-        Self::from_bits_retain(permissions)
-    }
-
-    fn contains_permission(self, permission: Self) -> bool
-    where
-        Self: Sized,
-    {
-        self.contains(permission.with_dependencies())
-    }
-}
-impl<E: FromAuthPermissionDenied> Permission<(), E> for ManagementPermissions {
-    fn require(
-        self,
-        extra: (),
-        permissions: i64,
-        projects: &HashMap<ProjectId, i64>,
-        servers: &HashMap<ServerId, i64>,
-    ) -> Result<(), E>
-    where
-        Self: Sized,
-    {
-        if self.has(extra, permissions, projects, servers) {
-            Ok(())
-        } else {
-            Err(E::from())
-        }
-    }
-}
-
-impl ServerPermissions {
-    pub fn with_dependencies(mut self) -> Self {
-        self.with_dependency(Self::TERMINAL_WRITE, Self::TERMINAL_READ);
-        self.with_dependency(Self::BUILD_EDIT, Self::BUILD_VIEW);
-        self.with_dependency(Self::FILES_WRITE, Self::FILES_READ);
-
-        self.with_dependency(Self::BACKUP_DOWNLOAD, Self::BACKUP_VIEW);
-        self.with_dependency(Self::BACKUP_CREATE, Self::BACKUP_VIEW);
-        self.with_dependency(Self::BACKUP_DELETE, Self::BACKUP_VIEW);
-        self.with_dependency(Self::BACKUP_RESTORE, Self::BACKUP_VIEW);
-
-        self.with_dependency(Self::ROUTES_VIEW, Self::NETWORK_VIEW);
-        self.with_dependency(Self::ROUTES_MANAGE, Self::ROUTES_VIEW | Self::NETWORK_VIEW);
-
-        self.with_dependency(Self::SCHEDULE_MANAGE, Self::SCHEDULE_VIEW);
-
-        self
-    }
-
-    fn with_dependency(&mut self, base: Self, dependencies: Self) {
-        if self.contains(base) {
-            *self |= dependencies;
-        }
-    }
-}
-
-impl ProjectPermissions {
-    pub fn with_dependencies(mut self) -> Self {
-        if !self.is_empty() {
-            self |= Self::VIEW;
-        }
-        self.with_dependency(Self::USER_EDIT, Self::USER_VIEW);
-        self.with_dependency(Self::DATABASE_MANAGE, Self::DATABASE_VIEW);
-        self
-    }
-
-    fn with_dependency(&mut self, permission: Self, dependency: Self) {
-        if self.contains(permission) {
-            *self |= dependency;
-        }
-    }
-}
-
-impl ManagementPermissions {
-    pub fn with_dependencies(mut self) -> Self {
-        self.with_dependency(Self::USER_MANAGE, Self::USER_VIEW);
-        self.with_dependency(Self::API_KEYS_MANAGE, Self::API_KEYS_VIEW);
-        self.with_dependency(Self::NODES_MANAGE, Self::NODES_VIEW);
-        self.with_dependency(Self::DOMAINS_MANAGE, Self::DOMAINS_VIEW);
-        self.with_dependency(Self::DATABASE_HOSTS_MANAGE, Self::DATABASE_HOSTS_VIEW);
-        self
-    }
-
-    fn with_dependency(&mut self, base: Self, dependencies: Self) {
-        if self.contains(base) {
-            *self |= dependencies;
-        }
+impl Resolve<()> for ManagementPermissions {
+    fn resolve((): (), access: &EffectivePermissions) -> Self {
+        Self::from_bits_retain(access.global)
     }
 }
 
@@ -512,6 +357,10 @@ impl TryFrom<u8> for Role {
 }
 
 impl Role {
+    pub fn from_db(value: i32) -> Option<Self> {
+        Self::try_from(u8::try_from(value).ok()?).ok()
+    }
+
     pub const fn management_permissions(self) -> ManagementPermissions {
         match self {
             Self::Admin => ManagementPermissions::all(),
@@ -535,11 +384,5 @@ impl Role {
             Self::Admin | Self::Moderator => ServerPermissions::all(),
             Self::User => ServerPermissions::empty(),
         }
-    }
-}
-
-impl ServerPermissions {
-    pub fn grants(self, permission: Self) -> bool {
-        self.contains(permission.with_dependencies())
     }
 }

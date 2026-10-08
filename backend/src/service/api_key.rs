@@ -2,7 +2,9 @@ use super::*;
 use crate::Backend;
 use crate::auth::api_key::ApiKeyToken;
 use crate::auth::grant::{KNOWN_PERMISSIONS, resolve_grant};
-use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
+use crate::auth::permissions::{
+    ManagementPermissions, PermissionSet as _, ProjectPermissions, ServerPermissions,
+};
 use crate::auth::user::UserAuthentication;
 use crate::db::project::ProjectId;
 use crate::service::api_key::api_key_service_error::{

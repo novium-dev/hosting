@@ -2,16 +2,15 @@ use crate::Backend;
 use crate::auth::api_key::is_api_key_request;
 use crate::auth::effective::EffectivePermissions;
 use crate::auth::oauth::AuthUser;
-use crate::auth::permissions::{HasPermission, Permission, Role};
+use crate::auth::permissions::Role;
 use crate::auth::session::{SESSION_COOKIE_NAME, Session, SessionToken, session_cookie_parameter};
-use crate::db::project::ProjectId;
-use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_unreachable::FromAuthUnreachable;
 use axum::Extension;
 use axum::response::{IntoResponse, Response};
 use axum_extra::extract::cookie::CookieJar;
 use core::fmt::Debug;
+use core::ops::Deref;
 use core::str::FromStr as _;
 use http::HeaderValue;
 use http::header::SET_COOKIE;
@@ -33,14 +32,20 @@ pub struct UserAuthentication {
     pub id: i32,
     pub session: Session,
     username: String,
-    permissions: i64,
     role: Role,
     email: String,
     avatar_url: String,
     first_name: Option<String>,
     last_name: Option<String>,
-    projects: HashMap<ProjectId, i64>,
-    servers: HashMap<ServerId, i64>,
+    access: EffectivePermissions,
+}
+
+impl Deref for UserAuthentication {
+    type Target = EffectivePermissions;
+
+    fn deref(&self) -> &Self::Target {
+        &self.access
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
@@ -56,31 +61,11 @@ pub struct SerializedUser {
 }
 
 impl UserAuthentication {
-    pub fn has<P: HasPermission<Extra>, Extra>(&self, extra: Extra, permission: P) -> bool {
-        permission.has(extra, self.permissions, &self.projects, &self.servers)
-    }
-
-    pub fn permissions<P: HasPermission<Extra>, Extra>(&self, extra: Extra) -> P {
-        P::permissions(extra, self.permissions, &self.projects, &self.servers)
-    }
-
-    pub fn require<P: Permission<Extra, E>, Extra, E>(
-        &self,
-        extra: Extra,
-        permission: P,
-    ) -> Result<(), E> {
-        permission.require(extra, self.permissions, &self.projects, &self.servers)
-    }
-
-    pub fn is_project_member(&self, project: ProjectId) -> bool {
-        self.projects.contains_key(&project)
-    }
-
     pub fn serialized(&self) -> SerializedUser {
         SerializedUser {
             id: self.id,
             username: self.username.clone(),
-            permissions: self.permissions,
+            permissions: self.access.global,
             role: self.role,
             email: self.email.clone(),
             avatar_url: self.avatar_url.clone(),
@@ -141,24 +126,20 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             return Ok(None);
         };
 
-        let role = u8::try_from(user.role)
-            .ok()
-            .and_then(|role| Role::try_from(role).ok());
+        let role = Role::from_db(user.role);
 
-        let effective = EffectivePermissions::load(&mut conn, id, role).await?;
+        let access = EffectivePermissions::load(&mut conn, id, role).await?;
 
         Ok(Some(Self {
             id,
             session,
             username: user.username,
-            permissions: effective.permissions,
             role: role.unwrap_or(Role::User),
             email: user.email,
             avatar_url: user.avatar_url.unwrap_or_default(),
             first_name: user.first_name,
             last_name: user.last_name,
-            projects: effective.projects,
-            servers: effective.servers,
+            access,
         }))
     }
 }

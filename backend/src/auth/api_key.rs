@@ -1,9 +1,8 @@
 use crate::Backend;
 use crate::auth::effective::EffectivePermissions;
 use crate::auth::grant::resolve_grant;
-use crate::auth::permissions::{HasPermission, Permission, Role};
+use crate::auth::permissions::Role;
 use crate::db::project::ProjectId;
-use crate::db::server::ServerId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_unreachable::FromAuthUnreachable;
 use axum::Extension;
@@ -12,6 +11,7 @@ use axum_extra::TypedHeader;
 use axum_extra::headers::Authorization;
 use axum_extra::headers::authorization::Credentials;
 use core::fmt::{Debug, Display, Formatter};
+use core::ops::Deref;
 use core::str::FromStr;
 use http::header::AUTHORIZATION;
 use http::request::Parts;
@@ -20,7 +20,6 @@ use lazy_regex::lazy_regex;
 use regex::Regex;
 use sha2::{Digest as _, Sha256};
 use sqlx::query;
-use std::collections::HashMap;
 use tracing::error;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
 use utoipa::openapi::schema::SchemaType;
@@ -39,30 +38,14 @@ pub static API_KEY_REGEX: lazy_regex::Lazy<Regex> =
 #[derive(Debug)]
 pub struct ApiKeyAuthentication {
     pub user: i32,
-    permissions: i64,
-    projects: HashMap<ProjectId, i64>,
-    servers: HashMap<ServerId, i64>,
+    access: EffectivePermissions,
 }
 
-impl ApiKeyAuthentication {
-    pub fn has<P: HasPermission<Extra>, Extra>(&self, extra: Extra, permission: P) -> bool {
-        permission.has(extra, self.permissions, &self.projects, &self.servers)
-    }
+impl Deref for ApiKeyAuthentication {
+    type Target = EffectivePermissions;
 
-    pub fn permissions<P: HasPermission<Extra>, Extra>(&self, extra: Extra) -> P {
-        P::permissions(extra, self.permissions, &self.projects, &self.servers)
-    }
-
-    pub fn require<P: Permission<Extra, E>, Extra, E>(
-        &self,
-        extra: Extra,
-        permission: P,
-    ) -> Result<(), E> {
-        permission.require(extra, self.permissions, &self.projects, &self.servers)
-    }
-
-    pub fn is_project_member(&self, project: ProjectId) -> bool {
-        self.projects.contains_key(&project)
+    fn deref(&self) -> &Self::Target {
+        &self.access
     }
 }
 
@@ -131,11 +114,9 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             return Ok(None);
         };
 
-        let role = u8::try_from(role.role)
-            .ok()
-            .and_then(|role| Role::try_from(role).ok());
+        let role = Role::from_db(role.role);
 
-        let effective = EffectivePermissions::load(&mut conn, key.user, role)
+        let access = EffectivePermissions::load(&mut conn, key.user, role)
             .await?
             .masked(
                 resolve_grant(key.permissions, key.known_permissions),
@@ -144,9 +125,7 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
 
         Ok(Some(Self {
             user: key.user,
-            permissions: effective.permissions,
-            projects: effective.projects,
-            servers: effective.servers,
+            access,
         }))
     }
 }
@@ -235,18 +214,20 @@ impl Debug for ApiKeyToken {
 
 impl DocumentedType for ApiKeyAuthentication {
     fn openapi(operations: OperationBuilder) -> OperationBuilder {
-        operations.parameter(
-            ParameterBuilder::new()
-                .name("Authorization")
-                .parameter_in(ParameterIn::Header)
-                .description(Some("The api key"))
-                .schema(Some(RefOr::T(Schema::Object(
-                    Object::builder()
-                        .schema_type(SchemaType::Type(Type::String))
-                        .pattern(Some(API_KEY_REGEX.as_str()))
-                        .build(),
-                ))))
-                .required(Required::False),
-        )
+        operations.parameter(api_key_parameter())
     }
+}
+
+pub fn api_key_parameter() -> ParameterBuilder {
+    ParameterBuilder::new()
+        .name("Authorization")
+        .parameter_in(ParameterIn::Header)
+        .description(Some("The api key"))
+        .schema(Some(RefOr::T(Schema::Object(
+            Object::builder()
+                .schema_type(SchemaType::Type(Type::String))
+                .pattern(Some(API_KEY_REGEX.as_str()))
+                .build(),
+        ))))
+        .required(Required::False)
 }

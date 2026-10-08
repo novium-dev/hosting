@@ -1,6 +1,6 @@
 use crate::auth::grant::resolve_grant;
 use crate::auth::permissions::{
-    ManagementPermissions, ProjectPermissions, Role, ServerPermissions,
+    ManagementPermissions, ProjectPermissions, Resolve, Role, Scope, ServerPermissions,
 };
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
@@ -8,14 +8,43 @@ use sqlx::{PgConnection, query, query_scalar};
 use std::collections::HashMap;
 use tracing::error;
 
+#[derive(Debug, Default)]
 pub struct EffectivePermissions {
-    pub permissions: i64,
-    pub projects: HashMap<ProjectId, i64>,
-    pub servers: HashMap<ServerId, i64>,
+    pub global: i64,
+    projects: HashMap<ProjectId, i64>,
+    servers: HashMap<ServerId, i64>,
     server_projects: HashMap<ServerId, ProjectId>,
 }
 
 impl EffectivePermissions {
+    pub fn permissions<P: Resolve<S>, S>(&self, scope: S) -> P {
+        P::resolve(scope, self)
+    }
+
+    pub fn has<P: Resolve<S>, S>(&self, scope: S, permission: P) -> bool {
+        self.permissions::<P, S>(scope).grants(permission)
+    }
+
+    pub fn require<P: Resolve<S>, S: Scope<E>, E>(&self, scope: S, permission: P) -> Result<(), E> {
+        if self.has(scope, permission) {
+            Ok(())
+        } else {
+            Err(scope.denied(self))
+        }
+    }
+
+    pub fn is_project_member(&self, project: ProjectId) -> bool {
+        self.projects.contains_key(&project)
+    }
+
+    pub(crate) fn project(&self, project: ProjectId) -> i64 {
+        self.projects.get(&project).copied().unwrap_or_default()
+    }
+
+    pub(crate) fn server(&self, server: ServerId) -> i64 {
+        self.servers.get(&server).copied().unwrap_or(self.global)
+    }
+
     pub async fn load(
         conn: &mut PgConnection,
         id: i32,
@@ -120,7 +149,7 @@ impl EffectivePermissions {
         }
 
         Ok(Self {
-            permissions,
+            global: permissions,
             projects,
             servers,
             server_projects,
@@ -131,7 +160,7 @@ impl EffectivePermissions {
     pub fn masked(self, mask: i64, project: Option<ProjectId>) -> Self {
         let Some(project) = project else {
             return Self {
-                permissions: self.permissions & mask,
+                global: self.global & mask,
                 projects: self
                     .projects
                     .into_iter()
@@ -148,7 +177,7 @@ impl EffectivePermissions {
 
         let projects = HashMap::from([(
             project,
-            (self.projects.get(&project).copied().unwrap_or_default() | self.permissions) & mask,
+            (self.projects.get(&project).copied().unwrap_or_default() | self.global) & mask,
         )]);
         let servers = self
             .servers
@@ -158,7 +187,7 @@ impl EffectivePermissions {
             .collect();
 
         Self {
-            permissions: 0,
+            global: 0,
             projects,
             servers,
             server_projects: self.server_projects,
