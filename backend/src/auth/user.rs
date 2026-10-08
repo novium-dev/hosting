@@ -206,9 +206,9 @@ impl Backend {
         (username, auth_id, role, email, avatar_url, first_name, last_name, daemon_password)
     VALUES
         ($1, $2, $3, $4, $5, $6, $7, $8)
-    ON CONFLICT (auth_id) DO UPDATE SET
+    ON CONFLICT (email) DO UPDATE SET
         username = EXCLUDED.username,
-        email = EXCLUDED.email,
+        auth_id = EXCLUDED.auth_id,
         avatar_url = EXCLUDED.avatar_url,
         first_name = EXCLUDED.first_name,
         last_name = EXCLUDED.last_name,
@@ -224,7 +224,7 @@ impl Backend {
                 .collect::<String>(),
             auth_user.sub,
             mapped_role.unwrap_or(Role::User as i32),
-            auth_user.email,
+            normalize_email(&auth_user.email),
             auth_user.picture,
             auth_user.given_name,
             auth_user.family_name,
@@ -236,6 +236,10 @@ impl Backend {
 
         Ok(record.id)
     }
+}
+
+pub(crate) fn normalize_email(email: &str) -> String {
+    email.trim().to_lowercase()
 }
 
 pub(crate) fn generate_daemon_password() -> String {

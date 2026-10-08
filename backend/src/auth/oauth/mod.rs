@@ -94,6 +94,8 @@ pub struct AuthUser {
     pub(crate) sub: String,
     pub(crate) email: String,
     #[serde(default)]
+    pub(crate) email_verified: Option<bool>,
+    #[serde(default)]
     pub(crate) given_name: Option<String>,
     #[serde(default)]
     pub(crate) family_name: Option<String>,

@@ -54,6 +54,7 @@ define_error!(project {
 define_error!(user {
     not_found("User not found" NOT_FOUND),
     owns_project("User still owns projects" BAD_REQUEST),
+    email_taken("Another user already uses this email" BAD_REQUEST),
 });
 
 define_error!(file {

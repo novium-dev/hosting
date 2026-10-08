@@ -3,6 +3,7 @@ use crate::auth::Authentication;
 use crate::auth::permissions::{
     ManagementPermissions, ProjectPermissions, Role, ServerPermissions,
 };
+use crate::auth::user::normalize_email;
 use crate::db::project::ProjectId;
 use crate::service::admin::user::user_admin_service_error::{
     DeleteUserError, GetUserError, ListUserProjectsError, ListUsersError, UpdateUserError,
@@ -149,7 +150,7 @@ pub(crate) impl UserAdminService for Backend {
 
     /// Updates a user.
     #[route("/{user_id}", method = PATCH)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::not_found <- [sql:not_found])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::{not_found <- [sql:not_found], email_taken <- [sql:unique]})]
     async fn update_user(
         &self,
         #[special] auth: Authentication,
@@ -196,9 +197,13 @@ pub(crate) impl UserAdminService for Backend {
                 }
 
                 if let Some(email) = email {
-                    query!("UPDATE users SET email = $1 WHERE id = $2", email, user_id)
-                        .execute(&mut **tx)
-                        .await?;
+                    query!(
+                        "UPDATE users SET email = $1 WHERE id = $2",
+                        normalize_email(&email),
+                        user_id
+                    )
+                    .execute(&mut **tx)
+                    .await?;
                 }
 
                 query!("SELECT id FROM users WHERE id = $1", user_id)

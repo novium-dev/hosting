@@ -238,6 +238,10 @@ pub(crate) impl AuthService for Backend {
             .auth
             .get_user::<CallbackError>(&flow.provider, &access_token)
             .await?;
+        if user.email_verified == Some(false) {
+            return Err(CallbackError::AuthPermissionDenied);
+        }
+
         let role = self
             .auth
             .role_for::<CallbackError>(&flow.provider, user.roles.as_deref())?;

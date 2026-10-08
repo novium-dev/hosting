@@ -2,6 +2,7 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
+use crate::auth::user::normalize_email;
 use crate::db::project::ProjectId;
 use crate::logo::{LOGO_MAX_BYTES, LogoFormat};
 use crate::service::api_key::with_dependencies;
@@ -577,12 +578,13 @@ pub(crate) impl ProjectService for Backend {
             return Err(SetProjectUserError::ProjectExpiryInvalid);
         }
 
-        let [user_id] = query_scalar!("SELECT id FROM users WHERE email = $1", email)
-            .fetch_all(&*self.database)
-            .await?[..]
-        else {
-            return Err(SetProjectUserError::UserNotFound);
-        };
+        let user_id = query_scalar!(
+            "SELECT id FROM users WHERE email = $1",
+            normalize_email(&email)
+        )
+        .fetch_optional(&*self.database)
+        .await?
+        .ok_or(SetProjectUserError::UserNotFound)?;
 
         if user_id == owner {
             return Err(SetProjectUserError::ProjectOwnerImmutable);
