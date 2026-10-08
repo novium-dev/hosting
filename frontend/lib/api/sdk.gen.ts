@@ -89,7 +89,7 @@ export const serverStats = <ThrowOnError extends boolean = false>(options: Optio
  * # Permissions<br/>
  * Requires `ServerPermissions::POWER`.
  */
-export const startServer = <ThrowOnError extends boolean = false>(options: Options<StartServerData, ThrowOnError>): RequestResult<StartServerResponses, StartServerErrors, ThrowOnError> => (options.client ?? client).get<StartServerResponses, StartServerErrors, ThrowOnError>({ url: '/server/{server_id}/start', ...options });
+export const startServer = <ThrowOnError extends boolean = false>(options: Options<StartServerData, ThrowOnError>): RequestResult<StartServerResponses, StartServerErrors, ThrowOnError> => (options.client ?? client).post<StartServerResponses, StartServerErrors, ThrowOnError>({ url: '/server/{server_id}/start', ...options });
 
 /**
  *  Tries to stop the server
@@ -99,7 +99,7 @@ export const startServer = <ThrowOnError extends boolean = false>(options: Optio
  * # Permissions<br/>
  * Requires `ServerPermissions::POWER`.
  */
-export const stopServer = <ThrowOnError extends boolean = false>(options: Options<StopServerData, ThrowOnError>): RequestResult<StopServerResponses, StopServerErrors, ThrowOnError> => (options.client ?? client).get<StopServerResponses, StopServerErrors, ThrowOnError>({ url: '/server/{server_id}/stop', ...options });
+export const stopServer = <ThrowOnError extends boolean = false>(options: Options<StopServerData, ThrowOnError>): RequestResult<StopServerResponses, StopServerErrors, ThrowOnError> => (options.client ?? client).post<StopServerResponses, StopServerErrors, ThrowOnError>({ url: '/server/{server_id}/stop', ...options });
 
 /**
  *  Tries to restart the server
@@ -109,7 +109,7 @@ export const stopServer = <ThrowOnError extends boolean = false>(options: Option
  * # Permissions<br/>
  * Requires `ServerPermissions::POWER`.
  */
-export const restartServer = <ThrowOnError extends boolean = false>(options: Options<RestartServerData, ThrowOnError>): RequestResult<RestartServerResponses, RestartServerErrors, ThrowOnError> => (options.client ?? client).get<RestartServerResponses, RestartServerErrors, ThrowOnError>({ url: '/server/{server_id}/restart', ...options });
+export const restartServer = <ThrowOnError extends boolean = false>(options: Options<RestartServerData, ThrowOnError>): RequestResult<RestartServerResponses, RestartServerErrors, ThrowOnError> => (options.client ?? client).post<RestartServerResponses, RestartServerErrors, ThrowOnError>({ url: '/server/{server_id}/restart', ...options });
 
 /**
  *  Tries to kill the server
@@ -119,7 +119,7 @@ export const restartServer = <ThrowOnError extends boolean = false>(options: Opt
  * # Permissions<br/>
  * Requires `ServerPermissions::POWER`.
  */
-export const killServer = <ThrowOnError extends boolean = false>(options: Options<KillServerData, ThrowOnError>): RequestResult<KillServerResponses, KillServerErrors, ThrowOnError> => (options.client ?? client).get<KillServerResponses, KillServerErrors, ThrowOnError>({ url: '/server/{server_id}/kill', ...options });
+export const killServer = <ThrowOnError extends boolean = false>(options: Options<KillServerData, ThrowOnError>): RequestResult<KillServerResponses, KillServerErrors, ThrowOnError> => (options.client ?? client).post<KillServerResponses, KillServerErrors, ThrowOnError>({ url: '/server/{server_id}/kill', ...options });
 
 /**
  *  Deletes every file of the server.
@@ -466,7 +466,7 @@ export const updateBackup = <ThrowOnError extends boolean = false>(options: Opti
  * # Permissions<br/>
  * Requires `ServerPermissions::BACKUP_RESTORE`.
  */
-export const restoreBackup = <ThrowOnError extends boolean = false>(options: Options<RestoreBackupData, ThrowOnError>): RequestResult<RestoreBackupResponses, RestoreBackupErrors, ThrowOnError> => (options.client ?? client).get<RestoreBackupResponses, RestoreBackupErrors, ThrowOnError>({ url: '/backup/{server_id}/{backup_storage}/{backup_id}/restore', ...options });
+export const restoreBackup = <ThrowOnError extends boolean = false>(options: Options<RestoreBackupData, ThrowOnError>): RequestResult<RestoreBackupResponses, RestoreBackupErrors, ThrowOnError> => (options.client ?? client).post<RestoreBackupResponses, RestoreBackupErrors, ThrowOnError>({ url: '/backup/{server_id}/{backup_storage}/{backup_id}/restore', ...options });
 
 /**
  *  Gets a signed URL to download a live archive of the server's files, built on demand rather than from a stored backup.
@@ -850,7 +850,7 @@ export const listUserProjects = <ThrowOnError extends boolean = false>(options: 
  *
  *  Revokes the current user session and clears the session cookie.
  */
-export const logout = <ThrowOnError extends boolean = false>(options?: Options<LogoutData, ThrowOnError>): RequestResult<LogoutResponses, LogoutErrors, ThrowOnError> => (options?.client ?? client).get<LogoutResponses, LogoutErrors, ThrowOnError>({ url: '/auth/logout', ...options });
+export const logout = <ThrowOnError extends boolean = false>(options?: Options<LogoutData, ThrowOnError>): RequestResult<LogoutResponses, LogoutErrors, ThrowOnError> => (options?.client ?? client).post<LogoutResponses, LogoutErrors, ThrowOnError>({ url: '/auth/logout', ...options });
 
 /**
  *  Revokes every session of the current user except the one making the request.
@@ -886,7 +886,10 @@ export const me = <ThrowOnError extends boolean = false>(options?: Options<MeDat
 /**
  *  Initiates the OAuth login process.
  *
- *  Initiates the OAuth login process.
+ *  Initiates the OAuth login process.<br/>
+ * <br/>
+ * `redirect_url` must be on the public URL or one of the trusted URLs. The<br/>
+ * state is bound to the browser with a cookie the callback checks.
  */
 export const login = <ThrowOnError extends boolean = false>(options: Options<LoginData, ThrowOnError>): RequestResult<unknown, LoginErrors, ThrowOnError> => (options.client ?? client).get<unknown, LoginErrors, ThrowOnError>({ url: '/auth/login/{provider}', ...options });
 
@@ -995,7 +998,9 @@ export const getProject = <ThrowOnError extends boolean = false>(options: Option
  * # Permissions<br/>
  * Requires `ProjectPermissions::ADMIN_MANAGEMENT`.<br/>
  * Requires `ManagementPermissions::LIMITS_BYPASS` to change the name or<br/>
- * the slug if this instance does not let users rename their own projects.
+ * the slug if this instance does not let users rename their own projects.<br/>
+ * Only the current owner or a holder of `ManagementPermissions::USER_MANAGE`<br/>
+ * may transfer the ownership.
  */
 export const updateProject = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectData, ThrowOnError>): RequestResult<UpdateProjectResponses, UpdateProjectErrors, ThrowOnError> => (options.client ?? client).patch<UpdateProjectResponses, UpdateProjectErrors, ThrowOnError>({
     url: '/project/{project_id}',
@@ -1074,7 +1079,11 @@ export const listProjectUsers = <ThrowOnError extends boolean = false>(options: 
  * <br/>
  * An `expires_at` timestamp limits the membership to that point in time;<br/>
  * omitting it grants access until the member is removed. The project owner<br/>
- * always holds every permission and cannot be changed.
+ * always holds every permission and cannot be changed.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ProjectPermissions::USER_EDIT`. Both the granted permissions<br/>
+ * and the member's current ones may never exceed your own.
  */
 export const setProjectUser = <ThrowOnError extends boolean = false>(options: Options<SetProjectUserData, ThrowOnError>): RequestResult<SetProjectUserResponses, SetProjectUserErrors, ThrowOnError> => (options.client ?? client).put<SetProjectUserResponses, SetProjectUserErrors, ThrowOnError>({
     url: '/project/{project_id}/users',
@@ -1090,7 +1099,11 @@ export const setProjectUser = <ThrowOnError extends boolean = false>(options: Op
  *
  *  Removes a project member.<br/>
  * <br/>
- * The project owner cannot be removed.
+ * The project owner cannot be removed.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ProjectPermissions::USER_EDIT`. The member's permissions may<br/>
+ * never exceed your own.
  */
 export const removeProjectUser = <ThrowOnError extends boolean = false>(options: Options<RemoveProjectUserData, ThrowOnError>): RequestResult<RemoveProjectUserResponses, RemoveProjectUserErrors, ThrowOnError> => (options.client ?? client).delete<RemoveProjectUserResponses, RemoveProjectUserErrors, ThrowOnError>({ url: '/project/{project_id}/users/{user_id}', ...options });
 
@@ -1209,7 +1222,7 @@ export const authPublickey = <ThrowOnError extends boolean = false>(options: Opt
  * # Permissions<br/>
  * Requires `ServerPermissions::TERMINAL_WRITE`.
  */
-export const banUser = <ThrowOnError extends boolean = false>(options: Options<BanUserData, ThrowOnError>): RequestResult<BanUserResponses, BanUserErrors, ThrowOnError> => (options.client ?? client).get<BanUserResponses, BanUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/ban', ...options });
+export const banUser = <ThrowOnError extends boolean = false>(options: Options<BanUserData, ThrowOnError>): RequestResult<BanUserResponses, BanUserErrors, ThrowOnError> => (options.client ?? client).post<BanUserResponses, BanUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/ban', ...options });
 
 /**
  *  Lifts a ban on a player from the Minecraft server.
@@ -1219,7 +1232,7 @@ export const banUser = <ThrowOnError extends boolean = false>(options: Options<B
  * # Permissions<br/>
  * Requires `ServerPermissions::TERMINAL_WRITE`.
  */
-export const pardonUser = <ThrowOnError extends boolean = false>(options: Options<PardonUserData, ThrowOnError>): RequestResult<PardonUserResponses, PardonUserErrors, ThrowOnError> => (options.client ?? client).get<PardonUserResponses, PardonUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/pardon', ...options });
+export const pardonUser = <ThrowOnError extends boolean = false>(options: Options<PardonUserData, ThrowOnError>): RequestResult<PardonUserResponses, PardonUserErrors, ThrowOnError> => (options.client ?? client).post<PardonUserResponses, PardonUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/pardon', ...options });
 
 /**
  *  Grants a player operator status on the Minecraft server.
@@ -1229,7 +1242,7 @@ export const pardonUser = <ThrowOnError extends boolean = false>(options: Option
  * # Permissions<br/>
  * Requires `ServerPermissions::TERMINAL_WRITE`.
  */
-export const opUser = <ThrowOnError extends boolean = false>(options: Options<OpUserData, ThrowOnError>): RequestResult<OpUserResponses, OpUserErrors, ThrowOnError> => (options.client ?? client).get<OpUserResponses, OpUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/op', ...options });
+export const opUser = <ThrowOnError extends boolean = false>(options: Options<OpUserData, ThrowOnError>): RequestResult<OpUserResponses, OpUserErrors, ThrowOnError> => (options.client ?? client).post<OpUserResponses, OpUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/op', ...options });
 
 /**
  *  Revokes a player's operator status on the Minecraft server.
@@ -1239,7 +1252,7 @@ export const opUser = <ThrowOnError extends boolean = false>(options: Options<Op
  * # Permissions<br/>
  * Requires `ServerPermissions::TERMINAL_WRITE`.
  */
-export const deopUser = <ThrowOnError extends boolean = false>(options: Options<DeopUserData, ThrowOnError>): RequestResult<DeopUserResponses, DeopUserErrors, ThrowOnError> => (options.client ?? client).get<DeopUserResponses, DeopUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/deop', ...options });
+export const deopUser = <ThrowOnError extends boolean = false>(options: Options<DeopUserData, ThrowOnError>): RequestResult<DeopUserResponses, DeopUserErrors, ThrowOnError> => (options.client ?? client).post<DeopUserResponses, DeopUserErrors, ThrowOnError>({ url: '/minecraft/{server_id}/deop', ...options });
 
 /**
  *  Reports which loaders and providers this server can browse.
@@ -1786,6 +1799,7 @@ export const listSchedules = <ThrowOnError extends boolean = false>(options: Opt
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::SCHEDULE_MANAGE`,<br/>
+ * `ServerPermissions::POWER` for a power task,<br/>
  * `ServerPermissions::TERMINAL_WRITE` for a console command task,<br/>
  * `ManagementPermissions::SERVER_MANAGE` for a container command task,<br/>
  * `ServerPermissions::BACKUP_CREATE` for a backup task,<br/>
@@ -1819,6 +1833,7 @@ export const deleteSchedule = <ThrowOnError extends boolean = false>(options: Op
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::SCHEDULE_MANAGE`,<br/>
+ * `ServerPermissions::POWER` for a power task,<br/>
  * `ServerPermissions::TERMINAL_WRITE` for a console command task,<br/>
  * `ManagementPermissions::SERVER_MANAGE` for a container command task,<br/>
  * `ServerPermissions::BACKUP_CREATE` for a backup task,<br/>
@@ -1845,7 +1860,8 @@ export const updateSchedule = <ThrowOnError extends boolean = false>(options: Op
  * in the background; this answers as soon as it has accepted the request.<br/>
  * <br/>
  * # Permissions<br/>
- * Requires `ServerPermissions::SCHEDULE_MANAGE`.
+ * Requires `ServerPermissions::SCHEDULE_MANAGE` and the permissions its<br/>
+ * tasks would need to be created.
  */
 export const runSchedule = <ThrowOnError extends boolean = false>(options: Options<RunScheduleData, ThrowOnError>): RequestResult<RunScheduleResponses, RunScheduleErrors, ThrowOnError> => (options.client ?? client).post<RunScheduleResponses, RunScheduleErrors, ThrowOnError>({ url: '/schedule/{server_id}/{schedule_id}/run', ...options });
 

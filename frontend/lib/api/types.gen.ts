@@ -8941,6 +8941,15 @@ export type CreateProjectErrors = {
         };
     };
     /**
+     * The name must be 1-64 characters
+     */
+    '400‎': {
+        error?: {
+            id?: 'project/name_invalid';
+            msg?: 'The name must be 1-64 characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -8961,7 +8970,7 @@ export type CreateProjectErrors = {
     /**
      * User not found
      */
-    '404‎': {
+    '404‏': {
         error?: {
             id?: 'user/not_found';
             msg?: 'User not found';
@@ -9258,6 +9267,15 @@ export type UpdateProjectErrors = {
         };
     };
     /**
+     * The name must be 1-64 characters
+     */
+    '400‏': {
+        error?: {
+            id?: 'project/name_invalid';
+            msg?: 'The name must be 1-64 characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -9287,7 +9305,7 @@ export type UpdateProjectErrors = {
     /**
      * User not found
      */
-    '404‏': {
+    '404‪': {
         error?: {
             id?: 'user/not_found';
             msg?: 'User not found';
