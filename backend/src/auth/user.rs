@@ -16,6 +16,7 @@ use http::HeaderValue;
 use http::header::SET_COOKIE;
 use http::request::Parts;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest as _, Sha256};
 use sqlx::query;
 use std::collections::HashMap;
 use tracing::error;
@@ -198,21 +199,20 @@ impl Backend {
         auth_user: AuthUser,
         role: Option<Role>,
     ) -> Result<i32, sqlx::Error> {
-        let daemon_password = generate_daemon_password();
         let mapped_role = role.map(|role| role as i32);
         let record = query!(
             r#"
     INSERT INTO users
-        (username, auth_id, role, email, avatar_url, first_name, last_name, daemon_password)
+        (username, auth_id, role, email, avatar_url, first_name, last_name)
     VALUES
-        ($1, $2, $3, $4, $5, $6, $7, $8)
+        ($1, $2, $3, $4, $5, $6, $7)
     ON CONFLICT (email) DO UPDATE SET
         username = EXCLUDED.username,
         auth_id = EXCLUDED.auth_id,
         avatar_url = EXCLUDED.avatar_url,
         first_name = EXCLUDED.first_name,
         last_name = EXCLUDED.last_name,
-        role = COALESCE($9, users.role)
+        role = COALESCE($8, users.role)
     RETURNING id
     "#,
             auth_user
@@ -228,7 +228,6 @@ impl Backend {
             auth_user.picture,
             auth_user.given_name,
             auth_user.family_name,
-            daemon_password,
             mapped_role
         )
         .fetch_one(&*self.database)
@@ -240,6 +239,10 @@ impl Backend {
 
 pub(crate) fn normalize_email(email: &str) -> String {
     email.trim().to_lowercase()
+}
+
+pub(crate) fn hash_daemon_password(password: &str) -> String {
+    hex::encode(Sha256::digest(password.as_bytes()))
 }
 
 pub(crate) fn generate_daemon_password() -> String {

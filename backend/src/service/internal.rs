@@ -1,4 +1,5 @@
 use super::*;
+use crate::auth::user::hash_daemon_password;
 use crate::cluster::SyncTarget;
 use crate::db::node::insert_storages;
 use crate::registration::{DatabaseHostRegistration, NodeRegistration};
@@ -390,7 +391,7 @@ async fn auth_servers_for_password(
            AND daemon_password = $2
          LIMIT 1",
         username,
-        password
+        hash_daemon_password(password)
     )
     .fetch_optional(&*backend.database)
     .await?
