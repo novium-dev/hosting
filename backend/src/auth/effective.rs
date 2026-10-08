@@ -1,4 +1,3 @@
-use crate::auth::grant::resolve_grant;
 use crate::auth::permissions::{
     ManagementPermissions, ProjectPermissions, Resolve, Role, Scope, ServerPermissions,
 };
@@ -77,7 +76,7 @@ impl EffectivePermissions {
         .collect();
 
         let mut projects: HashMap<ProjectId, i64> = query!(
-            r#"SELECT project AS "project: ProjectId", permissions, known_permissions
+            r#"SELECT project AS "project: ProjectId", permissions
              FROM project_users
              WHERE "user" = $1
                AND (expires_at IS NULL OR expires_at > now())"#,
@@ -87,12 +86,7 @@ impl EffectivePermissions {
         .await
         .inspect_err(|err| error!("Unable to fetch project permissions for user {id}: {err:?}"))?
         .into_iter()
-        .map(|record| {
-            (
-                record.project,
-                resolve_grant(record.permissions, record.known_permissions),
-            )
-        })
+        .map(|record| (record.project, record.permissions))
         .collect();
         projects.extend(owned_projects);
 

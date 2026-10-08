@@ -29,7 +29,7 @@ sqlx migrate run --source backend/migrations --database-url postgres://postgres:
 - The in-memory `nodes` and `database_hosts` maps are caches. After changing those tables in a transaction, call `backend.sync(tx, SyncTarget::…)` so every instance reloads.
 - Database writes that also call a node or agent: open a transaction, write, make the remote call, commit only if it succeeded.
 - Handlers check permissions (`auth.require`) first, before any DB work.
-- Permission grants store `known_permissions`. When adding a permission bit that existing grants should receive, add an entry to `IMPLIED_PERMISSIONS` in `backend/src/auth/grant.rs`.
+- Grants are bitmasks in `project_users.permissions` and `api_keys.permissions`. When adding a permission bit that existing grants should receive, add a migration that ORs it into both columns for grants holding the implying permission (see `20261008000000_drop_permission_backfills.sql`).
 - The clippy config is very strict (`unwrap`, `panic`, indexing, `print*` and short identifiers are denied). Use `?` with the typed service errors and `tracing` for logs.
 - Raw SQL via `query!` / `query_scalar!` / `query_as!`.
 - No comments in Rust code. The only exception: every `#[route(...)]` handler has a `///` doc comment (it feeds the OpenAPI docs), with a `# Permissions` section when it calls `auth.require`:
