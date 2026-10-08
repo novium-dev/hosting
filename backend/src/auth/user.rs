@@ -26,6 +26,7 @@ use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
 const DAEMON_PASSWORD_LENGTH: usize = 32;
+const USERNAME_MAX_LENGTH: usize = 32;
 
 #[derive(Debug)]
 pub struct UserAuthentication {
@@ -217,7 +218,10 @@ impl Backend {
             auth_user
                 .username
                 .or(auth_user.preferred_username)
-                .unwrap_or_else(|| auth_user.email.clone()),
+                .unwrap_or_else(|| auth_user.email.clone())
+                .chars()
+                .take(USERNAME_MAX_LENGTH)
+                .collect::<String>(),
             auth_user.sub,
             mapped_role.unwrap_or(Role::User as i32),
             auth_user.email,

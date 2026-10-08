@@ -37,7 +37,7 @@ fn client_ip(parts: &Parts) -> Option<String> {
         value
             .split(',')
             .map(str::trim)
-            .find(|entry| !entry.is_empty())
+            .rfind(|entry| !entry.is_empty())
             .map(ToOwned::to_owned)
     });
 

@@ -408,7 +408,11 @@ fn session_cookie_header(backend: &Backend, token: &str, max_age: u64) -> Header
 }
 
 pub fn set_session_cookie(backend: &Backend, token: &SessionToken) -> HeaderValue {
-    session_cookie_header(backend, &token.to_string(), backend.config.session_lifetime)
+    session_cookie_header(
+        backend,
+        &token.to_string(),
+        backend.config.session_absolute_lifetime,
+    )
 }
 
 pub fn clear_session_cookie(backend: &Backend) -> HeaderValue {
