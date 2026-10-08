@@ -1,5 +1,0 @@
-
-no novium apis:
-- avatar logo url via env variable (not hardcoded)
-- use logot avatar url instead of avatars.novium
-- legal links (now optional) via env variable (not hardcoded)
