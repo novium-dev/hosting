@@ -40,7 +40,7 @@ pub async fn run(agent: Agent) -> anyhow::Result<()> {
 }
 
 async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::Result<()> {
-    let mut session: Option<(Session, bool)> = None;
+    let mut session: Option<(Session, bool, bool)> = None;
 
     loop {
         let (request_id, opcode, body) = read_message(&mut stream).await?;
@@ -84,23 +84,11 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
                         database,
                     );
                     write_op_msg(&mut stream, request_id, &sasl_start_reply(&server_first)).await?;
-                    session = Some((started, false));
+                    session = Some((started, false, false));
                     continue;
                 };
 
-                if credentials.instance.is_suspended().await {
-                    tracing::debug!(
-                        "[{peer}] rejected: instance {} is suspended",
-                        credentials.instance.uuid
-                    );
-                    write_op_msg(
-                        &mut stream,
-                        request_id,
-                        &sasl_error("the database is suspended"),
-                    )
-                    .await?;
-                    return Ok(());
-                }
+                let suspended = credentials.instance.is_suspended().await;
 
                 if let Err(err) = credentials.instance.verify_mongodb_auth().await {
                     tracing::error!(
@@ -127,10 +115,10 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
 
                 write_op_msg(&mut stream, request_id, &sasl_start_reply(&server_first)).await?;
 
-                session = Some((started, true));
+                session = Some((started, true, suspended));
             }
             "saslContinue" => {
-                let (started, routable) = session
+                let (started, routable, suspended) = session
                     .as_ref()
                     .ok_or_else(|| bad("saslContinue before saslStart"))?;
                 let payload = message
@@ -147,6 +135,17 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
                     .await?;
                     return Ok(());
                 };
+
+                if *suspended {
+                    tracing::debug!("[{peer}] rejected: the instance is suspended");
+                    write_op_msg(
+                        &mut stream,
+                        request_id,
+                        &sasl_error("the database is suspended"),
+                    )
+                    .await?;
+                    return Ok(());
+                }
 
                 write_op_msg(
                     &mut stream,
@@ -167,7 +166,7 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
         }
     }
 
-    let (session, _) = session.ok_or_else(|| bad("not authenticated"))?;
+    let (session, _, _) = session.ok_or_else(|| bad("not authenticated"))?;
     tracing::info!(
         "[{peer}] {:?}@{:?} authenticated",
         session.user,
