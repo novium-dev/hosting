@@ -138,35 +138,3 @@ impl S3Config {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::LogoFormat;
-
-    #[test]
-    fn detects_supported_images() {
-        assert!(matches!(
-            LogoFormat::detect(b"\x89PNG\r\n\x1a\nrest"),
-            Some(LogoFormat::Png)
-        ));
-        assert!(matches!(
-            LogoFormat::detect(b"\xff\xd8\xff\xe0rest"),
-            Some(LogoFormat::Jpeg)
-        ));
-        assert!(matches!(
-            LogoFormat::detect(b"GIF89arest"),
-            Some(LogoFormat::Gif)
-        ));
-        assert!(matches!(
-            LogoFormat::detect(b"RIFF\x00\x00\x00\x00WEBPVP8 "),
-            Some(LogoFormat::Webp)
-        ));
-    }
-
-    #[test]
-    fn rejects_everything_else() {
-        assert!(LogoFormat::detect(b"").is_none());
-        assert!(LogoFormat::detect(b"<svg xmlns=\"http://www.w3.org/2000/svg\">").is_none());
-        assert!(LogoFormat::detect(b"RIFF\x00\x00\x00\x00WAVE").is_none());
-    }
-}

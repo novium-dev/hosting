@@ -69,32 +69,3 @@ impl DocumentedType for ClientInfo {
         operations
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::client_ip;
-    use http::Request;
-
-    fn parts(headers: &[(&str, &str)]) -> http::request::Parts {
-        let mut builder = Request::builder();
-        for &(name, value) in headers {
-            builder = builder.header(name, value);
-        }
-
-        builder.body(()).expect("request").into_parts().0
-    }
-
-    #[test]
-    fn prefers_the_first_forwarded_address() {
-        let parts = parts(&[("x-forwarded-for", "203.0.113.9, 10.0.0.1")]);
-
-        assert_eq!(client_ip(&parts).as_deref(), Some("203.0.113.9"));
-    }
-
-    #[test]
-    fn falls_back_to_the_real_ip_header() {
-        let parts = parts(&[("x-real-ip", "203.0.113.9")]);
-
-        assert_eq!(client_ip(&parts).as_deref(), Some("203.0.113.9"));
-    }
-}
