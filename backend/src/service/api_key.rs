@@ -327,7 +327,7 @@ fn grantable_permissions<
     }
 }
 
-fn with_dependencies(permissions: i64) -> i64 {
+pub(crate) fn with_dependencies(permissions: i64) -> i64 {
     let project_scope = ProjectPermissions::all().bits() | ServerPermissions::all().bits();
 
     let scoped = ServerPermissions::from_bits_retain(permissions & project_scope)

@@ -42,6 +42,7 @@ define_error!(project {
     not_found("Project not found" NOT_FOUND),
     not_empty("Project still has servers or databases" BAD_REQUEST),
     slug_invalid("The slug must be 1-64 characters of lowercase letters, numbers or hyphens, and must not be reserved" BAD_REQUEST),
+    name_invalid("The name must be 1-64 characters" BAD_REQUEST),
     expiry_invalid("The membership expiry must be in the future" BAD_REQUEST),
     owner_immutable("The project owner cannot be modified or removed" BAD_REQUEST),
     logo_url_untrusted("The logo URL is not hosted on a trusted URL" BAD_REQUEST),

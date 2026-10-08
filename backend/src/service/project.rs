@@ -4,6 +4,9 @@ use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
 use crate::db::project::ProjectId;
 use crate::logo::{LOGO_MAX_BYTES, LogoFormat};
+use crate::service::api_key::with_dependencies;
+use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
+use crate::service::error_project_name_invalid::FromProjectNameInvalid;
 use crate::service::error_project_not_found::FromProjectNotFound;
 use crate::service::error_project_slug_invalid::FromProjectSlugInvalid;
 use crate::service::project::project_service_error::{
@@ -25,6 +28,7 @@ define_query_variable!(own "Only include projects owned by or shared with the cu
 define_query_variable!(slug "The project slug to check for availability");
 
 const SLUG_MAX_LENGTH: usize = 64;
+const NAME_MAX_LENGTH: usize = 64;
 const LOGO_URL_MAX_LENGTH: usize = 1024;
 
 const RESERVED_SLUGS: &[&str] = &[
@@ -58,6 +62,14 @@ fn validate_slug<E: FromProjectSlugInvalid>(slug: &str) -> Result<(), E> {
         Ok(())
     } else {
         Err(<E as FromProjectSlugInvalid>::from())
+    }
+}
+
+fn validate_name<E: FromProjectNameInvalid>(name: &str) -> Result<(), E> {
+    if name.trim().is_empty() || name.chars().count() > NAME_MAX_LENGTH {
+        Err(<E as FromProjectNameInvalid>::from())
+    } else {
+        Ok(())
     }
 }
 
@@ -147,7 +159,7 @@ pub(crate) impl ProjectService for Backend {
     /// Requires [`ManagementPermissions::LIMITS_BYPASS`] if this instance does
     /// not let users create projects themselves.
     #[route("", method = PUT)]
-    #[error(db::failure <- [sql:*], auth::{unreachable, permission_denied}, project::slug_invalid, user::not_found <- [sql:not_found])]
+    #[error(db::failure <- [sql:*], auth::{unreachable, permission_denied}, project::{slug_invalid, name_invalid}, user::not_found <- [sql:not_found])]
     async fn create_project(
         &self,
         #[special] auth: Authentication,
@@ -160,6 +172,7 @@ pub(crate) impl ProjectService for Backend {
         }
 
         validate_slug::<CreateProjectError>(&slug)?;
+        validate_name::<CreateProjectError>(&name)?;
 
         let owner = if let Some(owner) = owner {
             auth.require::<_, _, CreateProjectError>((), ManagementPermissions::USER_MANAGE)?;
@@ -254,8 +267,10 @@ pub(crate) impl ProjectService for Backend {
     /// Requires [`ProjectPermissions::ADMIN_MANAGEMENT`].
     /// Requires [`ManagementPermissions::LIMITS_BYPASS`] to change the name or
     /// the slug if this instance does not let users rename their own projects.
+    /// Only the current owner or a holder of [`ManagementPermissions::USER_MANAGE`]
+    /// may transfer the ownership.
     #[route("/{project_id}", method = PATCH)]
-    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found <- [sql:not_found], slug_invalid}, user::not_found <- [sql:foreign_key])]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found <- [sql:not_found], slug_invalid, name_invalid}, user::not_found <- [sql:foreign_key])]
     async fn update_project(
         &self,
         #[special] auth: Authentication,
@@ -272,6 +287,17 @@ pub(crate) impl ProjectService for Backend {
 
         if let Some(slug) = slug.as_deref() {
             validate_slug::<UpdateProjectError>(slug)?;
+        }
+
+        if let Some(name) = name.as_deref() {
+            validate_name::<UpdateProjectError>(name)?;
+        }
+
+        if owner.is_some()
+            && !auth.has((), ManagementPermissions::USER_MANAGE)
+            && auth.user_id() != Some(project_owner::<UpdateProjectError>(self, project_id).await?)
+        {
+            return Err(<UpdateProjectError as FromAuthPermissionDenied>::from());
         }
 
         let mut conn = self.database.acquire().await?;
@@ -530,6 +556,10 @@ pub(crate) impl ProjectService for Backend {
     /// An `expires_at` timestamp limits the membership to that point in time;
     /// omitting it grants access until the member is removed. The project owner
     /// always holds every permission and cannot be changed.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::USER_EDIT`]. Both the granted permissions
+    /// and the member's current ones may never exceed your own.
     #[route("/{project_id}/users", method = PUT)]
     #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found, expiry_invalid, owner_immutable}, user::not_found <- [sql:not_found])]
     async fn set_project_user(
@@ -547,13 +577,20 @@ pub(crate) impl ProjectService for Backend {
             return Err(SetProjectUserError::ProjectExpiryInvalid);
         }
 
-        let user_id = query_scalar!("SELECT id FROM users WHERE email = $1", email)
-            .fetch_one(&*self.database)
-            .await?;
+        let [user_id] = query_scalar!("SELECT id FROM users WHERE email = $1", email)
+            .fetch_all(&*self.database)
+            .await?[..]
+        else {
+            return Err(SetProjectUserError::UserNotFound);
+        };
 
         if user_id == owner {
             return Err(SetProjectUserError::ProjectOwnerImmutable);
         }
+
+        let permissions = with_dependencies(permissions) & MEMBER_SCOPE;
+        ensure_grantable::<SetProjectUserError>(&auth, project_id, permissions)?;
+        ensure_member_grantable::<SetProjectUserError>(self, &auth, project_id, user_id).await?;
 
         query!(
             r#"INSERT INTO project_users ("user", project, permissions, expires_at)
@@ -575,6 +612,10 @@ pub(crate) impl ProjectService for Backend {
     /// Removes a project member.
     ///
     /// The project owner cannot be removed.
+    ///
+    /// # Permissions
+    /// Requires [`ProjectPermissions::USER_EDIT`]. The member's permissions may
+    /// never exceed your own.
     #[route("/{project_id}/users/{user_id}", method = DELETE)]
     #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::{not_found, owner_immutable})]
     async fn remove_project_user(
@@ -589,6 +630,8 @@ pub(crate) impl ProjectService for Backend {
             return Err(RemoveProjectUserError::ProjectOwnerImmutable);
         }
 
+        ensure_member_grantable::<RemoveProjectUserError>(self, &auth, project_id, user_id).await?;
+
         query!(
             r#"DELETE FROM project_users WHERE project = $1 AND "user" = $2"#,
             &project_id,
@@ -599,6 +642,40 @@ pub(crate) impl ProjectService for Backend {
 
         Ok(())
     }
+}
+
+const MEMBER_SCOPE: i64 = ProjectPermissions::all().bits() | ServerPermissions::all().bits();
+
+fn ensure_grantable<E: FromAuthPermissionDenied>(
+    auth: &Authentication,
+    project_id: ProjectId,
+    permissions: i64,
+) -> Result<(), E> {
+    let allowed = auth.permissions::<ProjectPermissions, _>(project_id).bits() & MEMBER_SCOPE;
+
+    if permissions & MEMBER_SCOPE & !allowed == 0 {
+        Ok(())
+    } else {
+        Err(<E as FromAuthPermissionDenied>::from())
+    }
+}
+
+async fn ensure_member_grantable<E: From<sqlx::Error> + FromAuthPermissionDenied>(
+    backend: &Backend,
+    auth: &Authentication,
+    project_id: ProjectId,
+    user_id: i32,
+) -> Result<(), E> {
+    let current = query_scalar!(
+        r#"SELECT permissions FROM project_users WHERE project = $1 AND "user" = $2"#,
+        &project_id,
+        user_id
+    )
+    .fetch_optional(&*backend.database)
+    .await?
+    .unwrap_or_default();
+
+    ensure_grantable::<E>(auth, project_id, current)
 }
 
 async fn project_owner<E: From<sqlx::Error> + FromProjectNotFound>(
