@@ -37,12 +37,6 @@ The Redis proxy (`database_agent/src/subsystems/redis/mod.rs`) checks the passwo
 
 Possible fix: create an ACL user per database user (`ACL SETUSER`, `+@read` for read access), disable the unauthenticated `default` user, and forward `AUTH` to the instance instead of answering it in the proxy.
 
-## Unauthenticated SSH auth endpoints
-
-`/internal/auth/password` and `/internal/auth/publickey` (`backend/src/service/internal.rs`) are `no_auth`. Anyone who knows a username and the SHA-512 fingerprint of one of that user's public keys gets the list of servers on a node with the user's permissions, and the password endpoint can be queried without a rate limit.
-
-Possible fix: require the node's mTLS client certificate (or a per-node secret) on these routes. Needs the daemon to send it.
-
 ## No TLS on the database proxies
 
 The Postgres proxy answers `SSLRequest` with `N`, MariaDB uses `mysql_native_password`, and Redis and MongoDB are plaintext. Traffic and, for MariaDB, material for offline password guessing are exposed on the network.
@@ -51,8 +45,6 @@ Possible fix: terminate TLS in the proxies with a certificate for the host's pub
 
 ## Smaller items
 
-- `users.email` and `users.username` are not unique. Inviting by email now refuses ambiguous addresses, but a unique constraint needs a migration that resolves existing duplicates first.
-- `users.daemon_password` is stored in plaintext because the profile page shows it again. Hashing it means showing it only once on generation.
 - The backup limit is checked against the node's backup list before the backup is ordered, so concurrent requests can exceed it. The check has to move to the daemon.
 - There is no rate limiting on login, API or proxy authentication.
 - Server containers have no pids limit unless the cgroup slice sets one.
