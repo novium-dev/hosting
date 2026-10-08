@@ -105,6 +105,10 @@ impl ScheduleTask {
         matches!(self, Self::ContainerCommand { .. })
     }
 
+    pub const fn controls_power(&self) -> bool {
+        matches!(self, Self::Start | Self::Stop | Self::Restart | Self::Kill)
+    }
+
     pub const fn runs_console_commands(&self) -> bool {
         matches!(
             self,

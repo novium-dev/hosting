@@ -6,6 +6,8 @@ use crate::db::server::schedule::{
     next_run, normalize_cron, parse_cron,
 };
 use crate::db::server::{Server, ServerId};
+use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
+use crate::service::error_server_not_found::FromServerNotFound;
 use crate::service::schedule::schedule_service_error::{
     CreateScheduleError, DeleteScheduleError, ListSchedulesError, RunScheduleError,
     UpdateScheduleError,
@@ -271,6 +273,7 @@ pub(crate) impl ScheduleService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::SCHEDULE_MANAGE`],
+    /// [`ServerPermissions::POWER`] for a power task,
     /// [`ServerPermissions::TERMINAL_WRITE`] for a console command task,
     /// [`ManagementPermissions::SERVER_MANAGE`] for a container command task,
     /// [`ServerPermissions::BACKUP_CREATE`] for a backup task,
@@ -294,43 +297,7 @@ pub(crate) impl ScheduleService for Backend {
     ) -> Result<i32, _> {
         auth.require::<_, _, CreateScheduleError>(server_id, ServerPermissions::SCHEDULE_MANAGE)?;
 
-        if payload
-            .tasks
-            .iter()
-            .any(ScheduleTask::requires_container_access)
-        {
-            auth.require::<_, _, CreateScheduleError>((), ManagementPermissions::SERVER_MANAGE)?;
-        }
-
-        if payload
-            .tasks
-            .iter()
-            .any(ScheduleTask::runs_console_commands)
-        {
-            auth.require::<_, _, CreateScheduleError>(
-                server_id,
-                ServerPermissions::TERMINAL_WRITE,
-            )?;
-        }
-
-        if payload.tasks.iter().any(ScheduleTask::creates_backups) {
-            auth.require::<_, _, CreateScheduleError>(server_id, ServerPermissions::BACKUP_CREATE)?;
-        }
-
-        if payload.tasks.iter().any(ScheduleTask::removes_backups) {
-            auth.require::<_, _, CreateScheduleError>(server_id, ServerPermissions::BACKUP_DELETE)?;
-        }
-
-        if payload
-            .tasks
-            .iter()
-            .any(ScheduleTask::selects_backup_storage)
-        {
-            auth.require::<_, _, CreateScheduleError>(
-                (),
-                ManagementPermissions::BACKUP_STORAGE_SELECT,
-            )?;
-        }
+        require_task_permissions::<CreateScheduleError>(&auth, server_id, &payload.tasks)?;
 
         let bypasses_limits = auth.has((), ManagementPermissions::LIMITS_BYPASS);
 
@@ -417,6 +384,7 @@ pub(crate) impl ScheduleService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::SCHEDULE_MANAGE`],
+    /// [`ServerPermissions::POWER`] for a power task,
     /// [`ServerPermissions::TERMINAL_WRITE`] for a console command task,
     /// [`ManagementPermissions::SERVER_MANAGE`] for a container command task,
     /// [`ServerPermissions::BACKUP_CREATE`] for a backup task,
@@ -441,43 +409,7 @@ pub(crate) impl ScheduleService for Backend {
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateScheduleError>(server_id, ServerPermissions::SCHEDULE_MANAGE)?;
 
-        if payload
-            .tasks
-            .iter()
-            .any(ScheduleTask::requires_container_access)
-        {
-            auth.require::<_, _, UpdateScheduleError>((), ManagementPermissions::SERVER_MANAGE)?;
-        }
-
-        if payload
-            .tasks
-            .iter()
-            .any(ScheduleTask::runs_console_commands)
-        {
-            auth.require::<_, _, UpdateScheduleError>(
-                server_id,
-                ServerPermissions::TERMINAL_WRITE,
-            )?;
-        }
-
-        if payload.tasks.iter().any(ScheduleTask::creates_backups) {
-            auth.require::<_, _, UpdateScheduleError>(server_id, ServerPermissions::BACKUP_CREATE)?;
-        }
-
-        if payload.tasks.iter().any(ScheduleTask::removes_backups) {
-            auth.require::<_, _, UpdateScheduleError>(server_id, ServerPermissions::BACKUP_DELETE)?;
-        }
-
-        if payload
-            .tasks
-            .iter()
-            .any(ScheduleTask::selects_backup_storage)
-        {
-            auth.require::<_, _, UpdateScheduleError>(
-                (),
-                ManagementPermissions::BACKUP_STORAGE_SELECT,
-            )?;
-        }
+        require_task_permissions::<UpdateScheduleError>(&auth, server_id, &payload.tasks)?;
 
         let bypasses_limits = auth.has((), ManagementPermissions::LIMITS_BYPASS);
 
@@ -550,7 +482,8 @@ pub(crate) impl ScheduleService for Backend {
     /// in the background; this answers as soon as it has accepted the request.
     ///
     /// # Permissions
-    /// Requires [`ServerPermissions::SCHEDULE_MANAGE`].
+    /// Requires [`ServerPermissions::SCHEDULE_MANAGE`] and the permissions its
+    /// tasks would need to be created.
     #[route("/{server_id}/{schedule_id}/run", method = POST)]
     #[error(
         auth::{permission_denied, unreachable},
@@ -572,16 +505,22 @@ pub(crate) impl ScheduleService for Backend {
             .await?
             .ok_or(RunScheduleError::ServerNotFound)?;
 
-        let node_schedule_id = query!(
-            "SELECT node_schedule_id FROM server_schedules WHERE id = $1 AND server = $2",
+        let schedule = query!(
+            r#"SELECT node_schedule_id, tasks AS "tasks: JsonValue"
+             FROM server_schedules WHERE id = $1 AND server = $2"#,
             schedule_id,
             &server_id
         )
         .fetch_optional(&*self.database)
         .await?
-        .ok_or(RunScheduleError::ScheduleNotFound)?
-        .node_schedule_id
-        .ok_or(RunScheduleError::ScheduleNotSynchronized)?;
+        .ok_or(RunScheduleError::ScheduleNotFound)?;
+
+        let tasks: Vec<ScheduleTask> = serde_json::from_value(schedule.tasks).unwrap_or_default();
+        require_task_permissions::<RunScheduleError>(&auth, server_id, &tasks)?;
+
+        let node_schedule_id = schedule
+            .node_schedule_id
+            .ok_or(RunScheduleError::ScheduleNotSynchronized)?;
 
         server
             .node
@@ -706,4 +645,36 @@ impl FromScheduleValidation for UpdateScheduleError {
     fn node_failure() -> Self {
         Self::NodeFailure
     }
+}
+
+fn require_task_permissions<E: FromAuthPermissionDenied + FromServerNotFound>(
+    auth: &Authentication,
+    server_id: ServerId,
+    tasks: &[ScheduleTask],
+) -> Result<(), E> {
+    if tasks.iter().any(ScheduleTask::controls_power) {
+        auth.require::<_, _, E>(server_id, ServerPermissions::POWER)?;
+    }
+
+    if tasks.iter().any(ScheduleTask::requires_container_access) {
+        auth.require::<_, _, E>((), ManagementPermissions::SERVER_MANAGE)?;
+    }
+
+    if tasks.iter().any(ScheduleTask::runs_console_commands) {
+        auth.require::<_, _, E>(server_id, ServerPermissions::TERMINAL_WRITE)?;
+    }
+
+    if tasks.iter().any(ScheduleTask::creates_backups) {
+        auth.require::<_, _, E>(server_id, ServerPermissions::BACKUP_CREATE)?;
+    }
+
+    if tasks.iter().any(ScheduleTask::removes_backups) {
+        auth.require::<_, _, E>(server_id, ServerPermissions::BACKUP_DELETE)?;
+    }
+
+    if tasks.iter().any(ScheduleTask::selects_backup_storage) {
+        auth.require::<_, _, E>((), ManagementPermissions::BACKUP_STORAGE_SELECT)?;
+    }
+
+    Ok(())
 }
