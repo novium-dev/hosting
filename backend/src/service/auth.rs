@@ -1,7 +1,7 @@
 use super::*;
 use crate::Backend;
 use crate::auth::client::ClientInfo;
-use crate::auth::oauth::flow::OAuthFlow;
+use crate::auth::oauth::flow::{OAuthFlow, OAuthStateCookie, clear_state_cookie, set_state_cookie};
 use crate::auth::permissions::Role;
 use crate::auth::session::{
     PreviousSession, SessionToken, clear_session_cookie, set_session_cookie,
@@ -45,7 +45,7 @@ pub(crate) struct SessionInfo {
 #[service(path = "/auth", tag = "auth", no_sdk)]
 pub(crate) impl AuthService for Backend {
     /// Revokes the current user session and clears the session cookie.
-    #[route("/logout", method = GET, raw)]
+    #[route("/logout", method = POST, raw)]
     #[error(db::failure <- [sql:*], auth::unreachable)]
     async fn logout(&self, #[special] auth: UserAuthentication) -> Result<WithCookies<()>, _> {
         auth.session.revoke::<LogoutError>(self).await?;
@@ -135,7 +135,8 @@ pub(crate) impl AuthService for Backend {
         #[special] previous: PreviousSession,
         redirect_url: String,
     ) -> Result<WithCookies<Redirect<307>>, _> {
-        let destination = Url::parse(&redirect_url).map_err(|_err| LoginDevError::AuthFailure)?;
+        let destination =
+            allowed_redirect(self, &redirect_url).ok_or(LoginDevError::AuthFailure)?;
 
         let token = SessionToken::generate().map_err(|_err| LoginDevError::OsFailure)?;
         let dev_user = 1i32;
@@ -165,9 +166,20 @@ pub(crate) impl AuthService for Backend {
     }
 
     /// Initiates the OAuth login process.
+    ///
+    /// `redirect_url` must be on the public URL or one of the trusted URLs. The
+    /// state is bound to the browser with a cookie the callback checks.
     #[route("/login/{provider}", method = GET, query = [ redirect_url ], raw)]
     #[error(auth::failure, cache::failure <- [redis:*])]
-    async fn login(&self, provider: String, redirect_url: String) -> Result<Redirect<307>, _> {
+    async fn login(
+        &self,
+        provider: String,
+        redirect_url: String,
+    ) -> Result<WithCookies<Redirect<307>>, _> {
+        let redirect_url = allowed_redirect(self, &redirect_url)
+            .ok_or(LoginError::AuthFailure)?
+            .to_string();
+
         let (url, csrf_token, pkce_verifier) = self.auth.generate_url::<LoginError>(
             &provider,
             ["openid", "profile", "email", "roles"]
@@ -176,16 +188,22 @@ pub(crate) impl AuthService for Backend {
                 .map(Scope::new),
         )?;
 
+        let state = csrf_token.into_secret();
+        let expires = Duration::minutes(30);
+
         OAuthFlow {
             provider,
-            redirect_url: redirect_url.clone(),
-            state: csrf_token.into_secret(),
+            redirect_url,
+            state: state.clone(),
             verifier: pkce_verifier.into_secret(),
         }
-        .insert::<LoginError>(Duration::minutes(30), &mut self.cache.clone())
+        .insert::<LoginError>(expires, &mut self.cache.clone())
         .await?;
 
-        Ok(Redirect::new(url.as_str()))
+        Ok(WithCookies::new(
+            Redirect::new(url.as_str()),
+            vec![set_state_cookie(self, &state, expires)],
+        ))
     }
 
     /// Handles the OAuth callback after user authentication.
@@ -195,10 +213,15 @@ pub(crate) impl AuthService for Backend {
         &self,
         #[special] client: ClientInfo,
         #[special] previous: PreviousSession,
+        #[special] state_cookie: OAuthStateCookie,
         code: String,
         state: String,
     ) -> Result<WithCookies<Redirect<307>>, _> {
-        let flow = OAuthFlow::get::<CallbackError>(&state, &mut self.cache.clone())
+        if state_cookie.0.as_deref() != Some(state.as_str()) {
+            return Err(CallbackError::AuthFailure);
+        }
+
+        let flow = OAuthFlow::take::<CallbackError>(&state, &mut self.cache.clone())
             .await?
             .ok_or(CallbackError::AuthFailure)?;
 
@@ -229,14 +252,18 @@ pub(crate) impl AuthService for Backend {
 
         self.create_session(user_id, &token, &client).await?;
 
-        let _ = OAuthFlow::remove(&state, &mut self.cache.clone()).await;
-
         let redirect_destination =
             Url::parse(&flow.redirect_url).map_err(|_err| CallbackError::AuthFailure)?;
 
         Ok(WithCookies::new(
             Redirect::new(redirect_destination.as_str()),
-            vec![set_session_cookie(self, &token)],
+            vec![set_session_cookie(self, &token), clear_state_cookie(self)],
         ))
     }
+}
+
+fn allowed_redirect(backend: &Backend, redirect_url: &str) -> Option<Url> {
+    Url::parse(redirect_url)
+        .ok()
+        .filter(|url| backend.config.allowed_origins().contains(&url.origin()))
 }
