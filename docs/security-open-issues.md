@@ -31,12 +31,6 @@ Possible fixes:
 - Daemon: create containers with `security_opt: ["no-new-privileges:true"]`.
 - Daemon: mount the server storage with `nosuid` (and consider user namespace remapping).
 
-## Redis users get the default user's access
-
-The Redis proxy (`database_agent/src/subsystems/redis/mod.rs`) checks the password itself and then connects to the instance socket without authenticating, so every client runs as Redis' `default` user. Read-only grants are not enforced and `CONFIG`, `FLUSHALL`, `ACL` and similar commands are available to every user of the instance.
-
-Possible fix: create an ACL user per database user (`ACL SETUSER`, `+@read` for read access), disable the unauthenticated `default` user, and forward `AUTH` to the instance instead of answering it in the proxy.
-
 ## No TLS on the database proxies
 
 The Postgres proxy answers `SSLRequest` with `N`, MariaDB uses `mysql_native_password`, and Redis and MongoDB are plaintext. Traffic and, for MariaDB, material for offline password guessing are exposed on the network.

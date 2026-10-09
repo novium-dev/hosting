@@ -99,6 +99,11 @@ async fn read_line<S: AsyncRead + Unpin>(
     Ok(line)
 }
 
+pub async fn read_reply_line<S: AsyncRead + Unpin>(stream: &mut S) -> io::Result<Vec<u8>> {
+    let mut raw_length = 0;
+    read_line(stream, &mut raw_length).await
+}
+
 fn parse_int(bytes: &[u8]) -> io::Result<i64> {
     core::str::from_utf8(bytes)
         .ok()
