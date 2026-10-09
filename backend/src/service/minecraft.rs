@@ -18,7 +18,7 @@ pub(crate) impl MinecraftService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::TERMINAL_WRITE`].
-    #[route("/{server_id}/ban", method = GET, query = [ user ])]
+    #[route("/{server_id}/ban", method = POST, query = [ user ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn ban_user(
         &self,
@@ -38,7 +38,7 @@ pub(crate) impl MinecraftService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::TERMINAL_WRITE`].
-    #[route("/{server_id}/pardon", method = GET, query = [ user ])]
+    #[route("/{server_id}/pardon", method = POST, query = [ user ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn pardon_user(
         &self,
@@ -58,7 +58,7 @@ pub(crate) impl MinecraftService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::TERMINAL_WRITE`].
-    #[route("/{server_id}/op", method = GET, query = [ user ])]
+    #[route("/{server_id}/op", method = POST, query = [ user ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn op_user(
         &self,
@@ -78,7 +78,7 @@ pub(crate) impl MinecraftService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::TERMINAL_WRITE`].
-    #[route("/{server_id}/deop", method = GET, query = [ user ])]
+    #[route("/{server_id}/deop", method = POST, query = [ user ])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, unavailable}, node::failure)]
     async fn deop_user(
         &self,

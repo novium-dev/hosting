@@ -27,6 +27,9 @@ use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
 use uuid::Uuid;
 
+const REDIS_SECURE_ATTEMPTS: u32 = 20;
+const REDIS_SECURE_INTERVAL: core::time::Duration = core::time::Duration::from_millis(500);
+
 const MARIADB_DEFINER_STRIP: &str = r"sed -e 's/DEFINER=`[^`]*`@`[^`]*`//g'";
 
 pub struct InnerInstance {
@@ -195,6 +198,52 @@ impl Instance {
         drop(data);
 
         result
+    }
+
+    pub async fn ensure_root_password(&self) -> anyhow::Result<String> {
+        let mut data = self.data.write().await;
+        if let Some(password) = data.root_password.clone() {
+            return Ok(password);
+        }
+
+        let password = generate_password();
+        data::set_root_password(self.agent.store.write(), self.uuid, &password).await?;
+        data.root_password = Some(password.clone());
+        drop(data);
+
+        Ok(password)
+    }
+
+    pub async fn secure_redis(&self) -> anyhow::Result<()> {
+        let mut attempt = 0u32;
+        loop {
+            match self.apply_redis_acl().await {
+                Ok(()) => return Ok(()),
+                Err(err) if attempt >= REDIS_SECURE_ATTEMPTS => return Err(err),
+                Err(_) => {
+                    attempt = attempt.saturating_add(1);
+                    tokio::time::sleep(REDIS_SECURE_INTERVAL).await;
+                }
+            }
+        }
+    }
+
+    async fn apply_redis_acl(&self) -> anyhow::Result<()> {
+        let root_password = self.ensure_root_password().await?;
+        let connection = connection::redis::RedisConnection::new(
+            &self.socket_path().await,
+            &root_password,
+            true,
+        )?;
+
+        connection.secure(&root_password).await?;
+        for user in data::users(&mut *self.agent.store.read().acquire().await?, self.uuid).await? {
+            connection
+                .create_user(&identifier(&user)?, &user.password)
+                .await?;
+        }
+
+        Ok(())
     }
 
     pub async fn resync_users(&self) -> anyhow::Result<()> {
@@ -547,6 +596,12 @@ impl Instance {
         };
         if result.is_ok() {
             self.persist_state(ContainerState::Running).await;
+
+            if self.database_type().await == DatabaseType::Redis
+                && let Err(err) = self.secure_redis().await
+            {
+                tracing::error!(instance = %self.uuid, "failed to apply the redis users: {err:#}");
+            }
         }
         drop(guard);
 
@@ -653,7 +708,9 @@ impl Instance {
                     None => format!("mongodump --host='{socket}'{auth} --archive"),
                 }
             }
-            DatabaseType::Redis => format!("redis-cli -s '{socket}' --rdb -"),
+            DatabaseType::Redis => {
+                format!("{} -s '{socket}' --rdb -", redis_cli(&data))
+            }
         };
         drop(data);
 
@@ -741,8 +798,9 @@ impl Instance {
                 if database.is_some() {
                     anyhow::bail!("redis has no named databases");
                 }
-                let wipe = wipe.then(|| format!("redis-cli -s '{socket}' FLUSHALL"));
-                (wipe, format!("redis-cli -s '{socket}' --pipe"))
+                let cli = redis_cli(&data);
+                let wipe = wipe.then(|| format!("{cli} -s '{socket}' FLUSHALL"));
+                (wipe, format!("{cli} -s '{socket}' --pipe"))
             }
         };
         drop(data);
@@ -807,6 +865,18 @@ impl Instance {
 fn identifier(user: &StoredUser) -> anyhow::Result<UserIdentifier> {
     UserIdentifier::from_parts(user.uuid.as_fields().0, &user.username)
         .with_context(|| format!("invalid identifier for user {}", user.username))
+}
+
+fn redis_cli(data: &StoredInstance) -> String {
+    data.root_password.as_deref().map_or_else(
+        || "redis-cli".to_owned(),
+        |password| {
+            format!(
+                "REDISCLI_AUTH='{password}' redis-cli --user {}",
+                connection::redis::ROOT_USERNAME
+            )
+        },
+    )
 }
 
 fn mongodb_shell_auth(data: &StoredInstance) -> String {

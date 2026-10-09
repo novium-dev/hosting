@@ -1,6 +1,6 @@
 use super::*;
 use crate::Backend;
-use crate::auth::user::{UserAuthentication, generate_daemon_password};
+use crate::auth::user::{UserAuthentication, generate_daemon_password, hash_daemon_password};
 use crate::service::profile::profile_service_error::{AddSshKeyError, DeleteSshKeyError};
 use serde::Serialize;
 use sqlx::query;
@@ -98,15 +98,10 @@ pub(crate) impl ProfileService for Backend {
         Ok(())
     }
 
-    /// Gets the current user's daemon password.
-    #[route("/daemon-password", method = GET)]
-    #[error(db::failure <- [sql:*], auth::unreachable)]
-    async fn daemon_password(&self, #[special] auth: UserAuthentication) -> Result<String, _> {
-        let password = ensure_daemon_password(self, auth.id).await?;
-        Ok(password)
-    }
-
-    /// Replaces the current user's daemon password.
+    /// Generates a new daemon password for the current user and returns it.
+    ///
+    /// Only a hash is stored, so the password is shown this one time. Any
+    /// previous password stops working.
     #[route("/daemon-password/reroll", method = POST)]
     #[error(db::failure <- [sql:*], auth::unreachable)]
     async fn reroll_daemon_password(
@@ -116,7 +111,7 @@ pub(crate) impl ProfileService for Backend {
         let password = generate_daemon_password();
         query!(
             "UPDATE users SET daemon_password = $1 WHERE id = $2",
-            password,
+            hash_daemon_password(&password),
             auth.id
         )
         .execute(&*self.database)
@@ -124,27 +119,6 @@ pub(crate) impl ProfileService for Backend {
 
         Ok(password)
     }
-}
-
-async fn ensure_daemon_password(backend: &Backend, user_id: i32) -> Result<String, sqlx::Error> {
-    let row = query!("SELECT daemon_password FROM users WHERE id = $1", user_id)
-        .fetch_one(&*backend.database)
-        .await?;
-
-    if let Some(password) = row.daemon_password {
-        return Ok(password);
-    }
-
-    let password = generate_daemon_password();
-    query!(
-        "UPDATE users SET daemon_password = $1 WHERE id = $2",
-        password,
-        user_id
-    )
-    .execute(&*backend.database)
-    .await?;
-
-    Ok(password)
 }
 
 pub(crate) fn parse_ssh_public_key(public_key: &str) -> Result<(String, String), ()> {

@@ -110,12 +110,31 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
 
     let mut backend = UnixStream::connect(&credentials.instance.socket_path().await).await?;
 
+    let Some(user_id) = user_id else {
+        return stream.write_all(WRONG_PASS).await;
+    };
+    backend
+        .write_all(&resp::encode_command(&[
+            b"AUTH".to_vec(),
+            user_id.to_string().into_bytes(),
+            credentials.password.as_bytes().to_vec(),
+        ]))
+        .await?;
+    let reply = resp::read_reply_line(&mut backend).await?;
+    if reply.first() != Some(&b'+') {
+        tracing::warn!(
+            "[{peer}] the instance {} refused the credentials of {user_id}",
+            credentials.instance.uuid
+        );
+        return stream.write_all(WRONG_PASS).await;
+    }
+
     match identity.forward {
         Some(bytes) => backend.write_all(&bytes).await?,
         None => stream.write_all(b"+OK\r\n").await?,
     }
 
-    let guard = user_id.map(|id| agent.subsystems.connections(KIND).connect(id, None));
+    let guard = agent.subsystems.connections(KIND).connect(user_id, None);
     let (sent, received) = copy_bidirectional(&mut stream, &mut backend).await?;
     drop(guard);
 

@@ -249,6 +249,14 @@ pub(crate) impl DatabaseService for Backend {
         let remote = detached(async move {
             conn.transaction(|tx| {
                 Box::pin(async move {
+                    query!(
+                        "SELECT id FROM projects WHERE id = $1 FOR UPDATE",
+                        &project_id
+                    )
+                    .fetch_optional(&mut **tx)
+                    .await?
+                    .ok_or(CreateProjectInstanceError::ProjectNotFound)?;
+
                     let count = query_scalar!(
                         r#"SELECT COUNT(*) AS "count!" FROM database_instances WHERE project = $1"#,
                         &project_id

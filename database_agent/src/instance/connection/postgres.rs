@@ -129,7 +129,7 @@ impl PostgresConnection {
             .chain(revoked.iter().map(|user| quote_ident(&user.to_string())))
             .collect();
 
-        let mut cluster = String::new();
+        let mut cluster = format!("REVOKE ALL ON DATABASE {quoted_database} FROM PUBLIC;");
         let mut schema = String::new();
 
         for role in &roles {
@@ -192,7 +192,7 @@ impl PostgresConnection {
             }
         }
 
-        if cluster.is_empty() {
+        if roles.is_empty() {
             return Ok(());
         }
 
@@ -203,7 +203,9 @@ impl PostgresConnection {
     }
 
     pub async fn create_database(&self, name: &str) -> anyhow::Result<()> {
-        self.execute(&format!("CREATE DATABASE {}", quote_ident(name)))
+        let database = quote_ident(name);
+        self.execute(&format!("CREATE DATABASE {database}")).await?;
+        self.execute(&format!("REVOKE ALL ON DATABASE {database} FROM PUBLIC"))
             .await
     }
 

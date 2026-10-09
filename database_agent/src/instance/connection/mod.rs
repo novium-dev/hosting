@@ -5,7 +5,7 @@ pub mod redis;
 
 use crate::instance::Instance;
 use database_agent_common::identifier::UserIdentifier;
-use database_agent_common::types::{DatabaseAccess, DatabaseType, QueryResult};
+use database_agent_common::types::{ContainerState, DatabaseAccess, DatabaseType, QueryResult};
 
 fn unnamed_databases<T>() -> anyhow::Result<T> {
     anyhow::bail!("redis has no named databases")
@@ -30,7 +30,7 @@ impl Connection {
             Self::Mariadb(ref conn) => conn.create_user(user, password).await,
             Self::Mongodb(ref conn) => conn.create_user(user, password).await,
             Self::Postgres(ref conn) => conn.create_user(user, password).await,
-            Self::Redis(_) => Ok(()),
+            Self::Redis(ref conn) => conn.create_user(user, password).await,
         }
     }
 
@@ -43,7 +43,7 @@ impl Connection {
             Self::Mariadb(ref conn) => conn.update_user_password(user, password).await,
             Self::Mongodb(ref conn) => conn.update_user_password(user, password).await,
             Self::Postgres(ref conn) => conn.update_user_password(user, password).await,
-            Self::Redis(_) => Ok(()),
+            Self::Redis(ref conn) => conn.create_user(user, password).await,
         }
     }
 
@@ -56,7 +56,7 @@ impl Connection {
             Self::Mariadb(ref conn) => conn.delete_user(user).await,
             Self::Mongodb(ref conn) => conn.delete_user(user).await,
             Self::Postgres(ref conn) => conn.delete_user(user, databases).await,
-            Self::Redis(_) => Ok(()),
+            Self::Redis(ref conn) => conn.delete_user(user).await,
         }
     }
 
@@ -143,7 +143,13 @@ impl Instance {
                 Connection::Postgres(postgres::PostgresConnection::new(socket))
             }
             DatabaseType::Redis => {
-                Connection::Redis(Box::new(redis::RedisConnection::new(&socket)?))
+                let root_password = self.ensure_root_password().await?;
+                let online = self.container_state().await == ContainerState::Running;
+                Connection::Redis(Box::new(redis::RedisConnection::new(
+                    &socket,
+                    &root_password,
+                    online,
+                )?))
             }
         })
     }

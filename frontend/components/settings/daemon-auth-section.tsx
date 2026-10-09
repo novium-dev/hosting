@@ -2,7 +2,6 @@
 
 import {
   addSshKey,
-  daemonPassword,
   deleteSshKey,
   listSshKeys,
   rerollDaemonPassword,
@@ -58,50 +57,14 @@ export function DaemonAuthSection() {
     },
   );
   const [showSshKeys, setShowSshKeys] = useState(false);
-  const [showDaemonPassword, setShowDaemonPassword] = useState(false);
   const [daemonPasswordValue, setDaemonPasswordValue] = useState<string | null>(
     null,
   );
-  const [daemonLoading, setDaemonLoading] = useState(false);
-  const [copyLoading, setCopyLoading] = useState(false);
   const [rerollLoading, setRerollLoading] = useState(false);
   const [deletingKeyId, setDeletingKeyId] = useState<number | null>(null);
   const [addingKey, setAddingKey] = useState(false);
   const [keyName, setKeyName] = useState("");
   const [publicKey, setPublicKey] = useState("");
-
-  const loadDaemonPassword = async (setLoading: (loading: boolean) => void) => {
-    if (daemonPasswordValue) {
-      return daemonPasswordValue;
-    }
-
-    setLoading(true);
-    const response = await daemonPassword().finally(() => {
-      setLoading(false);
-    });
-
-    if (response.error || !response.data) {
-      toast.error(
-        apiErrorMessage(response.error, t("settings:daemonAuth.loadError")),
-      );
-      return null;
-    }
-
-    setDaemonPasswordValue(response.data);
-    return response.data;
-  };
-
-  const toggleDaemonPassword = async () => {
-    if (showDaemonPassword) {
-      setShowDaemonPassword(false);
-      return;
-    }
-
-    const password = await loadDaemonPassword(setDaemonLoading);
-    if (!password) return;
-
-    setShowDaemonPassword(true);
-  };
 
   const handleCopy = async (value: string, label: string) => {
     try {
@@ -113,10 +76,12 @@ export function DaemonAuthSection() {
   };
 
   const handleCopyDaemonPassword = async () => {
-    const password = await loadDaemonPassword(setCopyLoading);
-    if (!password) return;
+    if (!daemonPasswordValue) return;
 
-    await handleCopy(password, t("settings:daemonAuth.passwordLabel"));
+    await handleCopy(
+      daemonPasswordValue,
+      t("settings:daemonAuth.passwordLabel"),
+    );
   };
 
   const handleRerollDaemonPassword = async () => {
@@ -141,7 +106,6 @@ export function DaemonAuthSection() {
     }
 
     setDaemonPasswordValue(response.data);
-    setShowDaemonPassword(true);
     toast.success(t("settings:daemonAuth.regenerateSuccess"));
   };
 
@@ -221,12 +185,8 @@ export function DaemonAuthSection() {
             <Input
               id="daemon-password"
               readOnly
-              type={showDaemonPassword ? "text" : "password"}
-              value={
-                showDaemonPassword && daemonPasswordValue
-                  ? daemonPasswordValue
-                  : maskedValue
-              }
+              type="text"
+              value={daemonPasswordValue ?? maskedValue}
               className="font-mono"
             />
           </div>
@@ -238,39 +198,10 @@ export function DaemonAuthSection() {
                     type="button"
                     variant="outline"
                     size="icon"
-                    onClick={toggleDaemonPassword}
-                    loading={daemonLoading}
-                    aria-label={
-                      showDaemonPassword
-                        ? t("settings:daemonAuth.hidePassword")
-                        : t("settings:daemonAuth.revealPassword")
-                    }
-                  />
-                }
-              >
-                {showDaemonPassword ? (
-                  <EyeOff className="size-4" />
-                ) : (
-                  <Eye className="size-4" />
-                )}
-              </TooltipTrigger>
-              <TooltipContent>
-                {showDaemonPassword
-                  ? t("settings:daemonAuth.hidePasswordTooltip")
-                  : t("settings:daemonAuth.revealPasswordTooltip")}
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
+                    disabled={!daemonPasswordValue}
                     onClick={() => {
                       void handleCopyDaemonPassword();
                     }}
-                    loading={copyLoading}
                     aria-label={t("settings:daemonAuth.copyPasswordAriaLabel")}
                   />
                 }

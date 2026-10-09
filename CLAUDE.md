@@ -39,7 +39,7 @@ sqlx migrate run --source backend/migrations --database-url postgres://postgres:
 ///
 /// # Permissions
 /// Requires [`ServerPermissions::POWER`].
-#[route("/{server_id}/restart", method = GET)]
+#[route("/{server_id}/restart", method = POST)]
 ```
 
 - Never edit a committed migration unless asked.

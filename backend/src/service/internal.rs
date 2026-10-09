@@ -1,4 +1,6 @@
 use super::*;
+use crate::auth::node::NodeSignature;
+use crate::auth::user::hash_daemon_password;
 use crate::cluster::SyncTarget;
 use crate::db::node::insert_storages;
 use crate::registration::{DatabaseHostRegistration, NodeRegistration};
@@ -313,29 +315,39 @@ pub(crate) impl InternalService for Backend {
 
     /// Authenticates an SFTP/SSH password login against a server's daemon password.
     ///
-    /// This route should only be used directly by the daemon.
+    /// This route should only be used directly by the daemon. The request must be
+    /// signed with the node's key.
     #[route("/auth/password", no_auth, query = [ node ])]
     #[error(auth::invalid, db::failure <- [sql:*])]
     async fn auth_password(
         &self,
         node: String,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Basic>>,
+        #[special] signature: NodeSignature,
     ) -> Result<DaemonBackendAuthResponse, _> {
         let node = Uuid::parse_str(&node).map_err(|_err| AuthPasswordError::AuthInvalid)?;
+        if !signature.verify(self, node).await {
+            return Err(AuthPasswordError::AuthInvalid);
+        }
         auth_servers_for_password(self, node, auth.username(), auth.password()).await
     }
 
     /// Authenticates an SFTP/SSH public-key login against a user's registered SSH keys.
     ///
-    /// This route should only be used directly by the daemon.
+    /// This route should only be used directly by the daemon. The request must be
+    /// signed with the node's key.
     #[route("/auth/publickey", no_auth, query = [ node ])]
     #[error(auth::invalid, db::failure <- [sql:*])]
     async fn auth_publickey(
         &self,
         node: String,
         TypedHeader(Authorization(auth)): TypedHeader<Authorization<Basic>>,
+        #[special] signature: NodeSignature,
     ) -> Result<DaemonBackendAuthResponse, _> {
         let node = Uuid::parse_str(&node).map_err(|_err| AuthPublickeyError::AuthInvalid)?;
+        if !signature.verify(self, node).await {
+            return Err(AuthPublickeyError::AuthInvalid);
+        }
         auth_servers_for_public_key(self, node, auth.username(), auth.password()).await
     }
 }
@@ -390,7 +402,7 @@ async fn auth_servers_for_password(
            AND daemon_password = $2
          LIMIT 1",
         username,
-        password
+        hash_daemon_password(password)
     )
     .fetch_optional(&*backend.database)
     .await?

@@ -732,7 +732,7 @@ pub(crate) impl ServerService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::POWER`].
-    #[route("/{server_id}/start", method = GET)]
+    #[route("/{server_id}/start", method = POST)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, license::not_accepted, node::failure)]
     async fn start_server(
         &self,
@@ -774,7 +774,7 @@ pub(crate) impl ServerService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::POWER`].
-    #[route("/{server_id}/stop", method = GET)]
+    #[route("/{server_id}/stop", method = POST)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure)]
     async fn stop_server(
         &self,
@@ -808,7 +808,7 @@ pub(crate) impl ServerService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::POWER`].
-    #[route("/{server_id}/restart", method = GET)]
+    #[route("/{server_id}/restart", method = POST)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, license::not_accepted, node::failure)]
     async fn restart_server(
         &self,
@@ -850,7 +850,7 @@ pub(crate) impl ServerService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::POWER`].
-    #[route("/{server_id}/kill", method = GET)]
+    #[route("/{server_id}/kill", method = POST)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure)]
     async fn kill_server(
         &self,

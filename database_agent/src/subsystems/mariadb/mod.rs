@@ -85,23 +85,6 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
         .await;
     };
 
-    if credentials.instance.is_suspended().await {
-        tracing::debug!(
-            "[{peer}] rejected: instance {} is suspended",
-            credentials.instance.uuid
-        );
-        return write_packet(
-            &mut stream,
-            client_sequence.wrapping_add(1),
-            &protocol::err_packet(
-                ACCESS_DENIED,
-                SQLSTATE_INVALID_AUTHORIZATION,
-                "the database is suspended",
-            ),
-        )
-        .await;
-    }
-
     let (token, sequence) = native_auth_response(
         &mut stream,
         &handshake.plugin,
@@ -122,6 +105,23 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
                 ACCESS_DENIED,
                 SQLSTATE_INVALID_AUTHORIZATION,
                 "access denied",
+            ),
+        )
+        .await;
+    }
+
+    if credentials.instance.is_suspended().await {
+        tracing::debug!(
+            "[{peer}] rejected: instance {} is suspended",
+            credentials.instance.uuid
+        );
+        return write_packet(
+            &mut stream,
+            sequence.wrapping_add(1),
+            &protocol::err_packet(
+                ACCESS_DENIED,
+                SQLSTATE_INVALID_AUTHORIZATION,
+                "the database is suspended",
             ),
         )
         .await;

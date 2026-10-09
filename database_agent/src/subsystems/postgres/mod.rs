@@ -63,6 +63,11 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
             .await;
     };
 
+    if !scram::authenticate_client(&mut stream, Some(&credentials.password)).await? {
+        return protocol::send_error(&mut stream, INVALID_AUTHORIZATION, "authentication failed")
+            .await;
+    }
+
     if credentials.instance.is_suspended().await {
         tracing::debug!(
             "[{peer}] rejected: instance {} is suspended",
@@ -74,11 +79,6 @@ async fn session(mut stream: TcpStream, agent: &Agent, peer: SocketAddr) -> io::
             "the database is suspended",
         )
         .await;
-    }
-
-    if !scram::authenticate_client(&mut stream, Some(&credentials.password)).await? {
-        return protocol::send_error(&mut stream, INVALID_AUTHORIZATION, "authentication failed")
-            .await;
     }
     protocol::write_msg(&mut stream, b'R', &0i32.to_be_bytes()).await?;
     tracing::info!("[{peer}] {user:?}@{database:?} authenticated");

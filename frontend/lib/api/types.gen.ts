@@ -8029,6 +8029,15 @@ export type UpdateUserData = {
 
 export type UpdateUserErrors = {
     /**
+     * Another user already uses this email
+     */
+    '400‎': {
+        error?: {
+            id?: 'user/email_taken';
+            msg?: 'Another user already uses this email';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -8727,54 +8736,6 @@ export type DeleteSshKeyResponses = {
 
 export type DeleteSshKeyResponse = DeleteSshKeyResponses[keyof DeleteSshKeyResponses];
 
-export type DaemonPasswordData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/profile/daemon-password';
-};
-
-export type DaemonPasswordErrors = {
-    /**
-     * Invalid authentication credentials
-     */
-    '401؜': {
-        error?: {
-            id?: 'auth/invalid';
-            msg?: 'Invalid authentication credentials';
-        };
-    };
-    /**
-     * Database operation failed
-     */
-    '500᠎': {
-        error?: {
-            id?: 'db/failure';
-            msg?: 'Database operation failed';
-        };
-    };
-    /**
-     * Authentication storage is unreachable
-     */
-    '500​': {
-        error?: {
-            id?: 'auth/unreachable';
-            msg?: 'Authentication storage is unreachable';
-        };
-    };
-};
-
-export type DaemonPasswordError = DaemonPasswordErrors[keyof DaemonPasswordErrors];
-
-export type DaemonPasswordResponses = {
-    /**
-     * Success
-     */
-    200: string;
-};
-
-export type DaemonPasswordResponse = DaemonPasswordResponses[keyof DaemonPasswordResponses];
-
 export type RerollDaemonPasswordData = {
     body?: never;
     path?: never;
@@ -8941,6 +8902,15 @@ export type CreateProjectErrors = {
         };
     };
     /**
+     * The name must be 1-64 characters
+     */
+    '400‎': {
+        error?: {
+            id?: 'project/name_invalid';
+            msg?: 'The name must be 1-64 characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -8961,7 +8931,7 @@ export type CreateProjectErrors = {
     /**
      * User not found
      */
-    '404‎': {
+    '404‏': {
         error?: {
             id?: 'user/not_found';
             msg?: 'User not found';
@@ -9258,6 +9228,15 @@ export type UpdateProjectErrors = {
         };
     };
     /**
+     * The name must be 1-64 characters
+     */
+    '400‏': {
+        error?: {
+            id?: 'project/name_invalid';
+            msg?: 'The name must be 1-64 characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -9287,7 +9266,7 @@ export type UpdateProjectErrors = {
     /**
      * User not found
      */
-    '404‏': {
+    '404‪': {
         error?: {
             id?: 'user/not_found';
             msg?: 'User not found';
@@ -10355,6 +10334,22 @@ export type AuthPasswordData = {
          * The authorizations credentials of the user
          */
         authorization: unknown;
+        /**
+         * The node's certificate, DER encoded as base64
+         */
+        'x-novium-node-certificate': string;
+        /**
+         * The signature over the timestamp and the Authorization header, as base64
+         */
+        'x-novium-node-signature': string;
+        /**
+         * The TLS signature scheme the signature was made with
+         */
+        'x-novium-node-signature-scheme': string;
+        /**
+         * The unix timestamp the request was signed at
+         */
+        'x-novium-node-timestamp': string;
     };
     path?: never;
     query: {
@@ -10409,6 +10404,22 @@ export type AuthPublickeyData = {
          * The authorizations credentials of the user
          */
         authorization: unknown;
+        /**
+         * The node's certificate, DER encoded as base64
+         */
+        'x-novium-node-certificate': string;
+        /**
+         * The signature over the timestamp and the Authorization header, as base64
+         */
+        'x-novium-node-signature': string;
+        /**
+         * The TLS signature scheme the signature was made with
+         */
+        'x-novium-node-signature-scheme': string;
+        /**
+         * The unix timestamp the request was signed at
+         */
+        'x-novium-node-timestamp': string;
     };
     path?: never;
     query: {

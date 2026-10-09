@@ -279,7 +279,7 @@ pub(crate) impl BackupService for Backend {
     ///
     /// # Permissions
     /// Requires [`ServerPermissions::BACKUP_RESTORE`].
-    #[route("/{backup_storage}/{backup_id}/restore", method = GET)]
+    #[route("/{backup_storage}/{backup_id}/restore", method = POST)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, backup::{storage_unavailable, not_found, storage_not_found, quota_exceeded})]
     async fn restore_backup(
         &self,
