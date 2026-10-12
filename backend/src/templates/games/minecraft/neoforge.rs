@@ -37,34 +37,47 @@ pub(crate) async fn resolve(
             error!("Unable to parse maven {url:?} metadata (neoforge) response: {err:?}");
         })
         .map_err(|_err| ())?;
-    let versions: Vec<_> = metadata
-        .versioning
-        .versions
-        .version
-        .into_iter()
-        .map(|ver| {
-            ver.splitn(3, '.')
-                .map(String::from)
-                .collect::<Vec<String>>()
-        })
-        .filter_map(|ver| {
-            Some((
-                ver.first()?.parse::<u16>().ok()?,
-                ver.get(1)?.parse::<u16>().ok()?,
-                ver.get(2)?.parse::<u16>().ok()?,
-            ))
-        })
-        .collect();
-    let mut versions_map: HashMap<_, HashSet<u16>> = HashMap::new();
-    for (mc_minor, mc_patch, loader_version) in versions {
+    let mut versions_map: HashMap<(String, String), HashSet<u16>> = HashMap::new();
+    for raw in metadata.versioning.versions.version {
+        let parts: Vec<&str> = raw.split('.').collect();
+        let Some(Ok(first)) = parts.first().map(|part| part.parse::<u16>()) else {
+            continue;
+        };
+        let (minecraft_version, prefix, build) = if first >= 26 {
+            let [major, minor, patch, build] = parts.as_slice() else {
+                continue;
+            };
+            let minecraft_version = if *patch == "0" {
+                format!("{major}.{minor}")
+            } else {
+                format!("{major}.{minor}.{patch}")
+            };
+            (
+                minecraft_version,
+                format!("{major}.{minor}.{patch}."),
+                *build,
+            )
+        } else {
+            let [minor, patch, build] = parts.as_slice() else {
+                continue;
+            };
+            let minecraft_version = if *patch == "0" {
+                format!("1.{minor}")
+            } else {
+                format!("1.{minor}.{patch}")
+            };
+            (minecraft_version, format!("{minor}.{patch}."), *build)
+        };
+        let Ok(build) = build.parse::<u16>() else {
+            continue;
+        };
         versions_map
-            .entry((mc_minor, mc_patch))
+            .entry((minecraft_version, prefix))
             .or_default()
-            .insert(loader_version);
+            .insert(build);
     }
 
-    for ((mc_minor, mc_patch), loader_versions) in versions_map {
-        let minecraft_version = format!("1.{mc_minor}.{mc_patch}");
+    for ((minecraft_version, prefix), loader_versions) in versions_map {
         let Some(cache_entry) = cache.0.get_mut(&minecraft_version) else {
             continue;
         };
@@ -82,7 +95,7 @@ pub(crate) async fn resolve(
 
         cache_entry.3.insert(
             *modification,
-            VersionBuild::Range(Some(format!("{mc_minor}.{mc_patch}.")), *min, *max, exclude),
+            VersionBuild::Range(Some(prefix), *min, *max, exclude),
         );
     }
 
