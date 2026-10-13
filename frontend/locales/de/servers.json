@@ -7,11 +7,11 @@
     "sections": {
       "console": {
         "label": "Konsole",
-        "description": "TODO: Live-Konsolen-Stream und Befehlseingabe implementieren."
+        "description": "Live-Konsole und Befehlseingabe."
       },
       "files": {
         "label": "Dateien",
-        "description": "TODO: Dateibrowser, Editor und Upload-Funktionen implementieren."
+        "description": "Dateien durchsuchen, bearbeiten und hochladen."
       },
       "backups": {
         "label": "Backups",
@@ -39,7 +39,7 @@
       },
       "startup": {
         "label": "Start",
-        "description": "TODO: Editor für Startbefehle implementieren. Variablen sind vorerst absichtlich ausgeklammert."
+        "description": "Startbefehl und Variablen."
       }
     },
     "noPermissions": {

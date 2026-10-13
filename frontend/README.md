@@ -1,38 +1,24 @@
-# Hephaestus
+# Frontend
 
-Hephaestus is a game panel frontend for the backend API generated into `lib/api`.
-
-Authentication, users, projects, and sessions are handled by the backend.
-
-## Setup
-
-Install dependencies:
+Vite + React single-page app for the novium panel. It talks to the backend API; authentication, users, projects and sessions are handled by the backend.
 
 ```bash
-bun install
+pnpm install
+pnpm run dev        # :3000, proxies /api to VITE_DEV_API_URL
+pnpm run typecheck
+pnpm run lint
+pnpm run format
+pnpm run build
+pnpm run gen        # regenerate lib/api from a running backend's OpenAPI spec
 ```
 
-Configure the backend API URL:
-
-```bash
-NEXT_PUBLIC_API_URL="http://localhost:8080"
-```
-
-Run the app:
-
-```bash
-bun dev
-```
-
-Regenerate the API client after backend schema changes:
-
-```bash
-bun run gen
-```
+Configuration is described in `.env.example`.
 
 ## Structure
 
-- `lib/api` contains the generated API client.
-- `app/api/[...path]/route.ts` proxies browser requests to the backend API.
-- `lib/auth.ts` and `lib/auth-client.ts` wrap backend auth endpoints for server and client code.
-- `app/(app)` contains the authenticated Hephaestus UI.
+- `app/` - route components
+- `components/` - shared UI, `components/ui` is shadcn on Base UI
+- `lib/api/` - generated API client
+- `locales/` - i18next translations (`en` and `de` must have identical keys)
+
+Licensed under the PolyForm Noncommercial License 1.0.0, see [`../LICENSE`](../LICENSE).

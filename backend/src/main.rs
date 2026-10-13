@@ -104,14 +104,11 @@ pub fn main() {
     #[cfg(not(debug_assertions))]
     let guard = {
         reg.with(sentry::integrations::tracing::layer()).init();
-        let sentry = sentry::init((
-            "https://b43378f14d709f18980434afbb4f667d@sentry.novium.world/4",
-            {
-                let mut options = sentry::ClientOptions::default();
-                options.release = sentry::release_name!();
-                options
-            },
-        ));
+        let sentry = sentry::init((env::var("BACKEND_SENTRY_DSN").ok(), {
+            let mut options = sentry::ClientOptions::default();
+            options.release = sentry::release_name!();
+            options
+        }));
         if sentry.is_enabled() {
             info!("Enabled Sentry integration");
         }

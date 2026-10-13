@@ -7,11 +7,11 @@
     "sections": {
       "console": {
         "label": "Console",
-        "description": "TODO: Build live console stream and command input."
+        "description": "Live console and command input."
       },
       "files": {
         "label": "Files",
-        "description": "TODO: Build file browser, editor, and upload actions."
+        "description": "Browse, edit and upload files."
       },
       "backups": {
         "label": "Backups",
@@ -39,7 +39,7 @@
       },
       "startup": {
         "label": "Startup",
-        "description": "TODO: Build startup command/editor. Variables are intentionally left out for now."
+        "description": "Startup command and variables."
       }
     },
     "noPermissions": {
