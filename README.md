@@ -11,7 +11,7 @@ A game server hosting platform: a panel to manage game servers, nodes and databa
 
 See [`CLAUDE.md`](CLAUDE.md) for the development commands and project conventions, and [`deploy/README.md`](deploy/README.md) for running the stack.
 
-Note that the backend builds against two Git dependencies, `daemon` and `zelus_keys`, which are not part of this repository.
+The backend also builds against [`daemon`](https://github.com/novium-dev/daemon) and [`zelus_keys`](https://github.com/novium-dev/zelus_keys), which live in their own repositories.
 
 ## License
 

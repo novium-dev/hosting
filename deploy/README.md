@@ -8,13 +8,10 @@ Three images, built and deployed independently:
 | frontend | `frontend/Dockerfile` | `frontend/` |
 | database agent | `database_agent.Dockerfile` | repo root |
 
-The backend and the database agent need SSH access to the private git
-dependencies, so build them with `--ssh default`:
-
 ```bash
-docker build --ssh default -f backend.Dockerfile -t novium/backend:latest .
+docker build -f backend.Dockerfile -t novium/backend:latest .
 docker build -f frontend/Dockerfile -t novium/frontend:latest frontend
-docker build --ssh default -f database_agent.Dockerfile -t novium/database-agent:latest .
+docker build -f database_agent.Dockerfile -t novium/database-agent:latest .
 ```
 
 ## The stack

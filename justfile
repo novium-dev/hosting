@@ -121,7 +121,7 @@ web-gen:
 # Build the backend image
 [group('image')]
 image-backend:
-    docker build --ssh default -f backend.Dockerfile -t novium/backend:latest .
+    docker build -f backend.Dockerfile -t novium/backend:latest .
 
 # Build the frontend image
 [group('image')]
@@ -131,7 +131,7 @@ image-frontend:
 # Build the database agent image
 [group('image')]
 image-agent:
-    docker build --ssh default -f database_agent.Dockerfile -t novium/database-agent:latest .
+    docker build -f database_agent.Dockerfile -t novium/database-agent:latest .
 
 # --- ci ------------------------------------------------------------------
 

@@ -1089,7 +1089,7 @@ dependencies = [
 [[package]]
 name = "daemon_common"
 version = "0.1.0"
-source = "git+ssh://git@git-ssh.novium.world/hosting/daemon.git#84abe7ee340d35cd800f938c3404f1b710936cd6"
+source = "git+https://github.com/novium-dev/daemon.git#696e6470a9949159d52f9126cc45281424eb5f70"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -6356,7 +6356,7 @@ dependencies = [
 [[package]]
 name = "zelus_keys"
 version = "0.1.0"
-source = "git+ssh://git@git-ssh.novium.world/hosting/zelus_keys.git#83e681449491d5e0d67f2dccfbd0b715d9cf0c58"
+source = "git+https://github.com/novium-dev/zelus_keys.git#83e681449491d5e0d67f2dccfbd0b715d9cf0c58"
 dependencies = [
  "asn1-rs",
  "axum",

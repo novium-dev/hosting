@@ -20,8 +20,8 @@ unknown-registry = "deny"
 unknown-git = "deny"
 
 allow-git = [
-  "ssh://git@git-ssh.novium.world/hosting/daemon.git",
-  "ssh://git@git-ssh.novium.world/hosting/zelus_keys.git",
+  "https://github.com/novium-dev/daemon.git",
+  "https://github.com/novium-dev/zelus_keys.git",
   "https://github.com/0xIO32/zelus.git",
   "https://github.com/0xIO32/reqwest.git",
   "https://github.com/fussybeaver/bollard.git?rev=dca659509a12544cabe418c7832f1ac741c88d2c",
