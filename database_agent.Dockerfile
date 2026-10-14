@@ -5,7 +5,7 @@
 FROM lukemathwalker/cargo-chef:latest-rust-1.99.0-alpine AS chef
 WORKDIR /work
 
-ARG FLAGS="-C debuginfo=0 -C codegen-units=1 -C opt-level=3 -C link-arg=-Wl,--icf=safe -C linker-plugin-lto -C lto=thin -C embed-bitcode"
+ARG FLAGS="-C debuginfo=0 -C codegen-units=1 -C opt-level=3 -C link-arg=-Wl,--icf=safe -C lto=thin"
 ENV RUSTFLAGS="-C linker=clang-22 -C link-arg=-fuse-ld=lld $FLAGS"
 
 FROM chef AS dependencies
