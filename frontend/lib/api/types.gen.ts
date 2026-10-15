@@ -234,13 +234,14 @@ export type InstallModpackPayload = {
     confirm?: boolean;
     icon_url?: string | null;
     loader: ResourceLoader;
+    mode?: ModpackInstallMode;
     page_url?: string | null;
     project: string;
     provider: ResourceProvider;
+    sync_platform?: boolean;
     title?: string | null;
     version: string;
     version_number?: string | null;
-    wipe?: boolean;
 };
 
 export type InstallResourcePayload = {
@@ -253,9 +254,12 @@ export type InstallResourcePayload = {
 };
 
 export type InstalledModpack = {
+    game_version?: string | null;
     icon_url?: string | null;
     installed_at: number;
     loader?: null | ResourceLoader;
+    loader_version?: string | null;
+    missing: Array<string>;
     mods: Array<ModpackMod>;
     other_files: number;
     page_url?: string | null;
@@ -385,6 +389,10 @@ export type LightNodeInfo = {
     ssh_port?: number | null;
 };
 
+export const ModpackInstallMode = { KEEP: 'keep', RESET: 'reset' } as const;
+
+export type ModpackInstallMode = typeof ModpackInstallMode[keyof typeof ModpackInstallMode];
+
 export const ModpackJobState = {
     RUNNING: 'running',
     COMPLETED: 'completed',
@@ -393,11 +401,39 @@ export const ModpackJobState = {
 
 export type ModpackJobState = typeof ModpackJobState[keyof typeof ModpackJobState];
 
+export type ModpackLoaderInfo = {
+    loader: ResourceLoader;
+    providers: Array<ResourceProvider>;
+    switches_platform: boolean;
+};
+
 export type ModpackMod = {
     enabled: boolean;
     file_name: string;
+    icon_url?: string | null;
+    page_url?: string | null;
+    project?: string | null;
     resource_type: ResourceType;
+    title?: string | null;
+    version?: string | null;
 };
+
+export const ModpackStep = {
+    QUEUED: 'queued',
+    DOWNLOADING: 'downloading',
+    UNPACKING: 'unpacking',
+    READING: 'reading',
+    RESOLVING: 'resolving',
+    FETCHING: 'fetching',
+    BACKING_UP: 'backing_up',
+    PLATFORM: 'platform',
+    APPLYING: 'applying',
+    CONFIGURING: 'configuring',
+    FINISHING: 'finishing',
+    DONE: 'done'
+} as const;
+
+export type ModpackStep = typeof ModpackStep[keyof typeof ModpackStep];
 
 export type NanoId = string;
 
@@ -432,6 +468,21 @@ export type NodeRegistrationRequest = {
 };
 
 export type Option = null | boolean;
+
+export const PackLoader = {
+    FABRIC: 'fabric',
+    QUILT: 'quilt',
+    NEOFORGE: 'neoforge',
+    FORGE: 'forge'
+} as const;
+
+export type PackLoader = typeof PackLoader[keyof typeof PackLoader];
+
+export type PackPlatform = {
+    game_version?: string | null;
+    loader?: null | PackLoader;
+    loader_version?: string | null;
+};
 
 export type PortRange = {
     end: number;
@@ -473,7 +524,6 @@ export type ResourceLoader = typeof ResourceLoader[keyof typeof ResourceLoader];
 
 export type ResourceLoaderInfo = {
     loader: ResourceLoader;
-    modpack_providers: Array<ResourceProvider>;
     providers: Array<ResourceProvider>;
     resource_type: ResourceType;
 };
@@ -520,6 +570,7 @@ export type ResourceUsage = {
 };
 
 export type ResourceVersion = {
+    changelog?: string | null;
     downloadable: boolean;
     downloads: number;
     file_name?: string | null;
@@ -834,6 +885,12 @@ export type UnmanagedResource = {
     file_name: string;
     resource_type: ResourceType;
     size: number;
+};
+
+export type UnresolvedDependency = {
+    project?: string | null;
+    reason: string;
+    title?: string | null;
 };
 
 export type UpdateApiKeyPayload = {
@@ -11013,8 +11070,10 @@ export type ResourceContextResponses = {
      */
     200: {
         backup_available: boolean;
+        can_change_platform: boolean;
         game_version?: string | null;
         loaders: Array<ResourceLoaderInfo>;
+        modpack_loaders: Array<ModpackLoaderInfo>;
     };
 };
 
@@ -11359,6 +11418,7 @@ export type ListResourceVersionsResponses = {
      * Success
      */
     200: Array<{
+        changelog?: string | null;
         downloadable: boolean;
         downloads: number;
         file_name?: string | null;
@@ -11474,6 +11534,15 @@ export type UninstallResourceErrors = {
         error?: {
             id?: 'file/not_found';
             msg?: 'The specified file was not found';
+        };
+    };
+    /**
+     * A modpack installation is already running for this server
+     */
+    '409⁠': {
+        error?: {
+            id?: 'modpack/already_running';
+            msg?: 'A modpack installation is already running for this server';
         };
     };
     /**
@@ -11771,6 +11840,15 @@ export type InstallResourceErrors = {
         };
     };
     /**
+     * A modpack installation is already running for this server
+     */
+    '409⁩': {
+        error?: {
+            id?: 'modpack/already_running';
+            msg?: 'A modpack installation is already running for this server';
+        };
+    };
+    /**
      * Authentication storage is unreachable
      */
     '500​': {
@@ -11842,15 +11920,9 @@ export type InstallResourceResponses = {
      * Success
      */
     200: {
-        enabled: boolean;
-        file_name: string;
-        installed_at: number;
-        page_url?: string | null;
-        project: string;
-        provider: ResourceProvider;
-        resource_type: ResourceType;
-        title: string;
-        version: string;
+        dependencies: Array<InstalledResource>;
+        installed: InstalledResource;
+        unresolved: Array<UnresolvedDependency>;
     };
 };
 
@@ -12134,6 +12206,15 @@ export type UpdateResourceErrors = {
         };
     };
     /**
+     * A modpack installation is already running for this server
+     */
+    '409⁬': {
+        error?: {
+            id?: 'modpack/already_running';
+            msg?: 'A modpack installation is already running for this server';
+        };
+    };
+    /**
      * Authentication storage is unreachable
      */
     '500​': {
@@ -12295,6 +12376,15 @@ export type UpdateAllResourcesErrors = {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
+        };
+    };
+    /**
+     * A modpack installation is already running for this server
+     */
+    '409‬': {
+        error?: {
+            id?: 'modpack/already_running';
+            msg?: 'A modpack installation is already running for this server';
         };
     };
     /**
@@ -12466,6 +12556,15 @@ export type SetResourceStateErrors = {
         };
     };
     /**
+     * A modpack installation is already running for this server
+     */
+    '409⁠': {
+        error?: {
+            id?: 'modpack/already_running';
+            msg?: 'A modpack installation is already running for this server';
+        };
+    };
+    /**
      * Authentication storage is unreachable
      */
     '500​': {
@@ -12562,6 +12661,15 @@ export type UnlinkModpackErrors = {
         error?: {
             id?: 'server/not_found';
             msg?: 'Server not found';
+        };
+    };
+    /**
+     * A modpack installation is already running for this server
+     */
+    '409‎': {
+        error?: {
+            id?: 'modpack/already_running';
+            msg?: 'A modpack installation is already running for this server';
         };
     };
     /**
@@ -12681,10 +12789,13 @@ export type ModpackStatusResponses = {
         error?: string | null;
         failures: Array<string>;
         finished_at?: number | null;
+        live_untouched: boolean;
         pack?: string | null;
+        platform?: null | PackPlatform;
+        skipped: Array<string>;
         started_at: number;
         state: ModpackJobState;
-        step: string;
+        step: ModpackStep;
         total: number;
     };
 };
@@ -12756,15 +12867,6 @@ export type InstallModpackErrors = {
         };
     };
     /**
-     * A modpack installation is already running for this server
-     */
-    '400⁢': {
-        error?: {
-            id?: 'modpack/already_running';
-            msg?: 'A modpack installation is already running for this server';
-        };
-    };
-    /**
      * The server must be stopped before a modpack can be installed
      */
     '400⁣': {
@@ -12807,6 +12909,15 @@ export type InstallModpackErrors = {
         error?: {
             id?: 'resource/missing';
             msg?: 'The specified resource is missing';
+        };
+    };
+    /**
+     * A modpack installation is already running for this server
+     */
+    '409⁢': {
+        error?: {
+            id?: 'modpack/already_running';
+            msg?: 'A modpack installation is already running for this server';
         };
     };
     /**
@@ -12867,10 +12978,13 @@ export type InstallModpackResponses = {
         error?: string | null;
         failures: Array<string>;
         finished_at?: number | null;
+        live_untouched: boolean;
         pack?: string | null;
+        platform?: null | PackPlatform;
+        skipped: Array<string>;
         started_at: number;
         state: ModpackJobState;
-        step: string;
+        step: ModpackStep;
         total: number;
     };
 };

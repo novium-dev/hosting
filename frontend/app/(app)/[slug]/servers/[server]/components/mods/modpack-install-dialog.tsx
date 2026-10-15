@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import { Boxes, Download, TriangleAlert } from "lucide-react";
@@ -7,6 +7,7 @@ import {
   installModpackAction,
   listResourceVersionsAction,
 } from "@/actions/mod-browser";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -27,11 +29,18 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { PROVIDER_LABELS } from "@/lib/mod-browser/types";
 import type {
+  InstalledModpack,
   ResourceLoader,
   ResourceProvider,
   ResourceVersion,
 } from "@/lib/mod-browser/types";
-import { ProjectIcon, formatDate, versionLabel } from "./shared";
+import {
+  LOADER_NAMES,
+  ProjectIcon,
+  formatDate,
+  versionLabel,
+  type ModsContext,
+} from "./shared";
 
 export type ModpackTarget = {
   provider: ResourceProvider;
@@ -40,48 +49,54 @@ export type ModpackTarget = {
   loader: ResourceLoader;
   iconUrl?: string | null;
   pageUrl?: string | null;
+  reset?: boolean;
 };
 
 type ModpackInstallDialogProps = {
-  serverId: string;
+  ctx: ModsContext;
   target: ModpackTarget | null;
   onOpenChange: (open: boolean) => void;
   initialVersionId?: string;
-  installedVersion?: string | null;
-  backupAvailable: boolean;
-  serverStopped: boolean;
+  pack: InstalledModpack | null;
   onStarted: () => void;
 };
 
+type Choice = {
+  targetKey: string;
+  versionId?: string;
+  backup?: boolean;
+  reset?: boolean;
+  syncPlatform?: boolean;
+};
+
 export function ModpackInstallDialog({
-  serverId,
+  ctx,
   target,
   onOpenChange,
   initialVersionId,
-  installedVersion,
-  backupAvailable,
-  serverStopped,
+  pack,
   onStarted,
 }: ModpackInstallDialogProps) {
   const { t } = useTranslation();
   const targetKey = target ? `${target.provider}:${target.project}` : "";
-  const [choice, setChoice] = useState<{
-    targetKey: string;
-    versionId?: string;
-    backup?: boolean;
-  }>({ targetKey });
-  const ownChoice = choice.targetKey === targetKey ? choice : { targetKey };
-  const [wipe, setWipe] = useState(true);
+  const [choice, setChoice] = useState<Choice>({ targetKey });
+  const ownChoice: Choice =
+    choice.targetKey === targetKey ? choice : { targetKey };
   const [isStarting, setIsStarting] = useState(false);
 
   const { data: versions = [], isLoading } = useSWR(
     target
-      ? ["modpack-install-versions", serverId, target.provider, target.project]
+      ? [
+          "modpack-install-versions",
+          ctx.serverId,
+          target.provider,
+          target.project,
+        ]
       : null,
     async () => {
       if (!target) return [];
       const result = await listResourceVersionsAction({
-        serverId,
+        serverId: ctx.serverId,
         provider: target.provider,
         project: target.project,
         loader: target.loader,
@@ -92,25 +107,41 @@ export function ModpackInstallDialog({
     },
   );
 
+  const samePack = Boolean(
+    pack &&
+    target &&
+    pack.provider === target.provider &&
+    pack.project === target.project,
+  );
+  const switchesLoader = ctx.modpackLoaders.some(
+    (entry) => entry.loader === target?.loader && entry.switches_platform,
+  );
+
   const versionId =
     ownChoice.versionId || initialVersionId || versions[0]?.id || "";
-  const backup = ownChoice.backup ?? backupAvailable;
-  const setVersionId = (next: string) =>
-    setChoice({ ...ownChoice, versionId: next });
-  const setBackup = (next: boolean) =>
-    setChoice({ ...ownChoice, backup: next });
+  const backup = ownChoice.backup ?? ctx.backupAvailable;
+  const reset = ownChoice.reset ?? target?.reset ?? !samePack;
+  const syncPlatform = ownChoice.syncPlatform ?? ctx.canChangePlatform;
+  const update = (next: Partial<Choice>) =>
+    setChoice({ ...ownChoice, ...next });
 
   const version = versions.find((entry) => entry.id === versionId) ?? null;
-  const isCurrent = Boolean(
-    installedVersion && version && installedVersion === version.id,
+  const isCurrent = samePack && pack?.version === version?.id;
+  const gameMismatch = Boolean(
+    version &&
+    ctx.gameVersion &&
+    version.game_versions.length > 0 &&
+    !version.game_versions.includes(ctx.gameVersion),
   );
+  const platformChanges = switchesLoader || gameMismatch;
+  const blockedByPlatform = platformChanges && !syncPlatform;
 
   const start = async () => {
     if (!target || !version) return;
 
     setIsStarting(true);
     const result = await installModpackAction({
-      serverId,
+      serverId: ctx.serverId,
       provider: target.provider,
       project: target.project,
       version: version.id,
@@ -120,7 +151,8 @@ export function ModpackInstallDialog({
       iconUrl: target.iconUrl ?? undefined,
       pageUrl: target.pageUrl ?? undefined,
       backup,
-      wipe,
+      mode: reset ? "reset" : "keep",
+      syncPlatform: syncPlatform && ctx.canChangePlatform,
     });
     setIsStarting(false);
 
@@ -136,16 +168,26 @@ export function ModpackInstallDialog({
     onStarted();
   };
 
+  const actionLabel = isCurrent
+    ? t("servers-management:mods.pack.reinstallButton")
+    : samePack
+      ? t("servers-management:mods.pack.switchButton")
+      : t("servers-management:mods.installButton");
+
   return (
     <Dialog open={Boolean(target)} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Boxes className="size-5" />
             {target
-              ? t("servers-management:mods.pack.dialog.title", {
-                  title: target.title,
-                })
+              ? samePack
+                ? t("servers-management:mods.pack.dialog.changeTitle", {
+                    title: target.title,
+                  })
+                : t("servers-management:mods.pack.dialog.title", {
+                    title: target.title,
+                  })
               : null}
           </DialogTitle>
           <DialogDescription>
@@ -160,7 +202,8 @@ export function ModpackInstallDialog({
               <div className="flex min-w-0 flex-col">
                 <span className="truncate font-medium">{target.title}</span>
                 <span className="text-sm text-muted-foreground">
-                  {PROVIDER_LABELS[target.provider]}
+                  {PROVIDER_LABELS[target.provider]} ·{" "}
+                  {LOADER_NAMES[target.loader]}
                 </span>
               </div>
             </div>
@@ -178,7 +221,7 @@ export function ModpackInstallDialog({
                 })),
               ]}
               value={versionId}
-              onValueChange={(value) => setVersionId(value ?? "")}
+              onValueChange={(value) => update({ versionId: value ?? "" })}
               disabled={isLoading || versions.length === 0}
             >
               <SelectTrigger id="modpack-version" className="w-full">
@@ -194,54 +237,83 @@ export function ModpackInstallDialog({
                 {versions.map((entry) => (
                   <SelectItem key={entry.id} value={entry.id}>
                     {versionLabel(entry)}
+                    {samePack && entry.id === pack?.version
+                      ? ` · ${t("servers-management:mods.pack.currentSuffix")}`
+                      : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {version ? <VersionMeta version={version} /> : null}
+            {version?.changelog ? (
+              <ScrollArea className="max-h-40 rounded-md border bg-muted/30">
+                <p className="p-3 text-sm whitespace-pre-wrap text-muted-foreground">
+                  {version.changelog}
+                </p>
+              </ScrollArea>
+            ) : null}
           </div>
 
-          <label className="flex items-start gap-3">
-            <Switch
-              checked={backup}
-              disabled={!backupAvailable}
-              onCheckedChange={setBackup}
+          <OptionSwitch
+            checked={reset}
+            onCheckedChange={(value) => update({ reset: value })}
+            label={t("servers-management:mods.pack.dialog.resetLabel")}
+            hint={
+              reset
+                ? t("servers-management:mods.pack.dialog.resetHint")
+                : t("servers-management:mods.pack.dialog.keepHint")
+            }
+          />
+
+          <OptionSwitch
+            checked={backup}
+            disabled={!ctx.backupAvailable}
+            onCheckedChange={(value) => update({ backup: value })}
+            label={t("servers-management:mods.pack.dialog.backupLabel")}
+            hint={
+              ctx.backupAvailable
+                ? t("servers-management:mods.pack.dialog.backupHint")
+                : t("servers-management:mods.pack.dialog.backupUnavailable")
+            }
+          />
+
+          {ctx.canChangePlatform ? (
+            <OptionSwitch
+              checked={syncPlatform}
+              onCheckedChange={(value) => update({ syncPlatform: value })}
+              label={t("servers-management:mods.pack.dialog.platformLabel")}
+              hint={t("servers-management:mods.pack.dialog.platformHint")}
             />
-            <span className="flex flex-col gap-1">
-              <span className="text-sm font-medium">
-                {t("servers-management:mods.pack.dialog.backupLabel")}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                {backupAvailable
-                  ? t("servers-management:mods.pack.dialog.backupHint")
-                  : t("servers-management:mods.pack.dialog.backupUnavailable")}
-              </span>
-            </span>
-          </label>
-
-          <label className="flex items-start gap-3">
-            <Switch checked={wipe} onCheckedChange={setWipe} />
-            <span className="flex flex-col gap-1">
-              <span className="text-sm font-medium">
-                {t("servers-management:mods.pack.dialog.wipeLabel")}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                {t("servers-management:mods.pack.dialog.wipeHint")}
-              </span>
-            </span>
-          </label>
-
-          {wipe && !backup ? (
-            <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
-              {t("servers-management:mods.pack.dialog.wipeWarning")}
-            </p>
           ) : null}
 
-          {!serverStopped ? (
-            <p className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+          {platformChanges && syncPlatform ? (
+            <Notice tone="info">
+              {t("servers-management:mods.pack.dialog.platformChange", {
+                loader: target ? LOADER_NAMES[target.loader] : "",
+                gameVersion:
+                  version?.game_versions.slice(0, 3).join(", ") ?? "",
+              })}
+            </Notice>
+          ) : null}
+
+          {blockedByPlatform ? (
+            <Notice tone="warning">
+              {ctx.canChangePlatform
+                ? t("servers-management:mods.pack.dialog.platformBlocked")
+                : t("servers-management:mods.pack.dialog.platformNoPermission")}
+            </Notice>
+          ) : null}
+
+          {reset && !backup ? (
+            <Notice tone="danger">
+              {t("servers-management:mods.pack.dialog.resetWarning")}
+            </Notice>
+          ) : null}
+
+          {!ctx.serverStopped ? (
+            <Notice tone="warning">
               {t("servers-management:mods.pack.stopRequired")}
-            </p>
+            </Notice>
           ) : null}
 
           {version?.downloadable === false ? (
@@ -261,16 +333,13 @@ export function ModpackInstallDialog({
             disabled={
               !version ||
               version.downloadable === false ||
-              !serverStopped ||
+              !ctx.serverStopped ||
+              blockedByPlatform ||
               isStarting
             }
           >
             <Download data-icon="inline-start" />
-            {isCurrent
-              ? t("servers-management:mods.pack.reinstallButton")
-              : installedVersion
-                ? t("servers-management:mods.pack.switchButton")
-                : t("servers-management:mods.installButton")}
+            {actionLabel}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -278,12 +347,71 @@ export function ModpackInstallDialog({
   );
 }
 
-function VersionMeta({ version }: { version: ResourceVersion }) {
-  const parts = [
-    version.version_type,
-    version.published_at ? formatDate(version.published_at) : null,
-    version.game_versions.slice(0, 3).join(", ") || null,
-  ].filter(Boolean);
+type OptionSwitchProps = {
+  checked: boolean;
+  disabled?: boolean;
+  onCheckedChange: (value: boolean) => void;
+  label: string;
+  hint: string;
+};
 
-  return <p className="text-sm text-muted-foreground">{parts.join(" · ")}</p>;
+function OptionSwitch({
+  checked,
+  disabled,
+  onCheckedChange,
+  label,
+  hint,
+}: OptionSwitchProps) {
+  return (
+    <label className="flex items-start gap-3">
+      <Switch
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onCheckedChange}
+      />
+      <span className="flex flex-col gap-1">
+        <span className="text-sm font-medium">{label}</span>
+        <span className="text-sm text-muted-foreground">{hint}</span>
+      </span>
+    </label>
+  );
+}
+
+const NOTICE_TONES = {
+  info: "border-sky-500/40 bg-sky-500/5",
+  warning: "border-amber-500/40 bg-amber-500/5",
+  danger: "border-destructive/40 bg-destructive/5",
+} as const;
+
+function Notice({
+  tone,
+  children,
+}: {
+  tone: keyof typeof NOTICE_TONES;
+  children: ReactNode;
+}) {
+  return (
+    <p
+      className={`flex items-start gap-2 rounded-md border p-3 text-sm ${NOTICE_TONES[tone]}`}
+    >
+      <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+      {children}
+    </p>
+  );
+}
+
+function VersionMeta({ version }: { version: ResourceVersion }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+      <Badge variant="outline">{version.version_type}</Badge>
+      {version.game_versions.slice(0, 4).map((gameVersion) => (
+        <Badge key={gameVersion} variant="secondary">
+          {gameVersion}
+        </Badge>
+      ))}
+      {version.published_at ? (
+        <span>{formatDate(version.published_at)}</span>
+      ) : null}
+    </div>
+  );
 }

@@ -9,7 +9,7 @@ The backend hands download URLs to the daemon (`server_write_file_by_url`), and 
 URLs the user can influence:
 
 - **Hangar `external_url`** (`backend/src/resources/hangar.rs`, `resolve`): used when a version has no `download_url`. The plugin author picks it freely, so anyone who publishes on Hangar can point it at an internal address.
-- **Modpack files** (`backend/src/service/modpack.rs`, `run_modpack_install`): the pack is unpacked into `.novium-modpack/` inside the server directory and `modrinth.index.json` is read back from there afterwards. Anyone who can write to the server's files (including the running server process) can replace the manifest between unpack and read and list arbitrary `downloads`.
+- **Modpack files** (`backend/src/service/modpack.rs`, `prepare_pack`): the pack is unpacked into `.novium-modpack/` inside the server directory and `modrinth.index.json` is read back from there afterwards, so anyone who can write to the server's files can swap the manifest in between. Download URLs are checked against the Modrinth allowlist (`cdn.modrinth.com`, `github.com`, `raw.githubusercontent.com`, `gitlab.com`, `allowed_download` in `backend/src/resources/modpack.rs`), so a swapped manifest can only point at those hosts. Redirects from them are still followed by the daemon.
 
 Impact: requests from the node's network position (cloud metadata endpoints, services bound to the node or its private network) with the response readable by the user.
 
@@ -17,7 +17,7 @@ Possible fixes:
 
 - Daemon: resolve the host and refuse non-global addresses (loopback, private, link-local, unique-local, metadata), check every redirect hop the same way, or disable redirects.
 - Backend: drop `external_url`, or only accept it from an allowlist of hosts.
-- Backend: read the modpack manifest from the archive before it is written to user-writable storage, and only accept download hosts from the Modrinth allowlist (`cdn.modrinth.com`, `github.com`, `raw.githubusercontent.com`, `gitlab.com`).
+- Backend: read the modpack manifest from the archive before it is written to user-writable storage.
 
 ## Setuid escalation inside server containers
 

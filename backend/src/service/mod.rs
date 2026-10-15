@@ -84,6 +84,12 @@ define_error!(resource {
     not_installed("The resource is not installed on this server" NOT_FOUND),
 });
 
+define_error!(modpack {
+    not_confirmed("Installing a modpack rewrites server files and must be confirmed" BAD_REQUEST),
+    already_running("A modpack installation is already running for this server" CONFLICT),
+    server_running("The server must be stopped before a modpack can be installed" BAD_REQUEST),
+});
+
 define_error!(backup {
     storage_unavailable("Backup storage is currently in use" SERVICE_UNAVAILABLE),
     not_found("The specified backup was not found" NOT_FOUND),

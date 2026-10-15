@@ -11,6 +11,7 @@ use redis::aio::ConnectionManager;
 use reqwest::{Client, RequestBuilder, StatusCode, Url};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use tracing::{debug, error};
 
 use crate::service::{
@@ -25,6 +26,8 @@ use crate::service::{
 const SEARCH_TTL: u64 = 300;
 const VERSIONS_TTL: u64 = 300;
 const RESOLVE_TTL: u64 = 900;
+const DETAILS_TTL: u64 = 3600;
+const LOOKUP_CHUNK: usize = 100;
 
 pub(crate) const MAX_SEARCH_LIMIT: u8 = 50;
 pub(crate) const MAX_QUERY_LENGTH: usize = 120;
@@ -218,8 +221,25 @@ pub(crate) struct ResourceVersion {
     pub(crate) loaders: Vec<String>,
     pub(crate) downloads: u64,
     pub(crate) published_at: Option<String>,
+    #[serde(default)]
+    pub(crate) changelog: Option<String>,
     pub(crate) file_name: Option<String>,
     pub(crate) downloadable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub(crate) struct ProjectDetails {
+    pub(crate) provider: ResourceProvider,
+    pub(crate) id: String,
+    pub(crate) title: String,
+    pub(crate) icon_url: Option<String>,
+    pub(crate) page_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct ResourceDependency {
+    pub(crate) project: Option<String>,
+    pub(crate) version: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -541,5 +561,69 @@ impl ResourceClient<'_> {
         };
 
         cache::cached(&mut self.cache, &key, RESOLVE_TTL, fetch).await
+    }
+
+    pub(crate) async fn dependencies(
+        &mut self,
+        provider: ResourceProvider,
+        version: &str,
+    ) -> Result<Vec<ResourceDependency>, ResourceError> {
+        if provider != ResourceProvider::Modrinth {
+            return Ok(Vec::new());
+        }
+        validate_id(version, 128)?;
+
+        let key = format!("dependencies:{}:{version}", provider.as_str());
+        let http = self.http;
+        cache::cached(
+            &mut self.cache,
+            &key,
+            RESOLVE_TTL,
+            modrinth::dependencies(http, version),
+        )
+        .await
+    }
+
+    pub(crate) async fn identify_modrinth(
+        &self,
+        sha1: &[String],
+    ) -> Result<HashMap<String, (String, String)>, ResourceError> {
+        let mut found = HashMap::new();
+        for chunk in sha1.chunks(LOOKUP_CHUNK) {
+            found.extend(modrinth::identify(self.http, chunk).await?);
+        }
+        Ok(found)
+    }
+
+    pub(crate) async fn projects(
+        &mut self,
+        provider: ResourceProvider,
+        ids: &[String],
+    ) -> Result<Vec<ProjectDetails>, ResourceError> {
+        if !self.enabled(provider) {
+            return Err(ResourceError::ProviderDisabled);
+        }
+
+        let mut details = Vec::new();
+        for chunk in ids.chunks(LOOKUP_CHUNK) {
+            for id in chunk {
+                validate_id(id, 128)?;
+            }
+            let mut sorted = chunk.to_vec();
+            sorted.sort_unstable();
+            let key = format!("projects:{}:{}", provider.as_str(), sorted.join(","));
+            let (http, api_key) = (self.http, self.curseforge_api_key);
+            let fetch = async move {
+                match provider {
+                    ResourceProvider::Modrinth => modrinth::projects(http, &sorted).await,
+                    ResourceProvider::Curseforge => {
+                        curseforge::projects(http, api_key, &sorted).await
+                    }
+                    ResourceProvider::Hangar | ResourceProvider::Spigot => Ok(Vec::new()),
+                }
+            };
+            details.extend(cache::cached(&mut self.cache, &key, DETAILS_TTL, fetch).await?);
+        }
+        Ok(details)
     }
 }
