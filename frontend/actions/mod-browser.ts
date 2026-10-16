@@ -219,7 +219,8 @@ export const installModpackAction = authActionClient
       iconUrl: z.string().optional(),
       pageUrl: z.string().optional(),
       backup: z.boolean(),
-      wipe: z.boolean(),
+      mode: z.enum(["keep", "reset"]),
+      syncPlatform: z.boolean(),
     }),
   )
   .action(async ({ parsedInput }) =>
@@ -236,7 +237,8 @@ export const installModpackAction = authActionClient
           icon_url: parsedInput.iconUrl,
           page_url: parsedInput.pageUrl,
           backup: parsedInput.backup,
-          wipe: parsedInput.wipe,
+          mode: parsedInput.mode,
+          sync_platform: parsedInput.syncPlatform,
           // The dialog is the confirmation; the backend refuses without this.
           confirm: true,
         },

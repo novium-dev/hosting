@@ -223,9 +223,8 @@
       "description": "This server template does not expose a supported Minecraft mod or plugin feature."
     },
     "tabs": {
-      "modpack": "Modpack",
       "browse": "Browse",
-      "installed": "Installed"
+      "content": "Content"
     },
     "versionLabel": "Version",
     "loadingVersions": "Loading versions…",
@@ -254,32 +253,31 @@
     "filesLockedToast": "A modpack is being installed. Wait for it to finish before changing files.",
     "toasts": {
       "installed": "Installed {{title}}.",
-      "enabled": "Enabled {{label}}.",
-      "disabled": "Disabled {{label}}.",
-      "updated": "Updated {{title}}.",
       "updatedCount_one": "Updated {{count}} resource.",
       "updatedCount_other": "Updated {{count}} resources.",
       "updateFailed": "The resources could not be updated.",
-      "removed": "Removed {{title}}."
+      "installFailed": "The resource could not be installed.",
+      "installedWithDependencies_one": "Installed {{title}} and {{count}} dependency: {{list}}.",
+      "installedWithDependencies_other": "Installed {{title}} and {{count}} dependencies: {{list}}.",
+      "dependencyMissing": "Dependency {{title}} was not installed: {{reason}}",
+      "enabledCount_one": "Enabled {{count}} file.",
+      "enabledCount_other": "Enabled {{count}} files.",
+      "disabledCount_one": "Disabled {{count}} file.",
+      "disabledCount_other": "Disabled {{count}} files.",
+      "removedCount_one": "Removed {{count}} resource.",
+      "removedCount_other": "Removed {{count}} resources."
     },
     "browse": {
       "title": "Browse mods and plugins",
       "description": "Search Modrinth, CurseForge, Hangar and SpigotMC for resources that fit this server. Client-only mods are left out.",
-      "searchPlaceholder": "Search mods and plugins"
+      "searchPlaceholder": "Search mods and plugins",
+      "kindResources": "Mods and plugins",
+      "kindModpacks": "Modpacks"
     },
     "installed": {
-      "title": "Installed",
       "updatesBadge_one": "{{count}} update",
       "updatesBadge_other": "{{count}} updates",
-      "empty": "Nothing installed through the browser yet.",
-      "count_one": "{{count}} resource installed on this server.",
-      "count_other": "{{count}} resources installed on this server.",
       "updateAllButton": "Update all"
-    },
-    "unmanaged": {
-      "title": "Uploaded by hand",
-      "description_one": "{{count}} file was added outside the browser, so it has no version to track.",
-      "description_other": "{{count}} files were added outside the browser, so they have no version to track."
     },
     "unreadable": {
       "title": "Could not be checked",
@@ -290,27 +288,31 @@
       "replaceTitle": "Replace the modpack",
       "chooseDescription": "A server runs one pack. Installing one links it here, so its version can be switched and checked for updates later. Only packs with a server side are listed.",
       "searchPlaceholder": "Search modpacks",
-      "installedSummary": "Version {{version}} · installed on {{date}}",
       "updateAvailable": "A newer version is available: {{version}}",
       "upToDate": "This pack is on its newest version.",
       "currentSuffix": "current",
       "reinstallButton": "Reinstall",
       "switchButton": "Switch version",
       "checkUpdatesButton": "Check for updates",
-      "replaceButton": "Replace pack",
       "stopRequired": "The server has to be stopped before a pack can be installed or switched.",
       "unlinkedLoader": "This pack was installed before packs were linked to a loader, so its versions cannot be listed. Install it again to relink it.",
-      "contents": "Pack contents — {{mods}} mods, {{files}} configuration files",
       "noModsOnDisk": "None of the pack's mods are on disk any more.",
       "dialog": {
         "title": "Install {{title}}",
-        "description": "The pack is downloaded and unpacked before anything is written, so the server is only touched once the pack is known to be usable.",
+        "description": "Everything is downloaded and checked before the server is touched. If anything fails, the server stays exactly as it was.",
         "backupLabel": "Back up first",
         "backupHint": "A backup is taken before anything is written. If it fails, the install does not start.",
         "backupUnavailable": "Unavailable: this node has no backup storage configured for the server.",
-        "wipeLabel": "Replace existing mods",
-        "wipeHint": "Clears the current mod jars so the result matches the pack. Turn this off to merge the pack into what is already installed.",
-        "wipeWarning": "Existing mods will be deleted and there is no backup to restore from. Mod configuration shipped with the pack will also overwrite what is on the server."
+        "changeTitle": "Change the version of {{title}}",
+        "resetLabel": "Reset to the pack's original content",
+        "resetHint": "Removes every mod that is not part of the pack, including mods you added yourself.",
+        "keepHint": "Mods you added on top of the pack are kept. Mods the new version no longer ships are removed.",
+        "platformLabel": "Match the pack's loader and Minecraft version",
+        "platformHint": "Switches the server's software to what the pack was built for, so it can start.",
+        "platformChange": "This version is built for {{loader}} on Minecraft {{gameVersion}}. The server will be switched to match.",
+        "platformBlocked": "This pack needs a different loader or Minecraft version. Turn on matching to install it.",
+        "platformNoPermission": "This pack needs a different loader or Minecraft version, and you are not allowed to change the server's build settings.",
+        "resetWarning": "Mods you added will be deleted and there is no backup to restore from."
       },
       "toasts": {
         "started": "Installing {{title}} in the background.",
@@ -320,6 +322,46 @@
       "unlinkConfirm": {
         "title": "Unlink {{title}}?",
         "description": "Only the link is dropped. The pack's mods and configuration stay on the server and it keeps running as it does now — but its version can no longer be switched or checked for updates from here, and its jars are listed as hand-uploaded files."
+      },
+      "linkedLabel": "Linked modpack",
+      "minecraftBadge": "Minecraft {{version}}",
+      "installedOn": "Installed on {{date}}",
+      "viewContents_one": "{{count}} mod",
+      "viewContents_other": "{{count}} mods",
+      "moreActions": "More modpack actions",
+      "reviewUpdate": "Review update",
+      "disabledCount_one": "{{count}} pack mod disabled",
+      "disabledCount_other": "{{count}} pack mods disabled",
+      "missingFiles_one": "{{count}} file of the pack is missing from the server. Reinstall the pack to restore it.",
+      "missingFiles_other": "{{count}} files of the pack are missing from the server. Reinstall the pack to restore them.",
+      "contentsTitle": "{{title}} contents",
+      "contentsDescription": "{{mods}} mods and {{files}} other files come from the pack. Disabled mods stay disabled when the pack is updated.",
+      "emptyTitle": "Start from a modpack",
+      "emptyDescription": "Install a modpack and the server gets its mods, configuration, loader and Minecraft version in one step. It stays linked, so updates are one click away.",
+      "browseButton": "Browse modpacks",
+      "switchesPlatform": "Installing one of these packs switches the server to {{loader}} and the pack's Minecraft version."
+    },
+    "dependenciesHint": "Required dependencies are installed along with it.",
+    "content": {
+      "title": "Content",
+      "addedTitle": "Added content",
+      "empty": "Nothing installed yet.",
+      "emptyWithPack": "Nothing added on top of the modpack yet.",
+      "count_one": "{{count}} file on this server.",
+      "count_other": "{{count}} files on this server.",
+      "addButton": "Add content",
+      "filterPlaceholder": "Filter by name",
+      "sortName": "Name",
+      "sortAdded": "Recently added",
+      "selected_one": "{{count}} selected",
+      "selected_other": "{{count}} selected",
+      "selectAll": "Select all",
+      "clearSelection": "Clear selection",
+      "noMatches": "Nothing matches this filter.",
+      "uploadedBadge": "Uploaded",
+      "removeConfirm": {
+        "title_one": "Remove {{count}} resource?",
+        "title_other": "Remove {{count}} resources?"
       }
     }
   },
@@ -328,13 +370,31 @@
     "runningTitle": "Installing {{pack}}",
     "failedTitle": "{{pack}} could not be installed",
     "doneTitle": "{{pack}} installed",
-    "runningFiles": "{{done}} of {{total}} files written",
+    "runningFiles": "{{done}} of {{total}} files downloaded",
     "runningPreparing": "Preparing the pack…",
-    "failedDefault": "The installation failed. Nothing was changed if it failed before the install step.",
-    "doneFiles_one": "{{count}} file written.",
-    "doneFiles_other": "{{count}} files written.",
+    "failedDefault": "The installation failed.",
+    "doneFiles_one": "{{count}} file installed.",
+    "doneFiles_other": "{{count}} files installed.",
     "filesLocked": "File editing is disabled until this finishes.",
-    "failures_one": "{{count}} file could not be fetched (most often a CurseForge author blocking third-party downloads): {{list}}",
-    "failures_other": "{{count}} files could not be fetched (most often a CurseForge author blocking third-party downloads): {{list}}"
+    "failures_one": "{{count}} file failed: {{list}}",
+    "failures_other": "{{count}} files failed: {{list}}",
+    "steps": {
+      "queued": "Queued",
+      "downloading": "Downloading the pack",
+      "unpacking": "Unpacking",
+      "reading": "Reading the manifest",
+      "resolving": "Checking the platform",
+      "fetching": "Downloading files",
+      "backing_up": "Creating a backup",
+      "platform": "Switching the platform",
+      "applying": "Installing files",
+      "configuring": "Applying configuration",
+      "finishing": "Finishing",
+      "done": "Done"
+    },
+    "untouched": "Nothing on the server was changed.",
+    "platform": "Server switched to {{loader}} {{loaderVersion}} on Minecraft {{gameVersion}}.",
+    "skipped_one": "{{count}} file has to be downloaded by hand because its author blocks third-party downloads: {{list}}",
+    "skipped_other": "{{count}} files have to be downloaded by hand because their authors block third-party downloads: {{list}}"
   }
 }

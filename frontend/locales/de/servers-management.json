@@ -223,9 +223,8 @@
       "description": "Dieses Server-Template bietet keine unterstützte Minecraft-Mod- oder Plugin-Funktion."
     },
     "tabs": {
-      "modpack": "Modpack",
       "browse": "Durchsuchen",
-      "installed": "Installiert"
+      "content": "Inhalt"
     },
     "versionLabel": "Version",
     "loadingVersions": "Versionen werden geladen…",
@@ -254,32 +253,31 @@
     "filesLockedToast": "Ein Modpack wird installiert. Warte, bis es fertig ist, bevor du Dateien änderst.",
     "toasts": {
       "installed": "{{title}} installiert.",
-      "enabled": "{{label}} aktiviert.",
-      "disabled": "{{label}} deaktiviert.",
-      "updated": "{{title}} aktualisiert.",
       "updatedCount_one": "{{count}} Ressource aktualisiert.",
       "updatedCount_other": "{{count}} Ressourcen aktualisiert.",
       "updateFailed": "Die Ressourcen konnten nicht aktualisiert werden.",
-      "removed": "{{title}} entfernt."
+      "installFailed": "Die Ressource konnte nicht installiert werden.",
+      "installedWithDependencies_one": "{{title}} und {{count}} Abhängigkeit installiert: {{list}}.",
+      "installedWithDependencies_other": "{{title}} und {{count}} Abhängigkeiten installiert: {{list}}.",
+      "dependencyMissing": "Abhängigkeit {{title}} wurde nicht installiert: {{reason}}",
+      "enabledCount_one": "{{count}} Datei aktiviert.",
+      "enabledCount_other": "{{count}} Dateien aktiviert.",
+      "disabledCount_one": "{{count}} Datei deaktiviert.",
+      "disabledCount_other": "{{count}} Dateien deaktiviert.",
+      "removedCount_one": "{{count}} Ressource entfernt.",
+      "removedCount_other": "{{count}} Ressourcen entfernt."
     },
     "browse": {
       "title": "Mods und Plugins durchsuchen",
       "description": "Durchsuche Modrinth, CurseForge, Hangar und SpigotMC nach Ressourcen, die zu diesem Server passen. Reine Client-Mods werden ausgelassen.",
-      "searchPlaceholder": "Mods und Plugins suchen"
+      "searchPlaceholder": "Mods und Plugins suchen",
+      "kindResources": "Mods und Plugins",
+      "kindModpacks": "Modpacks"
     },
     "installed": {
-      "title": "Installiert",
       "updatesBadge_one": "{{count}} Update",
       "updatesBadge_other": "{{count}} Updates",
-      "empty": "Bisher wurde nichts über den Browser installiert.",
-      "count_one": "{{count}} Ressource auf diesem Server installiert.",
-      "count_other": "{{count}} Ressourcen auf diesem Server installiert.",
       "updateAllButton": "Alle aktualisieren"
-    },
-    "unmanaged": {
-      "title": "Manuell hochgeladen",
-      "description_one": "{{count}} Datei wurde außerhalb des Browsers hinzugefügt und hat daher keine nachverfolgbare Version.",
-      "description_other": "{{count}} Dateien wurden außerhalb des Browsers hinzugefügt und haben daher keine nachverfolgbare Version."
     },
     "unreadable": {
       "title": "Konnte nicht geprüft werden",
@@ -290,27 +288,31 @@
       "replaceTitle": "Modpack ersetzen",
       "chooseDescription": "Ein Server läuft mit einem Pack. Beim Installieren wird es hier verknüpft, sodass später die Version gewechselt und auf Updates geprüft werden kann. Es werden nur Packs mit Serverseite aufgeführt.",
       "searchPlaceholder": "Modpacks suchen",
-      "installedSummary": "Version {{version}} · installiert am {{date}}",
       "updateAvailable": "Eine neuere Version ist verfügbar: {{version}}",
       "upToDate": "Dieses Pack ist auf der neuesten Version.",
       "currentSuffix": "aktuell",
       "reinstallButton": "Neu installieren",
       "switchButton": "Version wechseln",
       "checkUpdatesButton": "Auf Updates prüfen",
-      "replaceButton": "Pack ersetzen",
       "stopRequired": "Der Server muss gestoppt sein, bevor ein Pack installiert oder gewechselt werden kann.",
       "unlinkedLoader": "Dieses Pack wurde installiert, bevor Packs mit einem Loader verknüpft wurden, daher lassen sich seine Versionen nicht auflisten. Installiere es erneut, um es neu zu verknüpfen.",
-      "contents": "Pack-Inhalt — {{mods}} Mods, {{files}} Konfigurationsdateien",
       "noModsOnDisk": "Keine der Mods des Packs liegt noch auf der Festplatte.",
       "dialog": {
         "title": "{{title}} installieren",
-        "description": "Das Pack wird heruntergeladen und entpackt, bevor etwas geschrieben wird — der Server wird also erst angefasst, wenn bekannt ist, dass das Pack nutzbar ist.",
+        "description": "Alles wird heruntergeladen und geprüft, bevor der Server verändert wird. Schlägt etwas fehl, bleibt der Server genau so, wie er war.",
         "backupLabel": "Zuerst sichern",
         "backupHint": "Es wird ein Backup erstellt, bevor etwas geschrieben wird. Schlägt dies fehl, startet die Installation nicht.",
         "backupUnavailable": "Nicht verfügbar: Für diesen Node ist kein Backup-Speicher für den Server konfiguriert.",
-        "wipeLabel": "Vorhandene Mods ersetzen",
-        "wipeHint": "Löscht die aktuellen Mod-JARs, damit das Ergebnis dem Pack entspricht. Deaktiviere dies, um das Pack mit dem bereits Installierten zusammenzuführen.",
-        "wipeWarning": "Vorhandene Mods werden gelöscht und es gibt kein Backup zum Wiederherstellen. Die im Pack enthaltene Mod-Konfiguration überschreibt außerdem, was auf dem Server vorhanden ist."
+        "changeTitle": "Version von {{title}} ändern",
+        "resetLabel": "Auf den Originalinhalt des Packs zurücksetzen",
+        "resetHint": "Entfernt alle Mods, die nicht zum Pack gehören, auch selbst hinzugefügte.",
+        "keepHint": "Selbst hinzugefügte Mods bleiben erhalten. Mods, die die neue Version nicht mehr enthält, werden entfernt.",
+        "platformLabel": "Loader und Minecraft-Version des Packs übernehmen",
+        "platformHint": "Stellt die Server-Software auf das um, wofür das Pack gebaut wurde, damit der Server starten kann.",
+        "platformChange": "Diese Version ist für {{loader}} auf Minecraft {{gameVersion}} gebaut. Der Server wird entsprechend umgestellt.",
+        "platformBlocked": "Dieses Pack braucht einen anderen Loader oder eine andere Minecraft-Version. Aktiviere das Übernehmen, um es zu installieren.",
+        "platformNoPermission": "Dieses Pack braucht einen anderen Loader oder eine andere Minecraft-Version, und du darfst die Build-Einstellungen des Servers nicht ändern.",
+        "resetWarning": "Selbst hinzugefügte Mods werden gelöscht und es gibt kein Backup zum Wiederherstellen."
       },
       "toasts": {
         "started": "{{title}} wird im Hintergrund installiert.",
@@ -320,6 +322,46 @@
       "unlinkConfirm": {
         "title": "{{title}} entkoppeln?",
         "description": "Nur die Verknüpfung wird gelöst. Die Mods und die Konfiguration des Packs bleiben auf dem Server und er läuft weiter wie bisher — aber die Version lässt sich von hier aus nicht mehr wechseln oder auf Updates prüfen, und die JAR-Dateien erscheinen als manuell hochgeladene Dateien."
+      },
+      "linkedLabel": "Verknüpftes Modpack",
+      "minecraftBadge": "Minecraft {{version}}",
+      "installedOn": "Installiert am {{date}}",
+      "viewContents_one": "{{count}} Mod",
+      "viewContents_other": "{{count}} Mods",
+      "moreActions": "Weitere Modpack-Aktionen",
+      "reviewUpdate": "Update ansehen",
+      "disabledCount_one": "{{count}} Pack-Mod deaktiviert",
+      "disabledCount_other": "{{count}} Pack-Mods deaktiviert",
+      "missingFiles_one": "{{count}} Datei des Packs fehlt auf dem Server. Installiere das Pack neu, um sie wiederherzustellen.",
+      "missingFiles_other": "{{count}} Dateien des Packs fehlen auf dem Server. Installiere das Pack neu, um sie wiederherzustellen.",
+      "contentsTitle": "Inhalt von {{title}}",
+      "contentsDescription": "{{mods}} Mods und {{files}} weitere Dateien stammen aus dem Pack. Deaktivierte Mods bleiben bei einem Update deaktiviert.",
+      "emptyTitle": "Mit einem Modpack starten",
+      "emptyDescription": "Installiere ein Modpack und der Server bekommt Mods, Konfiguration, Loader und Minecraft-Version in einem Schritt. Es bleibt verknüpft, Updates sind also nur einen Klick entfernt.",
+      "browseButton": "Modpacks durchsuchen",
+      "switchesPlatform": "Wird eines dieser Packs installiert, wechselt der Server zu {{loader}} und zur Minecraft-Version des Packs."
+    },
+    "dependenciesHint": "Benötigte Abhängigkeiten werden mitinstalliert.",
+    "content": {
+      "title": "Inhalt",
+      "addedTitle": "Hinzugefügte Inhalte",
+      "empty": "Noch nichts installiert.",
+      "emptyWithPack": "Noch nichts zusätzlich zum Modpack hinzugefügt.",
+      "count_one": "{{count}} Datei auf diesem Server.",
+      "count_other": "{{count}} Dateien auf diesem Server.",
+      "addButton": "Inhalte hinzufügen",
+      "filterPlaceholder": "Nach Namen filtern",
+      "sortName": "Name",
+      "sortAdded": "Zuletzt hinzugefügt",
+      "selected_one": "{{count}} ausgewählt",
+      "selected_other": "{{count}} ausgewählt",
+      "selectAll": "Alle auswählen",
+      "clearSelection": "Auswahl aufheben",
+      "noMatches": "Nichts passt zu diesem Filter.",
+      "uploadedBadge": "Hochgeladen",
+      "removeConfirm": {
+        "title_one": "{{count}} Ressource entfernen?",
+        "title_other": "{{count}} Ressourcen entfernen?"
       }
     }
   },
@@ -328,13 +370,31 @@
     "runningTitle": "{{pack}} wird installiert",
     "failedTitle": "{{pack}} konnte nicht installiert werden",
     "doneTitle": "{{pack}} installiert",
-    "runningFiles": "{{done}} von {{total}} Dateien geschrieben",
+    "runningFiles": "{{done}} von {{total}} Dateien heruntergeladen",
     "runningPreparing": "Pack wird vorbereitet…",
-    "failedDefault": "Die Installation ist fehlgeschlagen. Wenn sie vor dem Installationsschritt fehlschlug, wurde nichts geändert.",
-    "doneFiles_one": "{{count}} Datei geschrieben.",
-    "doneFiles_other": "{{count}} Dateien geschrieben.",
+    "failedDefault": "Die Installation ist fehlgeschlagen.",
+    "doneFiles_one": "{{count}} Datei installiert.",
+    "doneFiles_other": "{{count}} Dateien installiert.",
     "filesLocked": "Das Bearbeiten von Dateien ist deaktiviert, bis dies abgeschlossen ist.",
-    "failures_one": "{{count}} Datei konnte nicht geladen werden (meist blockiert ein CurseForge-Autor Drittanbieter-Downloads): {{list}}",
-    "failures_other": "{{count}} Dateien konnten nicht geladen werden (meist blockiert ein CurseForge-Autor Drittanbieter-Downloads): {{list}}"
+    "failures_one": "{{count}} Datei fehlgeschlagen: {{list}}",
+    "failures_other": "{{count}} Dateien fehlgeschlagen: {{list}}",
+    "steps": {
+      "queued": "In der Warteschlange",
+      "downloading": "Pack wird heruntergeladen",
+      "unpacking": "Wird entpackt",
+      "reading": "Manifest wird gelesen",
+      "resolving": "Plattform wird geprüft",
+      "fetching": "Dateien werden heruntergeladen",
+      "backing_up": "Backup wird erstellt",
+      "platform": "Plattform wird umgestellt",
+      "applying": "Dateien werden installiert",
+      "configuring": "Konfiguration wird angewendet",
+      "finishing": "Wird abgeschlossen",
+      "done": "Fertig"
+    },
+    "untouched": "Auf dem Server wurde nichts verändert.",
+    "platform": "Server auf {{loader}} {{loaderVersion}} mit Minecraft {{gameVersion}} umgestellt.",
+    "skipped_one": "{{count}} Datei muss von Hand heruntergeladen werden, weil ihr Autor Downloads durch Dritte blockiert: {{list}}",
+    "skipped_other": "{{count}} Dateien müssen von Hand heruntergeladen werden, weil ihre Autoren Downloads durch Dritte blockieren: {{list}}"
   }
 }

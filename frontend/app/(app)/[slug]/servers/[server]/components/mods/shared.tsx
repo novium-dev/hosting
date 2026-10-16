@@ -4,6 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { TaskLock } from "@/lib/server-tasks";
 import { cn } from "@/lib/utils";
 import type {
+  ModpackLoaderInfo,
+  ResourceLoader,
   ResourceLoaderInfo,
   ResourceProvider,
   ResourceVersion,
@@ -12,12 +14,23 @@ import type {
 export type ModsContext = {
   serverId: string;
   canWriteFiles: boolean;
+  canChangePlatform: boolean;
   installing: boolean;
   serverStopped: boolean;
   storageLock: TaskLock;
   backupAvailable: boolean;
   gameVersion: string | null;
   loaders: ResourceLoaderInfo[];
+  modpackLoaders: ModpackLoaderInfo[];
+};
+
+export const LOADER_NAMES: Record<ResourceLoader, string> = {
+  paper: "Paper",
+  fabric: "Fabric",
+  forge: "Forge",
+  neoforge: "NeoForge",
+  velocity: "Velocity",
+  bungeecord: "BungeeCord",
 };
 
 export function canMutate(ctx: ModsContext) {

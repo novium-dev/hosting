@@ -1045,60 +1045,15 @@ pub(crate) impl ServerService for Backend {
             .await
             .map_err(TemplateError::into::<UpdateVariablesError>)?;
 
-        let mut new_build = server
-            .template
-            .extra_to_build_payload(
-                self.cache.clone(),
-                new_extra
-                    .clone()
-                    .ok_or(UpdateVariablesError::TemplateInputInvalid)?,
-            )
+        let new_extra = new_extra.ok_or(UpdateVariablesError::TemplateInputInvalid)?;
+
+        self.push_template_extra(&server, new_extra)
             .await
-            .map_err(TemplateError::into::<UpdateVariablesError>)?;
-
-        new_build
-            .environment
-            .extend(self.port_environment(&*self.database, server_id).await?);
-
-        let new_build = server.customization().apply(new_build);
-
-        let mut conn = self.database.acquire().await?;
-        detached(async move {
-            conn.transaction(|tx| {
-                Box::pin(async move {
-                    query!(
-                        "UPDATE servers SET template_extra = $1 WHERE id = $2",
-                        new_extra,
-                        &server_id
-                    )
-                    .execute(&mut **tx)
-                    .await
-                    .inspect_err(|err| {
-                        error!("Failed to update server variables (template_extra): {err:?}");
-                    })?;
-
-                    server
-                        .node
-                        .update_server(
-                            server.node_server_id,
-                            None,
-                            Some(new_build),
-                            None,
-                            None,
-                            None,
-                        )
-                        .await
-                        .map_err(|err| {
-                            error!("Failed to update server variables: {err:?}");
-                            UpdateVariablesError::NodeFailure
-                        })?;
-
-                    Ok(())
-                })
+            .map_err(|err| match err {
+                BuildPushError::Template(err) => err.into::<UpdateVariablesError>(),
+                BuildPushError::Database(err) => UpdateVariablesError::from(err),
+                BuildPushError::Node => UpdateVariablesError::NodeFailure,
             })
-            .await
-        })
-        .await
     }
 
     /// Gets the server's custom environment variables.
@@ -1353,4 +1308,69 @@ fn text_value_valid(value: &str, limit: usize) -> bool {
         && !value
             .chars()
             .any(|character| character.is_control() && character != '\n' && character != '\t')
+}
+
+#[derive(Debug)]
+pub(crate) enum BuildPushError {
+    Template(TemplateError),
+    Database(sqlx::Error),
+    Node,
+}
+
+impl From<sqlx::Error> for BuildPushError {
+    fn from(value: sqlx::Error) -> Self {
+        Self::Database(value)
+    }
+}
+
+impl Backend {
+    pub(crate) async fn push_template_extra(
+        &self,
+        server: &crate::db::server::Server,
+        new_extra: serde_json::Value,
+    ) -> Result<(), BuildPushError> {
+        let mut new_build = server
+            .template
+            .extra_to_build_payload(self.cache.clone(), new_extra.clone())
+            .await
+            .map_err(BuildPushError::Template)?;
+
+        new_build
+            .environment
+            .extend(self.port_environment(&*self.database, server.id).await?);
+
+        let new_build = server.customization().apply(new_build);
+
+        let server_id = server.id;
+        let node = Arc::clone(&server.node);
+        let node_server_id = server.node_server_id;
+        let mut conn = self.database.acquire().await?;
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    query!(
+                        "UPDATE servers SET template_extra = $1 WHERE id = $2",
+                        new_extra,
+                        &server_id
+                    )
+                    .execute(&mut **tx)
+                    .await
+                    .inspect_err(|err| {
+                        error!("Failed to update server variables (template_extra): {err:?}");
+                    })?;
+
+                    node.update_server(node_server_id, None, Some(new_build), None, None, None)
+                        .await
+                        .map_err(|err| {
+                            error!("Failed to update server variables: {err:?}");
+                            BuildPushError::Node
+                        })?;
+
+                    Ok(())
+                })
+            })
+            .await
+        })
+        .await
+    }
 }

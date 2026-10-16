@@ -1,6 +1,10 @@
 import type {
   InstallResourcePayload,
+  InstallResourceResponse,
   InstalledResource,
+  ModpackLoaderInfo,
+  ModpackStep,
+  PackLoader,
   ListInstalledResourcesResponse,
   ListResourceUpdatesResponse,
   ModpackStatusResponse,
@@ -31,10 +35,14 @@ export type ModpackJob = NonNullable<ModpackStatusResponse>;
 export type ModpackVersions = NonNullable<ModpackVersionsResponse>;
 export type ResourceUpdate = ListResourceUpdatesResponse[number];
 export type ResourceUpdateResult = UpdateAllResourcesResponse[number];
+export type ResourceInstallResult = InstallResourceResponse;
 
 export type {
   InstallResourcePayload,
   InstalledResource,
+  ModpackLoaderInfo,
+  ModpackStep,
+  PackLoader,
   ResourceKind,
   ResourceLoader,
   ResourceLoaderInfo,
@@ -77,4 +85,11 @@ export const LOADER_LABELS: Record<ResourceLoader, string> = {
   neoforge: "NeoForge mods",
   velocity: "Velocity plugins",
   bungeecord: "BungeeCord plugins",
+};
+
+export const PACK_LOADER_LABELS: Record<PackLoader, string> = {
+  fabric: "Fabric",
+  quilt: "Quilt",
+  neoforge: "NeoForge",
+  forge: "Forge",
 };
