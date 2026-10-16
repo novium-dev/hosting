@@ -35,6 +35,7 @@ use daemon_common::service::files::files_service_error::{
 use futures::StreamExt as _;
 use futures::stream::FuturesUnordered;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest as _, Sha512};
 use std::collections::{HashMap, HashSet};
 use tokio::io::AsyncReadExt as _;
 use tracing::{error, info, warn};
@@ -57,6 +58,8 @@ const CURSEFORGE_FILE_DIR: &str = "mods";
 const DOWNLOAD_ATTEMPTS: u32 = 3;
 
 const PARALLEL_DOWNLOADS: usize = 6;
+
+const HASH_CHUNK_BYTES: usize = 0x0001_0000;
 
 const DISABLED_SUFFIX: &str = ".disabled";
 
@@ -311,6 +314,38 @@ impl Backend {
         Ok(buffer)
     }
 
+    async fn matches_sha512(&self, server: &Server, path: &str, expected: &str) -> bool {
+        let stream = match server
+            .node
+            .server_download_file(server.node_server_id, path.to_owned(), None)
+            .await
+        {
+            Ok(response) => response.into_data_stream(),
+            Err(err) => {
+                warn!("Failed to read {path} to check its hash: {err:?}");
+                return false;
+            }
+        };
+        let Some(stream) = stream else {
+            return false;
+        };
+
+        let mut reader = stream.reader();
+        let mut hasher = Sha512::new();
+        let mut buffer = vec![0u8; HASH_CHUNK_BYTES];
+        loop {
+            match reader.read(&mut buffer).await {
+                Ok(0) => break,
+                Ok(read) => hasher.update(buffer.get(..read).unwrap_or_default()),
+                Err(err) => {
+                    warn!("Failed to read {path} to check its hash: {err:?}");
+                    return false;
+                }
+            }
+        }
+        hex::encode(hasher.finalize()) == expected
+    }
+
     async fn ensure_dir(&self, server: &Server, path: &str) -> Result<(), InstallFailure> {
         match server
             .node
@@ -455,6 +490,7 @@ impl Backend {
                         source: PackSource::Url(entry.url),
                         size: None,
                         sha1: None,
+                        sha512: None,
                     });
                 }
                 Err(ResourceError::DownloadUnavailable) => {
@@ -661,6 +697,15 @@ impl Backend {
             {
                 Ok(entry) if entry.size == expected => return Ok(()),
                 Ok(entry) => {
+                    if let Some(sha512) = &file.sha512
+                        && self.matches_sha512(server, &target, sha512).await
+                    {
+                        warn!(
+                            "{} has {} bytes instead of the declared {expected}, but its hash matches",
+                            file.path, entry.size
+                        );
+                        return Ok(());
+                    }
                     warn!(
                         "Attempt {attempt}: {} has {} bytes, expected {expected}",
                         file.path, entry.size

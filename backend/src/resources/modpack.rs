@@ -68,6 +68,7 @@ pub(crate) struct ModpackFile {
     pub(crate) source: PackSource,
     pub(crate) size: Option<u64>,
     pub(crate) sha1: Option<String>,
+    pub(crate) sha512: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -222,6 +223,13 @@ fn modrinth_platform(dependencies: &HashMap<String, String>) -> PackPlatform {
     }
 }
 
+fn hex_hash(hashes: &HashMap<String, String>, kind: &str, len: usize) -> Option<String> {
+    hashes
+        .get(kind)
+        .filter(|hash| hash.len() == len && hash.chars().all(|ch| ch.is_ascii_hexdigit()))
+        .map(|hash| hash.to_lowercase())
+}
+
 pub(crate) fn parse_modrinth_index(raw: &[u8]) -> Result<Modpack, ResourceError> {
     let index: ModrinthIndex =
         serde_json::from_slice(raw).map_err(|_err| ResourceError::ProviderError)?;
@@ -249,11 +257,8 @@ pub(crate) fn parse_modrinth_index(raw: &[u8]) -> Result<Modpack, ResourceError>
             path,
             source: PackSource::Url(url),
             size: file.file_size,
-            sha1: file
-                .hashes
-                .get("sha1")
-                .filter(|hash| hash.len() == 40 && hash.chars().all(|ch| ch.is_ascii_hexdigit()))
-                .map(|hash| hash.to_lowercase()),
+            sha1: hex_hash(&file.hashes, "sha1", 40),
+            sha512: hex_hash(&file.hashes, "sha512", 128),
         });
     }
 
@@ -304,6 +309,7 @@ pub(crate) fn parse_curseforge_manifest(raw: &[u8]) -> Result<Modpack, ResourceE
             },
             size: None,
             sha1: None,
+            sha512: None,
         })
         .collect();
 

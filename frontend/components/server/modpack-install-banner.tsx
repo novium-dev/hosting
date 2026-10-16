@@ -117,7 +117,7 @@ export function ModpackInstallBanner({
             </p>
           ) : null}
 
-          {platform?.loader && platform.game_version ? (
+          {!running && !failed && platform?.loader && platform.game_version ? (
             <p className="text-sm text-muted-foreground">
               {t("servers-management:modpackInstall.platform", {
                 loader: PACK_LOADER_LABELS[platform.loader],
