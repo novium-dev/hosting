@@ -148,7 +148,11 @@ struct InstallRequest<'a> {
     page_url: Option<String>,
 }
 
-const MODPACK_LOADERS: [ResourceLoader; 2] = [ResourceLoader::Fabric, ResourceLoader::Neoforge];
+const MODPACK_LOADERS: [ResourceLoader; 3] = [
+    ResourceLoader::Fabric,
+    ResourceLoader::Forge,
+    ResourceLoader::Neoforge,
+];
 
 const MAX_DEPENDENCIES: usize = 64;
 

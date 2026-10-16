@@ -209,12 +209,12 @@ struct PlatformPlan {
     new_extra: Option<serde_json::Value>,
 }
 
-const fn software_for(loader: PackLoader) -> Option<MinecraftServerModification> {
+const fn software_for(loader: PackLoader) -> MinecraftServerModification {
     match loader {
-        PackLoader::Fabric => Some(MinecraftServerModification::Fabric),
-        PackLoader::Quilt => Some(MinecraftServerModification::Quilt),
-        PackLoader::Neoforge => Some(MinecraftServerModification::NeoForge),
-        PackLoader::Forge => None,
+        PackLoader::Fabric => MinecraftServerModification::Fabric,
+        PackLoader::Quilt => MinecraftServerModification::Quilt,
+        PackLoader::Neoforge => MinecraftServerModification::NeoForge,
+        PackLoader::Forge => MinecraftServerModification::Forge,
     }
 }
 
@@ -503,7 +503,7 @@ impl Backend {
     async fn plan_platform(
         &self,
         server: &Server,
-        target: PackPlatform,
+        mut target: PackPlatform,
         sync: bool,
     ) -> Result<PlatformPlan, InstallFailure> {
         let current: MinecraftServerExtra = serde_json::from_value(server.template_extra.clone())
@@ -518,12 +518,7 @@ impl Backend {
                 new_extra: None,
             });
         };
-        let Some(software) = software_for(loader) else {
-            return Err(InstallFailure::from(format!(
-                "This pack needs {}, which this server cannot run",
-                loader.label()
-            )));
-        };
+        let software = software_for(loader);
 
         let current_software = current.modification();
         let current_game = current.minecraft_version();
@@ -532,6 +527,15 @@ impl Backend {
             .game_version
             .clone()
             .unwrap_or_else(|| current_game.clone());
+
+        if let Some(build) = target.loader_version.as_mut()
+            && let Some(short) = build
+                .strip_prefix(game.as_str())
+                .and_then(|rest| rest.strip_prefix('-'))
+                .map(str::to_owned)
+        {
+            *build = short;
+        }
 
         let software_differs = current_software != software || current_game != game;
         let build_differs = target
