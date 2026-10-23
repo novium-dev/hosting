@@ -1,6 +1,7 @@
 use crate::auth::api_key::ApiKeyAuthentication;
 use crate::auth::effective::EffectivePermissions;
 use crate::auth::permissions::{Resolve, Scope};
+use crate::auth::trusted_token::TrustedTokenAuthentication;
 use crate::auth::user::UserAuthentication;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
@@ -18,12 +19,14 @@ pub mod node;
 pub mod oauth;
 pub mod permissions;
 pub mod session;
+pub mod trusted_token;
 pub mod user;
 
 #[derive(Debug)]
 pub enum Authentication {
     User(UserAuthentication),
     ApiKey(ApiKeyAuthentication),
+    TrustedToken(TrustedTokenAuthentication),
     None,
 }
 
@@ -32,6 +35,7 @@ impl Authentication {
         match self {
             Self::User(auth) => Some(auth),
             Self::ApiKey(auth) => Some(auth),
+            Self::TrustedToken(auth) => Some(auth),
             Self::None => None,
         }
     }
@@ -67,6 +71,7 @@ impl Authentication {
         match *self {
             Self::User(ref auth) => Some(auth.id),
             Self::ApiKey(ref auth) => Some(auth.user),
+            Self::TrustedToken(ref auth) => Some(auth.user),
             Self::None => None,
         }
     }
@@ -80,6 +85,13 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             <UserAuthentication as OptionalFromRequestParts<E>>::from_request_parts(parts).await?
         {
             return Ok(Self::User(auth));
+        }
+
+        if let Some(auth) =
+            <TrustedTokenAuthentication as OptionalFromRequestParts<E>>::from_request_parts(parts)
+                .await?
+        {
+            return Ok(Self::TrustedToken(auth));
         }
 
         Ok(
