@@ -51,4 +51,8 @@ ignore = true
 
 [advisories]
 unmaintained = "workspace"
-ignore = []
+ignore = [
+  { id = "RUSTSEC-2026-0367", reason = "zip 3 is only a build dependency of utoipa-swagger-ui 9, used to unpack its bundled Swagger UI archive; drop with the utoipa 6 / utoipa-swagger-ui 10 upgrade" },
+  { id = "RUSTSEC-2026-0368", reason = "zip 3 is only a build dependency of utoipa-swagger-ui 9, used to unpack its bundled Swagger UI archive; drop with the utoipa 6 / utoipa-swagger-ui 10 upgrade" },
+  { id = "RUSTSEC-2026-0369", reason = "zip 3 is only a build dependency of utoipa-swagger-ui 9, used to unpack its bundled Swagger UI archive; drop with the utoipa 6 / utoipa-swagger-ui 10 upgrade" },
+]
