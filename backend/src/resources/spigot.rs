@@ -84,6 +84,7 @@ fn to_version(resource: &Resource, version: &Version) -> ResourceVersion {
             .release_date
             .and_then(|seconds| DateTime::from_timestamp(seconds, 0))
             .map(|date| date.to_rfc3339()),
+        changelog: None,
         file_name: Some(file_name(&resource.name, &version.name)),
         downloadable: INSTALLABLE,
     }

@@ -6,6 +6,7 @@ use crate::db::server::resources::{
     InstalledResource, delete_installed, delete_installed_files, get_modpack, installed_file,
     list_installed, upsert_installed,
 };
+
 use crate::db::server::{Server, ServerId};
 use crate::resources::{
     MAX_QUERY_LENGTH, MAX_SEARCH_LIMIT, ResourceClient, ResourceError, ResourceKind,
@@ -92,6 +93,8 @@ fn state_file_name(base: &str, enabled: bool) -> String {
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ResourceContext {
     pub(crate) loaders: Vec<ResourceLoaderInfo>,
+    pub(crate) modpack_loaders: Vec<ModpackLoaderInfo>,
+    pub(crate) can_change_platform: bool,
     pub(crate) game_version: Option<String>,
     pub(crate) backup_available: bool,
 }
@@ -101,7 +104,27 @@ pub(crate) struct ResourceLoaderInfo {
     pub(crate) loader: ResourceLoader,
     pub(crate) resource_type: ResourceType,
     pub(crate) providers: Vec<ResourceProvider>,
-    pub(crate) modpack_providers: Vec<ResourceProvider>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct ModpackLoaderInfo {
+    pub(crate) loader: ResourceLoader,
+    pub(crate) providers: Vec<ResourceProvider>,
+    pub(crate) switches_platform: bool,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct ResourceInstallResult {
+    pub(crate) installed: InstalledResource,
+    pub(crate) dependencies: Vec<InstalledResource>,
+    pub(crate) unresolved: Vec<UnresolvedDependency>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct UnresolvedDependency {
+    pub(crate) project: Option<String>,
+    pub(crate) title: Option<String>,
+    pub(crate) reason: String,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -125,6 +148,14 @@ struct InstallRequest<'a> {
     page_url: Option<String>,
 }
 
+const MODPACK_LOADERS: [ResourceLoader; 3] = [
+    ResourceLoader::Fabric,
+    ResourceLoader::Forge,
+    ResourceLoader::Neoforge,
+];
+
+const MAX_DEPENDENCIES: usize = 64;
+
 const FEATURE_LOADERS: [(&str, ResourceLoader); 6] = [
     ("minecraft_plugins_paper", ResourceLoader::Paper),
     ("minecraft_mods_fabric", ResourceLoader::Fabric),
@@ -143,6 +174,11 @@ pub(crate) struct ModpackMod {
     pub(crate) resource_type: ResourceType,
     pub(crate) file_name: String,
     pub(crate) enabled: bool,
+    pub(crate) project: Option<String>,
+    pub(crate) version: Option<String>,
+    pub(crate) title: Option<String>,
+    pub(crate) icon_url: Option<String>,
+    pub(crate) page_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -155,8 +191,11 @@ pub(crate) struct InstalledModpack {
     pub(crate) title: String,
     pub(crate) icon_url: Option<String>,
     pub(crate) page_url: Option<String>,
+    pub(crate) game_version: Option<String>,
+    pub(crate) loader_version: Option<String>,
     pub(crate) installed_at: i64,
     pub(crate) mods: Vec<ModpackMod>,
+    pub(crate) missing: Vec<String>,
     pub(crate) other_files: u32,
 }
 
@@ -657,9 +696,162 @@ impl Backend {
     }
 }
 
+impl Backend {
+    async fn dependency_title(
+        &self,
+        provider: ResourceProvider,
+        project: &str,
+    ) -> (Option<String>, Option<String>) {
+        match self
+            .resource_client()
+            .projects(provider, &[project.to_owned()])
+            .await
+        {
+            Ok(details) => details
+                .into_iter()
+                .next()
+                .map_or((None, None), |detail| (Some(detail.title), detail.page_url)),
+            Err(err) => {
+                warn!("Failed to load dependency {project}: {err:?}");
+                (None, None)
+            }
+        }
+    }
+
+    async fn install_dependencies(
+        &self,
+        server: &Server,
+        primary: &InstalledResource,
+        loader: ResourceLoader,
+        game_version: Option<&str>,
+    ) -> (Vec<InstalledResource>, Vec<UnresolvedDependency>) {
+        let provider = primary.provider;
+        let mut installed = Vec::new();
+        let mut unresolved = Vec::new();
+
+        let mut known: HashSet<String> = match list_installed(&self.database, server.id).await {
+            Ok(records) => records
+                .into_iter()
+                .filter(|record| record.provider == provider)
+                .map(|record| record.project)
+                .collect(),
+            Err(err) => {
+                warn!("Failed to list installed resources for dependencies: {err:?}");
+                return (installed, unresolved);
+            }
+        };
+        if let Ok(Some(pack)) = get_modpack(&self.database, server.id).await
+            && pack.provider == provider
+        {
+            known.extend(pack.files.into_iter().filter_map(|file| file.project));
+        }
+        known.insert(primary.project.clone());
+
+        let mut visited = HashSet::new();
+        let mut stack = vec![primary.version.clone()];
+        while let Some(version) = stack.pop() {
+            if !visited.insert(version.clone()) || installed.len() >= MAX_DEPENDENCIES {
+                continue;
+            }
+
+            let dependencies = match self
+                .resource_client()
+                .dependencies(provider, &version)
+                .await
+            {
+                Ok(dependencies) => dependencies,
+                Err(err) => {
+                    warn!("Failed to read dependencies of {version}: {err:?}");
+                    continue;
+                }
+            };
+
+            for dependency in dependencies {
+                let Some(project) = dependency.project else {
+                    unresolved.push(UnresolvedDependency {
+                        project: None,
+                        title: None,
+                        reason: "The dependency does not name its project".to_owned(),
+                    });
+                    continue;
+                };
+                if !known.insert(project.clone()) {
+                    continue;
+                }
+
+                let (title, page_url) = self.dependency_title(provider, &project).await;
+
+                let version = match dependency.version {
+                    Some(version) => Some(version),
+                    None => self
+                        .resource_client()
+                        .versions(
+                            provider,
+                            &project,
+                            loader,
+                            ResourceKind::Resource,
+                            game_version,
+                        )
+                        .await
+                        .ok()
+                        .and_then(|versions| newest_version(versions, false))
+                        .map(|version| version.id),
+                };
+                let Some(version) = version else {
+                    unresolved.push(UnresolvedDependency {
+                        project: Some(project),
+                        title,
+                        reason: "No version fits this server's loader and Minecraft version"
+                            .to_owned(),
+                    });
+                    continue;
+                };
+
+                match self
+                    .install_version(
+                        server,
+                        InstallRequest {
+                            provider,
+                            project: &project,
+                            version: &version,
+                            loader,
+                            title: title.clone(),
+                            page_url,
+                        },
+                    )
+                    .await
+                {
+                    Ok(resource) => {
+                        stack.push(resource.version.clone());
+                        installed.push(resource);
+                    }
+                    Err(err) => {
+                        warn!("Failed to install dependency {project}: {err:?}");
+                        unresolved.push(UnresolvedDependency {
+                            project: Some(project),
+                            title,
+                            reason: err.reason().to_owned(),
+                        });
+                    }
+                }
+            }
+        }
+
+        (installed, unresolved)
+    }
+}
+
 #[service(path = "/resource/{server_id}", tag = "resource", no_sdk)]
 pub(crate) impl ResourceService for Backend {
     /// Reports which loaders and providers this server can browse.
+    ///
+    /// `modpack_loaders` lists the loaders whose packs can be installed. A pack
+    /// for another loader than the server's own switches the server's software
+    /// when it is installed, so those are only offered (`switches_platform`)
+    /// when the caller also holds [`ServerPermissions::BUILD_EDIT`].
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_READ`].
     #[route("", method = GET)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::wrong_template, template::{corrupted, unavailable})]
     async fn resource_context(
@@ -685,7 +877,7 @@ pub(crate) impl ResourceService for Backend {
             .map_err(TemplateError::into::<ResourceContextError>)?;
 
         let available = self.resource_client().available();
-        let loaders = FEATURE_LOADERS
+        let loaders: Vec<ResourceLoaderInfo> = FEATURE_LOADERS
             .into_iter()
             .filter(|(feature, _)| features.contains(feature))
             .map(|(_, loader)| ResourceLoaderInfo {
@@ -696,13 +888,30 @@ pub(crate) impl ResourceService for Backend {
                     .copied()
                     .filter(|provider| provider.supports(loader, ResourceKind::Resource))
                     .collect(),
-                modpack_providers: available
-                    .iter()
-                    .copied()
-                    .filter(|provider| provider.supports(loader, ResourceKind::Modpack))
-                    .collect(),
             })
             .collect();
+
+        let can_switch = auth.has(server_id, ServerPermissions::BUILD_EDIT);
+        let modpack_loaders = if server.template.id() == MinecraftTemplate::ID {
+            MODPACK_LOADERS
+                .into_iter()
+                .filter_map(|loader| {
+                    let current = loaders.iter().any(|entry| entry.loader == loader);
+                    (current || can_switch).then(|| ModpackLoaderInfo {
+                        loader,
+                        providers: available
+                            .iter()
+                            .copied()
+                            .filter(|provider| provider.supports(loader, ResourceKind::Modpack))
+                            .collect(),
+                        switches_platform: !current,
+                    })
+                })
+                .filter(|entry| !entry.providers.is_empty())
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         let backup_available = server.backup_limit != Some(0)
             && sqlx::query_scalar!(
@@ -715,6 +924,8 @@ pub(crate) impl ResourceService for Backend {
 
         Ok(ResourceContext {
             loaders,
+            modpack_loaders,
+            can_change_platform: can_switch,
             backup_available,
             game_version: server
                 .template_extra
@@ -833,7 +1044,7 @@ pub(crate) impl ResourceService for Backend {
             .map(|pack| {
                 pack.files
                     .iter()
-                    .filter_map(|path| split_resource_path(path))
+                    .filter_map(|file| split_resource_path(&file.path))
                     .map(|(resource_type, name)| (resource_type, name.to_owned()))
                     .collect()
             })
@@ -910,30 +1121,53 @@ pub(crate) impl ResourceService for Backend {
 
         let modpack = modpack.map(|pack| {
             let mut mods = Vec::new();
+            let mut missing = Vec::new();
             let mut other_files = 0u32;
 
-            for path in &pack.files {
-                let Some((resource_type, name)) = split_resource_path(path) else {
-                    other_files += 1;
+            for file in &pack.files {
+                let Some((resource_type, name)) = split_resource_path(&file.path) else {
+                    other_files = other_files.saturating_add(1);
                     continue;
                 };
                 let Some(files) = listings.get(&resource_type).and_then(Option::as_ref) else {
                     continue;
                 };
 
+                let mut found_any = false;
                 for (found, _size) in files {
                     let (base, enabled) = split_disabled(found);
                     if base == name {
+                        found_any = true;
                         mods.push(ModpackMod {
                             resource_type,
                             file_name: found.clone(),
                             enabled,
+                            project: file.project.clone(),
+                            version: file.version.clone(),
+                            title: file.title.clone(),
+                            icon_url: file.icon_url.clone(),
+                            page_url: file.page_url.clone(),
                         });
                     }
                 }
+                if !found_any {
+                    missing.push(file.path.clone());
+                }
             }
 
-            mods.sort_by(|left, right| left.file_name.cmp(&right.file_name));
+            mods.sort_by(|left, right| {
+                let left = left
+                    .title
+                    .as_deref()
+                    .unwrap_or(&left.file_name)
+                    .to_lowercase();
+                let right = right
+                    .title
+                    .as_deref()
+                    .unwrap_or(&right.file_name)
+                    .to_lowercase();
+                left.cmp(&right)
+            });
 
             InstalledModpack {
                 provider: pack.provider,
@@ -944,8 +1178,11 @@ pub(crate) impl ResourceService for Backend {
                 title: pack.title,
                 icon_url: pack.icon_url,
                 page_url: pack.page_url,
+                game_version: pack.game_version,
+                loader_version: pack.loader_version,
                 installed_at: pack.installed_at,
                 mods,
+                missing,
                 other_files,
             }
         });
@@ -964,13 +1201,13 @@ pub(crate) impl ResourceService for Backend {
     /// is written first, then the previous one is removed, so a failed download
     /// leaves the working version in place.
     #[route("/install", method = POST)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, wrong_template}, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, already_exists})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, wrong_template}, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, already_exists}, modpack::already_running)]
     async fn install_resource(
         &self,
         #[special] auth: Authentication,
         server_id: ServerId,
         payload: InstallResourcePayload,
-    ) -> Result<InstalledResource, _> {
+    ) -> Result<ResourceInstallResult, _> {
         auth.require::<_, _, InstallResourceError>(server_id, ServerPermissions::FILES_WRITE)?;
 
         let server = self
@@ -981,20 +1218,39 @@ pub(crate) impl ResourceService for Backend {
         if !template_supports_resources(server.template.id()) {
             return Err(InstallResourceError::ResourceWrongTemplate);
         }
+        if self.modpack_installing(server_id).await {
+            return Err(InstallResourceError::ModpackAlreadyRunning);
+        }
 
-        self.install_version(
-            &server,
-            InstallRequest {
-                provider: payload.provider,
-                project: &payload.project,
-                version: &payload.version,
-                loader: payload.loader,
-                title: payload.title,
-                page_url: payload.page_url,
-            },
-        )
-        .await
-        .map_err(InstallError::into::<InstallResourceError>)
+        let installed = self
+            .install_version(
+                &server,
+                InstallRequest {
+                    provider: payload.provider,
+                    project: &payload.project,
+                    version: &payload.version,
+                    loader: payload.loader,
+                    title: payload.title,
+                    page_url: payload.page_url,
+                },
+            )
+            .await
+            .map_err(InstallError::into::<InstallResourceError>)?;
+
+        let game_version = server
+            .template_extra
+            .get("minecraft_version")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned);
+        let (dependencies, unresolved) = self
+            .install_dependencies(&server, &installed, payload.loader, game_version.as_deref())
+            .await;
+
+        Ok(ResourceInstallResult {
+            installed,
+            dependencies,
+            unresolved,
+        })
     }
 
     /// Lists installed resources that have a newer version available.
@@ -1060,7 +1316,7 @@ pub(crate) impl ResourceService for Backend {
 
     /// Updates one installed resource to the newest compatible version.
     #[route("/update", method = POST, query = [ provider, project, allow_prerelease ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, template::{corrupted, unavailable}, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, not_installed, wrong_template}, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, already_exists})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, node::failure, template::{corrupted, unavailable}, resource::{invalid_payload, provider_unavailable, provider_disabled, provider_error, download_unavailable, missing, not_installed, wrong_template}, file::{storage_unavailable, not_found, sandbox_violated, is_directory, quota_exceeded, already_exists}, modpack::already_running)]
     async fn update_resource(
         &self,
         #[special] auth: Authentication,
@@ -1078,6 +1334,9 @@ pub(crate) impl ResourceService for Backend {
 
         if !template_supports_resources(server.template.id()) {
             return Err(UpdateResourceError::ResourceWrongTemplate);
+        }
+        if self.modpack_installing(server_id).await {
+            return Err(UpdateResourceError::ModpackAlreadyRunning);
         }
 
         let resource = list_installed(&self.database, server_id)
@@ -1125,7 +1384,7 @@ pub(crate) impl ResourceService for Backend {
     /// four providers, one unreachable provider or one distribution-blocked file
     /// should not stop the rest from updating.
     #[route("/update-all", method = POST, query = [ allow_prerelease ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::wrong_template, template::{corrupted, unavailable})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::not_found, resource::wrong_template, template::{corrupted, unavailable}, modpack::already_running)]
     async fn update_all_resources(
         &self,
         #[special] auth: Authentication,
@@ -1141,6 +1400,9 @@ pub(crate) impl ResourceService for Backend {
 
         if !template_supports_resources(server.template.id()) {
             return Err(UpdateAllResourcesError::ResourceWrongTemplate);
+        }
+        if self.modpack_installing(server_id).await {
+            return Err(UpdateAllResourcesError::ModpackAlreadyRunning);
         }
 
         let recorded = list_installed(&self.database, server_id).await?;
@@ -1210,7 +1472,7 @@ pub(crate) impl ResourceService for Backend {
 
     /// Removes an installed resource's file and its record.
     #[route("/installed", method = DELETE, query = [ provider, project ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, resource::not_installed, file::{storage_unavailable, sandbox_violated, is_directory, not_directory, not_found})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, resource::not_installed, file::{storage_unavailable, sandbox_violated, is_directory, not_directory, not_found}, modpack::already_running)]
     async fn uninstall_resource(
         &self,
         #[special] auth: Authentication,
@@ -1219,6 +1481,10 @@ pub(crate) impl ResourceService for Backend {
         project: String,
     ) -> Result<(), _> {
         auth.require::<_, _, UninstallResourceError>(server_id, ServerPermissions::FILES_WRITE)?;
+
+        if self.modpack_installing(server_id).await {
+            return Err(UninstallResourceError::ModpackAlreadyRunning);
+        }
 
         let (file_name, resource_type) =
             installed_file(&self.database, server_id, provider, &project)
@@ -1278,7 +1544,7 @@ pub(crate) impl ResourceService for Backend {
     /// Idempotent — asking for the state a file is already in succeeds without
     /// touching the filesystem.
     #[route("/state", method = POST, query = [ resource_type, file, enabled ])]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, resource::invalid_payload, file::{storage_unavailable, not_found, not_directory, sandbox_violated, already_exists})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found, node::failure, resource::invalid_payload, file::{storage_unavailable, not_found, not_directory, sandbox_violated, already_exists}, modpack::already_running)]
     async fn set_resource_state(
         &self,
         #[special] auth: Authentication,
@@ -1288,6 +1554,10 @@ pub(crate) impl ResourceService for Backend {
         enabled: bool,
     ) -> Result<ResourceState, _> {
         auth.require::<_, _, SetResourceStateError>(server_id, ServerPermissions::FILES_WRITE)?;
+
+        if self.modpack_installing(server_id).await {
+            return Err(SetResourceStateError::ModpackAlreadyRunning);
+        }
 
         if matches!(resource_type, ResourceType::DataPack) {
             return Err(SetResourceStateError::ResourceInvalidPayload);

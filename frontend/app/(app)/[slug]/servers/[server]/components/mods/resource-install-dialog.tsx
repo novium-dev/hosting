@@ -111,14 +111,33 @@ export function ResourceInstallDialog({
     });
     setIsInstalling(false);
 
-    if (result.serverError) {
-      toast.error(result.serverError);
+    if (result.serverError || !result.data) {
+      toast.error(
+        result.serverError ?? t("servers-management:mods.toasts.installFailed"),
+      );
       return;
     }
 
+    const { dependencies, unresolved } = result.data;
     toast.success(
-      t("servers-management:mods.toasts.installed", { title: project.title }),
+      dependencies.length > 0
+        ? t("servers-management:mods.toasts.installedWithDependencies", {
+            title: project.title,
+            count: dependencies.length,
+            list: dependencies.map((entry) => entry.title).join(", "),
+          })
+        : t("servers-management:mods.toasts.installed", {
+            title: project.title,
+          }),
     );
+    for (const entry of unresolved) {
+      toast.warning(
+        t("servers-management:mods.toasts.dependencyMissing", {
+          title: entry.title ?? entry.project ?? "?",
+          reason: entry.reason,
+        }),
+      );
+    }
     onOpenChange(false);
     onInstalled();
   };
@@ -208,6 +227,12 @@ export function ResourceInstallDialog({
                 </p>
               ) : null}
             </div>
+
+            {project.provider === "modrinth" ? (
+              <p className="text-sm text-muted-foreground">
+                {t("servers-management:mods.dependenciesHint")}
+              </p>
+            ) : null}
 
             {version?.downloadable === false ? (
               <p className="text-sm text-muted-foreground">

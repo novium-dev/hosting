@@ -1,10 +1,11 @@
 use reqwest::Client;
 use serde::Deserialize;
+use std::collections::HashMap;
 
 use super::{
-    ResolvedResource, ResourceError, ResourceKind, ResourceLoader, ResourceProject,
-    ResourceProvider, ResourceQuery, ResourceVersion, ResourceVersionType, encode_segment,
-    fetch_json, sanitize_file_name,
+    ProjectDetails, ResolvedResource, ResourceDependency, ResourceError, ResourceKind,
+    ResourceLoader, ResourceProject, ResourceProvider, ResourceQuery, ResourceVersion,
+    ResourceVersionType, encode_segment, fetch_json, safe_page_url, sanitize_file_name,
 };
 
 const API: &str = "https://api.modrinth.com/v2";
@@ -77,8 +78,35 @@ struct Version {
     #[serde(default)]
     downloads: u64,
     date_published: Option<String>,
+    changelog: Option<String>,
     #[serde(default)]
     files: Vec<VersionFile>,
+    #[serde(default)]
+    dependencies: Vec<Dependency>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Dependency {
+    version_id: Option<String>,
+    project_id: Option<String>,
+    #[serde(rename = "dependency_type")]
+    kind: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct Project {
+    id: String,
+    slug: String,
+    title: String,
+    icon_url: Option<String>,
+    #[serde(rename = "project_type")]
+    kind: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct HashLookup<'a> {
+    hashes: &'a [String],
+    algorithm: &'static str,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -143,6 +171,7 @@ fn to_version(version: Version) -> ResourceVersion {
         loaders: version.loaders,
         downloads: version.downloads,
         published_at: version.date_published,
+        changelog: version.changelog,
         file_name: file.as_ref().map(|file| file.filename.clone()),
         downloadable: file.is_some(),
     }
@@ -255,4 +284,72 @@ pub(super) async fn resolve(
             .map_err(|_err| ResourceError::ProviderError)?,
         file_name: sanitize_file_name(&file.filename, "modrinth-resource.jar"),
     })
+}
+
+pub(super) async fn dependencies(
+    client: &Client,
+    version: &str,
+) -> Result<Vec<ResourceDependency>, ResourceError> {
+    let version: Version = fetch_json(
+        PROVIDER,
+        client.get(format!("{API}/version/{}", encode_segment(version))),
+    )
+    .await?;
+
+    Ok(version
+        .dependencies
+        .into_iter()
+        .filter(|dependency| dependency.kind == "required")
+        .filter(|dependency| dependency.project_id.is_some() || dependency.version_id.is_some())
+        .map(|dependency| ResourceDependency {
+            project: dependency.project_id,
+            version: dependency.version_id,
+        })
+        .collect())
+}
+
+pub(super) async fn identify(
+    client: &Client,
+    sha1: &[String],
+) -> Result<HashMap<String, (String, String)>, ResourceError> {
+    let found: HashMap<String, Version> = fetch_json(
+        PROVIDER,
+        client
+            .post(format!("{API}/version_files"))
+            .json(&HashLookup {
+                hashes: sha1,
+                algorithm: "sha1",
+            }),
+    )
+    .await?;
+
+    Ok(found
+        .into_iter()
+        .map(|(hash, version)| (hash.to_lowercase(), (version.project_id, version.id)))
+        .collect())
+}
+
+pub(super) async fn projects(
+    client: &Client,
+    ids: &[String],
+) -> Result<Vec<ProjectDetails>, ResourceError> {
+    let ids = serde_json::to_string(ids).map_err(|_err| ResourceError::ProviderError)?;
+    let projects: Vec<Project> = fetch_json(
+        PROVIDER,
+        client
+            .get(format!("{API}/projects"))
+            .query(&[("ids", ids.as_str())]),
+    )
+    .await?;
+
+    Ok(projects
+        .into_iter()
+        .map(|project| ProjectDetails {
+            provider: PROVIDER,
+            page_url: safe_page_url(Some(format!("{SITE}/{}/{}", project.kind, project.slug))),
+            id: project.id,
+            title: project.title,
+            icon_url: safe_page_url(project.icon_url.filter(|url| !url.is_empty())),
+        })
+        .collect())
 }

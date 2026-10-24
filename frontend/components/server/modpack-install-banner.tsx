@@ -1,10 +1,18 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Boxes, CheckCircle2, Loader2, TriangleAlert, X } from "lucide-react";
+import {
+  Boxes,
+  CheckCircle2,
+  Loader2,
+  ShieldCheck,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useModpackJob } from "@/hooks/use-modpack-job";
+import { PACK_LOADER_LABELS } from "@/lib/mod-browser/types";
 import { cn } from "@/lib/utils";
 
 type ModpackInstallBannerProps = {
@@ -12,7 +20,14 @@ type ModpackInstallBannerProps = {
   enabled?: boolean;
 };
 
-const FAILURES_SHOWN = 4;
+const PATHS_SHOWN = 4;
+
+function shortList(entries: string[]) {
+  return (
+    entries.slice(0, PATHS_SHOWN).join(", ") +
+    (entries.length > PATHS_SHOWN ? ", …" : "")
+  );
+}
 
 export function ModpackInstallBanner({
   serverId,
@@ -28,10 +43,11 @@ export function ModpackInstallBanner({
 
   const running = job.state === "running";
   const failed = job.state === "failed";
-  const percent =
-    job.total > 0 ? Math.round((job.done / job.total) * 100) : null;
+  const fetching = running && job.step === "fetching" && job.total > 0;
+  const percent = fetching ? Math.round((job.done / job.total) * 100) : null;
   const pack =
     job.pack ?? t("servers-management:modpackInstall.fallbackPackName");
+  const platform = job.platform;
 
   return (
     <section
@@ -72,13 +88,15 @@ export function ModpackInstallBanner({
                   : t("servers-management:modpackInstall.doneTitle", { pack })}
             </span>
             {running ? (
-              <span className="text-sm text-muted-foreground">{job.step}</span>
+              <span className="text-sm text-muted-foreground">
+                {t(`servers-management:modpackInstall.steps.${job.step}`)}
+              </span>
             ) : null}
           </span>
 
           <p className="text-sm text-muted-foreground">
             {running
-              ? job.total > 0
+              ? fetching
                 ? t("servers-management:modpackInstall.runningFiles", {
                     done: job.done,
                     total: job.total,
@@ -88,9 +106,26 @@ export function ModpackInstallBanner({
                 ? (job.error ??
                   t("servers-management:modpackInstall.failedDefault"))
                 : t("servers-management:modpackInstall.doneFiles", {
-                    count: job.done,
+                    count: job.total,
                   })}
           </p>
+
+          {failed && job.live_untouched ? (
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <ShieldCheck className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              {t("servers-management:modpackInstall.untouched")}
+            </p>
+          ) : null}
+
+          {!running && !failed && platform?.loader && platform.game_version ? (
+            <p className="text-sm text-muted-foreground">
+              {t("servers-management:modpackInstall.platform", {
+                loader: PACK_LOADER_LABELS[platform.loader],
+                loaderVersion: platform.loader_version ?? "",
+                gameVersion: platform.game_version,
+              })}
+            </p>
+          ) : null}
 
           {running ? (
             <Progress
@@ -110,9 +145,16 @@ export function ModpackInstallBanner({
             <p className="text-sm text-muted-foreground">
               {t("servers-management:modpackInstall.failures", {
                 count: job.failures.length,
-                list:
-                  job.failures.slice(0, FAILURES_SHOWN).join(", ") +
-                  (job.failures.length > FAILURES_SHOWN ? ", …" : ""),
+                list: shortList(job.failures),
+              })}
+            </p>
+          ) : null}
+
+          {!running && job.skipped.length > 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("servers-management:modpackInstall.skipped", {
+                count: job.skipped.length,
+                list: shortList(job.skipped),
               })}
             </p>
           ) : null}

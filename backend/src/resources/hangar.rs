@@ -148,6 +148,7 @@ fn to_version(project: &str, version: Version) -> ResourceVersion {
             .map(|stats| stats.total_downloads)
             .unwrap_or_default(),
         published_at: version.created_at,
+        changelog: None,
         file_name,
         downloadable: download.is_some_and(|download| {
             download.download_url.is_some() || download.external_url.is_some()
