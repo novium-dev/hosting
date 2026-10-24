@@ -3,6 +3,7 @@ use crate::auth::permissions::{
 };
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
+use core::ops::Deref;
 use sqlx::{PgConnection, query, query_scalar};
 use std::collections::HashMap;
 use tracing::error;
@@ -185,6 +186,35 @@ impl EffectivePermissions {
             projects,
             servers,
             server_projects: self.server_projects,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct UserAccess {
+    pub user: i32,
+    access: EffectivePermissions,
+}
+
+impl Deref for UserAccess {
+    type Target = EffectivePermissions;
+
+    fn deref(&self) -> &Self::Target {
+        &self.access
+    }
+}
+
+impl UserAccess {
+    pub async fn load(conn: &mut PgConnection, user: i32, role: i32) -> Result<Self, sqlx::Error> {
+        let access = EffectivePermissions::load(conn, user, Role::from_db(role)).await?;
+        Ok(Self { user, access })
+    }
+
+    #[must_use]
+    pub fn masked(self, mask: i64, project: Option<ProjectId>) -> Self {
+        Self {
+            user: self.user,
+            access: self.access.masked(mask, project),
         }
     }
 }
