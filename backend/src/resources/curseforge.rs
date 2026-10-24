@@ -2,9 +2,9 @@ use reqwest::{Client, RequestBuilder};
 use serde::Deserialize;
 
 use super::{
-    ResolvedResource, ResourceError, ResourceKind, ResourceLoader, ResourceProject,
+    ProjectDetails, ResolvedResource, ResourceError, ResourceKind, ResourceLoader, ResourceProject,
     ResourceProvider, ResourceQuery, ResourceVersion, ResourceVersionType, encode_segment,
-    fetch_json, sanitize_file_name,
+    fetch_json, safe_page_url, sanitize_file_name,
 };
 
 const API: &str = "https://api.curseforge.com/v1";
@@ -134,6 +134,12 @@ fn count(value: f64) -> u64 {
     }
 }
 
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ModLookup {
+    mod_ids: Vec<i64>,
+}
+
 const fn version_type(release_type: u8) -> ResourceVersionType {
     match release_type {
         2 => ResourceVersionType::Beta,
@@ -215,6 +221,7 @@ fn to_version(file: File) -> ResourceVersion {
             .collect(),
         downloads: count(file.download_count),
         published_at: file.file_date,
+        changelog: None,
         file_name: Some(file.file_name),
         downloadable: file.download_url.is_some(),
     }
@@ -324,4 +331,36 @@ pub(super) async fn resolve(
         url: url.parse().map_err(|_err| ResourceError::ProviderError)?,
         file_name: sanitize_file_name(&file.file_name, "curseforge-resource.jar"),
     })
+}
+
+pub(super) async fn projects(
+    client: &Client,
+    api_key: Option<&str>,
+    ids: &[String],
+) -> Result<Vec<ProjectDetails>, ResourceError> {
+    let mod_ids = ids
+        .iter()
+        .filter_map(|id| id.parse::<i64>().ok())
+        .collect::<Vec<_>>();
+    if mod_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let response: Paged<Mod> = fetch_json(
+        PROVIDER,
+        authorized(client.post(format!("{API}/mods")), api_key)?.json(&ModLookup { mod_ids }),
+    )
+    .await?;
+
+    Ok(response
+        .data
+        .into_iter()
+        .map(|entry| ProjectDetails {
+            provider: PROVIDER,
+            id: entry.id.to_string(),
+            title: entry.name,
+            icon_url: safe_page_url(entry.logo.and_then(|logo| logo.url)),
+            page_url: safe_page_url(entry.links.and_then(|links| links.website_url)),
+        })
+        .collect())
 }

@@ -32,6 +32,7 @@ type SearchBarProps = {
   loaders?: ResourceLoader[];
   loader?: ResourceLoader | null;
   onLoaderChange?: (value: ResourceLoader) => void;
+  loaderLabels?: Record<ResourceLoader, string>;
   gameVersion?: string | null;
   compatibleOnly?: boolean;
   onCompatibleOnlyChange?: (value: boolean) => void;
@@ -50,6 +51,7 @@ export function SearchBar({
   loaders = [],
   loader,
   onLoaderChange,
+  loaderLabels = LOADER_LABELS,
   gameVersion,
   compatibleOnly,
   onCompatibleOnlyChange,
@@ -80,7 +82,7 @@ export function SearchBar({
             items={[
               ...loaders.map((entry) => ({
                 value: entry,
-                label: LOADER_LABELS[entry],
+                label: loaderLabels[entry],
               })),
             ]}
             value={loader}
@@ -92,7 +94,7 @@ export function SearchBar({
             <SelectContent>
               {loaders.map((entry) => (
                 <SelectItem key={entry} value={entry}>
-                  {LOADER_LABELS[entry]}
+                  {loaderLabels[entry]}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -1255,7 +1255,15 @@ export const deopUser = <ThrowOnError extends boolean = false>(options: Options<
 /**
  *  Reports which loaders and providers this server can browse.
  *
- *  Reports which loaders and providers this server can browse.
+ *  Reports which loaders and providers this server can browse.<br/>
+ * <br/>
+ * `modpack_loaders` lists the loaders whose packs can be installed. A pack<br/>
+ * for another loader than the server's own switches the server's software<br/>
+ * when it is installed, so those are only offered (`switches_platform`)<br/>
+ * when the caller also holds `ServerPermissions::BUILD_EDIT`.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ServerPermissions::FILES_READ`.
  */
 export const resourceContext = <ThrowOnError extends boolean = false>(options: Options<ResourceContextData, ThrowOnError>): RequestResult<ResourceContextResponses, ResourceContextErrors, ThrowOnError> => (options.client ?? client).get<ResourceContextResponses, ResourceContextErrors, ThrowOnError>({ url: '/resource/{server_id}', ...options });
 
@@ -1376,9 +1384,10 @@ export const setResourceState = <ThrowOnError extends boolean = false>(options: 
  *
  *  Forgets the modpack this server is linked to.<br/>
  * <br/>
- * Only the link is dropped — the pack's mods and configuration stay on<br/>
+ * Only the link is dropped: the pack's mods and configuration stay on<br/>
  * disk, so the server keeps running exactly as it did. Its jars stop being<br/>
- * reported as pack contents and show up as hand-uploaded files instead.<br/>
+ * reported as pack contents and show up as hand-uploaded files instead,<br/>
+ * and the loader and Minecraft version can be changed freely again.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::FILES_WRITE`.
@@ -1396,23 +1405,34 @@ export const unlinkModpack = <ThrowOnError extends boolean = false>(options: Opt
 export const modpackStatus = <ThrowOnError extends boolean = false>(options: Options<ModpackStatusData, ThrowOnError>): RequestResult<ModpackStatusResponses, ModpackStatusErrors, ThrowOnError> => (options.client ?? client).get<ModpackStatusResponses, ModpackStatusErrors, ThrowOnError>({ url: '/modpack/{server_id}', ...options });
 
 /**
- *  Installs a modpack in the background.
+ *  Installs, updates or reinstalls a modpack in the background.
  *
- *  Installs a modpack in the background.<br/>
+ *  Installs, updates or reinstalls a modpack in the background.<br/>
  * <br/>
- * This rewrites files on a live server, so `confirm` is mandatory. With<br/>
- * `backup` the server is backed up first and the install is abandoned if<br/>
- * that fails; with `wipe` the existing mod jars are cleared so the result<br/>
- * matches the pack author's intent, and without it the pack is merged into<br/>
- * what is already installed.<br/>
+ * The install is staged: the pack and every file it lists are downloaded<br/>
+ * into `.novium-modpack/` and checked against the sizes the pack declares<br/>
+ * before anything on the server changes. If any download fails the job<br/>
+ * stops there and the server is left exactly as it was.<br/>
  * <br/>
- * Returns as soon as the job is accepted — a pack is one large archive plus<br/>
- * hundreds of downloads, so progress is polled from `GET /modpack/{id}`.<br/>
- * The server has to be stopped: the install rewrites the mod jars and the<br/>
- * pack's configuration underneath a running process.<br/>
+ * Only then is the server switched over: files of the previously linked<br/>
+ * pack that the new version no longer ships are removed, the new files are<br/>
+ * moved into place and the pack's configuration overrides are applied.<br/>
+ * Mods added on top of the pack are kept, and pack mods that were disabled<br/>
+ * stay disabled. With `mode: reset` every mod that is not part of the pack is<br/>
+ * removed as well, which returns the server to the pack's original state.<br/>
+ * <br/>
+ * A pack declares the loader and Minecraft version it was built for. When<br/>
+ * the server runs something else, `sync_platform` switches the server's<br/>
+ * software to match (this also needs `ServerPermissions::BUILD_EDIT`);<br/>
+ * without it the install is refused instead of producing a server that<br/>
+ * cannot start. `backup` creates a backup right before the switch-over.<br/>
+ * <br/>
+ * Returns as soon as the job is accepted. Progress is polled from<br/>
+ * `GET /modpack/{id}`. The server has to stay stopped while it runs.<br/>
  * <br/>
  * # Permissions<br/>
- * Requires `ServerPermissions::FILES_WRITE`.
+ * Requires `ServerPermissions::FILES_WRITE`, and<br/>
+ * `ServerPermissions::BUILD_EDIT` when `sync_platform` is set.
  */
 export const installModpack = <ThrowOnError extends boolean = false>(options: Options<InstallModpackData, ThrowOnError>): RequestResult<InstallModpackResponses, InstallModpackErrors, ThrowOnError> => (options.client ?? client).post<InstallModpackResponses, InstallModpackErrors, ThrowOnError>({
     url: '/modpack/{server_id}/install',

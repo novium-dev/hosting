@@ -152,6 +152,16 @@ pub(crate) async fn delete_installed(
         > 0)
 }
 
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub(crate) struct ModpackFileRecord {
+    pub(crate) path: String,
+    pub(crate) project: Option<String>,
+    pub(crate) version: Option<String>,
+    pub(crate) title: Option<String>,
+    pub(crate) icon_url: Option<String>,
+    pub(crate) page_url: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct ModpackRecord {
     pub(crate) provider: ResourceProvider,
@@ -162,7 +172,9 @@ pub(crate) struct ModpackRecord {
     pub(crate) title: String,
     pub(crate) icon_url: Option<String>,
     pub(crate) page_url: Option<String>,
-    pub(crate) files: Vec<String>,
+    pub(crate) game_version: Option<String>,
+    pub(crate) loader_version: Option<String>,
+    pub(crate) files: Vec<ModpackFileRecord>,
     pub(crate) installed_at: i64,
 }
 
@@ -170,41 +182,62 @@ pub(crate) async fn get_modpack(
     database: &PgPool,
     server: ServerId,
 ) -> Result<Option<ModpackRecord>, sqlx::Error> {
-    Ok(query!(
+    let Some(record) = query!(
         r#"SELECT provider, project, version, version_number, loader, title,
-                  icon_url, page_url, files, installed_at
+                  icon_url, page_url, game_version, loader_version, installed_at
            FROM server_modpacks
            WHERE server = $1"#,
         server as ServerId
     )
     .fetch_optional(database)
     .await?
-    .and_then(|record| {
-        Some(ModpackRecord {
-            provider: ResourceProvider::parse_str(&record.provider)?,
-            project: record.project,
-            version: record.version,
-            version_number: record.version_number,
-            loader: record.loader.as_deref().and_then(ResourceLoader::parse_str),
-            title: record.title,
-            icon_url: record.icon_url,
-            page_url: record.page_url,
-            files: record.files,
-            installed_at: record.installed_at.timestamp(),
-        })
+    else {
+        return Ok(None);
+    };
+
+    let Some(provider) = ResourceProvider::parse_str(&record.provider) else {
+        return Ok(None);
+    };
+
+    let files = query_as!(
+        ModpackFileRecord,
+        r#"SELECT path, project, version, title, icon_url, page_url
+           FROM server_modpack_files
+           WHERE server = $1
+           ORDER BY path"#,
+        server as ServerId
+    )
+    .fetch_all(database)
+    .await?;
+
+    Ok(Some(ModpackRecord {
+        provider,
+        project: record.project,
+        version: record.version,
+        version_number: record.version_number,
+        loader: record.loader.as_deref().and_then(ResourceLoader::parse_str),
+        title: record.title,
+        icon_url: record.icon_url,
+        page_url: record.page_url,
+        game_version: record.game_version,
+        loader_version: record.loader_version,
+        files,
+        installed_at: record.installed_at.timestamp(),
     }))
 }
 
-pub(crate) async fn upsert_modpack(
+pub(crate) async fn replace_modpack(
     database: &PgPool,
     server: ServerId,
     modpack: &ModpackRecord,
 ) -> Result<(), sqlx::Error> {
+    let mut tx = database.begin().await?;
+
     query!(
         r#"INSERT INTO server_modpacks
                (server, provider, project, version, version_number, loader, title,
-                icon_url, page_url, files)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                icon_url, page_url, game_version, loader_version)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
            ON CONFLICT (server) DO UPDATE SET
                provider = excluded.provider,
                project = excluded.project,
@@ -214,7 +247,8 @@ pub(crate) async fn upsert_modpack(
                title = excluded.title,
                icon_url = excluded.icon_url,
                page_url = excluded.page_url,
-               files = excluded.files,
+               game_version = excluded.game_version,
+               loader_version = excluded.loader_version,
                installed_at = now()"#,
         server as ServerId,
         modpack.provider.as_str(),
@@ -225,12 +259,53 @@ pub(crate) async fn upsert_modpack(
         modpack.title,
         modpack.icon_url,
         modpack.page_url,
-        &modpack.files
+        modpack.game_version,
+        modpack.loader_version
     )
-    .execute(database)
+    .execute(&mut *tx)
     .await?;
 
-    Ok(())
+    query!(
+        "DELETE FROM server_modpack_files WHERE server = $1",
+        server as ServerId
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    let mut paths = Vec::with_capacity(modpack.files.len());
+    let mut projects = Vec::with_capacity(modpack.files.len());
+    let mut versions = Vec::with_capacity(modpack.files.len());
+    let mut titles = Vec::with_capacity(modpack.files.len());
+    let mut icons = Vec::with_capacity(modpack.files.len());
+    let mut pages = Vec::with_capacity(modpack.files.len());
+    for file in &modpack.files {
+        paths.push(file.path.clone());
+        projects.push(file.project.clone());
+        versions.push(file.version.clone());
+        titles.push(file.title.clone());
+        icons.push(file.icon_url.clone());
+        pages.push(file.page_url.clone());
+    }
+
+    query!(
+        r#"INSERT INTO server_modpack_files
+               (server, path, project, version, title, icon_url, page_url)
+           SELECT $1, *
+           FROM UNNEST($2::text[], $3::varchar[], $4::varchar[], $5::varchar[],
+                       $6::text[], $7::text[])
+           ON CONFLICT DO NOTHING"#,
+        server as ServerId,
+        &paths,
+        &projects as &[Option<String>],
+        &versions as &[Option<String>],
+        &titles as &[Option<String>],
+        &icons as &[Option<String>],
+        &pages as &[Option<String>]
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await
 }
 
 pub(crate) async fn delete_modpack(database: &PgPool, server: ServerId) -> Result<(), sqlx::Error> {

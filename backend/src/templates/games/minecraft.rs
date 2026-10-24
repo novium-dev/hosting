@@ -1,4 +1,5 @@
 mod fabric;
+mod forge;
 pub(crate) mod maven;
 mod neoforge;
 mod paper;
@@ -38,6 +39,7 @@ pub(crate) const PURPUR_URL: &str = "https://api.purpurmc.org/";
 pub(crate) const FABRIC_URL: &str = "https://meta.fabricmc.net/v2";
 pub(crate) const QUILT_URL: &str = "https://meta.quiltmc.org/v3";
 pub(crate) const NEOFORGE_URL: &str = "https://maven.neoforged.net";
+pub(crate) const FORGE_URL: &str = "https://maven.minecraftforge.net";
 
 #[derive(Debug, Readable, Writable, Hash, Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
 pub(crate) enum MinecraftServerModification {
@@ -47,6 +49,7 @@ pub(crate) enum MinecraftServerModification {
     Fabric,
     Quilt,
     NeoForge,
+    Forge,
 }
 
 impl Display for MinecraftServerModification {
@@ -61,6 +64,7 @@ pub(crate) enum MinecraftDownloadBackend {
     Purpur(&'static str, &'static str),
     Fabric(&'static str),
     NeoForge(&'static str),
+    Forge(&'static str),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -119,12 +123,23 @@ pub(crate) enum MinecraftServerExtra {
         loader_version: String,
         data_pack: bool,
     },
+    #[serde(rename = "forge")]
+    Forge {
+        java: u8,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        java_pinned: Option<bool>,
+        minecraft_version: String,
+        loader_version: String,
+        data_pack: bool,
+    },
 }
 
 impl MinecraftServerModification {
     fn backup_exclude(self) -> HashSet<String> {
         match self {
-            Self::Vanilla | Self::Fabric | Self::Quilt | Self::NeoForge => HashSet::new(),
+            Self::Vanilla | Self::Fabric | Self::Quilt | Self::NeoForge | Self::Forge => {
+                HashSet::new()
+            }
             Self::Paper | Self::Purpur => HashSet::from([
                 "cache/".to_owned(),
                 "libraries/".to_owned(),
@@ -141,6 +156,7 @@ impl MinecraftServerModification {
             Self::Fabric => MinecraftDownloadBackend::Fabric(FABRIC_URL),
             Self::Quilt => MinecraftDownloadBackend::Fabric(QUILT_URL),
             Self::NeoForge => MinecraftDownloadBackend::NeoForge(NEOFORGE_URL),
+            Self::Forge => MinecraftDownloadBackend::Forge(FORGE_URL),
         }
     }
 
@@ -155,10 +171,14 @@ impl MinecraftServerModification {
     const fn is_neoforge(self) -> bool {
         matches!(self, Self::NeoForge)
     }
+
+    const fn is_forge(self) -> bool {
+        matches!(self, Self::Forge)
+    }
 }
 
 impl MinecraftServerExtra {
-    const REL: usize = 8;
+    const REL: usize = 9;
 
     pub(crate) const fn modification(&self) -> MinecraftServerModification {
         match self {
@@ -168,6 +188,7 @@ impl MinecraftServerExtra {
             Self::Fabric { .. } => MinecraftServerModification::Fabric,
             Self::Quilt { .. } => MinecraftServerModification::Quilt,
             Self::NeoForge { .. } => MinecraftServerModification::NeoForge,
+            Self::Forge { .. } => MinecraftServerModification::Forge,
         }
     }
 
@@ -199,6 +220,7 @@ impl MinecraftServerExtra {
             MinecraftServerModification::Fabric => include_str!("minecraft/fabric.Dockerfile"),
             MinecraftServerModification::Quilt => include_str!("minecraft/quilt.Dockerfile"),
             MinecraftServerModification::NeoForge => include_str!("minecraft/neoforge.Dockerfile"),
+            MinecraftServerModification::Forge => include_str!("minecraft/forge.Dockerfile"),
         };
         let mut parents = vec![java];
         if self.modification().is_paper() {
@@ -243,7 +265,8 @@ impl MinecraftServerExtra {
             | Self::Purpur { data_pack, .. }
             | Self::Fabric { data_pack, .. }
             | Self::Quilt { data_pack, .. }
-            | Self::NeoForge { data_pack, .. } => *data_pack,
+            | Self::NeoForge { data_pack, .. }
+            | Self::Forge { data_pack, .. } => *data_pack,
         }
     }
 
@@ -308,6 +331,9 @@ impl MinecraftServerExtra {
             }
             | Self::NeoForge {
                 minecraft_version, ..
+            }
+            | Self::Forge {
+                minecraft_version, ..
             } => minecraft_version.clone(),
         }
     }
@@ -319,7 +345,8 @@ impl MinecraftServerExtra {
             | Self::Purpur { java, .. }
             | Self::Fabric { java, .. }
             | Self::Quilt { java, .. }
-            | Self::NeoForge { java, .. } => *java,
+            | Self::NeoForge { java, .. }
+            | Self::Forge { java, .. } => *java,
         }
     }
 
@@ -330,7 +357,8 @@ impl MinecraftServerExtra {
             | Self::Purpur { java_pinned, .. }
             | Self::Fabric { java_pinned, .. }
             | Self::Quilt { java_pinned, .. }
-            | Self::NeoForge { java_pinned, .. } => *java_pinned,
+            | Self::NeoForge { java_pinned, .. }
+            | Self::Forge { java_pinned, .. } => *java_pinned,
         }
     }
 
@@ -341,7 +369,8 @@ impl MinecraftServerExtra {
             Self::Purpur { purpur_build, .. } => Some(purpur_build.to_string()),
             Self::Fabric { loader_version, .. }
             | Self::Quilt { loader_version, .. }
-            | Self::NeoForge { loader_version, .. } => Some(loader_version.clone()),
+            | Self::NeoForge { loader_version, .. }
+            | Self::Forge { loader_version, .. } => Some(loader_version.clone()),
         }
     }
 
@@ -417,17 +446,30 @@ impl MinecraftServerExtra {
                 java,
                 Self::REL
             ),
+            Self::Forge {
+                java,
+                minecraft_version,
+                loader_version,
+                ..
+            } => format!(
+                "minecraft_forge-{}-{}-jre{}-r{}",
+                minecraft_version,
+                loader_version,
+                java,
+                Self::REL
+            ),
         }
     }
 }
 
-const MODS: [MinecraftServerModification; 6] = [
+const MODS: [MinecraftServerModification; 7] = [
     MinecraftServerModification::Vanilla,
     MinecraftServerModification::Paper,
     MinecraftServerModification::Purpur,
     MinecraftServerModification::Fabric,
     MinecraftServerModification::Quilt,
     MinecraftServerModification::NeoForge,
+    MinecraftServerModification::Forge,
 ];
 
 pub(crate) struct MinecraftTemplate;
@@ -728,7 +770,8 @@ impl Template for MinecraftTemplate {
                             })
                         }
                         MinecraftServerModification::Fabric
-                        | MinecraftServerModification::Quilt => None,
+                        | MinecraftServerModification::Quilt
+                        | MinecraftServerModification::Forge => None,
                     })
                 }
                 VersionBuild::Set(versions) => {
@@ -744,6 +787,13 @@ impl Template for MinecraftTemplate {
                             data_pack: *data_pack,
                         }),
                         MinecraftServerModification::Quilt => Some(MinecraftServerExtra::Quilt {
+                            java,
+                            java_pinned,
+                            minecraft_version: minecraft_version.clone(),
+                            loader_version: mod_build.to_owned(),
+                            data_pack: *data_pack,
+                        }),
+                        MinecraftServerModification::Forge => Some(MinecraftServerExtra::Forge {
                             java,
                             java_pinned,
                             minecraft_version: minecraft_version.clone(),
@@ -778,6 +828,9 @@ impl Template for MinecraftTemplate {
         }
         if modification.is_neoforge() {
             features.insert("minecraft_mods_neoforge");
+        }
+        if modification.is_forge() {
+            features.insert("minecraft_mods_forge");
         }
         Ok(features)
     }
@@ -923,6 +976,9 @@ pub(crate) async fn resolve_cache() -> Result<VersionCache, ()> {
             }
             MinecraftDownloadBackend::NeoForge(url) => {
                 neoforge::resolve(&client, modification, &mut cache, url).await?;
+            }
+            MinecraftDownloadBackend::Forge(url) => {
+                forge::resolve(&client, modification, &mut cache, url).await?;
             }
         }
     }
