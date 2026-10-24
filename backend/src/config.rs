@@ -1,3 +1,4 @@
+use crate::auth::trusted_token;
 use anyhow::anyhow;
 use base64::Engine as _;
 use base64::prelude::BASE64_URL_SAFE_NO_PAD;
@@ -5,7 +6,7 @@ use core::fmt::Display;
 use core::net::SocketAddr;
 use core::str::FromStr;
 use database_agent_common::types::{DatabaseType, StoredInstanceCreate, VolumeMapping};
-use ed25519_dalek::VerifyingKey;
+use jsonwebtoken::{DecodingKey, Validation};
 use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
 use rusty_s3::{Bucket, Credentials, UrlStyle};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -491,13 +492,12 @@ pub struct AuthConfig {
 
 #[derive(Debug, Clone)]
 pub struct TrustedTokenConfig {
-    pub issuer: String,
-    pub audience: String,
+    pub validation: Validation,
     pub provider: String,
-    pub keys: HashMap<String, VerifyingKey>,
+    pub keys: HashMap<String, DecodingKey>,
 }
 
-fn parse_trusted_token_key(entry: &str) -> Result<(String, VerifyingKey), anyhow::Error> {
+fn parse_trusted_token_key(entry: &str) -> Result<(String, DecodingKey), anyhow::Error> {
     let invalid =
         || anyhow!("BACKEND_TRUSTED_TOKEN_KEYS entries must be `<key id>:<base64url ed25519 key>`");
     let (key_id, encoded) = entry.split_once(':').ok_or_else(invalid)?;
@@ -510,9 +510,7 @@ fn parse_trusted_token_key(entry: &str) -> Result<(String, VerifyingKey), anyhow
         .ok()
         .and_then(|decoded| <[u8; 32]>::try_from(decoded).ok())
         .ok_or_else(invalid)?;
-    let key = VerifyingKey::from_bytes(&bytes)
-        .map_err(|err| anyhow!("BACKEND_TRUSTED_TOKEN_KEYS key `{key_id}` is invalid: {err}"))?;
-    Ok((key_id.to_owned(), key))
+    Ok((key_id.to_owned(), DecodingKey::from_ed_der(&bytes)))
 }
 
 impl TrustedTokenConfig {
@@ -523,8 +521,10 @@ impl TrustedTokenConfig {
         }
 
         Ok(Some(Self {
-            issuer: required_var("BACKEND_TRUSTED_TOKEN_ISSUER")?,
-            audience: required_var("BACKEND_TRUSTED_TOKEN_AUDIENCE")?,
+            validation: trusted_token::validation(
+                &required_var("BACKEND_TRUSTED_TOKEN_ISSUER")?,
+                &required_var("BACKEND_TRUSTED_TOKEN_AUDIENCE")?,
+            ),
             provider: provider.to_owned(),
             keys: entries
                 .iter()

@@ -1,6 +1,5 @@
 use crate::Backend;
-use crate::auth::effective::EffectivePermissions;
-use crate::auth::permissions::Role;
+use crate::auth::effective::UserAccess;
 use crate::db::project::ProjectId;
 use crate::service::error_auth_invalid::FromAuthInvalid;
 use crate::service::error_auth_unreachable::FromAuthUnreachable;
@@ -35,16 +34,13 @@ pub static API_KEY_REGEX: lazy_regex::Lazy<Regex> =
     lazy_regex!("Bearer\\s{1,}nvm_[A-Za-z0-9_-]{48}");
 
 #[derive(Debug)]
-pub struct ApiKeyAuthentication {
-    pub user: i32,
-    access: EffectivePermissions,
-}
+pub struct ApiKeyAuthentication(pub UserAccess);
 
 impl Deref for ApiKeyAuthentication {
-    type Target = EffectivePermissions;
+    type Target = UserAccess;
 
     fn deref(&self) -> &Self::Target {
-        &self.access
+        &self.0
     }
 }
 
@@ -112,16 +108,11 @@ impl<E: From<sqlx::Error> + FromAuthInvalid + FromAuthUnreachable + Send + Sync>
             return Ok(None);
         };
 
-        let role = Role::from_db(role.role);
-
-        let access = EffectivePermissions::load(&mut conn, key.user, role)
-            .await?
-            .masked(key.permissions, key.project);
-
-        Ok(Some(Self {
-            user: key.user,
-            access,
-        }))
+        Ok(Some(Self(
+            UserAccess::load(&mut conn, key.user, role.role)
+                .await?
+                .masked(key.permissions, key.project),
+        )))
     }
 }
 
