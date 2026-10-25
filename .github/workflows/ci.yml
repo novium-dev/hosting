@@ -117,7 +117,7 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     container:
-      image: node:22
+      image: node:24
     env:
       COREPACK_HOME: ${{ github.workspace }}/.corepack
       npm_config_store_dir: ${{ github.workspace }}/.pnpm-store

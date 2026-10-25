@@ -11,16 +11,13 @@ ENV CARGO_PROFILE_RELEASE_LTO=thin
 
 FROM chef AS dependencies
 
-RUN apk add --no-cache ncurses-dev ncurses-static zlib-dev zlib-static zstd-dev zstd-static llvm22-static llvm22-dev git sqlite musl-dev llvm22 clang22 clang22-static lld22 curl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+RUN apk add --no-cache git curl musl-dev clang22 lld22 zlib-dev zlib-static zstd-dev zstd-static sqlite --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
 
 FROM chef AS planner
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM dependencies AS builder
-
-RUN echo '#!/bin/ash' > /llvm-config-static.sh && echo 'if [[ "$1" == "--libs" ]]; then echo "$(/usr/bin/llvm-config-22 "$@" "--link-static")" "-lzstd"; else /usr/bin/llvm-config-22 "$@"; fi' >> /llvm-config-static.sh && chmod +x /llvm-config-static.sh
-ENV LLVM_CONFIG_PATH="/llvm-config-static.sh"
 
 COPY --from=planner /work/recipe.json recipe.json
 
