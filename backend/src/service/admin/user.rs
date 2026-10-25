@@ -1,17 +1,19 @@
 use crate::Backend;
 use crate::auth::Authentication;
+use crate::auth::api_key::ApiKeyAuthentication;
 use crate::auth::permissions::{
     ManagementPermissions, ProjectPermissions, Role, ServerPermissions,
 };
-use crate::auth::user::normalize_email;
+use crate::auth::user::{USERNAME_MAX_LENGTH, normalize_email};
 use crate::db::project::ProjectId;
 use crate::service::admin::user::user_admin_service_error::{
-    DeleteUserError, GetUserError, ListUserProjectsError, ListUsersError, UpdateUserError,
+    CreateUserError, DeleteUserError, GetUserError, ListUserProjectsError, ListUsersError,
+    UpdateUserError,
 };
 use crate::service::*;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
-use serde::Serialize;
-use sqlx::{Connection as _, query};
+use serde::{Deserialize, Serialize};
+use sqlx::{Connection as _, query, query_scalar};
 use zelus::service;
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -25,6 +27,18 @@ pub(crate) struct AdminUserInfo {
     pub(crate) first_name: Option<String>,
     pub(crate) last_name: Option<String>,
 }
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub(crate) struct CreateUserPayload {
+    pub(crate) username: String,
+    pub(crate) auth_id: String,
+    pub(crate) email: String,
+    pub(crate) first_name: Option<String>,
+    pub(crate) last_name: Option<String>,
+}
+
+const AUTH_ID_MAX_LENGTH: usize = 255;
+const EMAIL_MAX_LENGTH: usize = 255;
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct AdminUserProjectInfo {
@@ -68,6 +82,53 @@ pub(crate) impl UserAdminService for Backend {
         })
         .apply_pagesplit(&mut page)
         .collect_paged(page))
+    }
+
+    /// Creates a user and returns its ID.
+    ///
+    /// Only available with an API key. Use it to provision accounts ahead of their first
+    /// sign-in, for example to create projects and servers for them automatically. The
+    /// `auth_id` must match the subject the user later signs in with, `provider:subject`
+    /// for trusted tokens.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::USER_MANAGE`].
+    #[route("", method = PUT)]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::{already_exists <- [sql:unique], username_invalid, email_invalid, auth_id_invalid})]
+    async fn create_user(
+        &self,
+        #[special] auth: ApiKeyAuthentication,
+        user: CreateUserPayload,
+    ) -> Result<i32, _> {
+        auth.require::<_, _, CreateUserError>((), ManagementPermissions::USER_MANAGE)?;
+
+        let username = user.username.trim();
+        if username.is_empty() || username.chars().count() > USERNAME_MAX_LENGTH {
+            return Err(CreateUserError::UserUsernameInvalid);
+        }
+
+        let email = normalize_email(&user.email);
+        if !email.contains('@') || email.chars().count() > EMAIL_MAX_LENGTH {
+            return Err(CreateUserError::UserEmailInvalid);
+        }
+
+        if user.auth_id.is_empty() || user.auth_id.chars().count() > AUTH_ID_MAX_LENGTH {
+            return Err(CreateUserError::UserAuthIdInvalid);
+        }
+
+        Ok(query_scalar!(
+            "INSERT INTO users (username, auth_id, role, email, first_name, last_name)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id",
+            username,
+            user.auth_id,
+            Role::User as i32,
+            email,
+            user.first_name,
+            user.last_name
+        )
+        .fetch_one(&*self.database)
+        .await?)
     }
 
     /// Shows a user.

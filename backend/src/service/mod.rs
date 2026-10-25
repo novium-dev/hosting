@@ -55,6 +55,10 @@ define_error!(user {
     not_found("User not found" NOT_FOUND),
     owns_project("User still owns projects" BAD_REQUEST),
     email_taken("Another user already uses this email" BAD_REQUEST),
+    already_exists("Another user already uses this email or auth ID" BAD_REQUEST),
+    username_invalid("The username must be 1-32 characters" BAD_REQUEST),
+    email_invalid("The email must be a valid address of at most 255 characters" BAD_REQUEST),
+    auth_id_invalid("The auth ID must be 1-255 characters" BAD_REQUEST),
 });
 
 define_error!(file {

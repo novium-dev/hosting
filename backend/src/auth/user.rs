@@ -27,7 +27,7 @@ use zelus::special::{FromRequestParts, OptionalFromRequestParts};
 use zelus::types::DocumentedType;
 
 const DAEMON_PASSWORD_LENGTH: usize = 32;
-const USERNAME_MAX_LENGTH: usize = 32;
+pub(crate) const USERNAME_MAX_LENGTH: usize = 32;
 
 #[derive(Debug)]
 pub struct UserAuthentication {
