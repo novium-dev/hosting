@@ -38,6 +38,10 @@ export const namespaces = [
 export const supportedLanguages = ["en", "de"] as const;
 export type SupportedLanguage = (typeof supportedLanguages)[number];
 
+i18next.on("languageChanged", (language) => {
+  document.documentElement.lang = language;
+});
+
 void i18next
   .use(LanguageDetector)
   .use(initReactI18next)
