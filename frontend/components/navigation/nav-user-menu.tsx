@@ -27,6 +27,7 @@ import { authClient } from "@/lib/auth-client";
 import { useTheme } from "@/components/theme-provider";
 import { useRouter } from "@/lib/navigation";
 import { useSettingsDialog } from "@/hooks/use-settings-dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function NavUserMenu({
   variant = "default",
@@ -40,6 +41,7 @@ export function NavUserMenu({
   const { data: session } = authClient.useSession();
   const { theme, setTheme } = useTheme();
 
+  const isMobile = useIsMobile();
   const isSidebar = variant === "sidebar";
 
   return (
@@ -88,7 +90,7 @@ export function NavUserMenu({
       )}
       <DropdownMenuContent
         className="min-w-56 rounded-lg"
-        side={isSidebar ? "right" : "bottom"}
+        side={isSidebar ? (isMobile ? "top" : "right") : "bottom"}
         align="end"
         sideOffset={8}
       >
