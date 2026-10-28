@@ -21,7 +21,7 @@ const PHP_DISABLED: &str = "Disabled";
 const PHP_VERSIONS: [&str; 5] = ["8.5", "8.4", "8.3", "8.2", "8.1"];
 const STATIC_BASE_IMAGE: &str = "debian:trixie-slim";
 const ENTRYPOINT_PATH: &str = "/usr/local/bin/web-entrypoint";
-const REL: u32 = 2;
+const REL: u32 = 3;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

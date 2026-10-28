@@ -7,7 +7,7 @@ runtime=/work/.tmp/web
 port="${NOVIUM_PORT_HTTP:-8080}"
 document_root="/work/${WEB_ROOT:-public}"
 
-mkdir -p "$runtime" "$document_root" ".novium/$WEB_SERVER" .novium/php
+mkdir -p "$runtime" "$document_root" "$WEB_SERVER/conf.d" php
 
 if [[ -n "${REPOSITORY_URL:-}" ]]; then
   git init -q
@@ -62,24 +62,74 @@ case "$WEB_SERVER" in
   nginx)
     mkdir -p "$runtime/client_body" "$runtime/proxy" "$runtime/fastcgi" "$runtime/uwsgi" "$runtime/scgi"
 
-    if [[ "$php_enabled" == "1" ]]; then
-      index="index.php index.html index.htm"
-      fallback="/index.php?\$query_string"
-      php_location="location ~ \\.php\$ {
-            try_files \$uri =404;
-            fastcgi_split_path_info ^(.+\\.php)(/.+)\$;
-            fastcgi_pass 127.0.0.1:9000;
-            fastcgi_index index.php;
-            include /etc/nginx/fastcgi_params;
-            fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-            fastcgi_param PATH_INFO \$fastcgi_path_info;
-        }"
-    else
-      index="index.html index.htm"
-      fallback="=404"
-      php_location=""
+    for file in /etc/nginx/*; do
+      [[ "$(basename "$file")" == "nginx.conf" ]] || ln -sfn "$file" "$runtime/"
+    done
+
+    shopt -s nullglob
+    confs=(nginx/conf.d/*.conf)
+    shopt -u nullglob
+
+    for conf in "${confs[@]}"; do
+      if grep -q "/home/container" "$conf"; then
+        echo "### Migrating $conf from Pterodactyl..."
+        sed -i -E \
+          -e 's#unix:/home/container/[^;[:space:]]*#127.0.0.1:9000#g' \
+          -e 's#/home/container#/work#g' \
+          "$conf"
+      fi
+      sed -i -E "s/^([[:space:]]*listen[[:space:]]+)((\[::\]|0\.0\.0\.0|\*):)?[0-9]+/\1\2$port/" "$conf"
+    done
+
+    if [[ ${#confs[@]} -eq 0 ]] || ! grep -qE "^[[:space:]]*server[[:space:]]*\{" "${confs[@]}"; then
+      if [[ "$php_enabled" == "1" ]]; then
+        index="index.php index.html index.htm"
+        fallback="/index.php?\$query_string"
+        php_location="location ~ \\.php\$ {
+        try_files \$uri =404;
+        fastcgi_split_path_info ^(.+\\.php)(/.+)\$;
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_param PATH_INFO \$fastcgi_path_info;
+        fastcgi_param HTTP_PROXY \"\";
+        fastcgi_read_timeout 300;
+    }"
+      else
+        index="index.html index.htm"
+        fallback="=404"
+        php_location=""
+      fi
+
+      echo "### Writing default nginx/conf.d/default.conf..."
+      cat > nginx/conf.d/default.conf <<EOF
+server {
+    listen $port;
+    listen [::]:$port;
+    server_name _;
+
+    root $document_root;
+    index $index;
+    charset utf-8;
+
+    location / {
+        try_files \$uri \$uri/ $fallback;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    $php_location
+
+    location ~ /\\.(?!well-known) {
+        deny all;
+    }
+}
+EOF
     fi
 
+    rm -f "$runtime/nginx.conf"
     cat > "$runtime/nginx.conf" <<EOF
 worker_processes auto;
 pid $runtime/nginx.pid;
@@ -90,7 +140,7 @@ events {
 }
 
 http {
-    include /etc/nginx/mime.types;
+    include mime.types;
     default_type application/octet-stream;
 
     access_log off;
@@ -109,29 +159,11 @@ http {
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
 
-    server {
-        listen $port;
-        listen [::]:$port;
-
-        root $document_root;
-        index $index;
-
-        location / {
-            try_files \$uri \$uri/ $fallback;
-        }
-
-        $php_location
-
-        location ~ /\\.(?!well-known) {
-            deny all;
-        }
-
-        include /work/.novium/nginx/*.conf;
-    }
+    include /work/nginx/conf.d/*.conf;
 }
 EOF
 
-    echo "### Starting nginx on port $port, serving $document_root..."
+    echo "### Starting nginx on port $port..."
     exec nginx -e /dev/stderr -c "$runtime/nginx.conf" -g "daemon off;"
     ;;
   apache2)
@@ -205,7 +237,7 @@ DirectoryIndex $index
 
 $php_handler
 
-IncludeOptional /work/.novium/apache2/*.conf
+IncludeOptional /work/apache2/conf.d/*.conf
 EOF
 
     echo "### Starting Apache on port $port, serving $document_root..."

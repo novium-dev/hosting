@@ -25,9 +25,9 @@ RUN set -eu; \
         cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"; \
     fi
 
-# Files in /work/.novium/php are loaded after the bundled configuration, so users can override
+# Files in /work/php are loaded after the bundled configuration, so users can override
 # any php.ini setting there.
-ENV PHP_INI_SCAN_DIR=":/work/.novium/php" \
+ENV PHP_INI_SCAN_DIR=":/work/php" \
     COMPOSER_HOME=/work/.composer \
     HOME=/work
 

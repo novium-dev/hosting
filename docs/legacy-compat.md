@@ -67,3 +67,18 @@ Where:
 
 Remove once every server has been resynced at least once. After that, make the
 column `NOT NULL` and drop the optional handling.
+
+## Pterodactyl nginx configs in web servers
+
+Web servers moved over from Pterodactyl keep their `nginx/conf.d/*.conf`,
+which point at `/home/container` and a php-fpm unix socket. On every start the
+web entrypoint rewrites `/home/container` to `/work` and the socket to
+`127.0.0.1:9000`.
+
+Where:
+
+- `backend/src/templates/generic/web/entrypoint.sh` - the `/home/container`
+  check in the nginx branch
+
+Remove once no web server has a config mentioning `/home/container`, then bump
+`REL` in `backend/src/templates/generic/web.rs`.
