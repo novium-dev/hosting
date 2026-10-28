@@ -22,38 +22,7 @@ env:
   SQLX_CLI_VERSION: "0.9.0"
 
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      rust: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.rust == 'true' }}
-      frontend: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.frontend == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        if: github.event_name != 'workflow_dispatch'
-        with:
-          filters: |
-            rust:
-              - Cargo.toml
-              - Cargo.lock
-              - deny.toml
-              - backend/**
-              - database_agent/**
-              - database_agent_common/**
-              - scripts/ci/**
-              - "*.Dockerfile"
-              - .github/workflows/ci.yml
-            frontend:
-              - frontend/**
-              - .github/workflows/ci.yml
-
   fmt:
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     container:
       image: rust:1.99.0-alpine
@@ -64,8 +33,6 @@ jobs:
       - run: cargo fmt --check --all
 
   deny:
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     container:
       image: rust:1.99.0-alpine
@@ -79,8 +46,6 @@ jobs:
       - run: cargo-deny check
 
   clippy:
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     container:
       image: rust:1.99.0-alpine
@@ -116,8 +81,6 @@ jobs:
       - run: cargo clippy --all-targets --workspace --no-deps
 
   test:
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     container:
       image: rust:1.99.0-alpine
@@ -152,8 +115,6 @@ jobs:
       - run: cargo test --workspace --locked
 
   frontend:
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     container:
       image: node:24
@@ -182,13 +143,9 @@ jobs:
   publish:
     # Auto deploy on push to prod, manual deploy from dev via workflow_dispatch
     if: >-
-      !cancelled() &&
-      !contains(needs.*.result, 'failure') &&
-      (
       (github.event_name == 'push' && github.ref == 'refs/heads/prod') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/dev')
-      )
-    needs: [changes, fmt, deny, clippy, test, frontend]
+    needs: [fmt, deny, clippy, test, frontend]
     runs-on: ubuntu-latest
     permissions:
       contents: read
