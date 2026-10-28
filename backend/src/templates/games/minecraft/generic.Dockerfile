@@ -2,6 +2,8 @@ FROM itzg/mc-monitor:0.15.0 as monitor
 
 FROM debian:trixie-slim
 
+ARG DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         adduser \
         ca-certificates \

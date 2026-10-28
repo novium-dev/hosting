@@ -7,7 +7,7 @@ runtime=/work/.tmp/web
 port="${NOVIUM_PORT_HTTP:-8080}"
 document_root="/work/${WEB_ROOT:-public}"
 
-mkdir -p "$runtime" "$document_root" "$WEB_SERVER/conf.d" php
+mkdir -p "$runtime" "$document_root" ".novium/$WEB_SERVER" .novium/php
 
 if [[ -n "${REPOSITORY_URL:-}" ]]; then
   git init -q
@@ -126,7 +126,7 @@ http {
             deny all;
         }
 
-        include /work/nginx/conf.d/*.conf;
+        include /work/.novium/nginx/*.conf;
     }
 }
 EOF
@@ -205,7 +205,7 @@ DirectoryIndex $index
 
 $php_handler
 
-IncludeOptional /work/apache2/conf.d/*.conf
+IncludeOptional /work/.novium/apache2/*.conf
 EOF
 
     echo "### Starting Apache on port $port, serving $document_root..."
