@@ -17,6 +17,8 @@ export type CreateApiKey = z.infer<typeof createApiKeySchema>;
 
 export const updateApiKeySchema = z.object({
   id: z.number().int(),
+  /** Update through the admin route, which can reach other users' keys. */
+  admin: z.boolean().optional(),
   name: z.string().min(1, "Name is required").max(64, "Name is too long"),
   permissions: z
     .number()

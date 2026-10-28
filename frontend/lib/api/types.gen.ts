@@ -909,6 +909,11 @@ export type UnresolvedDependency = {
     title?: string | null;
 };
 
+export type UpdateAnyApiKeyPayload = {
+    name?: string | null;
+    permissions?: number | null;
+};
+
 export type UpdateApiKeyPayload = {
     name?: string | null;
     permissions?: number | null;
@@ -13807,6 +13812,92 @@ export type DeleteAnyApiKeyResponses = {
 };
 
 export type DeleteAnyApiKeyResponse = DeleteAnyApiKeyResponses[keyof DeleteAnyApiKeyResponses];
+
+export type UpdateAnyApiKeyData = {
+    body: UpdateAnyApiKeyPayload;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The API key ID
+         */
+        api_key_id: number;
+    };
+    query?: never;
+    url: '/admin/api-key/{api_key_id}';
+};
+
+export type UpdateAnyApiKeyErrors = {
+    /**
+     * An API key cannot be granted permissions you do not hold yourself
+     */
+    '400‎': {
+        error?: {
+            id?: 'api_key/permissions_exceeded';
+            msg?: 'An API key cannot be granted permissions you do not hold yourself';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * API key not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'api_key/not_found';
+            msg?: 'API key not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type UpdateAnyApiKeyError = UpdateAnyApiKeyErrors[keyof UpdateAnyApiKeyErrors];
+
+export type UpdateAnyApiKeyResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type UpdateAnyApiKeyResponse = UpdateAnyApiKeyResponses[keyof UpdateAnyApiKeyResponses];
 
 export type ListTemplateUsageData = {
     body?: never;

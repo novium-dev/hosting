@@ -1,13 +1,22 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   MANAGEMENT_PERMISSION_GROUPS,
   SERVER_PERMISSION_GROUPS,
   hasPermissionBit,
+  maskPermissions,
+  mergePermissions,
+  removePermissions,
   resolveManagementPermissions,
   resolveServerPermissions,
   setPermissionBit,
 } from "@/lib/permissions";
+import { Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 type PermissionGroups = {
@@ -18,10 +27,13 @@ type PermissionGroups = {
 // Specific-permission picker for project sub-users. Instead of a role, the
 // caller stores a numeric permission bitfield. Dependencies are auto-included
 // (e.g. FILES_WRITE implies FILES_READ) and shown as checked + disabled.
+// Permissions outside `grantable` are locked, since nobody may grant more than
+// they hold themselves.
 export function PermissionsField({
   value,
   onChange,
   disabled,
+  grantable,
   groups = SERVER_PERMISSION_GROUPS,
   resolve = resolveServerPermissions,
   className = "h-64",
@@ -29,6 +41,8 @@ export function PermissionsField({
   value: number;
   onChange: (value: number) => void;
   disabled?: boolean;
+  /** The permissions the viewer may grant. Defaults to every permission. */
+  grantable?: number;
   /** Which permissions to offer. Defaults to the project/server scope. */
   groups?: PermissionGroups;
   /** Dependency expansion matching `groups`. */
@@ -38,14 +52,15 @@ export function PermissionsField({
   const { t } = useTranslation();
   const resolved = resolve(value);
 
-  const allBits = groups.reduce(
-    (total, group) =>
-      group.permissions.reduce((sum, { bit }) => sum | bit, total),
-    0,
+  const allBits = mergePermissions(
+    ...groups.flatMap((group) => group.permissions.map(({ bit }) => bit)),
   );
-  const selectedBits = resolved & allBits;
-  const allSelected = selectedBits === allBits;
-  const someSelected = selectedBits !== 0;
+  const grantableBits =
+    grantable === undefined ? allBits : maskPermissions(grantable, allBits);
+  const allSelected =
+    grantableBits !== 0 &&
+    maskPermissions(resolved, grantableBits) === grantableBits;
+  const isGrantable = (bit: number) => hasPermissionBit(grantableBits, bit);
 
   return (
     <ScrollArea className={`${className} rounded-md border`}>
@@ -53,8 +68,14 @@ export function PermissionsField({
         <label className="flex items-center gap-2 text-sm font-medium">
           <Checkbox
             checked={allSelected}
-            disabled={disabled}
-            onCheckedChange={(next) => onChange(next === true ? allBits : 0)}
+            disabled={disabled || grantableBits === 0}
+            onCheckedChange={(next) =>
+              onChange(
+                next === true
+                  ? mergePermissions(value, grantableBits)
+                  : removePermissions(value, grantableBits),
+              )
+            }
           />
           {t("common:actions.selectAll")}
         </label>
@@ -70,6 +91,7 @@ export function PermissionsField({
                 // Checked only because another permission depends on it: keep it
                 // on and non-editable until the dependent is removed.
                 const forced = checked && !explicitlySet;
+                const locked = !isGrantable(bit);
 
                 return (
                   <label
@@ -78,14 +100,30 @@ export function PermissionsField({
                   >
                     <Checkbox
                       checked={checked}
-                      disabled={disabled || forced}
+                      disabled={disabled || forced || locked}
                       onCheckedChange={(next) =>
                         onChange(setPermissionBit(value, bit, next === true))
                       }
                     />
-                    <span className={forced ? "text-muted-foreground" : ""}>
+                    <span
+                      className={
+                        forced || locked ? "text-muted-foreground" : ""
+                      }
+                    >
                       {label}
                     </span>
+                    {locked ? (
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <Lock className="size-3.5 text-muted-foreground" />
+                          }
+                        />
+                        <TooltipContent>
+                          {t("common:permissions.notHeld")}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : null}
                   </label>
                 );
               })}

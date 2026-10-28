@@ -11,6 +11,7 @@ import { authClient } from "@/lib/auth-client";
 import {
   ManagementPermission,
   hasManagementPermission,
+  removePermissions,
 } from "@/lib/permissions";
 
 export function AdminApiKeysView() {
@@ -56,7 +57,14 @@ export function AdminApiKeysView() {
         showScope
         showOwner
         admin={canManage}
-        canEdit={(apiKey) => String(apiKey.user) === session?.user.id}
+        canEdit={(apiKey) =>
+          String(apiKey.user) === session?.user.id ||
+          (canManage &&
+            removePermissions(
+              apiKey.permissions,
+              session?.user.permissions ?? 0,
+            ) === 0)
+        }
         canDelete={() => canManage}
         onChanged={() => void mutate()}
       />

@@ -261,7 +261,7 @@ bitflags! {
         /// Allows the user to perform self-service actions this instance has disabled,
         /// such as creating projects or changing a project's name, slug or logo.
         ///
-        const BYPASS_INSTANCE_RESTRICTIONS = 1 << 53;
+        const BYPASS_INSTANCE_RESTRICTIONS = 1 << 47;
     }
 }
 

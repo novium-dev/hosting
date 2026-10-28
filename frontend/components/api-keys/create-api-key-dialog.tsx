@@ -2,6 +2,7 @@
 
 import { createApiKeyAction } from "@/actions/api-keys";
 import { ApiKeyPermissionsField } from "@/components/api-keys/api-key-permissions-field";
+import { useGrantablePermissions } from "@/hooks/use-grantable-permissions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,15 +33,21 @@ import { Trans, useTranslation } from "react-i18next";
 interface CreateApiKeyDialogProps {
   /** Project the key is scoped to; omit for an instance-wide key. */
   projectId?: string;
+  /** The viewer's permissions in that project. */
+  projectPermissions?: number;
   /** Called after a key was created, to refresh the list. */
   onCreated: () => void;
 }
 
 export function CreateApiKeyDialog({
   projectId,
+  projectPermissions,
   onCreated,
 }: CreateApiKeyDialogProps) {
   const { t } = useTranslation();
+  const grantable = useGrantablePermissions(
+    projectId === undefined ? undefined : (projectPermissions ?? 0),
+  );
   const [open, setOpen] = useState(false);
   const [token, setToken] = useState<string | null>(null);
 
@@ -130,6 +137,7 @@ export function CreateApiKeyDialog({
                       scoped={projectId !== undefined}
                       value={field.value}
                       onChange={field.onChange}
+                      grantable={grantable}
                     />
                     <FieldError errors={[fieldState.error]} />
                   </Field>

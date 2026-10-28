@@ -10,9 +10,16 @@ interface MembersViewProps {
   projectId: string;
   ownerId: number;
   members: ProjectMember[];
+  /** The permissions the viewer may grant in this project. */
+  grantable: number;
 }
 
-export function MembersView({ projectId, ownerId, members }: MembersViewProps) {
+export function MembersView({
+  projectId,
+  ownerId,
+  members,
+  grantable,
+}: MembersViewProps) {
   const { t } = useTranslation();
 
   return (
@@ -24,13 +31,14 @@ export function MembersView({ projectId, ownerId, members }: MembersViewProps) {
             {t("project:members.description")}
           </p>
         </div>
-        <InviteMemberDialog projectId={projectId} />
+        <InviteMemberDialog projectId={projectId} grantable={grantable} />
       </div>
       <div className="space-y-8">
         <MembersTable
           members={members}
           projectId={projectId}
           ownerId={ownerId}
+          grantable={grantable}
         />
       </div>
     </div>

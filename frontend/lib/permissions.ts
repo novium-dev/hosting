@@ -44,7 +44,7 @@ export const ManagementPermission = {
   DATABASE_HOSTS_MANAGE: 2 ** 51,
   INTEGRITY_VIEW: 2 ** 52,
   SERVER_DEPLOY: 2 ** 44,
-  BYPASS_INSTANCE_RESTRICTIONS: 2 ** 53,
+  BYPASS_INSTANCE_RESTRICTIONS: 2 ** 47,
 } as const;
 
 const serverDependencyMap = [
@@ -373,6 +373,11 @@ export function serverPermissionLabels(permissions: number): string[] {
 /** Keeps only the bits of `permissions` that are also set in `mask`. */
 export function maskPermissions(permissions: number, mask: number) {
   return Number(BigInt(permissions) & BigInt(mask));
+}
+
+/** Clears every bit of `mask` from `permissions`. */
+export function removePermissions(permissions: number, mask: number) {
+  return Number(BigInt(permissions) & ~BigInt(mask));
 }
 
 /** Human-readable labels for every management permission granted. */

@@ -52,8 +52,10 @@ interface ApiKeysTableProps {
   showScope?: boolean;
   /** Show who each key belongs to. */
   showOwner?: boolean;
-  /** Delete through the admin route, which can reach other users' keys. */
+  /** Edit and delete through the admin routes, which can reach other users' keys. */
   admin?: boolean;
+  /** The viewer's permissions in the project these keys belong to. */
+  projectPermissions?: number;
   /** Whether the viewer may edit a given key (only its owner can). */
   canEdit?: (apiKey: ApiKey) => boolean;
   /** Whether the viewer may revoke a given key. */
@@ -77,6 +79,7 @@ export function ApiKeysTable({
   showScope = false,
   showOwner = false,
   admin = false,
+  projectPermissions,
   canEdit = () => true,
   canDelete = () => true,
   onChanged,
@@ -253,6 +256,8 @@ export function ApiKeysTable({
 
       <EditApiKeyDialog
         apiKey={editKey}
+        projectPermissions={projectPermissions}
+        admin={admin}
         open={editOpen}
         setOpen={setEditOpen}
         onUpdated={onChanged}

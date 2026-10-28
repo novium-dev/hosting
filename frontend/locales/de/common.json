@@ -200,6 +200,9 @@
     "saveChanges": "Änderungen speichern",
     "daemonAuth": "Daemon-Auth"
   },
+  "permissions": {
+    "notHeld": "Du hast diese Berechtigung selbst nicht und kannst sie daher nicht vergeben."
+  },
   "policy": {
     "projectCreationDisabled": "Das Erstellen von Projekten ist auf dieser Instanz deaktiviert. Bitte einen Administrator, eines für dich anzulegen.",
     "projectUpdateDisabled": "Das Bearbeiten von Projekten ist auf dieser Instanz deaktiviert. Bitte einen Administrator, den Namen, den Slug oder das Logo zu ändern.",

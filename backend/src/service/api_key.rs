@@ -1,6 +1,7 @@
 use super::*;
 use crate::Backend;
 use crate::auth::api_key::ApiKeyToken;
+use crate::auth::effective::EffectivePermissions;
 use crate::auth::permissions::{
     ManagementPermissions, PermissionSet as _, ProjectPermissions, ServerPermissions,
 };
@@ -174,6 +175,7 @@ pub(crate) impl ApiKeyService for Backend {
         project: Option<ProjectId>,
         permissions: i64,
     ) -> Result<CreatedApiKey, _> {
+        ensure_scope_access::<CreateApiKeyError>(&auth, project)?;
         let permissions = grantable_permissions::<CreateApiKeyError>(&auth, project, permissions)?;
 
         let token = ApiKeyToken::generate();
@@ -225,6 +227,7 @@ pub(crate) impl ApiKeyService for Backend {
         };
 
         if let Some(permissions) = permissions {
+            ensure_scope_access::<UpdateApiKeyError>(&auth, key.project)?;
             let permissions =
                 grantable_permissions::<UpdateApiKeyError>(&auth, key.project, permissions)?;
 
@@ -293,37 +296,42 @@ pub(crate) impl ApiKeyService for Backend {
     }
 }
 
-fn grantable_permissions<
-    E: FromAuthPermissionDenied + FromProjectNotFound + FromApiKeyPermissionsExceeded,
->(
+fn ensure_scope_access<E: FromAuthPermissionDenied + FromProjectNotFound>(
     auth: &UserAuthentication,
+    project: Option<ProjectId>,
+) -> Result<(), E> {
+    project.map_or_else(
+        || auth.require::<_, _, E>((), ManagementPermissions::API_KEYS_MANAGE),
+        |project| auth.require::<_, _, E>(project, ProjectPermissions::VIEW),
+    )
+}
+
+pub(crate) fn grantable_permissions<E: FromApiKeyPermissionsExceeded>(
+    access: &EffectivePermissions,
     project: Option<ProjectId>,
     permissions: i64,
 ) -> Result<i64, E> {
-    let (requested, allowed) = match project {
-        Some(project) => {
-            auth.require::<_, _, E>(project, ProjectPermissions::VIEW)?;
+    let requested = with_dependencies(permissions) & key_scope(project.is_some());
 
-            let scope = ProjectPermissions::all().bits() | ServerPermissions::all().bits();
-            (
-                with_dependencies(permissions) & scope,
-                auth.permissions::<ProjectPermissions, _>(project).bits() & scope,
-            )
-        }
-        None => {
-            auth.require::<_, _, E>((), ManagementPermissions::API_KEYS_MANAGE)?;
-
-            (
-                with_dependencies(permissions),
-                auth.permissions::<ManagementPermissions, _>(()).bits(),
-            )
-        }
-    };
-
-    if requested & !allowed == 0 {
+    if requested & !grant_ceiling(access, project) == 0 {
         Ok(requested)
     } else {
         Err(<E as FromApiKeyPermissionsExceeded>::from())
+    }
+}
+
+pub(crate) fn grant_ceiling(access: &EffectivePermissions, project: Option<ProjectId>) -> i64 {
+    project.map_or_else(
+        || access.permissions::<ManagementPermissions, _>(()).bits(),
+        |project| access.permissions::<ProjectPermissions, _>(project).bits() & key_scope(true),
+    )
+}
+
+const fn key_scope(scoped: bool) -> i64 {
+    if scoped {
+        ProjectPermissions::all().bits() | ServerPermissions::all().bits()
+    } else {
+        -1
     }
 }
 

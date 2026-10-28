@@ -200,6 +200,9 @@
     "saveChanges": "Save changes",
     "daemonAuth": "Daemon Auth"
   },
+  "permissions": {
+    "notHeld": "You don't hold this permission yourself, so you can't grant it."
+  },
   "policy": {
     "projectCreationDisabled": "Creating projects is disabled on this instance. Ask an administrator to create one for you.",
     "projectUpdateDisabled": "Updating projects is disabled on this instance. Ask an administrator to change the name, the slug or the logo.",

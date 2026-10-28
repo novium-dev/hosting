@@ -31,7 +31,13 @@ import { toast } from "sonner";
 import { mutate } from "swr";
 import { useTranslation } from "react-i18next";
 
-export function InviteMemberDialog({ projectId }: { projectId: string }) {
+export function InviteMemberDialog({
+  projectId,
+  grantable,
+}: {
+  projectId: string;
+  grantable: number;
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
@@ -106,6 +112,7 @@ export function InviteMemberDialog({ projectId }: { projectId: string }) {
                   <PermissionsField
                     value={field.value}
                     onChange={field.onChange}
+                    grantable={grantable}
                   />
                   <FieldError errors={[fieldState.error]} />
                 </Field>

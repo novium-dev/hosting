@@ -34,7 +34,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { serverPermissionLabels } from "@/lib/permissions";
+import { removePermissions, serverPermissionLabels } from "@/lib/permissions";
 import { Crown, MoreHorizontal, Users } from "lucide-react";
 import { useAction } from "@/lib/action-hooks";
 import { useState } from "react";
@@ -58,12 +58,15 @@ interface MembersTableProps {
   members: ProjectMember[];
   projectId: string;
   ownerId: number;
+  /** The permissions the viewer may grant in this project. */
+  grantable: number;
 }
 
 export function MembersTable({
   members,
   projectId,
   ownerId,
+  grantable,
 }: MembersTableProps) {
   const { t, i18n } = useTranslation();
   const [updateOpen, setUpdateOpen] = useState(false);
@@ -115,6 +118,9 @@ export function MembersTable({
               const permissionLabels = serverPermissionLabels(
                 member.permissions,
               );
+              const manageable =
+                member.id !== ownerId &&
+                removePermissions(member.permissions, grantable) === 0;
 
               return (
                 <TableRow key={member.id}>
@@ -175,7 +181,7 @@ export function MembersTable({
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    {member.id !== ownerId && (
+                    {manageable && (
                       <DropdownMenu modal={false}>
                         <DropdownMenuTrigger
                           render={<Button variant="ghost" size="sm" />}
@@ -212,6 +218,7 @@ export function MembersTable({
       <UpdateMemberRoleDialog
         member={member}
         projectId={projectId}
+        grantable={grantable}
         open={updateOpen}
         setOpen={setUpdateOpen}
       />

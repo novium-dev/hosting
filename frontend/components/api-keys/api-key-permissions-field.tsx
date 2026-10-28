@@ -27,16 +27,25 @@ export function ApiKeyPermissionsField({
   scoped,
   value,
   onChange,
+  grantable,
 }: {
   /** Whether the key is scoped to a single project. */
   scoped: boolean;
   value: number;
   onChange: (value: number) => void;
+  /** The permissions the viewer may grant. */
+  grantable: number;
 }) {
   const { t } = useTranslation();
 
   if (scoped) {
-    return <PermissionsField value={value} onChange={onChange} />;
+    return (
+      <PermissionsField
+        value={value}
+        onChange={onChange}
+        grantable={grantable}
+      />
+    );
   }
 
   return (
@@ -47,6 +56,7 @@ export function ApiKeyPermissionsField({
         </FieldTitle>
         <ManagementPermissionsField
           className="h-48"
+          grantable={grantable}
           value={maskPermissions(value, allManagementPermissions)}
           onChange={(next) =>
             onChange(
@@ -67,6 +77,7 @@ export function ApiKeyPermissionsField({
         </FieldDescription>
         <PermissionsField
           className="h-48"
+          grantable={grantable}
           value={maskPermissions(value, allServerPermissions)}
           onChange={(next) =>
             onChange(

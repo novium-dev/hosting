@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/sidebar/main-layout";
 import { NotFoundView } from "@/components/not-found-view";
 import { listProjectUsers } from "@/lib/api";
+import { useGrantablePermissions } from "@/hooks/use-grantable-permissions";
 import { useProject } from "@/hooks/use-project";
 import { MembersView } from "./members-view";
 
@@ -11,6 +12,7 @@ export default function MembersPage() {
   const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
   const { data: project, isLoading } = useProject(slug);
+  const grantable = useGrantablePermissions(project?.permissions ?? 0);
 
   const { data: members } = useSWR(
     project ? ["project-users", project.id] : null,
@@ -31,6 +33,7 @@ export default function MembersPage() {
         projectId={project.id}
         ownerId={project.owner}
         members={members ?? []}
+        grantable={grantable}
       />
     </MainLayout>
   );

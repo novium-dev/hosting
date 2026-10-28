@@ -31,6 +31,7 @@ import type { ProjectMember } from "@/types/api";
 type UpdateMemberRoleDialogProps = {
   member: ProjectMember | null;
   projectId: string;
+  grantable: number;
   open: boolean;
   setOpen: (open: boolean) => void;
 };
@@ -38,6 +39,7 @@ type UpdateMemberRoleDialogProps = {
 export function UpdateMemberRoleDialog({
   member,
   projectId,
+  grantable,
   open,
   setOpen,
 }: UpdateMemberRoleDialogProps) {
@@ -101,6 +103,7 @@ export function UpdateMemberRoleDialog({
                   <PermissionsField
                     value={field.value}
                     onChange={field.onChange}
+                    grantable={grantable}
                   />
                   <FieldError errors={[fieldState.error]} />
                 </Field>

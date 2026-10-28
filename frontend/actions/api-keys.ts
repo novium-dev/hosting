@@ -3,6 +3,7 @@ import {
   createApiKey,
   deleteAnyApiKey,
   deleteApiKey,
+  updateAnyApiKey,
   updateApiKey,
 } from "@/lib/api";
 import {
@@ -61,12 +62,12 @@ export const createApiKeyAction = authActionClient
 export const updateApiKeyAction = authActionClient
   .inputSchema(updateApiKeySchema)
   .action(async ({ parsedInput }) => {
-    const { id, name, permissions } = parsedInput;
+    const { id, name, permissions, admin } = parsedInput;
+    const body = { name, permissions: resolvePermissions(permissions) };
 
-    const response = await updateApiKey({
-      path: { api_key_id: id },
-      body: { name, permissions: resolvePermissions(permissions) },
-    });
+    const response = admin
+      ? await updateAnyApiKey({ path: { api_key_id: id }, body })
+      : await updateApiKey({ path: { api_key_id: id }, body });
 
     if (response.error) {
       throw new ActionError(

@@ -30,7 +30,7 @@ pub enum Authentication {
 }
 
 impl Authentication {
-    fn access(&self) -> Option<&EffectivePermissions> {
+    pub(crate) fn access(&self) -> Option<&EffectivePermissions> {
         match self {
             Self::User(auth) => Some(auth),
             Self::ApiKey(auth) => Some(auth),

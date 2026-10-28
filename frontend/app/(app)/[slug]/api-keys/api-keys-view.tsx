@@ -55,6 +55,7 @@ export function ApiKeysView({ projectId, permissions }: ApiKeysViewProps) {
         </div>
         <CreateApiKeyDialog
           projectId={projectId}
+          projectPermissions={permissions}
           onCreated={() => void mutate()}
         />
       </div>
@@ -63,6 +64,7 @@ export function ApiKeysView({ projectId, permissions }: ApiKeysViewProps) {
         isLoading={isLoading}
         error={Boolean(error)}
         showOwner={isProjectAdmin}
+        projectPermissions={permissions}
         canEdit={(apiKey) => owns(apiKey.user)}
         canDelete={(apiKey) => owns(apiKey.user) || isProjectAdmin}
         onChanged={() => void mutate()}

@@ -3,6 +3,7 @@
 import { updateApiKeyAction } from "@/actions/api-keys";
 import { ApiKeyPermissionsField } from "@/components/api-keys/api-key-permissions-field";
 import type { ApiKey } from "@/components/api-keys/api-keys-table";
+import { useGrantablePermissions } from "@/hooks/use-grantable-permissions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,6 +30,10 @@ import { useTranslation } from "react-i18next";
 
 interface EditApiKeyDialogProps {
   apiKey: ApiKey | null;
+  /** The viewer's permissions in the key's project, when known. */
+  projectPermissions?: number;
+  /** Update through the admin route, which can reach other users' keys. */
+  admin?: boolean;
   open: boolean;
   setOpen: (open: boolean) => void;
   onUpdated: () => void;
@@ -36,11 +41,16 @@ interface EditApiKeyDialogProps {
 
 export function EditApiKeyDialog({
   apiKey,
+  projectPermissions,
+  admin = false,
   open,
   setOpen,
   onUpdated,
 }: EditApiKeyDialogProps) {
   const { t } = useTranslation();
+  const grantable = useGrantablePermissions(
+    apiKey?.project ? (projectPermissions ?? 0) : undefined,
+  );
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
     useHookFormAction(updateApiKeyAction, zodResolver(updateApiKeySchema), {
       formProps: {
@@ -49,6 +59,7 @@ export function EditApiKeyDialog({
           id: apiKey?.id ?? 0,
           name: apiKey?.name ?? "",
           permissions: apiKey?.permissions ?? 0,
+          admin,
         },
       },
       actionProps: {
@@ -72,9 +83,10 @@ export function EditApiKeyDialog({
         id: apiKey.id,
         name: apiKey.name,
         permissions: apiKey.permissions,
+        admin,
       });
     }
-  }, [apiKey, form]);
+  }, [apiKey, admin, form]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -116,6 +128,7 @@ export function EditApiKeyDialog({
                     scoped={Boolean(apiKey?.project)}
                     value={field.value}
                     onChange={field.onChange}
+                    grantable={grantable}
                   />
                   <FieldError errors={[fieldState.error]} />
                 </Field>
