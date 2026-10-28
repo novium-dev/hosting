@@ -19,9 +19,7 @@
     "contextMenu": {
       "view": "View",
       "permissions": "Permissions",
-      "unarchive": "Unarchive",
-      "copyTo": "Copy to...",
-      "moveTo": "Move to..."
+      "unarchive": "Unarchive"
     },
     "renameDialog": {
       "description": "Rename {{name}}.",
@@ -138,11 +136,7 @@
       "massMoveFailed_one": "Failed to move {{count}} entry",
       "massMoveFailed_other": "Failed to move {{count}} entries",
       "uploadTooLarge_one": "{{fileName}} is larger than the {{limit}} upload limit",
-      "uploadTooLarge_other": "{{count}} files are larger than the {{limit}} upload limit",
-      "massCopied_one": "Copied {{count}} entry to {{path}}",
-      "massCopied_other": "Copied {{count}} entries to {{path}}",
-      "massCopyFailed_one": "Failed to copy {{count}} entry",
-      "massCopyFailed_other": "Failed to copy {{count}} entries"
+      "uploadTooLarge_other": "{{count}} files are larger than the {{limit}} upload limit"
     },
     "uploadProgress": {
       "uploading": "Uploading {{done}}/{{total}}",
@@ -171,15 +165,11 @@
       "uidLabel": "Owner (uid)",
       "gidLabel": "Group (gid)"
     },
-    "folderPicker": {
-      "copyTitle": "Copy to",
-      "moveTitle": "Move to",
-      "description_one": "Choose the target directory for {{count}} entry.",
-      "description_other": "Choose the target directory for {{count}} entries.",
-      "copyHere": "Copy here",
-      "moveHere": "Move here",
-      "parent": "Parent directory",
-      "empty": "No subdirectories"
+    "massMoveDialog": {
+      "title": "Move selection",
+      "description_one": "Move {{count}} entry into another directory.",
+      "description_other": "Move {{count}} entries into another directory.",
+      "placeholder": "/target-directory"
     },
     "massDeleteDialog": {
       "title": "Delete selection?",

@@ -1,4 +1,4 @@
-import type { ListFilesResponses } from "@/lib/api";
+import { listFiles, type ListFilesResponses } from "@/lib/api";
 import { FileMode, modeToType, normalizePath } from "@/lib/files";
 
 export type FileRow = ListFilesResponses[200][number];
@@ -30,6 +30,36 @@ const ARCHIVE_SUFFIX = /\.(tar\.(gz|zst|xz|zlib|lz4|bz2)|tgz|tbz2|zip)$/i;
 
 const PERMISSION_BITS = 0o7777;
 
+export function filesKey(serverId: string, path: string) {
+  return ["server-files", serverId, path] as const;
+}
+
+export async function loadDirectory(serverId: string, path: string) {
+  const response = await listFiles({
+    path: { server_id: serverId },
+    query: { file: path },
+  });
+
+  if (response.error || !response.data) {
+    throw new Error("Failed to load files");
+  }
+
+  return sortFiles(response.data);
+}
+
+export function sortFiles(files: FileRow[]) {
+  return [...files].sort((a, b) => {
+    const aDir = isDirectory(a);
+    const bDir = isDirectory(b);
+
+    if (aDir !== bDir) {
+      return aDir ? -1 : 1;
+    }
+
+    return a.name.localeCompare(b.name);
+  });
+}
+
 export function joinPath(basePath: string, childName: string) {
   return normalizePath(
     basePath === "/" ? `/${childName}` : `${basePath}/${childName}`,
@@ -38,23 +68,6 @@ export function joinPath(basePath: string, childName: string) {
 
 export function getFullPath(currentPath: string, entry: FileRow) {
   return joinPath(currentPath, entry.name);
-}
-
-// A watch token prefixes a path that resolves against the watched directory,
-// even after it was moved. It stays valid while its websocket is open.
-export type WatchedDirectory = {
-  token: string | null;
-  path: string | null;
-};
-
-export function watchedPath(
-  watched: WatchedDirectory,
-  directory: string,
-  name: string,
-) {
-  return watched.token && watched.path === directory
-    ? `${watched.token}${name}`
-    : joinPath(directory, name);
 }
 
 export function isDirectory(row: FileRow) {

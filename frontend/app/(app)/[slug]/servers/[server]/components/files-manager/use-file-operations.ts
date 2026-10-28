@@ -30,17 +30,14 @@ import {
   isInside,
   joinPath,
   permissionBits,
-  watchedPath,
   type ArchiveCompression,
   type FileRow,
-  type WatchedDirectory,
 } from "./utils";
 
 export function useFileOperations({
   serverId,
   slug,
   currentPath,
-  watched,
   files,
   selectedEntries,
   canWriteFiles,
@@ -52,7 +49,6 @@ export function useFileOperations({
   serverId: string;
   slug: string;
   currentPath: string;
-  watched: WatchedDirectory;
   files: FileRow[];
   selectedEntries: FileRow[];
   canWriteFiles: boolean;
@@ -124,8 +120,6 @@ export function useFileOperations({
   };
 
   const server = { server_id: serverId };
-  // History keeps absolute paths, the token only lives as long as the watch.
-  const inCurrent = (name: string) => watchedPath(watched, currentPath, name);
 
   const uploadFiles = async (incoming: File[], directory = currentPath) => {
     if (
@@ -202,10 +196,7 @@ export function useFileOperations({
     const to = joinPath(currentPath, name);
 
     await runAction(async () => {
-      const { error } = await renameFile({
-        path: server,
-        query: { from: inCurrent(entry.name), to: inCurrent(name) },
-      });
+      const { error } = await renameFile({ path: server, query: { from, to } });
       if (failed(error, "renameFailed")) {
         return false;
       }
@@ -232,10 +223,7 @@ export function useFileOperations({
     const to = joinPath(currentPath, name);
 
     await runAction(async () => {
-      const { error } = await copyFile({
-        path: server,
-        query: { from: inCurrent(entry.name), to: inCurrent(name) },
-      });
+      const { error } = await copyFile({ path: server, query: { from, to } });
       if (failed(error, "copyFailed")) {
         return false;
       }
@@ -261,7 +249,7 @@ export function useFileOperations({
       const { error } = await deleteFile({
         path: server,
         query: {
-          file: inCurrent(entry.name),
+          file: getFullPath(currentPath, entry),
           recursive: isDirectory(entry),
         },
       });
@@ -292,7 +280,7 @@ export function useFileOperations({
     await runAction(async () => {
       const { error } = await archiveFile({
         path: server,
-        query: { to: inCurrent(name), compression },
+        query: { to, compression },
         body: { sources, exclude: archiveSelfExclusions(sources, to) },
       });
       if (failed(error, "archiveFailed")) {
@@ -313,8 +301,8 @@ export function useFileOperations({
       const { error } = await unarchiveFile({
         path: server,
         query: {
-          from: inCurrent(entry.name),
-          to: inCurrent(name),
+          from: getFullPath(currentPath, entry),
+          to: joinPath(currentPath, name),
         },
       });
       if (failed(error, "unarchiveFailed")) {
@@ -351,7 +339,7 @@ export function useFileOperations({
       return;
     }
 
-    const file = inCurrent(entry.name);
+    const file = getFullPath(currentPath, entry);
 
     await runAction(async () => {
       if (mode !== permissionBits(entry.mode)) {
@@ -392,7 +380,7 @@ export function useFileOperations({
         const { error } = await deleteFile({
           path: server,
           query: {
-            file: inCurrent(entry.name),
+            file: getFullPath(currentPath, entry),
             recursive: isDirectory(entry),
           },
         });
@@ -418,79 +406,57 @@ export function useFileOperations({
     });
   };
 
-  const transferTo = async (
-    kind: "move" | "copy",
-    entries: FileRow[],
-    directory: string,
-    target: WatchedDirectory,
-  ) => {
-    const move = kind === "move";
+  const massMove = async (value: string) => {
     if (
-      !ensureWritable(move ? "noPermissionMove" : "noPermissionCopy") ||
-      entries.length === 0
+      !ensureWritable("noPermissionMove") ||
+      selectedEntries.length === 0 ||
+      !value.trim()
     ) {
       return;
     }
 
-    const destination = normalizePath(directory);
+    const target = normalizePath(value);
 
     await runAction(async () => {
       let failures = 0;
-      let done = 0;
+      let moved = 0;
 
-      for (const entry of entries) {
+      for (const entry of selectedEntries) {
         const from = getFullPath(currentPath, entry);
-        const to = joinPath(destination, entry.name);
+        const to = joinPath(target, entry.name);
 
         if (from === to) {
           continue;
         }
 
-        if (isDirectory(entry) && isInside(destination, from)) {
+        if (isDirectory(entry) && isInside(target, from)) {
           failures += 1;
           continue;
         }
 
-        const query = {
-          from: inCurrent(entry.name),
-          to: watchedPath(target, destination, entry.name),
-        };
-        const { error } = move
-          ? await renameFile({ path: server, query })
-          : await copyFile({ path: server, query });
+        const { error } = await renameFile({
+          path: server,
+          query: { from, to },
+        });
         if (error) {
           failures += 1;
-          continue;
+        } else {
+          moved += 1;
         }
-
-        done += 1;
-        history.record({
-          type: move ? "rename" : "copy",
-          from,
-          to,
-          label: t(
-            `servers-management:filesManager.undo.actionLabels.${kind}`,
-            { name: entry.name },
-          ),
-        });
       }
 
       if (failures > 0) {
         toast.error(
-          t(
-            `servers-management:filesManager.toasts.${move ? "massMoveFailed" : "massCopyFailed"}`,
-            { count: failures },
-          ),
+          t("servers-management:filesManager.toasts.massMoveFailed", {
+            count: failures,
+          }),
         );
       } else {
         toast.success(
-          t(
-            `servers-management:filesManager.toasts.${move ? "massMoved" : "massCopied"}`,
-            {
-              count: done,
-              path: destination,
-            },
-          ),
+          t("servers-management:filesManager.toasts.massMoved", {
+            count: moved,
+            path: target,
+          }),
         );
       }
     });
@@ -507,7 +473,7 @@ export function useFileOperations({
     await runAction(async () => {
       const { error } = await createDirectory({
         path: server,
-        query: { file: inCurrent(name), recursive: false },
+        query: { file: directory, recursive: false },
       });
       if (failed(error, "createDirectoryFailed")) {
         return false;
@@ -624,7 +590,7 @@ export function useFileOperations({
     unarchive,
     updatePermissions,
     massDelete,
-    transferTo,
+    massMove,
     createFolder,
     createFile,
     download,

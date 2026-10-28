@@ -2,10 +2,8 @@ import type { ComponentType, ReactNode } from "react";
 import {
   Archive,
   Copy,
-  CopyPlus,
   Download,
   FolderInput,
-  FolderOutput,
   Pencil,
   Shield,
   Trash2,
@@ -24,8 +22,6 @@ export type EntryAction =
   | "unarchive"
   | "download"
   | "copy"
-  | "copy-to"
-  | "move-to"
   | "delete";
 
 type ActionMenuItem = ComponentType<{
@@ -53,14 +49,6 @@ const ACTIONS: Record<EntryAction, { icon: LucideIcon; label: string }> = {
   },
   download: { icon: Download, label: "common:actions.download" },
   copy: { icon: Copy, label: "common:actions.copy" },
-  "copy-to": {
-    icon: CopyPlus,
-    label: "servers-management:filesManager.contextMenu.copyTo",
-  },
-  "move-to": {
-    icon: FolderOutput,
-    label: "servers-management:filesManager.contextMenu.moveTo",
-  },
   delete: { icon: Trash2, label: "common:actions.delete" },
 };
 
@@ -68,19 +56,17 @@ function actionsFor(entry: FileRow, canWrite: boolean): EntryAction[] {
   switch (getEntryKind(entry)) {
     case "directory":
       return canWrite
-        ? ["rename", "move-to", "permissions", "archive", "delete"]
+        ? ["rename", "permissions", "archive", "delete"]
         : ["permissions"];
     case "archive":
       return canWrite
         ? [
             "rename",
-            "move-to",
             "permissions",
             "unarchive",
             "archive",
             "download",
             "copy",
-            "copy-to",
             "delete",
           ]
         : ["permissions", "download"];
@@ -89,12 +75,10 @@ function actionsFor(entry: FileRow, canWrite: boolean): EntryAction[] {
         ? [
             "edit",
             "rename",
-            "move-to",
             "permissions",
             "archive",
             "download",
             "copy",
-            "copy-to",
             "delete",
           ]
         : ["view", "permissions", "download"];

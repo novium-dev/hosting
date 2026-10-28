@@ -2,9 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
 
 import { watchUser } from "@/lib/api";
-import { normalizePath, sortFiles } from "@/lib/files";
-import { serverFilesKey } from "@/hooks/use-shared-queries";
-import type { FileRow, WatchedDirectory } from "./utils";
+import { normalizePath } from "@/lib/files";
+import { filesKey, sortFiles, type FileRow } from "./utils";
 
 // Live directory listing over the daemon's files watch websocket. Updates are
 // written into the SWR cache of the watched directory, so the regular listing
@@ -80,15 +79,10 @@ function applyEntry(list: FileRow[], entry: WatchEntry) {
   }
 }
 
-const UNWATCHED: WatchedDirectory = { token: null, path: null };
-
 type FilesWatchOptions = {
   serverId: string;
   path: string;
   enabled: boolean;
-  // Keeps the daemon in its directory, so token paths of running operations
-  // do not resolve against a directory navigated to in the meantime.
-  hold?: boolean;
   onPathChange: (path: string) => void;
 };
 
@@ -96,28 +90,20 @@ export function useFilesWatch({
   serverId,
   path,
   enabled,
-  hold = false,
   onPathChange,
-}: FilesWatchOptions): WatchedDirectory {
+}: FilesWatchOptions) {
   const { mutate } = useSWRConfig();
   const [attempt, setAttempt] = useState(0);
-  const [watched, setWatched] = useState<
-    (WatchedDirectory & { connection: string }) | null
-  >(null);
 
   const autoRetriesRef = useRef(0);
   const syncRef = useRef<(() => void) | null>(null);
   const pathRef = useRef(path);
-  const holdRef = useRef(hold);
   const handlersRef = useRef({ mutate, onPathChange });
 
   useLayoutEffect(() => {
     pathRef.current = path;
-    holdRef.current = hold;
     handlersRef.current = { mutate, onPathChange };
-  }, [path, hold, mutate, onPathChange]);
-
-  const connection = `${serverId}:${attempt}`;
+  }, [path, mutate, onPathChange]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -134,8 +120,6 @@ export function useFilesWatch({
     let viewPath: string | null = null;
     let pendingPath: string | null = null;
     const initialPath = pathRef.current;
-    const publish = (token: string | null) =>
-      setWatched({ connection, token, path: token ? viewPath : null });
 
     const scheduleRetry = () => {
       if (autoRetriesRef.current >= AUTO_RETRY_LIMIT) return;
@@ -152,7 +136,6 @@ export function useFilesWatch({
         socket.readyState !== WebSocket.OPEN ||
         daemonPath === null ||
         pendingPath !== null ||
-        holdRef.current ||
         target === viewPath
       ) {
         return;
@@ -197,13 +180,12 @@ export function useFilesWatch({
 
       if (list && viewPath !== null) {
         void handlersRef.current.mutate(
-          serverFilesKey(serverId, viewPath),
+          filesKey(serverId, viewPath),
           sortFiles(list),
           { revalidate: false },
         );
       }
 
-      publish(message.token);
       sync();
     };
 
@@ -232,7 +214,6 @@ export function useFilesWatch({
         if (disposed) return;
         socket = null;
         syncRef.current = null;
-        publish(null);
         scheduleRetry();
       };
 
@@ -259,13 +240,10 @@ export function useFilesWatch({
       clearTimeout(commandTimer);
       syncRef.current = null;
       socket?.close();
-      setWatched(null);
     };
-  }, [serverId, enabled, attempt, connection]);
+  }, [serverId, enabled, attempt]);
 
   useEffect(() => {
     syncRef.current?.();
-  }, [path, hold]);
-
-  return enabled && watched?.connection === connection ? watched : UNWATCHED;
+  }, [path]);
 }
