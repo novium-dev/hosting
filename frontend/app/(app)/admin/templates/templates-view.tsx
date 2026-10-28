@@ -40,9 +40,9 @@ import type {
   ListTemplateUsageResponses,
   ResyncTemplateResponse,
 } from "@/lib/api";
-import { listTemplateUsage } from "@/lib/api";
+import { listTemplateUsage, previewTemplateResync } from "@/lib/api";
 import { useAction } from "@/lib/action-hooks";
-import { Boxes, DatabaseZap, RefreshCw } from "lucide-react";
+import { ArrowRight, Boxes, DatabaseZap, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -91,6 +91,29 @@ export function TemplatesView() {
     }
     return response.data ?? [];
   });
+
+  const { data: preview, error: previewError } = useSWR(
+    target === undefined ? null : ["admin-template-resync-preview", target],
+    async () => {
+      const response = await previewTemplateResync({
+        query: { template: target ?? undefined },
+      });
+      if (response.error) {
+        throw new Error(
+          apiErrorMessage(
+            response.error,
+            t("admin-infra:templates.view.previewLoadError"),
+          ),
+        );
+      }
+      return response.data ?? [];
+    },
+  );
+  const formatRel = (rel: number | null | undefined) =>
+    rel == null ? t("admin-infra:templates.view.unknownRel") : `r${rel}`;
+  const moving = (preview ?? []).filter(
+    (server) => server.target_rel != null && server.rel !== server.target_rel,
+  ).length;
 
   const resync = useAction(resyncTemplateAction, {
     onSuccess: ({ data }) => {
@@ -298,6 +321,58 @@ export function TemplatesView() {
               {t("admin-infra:templates.view.resyncDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {previewError ? (
+            <p className="text-sm text-destructive">{previewError.message}</p>
+          ) : !preview ? (
+            <Skeleton className="h-56 w-full" />
+          ) : (
+            <div className="min-w-0 space-y-2">
+              <p className="text-sm font-medium">
+                {t("admin-infra:templates.view.previewSummary", {
+                  count: preview.length,
+                  moving,
+                })}
+              </p>
+              <ScrollArea className="h-56 rounded-md border">
+                <div className="divide-y">
+                  {preview.map((server) => (
+                    <div
+                      key={server.server}
+                      className="flex items-center justify-between gap-3 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">
+                          {server.name}
+                        </div>
+                        <div className="font-mono text-xs text-muted-foreground">
+                          {server.server} · {server.template}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1 font-mono text-xs">
+                        <Badge variant="outline">{formatRel(server.rel)}</Badge>
+                        <ArrowRight className="size-3 text-muted-foreground" />
+                        <Badge
+                          variant={
+                            server.target_rel == null
+                              ? "destructive"
+                              : server.rel === server.target_rel
+                                ? "outline"
+                                : "secondary"
+                          }
+                        >
+                          {server.target_rel == null
+                            ? t(
+                                "admin-infra:templates.view.statusLabels.templateMissing",
+                              )
+                            : formatRel(server.target_rel)}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
           <label className="flex items-start gap-2 text-sm font-normal">
             <Checkbox
               checked={restart}
@@ -319,7 +394,7 @@ export function TemplatesView() {
               onClick={() => {
                 resync.execute({ template: target ?? undefined, restart });
               }}
-              disabled={resync.isExecuting}
+              disabled={resync.isExecuting || !preview}
             >
               {resync.isExecuting
                 ? t("admin-infra:templates.view.resyncingLabel")

@@ -19,6 +19,7 @@ const SERVER_PORT: u16 = 5520;
 const SERVER_PORT_NAME: &str = "hytale";
 const BACKUP_FREQUENCY_MIN: u16 = 5;
 const BACKUP_FREQUENCY_MAX: u16 = 1440;
+const REL: u32 = 3;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct HytaleExtra {
@@ -118,6 +119,7 @@ fn flag(value: bool) -> String {
 
 impl Template for HytaleTemplate {
     const ID: &'static str = "hytale";
+    const REL: u32 = REL;
     type Extra = HytaleExtra;
     type Cache = HytaleCache;
 
@@ -129,7 +131,7 @@ impl Template for HytaleTemplate {
         Ok(ServerBuildPayload {
             image: ServerBuildImage {
                 dockerfile: include_str!("hytale.Dockerfile").to_owned(),
-                default_tag: Some("hytale-r3".to_owned()),
+                default_tag: Some(format!("hytale-r{REL}")),
                 tag: None,
                 args: HashMap::new(),
                 parents: Vec::new(),

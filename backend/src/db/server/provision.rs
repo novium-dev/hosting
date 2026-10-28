@@ -203,8 +203,8 @@ impl Backend {
                     let stored = async {
                         query!(
                             "INSERT INTO servers (id, node, node_server_id, project, storage, cpu, ram, swap, disk,
-                                 template, template_extra, name, internet_access, backup_limit, group_id)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+                                 template, template_extra, template_rel, name, internet_access, backup_limit, group_id)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
                             &id,
                             &node.id,
                             node_server_id.cast_signed(),
@@ -216,6 +216,7 @@ impl Backend {
                             resource.disk.map(u64::cast_signed),
                             template.id(),
                             &extra,
+                            template.rel().cast_signed(),
                             &name,
                             internet_access,
                             backup_limit.map(u32::cast_signed),

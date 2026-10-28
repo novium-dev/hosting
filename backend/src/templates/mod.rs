@@ -36,6 +36,7 @@ pub struct TemplatePortDefinition {
 
 pub trait Template {
     const ID: &'static str;
+    const REL: u32;
     type Extra: Serialize + for<'a> Deserialize<'a> + Send + Sync;
     type Cache: for<'a> Readable<'a, LittleEndian> + Writable<LittleEndian> + Send + Sync + 'static;
 
@@ -145,6 +146,8 @@ pub trait Template {
 #[async_trait]
 pub trait TemplateInner {
     fn id(&self) -> &'static str;
+
+    fn rel(&self) -> u32;
 
     async fn extra_to_build_payload(
         &self,
@@ -325,6 +328,10 @@ impl FromTemplateUnavailable for ThinTemplateError {
 impl<T: Template + Send + Sync> TemplateInner for T {
     fn id(&self) -> &'static str {
         <Self as Template>::ID
+    }
+
+    fn rel(&self) -> u32 {
+        <Self as Template>::REL
     }
 
     async fn extra_to_build_payload(

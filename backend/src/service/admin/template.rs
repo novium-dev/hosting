@@ -1,9 +1,10 @@
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::ManagementPermissions;
-use crate::db::server::resync::{ServerResyncResult, ServerResyncStatus};
+use crate::db::server::resync::{ServerResyncPreview, ServerResyncResult, ServerResyncStatus};
 use crate::service::admin::template::template_admin_service_error::{
-    ListTemplateUsageError, RefreshTemplateCacheError, ResyncTemplateError,
+    ListTemplateUsageError, PreviewTemplateResyncError, RefreshTemplateCacheError,
+    ResyncTemplateError,
 };
 use crate::service::template::*;
 use crate::service::*;
@@ -13,6 +14,8 @@ use sqlx::query;
 use std::collections::HashMap;
 use tracing::error;
 use zelus::service;
+
+define_query_variable!(template "Restrict the preview to servers using this template");
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct TemplateUsageInfo {
@@ -82,6 +85,34 @@ pub(crate) impl TemplateAdminService for Backend {
         templates.sort_by(|first, second| first.id.cmp(&second.id));
 
         Ok(templates)
+    }
+
+    /// Lists the servers a resync would rebuild, with the template release each
+    /// one was last built with (`rel`) and the release it would move to
+    /// (`target_rel`).
+    ///
+    /// Without `template`, every server on the instance is listed. `rel` is empty
+    /// for servers built before releases were tracked, `target_rel` for servers
+    /// whose template no longer exists.
+    ///
+    /// # Permissions
+    /// Requires `ManagementPermissions::SERVER_MANAGE`.
+    #[route("/resync", method = GET, query = [template])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], template::not_found)]
+    async fn preview_template_resync(
+        &self,
+        #[special] auth: Authentication,
+        template: Option<String>,
+    ) -> Result<Vec<ServerResyncPreview>, _> {
+        auth.require::<_, _, PreviewTemplateResyncError>((), ManagementPermissions::SERVER_MANAGE)?;
+
+        if let Some(template) = template.as_deref()
+            && !self.templates.read().await.contains_key(template)
+        {
+            return Err(PreviewTemplateResyncError::TemplateNotFound);
+        }
+
+        Ok(self.preview_resync(template.as_deref()).await?)
     }
 
     /// Regenerates the build output of servers from their template and pushes it

@@ -71,7 +71,7 @@ pub(crate) enum MinecraftProxyExtra {
 }
 
 impl MinecraftProxyExtra {
-    const REL: usize = 1;
+    const REL: u32 = 1;
 
     pub(crate) const fn software(&self) -> MinecraftProxySoftware {
         match self {
@@ -283,6 +283,7 @@ pub(crate) struct MinecraftProxyTemplate;
 
 impl Template for MinecraftProxyTemplate {
     const ID: &'static str = "minecraft_proxy";
+    const REL: u32 = MinecraftProxyExtra::REL;
     type Extra = MinecraftProxyExtra;
     type Cache = ProxyVersionCache;
 

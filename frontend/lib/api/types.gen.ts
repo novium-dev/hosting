@@ -167,6 +167,14 @@ export type CreateServerPayload = {
     };
 };
 
+export type CreateUserPayload = {
+    auth_id: string;
+    email: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    username: string;
+};
+
 export const DatabaseAccess = { READ: 'read', WRITE: 'write' } as const;
 
 export type DatabaseAccess = typeof DatabaseAccess[keyof typeof DatabaseAccess];
@@ -7894,6 +7902,105 @@ export type ListUsersResponses = {
 
 export type ListUsersResponse = ListUsersResponses[keyof ListUsersResponses];
 
+export type CreateUserData = {
+    body: CreateUserPayload;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/admin/user';
+};
+
+export type CreateUserErrors = {
+    /**
+     * Another user already uses this email or auth ID
+     */
+    '400‍': {
+        error?: {
+            id?: 'user/already_exists';
+            msg?: 'Another user already uses this email or auth ID';
+        };
+    };
+    /**
+     * The username must be 1-32 characters
+     */
+    '400‎': {
+        error?: {
+            id?: 'user/username_invalid';
+            msg?: 'The username must be 1-32 characters';
+        };
+    };
+    /**
+     * The email must be a valid address of at most 255 characters
+     */
+    '400‏': {
+        error?: {
+            id?: 'user/email_invalid';
+            msg?: 'The email must be a valid address of at most 255 characters';
+        };
+    };
+    /**
+     * The auth ID must be 1-255 characters
+     */
+    '400‪': {
+        error?: {
+            id?: 'user/auth_id_invalid';
+            msg?: 'The auth ID must be 1-255 characters';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type CreateUserError = CreateUserErrors[keyof CreateUserErrors];
+
+export type CreateUserResponses = {
+    /**
+     * Success
+     */
+    200: number;
+};
+
+export type CreateUserResponse = CreateUserResponses[keyof CreateUserResponses];
+
 export type DeleteUserData = {
     body?: never;
     headers?: {
@@ -13758,6 +13865,90 @@ export type ListTemplateUsageResponses = {
 };
 
 export type ListTemplateUsageResponse = ListTemplateUsageResponses[keyof ListTemplateUsageResponses];
+
+export type PreviewTemplateResyncData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Restrict the preview to servers using this template
+         */
+        template?: string | null;
+    };
+    url: '/admin/template/resync';
+};
+
+export type PreviewTemplateResyncErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * The template does not exist
+     */
+    '404‍': {
+        error?: {
+            id?: 'template/not_found';
+            msg?: 'The template does not exist';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type PreviewTemplateResyncError = PreviewTemplateResyncErrors[keyof PreviewTemplateResyncErrors];
+
+export type PreviewTemplateResyncResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        name: string;
+        project: NanoId;
+        rel?: number | null;
+        server: NanoId;
+        target_rel?: number | null;
+        template: string;
+    }>;
+};
+
+export type PreviewTemplateResyncResponse = PreviewTemplateResyncResponses[keyof PreviewTemplateResyncResponses];
 
 export type ResyncTemplateData = {
     body: ResyncTemplatePayload;

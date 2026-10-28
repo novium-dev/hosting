@@ -24,7 +24,7 @@ use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemp
 const SERVER_PORT: u16 = 19132;
 const SERVER_PORT_V6: u16 = 19133;
 const SERVER_PORT_NAME: &str = "bedrock";
-const REL: usize = 1;
+const REL: u32 = 1;
 const BEDROCK_DOWNLOAD_LINKS: &str =
     "https://net-secondary.web.minecraft-services.net/api/v1.0/download/links";
 const POCKETMINE_REPOSITORY: &str = "pmmp/PocketMine-MP";
@@ -175,6 +175,7 @@ pub(crate) struct MinecraftBedrockTemplate;
 
 impl Template for MinecraftBedrockTemplate {
     const ID: &'static str = "minecraft_bedrock";
+    const REL: u32 = REL;
     type Extra = MinecraftBedrockExtra;
     type Cache = BedrockVersionCache;
 

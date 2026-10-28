@@ -19,6 +19,7 @@ const RELIABLE_PORT: u16 = 8888;
 const SERVER_PORT_TCP_NAME: &str = "satisfactory_tcp";
 const SERVER_PORT_UDP_NAME: &str = "satisfactory_udp";
 const RELIABLE_PORT_NAME: &str = "reliable_messaging";
+const REL: u32 = 42071;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct SatisfactoryExtra {
@@ -79,6 +80,7 @@ static NON_NEGATIVE_INTEGER_REGEX: lazy_regex::Lazy<Regex> = lazy_regex!(r"^[0-9
 
 impl Template for SatisfactoryTemplate {
     const ID: &'static str = "satisfactory";
+    const REL: u32 = REL;
     type Extra = SatisfactoryExtra;
     type Cache = SatisfactoryCache;
 
@@ -90,7 +92,7 @@ impl Template for SatisfactoryTemplate {
         Ok(ServerBuildPayload {
             image: ServerBuildImage {
                 dockerfile: include_str!("satisfactory.Dockerfile").to_owned(),
-                default_tag: Some("satisfactory-steamcmd-r42071".to_owned()),
+                default_tag: Some(format!("satisfactory-steamcmd-r{REL}")),
                 tag: None,
                 args: HashMap::new(),
                 parents: Vec::new(),

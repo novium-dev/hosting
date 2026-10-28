@@ -51,3 +51,19 @@ Making it required takes:
 3. Making `group` non-optional in the backend types and handlers, and dropping
    the `null` clearing in `update_server`.
 4. Removing the "No group" option and its translation keys (`en` and `de`) from the frontend.
+
+## Unknown template release
+
+Servers created before template releases were tracked have no recorded
+release, so `servers.template_rel` is nullable and the resync preview shows
+their release as unknown. Any build push (resync, template change, port or
+startup change) fills it in.
+
+Where:
+
+- `backend/migrations/20261028000000_server_template_rel.sql` - the nullable column
+- `backend/src/db/server/resync.rs` - `ServerResyncPreview::rel` is optional
+- `frontend/app/(app)/admin/templates/templates-view.tsx` - the unknown label
+
+Remove once every server has been resynced at least once. After that, make the
+column `NOT NULL` and drop the optional handling.

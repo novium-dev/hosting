@@ -17,6 +17,8 @@ use crate::templates::generic::{
 use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, VariablePayload};
 use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
 
+const REL: u32 = 5;
+
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct PythonExtra {
     python_version: String,
@@ -40,6 +42,7 @@ pub static PYTHON_FILE_REGEX: lazy_regex::Lazy<Regex> =
 
 impl Template for PythonTemplate {
     const ID: &'static str = "python";
+    const REL: u32 = REL;
     type Extra = PythonExtra;
     type Cache = PythonVersionCache;
 
@@ -55,7 +58,7 @@ impl Template for PythonTemplate {
                 .replace("{PYTHON_VERSION}", &extra.python_version),
             args: HashMap::new(),
             tag: None,
-            default_tag: Some(format!("python-{}-r5", extra.python_version)),
+            default_tag: Some(format!("python-{}-r{REL}", extra.python_version)),
         };
         Ok(ServerBuildPayload {
             image,

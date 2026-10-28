@@ -6,7 +6,7 @@ use crate::db::project::ProjectId;
 use crate::db::server::ports::NetworkProtocol;
 use crate::db::server::provision::ServerProvision;
 use crate::db::server::resync::is_running_label;
-use crate::db::server::{Server, ServerCustomization, ServerId};
+use crate::db::server::{Server, ServerCustomization, ServerId, store_template_rel};
 use crate::service::admin::server::server_admin_service_error::{
     AddPortError, ChangeServerTemplateError, CreateServerError, DeletePortError, DeleteServerError,
     MoveServerError, UpdatePortError,
@@ -316,6 +316,8 @@ pub(crate) impl ServerAdminService for Backend {
                     .await
                     .inspect_err(|err| error!("Failed to store the new template: {err:?}"))?;
 
+                    store_template_rel(&mut **tx, server_id, template.rel()).await?;
+
                     server
                         .node
                         .update_server(server.node_server_id, None, Some(build), None, None, None)
@@ -518,6 +520,7 @@ pub(crate) impl ServerAdminService for Backend {
                     .await?;
 
                     let (build, ports) = node_ports(tx, &server, build).await?;
+                    store_template_rel(&mut **tx, server.id, server.template.rel()).await?;
 
                     server
                         .node
@@ -771,6 +774,7 @@ pub(crate) impl ServerAdminService for Backend {
                     }
 
                     let (build, ports) = node_ports(tx, &server, build).await?;
+                    store_template_rel(&mut **tx, server.id, server.template.rel()).await?;
 
                     server
                         .node
@@ -845,6 +849,7 @@ pub(crate) impl ServerAdminService for Backend {
                     }
 
                     let (build, ports) = node_ports(tx, &server, build).await?;
+                    store_template_rel(&mut **tx, server.id, server.template.rel()).await?;
 
                     server
                         .node

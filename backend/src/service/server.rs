@@ -10,7 +10,7 @@ use crate::db::license::ServerLicenseInfo;
 use crate::db::project::ProjectId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
 use crate::db::server::resync::is_running_label;
-use crate::db::server::{ServerCustomization, ServerId};
+use crate::db::server::{ServerCustomization, ServerId, store_template_rel};
 use crate::service::server::server_service_error::{
     AcceptServerLicenseError, KillServerError, RestartServerError, ServerInfoError,
     ServerLicensesError, ServerStartupError, ServerStatsError, ServerTerminalError,
@@ -567,6 +567,7 @@ pub(crate) impl ServerService for Backend {
             || group.is_some();
         let node = Arc::clone(&server.node);
         let node_server_id = server.node_server_id;
+        let rebuilt_rel = new_build.is_some().then(|| server.template.rel());
 
         let suspension_reason_changed = suspended.is_some() || suspension_reason.is_some();
         let suspension_reason = match suspended {
@@ -632,6 +633,10 @@ pub(crate) impl ServerService for Backend {
                     .execute(&mut **tx)
                     .await
                     .inspect_err(|err| error!("Failed to update server {server_id}: {err:?}"))?;
+
+                    if let Some(rel) = rebuilt_rel {
+                        store_template_rel(&mut **tx, server_id, rel).await?;
+                    }
 
                     if updates_daemon {
                         server
@@ -1205,6 +1210,8 @@ pub(crate) impl ServerService for Backend {
                     .await
                     .inspect_err(|err| error!("Failed to update server startup: {err:?}"))?;
 
+                    store_template_rel(&mut **tx, server_id, server.template.rel()).await?;
+
                     server
                         .node
                         .update_server(server.node_server_id, None, Some(build), None, None, None)
@@ -1342,6 +1349,7 @@ impl Backend {
         let new_build = server.customization().apply(new_build);
 
         let server_id = server.id;
+        let rel = server.template.rel();
         let node = Arc::clone(&server.node);
         let node_server_id = server.node_server_id;
         let mut conn = self.database.acquire().await?;
@@ -1358,6 +1366,8 @@ impl Backend {
                     .inspect_err(|err| {
                         error!("Failed to update server variables (template_extra): {err:?}");
                     })?;
+
+                    store_template_rel(&mut **tx, server_id, rel).await?;
 
                     node.update_server(node_server_id, None, Some(new_build), None, None, None)
                         .await

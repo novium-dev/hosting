@@ -1,7 +1,7 @@
 use crate::Backend;
 use crate::db::node::BackendNode;
 use crate::db::project::ProjectId;
-use crate::db::server::{ServerCustomization, ServerId};
+use crate::db::server::{ServerCustomization, ServerId, store_template_rel};
 use crate::templates::TemplateError;
 use crate::utils::task::detached;
 use daemon_common::service::server::ServerBuildPayload;
@@ -50,6 +50,16 @@ pub struct ServerResyncResult {
     pub restarted: bool,
 }
 
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct ServerResyncPreview {
+    pub server: ServerId,
+    pub name: String,
+    pub project: ProjectId,
+    pub template: String,
+    pub rel: Option<u32>,
+    pub target_rel: Option<u32>,
+}
+
 struct ResyncTarget {
     id: ServerId,
     name: String,
@@ -65,6 +75,39 @@ struct ResyncTarget {
 }
 
 impl Backend {
+    pub async fn preview_resync(
+        &self,
+        template: Option<&str>,
+    ) -> Result<Vec<ServerResyncPreview>, sqlx::Error> {
+        let rows = query!(
+            r#"SELECT
+                id AS "id: ServerId",
+                name,
+                project AS "project: ProjectId",
+                template,
+                template_rel
+             FROM servers
+             WHERE $1::varchar IS NULL OR template = $1
+             ORDER BY template, template_rel NULLS FIRST, id"#,
+            template
+        )
+        .fetch_all(&*self.database)
+        .await?;
+
+        let templates = self.templates.read().await;
+        Ok(rows
+            .into_iter()
+            .map(|row| ServerResyncPreview {
+                target_rel: templates.get(&row.template).map(|template| template.rel()),
+                server: row.id,
+                name: row.name,
+                project: row.project,
+                template: row.template,
+                rel: row.template_rel.map(i32::cast_unsigned),
+            })
+            .collect())
+    }
+
     pub async fn resync_servers(
         &self,
         template: Option<&str>,
@@ -218,6 +261,7 @@ impl Backend {
                 Arc::clone(&node),
                 node_server_id,
                 build,
+                template.rel(),
                 migrated_extra.clone(),
             )
             .await
@@ -275,6 +319,7 @@ impl Backend {
         node: Arc<BackendNode>,
         node_server_id: u32,
         build: ServerBuildPayload,
+        rel: u32,
         migrated_extra: Option<Value>,
     ) -> Result<(), ServerResyncStatus> {
         let pushed = async {
@@ -291,6 +336,8 @@ impl Backend {
                             .execute(&mut **tx)
                             .await?;
                         }
+
+                        store_template_rel(&mut **tx, server_id, rel).await?;
 
                         node.update_server(node_server_id, None, Some(build), None, None, None)
                             .await

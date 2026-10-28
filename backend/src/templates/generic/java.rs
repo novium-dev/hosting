@@ -20,6 +20,8 @@ use crate::templates::variable::{
 };
 use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
 
+const REL: u32 = 5;
+
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct JavaExtra {
     java_version: JavaVersion,
@@ -63,6 +65,7 @@ pub(crate) struct JavaTemplate;
 
 impl Template for JavaTemplate {
     const ID: &'static str = "java";
+    const REL: u32 = REL;
     type Extra = JavaExtra;
     type Cache = JavaVersionCache;
 
@@ -91,8 +94,8 @@ impl Template for JavaTemplate {
             args: HashMap::new(),
             tag: None,
             default_tag: Some(match extra.build {
-                JavaBuild::Prebuilt => format!("java-prebuilt-{}-r5", extra.java_version),
-                JavaBuild::Gradle => format!("java-gradle-{}-r5", extra.java_version),
+                JavaBuild::Prebuilt => format!("java-prebuilt-{}-r{REL}", extra.java_version),
+                JavaBuild::Gradle => format!("java-gradle-{}-r{REL}", extra.java_version),
             }),
         };
         let mut backup_exclude = HashSet::from([".git/".to_owned()]);

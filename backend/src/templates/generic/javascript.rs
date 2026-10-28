@@ -17,6 +17,8 @@ use crate::templates::generic::{
 use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, VariablePayload};
 use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
 
+const REL: u32 = 5;
+
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) enum PackageManager {
     #[serde(rename = "npm")]
@@ -51,6 +53,7 @@ pub static START_SCRIPT_REGEX: lazy_regex::Lazy<Regex> =
 
 impl Template for JavascriptTemplate {
     const ID: &'static str = "javascript";
+    const REL: u32 = REL;
     type Extra = JavascriptExtra;
     type Cache = JavascriptVersionCache;
 
@@ -80,9 +83,9 @@ impl Template for JavascriptTemplate {
             args: HashMap::new(),
             tag: None,
             default_tag: Some(match extra.package_manager {
-                PackageManager::Npm => format!("javascript-npm-{}-r5", extra.node_version),
-                PackageManager::Pnpm => format!("javascript-pnpm-{}-r5", extra.node_version),
-                PackageManager::Bun => format!("javascript-bun-{}-r5", extra.node_version),
+                PackageManager::Npm => format!("javascript-npm-{}-r{REL}", extra.node_version),
+                PackageManager::Pnpm => format!("javascript-pnpm-{}-r{REL}", extra.node_version),
+                PackageManager::Bun => format!("javascript-bun-{}-r{REL}", extra.node_version),
             }),
         };
         Ok(ServerBuildPayload {

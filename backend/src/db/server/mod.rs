@@ -4,6 +4,7 @@ use crate::define_id;
 use crate::templates::{ENV_FILE_ENVIRONMENT, TemplateInner};
 use daemon_common::service::server::{ServerBuildImage, ServerBuildPayload};
 use serde_json::Value;
+use sqlx::{Executor, Postgres, query};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -92,4 +93,19 @@ impl Server {
             env_file: self.env_file_enabled.then_some(self.env_file_path.as_str()),
         }
     }
+}
+
+pub async fn store_template_rel(
+    conn: impl Executor<'_, Database = Postgres>,
+    server: ServerId,
+    rel: u32,
+) -> Result<(), sqlx::Error> {
+    query!(
+        "UPDATE servers SET template_rel = $1 WHERE id = $2",
+        rel.cast_signed(),
+        &server
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
 }

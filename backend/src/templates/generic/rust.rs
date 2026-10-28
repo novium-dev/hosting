@@ -15,6 +15,8 @@ use crate::templates::generic::{
 use crate::templates::variable::{VariableBuilder, VariableGroupBuilder, VariablePayload};
 use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemplateError};
 
+const REL: u32 = 5;
+
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct RustExtra {
     rust_version: String,
@@ -33,6 +35,7 @@ pub(crate) struct RustTemplate;
 
 impl Template for RustTemplate {
     const ID: &'static str = "rust";
+    const REL: u32 = REL;
     type Extra = RustExtra;
     type Cache = RustVersionCache;
 
@@ -48,7 +51,7 @@ impl Template for RustTemplate {
                 .replace("{RUST_VERSION}", &extra.rust_version),
             args: HashMap::new(),
             tag: None,
-            default_tag: Some(format!("rust-{}-r5", extra.rust_version)),
+            default_tag: Some(format!("rust-{}-r{REL}", extra.rust_version)),
         };
         Ok(ServerBuildPayload {
             image,

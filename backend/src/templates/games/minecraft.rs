@@ -178,7 +178,7 @@ impl MinecraftServerModification {
 }
 
 impl MinecraftServerExtra {
-    const REL: usize = 1;
+    const REL: u32 = 1;
 
     pub(crate) const fn modification(&self) -> MinecraftServerModification {
         match self {
@@ -476,6 +476,7 @@ pub(crate) struct MinecraftTemplate;
 
 impl Template for MinecraftTemplate {
     const ID: &'static str = "minecraft";
+    const REL: u32 = MinecraftServerExtra::REL;
     type Extra = MinecraftServerExtra;
     type Cache = VersionCache;
 

@@ -24,7 +24,7 @@ const VOICE_PORT_NAME: &str = "voice";
 const FILETRANSFER_PORT_NAME: &str = "filetransfer";
 const QUERY_SSH_PORT_NAME: &str = "query_ssh";
 const QUERY_HTTP_PORT_NAME: &str = "query_http";
-const REL: usize = 1;
+const REL: u32 = 1;
 const TEAMSPEAK3_VERSIONS: &str = "https://www.teamspeak.com/versions/server.json";
 const TEAMSPEAK6_REPOSITORY: &str = "teamspeak/teamspeak6-server";
 const ENTRYPOINT_PATH: &str = "/usr/local/bin/teamspeak-entrypoint";
@@ -117,6 +117,7 @@ pub(crate) struct TeamSpeakTemplate;
 
 impl Template for TeamSpeakTemplate {
     const ID: &'static str = "teamspeak";
+    const REL: u32 = REL;
     type Extra = TeamSpeakExtra;
     type Cache = TeamSpeakVersionCache;
 

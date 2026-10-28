@@ -16,6 +16,8 @@ use speedy::{Readable, Writable};
 use std::collections::{HashMap, HashSet};
 use tracing::debug;
 
+const REL: u32 = 5;
+
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct GoExtra {
     go_version: String,
@@ -39,6 +41,7 @@ pub static GO_FILE_REGEX: lazy_regex::Lazy<Regex> =
 
 impl Template for GoTemplate {
     const ID: &'static str = "go";
+    const REL: u32 = REL;
     type Extra = GoExtra;
     type Cache = GoVersionCache;
 
@@ -53,7 +56,7 @@ impl Template for GoTemplate {
             dockerfile: include_str!("go/Dockerfile").replace("{GO_VERSION}", &extra.go_version),
             args: HashMap::new(),
             tag: None,
-            default_tag: Some(format!("go-{}-r5", extra.go_version)),
+            default_tag: Some(format!("go-{}-r{REL}", extra.go_version)),
         };
         Ok(ServerBuildPayload {
             image,
