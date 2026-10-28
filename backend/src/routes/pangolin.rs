@@ -25,14 +25,8 @@ struct TargetPayload<'a> {
 }
 
 #[derive(Debug, Serialize)]
-struct AccessControlPayload {
+struct ResourceUpdatePayload {
     sso: bool,
-    #[serde(rename = "userIds")]
-    user_ids: Vec<String>,
-    #[serde(rename = "roleIds")]
-    role_ids: Vec<String>,
-    #[serde(rename = "skipToIdpId")]
-    skip_to_idp_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -138,22 +132,20 @@ impl PangolinClient {
 
         let access_control = self
             .client
-            .post(self.endpoint(&format!(
-                "/public-resource-policy/{}/access-control",
-                resource.resource_id
-            )))
+            .post(self.endpoint(&format!("/public-resource/{}", resource.resource_id)))
             .bearer_auth(&self.config.api_key)
-            .json(&AccessControlPayload {
-                sso: false,
-                user_ids: Vec::new(),
-                role_ids: Vec::new(),
-                skip_to_idp_id: None,
-            })
+            .json(&ResourceUpdatePayload { sso: false })
             .send()
             .await;
 
         let access_control_ok = match access_control {
-            Ok(response) => response.status().is_success(),
+            Ok(response) if response.status().is_success() => true,
+            Ok(response) => {
+                let status = response.status();
+                let body = response.text().await.unwrap_or_default();
+                error!("Pangolin rejected the access control update with status {status}: {body}");
+                false
+            }
             Err(err) => {
                 error!("Failed to reach Pangolin: {err:?}");
                 false
