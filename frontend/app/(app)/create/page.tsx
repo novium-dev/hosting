@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminBypassAlert } from "@/components/admin-bypass-alert";
 import { AppFooter } from "@/components/app-footer";
 import { AppLogo } from "@/components/brand/app-logo";
 import { CreateProjectForm } from "@/components/create-project-form";
@@ -18,7 +19,8 @@ import { useTranslation } from "react-i18next";
 export default function CreateProjectPage() {
   const { t } = useTranslation(["app", "common"]);
   const router = useRouter();
-  const { canCreateProject, isLoading } = useInstancePolicy();
+  const { canCreateProject, projectCreationBypassed, isLoading } =
+    useInstancePolicy();
 
   if (isLoading) return null;
 
@@ -39,7 +41,12 @@ export default function CreateProjectPage() {
               {t("common:actions.backToDashboard")}
             </Link>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {projectCreationBypassed && (
+              <AdminBypassAlert
+                description={t("common:policy.projectCreationAdminOnly")}
+              />
+            )}
             {canCreateProject ? (
               <CreateProjectForm
                 onSuccess={({ slug }) => {

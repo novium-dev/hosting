@@ -10,6 +10,7 @@ use crate::service::admin::user::user_admin_service_error::{
     CreateUserError, DeleteUserError, GetUserError, ListUserProjectsError, ListUsersError,
     UpdateUserError,
 };
+use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::*;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use serde::{Deserialize, Serialize};
@@ -210,6 +211,10 @@ pub(crate) impl UserAdminService for Backend {
     }
 
     /// Updates a user.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::USER_MANAGE`]. Both the user's current role
+    /// and the assigned one may never exceed your own permissions.
     #[route("/{user_id}", method = PATCH)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::{not_found <- [sql:not_found], email_taken <- [sql:unique]})]
     async fn update_user(
@@ -222,10 +227,16 @@ pub(crate) impl UserAdminService for Backend {
         email: Option<String>,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateUserError>((), ManagementPermissions::USER_MANAGE)?;
+        let own = auth.permissions::<ManagementPermissions, _>(());
 
         let mut conn = self.database.acquire().await?;
         conn.transaction(|tx| {
             Box::pin(async move {
+                let current = query_scalar!("SELECT role FROM users WHERE id = $1", user_id)
+                    .fetch_one(&mut **tx)
+                    .await?;
+                ensure_role_grantable::<UpdateUserError>(own, current)?;
+
                 if let Some(username) = username {
                     query!(
                         "UPDATE users SET username = $1 WHERE id = $2",
@@ -248,6 +259,7 @@ pub(crate) impl UserAdminService for Backend {
 
                 if let Some(role) = role {
                     let role = Role::try_from(role).map_err(|()| UpdateUserError::DbFailure)?;
+                    ensure_role_grantable::<UpdateUserError>(own, role as i32)?;
                     query!(
                         "UPDATE users SET role = $1 WHERE id = $2",
                         role as i32,
@@ -267,10 +279,6 @@ pub(crate) impl UserAdminService for Backend {
                     .await?;
                 }
 
-                query!("SELECT id FROM users WHERE id = $1", user_id)
-                    .fetch_one(&mut **tx)
-                    .await?;
-
                 Ok(())
             })
         })
@@ -278,10 +286,23 @@ pub(crate) impl UserAdminService for Backend {
     }
 
     /// Deletes a user if they do not own projects.
+    ///
+    /// # Permissions
+    /// Requires [`ManagementPermissions::USER_MANAGE`]. The user's role may never
+    /// exceed your own permissions.
     #[route("/{user_id}", method = DELETE)]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], user::{not_found, owns_project <- [sql:foreign_key]})]
     async fn delete_user(&self, #[special] auth: Authentication, user_id: i32) -> Result<(), _> {
         auth.require::<_, _, DeleteUserError>((), ManagementPermissions::USER_MANAGE)?;
+
+        let role = query_scalar!("SELECT role FROM users WHERE id = $1", user_id)
+            .fetch_optional(&*self.database)
+            .await?
+            .ok_or(DeleteUserError::UserNotFound)?;
+        ensure_role_grantable::<DeleteUserError>(
+            auth.permissions::<ManagementPermissions, _>(()),
+            role,
+        )?;
 
         let result = query!("DELETE FROM users WHERE id = $1", user_id)
             .execute(&*self.database)
@@ -292,5 +313,18 @@ pub(crate) impl UserAdminService for Backend {
         }
 
         Ok(())
+    }
+}
+
+fn ensure_role_grantable<E: FromAuthPermissionDenied>(
+    own: ManagementPermissions,
+    role: i32,
+) -> Result<(), E> {
+    let role = Role::from_db(role).unwrap_or(Role::User);
+
+    if own.contains(role.management_permissions()) {
+        Ok(())
+    } else {
+        Err(<E as FromAuthPermissionDenied>::from())
     }
 }

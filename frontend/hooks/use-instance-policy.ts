@@ -1,14 +1,14 @@
 import useSWR from "swr";
-import { instancePolicy } from "@/lib/api";
+import { instancePolicy, PolicyAccess } from "@/lib/api";
 import type { InstancePolicyResponse } from "@/lib/api";
 
 // Self-service actions this instance allows the current user, resolved by the
 // backend against both the instance policy and the user's permissions. Fetched
 // once and shared through SWR's cache.
 const optimisticPolicy: InstancePolicyResponse = {
-  can_create_project: true,
-  can_update_project: true,
-  can_upload_project_logo: false,
+  create_project: PolicyAccess.ALLOWED,
+  update_project: PolicyAccess.ALLOWED,
+  upload_project_logo: PolicyAccess.DENIED,
 };
 
 export function useInstancePolicy() {
@@ -25,9 +25,11 @@ export function useInstancePolicy() {
   const policy = data ?? optimisticPolicy;
 
   return {
-    canCreateProject: policy.can_create_project,
-    canUpdateProject: policy.can_update_project,
-    canUploadProjectLogo: policy.can_upload_project_logo,
+    canCreateProject: policy.create_project !== PolicyAccess.DENIED,
+    projectCreationBypassed: policy.create_project === PolicyAccess.BYPASSED,
+    canUpdateProject: policy.update_project !== PolicyAccess.DENIED,
+    projectUpdateBypassed: policy.update_project === PolicyAccess.BYPASSED,
+    canUploadProjectLogo: policy.upload_project_logo !== PolicyAccess.DENIED,
     isLoading,
   };
 }

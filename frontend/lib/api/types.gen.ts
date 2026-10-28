@@ -492,6 +492,14 @@ export type PackPlatform = {
     loader_version?: string | null;
 };
 
+export const PolicyAccess = {
+    ALLOWED: 'allowed',
+    BYPASSED: 'bypassed',
+    DENIED: 'denied'
+} as const;
+
+export type PolicyAccess = typeof PolicyAccess[keyof typeof PolicyAccess];
+
 export type PortRange = {
     end: number;
     start: number;
@@ -18417,9 +18425,9 @@ export type InstancePolicyResponses = {
      * Success
      */
     200: {
-        can_create_project: boolean;
-        can_update_project: boolean;
-        can_upload_project_logo: boolean;
+        create_project: PolicyAccess;
+        update_project: PolicyAccess;
+        upload_project_logo: PolicyAccess;
     };
 };
 

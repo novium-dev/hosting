@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminBypassAlert } from "@/components/admin-bypass-alert";
 import { CreateProjectForm } from "@/components/create-project-form";
 import { Button } from "@/components/ui/button";
 import { appConfig } from "@/constants/config";
@@ -11,12 +12,18 @@ import { useTranslation } from "react-i18next";
 export default function OnboardingForm() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { canCreateProject, isLoading } = useInstancePolicy();
+  const { canCreateProject, projectCreationBypassed, isLoading } =
+    useInstancePolicy();
 
   if (isLoading) return null;
 
   return (
     <div className="flex flex-col gap-4">
+      {projectCreationBypassed && (
+        <AdminBypassAlert
+          description={t("common:policy.projectCreationAdminOnly")}
+        />
+      )}
       {canCreateProject ? (
         <CreateProjectForm onSuccess={({ slug }) => router.push(`/${slug}`)} />
       ) : (

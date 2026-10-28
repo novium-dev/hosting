@@ -44,6 +44,7 @@ export const ManagementPermission = {
   DATABASE_HOSTS_MANAGE: 2 ** 51,
   INTEGRITY_VIEW: 2 ** 52,
   SERVER_DEPLOY: 2 ** 44,
+  BYPASS_INSTANCE_RESTRICTIONS: 2 ** 53,
 } as const;
 
 const serverDependencyMap = [
@@ -351,6 +352,10 @@ export const MANAGEMENT_PERMISSION_GROUPS: {
     group: "Limits",
     permissions: [
       { bit: ManagementPermission.LIMITS_BYPASS, label: "Bypass limits" },
+      {
+        bit: ManagementPermission.BYPASS_INSTANCE_RESTRICTIONS,
+        label: "Bypass instance restrictions",
+      },
     ],
   },
 ];

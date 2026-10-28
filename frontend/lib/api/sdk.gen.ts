@@ -835,7 +835,11 @@ export const createUser = <ThrowOnError extends boolean = false>(options: Option
 /**
  *  Deletes a user if they do not own projects.
  *
- *  Deletes a user if they do not own projects.
+ *  Deletes a user if they do not own projects.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::USER_MANAGE`. The user's role may never<br/>
+ * exceed your own permissions.
  */
 export const deleteUser = <ThrowOnError extends boolean = false>(options: Options<DeleteUserData, ThrowOnError>): RequestResult<DeleteUserResponses, DeleteUserErrors, ThrowOnError> => (options.client ?? client).delete<DeleteUserResponses, DeleteUserErrors, ThrowOnError>({ url: '/admin/user/{user_id}', ...options });
 
@@ -849,7 +853,11 @@ export const getUser = <ThrowOnError extends boolean = false>(options: Options<G
 /**
  *  Updates a user.
  *
- *  Updates a user.
+ *  Updates a user.<br/>
+ * <br/>
+ * # Permissions<br/>
+ * Requires `ManagementPermissions::USER_MANAGE`. Both the user's current role<br/>
+ * and the assigned one may never exceed your own permissions.
  */
 export const updateUser = <ThrowOnError extends boolean = false>(options: Options<UpdateUserData, ThrowOnError>): RequestResult<UpdateUserResponses, UpdateUserErrors, ThrowOnError> => (options.client ?? client).patch<UpdateUserResponses, UpdateUserErrors, ThrowOnError>({
     url: '/admin/user/{user_id}',
@@ -975,8 +983,8 @@ export const listProjects = <ThrowOnError extends boolean = false>(options?: Opt
  * <br/>
  * # Permissions<br/>
  * Requires `ManagementPermissions::USER_MANAGE` if `owner` is set.<br/>
- * Requires `ManagementPermissions::LIMITS_BYPASS` if this instance does<br/>
- * not let users create projects themselves.
+ * Requires `ManagementPermissions::BYPASS_INSTANCE_RESTRICTIONS` if this<br/>
+ * instance does not let users create projects themselves.
  */
 export const createProject = <ThrowOnError extends boolean = false>(options: Options<CreateProjectData, ThrowOnError>): RequestResult<CreateProjectResponses, CreateProjectErrors, ThrowOnError> => (options.client ?? client).put<CreateProjectResponses, CreateProjectErrors, ThrowOnError>({
     url: '/project',
@@ -1015,8 +1023,8 @@ export const getProject = <ThrowOnError extends boolean = false>(options: Option
  * <br/>
  * # Permissions<br/>
  * Requires `ProjectPermissions::ADMIN_MANAGEMENT`.<br/>
- * Requires `ManagementPermissions::LIMITS_BYPASS` to change the name or<br/>
- * the slug if this instance does not let users rename their own projects.<br/>
+ * Requires `ManagementPermissions::BYPASS_INSTANCE_RESTRICTIONS` to change the<br/>
+ * name or the slug if this instance does not let users rename their own projects.<br/>
  * Only the current owner or a holder of `ManagementPermissions::USER_MANAGE`<br/>
  * may transfer the ownership.
  */
@@ -1036,8 +1044,8 @@ export const updateProject = <ThrowOnError extends boolean = false>(options: Opt
  * <br/>
  * # Permissions<br/>
  * Requires `ProjectPermissions::ADMIN_MANAGEMENT`.<br/>
- * Requires `ManagementPermissions::LIMITS_BYPASS` if this instance does<br/>
- * not let users update their own projects.
+ * Requires `ManagementPermissions::BYPASS_INSTANCE_RESTRICTIONS` if this<br/>
+ * instance does not let users update their own projects.
  */
 export const deleteProjectLogo = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectLogoData, ThrowOnError>): RequestResult<DeleteProjectLogoResponses, DeleteProjectLogoErrors, ThrowOnError> => (options.client ?? client).delete<DeleteProjectLogoResponses, DeleteProjectLogoErrors, ThrowOnError>({ url: '/project/{project_id}/logo', ...options });
 
@@ -1050,8 +1058,8 @@ export const deleteProjectLogo = <ThrowOnError extends boolean = false>(options:
  * <br/>
  * # Permissions<br/>
  * Requires `ProjectPermissions::ADMIN_MANAGEMENT`.<br/>
- * Requires `ManagementPermissions::LIMITS_BYPASS` if this instance does<br/>
- * not let users update their own projects.
+ * Requires `ManagementPermissions::BYPASS_INSTANCE_RESTRICTIONS` if this<br/>
+ * instance does not let users update their own projects.
  */
 export const uploadProjectLogo = <ThrowOnError extends boolean = false>(options: Options<UploadProjectLogoData, ThrowOnError>): RequestResult<UploadProjectLogoResponses, UploadProjectLogoErrors, ThrowOnError> => (options.client ?? client).post<UploadProjectLogoResponses, UploadProjectLogoErrors, ThrowOnError>({
     bodySerializer: null,
@@ -1071,8 +1079,8 @@ export const uploadProjectLogo = <ThrowOnError extends boolean = false>(options:
  * <br/>
  * # Permissions<br/>
  * Requires `ProjectPermissions::ADMIN_MANAGEMENT`.<br/>
- * Requires `ManagementPermissions::LIMITS_BYPASS` if this instance does<br/>
- * not let users update their own projects.
+ * Requires `ManagementPermissions::BYPASS_INSTANCE_RESTRICTIONS` if this<br/>
+ * instance does not let users update their own projects.
  */
 export const setProjectLogo = <ThrowOnError extends boolean = false>(options: Options<SetProjectLogoData, ThrowOnError>): RequestResult<SetProjectLogoResponses, SetProjectLogoErrors, ThrowOnError> => (options.client ?? client).put<SetProjectLogoResponses, SetProjectLogoErrors, ThrowOnError>({
     url: '/project/{project_id}/logo',
@@ -2286,7 +2294,8 @@ export const integritySchema = <ThrowOnError extends boolean = false>(options?: 
  *  Lists the self-service actions this instance allows the caller.<br/>
  * <br/>
  * An action the instance withdraws stays available to callers holding<br/>
- * `ManagementPermissions::LIMITS_BYPASS`. Owning the project is checked<br/>
+ * `ManagementPermissions::BYPASS_INSTANCE_RESTRICTIONS`; `bypassed` marks an<br/>
+ * action that is only allowed through that bypass. Owning the project is checked<br/>
  * separately, when the action itself is performed.
  */
 export const instancePolicy = <ThrowOnError extends boolean = false>(options?: Options<InstancePolicyData, ThrowOnError>): RequestResult<InstancePolicyResponses, InstancePolicyErrors, ThrowOnError> => (options?.client ?? client).get<InstancePolicyResponses, InstancePolicyErrors, ThrowOnError>({ url: '/instance/policy', ...options });

@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { AdminBypassAlert } from "@/components/admin-bypass-alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,7 +42,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const { canUpdateProject } = useInstancePolicy();
+  const { canUpdateProject, projectUpdateBypassed } = useInstancePolicy();
 
   const deleteProject = useAction(deleteProjectAction, {
     onSuccess: () => {
@@ -67,6 +68,12 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
       </div>
       {canUpdateProject ? (
         <>
+          {projectUpdateBypassed && (
+            <AdminBypassAlert
+              description={t("common:policy.projectUpdateAdminOnly")}
+            />
+          )}
+
           <UpdateProjectLogo project={project} />
 
           <UpdateProjectName project={project} />

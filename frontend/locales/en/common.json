@@ -202,6 +202,9 @@
   },
   "policy": {
     "projectCreationDisabled": "Creating projects is disabled on this instance. Ask an administrator to create one for you.",
-    "projectUpdateDisabled": "Updating projects is disabled on this instance. Ask an administrator to change the name, the slug or the logo."
+    "projectUpdateDisabled": "Updating projects is disabled on this instance. Ask an administrator to change the name, the slug or the logo.",
+    "projectCreationAdminOnly": "Creating projects is disabled on this instance. You can only create one because you are an administrator.",
+    "adminBypassTitle": "Admin only",
+    "projectUpdateAdminOnly": "Updating projects is disabled on this instance. You can only change the name, the slug or the logo because you are an administrator."
   }
 }

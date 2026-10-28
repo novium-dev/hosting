@@ -202,6 +202,9 @@
   },
   "policy": {
     "projectCreationDisabled": "Das Erstellen von Projekten ist auf dieser Instanz deaktiviert. Bitte einen Administrator, eines für dich anzulegen.",
-    "projectUpdateDisabled": "Das Bearbeiten von Projekten ist auf dieser Instanz deaktiviert. Bitte einen Administrator, den Namen, den Slug oder das Logo zu ändern."
+    "projectUpdateDisabled": "Das Bearbeiten von Projekten ist auf dieser Instanz deaktiviert. Bitte einen Administrator, den Namen, den Slug oder das Logo zu ändern.",
+    "projectCreationAdminOnly": "Das Erstellen von Projekten ist auf dieser Instanz deaktiviert. Du kannst nur eines erstellen, weil du Administrator bist.",
+    "adminBypassTitle": "Nur für Administratoren",
+    "projectUpdateAdminOnly": "Das Bearbeiten von Projekten ist auf dieser Instanz deaktiviert. Du kannst den Namen, den Slug oder das Logo nur ändern, weil du Administrator bist."
   }
 }
