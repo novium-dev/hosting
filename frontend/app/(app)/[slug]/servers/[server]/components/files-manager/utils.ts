@@ -44,7 +44,11 @@ export async function loadDirectory(serverId: string, path: string) {
     throw new Error("Failed to load files");
   }
 
-  return [...response.data].sort((a, b) => {
+  return sortFiles(response.data);
+}
+
+export function sortFiles(files: FileRow[]) {
+  return [...files].sort((a, b) => {
     const aDir = isDirectory(a);
     const bDir = isDirectory(b);
 

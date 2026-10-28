@@ -4120,6 +4120,90 @@ export type UploadUserResponses = {
 
 export type UploadUserResponse = UploadUserResponses[keyof UploadUserResponses];
 
+export type WatchUserData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The server ID
+         */
+        server_id: NanoId;
+    };
+    query?: {
+        /**
+         * The file path
+         */
+        file?: string | null;
+    };
+    url: '/file/{server_id}/watch';
+};
+
+export type WatchUserErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Server not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'server/not_found';
+            msg?: 'Server not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‌': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type WatchUserError = WatchUserErrors[keyof WatchUserErrors];
+
+export type WatchUserResponses = {
+    /**
+     * Success
+     */
+    200: {
+        url: string;
+    };
+};
+
+export type WatchUserResponse = WatchUserResponses[keyof WatchUserResponses];
+
 export type ArchiveFileData = {
     body: ArchiveFilePayload;
     headers?: {

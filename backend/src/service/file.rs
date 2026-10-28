@@ -8,6 +8,7 @@ use crate::service::file::file_service_error::{
     ArchiveFileError, ChmodFileError, ChownFileError, CopyFileError, CreateDirectoryError,
     DeleteFileError, DownloadUserError, GetConfigError, ListFilesError, RenameFileError,
     SetConfigError, StatFileError, SymlinkFileError, UnarchiveFileError, UploadUserError,
+    WatchUserError,
 };
 use crate::utils::{FileResponseExtension as _, PageSplit, PageSplitExtension as _, Paged};
 use daemon_common::service::DataStream;
@@ -508,6 +509,32 @@ pub(crate) impl FileService for Backend {
             url: server
                 .node
                 .server_upload_file_user_url_signed(server.node_server_id, file),
+        })
+    }
+
+    /// Gets a signed websocket URL that streams changes of a directory on the server.
+    ///
+    /// # Permissions
+    /// Requires [`ServerPermissions::FILES_READ`].
+    #[route("/watch", method = GET, query = [ file ])]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], server::not_found)]
+    async fn watch_user(
+        &self,
+        #[special] auth: Authentication,
+        server_id: ServerId,
+        file: Option<String>,
+    ) -> Result<UrlResponse, _> {
+        auth.require::<_, _, WatchUserError>(server_id, ServerPermissions::FILES_READ)?;
+
+        let server = self
+            .resolve_server(&*self.database, server_id)
+            .await?
+            .ok_or(WatchUserError::ServerNotFound)?;
+
+        Ok(UrlResponse {
+            url: server
+                .node
+                .server_watch_files_user_url_signed(server.node_server_id, file),
         })
     }
 

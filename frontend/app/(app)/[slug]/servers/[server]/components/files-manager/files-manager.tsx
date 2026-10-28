@@ -55,6 +55,7 @@ import { PathBar } from "./path-bar";
 import UploadProgressPanel from "./upload-progress";
 import { useFileDrag } from "./use-file-drag";
 import { useFileOperations } from "./use-file-operations";
+import { useFilesWatch } from "./use-files-watch";
 import {
   filesKey,
   getFullPath,
@@ -158,6 +159,13 @@ export function FilesManager({
     setSearchQuery("");
     setSelectedNames([]);
   };
+
+  useFilesWatch({
+    serverId,
+    path: currentPath,
+    enabled: !filesBlocked,
+    onPathChange: navigate,
+  });
 
   const reload = async (path = currentPath) => {
     const scrollY = window.scrollY;
