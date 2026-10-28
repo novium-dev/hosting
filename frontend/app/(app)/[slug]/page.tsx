@@ -233,9 +233,9 @@ export default function ProjectPage() {
 
   const { data: serversData } = useSWR(
     project ? ["servers", project.id] : null,
-    async () => {
+    async ([, projectId]) => {
       const res = await listServers({
-        query: { project: project!.id, include: true },
+        query: { project: projectId, include: true },
       });
       return res.error ? [] : (res.data ?? []);
     },

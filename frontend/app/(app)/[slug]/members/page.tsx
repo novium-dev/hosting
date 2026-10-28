@@ -14,9 +14,9 @@ export default function MembersPage() {
 
   const { data: members } = useSWR(
     project ? ["project-users", project.id] : null,
-    async () => {
+    async ([, projectId]) => {
       const response = await listProjectUsers({
-        path: { project_id: project!.id },
+        path: { project_id: projectId },
       });
       return response.error ? [] : (response.data ?? []);
     },
