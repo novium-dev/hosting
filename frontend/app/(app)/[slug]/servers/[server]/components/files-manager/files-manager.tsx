@@ -17,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import useSWR, { useSWRConfig } from "swr";
+import { useSWRConfig } from "swr";
 import { useTranslation } from "react-i18next";
 
 import { TaskLockNotice } from "@/components/server/task-lock-notice";
@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { serverFilesKey, useServerFiles } from "@/hooks/use-shared-queries";
 import { normalizePath } from "@/lib/files";
 import { useServerTaskLock } from "@/stores/server-tasks";
 import {
@@ -51,16 +52,15 @@ import {
   PermissionsDialog,
 } from "./file-dialogs";
 import { FilesTable } from "./files-table";
+import { FolderPickerDialog } from "./folder-picker-dialog";
 import { PathBar } from "./path-bar";
 import UploadProgressPanel from "./upload-progress";
 import { useFileDrag } from "./use-file-drag";
 import { useFileOperations } from "./use-file-operations";
 import { useFilesWatch } from "./use-files-watch";
 import {
-  filesKey,
   getFullPath,
   isDirectory,
-  loadDirectory,
   stripArchiveExtension,
   type FileRow,
 } from "./utils";
@@ -78,8 +78,9 @@ type FileDialog =
       entry: FileRow;
     }
   | { type: "archive"; sources: string[]; name: string }
+  | { type: "copy-to" | "move-to"; entries: FileRow[] }
   | {
-      type: "mass-move" | "mass-delete" | "create-directory" | "create-file";
+      type: "mass-delete" | "create-directory" | "create-file";
     };
 
 const NO_FILES: FileRow[] = [];
@@ -130,9 +131,9 @@ export function FilesManager({
     setSelectedNames([]);
   }
 
-  const { data: files = NO_FILES, isLoading } = useSWR(
-    filesKey(serverId, currentPath),
-    () => loadDirectory(serverId, currentPath),
+  const { data: files = NO_FILES, isLoading } = useServerFiles(
+    serverId,
+    currentPath,
     {
       onError: () => {
         toast.error(t("servers-management:filesManager.toasts.loadFailed"));
@@ -148,6 +149,7 @@ export function FilesManager({
     selectedNames.includes(entry.name),
   );
   const dialogEntry = dialog && "entry" in dialog ? dialog.entry : null;
+  const dialogEntries = dialog && "entries" in dialog ? dialog.entries : [];
 
   const navigate = (path: string) => {
     const normalized = normalizePath(path);
@@ -160,17 +162,18 @@ export function FilesManager({
     setSelectedNames([]);
   };
 
-  useFilesWatch({
+  const watched = useFilesWatch({
     serverId,
     path: currentPath,
     enabled: !filesBlocked,
+    hold: dialogOpen,
     onPathChange: navigate,
   });
 
   const reload = async (path = currentPath) => {
     const scrollY = window.scrollY;
 
-    await mutate(filesKey(serverId, path));
+    await mutate(serverFilesKey(serverId, path));
     setSelectedNames([]);
 
     requestAnimationFrame(() => {
@@ -184,6 +187,7 @@ export function FilesManager({
     serverId,
     slug,
     currentPath,
+    watched,
     files,
     selectedEntries,
     canWriteFiles,
@@ -206,7 +210,7 @@ export function FilesManager({
     unarchive,
     updatePermissions,
     massDelete,
-    massMove,
+    transferTo,
     createFolder,
     createFile,
     download,
@@ -240,6 +244,10 @@ export function FilesManager({
         return;
       case "download":
         void download(entry);
+        return;
+      case "copy-to":
+      case "move-to":
+        openDialog({ type: action, entries: [entry] });
         return;
       default:
         openDialog({ type: action, entry });
@@ -438,7 +446,9 @@ export function FilesManager({
                 size="sm"
                 variant="outline"
                 disabled={selectionDisabled}
-                onClick={() => openDialog({ type: "mass-move" })}
+                onClick={() =>
+                  openDialog({ type: "move-to", entries: selectedEntries })
+                }
               >
                 <FolderInput className="size-4" />
                 {t("common:actions.move")}
@@ -543,20 +553,37 @@ export function FilesManager({
         onSubmit={(value) => dialogEntry && void unarchive(dialogEntry, value)}
       />
 
-      <NameDialog
+      <FolderPickerDialog
         {...dialogProps}
-        open={dialogOpen && dialog?.type === "mass-move"}
-        title={t("servers-management:filesManager.massMoveDialog.title")}
+        serverId={serverId}
+        open={
+          dialogOpen &&
+          (dialog?.type === "copy-to" || dialog?.type === "move-to")
+        }
+        title={t(
+          dialog?.type === "copy-to"
+            ? "servers-management:filesManager.folderPicker.copyTitle"
+            : "servers-management:filesManager.folderPicker.moveTitle",
+        )}
         description={t(
-          "servers-management:filesManager.massMoveDialog.description",
-          { count: selectedNames.length },
+          "servers-management:filesManager.folderPicker.description",
+          { count: dialogEntries.length },
         )}
-        submitLabel={t("common:actions.move")}
-        initialValue={currentPath}
-        placeholder={t(
-          "servers-management:filesManager.massMoveDialog.placeholder",
+        submitLabel={t(
+          dialog?.type === "copy-to"
+            ? "servers-management:filesManager.folderPicker.copyHere"
+            : "servers-management:filesManager.folderPicker.moveHere",
         )}
-        onSubmit={(value) => void massMove(value)}
+        initialPath={currentPath}
+        onSubmit={(directory, target) =>
+          (dialog?.type === "copy-to" || dialog?.type === "move-to") &&
+          void transferTo(
+            dialog.type === "copy-to" ? "copy" : "move",
+            dialog.entries,
+            directory,
+            target,
+          )
+        }
       />
 
       <NameDialog

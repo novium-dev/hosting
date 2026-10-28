@@ -19,7 +19,9 @@
     "contextMenu": {
       "view": "Anzeigen",
       "permissions": "Berechtigungen",
-      "unarchive": "Entpacken"
+      "unarchive": "Entpacken",
+      "copyTo": "Kopieren nach...",
+      "moveTo": "Verschieben nach..."
     },
     "renameDialog": {
       "description": "{{name}} umbenennen.",
@@ -136,7 +138,11 @@
       "massMoveFailed_one": "{{count}} Eintrag konnte nicht verschoben werden",
       "massMoveFailed_other": "{{count}} Einträge konnten nicht verschoben werden",
       "uploadTooLarge_one": "{{fileName}} überschreitet das Upload-Limit von {{limit}}",
-      "uploadTooLarge_other": "{{count}} Dateien überschreiten das Upload-Limit von {{limit}}"
+      "uploadTooLarge_other": "{{count}} Dateien überschreiten das Upload-Limit von {{limit}}",
+      "massCopied_one": "{{count}} Eintrag nach {{path}} kopiert",
+      "massCopied_other": "{{count}} Einträge nach {{path}} kopiert",
+      "massCopyFailed_one": "{{count}} Eintrag konnte nicht kopiert werden",
+      "massCopyFailed_other": "{{count}} Einträge konnten nicht kopiert werden"
     },
     "uploadProgress": {
       "uploading": "Lädt hoch {{done}}/{{total}}",
@@ -165,11 +171,15 @@
       "uidLabel": "Eigentümer (uid)",
       "gidLabel": "Gruppe (gid)"
     },
-    "massMoveDialog": {
-      "title": "Auswahl verschieben",
-      "description_one": "{{count}} Eintrag in ein anderes Verzeichnis verschieben.",
-      "description_other": "{{count}} Einträge in ein anderes Verzeichnis verschieben.",
-      "placeholder": "/zielverzeichnis"
+    "folderPicker": {
+      "copyTitle": "Kopieren nach",
+      "moveTitle": "Verschieben nach",
+      "description_one": "Wähle das Zielverzeichnis für {{count}} Eintrag.",
+      "description_other": "Wähle das Zielverzeichnis für {{count}} Einträge.",
+      "copyHere": "Hierher kopieren",
+      "moveHere": "Hierher verschieben",
+      "parent": "Übergeordnetes Verzeichnis",
+      "empty": "Keine Unterverzeichnisse"
     },
     "massDeleteDialog": {
       "title": "Auswahl löschen?",

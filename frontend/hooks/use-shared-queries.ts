@@ -4,6 +4,7 @@ import {
   availablePorts,
   listDatabaseHosts,
   listGroups,
+  listFiles,
   listInstanceDatabases,
   listNodeGroups,
   listProjectInstances,
@@ -11,10 +12,38 @@ import {
   serverInfo,
   templateInfo,
 } from "@/lib/api";
+import { sortFiles } from "@/lib/files";
 
 export function useServerInfo(serverId: string | null | undefined) {
   return useSWR(serverId ? ["server-info", serverId] : null, ([, id]) =>
     serverInfo({ path: { server_id: id } }),
+  );
+}
+
+export function serverFilesKey(serverId: string, path: string) {
+  return ["server-files", serverId, path] as const;
+}
+
+export function useServerFiles(
+  serverId: string,
+  path: string,
+  config?: SWRConfiguration,
+) {
+  return useSWR(
+    serverFilesKey(serverId, path),
+    async ([, id, directory]) => {
+      const response = await listFiles({
+        path: { server_id: id },
+        query: { file: directory },
+      });
+      if (response.error || !response.data) {
+        throw new Error(
+          apiErrorMessage(response.error, "Failed to load files"),
+        );
+      }
+      return sortFiles(response.data);
+    },
+    config,
   );
 }
 

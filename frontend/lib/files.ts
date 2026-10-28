@@ -23,3 +23,18 @@ export function normalizePath(input: string) {
   const cleaned = trimmed.replace(/\/+/g, "/").replace(/\/$/, "");
   return cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
 }
+
+export function sortFiles<T extends { name: string; mode: number }>(
+  files: T[],
+) {
+  return [...files].sort((a, b) => {
+    const aDir = modeToType(a.mode) === FileMode.DIR;
+    const bDir = modeToType(b.mode) === FileMode.DIR;
+
+    if (aDir !== bDir) {
+      return aDir ? -1 : 1;
+    }
+
+    return a.name.localeCompare(b.name);
+  });
+}
