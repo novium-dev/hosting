@@ -55,7 +55,7 @@ RUN set -eu; \
     getent group "${CONTAINER_GID}" >/dev/null || addgroup --gid "${CONTAINER_GID}" container; \
     adduser --uid "${CONTAINER_UID}" --gid "${CONTAINER_GID}" --home /work --shell /bin/sh --no-create-home --disabled-password --gecos "" container
 
-ARG MC_MONITOR_DEFAULT_PORT=25565
+ARG MC_MONITOR_DEFAULT_PORT={MC_MONITOR_DEFAULT_PORT}
 ENV MC_MONITOR_DEFAULT_PORT=${MC_MONITOR_DEFAULT_PORT}
 
 WORKDIR /work

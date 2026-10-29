@@ -178,7 +178,7 @@ impl MinecraftServerModification {
 }
 
 impl MinecraftServerExtra {
-    const REL: u32 = 2;
+    const REL: u32 = 3;
 
     pub(crate) const fn modification(&self) -> MinecraftServerModification {
         match self {
@@ -194,11 +194,9 @@ impl MinecraftServerExtra {
 
     pub(crate) fn image(&self) -> ServerBuildImage {
         let generic = ServerBuildImage {
-            dockerfile: include_str!("minecraft/generic.Dockerfile").to_owned(),
-            args: HashMap::from([(
-                "MC_MONITOR_DEFAULT_PORT".to_owned(),
-                SERVER_PORT.to_string(),
-            )]),
+            dockerfile: include_str!("minecraft/generic.Dockerfile")
+                .replace("{MC_MONITOR_DEFAULT_PORT}", &SERVER_PORT.to_string()),
+            args: HashMap::new(),
             parents: Vec::new(),
             tag: None,
             default_tag: Some(format!("minecraft-generic-r{}", Self::REL)),

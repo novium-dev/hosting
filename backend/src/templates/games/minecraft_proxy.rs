@@ -71,7 +71,7 @@ pub(crate) enum MinecraftProxyExtra {
 }
 
 impl MinecraftProxyExtra {
-    const REL: u32 = 2;
+    const REL: u32 = 3;
 
     pub(crate) const fn software(&self) -> MinecraftProxySoftware {
         match self {
@@ -172,8 +172,9 @@ impl MinecraftProxyExtra {
 
     pub(crate) fn image(&self) -> ServerBuildImage {
         let generic = ServerBuildImage {
-            dockerfile: include_str!("minecraft/generic.Dockerfile").to_owned(),
-            args: HashMap::from([("MC_MONITOR_DEFAULT_PORT".to_owned(), PROXY_PORT.to_string())]),
+            dockerfile: include_str!("minecraft/generic.Dockerfile")
+                .replace("{MC_MONITOR_DEFAULT_PORT}", &PROXY_PORT.to_string()),
+            args: HashMap::new(),
             parents: Vec::new(),
             tag: None,
             default_tag: Some(format!("minecraft_proxy-generic-r{}", Self::REL)),
