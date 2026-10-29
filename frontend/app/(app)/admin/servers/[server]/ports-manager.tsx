@@ -805,8 +805,10 @@ function ExternalPortField({
 
   return (
     <Combobox
-      value={null}
+      value={/^\d+$/.test(value) ? Number(value) : null}
       inputValue={value}
+      itemToStringLabel={(port) => String(port)}
+      itemToStringValue={(port) => String(port)}
       onInputValueChange={(next) => onChange(next.replace(/\D/g, ""))}
       onValueChange={(next) => {
         if (typeof next === "number") {
