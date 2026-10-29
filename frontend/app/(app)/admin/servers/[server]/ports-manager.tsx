@@ -31,6 +31,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -63,6 +71,38 @@ import {
 } from "@/lib/api";
 import { extractAdminPorts, type AdminPortRow } from "./port-utils";
 import { formatPortRange, type SelectablePortRange } from "@/lib/ports";
+
+const MAX_PORT_OPTIONS = 250;
+
+function buildExternalPortOptions(
+  ranges: SelectablePortRange[],
+  protocol: NetworkProtocol,
+  query: string,
+) {
+  const options: number[] = [];
+  const seen = new Set<number>();
+  const sorted = ranges
+    .filter((range) => range.protocol === protocol)
+    .sort((a, b) => a.start - b.start);
+
+  for (const range of sorted) {
+    const excluded = new Set(range.exclude ?? []);
+    for (let port = range.start; port <= range.end; port += 1) {
+      if (options.length >= MAX_PORT_OPTIONS) {
+        return options;
+      }
+      if (seen.has(port) || excluded.has(port)) {
+        continue;
+      }
+      seen.add(port);
+      if (String(port).startsWith(query)) {
+        options.push(port);
+      }
+    }
+  }
+
+  return options;
+}
 
 type PortsManagerProps = {
   serverId: string;
@@ -626,6 +666,7 @@ export function PortsManager({
             errors={visibleFormErrors}
             form={form}
             setForm={setForm}
+            availableRanges={availablePortRanges}
             mode="create"
           />
           <DialogFooter>
@@ -673,6 +714,7 @@ export function PortsManager({
             errors={visibleFormErrors}
             form={form}
             setForm={setForm}
+            availableRanges={availablePortRanges}
             mode="edit"
           />
           <DialogFooter>
@@ -742,8 +784,58 @@ type PortFormProps = {
   errors: PortFormErrors;
   form: PortFormState;
   setForm: React.Dispatch<React.SetStateAction<PortFormState>>;
+  availableRanges: SelectablePortRange[];
   mode: "create" | "edit";
 };
+
+function ExternalPortField({
+  value,
+  onChange,
+  options,
+  placeholder,
+  invalid,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: number[];
+  placeholder: string;
+  invalid: boolean;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <Combobox
+      value={null}
+      inputValue={value}
+      onInputValueChange={(next) => onChange(next.replace(/\D/g, ""))}
+      onValueChange={(next) => {
+        if (typeof next === "number") {
+          onChange(String(next));
+        }
+      }}
+    >
+      <ComboboxInput
+        inputMode="numeric"
+        pattern="[0-9]*"
+        placeholder={placeholder}
+        aria-invalid={invalid}
+        className="w-full"
+      />
+      <ComboboxContent>
+        <ComboboxEmpty>
+          {t("admin-infra:servers.createForm.noAvailablePortFound")}
+        </ComboboxEmpty>
+        <ComboboxList>
+          {options.map((option) => (
+            <ComboboxItem key={option} value={option}>
+              {option}
+            </ComboboxItem>
+          ))}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  );
+}
 
 function FieldError({ children }: { children?: string }) {
   if (!children) {
@@ -753,8 +845,24 @@ function FieldError({ children }: { children?: string }) {
   return <p className="text-sm text-destructive">{children}</p>;
 }
 
-function PortForm({ errors, form, setForm, mode }: PortFormProps) {
+function PortForm({
+  errors,
+  form,
+  setForm,
+  availableRanges,
+  mode,
+}: PortFormProps) {
   const { t } = useTranslation();
+  const startOptions = buildExternalPortOptions(
+    availableRanges,
+    form.protocol,
+    form.externalStart,
+  );
+  const endOptions = buildExternalPortOptions(
+    availableRanges,
+    form.protocol,
+    form.externalEnd,
+  );
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -818,31 +926,39 @@ function PortForm({ errors, form, setForm, mode }: PortFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Input
+        <ExternalPortField
           value={form.externalStart}
-          onChange={(event) =>
-            setForm((prev) => ({ ...prev, externalStart: event.target.value }))
+          onChange={(value) =>
+            setForm((prev) => ({
+              ...prev,
+              externalStart: value,
+              externalEnd:
+                prev.externalEnd === "" ||
+                prev.externalEnd === prev.externalStart
+                  ? value
+                  : prev.externalEnd,
+            }))
           }
+          options={startOptions}
           placeholder={t(
             "admin-infra:servers.portsManager.form.externalStartPlaceholder",
           )}
-          inputMode="numeric"
-          aria-invalid={Boolean(errors.externalStart)}
+          invalid={Boolean(errors.externalStart)}
         />
         <FieldError>{errors.externalStart}</FieldError>
       </div>
 
       <div className="space-y-2">
-        <Input
+        <ExternalPortField
           value={form.externalEnd}
-          onChange={(event) =>
-            setForm((prev) => ({ ...prev, externalEnd: event.target.value }))
+          onChange={(value) =>
+            setForm((prev) => ({ ...prev, externalEnd: value }))
           }
+          options={endOptions}
           placeholder={t(
             "admin-infra:servers.portsManager.form.externalEndPlaceholder",
           )}
-          inputMode="numeric"
-          aria-invalid={Boolean(errors.externalEnd)}
+          invalid={Boolean(errors.externalEnd)}
         />
         <FieldError>{errors.externalEnd}</FieldError>
       </div>
