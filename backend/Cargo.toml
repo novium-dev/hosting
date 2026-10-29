@@ -19,7 +19,7 @@ tracing-subscriber.workspace = true
 futures.workspace = true
 ed25519-dalek = "3.0.0"
 rustls.workspace = true
-rustls-webpki = "0.103.15"
+rustls-webpki = "0.103.16"
 indexmap = "2.14.2"
 regex = "1.13.1"
 async-trait.workspace = true
@@ -65,7 +65,7 @@ redis.workspace = true
 utoipa.workspace = true
 utoipa-swagger-ui.workspace = true
 tower-http.workspace = true
-rusty-s3 = { version = "0.10.2", default-features = false, features = ["rustcrypto"] }
+rusty-s3 = { version = "0.11.0", default-features = false, features = ["rustcrypto"] }
 
 [dependencies.sqlx]
 workspace = true
@@ -87,7 +87,7 @@ workspace = true
 features = ["error", "io", "sqlx", "redis"]
 
 [dependencies.sentry]
-version = "0.49.3"
+version = "0.49.5"
 default-features = false
 features = [
     "backtrace",
