@@ -24,7 +24,7 @@ const VOICE_PORT_NAME: &str = "voice";
 const FILETRANSFER_PORT_NAME: &str = "filetransfer";
 const QUERY_SSH_PORT_NAME: &str = "query_ssh";
 const QUERY_HTTP_PORT_NAME: &str = "query_http";
-const REL: u32 = 1;
+const REL: u32 = 2;
 const TEAMSPEAK3_VERSIONS: &str = "https://www.teamspeak.com/versions/server.json";
 const TEAMSPEAK6_REPOSITORY: &str = "teamspeak/teamspeak6-server";
 const ENTRYPOINT_PATH: &str = "/usr/local/bin/teamspeak-entrypoint";
@@ -87,8 +87,11 @@ pub(crate) struct TeamSpeakExtra {
 impl TeamSpeakExtra {
     fn image(&self) -> ServerBuildImage {
         ServerBuildImage {
-            dockerfile: self.software.dockerfile(),
-            args: HashMap::from([("VERSION".to_owned(), self.version.clone())]),
+            dockerfile: self
+                .software
+                .dockerfile()
+                .replace("{DEFAULT_VERSION}", &self.version),
+            args: HashMap::new(),
             parents: Vec::new(),
             tag: None,
             default_tag: Some(format!("{}-{}-r{REL}", self.software.id(), self.version)),

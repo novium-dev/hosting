@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Every release names the PHP version it was built against. The prebuilt PHP binary
 # points its extension_dir at the CI build path, so it is redirected to the bundled one.
-ARG VERSION
+ARG VERSION={DEFAULT_VERSION}
 RUN set -eu; \
     mkdir -p /opt/pocketmine; \
     cd /opt/pocketmine; \

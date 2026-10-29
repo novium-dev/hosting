@@ -24,7 +24,7 @@ use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemp
 const SERVER_PORT: u16 = 19132;
 const SERVER_PORT_V6: u16 = 19133;
 const SERVER_PORT_NAME: &str = "bedrock";
-const REL: u32 = 1;
+const REL: u32 = 2;
 const BEDROCK_DOWNLOAD_LINKS: &str =
     "https://net-secondary.web.minecraft-services.net/api/v1.0/download/links";
 const POCKETMINE_REPOSITORY: &str = "pmmp/PocketMine-MP";
@@ -139,8 +139,11 @@ pub(crate) struct MinecraftBedrockExtra {
 impl MinecraftBedrockExtra {
     fn image(&self) -> ServerBuildImage {
         ServerBuildImage {
-            dockerfile: self.software.dockerfile(),
-            args: HashMap::from([("VERSION".to_owned(), self.version.clone())]),
+            dockerfile: self
+                .software
+                .dockerfile()
+                .replace("{DEFAULT_VERSION}", &self.version),
+            args: HashMap::new(),
             parents: Vec::new(),
             tag: None,
             default_tag: Some(format!(

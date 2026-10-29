@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # The download is refused without a browser user agent.
-ARG VERSION
+ARG VERSION={DEFAULT_VERSION}
 RUN set -eu; \
     mkdir -p /opt/bedrock; \
     curl -fsSL --http1.1 -A "Mozilla/5.0 (X11; Linux x86_64)" -o /opt/bedrock.zip \

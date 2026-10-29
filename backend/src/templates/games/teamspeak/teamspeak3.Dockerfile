@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         tini \
     && rm -rf /var/lib/apt/lists/*
 
-ARG VERSION
+ARG VERSION={DEFAULT_VERSION}
 RUN set -eu; \
     mkdir -p /opt/teamspeak; \
     curl -fsSL "https://files.teamspeak-services.com/releases/server/${VERSION}/teamspeak3-server_linux_amd64-${VERSION}.tar.bz2" \

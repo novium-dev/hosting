@@ -71,7 +71,7 @@ pub(crate) enum MinecraftProxyExtra {
 }
 
 impl MinecraftProxyExtra {
-    const REL: u32 = 1;
+    const REL: u32 = 2;
 
     pub(crate) const fn software(&self) -> MinecraftProxySoftware {
         match self {

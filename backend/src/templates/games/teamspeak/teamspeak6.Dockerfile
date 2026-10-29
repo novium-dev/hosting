@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
-ARG VERSION
+ARG VERSION={DEFAULT_VERSION}
 RUN set -eu; \
     case "$(dpkg --print-architecture)" in \
         amd64) teamspeak_arch=amd64 ;; \
