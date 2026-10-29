@@ -1090,7 +1090,7 @@ dependencies = [
 [[package]]
 name = "daemon_common"
 version = "0.1.0"
-source = "git+https://github.com/novium-dev/daemon.git#bd153b0450f5973aecc33ef72402bfcdcbfac713"
+source = "git+https://github.com/novium-dev/daemon.git#b6324a54464ebfb0a6fe418e5aee8065ba1ba998"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -6383,7 +6383,7 @@ dependencies = [
 [[package]]
 name = "zelus"
 version = "0.1.0"
-source = "git+https://github.com/0xIO32/zelus.git#b3a46be6f13d0ce14a8e160ab34030ee843dba33"
+source = "git+https://github.com/0xIO32/zelus.git?rev=b3a46be6f13d0ce14a8e160ab34030ee843dba33#b3a46be6f13d0ce14a8e160ab34030ee843dba33"
 dependencies = [
  "async-trait",
  "axum",
@@ -6439,7 +6439,7 @@ dependencies = [
 [[package]]
 name = "zelus_macros"
 version = "0.1.0"
-source = "git+https://github.com/0xIO32/zelus.git#b3a46be6f13d0ce14a8e160ab34030ee843dba33"
+source = "git+https://github.com/0xIO32/zelus.git?rev=b3a46be6f13d0ce14a8e160ab34030ee843dba33#b3a46be6f13d0ce14a8e160ab34030ee843dba33"
 dependencies = [
  "convert_case 0.11.0",
  "either",
