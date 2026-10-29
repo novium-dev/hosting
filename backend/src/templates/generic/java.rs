@@ -48,17 +48,25 @@ pub(crate) struct JavaVersionCache(IndexMap<u16, IndexSet<JavaVersion>>, i64);
 #[derive(Readable, Writable, Hash, PartialEq, Eq, Copy, Clone, Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 enum JavaVersion {
+    #[speedy(tag = 2)]
+    Extended {
+        major: u16,
+        minor: u16,
+        patch: u16,
+        update: u16,
+        build: u16,
+    },
+    #[speedy(tag = 0)]
     Modern {
         major: u16,
         minor: u16,
         patch: u16,
         build: u16,
     },
-    Legacy {
-        major: u16,
-        patch: u16,
-        build: u16,
-    },
+    #[speedy(tag = 1)]
+    Legacy { major: u16, patch: u16, build: u16 },
+    #[speedy(tag = 3)]
+    Short { major: u16, build: u16 },
 }
 
 pub(crate) struct JavaTemplate;
@@ -296,6 +304,10 @@ impl Template for JavaTemplate {
     }
 
     fn cache_update_needed(cache: &Self::Cache) -> bool {
+        if cache.0.is_empty() {
+            return docker::update();
+        }
+
         let Some(last_update) = Utc.timestamp_millis_opt(cache.1).single() else {
             return docker::update();
         };
@@ -305,29 +317,68 @@ impl Template for JavaTemplate {
 }
 
 impl JavaVersion {
-    const fn as_array(&self) -> [u16; 4] {
+    const fn as_array(&self) -> [u16; 5] {
         match self {
+            Self::Extended {
+                major,
+                minor,
+                patch,
+                update,
+                build,
+            } => [*major, *minor, *patch, *update, *build],
             Self::Modern {
                 major,
                 minor,
                 patch,
                 build,
-            } => [*major, *minor, *patch, *build],
+            } => [*major, *minor, *patch, 0, *build],
             Self::Legacy {
                 major,
                 patch,
                 build,
-            } => [*major, 0, *patch, *build],
+            } => [*major, 0, *patch, 0, *build],
+            Self::Short { major, build } => [*major, 0, 0, 0, *build],
         }
     }
 
     const fn major(&self) -> u16 {
         match self {
-            Self::Modern { major, .. } | Self::Legacy { major, .. } => *major,
+            Self::Extended { major, .. }
+            | Self::Modern { major, .. }
+            | Self::Legacy { major, .. }
+            | Self::Short { major, .. } => *major,
         }
     }
 
     fn parse(value: &str) -> Option<Self> {
+        if let Some((_, major, minor, patch, update, build)) = regex_captures!(
+            r"^([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)_([0-9]+)-jdk$",
+            value
+        ) {
+            let major = major.parse::<u16>().ok()?;
+            if major == 0 {
+                return None;
+            }
+            return Some(Self::Extended {
+                major,
+                minor: minor.parse::<u16>().ok()?,
+                patch: patch.parse::<u16>().ok()?,
+                update: update.parse::<u16>().ok()?,
+                build: build.parse::<u16>().ok()?,
+            });
+        }
+
+        if let Some((_, major, build)) = regex_captures!(r"^([0-9]+)_([0-9]+)-jdk$", value) {
+            let major = major.parse::<u16>().ok()?;
+            if major == 0 {
+                return None;
+            }
+            return Some(Self::Short {
+                major,
+                build: build.parse::<u16>().ok()?,
+            });
+        }
+
         if let Some((_, major, minor, patch, build)) =
             regex_captures!(r"^([0-9]+)\.([0-9]+)\.([0-9]+)_([0-9]+)-jdk$", value)
         {
@@ -343,7 +394,7 @@ impl JavaVersion {
             });
         }
 
-        let (_, major, patch, build) = regex_captures!(r"^(8)u([0-9]+)-b([0-9]{2})$", value)?;
+        let (_, major, patch, build) = regex_captures!(r"^(8)u([0-9]+)-b([0-9]{2})-jdk$", value)?;
         Some(Self::Legacy {
             major: major.parse::<u16>().ok()?,
             patch: patch.parse::<u16>().ok()?,
@@ -378,6 +429,14 @@ impl Display for JavaVersion {
                 patch,
                 build,
             } => write!(f, "{major}u{patch}-b{build:02}"),
+            Self::Extended {
+                major,
+                minor,
+                patch,
+                update,
+                build,
+            } => write!(f, "{major}.{minor}.{patch}.{update}_{build}"),
+            Self::Short { major, build } => write!(f, "{major}_{build}"),
         }
     }
 }
