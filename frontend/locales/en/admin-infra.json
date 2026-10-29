@@ -302,8 +302,7 @@
         "namePlaceholder": "Name",
         "httpHint": "HTTP is a TCP port that serves HTTP — only those can get a subdomain route.",
         "internalPortPlaceholder": "Internal port",
-        "externalStartPlaceholder": "External start",
-        "externalEndPlaceholder": "External end",
+        "externalPortPlaceholder": "External port",
         "hostPlaceholder": "Host (optional)",
         "bindPlaceholder": "Bind (optional)"
       }

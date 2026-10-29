@@ -858,11 +858,6 @@ function PortForm({
     form.protocol,
     form.externalStart,
   );
-  const endOptions = buildExternalPortOptions(
-    availableRanges,
-    form.protocol,
-    form.externalEnd,
-  );
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -932,35 +927,16 @@ function PortForm({
             setForm((prev) => ({
               ...prev,
               externalStart: value,
-              externalEnd:
-                prev.externalEnd === "" ||
-                prev.externalEnd === prev.externalStart
-                  ? value
-                  : prev.externalEnd,
+              externalEnd: value,
             }))
           }
           options={startOptions}
           placeholder={t(
-            "admin-infra:servers.portsManager.form.externalStartPlaceholder",
+            "admin-infra:servers.portsManager.form.externalPortPlaceholder",
           )}
           invalid={Boolean(errors.externalStart)}
         />
         <FieldError>{errors.externalStart}</FieldError>
-      </div>
-
-      <div className="space-y-2">
-        <ExternalPortField
-          value={form.externalEnd}
-          onChange={(value) =>
-            setForm((prev) => ({ ...prev, externalEnd: value }))
-          }
-          options={endOptions}
-          placeholder={t(
-            "admin-infra:servers.portsManager.form.externalEndPlaceholder",
-          )}
-          invalid={Boolean(errors.externalEnd)}
-        />
-        <FieldError>{errors.externalEnd}</FieldError>
       </div>
 
       {mode === "edit" ? (
