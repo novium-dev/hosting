@@ -458,6 +458,8 @@ impl RouteConfig {
                     api_key: required_var("BACKEND_PANGOLIN_API_KEY")?,
                     org_id: required_var("BACKEND_PANGOLIN_ORG_ID")?,
                     site_id: required_parse_var::<i64>("BACKEND_PANGOLIN_SITE_ID")?,
+                    resource_policy_id: parse_var::<i64>("BACKEND_PANGOLIN_RESOURCE_POLICY_ID")?,
+                    label_id: parse_var::<i64>("BACKEND_PANGOLIN_LABEL_ID")?,
                 })
             })
             .transpose()?;
@@ -482,6 +484,8 @@ pub struct PangolinConfig {
     pub api_key: String,
     pub org_id: String,
     pub site_id: i64,
+    pub resource_policy_id: Option<i64>,
+    pub label_id: Option<i64>,
 }
 
 #[derive(Debug, Clone)]

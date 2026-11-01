@@ -27,6 +27,14 @@ struct TargetPayload<'a> {
 #[derive(Debug, Serialize)]
 struct ResourceUpdatePayload {
     sso: bool,
+    #[serde(rename = "resourcePolicyId", skip_serializing_if = "Option::is_none")]
+    resource_policy_id: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+struct LabelAttachPayload {
+    #[serde(rename = "resourceId")]
+    resource_id: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -134,7 +142,10 @@ impl PangolinClient {
             .client
             .post(self.endpoint(&format!("/public-resource/{}", resource.resource_id)))
             .bearer_auth(&self.config.api_key)
-            .json(&ResourceUpdatePayload { sso: false })
+            .json(&ResourceUpdatePayload {
+                sso: false,
+                resource_policy_id: self.config.resource_policy_id,
+            })
             .send()
             .await;
 
@@ -158,6 +169,42 @@ impl PangolinClient {
             }
             error!("Pangolin rejected disabling the resource access control");
             return Err(RouteError::Rejected);
+        }
+
+        if let Some(label_id) = self.config.label_id {
+            let label = self
+                .client
+                .put(self.endpoint(&format!(
+                    "/org/{}/label/{label_id}/attach",
+                    self.config.org_id
+                )))
+                .bearer_auth(&self.config.api_key)
+                .json(&LabelAttachPayload {
+                    resource_id: resource.resource_id,
+                })
+                .send()
+                .await;
+
+            let label_ok = match label {
+                Ok(response) if response.status().is_success() => true,
+                Ok(response) => {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
+                    error!("Pangolin rejected the label with status {status}: {body}");
+                    false
+                }
+                Err(err) => {
+                    error!("Failed to reach Pangolin: {err:?}");
+                    false
+                }
+            };
+
+            if !label_ok {
+                if let Err(cleanup) = self.delete(&external_ids).await {
+                    error!("Unable to roll back the Pangolin resource: {cleanup:?}");
+                }
+                return Err(RouteError::Rejected);
+            }
         }
 
         Ok(ProvisionedRoute {
