@@ -10,7 +10,7 @@ import { appConfig } from "@/constants/config";
 import { auth } from "@/lib/auth";
 import { authClient } from "@/lib/auth-client";
 import { serverInfo } from "@/lib/api";
-import { formatCpuPercent } from "@/lib/server-status";
+import { formatCpuPercent, formatMib } from "@/lib/server-status";
 import {
   hasManagementPermission,
   ManagementPermission,
@@ -193,8 +193,8 @@ export default function AdminServerManagementPage() {
               label={t("admin-infra:servers.detailPage.limitsLabel")}
               value={t("admin-infra:servers.detailPage.limitsValue", {
                 cpu: formatCpuPercent(data.cpu),
-                ram: data.ram ?? "--",
-                disk: data.disk ?? "--",
+                ram: data.ram != null ? formatMib(data.ram) : "--",
+                disk: data.disk != null ? formatMib(data.disk) : "--",
               })}
             />
           </div>
