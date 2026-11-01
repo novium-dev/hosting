@@ -178,7 +178,7 @@ impl MinecraftServerModification {
 }
 
 impl MinecraftServerExtra {
-    const REL: u32 = 3;
+    const REL: u32 = 4;
 
     pub(crate) const fn modification(&self) -> MinecraftServerModification {
         match self {

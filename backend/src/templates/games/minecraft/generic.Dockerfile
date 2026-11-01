@@ -60,4 +60,6 @@ ENV MC_MONITOR_DEFAULT_PORT=${MC_MONITOR_DEFAULT_PORT}
 
 WORKDIR /work
 ENTRYPOINT ["java", "-Dterminal.ansi=true", "-Djava.net.preferIPv6Addresses=system", "-XX:MaxRAMPercentage=95.0", "-jar", "/server.jar"]
-HEALTHCHECK --start-period=2m --retries=3 --interval=30s CMD /mc-monitor status -json -port "${NOVIUM_PORT_MINECRAFT:-$MC_MONITOR_DEFAULT_PORT}"
+# Docker keeps only the first 4096 bytes of the output, which a favicon or a long MOTD fills
+# before the JSON ends. jq -e fails on empty input, so a failed ping stays unhealthy.
+HEALTHCHECK --start-period=2m --retries=3 --interval=30s CMD /mc-monitor status -json -port "${NOVIUM_PORT_MINECRAFT:-$MC_MONITOR_DEFAULT_PORT}" | jq -ce 'del(.server_info.description, .server_info.favicon)'
