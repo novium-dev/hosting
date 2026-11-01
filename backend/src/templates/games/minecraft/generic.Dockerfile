@@ -57,6 +57,7 @@ RUN set -eu; \
 
 ARG MC_MONITOR_DEFAULT_PORT={MC_MONITOR_DEFAULT_PORT}
 ENV MC_MONITOR_DEFAULT_PORT=${MC_MONITOR_DEFAULT_PORT}
+ENV LANG=C.UTF-8
 
 WORKDIR /work
 ENTRYPOINT ["java", "-Dterminal.ansi=true", "-Djava.net.preferIPv6Addresses=system", "-XX:MaxRAMPercentage=95.0", "-jar", "/server.jar"]
