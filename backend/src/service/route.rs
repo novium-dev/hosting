@@ -17,6 +17,9 @@ use sqlx::query;
 use tracing::error;
 use zelus::{define_query_variable, service};
 
+const MIN_SUBDOMAIN_LENGTH: usize = 3;
+const PORT_COOLDOWN_HOURS: i32 = 6;
+
 define_query_variable!(project "The project the domains are listed for");
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -191,7 +194,8 @@ pub(crate) impl RouteService for Backend {
     #[error(
         auth::{permission_denied, unreachable},
         server::not_found,
-        route::{domain_not_found, subdomain_invalid, subdomain_taken, port_invalid, service_invalid,
+        route::{domain_not_found, subdomain_invalid, subdomain_taken, subdomain_too_short,
+            port_invalid, port_has_route, port_cooldown, service_invalid,
             https_unavailable, kind_unavailable, domain_not_linked, zone_not_found,
             backend_unavailable, backend_error},
         db::failure <- [sql:*]
@@ -207,6 +211,11 @@ pub(crate) impl RouteService for Backend {
         let subdomain = payload.subdomain.trim().to_lowercase();
         if !is_valid_label(&subdomain) {
             return Err(CreateRouteError::RouteSubdomainInvalid);
+        }
+
+        let bypass = auth.has((), ManagementPermissions::LIMITS_BYPASS);
+        if !bypass && subdomain.len() < MIN_SUBDOMAIN_LENGTH {
+            return Err(CreateRouteError::RouteSubdomainTooShort);
         }
 
         let server = query!(
@@ -251,6 +260,20 @@ pub(crate) impl RouteService for Backend {
         .fetch_optional(&*self.database)
         .await?
         .ok_or(CreateRouteError::RoutePortInvalid)?;
+
+        if !bypass {
+            let cooling_down = query!(
+                "SELECT port FROM route_port_cooldowns WHERE port = $1 AND expires_at > now()",
+                payload.port
+            )
+            .fetch_optional(&*self.database)
+            .await?
+            .is_some();
+
+            if cooling_down {
+                return Err(CreateRouteError::RoutePortCooldown);
+            }
+        }
 
         let kind = match (port.http, port.protocol) {
             (true, _) => RouteKind::Http,
@@ -317,10 +340,18 @@ pub(crate) impl RouteService for Backend {
         let external_port =
             u16::try_from(port.external_port).map_err(|_err| CreateRouteError::RoutePortInvalid)?;
 
+        if query!("SELECT id FROM routes WHERE port = $1", payload.port)
+            .fetch_optional(&*self.database)
+            .await?
+            .is_some()
+        {
+            return Err(CreateRouteError::RoutePortHasRoute);
+        }
+
         let Some(route_id) = query!(
             r#"INSERT INTO routes (server, domain, subdomain, port, kind, service, https)
                VALUES ($1, $2, $3, $4, $5, $6, $7)
-               ON CONFLICT (domain, subdomain) DO NOTHING
+               ON CONFLICT DO NOTHING
                RETURNING id"#,
             &server_id,
             domain.id,
@@ -433,9 +464,23 @@ pub(crate) impl RouteService for Backend {
                 RouteError::Rejected => DeleteRouteError::RouteBackendError,
             })?;
 
+        let mut tx = self.database.begin().await?;
+
         query!("DELETE FROM routes WHERE id = $1", route_id)
-            .execute(&*self.database)
+            .execute(&mut *tx)
             .await?;
+
+        query!(
+            r#"INSERT INTO route_port_cooldowns (port, expires_at)
+               VALUES ($1, now() + make_interval(hours => $2))
+               ON CONFLICT (port) DO UPDATE SET expires_at = EXCLUDED.expires_at"#,
+            route.port,
+            PORT_COOLDOWN_HOURS,
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
 
         Ok(())
     }
