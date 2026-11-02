@@ -34,8 +34,8 @@ import {
 import { appConfig } from "@/constants/config";
 import { useProject } from "@/hooks/use-project";
 import { authClient } from "@/lib/auth-client";
+import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { ServerPermission, hasServerPermission } from "@/lib/permissions";
-import { cn } from "@/lib/utils";
 
 type CommandMenuItem = {
   icon: LucideIcon;
@@ -52,10 +52,7 @@ type CommandMenuSection = {
   items: CommandMenuItem[];
 };
 
-export function SidebarCommand({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+export function SidebarCommand() {
   const router = useRouter();
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
@@ -91,19 +88,24 @@ export function SidebarCommand({
           href: "/",
           keywords: ["dashboard", "main"],
         },
-        {
-          icon: SettingsIcon,
-          label: t("common:nav.settings"),
-          href: `/${slug}/settings`,
-          keywords: ["preferences", "config", "options"],
-        },
-        {
-          icon: Users2Icon,
-          label: t("common:nav.members"),
-          href: `/${slug}/members`,
-          keywords: ["users", "collaborators", "invite"],
-        },
-        ...(hasServerPermission(
+        ...(slug
+          ? [
+              {
+                icon: SettingsIcon,
+                label: t("common:nav.settings"),
+                href: `/${slug}/settings`,
+                keywords: ["preferences", "config", "options"],
+              },
+              {
+                icon: Users2Icon,
+                label: t("common:nav.members"),
+                href: `/${slug}/members`,
+                keywords: ["users", "collaborators", "invite"],
+              },
+            ]
+          : []),
+        ...(slug &&
+        hasServerPermission(
           project?.permissions ?? 0,
           ServerPermission.DATABASE_VIEW,
         )
@@ -123,12 +125,16 @@ export function SidebarCommand({
               },
             ]
           : []),
-        {
-          icon: KeyRoundIcon,
-          label: t("common:nav.apiKeys"),
-          href: `/${slug}/api-keys`,
-          keywords: ["token", "api", "automation", "integration"],
-        },
+        ...(slug
+          ? [
+              {
+                icon: KeyRoundIcon,
+                label: t("common:nav.apiKeys"),
+                href: `/${slug}/api-keys`,
+                keywords: ["token", "api", "automation", "integration"],
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -212,24 +218,19 @@ export function SidebarCommand({
   }
 
   return (
-    <div className={cn("relative w-full", className)} {...props}>
-      <div className="relative">
-        <SearchIcon
-          className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground"
-          aria-hidden="true"
-        />
-        <div
-          onClick={() => setOpen(true)}
-          className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-2 py-2 text-sm flex items-center cursor-pointer"
-        >
-          <span className="text-muted-foreground">
-            {t("navigation:command.searchTrigger")}
-          </span>
-          <div className="ml-auto flex items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium">
-            <span className="text-xs">⌘</span>K
-          </div>
-        </div>
-      </div>
+    <>
+      <SidebarMenuButton
+        variant="outline"
+        tooltip={t("navigation:command.searchTrigger")}
+        onClick={() => setOpen(true)}
+        className="bg-transparent text-muted-foreground"
+      >
+        <SearchIcon aria-hidden="true" />
+        <span>{t("navigation:command.searchTrigger")}</span>
+        <kbd className="ml-auto flex items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium group-data-[collapsible=icon]:hidden">
+          <span className="text-xs">⌘</span>K
+        </kbd>
+      </SidebarMenuButton>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <Command
@@ -270,7 +271,7 @@ export function SidebarCommand({
           </CommandList>
         </Command>
       </CommandDialog>
-    </div>
+    </>
   );
 }
 

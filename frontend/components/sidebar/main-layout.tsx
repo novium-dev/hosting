@@ -52,14 +52,14 @@ function BreadcrumbHeader({ breadcrumbs }: { breadcrumbs?: BreadcrumbItem[] }) {
 
 function MainArea({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 p-4 pt-2 @container">{children}</div>
+    <div className="flex flex-col gap-4 p-4 md:p-6 @container">{children}</div>
   );
 }
 
 // Main Component
 export function MainLayout({ children, className, breadcrumbs }: TopNavProps) {
   return (
-    <div className={cn("flex min-h-[calc(100svh-56px)] flex-col", className)}>
+    <div className={cn("flex flex-col", className)}>
       {/* <BreadcrumbHeader breadcrumbs={breadcrumbs} /> */}
       <MainArea>{children}</MainArea>
     </div>

@@ -15,8 +15,8 @@
     "backToApp": "Zurück zur App"
   },
   "projectSidebar": {
+    "back": "Zurück",
     "groups": {
-      "project": "Projekt",
       "server": "Server",
       "instance": "Instanz"
     }

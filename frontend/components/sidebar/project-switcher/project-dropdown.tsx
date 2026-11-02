@@ -35,21 +35,19 @@ export function ProjectDropdown({ projects }: { projects: AppProject[] }) {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
+        <DropdownMenuTrigger
+          render={<SidebarMenuButton size="lg" className="h-10" />}
+        >
           <ProjectAvatar
             projectId={activeProject?.id ?? ""}
             projectName={activeProject?.name ?? ""}
             logoUrl={activeProject?.logo_url}
+            className="size-7"
           />
-          <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">
-              {activeProject?.name ?? ""}
-            </span>
-            <span className="truncate text-xs text-muted-foreground">
-              {activeProject?.slug ?? slug}
-            </span>
-          </div>
-          <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+          <span className="flex-1 truncate text-left font-semibold group-data-[collapsible=icon]:hidden">
+            {activeProject?.name ?? ""}
+          </span>
+          <ChevronsUpDown className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
         </DropdownMenuTrigger>
         <DropdownMenuContent
           className="w-64 rounded-lg"

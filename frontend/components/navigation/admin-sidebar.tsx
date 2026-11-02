@@ -15,7 +15,8 @@ import {
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { AppLogo } from "@/components/brand/app-logo";
+import { AppLogo, hasLogo } from "@/components/brand/app-logo";
+import { SidebarCommand } from "@/components/sidebar/sidebar-command";
 import { appConfig } from "@/constants/config";
 import { NavUserMenu } from "./nav-user-menu";
 import {
@@ -30,7 +31,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import {
   hasManagementPermission,
@@ -141,13 +141,21 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
     .filter((group) => group.items.length > 0);
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link href="/admin" />}>
-              <AppLogo className="size-7 shrink-0" />
-              <div className="grid flex-1 text-left text-sm leading-tight">
+            <SidebarMenuButton
+              size="lg"
+              className="h-10"
+              render={<Link href="/admin" />}
+            >
+              {hasLogo ? (
+                <AppLogo className="size-7 shrink-0" />
+              ) : (
+                <ShieldCheck />
+              )}
+              <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-semibold">
                   {appConfig.appName}
                 </span>
@@ -156,6 +164,9 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
                 </span>
               </div>
             </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarCommand />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -216,7 +227,6 @@ export function AdminSidebar({ permissions }: { permissions: number }) {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <SidebarSeparator />
         <SidebarMenu>
           <SidebarMenuItem>
             <NavUserMenu variant="sidebar" />

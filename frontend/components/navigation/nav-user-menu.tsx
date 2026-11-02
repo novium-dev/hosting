@@ -47,8 +47,10 @@ export function NavUserMenu({
   return (
     <DropdownMenu>
       {isSidebar ? (
-        <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
-          <Avatar className="size-8 rounded-lg">
+        <DropdownMenuTrigger
+          render={<SidebarMenuButton size="lg" className="h-10" />}
+        >
+          <Avatar className="size-7 rounded-lg">
             <AvatarImage
               src={session?.user?.image ?? ""}
               alt={session?.user?.name}
@@ -57,15 +59,10 @@ export function NavUserMenu({
               {session?.user?.name?.charAt(0)}
             </AvatarFallback>
           </Avatar>
-          <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">
-              {session?.user?.name}
-            </span>
-            <span className="truncate text-xs text-muted-foreground">
-              {session?.user?.email}
-            </span>
-          </div>
-          <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+          <span className="flex-1 truncate text-left font-medium group-data-[collapsible=icon]:hidden">
+            {session?.user?.name}
+          </span>
+          <ChevronsUpDown className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
         </DropdownMenuTrigger>
       ) : (
         <DropdownMenuTrigger

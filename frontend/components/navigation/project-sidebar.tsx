@@ -1,6 +1,7 @@
 import Link from "@/components/link";
 import { useTranslation } from "react-i18next";
 import {
+  ArrowLeft,
   Database,
   KeyRound,
   Server,
@@ -10,19 +11,18 @@ import {
 } from "lucide-react";
 
 import { ProjectSwitcher } from "@/components/sidebar/project-switcher";
+import { SidebarCommand } from "@/components/sidebar/sidebar-command";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { useProject } from "@/hooks/use-project";
 import { useProjectInstances, useServerInfo } from "@/hooks/use-shared-queries";
@@ -100,11 +100,20 @@ export function ProjectSidebar() {
     },
   ];
 
-  const visibleProjectItems = projectItems.filter(
-    (item) =>
-      item.permission === undefined ||
-      hasServerPermission(project?.permissions ?? 0, item.permission),
-  );
+  const visibleProjectItems = projectItems
+    .filter(
+      (item) =>
+        item.permission === undefined ||
+        hasServerPermission(project?.permissions ?? 0, item.permission),
+    )
+    .map((item) => ({
+      title: item.title,
+      href: item.href,
+      icon: item.icon,
+      isActive: item.exact
+        ? pathname === item.href
+        : pathname === item.href || pathname.startsWith(`${item.href}/`),
+    }));
 
   const serverSections = server
     ? getVisibleServerSections(
@@ -125,37 +134,80 @@ export function ProjectSidebar() {
 
   const activeInstanceSection = getActiveInstanceSection(instanceSection);
 
+  const serverItems = serverSections.map((entry) => ({
+    title: t(`servers:page.sections.${entry.key}.label`),
+    href: serverSectionHref(slug, server, entry.key),
+    icon: entry.icon,
+    isActive: activeServerSection === entry.key,
+  }));
+
+  const instanceItems = INSTANCE_SECTIONS.map((entry) => ({
+    title: t(entry.titleKey),
+    href: instanceSectionHref(slug, instance, entry.key),
+    icon: entry.icon,
+    isActive: activeInstanceSection === entry.key,
+  }));
+
+  const detail = server
+    ? {
+        title: serverData?.name ?? t("navigation:projectSidebar.groups.server"),
+        backHref: `/${slug}`,
+      }
+    : instance
+      ? {
+          title:
+            instanceData?.display ??
+            t("navigation:projectSidebar.groups.instance"),
+          backHref: `/${slug}/databases`,
+        }
+      : null;
+
+  const navItems = server
+    ? serverItems
+    : instance
+      ? instanceItems
+      : visibleProjectItems;
+
   const canAccessAdmin = hasAnyManagementPermission(
     session?.user.permissions ?? 0,
   );
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <ProjectSwitcher />
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarCommand />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>
-            {t("navigation:projectSidebar.groups.project")}
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleProjectItems.map((item) => (
+              {detail && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    tooltip={t("navigation:projectSidebar.back")}
+                    aria-label={t("navigation:projectSidebar.back")}
+                    render={<Link href={detail.backHref} />}
+                  >
+                    <ArrowLeft />
+                    <span className="flex-1 pr-6 text-center font-medium">
+                      {detail.title}
+                    </span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {navItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     tooltip={item.title}
-                    isActive={
-                      item.exact
-                        ? pathname === item.href
-                        : pathname === item.href ||
-                          pathname.startsWith(`${item.href}/`)
-                    }
+                    isActive={item.isActive}
                     render={<Link href={item.href} />}
                   >
                     <item.icon />
@@ -166,75 +218,6 @@ export function ProjectSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {serverSections.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="truncate">
-              {serverData?.name ?? t("navigation:projectSidebar.groups.server")}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {serverSections.map((entry) => {
-                  const title = t(`servers:page.sections.${entry.key}.label`);
-
-                  return (
-                    <SidebarMenuItem key={entry.key}>
-                      <SidebarMenuButton
-                        tooltip={title}
-                        isActive={activeServerSection === entry.key}
-                        render={
-                          <Link
-                            href={serverSectionHref(slug, server, entry.key)}
-                          />
-                        }
-                      >
-                        <entry.icon />
-                        <span>{title}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        {instance && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="truncate">
-              {instanceData?.display ??
-                t("navigation:projectSidebar.groups.instance")}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {INSTANCE_SECTIONS.map((entry) => {
-                  const title = t(entry.titleKey);
-
-                  return (
-                    <SidebarMenuItem key={entry.key}>
-                      <SidebarMenuButton
-                        tooltip={title}
-                        isActive={activeInstanceSection === entry.key}
-                        render={
-                          <Link
-                            href={instanceSectionHref(
-                              slug,
-                              instance,
-                              entry.key,
-                            )}
-                          />
-                        }
-                      >
-                        <entry.icon />
-                        <span>{title}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
 
       <SidebarFooter>
@@ -251,7 +234,6 @@ export function ProjectSidebar() {
             </SidebarMenuItem>
           </SidebarMenu>
         )}
-        <SidebarSeparator />
         <SidebarMenu>
           <SidebarMenuItem>
             <NavUserMenu variant="sidebar" />

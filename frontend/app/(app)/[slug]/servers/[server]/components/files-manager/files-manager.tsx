@@ -168,13 +168,14 @@ export function FilesManager({
   });
 
   const reload = async (path = currentPath) => {
-    const scrollY = window.scrollY;
+    const scroller = document.querySelector('[data-slot="sidebar-inset"]');
+    const scrollTop = scroller?.scrollTop ?? 0;
 
     await mutate(filesKey(serverId, path));
     setSelectedNames([]);
 
     requestAnimationFrame(() => {
-      window.scrollTo({ top: scrollY, behavior: "auto" });
+      scroller?.scrollTo({ top: scrollTop, behavior: "auto" });
     });
   };
 
