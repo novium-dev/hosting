@@ -245,6 +245,7 @@ export default function ClientServerSectionPage() {
                 effectivePermissions,
                 ServerPermission.ROUTES_MANAGE,
               )}
+              canBypassLimits={canBypassLimits}
             />
           ) : null}
         </div>

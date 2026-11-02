@@ -227,6 +227,7 @@
     "srvBadge": "SRV",
     "privateLabel": "privat",
     "subdomainInvalid": "Nur Kleinbuchstaben, Ziffern und Bindestriche sind erlaubt.",
+    "subdomainTooShort": "Subdomains brauchen mindestens {{min}} Zeichen.",
     "empty": {
       "noDomains": "Für dieses Projekt sind noch keine Domains verfügbar.",
       "noRoutablePorts": "Keiner der Ports dieses Servers kann derzeit geroutet werden.",
@@ -261,7 +262,8 @@
     },
     "deleteDialog": {
       "title": "Route löschen",
-      "description": "{{fqdn}} wird nicht mehr aufgelöst und die zugehörigen Einträge werden beim Anbieter entfernt."
+      "description": "{{fqdn}} wird nicht mehr aufgelöst und die zugehörigen Einträge werden beim Anbieter entfernt.",
+      "cooldownNote": "Der Port bleibt danach einige Stunden gesperrt, eine neue Route kann erst später angelegt werden."
     },
     "toasts": {
       "loadFailed": "Routen konnten nicht geladen werden",

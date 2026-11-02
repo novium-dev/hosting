@@ -227,6 +227,7 @@
     "srvBadge": "SRV",
     "privateLabel": "private",
     "subdomainInvalid": "Only lowercase letters, digits and dashes are allowed.",
+    "subdomainTooShort": "Subdomains need at least {{min}} characters.",
     "empty": {
       "noDomains": "No domains are available for this project yet.",
       "noRoutablePorts": "None of this server's ports can be routed yet.",
@@ -261,7 +262,8 @@
     },
     "deleteDialog": {
       "title": "Delete route",
-      "description": "{{fqdn}} stops resolving and its records are removed from the provider."
+      "description": "{{fqdn}} stops resolving and its records are removed from the provider.",
+      "cooldownNote": "The port stays locked for a few hours afterwards, so a new route can only be created later."
     },
     "toasts": {
       "loadFailed": "Failed to load routes",

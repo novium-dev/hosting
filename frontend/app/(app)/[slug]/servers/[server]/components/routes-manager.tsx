@@ -66,12 +66,14 @@ import { apiErrorMessage } from "@/lib/api-error";
 type RoutesManagerProps = {
   serverId: string;
   canManage: boolean;
+  canBypassLimits?: boolean;
 };
 
 type Route = ListRoutesResponse[number];
 type Domain = ListRouteDomainsResponse[number];
 
 const SUBDOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+const MIN_SUBDOMAIN_LENGTH = 3;
 
 type ManualRecord = {
   type: string;
@@ -99,7 +101,11 @@ const NO_ROUTE_DATA: {
   ports: [],
 };
 
-export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
+export function RoutesManager({
+  serverId,
+  canManage,
+  canBypassLimits = false,
+}: RoutesManagerProps) {
   const { t } = useTranslation();
   const {
     data,
@@ -164,12 +170,14 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
 
   const routablePorts = useMemo(
     () =>
-      ports.filter((port) =>
-        port.http
-          ? domains.some((domain) => domain.http_available)
-          : domains.some((domain) => domain.tcp_available),
+      ports.filter(
+        (port) =>
+          !routes.some((route) => route.port === port.id) &&
+          (port.http
+            ? domains.some((domain) => domain.http_available)
+            : domains.some((domain) => domain.tcp_available)),
       ),
-    [ports, domains],
+    [ports, domains, routes],
   );
 
   const selectablePorts = useMemo(
@@ -237,6 +245,8 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
 
   const subdomainValid =
     subdomain.length > 0 && SUBDOMAIN_PATTERN.test(subdomain);
+  const subdomainTooShort =
+    !canBypassLimits && subdomain.length < MIN_SUBDOMAIN_LENGTH;
 
   const openCreate = () => {
     setSubdomain("");
@@ -247,7 +257,7 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
   };
 
   const submit = async () => {
-    if (!subdomainValid || !domainId || !portId) return;
+    if (!subdomainValid || subdomainTooShort || !domainId || !portId) return;
 
     setIsSubmitting(true);
 
@@ -645,6 +655,12 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
                 <p className="text-xs text-destructive">
                   {t("servers:routes.subdomainInvalid")}
                 </p>
+              ) : subdomain.length > 0 && subdomainTooShort ? (
+                <p className="text-xs text-destructive">
+                  {t("servers:routes.subdomainTooShort", {
+                    min: MIN_SUBDOMAIN_LENGTH,
+                  })}
+                </p>
               ) : null}
             </div>
 
@@ -744,7 +760,13 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
             <Button
               type="button"
               onClick={() => void submit()}
-              disabled={isSubmitting || !subdomainValid || !domainId || !portId}
+              disabled={
+                isSubmitting ||
+                !subdomainValid ||
+                subdomainTooShort ||
+                !domainId ||
+                !portId
+              }
             >
               {isSubmitting ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -769,7 +791,10 @@ export function RoutesManager({ serverId, canManage }: RoutesManagerProps) {
             <AlertDialogDescription>
               {t("servers:routes.deleteDialog.description", {
                 fqdn: pendingDelete?.fqdn,
-              })}
+              })}{" "}
+              {canBypassLimits
+                ? null
+                : t("servers:routes.deleteDialog.cooldownNote")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
