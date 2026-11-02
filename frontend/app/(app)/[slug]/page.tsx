@@ -1,6 +1,6 @@
 import Link from "@/components/link";
 import { useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 import {
@@ -65,6 +65,8 @@ type ServerListItem = {
   status?: ServerStatusSnapshot | null;
 };
 
+const SNAPSHOT_RELOAD_DELAY = 1000;
+
 const emptyBarPattern =
   "repeating-linear-gradient(45deg, var(--muted-foreground) 0, var(--muted-foreground) 2px, transparent 2px, transparent 6px)";
 
@@ -121,10 +123,12 @@ function ServerRow({
   slug,
   server,
   canPower,
+  onConnectionLost,
 }: {
   slug: string;
   server: ServerListItem;
   canPower: boolean;
+  onConnectionLost: () => void;
 }) {
   const { t } = useTranslation();
   const banner = templateBanner(server.template);
@@ -133,7 +137,7 @@ function ServerRow({
     startedAt,
     stats,
     controls,
-  } = useLiveServerStatus(server.id, server.status);
+  } = useLiveServerStatus(server.id, server.status, onConnectionLost);
   const power = usePowerAction(server.id);
   const powerLock = useServerTaskLock(server.id, "server", "read");
   const startLock = useServerTaskLock(server.id, "server", "write");
@@ -305,7 +309,7 @@ export default function ProjectPage() {
   const { data: project, isLoading } = useProject(slug);
   const { data: session } = authClient.useSession();
 
-  const { data: serversData } = useSWR(
+  const { data: serversData, mutate: reloadServers } = useSWR(
     project ? ["servers", project.id] : null,
     async ([, projectId]) => {
       const res = await listServers({
@@ -313,8 +317,21 @@ export default function ProjectPage() {
       });
       return res.error ? [] : (res.data ?? []);
     },
-    { refreshInterval: 30000 },
   );
+
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => () => clearTimeout(reloadTimerRef.current), []);
+
+  // A node going down drops all of its sockets at once, so the rows share one
+  // reload instead of each fetching the whole list.
+  const reloadSnapshot = () => {
+    clearTimeout(reloadTimerRef.current);
+    reloadTimerRef.current = setTimeout(
+      () => void reloadServers(),
+      SNAPSHOT_RELOAD_DELAY,
+    );
+  };
 
   if (isLoading) return null;
 
@@ -397,6 +414,7 @@ export default function ProjectPage() {
                     hasPowerPermission &&
                     (!server.suspended || bypassesSuspension)
                   }
+                  onConnectionLost={reloadSnapshot}
                 />
               ))}
             </div>

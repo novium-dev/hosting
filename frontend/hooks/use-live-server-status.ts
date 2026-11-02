@@ -36,6 +36,7 @@ type LiveControls = {
 export function useLiveServerStatus(
   serverId: string,
   snapshot: ServerStatusSnapshot | null | undefined,
+  onConnectionLost: () => void,
 ) {
   const [liveControls, setLiveControls] = useState<LiveControls | null>(null);
   const [liveStats, setLiveStats] = useState<StatsSnapshot | null>(null);
@@ -44,6 +45,7 @@ export function useLiveServerStatus(
   // "Stopped" even for a running server, the real state follows with the next
   // watcher tick.
   const awaitingPlaceholderRef = useRef(true);
+  const connectedRef = useRef(false);
 
   const publishTasks = usePublishServerTasks();
   const forgetTasks = useForgetServerTasks();
@@ -55,6 +57,7 @@ export function useLiveServerStatus(
     reconnect: true,
     onConnect: () => {
       awaitingPlaceholderRef.current = true;
+      connectedRef.current = true;
     },
     onMessage: (message) => {
       const tasks = readServerTasks(message);
@@ -102,6 +105,11 @@ export function useLiveServerStatus(
       setLiveControls(null);
       setLiveStats(null);
       publishTasks(serverId, EMPTY_SERVER_TASKS);
+
+      if (connectedRef.current) {
+        connectedRef.current = false;
+        onConnectionLost();
+      }
     },
   });
 
