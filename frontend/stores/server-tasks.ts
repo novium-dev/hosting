@@ -13,9 +13,9 @@ import {
   type TaskScope,
 } from "@/lib/server-tasks";
 
-// Active daemon tasks per server, published by the management bar's stats
-// websocket (`TASKS!`) so every section can grey out the actions the daemon
-// would refuse while a task holds the storage or server lock.
+// Active daemon tasks per server, published from the stats websocket (`TASKS!`)
+// by the management bar and the project server list so they can grey out the
+// actions the daemon would refuse while a task holds the storage or server lock.
 
 type ServerTasksState = {
   tasks: Record<string, ServerTasksSnapshot>;

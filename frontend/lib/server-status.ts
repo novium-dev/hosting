@@ -1,9 +1,12 @@
 /**
  * Shared helpers for rendering a server's daemon status and resource usage.
  *
- * Used by both the server management bar (live websocket updates) and the
- * project server list (snapshot from `list_servers?include=true`).
+ * Used by both the server management bar and the project server list, which
+ * follow the stats websocket and fall back to the snapshot from server info or
+ * `list_servers?include=true`.
  */
+
+import { asRecord } from "@/lib/utils";
 
 export type ServerLifecycleState =
   | "stopped"
@@ -501,6 +504,62 @@ export function controlsFromState(state: ServerLifecycleState): ControlState {
     default:
       return { canStart: true, canStop: false, canKill: false };
   }
+}
+
+type StatsPayload = Record<string, unknown>;
+
+export type StatsFrame = {
+  kind: "stats" | "controls";
+  payload: StatsPayload;
+};
+
+const STATS_MESSAGE_PREFIX = "STATS!";
+
+/** Splits a stats websocket text frame into resource usage or lifecycle state. */
+export function parseStatsFrame(message: string): StatsFrame | null {
+  const stats = message.startsWith(STATS_MESSAGE_PREFIX);
+
+  try {
+    const payload = asRecord(
+      JSON.parse(stats ? message.slice(STATS_MESSAGE_PREFIX.length) : message),
+    );
+
+    return payload && { kind: stats ? "stats" : "controls", payload };
+  } catch {
+    return null;
+  }
+}
+
+function readString(data: StatsPayload, keys: string[]) {
+  for (const key of keys) {
+    const value = data[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function readBoolean(data: StatsPayload, keys: string[]) {
+  for (const key of keys) {
+    const value = data[key];
+    if (typeof value === "boolean") {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+export function readControlsFrame(payload: StatsPayload) {
+  return {
+    label: readString(payload, ["label", "LABEL"]),
+    time: toFiniteNumber(payload.time ?? payload.TIME),
+    start: readBoolean(payload, ["start", "START"]),
+    stop: readBoolean(payload, ["stop", "STOP"]),
+    kill: readBoolean(payload, ["kill", "KILL"]),
+  };
 }
 
 export const DISK_USAGE_EVENT = "server-disk-usage";

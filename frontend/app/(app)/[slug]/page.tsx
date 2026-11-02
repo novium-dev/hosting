@@ -10,14 +10,37 @@ import {
   Cpu,
   HardDrive,
   MemoryStick,
+  Pause,
+  Play,
+  RotateCcw,
+  ShieldAlert,
 } from "lucide-react";
 
 import { MainLayout } from "@/components/sidebar/main-layout";
+import {
+  useLiveServerStatus,
+  type ServerStatusSnapshot,
+} from "@/hooks/use-live-server-status";
 import { useProject } from "@/hooks/use-project";
 import { listServers } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
+import {
+  ManagementPermission,
+  ServerPermission,
+  hasManagementPermission,
+  hasServerPermission,
+  mergePermissions,
+} from "@/lib/permissions";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { cn, titleCase } from "@/lib/utils";
 import { templateBanner } from "@/lib/template-banner";
 import {
@@ -29,14 +52,9 @@ import {
   statusLabel,
   statusTone,
   usagePercentValue,
-  type StatsSnapshot,
 } from "@/lib/server-status";
-
-type ServerStatus = {
-  state: string;
-  started_at?: number | null;
-  stats?: StatsSnapshot | null;
-};
+import { useServerTaskLock } from "@/stores/server-tasks";
+import { usePowerAction } from "./servers/[server]/components/management-bar/use-power-action";
 
 type ServerListItem = {
   id: string;
@@ -44,7 +62,7 @@ type ServerListItem = {
   template: string;
   node: string;
   suspended: boolean;
-  status?: ServerStatus | null;
+  status?: ServerStatusSnapshot | null;
 };
 
 const emptyBarPattern =
@@ -99,16 +117,30 @@ function ResourceBar({
   );
 }
 
-function ServerRow({ slug, server }: { slug: string; server: ServerListItem }) {
+function ServerRow({
+  slug,
+  server,
+  canPower,
+}: {
+  slug: string;
+  server: ServerListItem;
+  canPower: boolean;
+}) {
   const { t } = useTranslation();
   const banner = templateBanner(server.template);
-  const state = server.status
-    ? statusFromLabel(server.status.state)
-    : "unknown";
+  const {
+    status: state,
+    startedAt,
+    stats,
+    controls,
+  } = useLiveServerStatus(server.id, server.status);
+  const power = usePowerAction(server.id);
+  const powerLock = useServerTaskLock(server.id, "server", "read");
+  const startLock = useServerTaskLock(server.id, "server", "write");
   const tone = statusTone(state);
-  const startedAt = server.status?.started_at ?? null;
   const isRunning = state === "running";
-  const stats = server.status?.stats ?? null;
+  const actionsDisabled = power.pending !== null;
+  const stopDisabled = actionsDisabled || !controls.canStop || powerLock.locked;
 
   const resources = [
     {
@@ -146,82 +178,123 @@ function ServerRow({ slug, server }: { slug: string; server: ServerListItem }) {
   const uptime = startedAt !== null ? formatUptime(now - startedAt) : null;
 
   return (
-    <Link href={`/${slug}/servers/${server.id}`} className="group block">
-      <Card className="relative overflow-hidden rounded-2xl border-border/60 py-0 transition-all duration-200 group-hover:border-primary/40 group-hover:shadow-md">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 w-1/4 opacity-[0.14]"
-          style={{
-            backgroundImage: banner.gradient,
-            maskImage: "linear-gradient(to right, black, transparent)",
-            WebkitMaskImage: "linear-gradient(to right, black, transparent)",
-          }}
-        />
+    <ContextMenu disabled={!canPower}>
+      <ContextMenuTrigger className="block">
+        <Link href={`/${slug}/servers/${server.id}`} className="group block">
+          <Card className="relative overflow-hidden rounded-2xl border-border/60 py-0 transition-all duration-200 group-hover:border-primary/40 group-hover:shadow-md">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 w-1/4 opacity-[0.14]"
+              style={{
+                backgroundImage: banner.gradient,
+                maskImage: "linear-gradient(to right, black, transparent)",
+                WebkitMaskImage:
+                  "linear-gradient(to right, black, transparent)",
+              }}
+            />
 
-        <div className="relative flex flex-col gap-5 px-5 py-5 lg:flex-row lg:items-center lg:gap-8">
-          <div className="flex min-w-0 items-center gap-3.5 lg:w-72 lg:shrink-0">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-background/80 shadow-sm ring-1 ring-border/60 backdrop-blur">
-              <Server className="size-5 text-foreground" />
-            </div>
+            <div className="relative flex flex-col gap-5 px-5 py-5 lg:flex-row lg:items-center lg:gap-8">
+              <div className="flex min-w-0 items-center gap-3.5 lg:w-72 lg:shrink-0">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-background/80 shadow-sm ring-1 ring-border/60 backdrop-blur">
+                  <Server className="size-5 text-foreground" />
+                </div>
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="truncate text-base font-semibold">
-                  {server.name}
-                </span>
-
-                <span
-                  className={cn(
-                    "flex shrink-0 items-center gap-1.5 text-sm",
-                    tone.text,
-                  )}
-                >
-                  <span className={cn("size-1.5 rounded-full", tone.dot)} />
-                  {statusLabel(state)}
-                </span>
-
-                {server.suspended && (
-                  <Badge variant="destructive" className="shrink-0">
-                    {t("common:status.suspended")}
-                  </Badge>
-                )}
-              </div>
-              <div className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="truncate">{titleCase(server.template)}</span>
-                {uptime !== null && (
-                  <>
-                    <span aria-hidden>·</span>
-                    <span className="flex shrink-0 items-center gap-1">
-                      <Clock className="size-3.5" />
-                      {uptime}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-base font-semibold">
+                      {server.name}
                     </span>
-                  </>
-                )}
+
+                    <span
+                      className={cn(
+                        "flex shrink-0 items-center gap-1.5 text-sm",
+                        tone.text,
+                      )}
+                    >
+                      <span className={cn("size-1.5 rounded-full", tone.dot)} />
+                      {statusLabel(state)}
+                    </span>
+
+                    {server.suspended && (
+                      <Badge variant="destructive" className="shrink-0">
+                        {t("common:status.suspended")}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
+                    <span className="truncate">
+                      {titleCase(server.template)}
+                    </span>
+                    {uptime !== null && (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span className="flex shrink-0 items-center gap-1">
+                          <Clock className="size-3.5" />
+                          {uptime}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid min-w-0 flex-1 grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-3">
+                {resources.map((resource) => (
+                  <ResourceBar
+                    key={resource.label}
+                    icon={resource.icon}
+                    label={resource.label}
+                    value={resource.value}
+                    percent={resource.percent}
+                  />
+                ))}
+              </div>
+
+              <div className="flex shrink-0 items-center justify-between gap-3 lg:justify-start">
+                <span className="rounded-full bg-muted/80 px-3 py-1 font-mono text-xs text-muted-foreground">
+                  {server.node}
+                </span>
+                <ChevronRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
               </div>
             </div>
-          </div>
+          </Card>
+        </Link>
+      </ContextMenuTrigger>
 
-          <div className="grid min-w-0 flex-1 grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-3">
-            {resources.map((resource) => (
-              <ResourceBar
-                key={resource.label}
-                icon={resource.icon}
-                label={resource.label}
-                value={resource.value}
-                percent={resource.percent}
-              />
-            ))}
-          </div>
-
-          <div className="flex shrink-0 items-center justify-between gap-3 lg:justify-start">
-            <span className="rounded-full bg-muted/80 px-3 py-1 font-mono text-xs text-muted-foreground">
-              {server.node}
-            </span>
-            <ChevronRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
-          </div>
-        </div>
-      </Card>
-    </Link>
+      <ContextMenuContent>
+        <ContextMenuItem
+          disabled={actionsDisabled || !controls.canStart || startLock.locked}
+          onClick={() => void power.execute("start")}
+        >
+          <Play />
+          {t("common:resources.start")}
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={stopDisabled}
+          onClick={() => void power.execute("restart")}
+        >
+          <RotateCcw />
+          {t("servers:managementBar.actions.restart")}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          variant="destructive"
+          disabled={stopDisabled}
+          onClick={() => void power.execute("stop")}
+        >
+          <Pause />
+          {t("servers:managementBar.actions.stop")}
+        </ContextMenuItem>
+        <ContextMenuItem
+          variant="destructive"
+          disabled={actionsDisabled || !controls.canKill || powerLock.locked}
+          onClick={() => void power.execute("kill")}
+        >
+          <ShieldAlert />
+          {t("servers:managementBar.actions.kill")}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -230,6 +303,7 @@ export default function ProjectPage() {
   const { slug = "" } = useParams<{ slug: string }>();
 
   const { data: project, isLoading } = useProject(slug);
+  const { data: session } = authClient.useSession();
 
   const { data: serversData } = useSWR(
     project ? ["servers", project.id] : null,
@@ -239,7 +313,7 @@ export default function ProjectPage() {
       });
       return res.error ? [] : (res.data ?? []);
     },
-    { refreshInterval: 5000 },
+    { refreshInterval: 30000 },
   );
 
   if (isLoading) return null;
@@ -260,6 +334,23 @@ export default function ProjectPage() {
   }
 
   const servers = serversData ?? [];
+  const effectivePermissions = mergePermissions(
+    session?.user.permissions ?? 0,
+    project.permissions,
+  );
+  const hasPowerPermission = hasServerPermission(
+    effectivePermissions,
+    ServerPermission.POWER,
+  );
+  const bypassesSuspension =
+    hasManagementPermission(
+      effectivePermissions,
+      ManagementPermission.SERVER_SUSPEND,
+    ) ||
+    hasManagementPermission(
+      effectivePermissions,
+      ManagementPermission.LIMITS_BYPASS,
+    );
 
   return (
     <MainLayout
@@ -298,7 +389,15 @@ export default function ProjectPage() {
           ) : (
             <div className="flex flex-col gap-3">
               {servers.map((server) => (
-                <ServerRow key={server.id} slug={slug} server={server} />
+                <ServerRow
+                  key={server.id}
+                  slug={slug}
+                  server={server}
+                  canPower={
+                    hasPowerPermission &&
+                    (!server.suspended || bypassesSuspension)
+                  }
+                />
               ))}
             </div>
           )}
