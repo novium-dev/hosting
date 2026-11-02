@@ -180,15 +180,20 @@ impl CloudflareClient {
             })?;
 
         let status = response.status();
-        let body = response.json::<CloudflareResponse>().await.map_err(|err| {
-            error!("Failed to decode the Cloudflare response: {err:?}");
+        let text = response.text().await.map_err(|err| {
+            error!("Failed to read the Cloudflare response: {err:?}");
             RouteError::Rejected
         })?;
+
+        let Ok(body) = serde_json::from_str::<CloudflareResponse>(&text) else {
+            error!("Failed to decode the Cloudflare response with status {status}: {text}");
+            return Err(RouteError::Rejected);
+        };
 
         match body.result {
             Some(result) if body.success => Ok(result.id),
             _ => {
-                error!("Cloudflare rejected the record creation with status {status}");
+                error!("Cloudflare rejected the record creation with status {status}: {text}");
                 Err(RouteError::Rejected)
             }
         }
