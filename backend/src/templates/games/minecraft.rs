@@ -29,7 +29,8 @@ use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemp
 use crate::utils::serde::SerdePrimitive;
 
 pub(crate) const WORK_TMP_SETUP: &str =
-    "\nRUN rm -rf /tmp /var/tmp\nRUN ln -s /work/.tmp /tmp\nRUN ln -s /work/.tmp /var/tmp\n";
+    "\nRUN rm -rf /tmp /var/tmp && ln -s /work/.tmp /tmp && ln -s /work/.tmp /var/tmp\n";
+pub(crate) const MONITOR_PORT_ENVIRONMENT: &str = "MC_MONITOR_DEFAULT_PORT";
 pub(crate) const JAVA_RECOMMENDED: &str = "Recommended";
 pub(crate) const JAVA_PREFIX: &str = "Java ";
 pub(crate) const SERVER_PORT: u16 = 25565;
@@ -193,23 +194,7 @@ impl MinecraftServerExtra {
     }
 
     pub(crate) fn image(&self) -> ServerBuildImage {
-        let generic = ServerBuildImage {
-            dockerfile: include_str!("minecraft/generic.Dockerfile")
-                .replace("{MC_MONITOR_DEFAULT_PORT}", &SERVER_PORT.to_string()),
-            args: HashMap::new(),
-            parents: Vec::new(),
-            tag: None,
-            default_tag: Some("minecraft-generic".to_owned()),
-            base: None,
-        };
-        let java = ServerBuildImage {
-            dockerfile: include_str!("minecraft/java.Dockerfile").to_owned(),
-            args: HashMap::from([("JAVA".to_owned(), self.java().to_string())]),
-            parents: vec![generic],
-            tag: Some(format!("minecraft-jre-{}", self.java())),
-            default_tag: None,
-            base: Some(0),
-        };
+        let java = java_image(self.java());
 
         let dockerfile = match self.modification() {
             MinecraftServerModification::Vanilla => include_str!("minecraft/vanilla.Dockerfile"),
@@ -455,7 +440,10 @@ impl Template for MinecraftTemplate {
                 "DAC_OVERRIDE".to_owned(),
                 "NET_BIND_SERVICE".to_owned(),
             ],
-            environment: HashMap::new(),
+            environment: HashMap::from([(
+                MONITOR_PORT_ENVIRONMENT.to_owned(),
+                SERVER_PORT.to_string(),
+            )]),
             backup_exclude,
             files_write: extra.files_write(),
 
@@ -843,6 +831,25 @@ impl VersionCache {
             .collect();
         versions.sort_unstable_by_key(|(index, _)| *index);
         versions.into_iter().map(|(_, java)| java).collect()
+    }
+}
+
+pub(crate) fn java_image(java: u8) -> ServerBuildImage {
+    let generic = ServerBuildImage {
+        dockerfile: include_str!("minecraft/generic.Dockerfile").to_owned(),
+        args: HashMap::new(),
+        parents: Vec::new(),
+        tag: None,
+        default_tag: Some("minecraft-generic".to_owned()),
+        base: None,
+    };
+    ServerBuildImage {
+        dockerfile: include_str!("minecraft/java.Dockerfile").to_owned(),
+        args: HashMap::from([("JAVA".to_owned(), java.to_string())]),
+        parents: vec![generic],
+        tag: Some(format!("minecraft-jre-{java}")),
+        default_tag: None,
+        base: Some(0),
     }
 }
 
