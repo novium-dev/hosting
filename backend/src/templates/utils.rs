@@ -177,7 +177,10 @@ mod tests {
     fn tags_follow_content() {
         let original = chain("FROM debian\n", "21");
         assert_eq!(original.used_tag(), chain("FROM debian\n", "21").used_tag());
-        assert_ne!(original.used_tag(), chain("FROM debian:trixie\n", "21").used_tag());
+        assert_ne!(
+            original.used_tag(),
+            chain("FROM debian:trixie\n", "21").used_tag()
+        );
         assert_ne!(original.used_tag(), chain("FROM debian\n", "25").used_tag());
         assert!(original.tag.is_none());
         assert!(
