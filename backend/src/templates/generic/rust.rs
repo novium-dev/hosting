@@ -51,7 +51,7 @@ impl Template for RustTemplate {
                 .replace("{RUST_VERSION}", &extra.rust_version),
             args: HashMap::new(),
             tag: None,
-            default_tag: Some(format!("rust-{}-r{REL}", extra.rust_version)),
+            default_tag: Some(format!("rust-{}", extra.rust_version)),
         };
         Ok(ServerBuildPayload {
             image,

@@ -89,7 +89,7 @@ impl Template for JavaTemplate {
                 .replace("{JAVA_VERSION}", &extra.java_version.to_string()),
             args: HashMap::new(),
             tag: None,
-            default_tag: Some(format!("java-{}-r2", extra.java_version)),
+            default_tag: Some(format!("java-{}", extra.java_version)),
         };
         let image = ServerBuildImage {
             parents: vec![generic],
@@ -102,8 +102,8 @@ impl Template for JavaTemplate {
             args: HashMap::new(),
             tag: None,
             default_tag: Some(match extra.build {
-                JavaBuild::Prebuilt => format!("java-prebuilt-{}-r{REL}", extra.java_version),
-                JavaBuild::Gradle => format!("java-gradle-{}-r{REL}", extra.java_version),
+                JavaBuild::Prebuilt => format!("java-prebuilt-{}", extra.java_version),
+                JavaBuild::Gradle => format!("java-gradle-{}", extra.java_version),
             }),
         };
         let mut backup_exclude = HashSet::from([".git/".to_owned()]);

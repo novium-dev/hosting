@@ -87,10 +87,7 @@ impl WebExtra {
                 self.web_server.package().to_owned(),
             )]),
             tag: None,
-            default_tag: Some(format!(
-                "web-{}-{runtime}-r{REL}",
-                self.web_server.package()
-            )),
+            default_tag: Some(format!("web-{}-{runtime}", self.web_server.package())),
         }
     }
 }

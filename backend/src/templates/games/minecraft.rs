@@ -199,14 +199,14 @@ impl MinecraftServerExtra {
             args: HashMap::new(),
             parents: Vec::new(),
             tag: None,
-            default_tag: Some(format!("minecraft-generic-r{}", Self::REL)),
+            default_tag: Some("minecraft-generic".to_owned()),
             base: None,
         };
         let java = ServerBuildImage {
             dockerfile: include_str!("minecraft/java.Dockerfile").to_owned(),
             args: HashMap::from([("JAVA".to_owned(), self.java().to_string())]),
             parents: vec![generic],
-            tag: Some(format!("minecraft-jre-{}-r{}", self.java(), Self::REL)),
+            tag: Some(format!("minecraft-jre-{}", self.java())),
             default_tag: None,
             base: Some(0),
         };
@@ -225,11 +225,7 @@ impl MinecraftServerExtra {
             parents = vec![ServerBuildImage {
                 args: HashMap::new(),
                 default_tag: None,
-                tag: Some(format!(
-                    "minecraft-paper_like-jre{}-r{}",
-                    self.java(),
-                    Self::REL
-                )),
+                tag: Some(format!("minecraft-paper_like-jre{}", self.java())),
                 parents,
                 base: Some(0),
                 dockerfile: include_str!("minecraft/paper_like.Dockerfile").to_owned(),
@@ -378,84 +374,43 @@ impl MinecraftServerExtra {
                 java,
                 minecraft_version,
                 ..
-            } => format!(
-                "minecraft_vanilla-{}-jre{}-r{}",
-                minecraft_version,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_vanilla-{minecraft_version}-jre{java}"),
             Self::Paper {
                 java,
                 minecraft_version,
                 paper_build,
                 ..
-            } => format!(
-                "minecraft_paper-{}-{}-jre{}-r{}",
-                minecraft_version,
-                paper_build,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_paper-{minecraft_version}-{paper_build}-jre{java}"),
             Self::Purpur {
                 java,
                 minecraft_version,
                 purpur_build,
                 ..
-            } => format!(
-                "minecraft_purpur-{}-{}-jre{}-r{}",
-                minecraft_version,
-                purpur_build,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_purpur-{minecraft_version}-{purpur_build}-jre{java}"),
             Self::Fabric {
                 java,
                 minecraft_version,
                 loader_version,
                 ..
-            } => format!(
-                "minecraft_fabric-{}-{}-jre{}-r{}",
-                minecraft_version,
-                loader_version,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_fabric-{minecraft_version}-{loader_version}-jre{java}"),
             Self::Quilt {
                 java,
                 minecraft_version,
                 loader_version,
                 ..
-            } => format!(
-                "minecraft_quilt-{}-{}-jre{}-r{}",
-                minecraft_version,
-                loader_version,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_quilt-{minecraft_version}-{loader_version}-jre{java}"),
             Self::NeoForge {
                 java,
                 minecraft_version,
                 loader_version,
                 ..
-            } => format!(
-                "minecraft_neoforge-{}-{}-jre{}-r{}",
-                minecraft_version,
-                loader_version,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_neoforge-{minecraft_version}-{loader_version}-jre{java}"),
             Self::Forge {
                 java,
                 minecraft_version,
                 loader_version,
                 ..
-            } => format!(
-                "minecraft_forge-{}-{}-jre{}-r{}",
-                minecraft_version,
-                loader_version,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_forge-{minecraft_version}-{loader_version}-jre{java}"),
         }
     }
 }

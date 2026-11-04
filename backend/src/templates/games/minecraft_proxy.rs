@@ -150,23 +150,12 @@ impl MinecraftProxyExtra {
                 velocity_version,
                 velocity_build,
                 ..
-            } => format!(
-                "minecraft_proxy_velocity-{}-{}-jre{}-r{}",
-                velocity_version,
-                velocity_build,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_proxy_velocity-{velocity_version}-{velocity_build}-jre{java}"),
             Self::BungeeCord {
                 java,
                 bungeecord_build,
                 ..
-            } => format!(
-                "minecraft_proxy_bungeecord-{}-jre{}-r{}",
-                bungeecord_build,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_proxy_bungeecord-{bungeecord_build}-jre{java}"),
         }
     }
 
@@ -177,18 +166,14 @@ impl MinecraftProxyExtra {
             args: HashMap::new(),
             parents: Vec::new(),
             tag: None,
-            default_tag: Some(format!("minecraft_proxy-generic-r{}", Self::REL)),
+            default_tag: Some("minecraft_proxy-generic".to_owned()),
             base: None,
         };
         let java = ServerBuildImage {
             dockerfile: include_str!("minecraft/java.Dockerfile").to_owned(),
             args: HashMap::from([("JAVA".to_owned(), self.java().to_string())]),
             parents: vec![generic],
-            tag: Some(format!(
-                "minecraft_proxy-jre-{}-r{}",
-                self.java(),
-                Self::REL
-            )),
+            tag: Some(format!("minecraft_proxy-jre-{}", self.java())),
             default_tag: None,
             base: Some(0),
         };
