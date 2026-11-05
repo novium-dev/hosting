@@ -23,7 +23,7 @@ const SCHEME_HEADER: HeaderName = HeaderName::from_static("x-novium-node-signatu
 const TIMESTAMP_HEADER: HeaderName = HeaderName::from_static("x-novium-node-timestamp");
 
 const SIGNATURE_CONTEXT: &str = "novium-node-auth";
-const MAX_CLOCK_SKEW: i64 = 300;
+const MAX_CLOCK_SKEW: i64 = 300_000;
 
 #[derive(Debug, Default)]
 pub struct NodeSignature {
@@ -53,7 +53,7 @@ impl NodeSignature {
 
     fn verify_for(&self, backend: &Backend, node: Uuid) -> Option<()> {
         let timestamp = self.timestamp.as_deref()?.parse::<i64>().ok()?;
-        if (Utc::now().timestamp() - timestamp).abs() > MAX_CLOCK_SKEW {
+        if (Utc::now().timestamp_millis() - timestamp).abs() > MAX_CLOCK_SKEW {
             return None;
         }
 
@@ -149,7 +149,7 @@ impl DocumentedType for NodeSignature {
             ))
             .parameter(string_header(
                 &TIMESTAMP_HEADER,
-                "The unix timestamp the request was signed at",
+                "The unix timestamp in milliseconds the request was signed at",
             ))
     }
 }
