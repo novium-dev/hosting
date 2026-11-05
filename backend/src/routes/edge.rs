@@ -24,14 +24,19 @@ const EDGE_RECORD_TTL: u32 = 300;
 
 #[derive(Debug, Default, Serialize, utoipa::ToSchema)]
 pub(crate) struct TraefikConfig {
-    pub(crate) http: TraefikHttp,
-    pub(crate) tls: TraefikTls,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) http: Option<TraefikHttp>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) tls: Option<TraefikTls>,
 }
 
 #[derive(Debug, Default, Serialize, utoipa::ToSchema)]
 pub(crate) struct TraefikHttp {
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) routers: BTreeMap<String, TraefikRouter>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) services: BTreeMap<String, TraefikService>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) middlewares: BTreeMap<String, TraefikMiddleware>,
 }
 
@@ -87,19 +92,15 @@ pub(crate) struct TraefikCertificate {
     pub(crate) key_file: String,
 }
 
-pub fn edge_record(domain: &str, public_host: &str) -> RouteRecord {
+pub fn edge_record(fqdn: &str, public_host: &str) -> RouteRecord {
     RouteRecord {
         record_type: "CNAME".to_owned(),
-        name: format!("*.{domain}"),
+        name: fqdn.to_owned(),
         value: public_host.to_owned(),
         priority: None,
         port: None,
         ttl: Some(EDGE_RECORD_TTL),
     }
-}
-
-fn subdomain_pattern(domain: &str) -> String {
-    format!("^[a-z0-9-]+\\.{}$", domain.replace('.', "\\."))
 }
 
 fn target_url(host: &str, port: i32) -> String {
@@ -110,8 +111,8 @@ fn target_url(host: &str, port: i32) -> String {
     }
 }
 
-fn passthrough_keys(config: &EdgeConfig, domains: &[(i32, String)]) -> HashMap<String, String> {
-    if domains.is_empty() {
+fn passthrough_keys(config: &EdgeConfig, hosts: &[(i32, String)]) -> HashMap<String, String> {
+    if hosts.is_empty() {
         return HashMap::new();
     }
 
@@ -141,13 +142,12 @@ fn passthrough_keys(config: &EdgeConfig, domains: &[(i32, String)]) -> HashMap<S
         );
     }
 
-    for &(id, ref domain) in domains {
-        let router = format!("novium-domain-{id}");
-        let pattern = subdomain_pattern(domain);
+    for &(id, ref host) in hosts {
+        let router = format!("novium-route-{id}");
 
         set(
             format!("tcp/routers/{router}/rule"),
-            format!("HostSNI(`{domain}`) || HostSNIRegexp(`{pattern}`)"),
+            format!("HostSNI(`{host}`)"),
         );
         set(
             format!("tcp/routers/{router}/entrypoints/0"),
@@ -164,7 +164,7 @@ fn passthrough_keys(config: &EdgeConfig, domains: &[(i32, String)]) -> HashMap<S
 
         set(
             format!("http/routers/{router}/rule"),
-            format!("Host(`{domain}`) || HostRegexp(`{pattern}`)"),
+            format!("Host(`{host}`)"),
         );
         set(
             format!("http/routers/{router}/entrypoints/0"),
@@ -213,10 +213,10 @@ impl Backend {
         .fetch_all(&*self.database)
         .await?;
 
-        let mut config = TraefikConfig::default();
+        let mut http = TraefikHttp::default();
 
         if routes.iter().any(|route| route.https) {
-            config.http.middlewares.insert(
+            http.middlewares.insert(
                 REDIRECT_MIDDLEWARE.to_owned(),
                 TraefikMiddleware {
                     redirect_scheme: TraefikRedirectScheme {
@@ -231,7 +231,7 @@ impl Backend {
             let name = format!("novium-route-{}", route.id);
             let rule = format!("Host(`{}.{}`)", route.subdomain, route.domain);
 
-            config.http.services.insert(
+            http.services.insert(
                 name.clone(),
                 TraefikService {
                     load_balancer: TraefikLoadBalancer {
@@ -243,7 +243,7 @@ impl Backend {
             );
 
             if route.https {
-                config.http.routers.insert(
+                http.routers.insert(
                     name.clone(),
                     TraefikRouter {
                         rule: rule.clone(),
@@ -253,7 +253,7 @@ impl Backend {
                         tls: Some(BTreeMap::new()),
                     },
                 );
-                config.http.routers.insert(
+                http.routers.insert(
                     format!("{name}-redirect"),
                     TraefikRouter {
                         rule,
@@ -264,7 +264,7 @@ impl Backend {
                     },
                 );
             } else {
-                config.http.routers.insert(
+                http.routers.insert(
                     name.clone(),
                     TraefikRouter {
                         rule,
@@ -277,15 +277,18 @@ impl Backend {
             }
         }
 
-        config.tls.certificates = certificates
+        let certificates = certificates
             .into_iter()
             .map(|certificate| TraefikCertificate {
                 cert_file: certificate.certificate_pem,
                 key_file: certificate.private_key_pem,
             })
-            .collect();
+            .collect::<Vec<_>>();
 
-        Ok(config)
+        Ok(TraefikConfig {
+            http: (!http.routers.is_empty()).then_some(http),
+            tls: (!certificates.is_empty()).then_some(TraefikTls { certificates }),
+        })
     }
 
     async fn write_edge_passthrough(
@@ -352,26 +355,30 @@ impl Backend {
             return;
         };
 
-        let domains = match query!(
-            r#"SELECT id, domain FROM route_domains
-               WHERE project IS NOT NULL AND verified_at IS NOT NULL
-               ORDER BY id"#
+        let hosts = match query!(
+            r#"SELECT routes.id, routes.subdomain, route_domains.domain
+               FROM routes
+               JOIN route_domains ON route_domains.id = routes.domain
+               WHERE route_domains.project IS NOT NULL
+                 AND route_domains.verified_at IS NOT NULL
+                 AND routes.kind = 'http'
+               ORDER BY routes.id"#
         )
         .fetch_all(&*self.database)
         .await
         {
             Ok(rows) => rows
                 .into_iter()
-                .map(|row| (row.id, row.domain))
+                .map(|row| (row.id, format!("{}.{}", row.subdomain, row.domain)))
                 .collect::<Vec<_>>(),
             Err(err) => {
-                error!("Unable to load the domains for the edge passthrough: {err:?}");
+                error!("Unable to load the routes for the edge passthrough: {err:?}");
                 return;
             }
         };
 
         if let Err(err) = self
-            .write_edge_passthrough(config, passthrough_keys(config, &domains))
+            .write_edge_passthrough(config, passthrough_keys(config, &hosts))
             .await
         {
             error!("Unable to write the edge passthrough: {err:?}");

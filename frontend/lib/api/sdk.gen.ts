@@ -1739,10 +1739,9 @@ export const listRoutes = <ThrowOnError extends boolean = false>(options: Option
  * Pangolin resource reachable at the subdomain, any other port gets a Cloudflare SRV record<br/>
  * so clients reach it without typing the port.<br/>
  * <br/>
- * On one of the project's own verified domains HTTP routes are served by the edge, which<br/>
- * receives them through the domain's wildcard CNAME. TCP and UDP routes there are not<br/>
- * published by the backend: `records` lists the SRV (and address) records the domain's<br/>
- * owner has to create.<br/>
+ * On one of the project's own verified domains the backend publishes no DNS records:<br/>
+ * `records` lists the ones the domain's owner has to create. HTTP routes are served by the<br/>
+ * edge and need a CNAME to it, TCP and UDP routes need SRV (and address) records.<br/>
  * <br/>
  * The SRV service name comes from the port's name, so a port named `minecraft` publishes<br/>
  * `_minecraft._tcp.<subdomain>.<domain>`, and a UDP port publishes `_<name>._udp.…`.<br/>
@@ -1894,10 +1893,10 @@ export const allowDomainProject = <ThrowOnError extends boolean = false>(options
  *  Lists the project's own domains.<br/>
  * <br/>
  * `records` lists the DNS records the domain needs: the TXT record proving ownership while<br/>
- * it is unverified, the wildcard CNAME pointing its subdomains at the edge when HTTP routes<br/>
- * on project domains are enabled, and, when certificates are enabled, the CNAME delegating<br/>
- * its ACME challenges. Certificates are issued for the domain and its wildcard with the email of the<br/>
- * user who added the domain as the ACME contact.<br/>
+ * it is unverified and, when certificates are enabled, the CNAME delegating its ACME<br/>
+ * challenges. Certificates are issued for the domain and its wildcard with the email of the<br/>
+ * user who added the domain as the ACME contact. Each route on the domain lists its own<br/>
+ * records.<br/>
  * <br/>
  * # Permissions<br/>
  * Requires `ProjectPermissions::VIEW`.

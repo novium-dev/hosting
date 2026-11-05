@@ -6,6 +6,7 @@ use crate::db::route::{RouteStatus, decode_records};
 use crate::db::server::ServerId;
 use crate::db::server::ports::NetworkProtocol;
 use crate::routes::cloudflare::planned_records;
+use crate::routes::edge::edge_record;
 use crate::routes::{
     ProvisionedRoute, RouteError, RouteKind, RouteRecord, RouteRequest, is_valid_label,
     service_name,
@@ -204,10 +205,9 @@ pub(crate) impl RouteService for Backend {
     /// Pangolin resource reachable at the subdomain, any other port gets a Cloudflare SRV record
     /// so clients reach it without typing the port.
     ///
-    /// On one of the project's own verified domains HTTP routes are served by the edge, which
-    /// receives them through the domain's wildcard CNAME. TCP and UDP routes there are not
-    /// published by the backend: `records` lists the SRV (and address) records the domain's
-    /// owner has to create.
+    /// On one of the project's own verified domains the backend publishes no DNS records:
+    /// `records` lists the ones the domain's owner has to create. HTTP routes are served by the
+    /// edge and need a CNAME to it, TCP and UDP routes need SRV (and address) records.
     ///
     /// The SRV service name comes from the port's name, so a port named `minecraft` publishes
     /// `_minecraft._tcp.<subdomain>.<domain>`, and a UDP port publishes `_<name>._udp.…`.
@@ -427,9 +427,14 @@ pub(crate) impl RouteService for Backend {
         let provisioned = if custom {
             Ok(ProvisionedRoute {
                 external_ids: Vec::new(),
-                records: match kind {
-                    RouteKind::Http => Vec::new(),
-                    RouteKind::Tcp | RouteKind::Udp => planned_records(&request, MANUAL_RECORD_TTL),
+                records: match (kind, self.config.routes.edge.as_ref()) {
+                    (RouteKind::Http, Some(edge)) => {
+                        vec![edge_record(&request.fqdn(), &edge.public_host)]
+                    }
+                    (RouteKind::Http, None) => Vec::new(),
+                    (RouteKind::Tcp | RouteKind::Udp, _) => {
+                        planned_records(&request, MANUAL_RECORD_TTL)
+                    }
                 },
             })
         } else {
@@ -466,6 +471,10 @@ pub(crate) impl RouteService for Backend {
         )
         .execute(&*self.database)
         .await?;
+
+        if custom && matches!(kind, RouteKind::Http) {
+            self.sync_edge().await;
+        }
 
         Ok(RouteInfo {
             id: route_id,
@@ -537,6 +546,10 @@ pub(crate) impl RouteService for Backend {
         .await?;
 
         tx.commit().await?;
+
+        if route.custom && matches!(route.kind, RouteKind::Http) {
+            self.sync_edge().await;
+        }
 
         Ok(())
     }

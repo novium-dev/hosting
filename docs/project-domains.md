@@ -12,18 +12,19 @@ Pangolin keeps serving the platform domains.
    - `TXT _novium-verify.<domain>`: proves ownership. A job checks pending
      domains every five minutes; `POST .../{domain_id}/verify` checks right
      away. Unverified domains are dropped after a week.
-   - `CNAME *.<domain>` to `BACKEND_EDGE_PUBLIC_HOST`: sends the subdomains to
-     Pangolin's Traefik (only when the edge is enabled).
    - `CNAME _acme-challenge.<domain>` to `<hash>.<BACKEND_ACME_CHALLENGE_ZONE>`:
      delegates the ACME DNS-01 challenges (only when certificates are enabled).
 2. Once verified, a job issues a certificate for `<domain>` and `*.<domain>`
    from the ACME account of the user who added the domain, with their email as
    the contact. It renews once two thirds of the lifetime have passed and
    retries failures after an hour. Errors are shown on the domain.
-3. Routes on the domain:
-   - HTTP routes are served by the edge.
-   - TCP and UDP routes are not published by the backend. The route's
-     `records` lists the SRV (and A/AAAA) records the owner has to create.
+3. Routes on the domain publish no DNS records. Each route's `records` lists
+   the ones the owner has to create:
+   - HTTP routes: `CNAME <sub>.<domain>` to `BACKEND_EDGE_PUBLIC_HOST`. They
+     are served by the edge.
+   - TCP and UDP routes: the SRV (and A/AAAA) records pointing at the node.
+
+   Other subdomains of the domain are left alone, wherever they are hosted.
 
 ## Traffic
 
@@ -32,9 +33,11 @@ client ──443 (TLS)──> Pangolin's Traefik ──SNI passthrough──> ed
 client ──80────────>  Pangolin's Traefik ──Host forward────> edge Traefik ──> server port
 ```
 
-Pangolin's Traefik never terminates TLS for project domains. TCP routers apply
-before HTTP routers on the same entry point, so Pangolin's own domains keep
-working unchanged.
+Pangolin's Traefik never terminates TLS for project domains. It only passes
+through the hostnames of HTTP routes on verified project domains, one router
+per route. TCP routers apply before HTTP routers on the same entry point, so
+every other hostname, including other subdomains of a project domain, keeps
+reaching Pangolin's own routers.
 
 The edge forwards to `server_ports.host:external_port`, the same target
 Pangolin uses, so it has to reach the nodes directly.
@@ -92,6 +95,6 @@ providers:
 ```
 
 The backend writes one TCP passthrough router (`websecure`) and one HTTP
-router (`web`) per verified project domain under the root key, plus the
+router (`web`) per HTTP route on a verified project domain under the root key, plus the
 services pointing at the edge. Traefik only picks up changes when Valkey has
 keyspace notifications enabled, for example `notify-keyspace-events KEA`.

@@ -10718,7 +10718,7 @@ export type AuthPasswordData = {
          */
         'x-novium-node-signature-scheme': string;
         /**
-         * The unix timestamp the request was signed at
+         * The unix timestamp in milliseconds the request was signed at
          */
         'x-novium-node-timestamp': string;
     };
@@ -10788,7 +10788,7 @@ export type AuthPublickeyData = {
          */
         'x-novium-node-signature-scheme': string;
         /**
-         * The unix timestamp the request was signed at
+         * The unix timestamp in milliseconds the request was signed at
          */
         'x-novium-node-timestamp': string;
     };
