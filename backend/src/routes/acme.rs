@@ -2,8 +2,9 @@ use crate::Backend;
 use crate::cluster::JOB_LOCK_TTL;
 use crate::config::AcmeConfig;
 use crate::routes::verify::dns_resolver;
-use crate::routes::{RouteRecord, TxtRecordHandle};
+use crate::routes::{RouteError, RouteRecord, TxtRecordHandle};
 use chrono::{DateTime, Utc};
+use core::net::SocketAddr;
 use core::time::Duration;
 use hickory_resolver::proto::rr::{RData, RecordType};
 use instant_acme::{
@@ -32,7 +33,9 @@ const DELEGATION_TTL: u32 = 300;
 pub enum AcmeError {
     Delegation,
     NoOwner,
-    Dns,
+    Lookup,
+    ChallengeZone,
+    ChallengeRecords,
     Acme(instant_acme::Error),
     Order(String),
     Certificate,
@@ -59,7 +62,15 @@ impl AcmeError {
                 "The {CHALLENGE_LABEL} CNAME record of the domain is missing or points elsewhere"
             ),
             Self::NoOwner => "The user who added the domain no longer exists".to_owned(),
-            Self::Dns => "The challenge records could not be created".to_owned(),
+            Self::Lookup => {
+                format!("The {CHALLENGE_LABEL} CNAME record of the domain could not be looked up")
+            }
+            Self::ChallengeZone => {
+                "The challenge zone was not found at the DNS provider of this instance".to_owned()
+            }
+            Self::ChallengeRecords => {
+                "The DNS provider of this instance rejected the challenge records".to_owned()
+            }
             Self::Acme(instant_acme::Error::Api(ref problem)) => problem
                 .detail
                 .clone()
@@ -93,8 +104,12 @@ pub fn delegation_record(domain: &str, zone: &str) -> RouteRecord {
     }
 }
 
-async fn has_delegation(domain: &str, target: &str) -> Result<bool, AcmeError> {
-    let resolver = dns_resolver().ok_or(AcmeError::Dns)?;
+async fn has_delegation(
+    nameserver: Option<SocketAddr>,
+    domain: &str,
+    target: &str,
+) -> Result<bool, AcmeError> {
+    let resolver = dns_resolver(nameserver).ok_or(AcmeError::Lookup)?;
 
     let lookup = match resolver
         .lookup(format!("{CHALLENGE_LABEL}.{domain}."), RecordType::CNAME)
@@ -104,7 +119,7 @@ async fn has_delegation(domain: &str, target: &str) -> Result<bool, AcmeError> {
         Err(err) if err.is_no_records_found() => return Ok(false),
         Err(err) => {
             warn!("Unable to look the challenge delegation of {domain} up: {err:?}");
-            return Err(AcmeError::Dns);
+            return Err(AcmeError::Lookup);
         }
     };
 
@@ -158,10 +173,18 @@ impl Backend {
 
     async fn acme_account(
         &self,
-        directory: &str,
+        config: &AcmeConfig,
         user: i32,
         email: &str,
     ) -> Result<Account, AcmeError> {
+        let directory = Self::acme_directory(config);
+        let directory = directory.as_str();
+        let builder = || {
+            config
+                .root_ca
+                .as_ref()
+                .map_or_else(Account::builder, Account::builder_with_root)
+        };
         let contact = format!("mailto:{email}");
 
         let stored = query!(
@@ -178,7 +201,7 @@ impl Backend {
         {
             let credentials = serde_json::from_value::<AccountCredentials>(stored.credentials)
                 .map_err(|err| AcmeError::Acme(instant_acme::Error::Json(err)))?;
-            let account = Account::builder()?.from_credentials(credentials).await?;
+            let account = builder()?.from_credentials(credentials).await?;
 
             if stored.email != email {
                 account.update_contacts(&[&contact]).await?;
@@ -194,7 +217,7 @@ impl Backend {
             return Ok(account);
         }
 
-        let (account, credentials) = Account::builder()?
+        let (account, credentials) = builder()?
             .create(
                 &NewAccount {
                     contact: &[&contact],
@@ -259,7 +282,15 @@ impl Backend {
                 self.route_backends
                     .create_txt(target, &value, &comment)
                     .await
-                    .map_err(|_err| AcmeError::Dns)?,
+                    .map_err(|err| match err {
+                        RouteError::ZoneNotFound => {
+                            error!("No Cloudflare zone carries the challenge name {target}");
+                            AcmeError::ChallengeZone
+                        }
+                        RouteError::Unavailable
+                        | RouteError::Rejected
+                        | RouteError::DomainNotLinked => AcmeError::ChallengeRecords,
+                    })?,
             );
         }
 
@@ -306,7 +337,7 @@ impl Backend {
         let (user, email) = owner.ok_or(AcmeError::NoOwner)?;
 
         let target = challenge_target(domain, &config.challenge_zone);
-        if !has_delegation(domain, &target).await? {
+        if !has_delegation(self.config.routes.dns_resolver, domain, &target).await? {
             return Err(AcmeError::Delegation);
         }
 
@@ -319,9 +350,7 @@ impl Backend {
         .execute(&*self.database)
         .await?;
 
-        let account = self
-            .acme_account(&Self::acme_directory(config), user, &email)
-            .await?;
+        let account = self.acme_account(config, user, &email).await?;
 
         let identifiers = [
             Identifier::Dns(domain.to_owned()),
@@ -441,6 +470,30 @@ impl Backend {
         Ok(())
     }
 
+    async fn run_certificate_job(&self, config: &AcmeConfig) {
+        if !self.try_lock(CERTIFICATE_LOCK, JOB_LOCK_TTL).await {
+            return;
+        }
+
+        let guard = self.hold_lock(CERTIFICATE_LOCK.to_owned());
+
+        if let Err(err) = self.renew_route_domain_certificates(config).await {
+            error!("Unable to renew the route domain certificates: {err:?}");
+        }
+
+        drop(guard);
+        self.release_lock(CERTIFICATE_LOCK).await;
+    }
+
+    pub(crate) fn trigger_route_domain_certificates(&self) {
+        let Some(config) = self.config.routes.acme.clone() else {
+            return;
+        };
+
+        let backend = self.clone();
+        tokio::task::spawn(async move { backend.run_certificate_job(&config).await });
+    }
+
     pub(crate) fn spawn_route_domain_certificates(&self) {
         let Some(config) = self.config.routes.acme.clone() else {
             return;
@@ -450,17 +503,7 @@ impl Backend {
 
         tokio::task::spawn(async move {
             loop {
-                if backend.try_lock(CERTIFICATE_LOCK, JOB_LOCK_TTL).await {
-                    let guard = backend.hold_lock(CERTIFICATE_LOCK.to_owned());
-
-                    if let Err(err) = backend.renew_route_domain_certificates(&config).await {
-                        error!("Unable to renew the route domain certificates: {err:?}");
-                    }
-
-                    drop(guard);
-                    backend.release_lock(CERTIFICATE_LOCK).await;
-                }
-
+                backend.run_certificate_job(&config).await;
                 tokio::time::sleep(CERTIFICATE_INTERVAL).await;
             }
         });

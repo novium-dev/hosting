@@ -11,6 +11,7 @@ use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
 use rusty_s3::{Bucket, Credentials, UrlStyle};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::env;
+use std::path::PathBuf;
 use url::Url;
 
 const DEFAULT_SESSION_LIFETIME: u64 = 43200;
@@ -439,6 +440,7 @@ pub struct RouteConfig {
     pub pangolin: Option<PangolinConfig>,
     pub acme: Option<AcmeConfig>,
     pub edge: Option<EdgeConfig>,
+    pub dns_resolver: Option<SocketAddr>,
 }
 
 impl RouteConfig {
@@ -477,6 +479,7 @@ impl RouteConfig {
                 Ok(AcmeConfig {
                     challenge_zone: challenge_zone.trim().trim_end_matches('.').to_lowercase(),
                     directory_url: url_var("BACKEND_ACME_DIRECTORY_URL")?,
+                    root_ca: var("BACKEND_ACME_ROOT_CA").map(PathBuf::from),
                 })
             })
             .transpose()?;
@@ -505,6 +508,7 @@ impl RouteConfig {
             pangolin,
             acme,
             edge,
+            dns_resolver: parse_var::<SocketAddr>("BACKEND_DNS_RESOLVER")?,
         })
     }
 }
@@ -523,6 +527,7 @@ pub struct EdgeConfig {
 pub struct AcmeConfig {
     pub challenge_zone: String,
     pub directory_url: Option<Url>,
+    pub root_ca: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
