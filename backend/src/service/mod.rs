@@ -6,6 +6,7 @@ pub(crate) mod api_key;
 pub(crate) mod auth;
 pub(crate) mod backup;
 pub(crate) mod database;
+pub(crate) mod domain;
 pub(crate) mod file;
 pub(crate) mod instance;
 pub(crate) mod internal;
@@ -120,6 +121,10 @@ define_error!(route {
     domain_in_use("The route domain is still used by routes" BAD_REQUEST),
     domain_not_linked("The route domain is not linked to a Pangolin domain" BAD_REQUEST),
     domain_not_shared("The server has routes on a private domain the target project cannot use" BAD_REQUEST),
+    domain_unverified("The domain's verification record was not found yet, DNS changes can take a while to propagate" BAD_REQUEST),
+    domain_reserved("The domain overlaps a domain provided by this instance" BAD_REQUEST),
+    domain_claimed("The domain has already been verified by another project" CONFLICT),
+    domain_limit_exceeded("The project's custom domain limit has been reached" BAD_REQUEST),
     subdomain_invalid("The specified subdomain is invalid" BAD_REQUEST),
     subdomain_taken("The specified subdomain is already taken" BAD_REQUEST),
     subdomain_too_short("The specified subdomain is too short" BAD_REQUEST),

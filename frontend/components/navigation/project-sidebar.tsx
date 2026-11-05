@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   Database,
+  Globe,
   KeyRound,
   Server,
   Settings,
@@ -87,6 +88,11 @@ export function ProjectSidebar() {
       href: `/${slug}/databases`,
       icon: Database,
       permission: ServerPermission.DATABASE_VIEW,
+    },
+    {
+      title: t("common:nav.domains"),
+      href: `/${slug}/domains`,
+      icon: Globe,
     },
     {
       title: t("common:nav.apiKeys"),

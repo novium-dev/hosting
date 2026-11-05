@@ -41,6 +41,7 @@ import SettingsPage from "@/app/(app)/[slug]/settings/page";
 import MembersPage from "@/app/(app)/[slug]/members/page";
 import ApiKeysPage from "@/app/(app)/[slug]/api-keys/page";
 import DatabasesPage from "@/app/(app)/[slug]/databases/page";
+import DomainsPage from "@/app/(app)/[slug]/domains/page";
 import DatabaseInstancePage from "@/app/(app)/[slug]/databases/[instance]/page";
 import ProfilePage from "@/app/(app)/[slug]/profile/page";
 import ServerLayout from "@/app/(app)/[slug]/servers/[server]/layout";
@@ -101,6 +102,7 @@ export const router = createBrowserRouter([
               { path: "members", element: <MembersPage /> },
               { path: "api-keys", element: <ApiKeysPage /> },
               { path: "databases", element: <DatabasesPage /> },
+              { path: "domains", element: <DomainsPage /> },
               {
                 path: "databases/:instance",
                 element: <DatabaseInstancePage />,

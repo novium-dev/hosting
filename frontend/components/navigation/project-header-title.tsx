@@ -11,6 +11,7 @@ import { useProjectRoute } from "@/lib/project-route";
 const sectionTitleKeys: Record<string, string> = {
   members: "common:nav.members",
   databases: "common:nav.databases",
+  domains: "common:nav.domains",
   "api-keys": "common:nav.apiKeys",
   settings: "common:nav.settings",
 };

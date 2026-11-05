@@ -4,7 +4,10 @@ use crate::auth::user::hash_daemon_password;
 use crate::cluster::SyncTarget;
 use crate::db::node::insert_storages;
 use crate::registration::{DatabaseHostRegistration, NodeRegistration};
-use crate::service::internal::internal_service_error::{AuthPasswordError, AuthPublickeyError};
+use crate::routes::edge::TraefikConfig;
+use crate::service::internal::internal_service_error::{
+    AuthPasswordError, AuthPublickeyError, EdgeTraefikError,
+};
 use crate::{
     Backend,
     auth::effective::EffectivePermissions,
@@ -43,6 +46,7 @@ use rustls::{
     RootCertStore,
     pki_types::{CertificateDer, CertificateSigningRequestDer},
 };
+use sha2::{Digest as _, Sha256};
 use sqlx::{Connection as _, query};
 use std::sync::Arc;
 use tracing::{debug, error};
@@ -66,6 +70,31 @@ define_query_variable!(
 
 #[service(path = "/internal", tag = "internal", no_sdk)]
 pub(crate) impl InternalService for Backend {
+    /// Returns the dynamic Traefik configuration of the edge that serves HTTP routes on
+    /// project-owned domains, including the certificates and their private keys.
+    ///
+    /// This route should only be polled by the edge's Traefik through its HTTP provider, which
+    /// sends `BACKEND_EDGE_TOKEN` as a bearer token.
+    #[route("/edge/traefik", no_auth)]
+    #[error(auth::invalid, db::failure <- [sql:*])]
+    async fn edge_traefik(
+        &self,
+        TypedHeader(Authorization(auth)): TypedHeader<Authorization<Bearer>>,
+    ) -> Result<TraefikConfig, _> {
+        let edge = self
+            .config
+            .routes
+            .edge
+            .as_ref()
+            .ok_or(EdgeTraefikError::AuthInvalid)?;
+
+        if Sha256::digest(auth.token().as_bytes()) != Sha256::digest(edge.token.as_bytes()) {
+            return Err(EdgeTraefikError::AuthInvalid);
+        }
+
+        Ok(self.edge_traefik_config().await?)
+    }
+
     /// Returns the public daemon root key as pem.
     ///
     /// This route should only be used directly by the daemon.

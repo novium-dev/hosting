@@ -2,6 +2,7 @@ use crate::Backend;
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::routes::{RouteHandle, RouteKind, RouteRecord};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{Executor, Postgres, query, query_as};
@@ -28,6 +29,27 @@ pub struct RouteDomain {
     pub cloudflare_zone_id: Option<String>,
     pub https: bool,
     pub private: bool,
+    pub project: Option<ProjectId>,
+    pub verified: bool,
+}
+
+impl RouteDomain {
+    pub const fn is_platform(&self) -> bool {
+        self.project.is_none()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ProjectRouteDomain {
+    pub id: i32,
+    pub domain: String,
+    pub verification_token: String,
+    pub verified_at: Option<DateTime<Utc>>,
+    pub verify_checked_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub certificate_issued_at: Option<DateTime<Utc>>,
+    pub certificate_expires_at: Option<DateTime<Utc>>,
+    pub certificate_error: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +67,7 @@ pub struct StoredRoute {
     pub status: RouteStatus,
     pub external_ids: Vec<String>,
     pub records: Value,
+    pub custom: bool,
 }
 
 impl StoredRoute {
@@ -54,6 +77,7 @@ impl StoredRoute {
             domain: &self.domain_name,
             zone_id: self.zone_id.as_deref(),
             external_ids: &self.external_ids,
+            custom: self.custom,
         }
     }
 }
@@ -72,7 +96,9 @@ impl Backend {
     ) -> Result<Vec<RouteDomain>, sqlx::Error> {
         query_as!(
             RouteDomain,
-            r#"SELECT id, domain, pangolin_domain_id, cloudflare_zone_id, https, private
+            r#"SELECT id, domain, pangolin_domain_id, cloudflare_zone_id, https, private,
+                      project AS "project: ProjectId",
+                      (verified_at IS NOT NULL) AS "verified!"
                FROM route_domains
                ORDER BY domain"#
         )
@@ -87,9 +113,62 @@ impl Backend {
     ) -> Result<Option<RouteDomain>, sqlx::Error> {
         query_as!(
             RouteDomain,
-            r#"SELECT id, domain, pangolin_domain_id, cloudflare_zone_id, https, private
+            r#"SELECT id, domain, pangolin_domain_id, cloudflare_zone_id, https, private,
+                      project AS "project: ProjectId",
+                      (verified_at IS NOT NULL) AS "verified!"
                FROM route_domains
                WHERE id = $1"#,
+            domain_id
+        )
+        .fetch_optional(executor)
+        .await
+    }
+
+    pub(crate) async fn project_route_domains<'e, E: Executor<'e, Database = Postgres>>(
+        &self,
+        executor: E,
+        project: ProjectId,
+    ) -> Result<Vec<ProjectRouteDomain>, sqlx::Error> {
+        query_as!(
+            ProjectRouteDomain,
+            r#"SELECT route_domains.id, route_domains.domain,
+                      route_domains.verification_token AS "verification_token!",
+                      route_domains.verified_at, route_domains.verify_checked_at,
+                      route_domains.created_at,
+                      certificates.issued_at AS "certificate_issued_at?",
+                      certificates.expires_at AS "certificate_expires_at?",
+                      certificates.last_error AS "certificate_error?"
+               FROM route_domains
+               LEFT JOIN route_domain_certificates certificates
+                   ON certificates.domain = route_domains.id
+               WHERE route_domains.project = $1
+               ORDER BY route_domains.domain"#,
+            &project
+        )
+        .fetch_all(executor)
+        .await
+    }
+
+    pub(crate) async fn project_route_domain<'e, E: Executor<'e, Database = Postgres>>(
+        &self,
+        executor: E,
+        project: ProjectId,
+        domain_id: i32,
+    ) -> Result<Option<ProjectRouteDomain>, sqlx::Error> {
+        query_as!(
+            ProjectRouteDomain,
+            r#"SELECT route_domains.id, route_domains.domain,
+                      route_domains.verification_token AS "verification_token!",
+                      route_domains.verified_at, route_domains.verify_checked_at,
+                      route_domains.created_at,
+                      certificates.issued_at AS "certificate_issued_at?",
+                      certificates.expires_at AS "certificate_expires_at?",
+                      certificates.last_error AS "certificate_error?"
+               FROM route_domains
+               LEFT JOIN route_domain_certificates certificates
+                   ON certificates.domain = route_domains.id
+               WHERE route_domains.project = $1 AND route_domains.id = $2"#,
+            &project,
             domain_id
         )
         .fetch_optional(executor)
@@ -123,6 +202,7 @@ impl Backend {
                 routes.domain,
                 route_domains.domain AS domain_name,
                 route_domains.cloudflare_zone_id AS zone_id,
+                (route_domains.project IS NOT NULL) AS "custom!",
                 routes.subdomain,
                 routes.port,
                 routes.kind AS "kind: RouteKind",
@@ -168,6 +248,7 @@ impl Backend {
                 routes.domain,
                 route_domains.domain AS domain_name,
                 route_domains.cloudflare_zone_id AS zone_id,
+                (route_domains.project IS NOT NULL) AS "custom!",
                 routes.subdomain,
                 routes.port,
                 routes.kind AS "kind: RouteKind",

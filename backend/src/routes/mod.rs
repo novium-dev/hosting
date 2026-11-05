@@ -1,5 +1,8 @@
+pub mod acme;
 pub mod cloudflare;
+pub mod edge;
 pub mod pangolin;
+pub mod verify;
 
 use crate::config::RouteConfig;
 use crate::routes::cloudflare::CloudflareClient;
@@ -85,12 +88,19 @@ pub struct RouteHandle<'a> {
     pub domain: &'a str,
     pub zone_id: Option<&'a str>,
     pub external_ids: &'a [String],
+    pub custom: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct ProvisionedRoute {
     pub external_ids: Vec<String>,
     pub records: Vec<RouteRecord>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TxtRecordHandle {
+    pub zone: String,
+    pub id: String,
 }
 
 pub struct RouteBackends {
@@ -156,6 +166,10 @@ impl RouteBackends {
     }
 
     pub async fn delete(&self, handle: RouteHandle<'_>) -> Result<(), RouteError> {
+        if handle.custom {
+            return Ok(());
+        }
+
         match handle.kind {
             RouteKind::Http => {
                 self.pangolin
@@ -174,6 +188,26 @@ impl RouteBackends {
                 cloudflare.delete(&zone, handle.external_ids).await
             }
         }
+    }
+
+    pub async fn create_txt(
+        &self,
+        name: &str,
+        content: &str,
+        comment: &str,
+    ) -> Result<TxtRecordHandle, RouteError> {
+        let cloudflare = self.cloudflare.as_ref().ok_or(RouteError::Unavailable)?;
+        let zone = cloudflare.zone_of(name).await?;
+        let id = cloudflare.create_txt(&zone, name, content, comment).await?;
+        Ok(TxtRecordHandle { zone, id })
+    }
+
+    pub async fn delete_txt(&self, handle: &TxtRecordHandle) -> Result<(), RouteError> {
+        self.cloudflare
+            .as_ref()
+            .ok_or(RouteError::Unavailable)?
+            .delete(&handle.zone, core::slice::from_ref(&handle.id))
+            .await
     }
 
     pub async fn zone(&self, domain: &str) -> Result<String, RouteError> {

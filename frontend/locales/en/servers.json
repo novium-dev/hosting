@@ -258,7 +258,8 @@
       "createsRecordHelp": "Creates <code>{{record}}</code>, so clients that look the service up reach the port on their own. The service name comes from the port.",
       "yourNamePlaceholder": "your-name",
       "theDomainPlaceholder": "the-domain",
-      "submitButton": "Create route"
+      "submitButton": "Create route",
+      "customRecordHelp": "Clients find the port through <code>{{record}}</code>. It is not created for you: add it at your domain's DNS provider once the route exists."
     },
     "deleteDialog": {
       "title": "Delete route",
@@ -272,6 +273,11 @@
       "copyFailed": "Failed to copy",
       "deleteFailed": "Failed to delete route",
       "deleteSuccess": "Route deleted"
+    },
+    "customLabel": "own domain",
+    "customDns": {
+      "title": "DNS records for your own domains",
+      "description": "Routes on your own domains are not published automatically. Create these records at your domain's DNS provider and remove them yourself when you delete the route."
     }
   },
   "schedules": {

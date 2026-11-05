@@ -1,3 +1,4 @@
+mod certificates;
 mod hosts;
 mod nodes;
 mod routes;
@@ -19,6 +20,7 @@ const CHECKS: &[&dyn Check] = &[
     &nodes::OrphanedPlacements,
     &templates::Templates,
     &routes::Routes,
+    &certificates::Certificates,
     &schema::SchemaDump,
 ];
 

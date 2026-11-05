@@ -239,5 +239,39 @@
     "noProjectDescription": "Bitte wähle ein Projekt aus, bevor du Server ansiehst.",
     "emptyTitle": "Keine Server gefunden",
     "emptyDescription": "Dieses Projekt hat noch keine Spieleserver."
+  },
+  "domains": {
+    "description": "Nutze eigene Domains für deine Routen. Jede Domain braucht ein paar DNS-Einträge, bevor sie genutzt werden kann.",
+    "empty": "Noch keine Domains hinzugefügt.",
+    "status": {
+      "verified": "Verifiziert",
+      "pending": "Verifizierung ausstehend"
+    },
+    "recordsPending": "Lege diese Einträge bei deinem DNS-Anbieter an.",
+    "recordsVerified": "Lass diese Einträge bestehen, damit Routen und Zertifikate weiter funktionieren.",
+    "pendingHelp": "Die Domain wird alle paar Minuten geprüft. Domains, die nicht innerhalb einer Woche verifiziert werden, werden entfernt.",
+    "verifyButton": "Jetzt prüfen",
+    "deleteDescription": "Routen auf dieser Domain müssen vorher entfernt werden. Einträge bei deinem DNS-Anbieter werden nicht geändert.",
+    "certificate": {
+      "validUntil": "Zertifikat gültig bis {{date}}",
+      "pending": "Zertifikat ausstehend",
+      "error": "Zertifikat konnte nicht ausgestellt werden: {{error}}"
+    },
+    "addDialog": {
+      "trigger": "Domain hinzufügen",
+      "title": "Domain hinzufügen",
+      "description": "Gib eine Domain ein, die dir gehört. Nach der Verifizierung kannst du ihre Subdomains für Routen nutzen.",
+      "domainLabel": "Domain",
+      "domainInvalid": "Gib eine gültige Domain wie example.com ein."
+    },
+    "toasts": {
+      "loadFailed": "Domains konnten nicht geladen werden",
+      "createFailed": "Domain konnte nicht hinzugefügt werden",
+      "created": "{{domain}} hinzugefügt",
+      "verifyFailed": "Domain konnte nicht verifiziert werden",
+      "verified": "{{domain}} verifiziert",
+      "deleteFailed": "Domain konnte nicht entfernt werden",
+      "deleted": "{{domain}} entfernt"
+    }
   }
 }

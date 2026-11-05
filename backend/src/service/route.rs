@@ -5,8 +5,10 @@ use crate::db::project::ProjectId;
 use crate::db::route::{RouteStatus, decode_records};
 use crate::db::server::ServerId;
 use crate::db::server::ports::NetworkProtocol;
+use crate::routes::cloudflare::planned_records;
 use crate::routes::{
-    RouteError, RouteKind, RouteRecord, RouteRequest, is_valid_label, service_name,
+    ProvisionedRoute, RouteError, RouteKind, RouteRecord, RouteRequest, is_valid_label,
+    service_name,
 };
 use crate::service::route::route_service_error::{
     CreateRouteError, DeleteRouteError, ListRouteDomainsError, ListRoutesError,
@@ -19,6 +21,7 @@ use zelus::{define_query_variable, service};
 
 const MIN_SUBDOMAIN_LENGTH: usize = 3;
 const PORT_COOLDOWN_HOURS: i32 = 6;
+const MANUAL_RECORD_TTL: u32 = 300;
 
 define_query_variable!(project "The project the domains are listed for");
 
@@ -32,6 +35,7 @@ pub(crate) struct RouteDomainInfo {
     pub(crate) domain: String,
     pub(crate) https: bool,
     pub(crate) private: bool,
+    pub(crate) custom: bool,
     pub(crate) http_available: bool,
     pub(crate) tcp_available: bool,
 }
@@ -67,10 +71,12 @@ pub(crate) impl RouteService for Backend {
     ///
     /// `http_available` and `tcp_available` tell which kinds of routes the domain can carry:
     /// HTTP routes need Pangolin and a linked Pangolin domain, TCP routes need Cloudflare and a
-    /// resolved zone for the domain.
+    /// resolved zone for the domain. On a project's own domain HTTP routes need the edge, and TCP
+    /// routes are always available since their records are created by the domain's owner.
     ///
     /// Private domains are only listed when the given project has been granted access to them,
-    /// or when the caller holds [`ManagementPermissions::DOMAINS_VIEW`].
+    /// or when the caller holds [`ManagementPermissions::DOMAINS_VIEW`]. The given project's own
+    /// verified domains are listed with `custom` set.
     #[route("/domains", method = GET, query = [project])]
     #[error(auth::{permission_denied, unreachable}, project::not_found, db::failure <- [sql:*])]
     async fn list_route_domains(
@@ -105,16 +111,30 @@ pub(crate) impl RouteService for Backend {
             .route_domains(&*self.database)
             .await?
             .into_iter()
-            .filter(|domain| all || !domain.private || granted.contains(&domain.id))
-            .map(|domain| RouteDomainInfo {
-                id: domain.id,
-                domain: domain.domain,
-                https: domain.https,
-                private: domain.private,
-                http_available: self.route_backends.supports(RouteKind::Http)
-                    && domain.pangolin_domain_id.is_some(),
-                tcp_available: self.route_backends.supports(RouteKind::Tcp)
-                    && domain.cloudflare_zone_id.is_some(),
+            .filter(|domain| {
+                domain.project.map_or_else(
+                    || all || !domain.private || granted.contains(&domain.id),
+                    |owner| domain.verified && project == Some(owner),
+                )
+            })
+            .map(|domain| {
+                let custom = !domain.is_platform();
+                RouteDomainInfo {
+                    http_available: if custom {
+                        self.config.routes.edge.is_some()
+                    } else {
+                        self.route_backends.supports(RouteKind::Http)
+                            && domain.pangolin_domain_id.is_some()
+                    },
+                    tcp_available: custom
+                        || (self.route_backends.supports(RouteKind::Tcp)
+                            && domain.cloudflare_zone_id.is_some()),
+                    custom,
+                    id: domain.id,
+                    domain: domain.domain,
+                    https: domain.https,
+                    private: domain.private,
+                }
             })
             .collect())
     }
@@ -184,6 +204,11 @@ pub(crate) impl RouteService for Backend {
     /// Pangolin resource reachable at the subdomain, any other port gets a Cloudflare SRV record
     /// so clients reach it without typing the port.
     ///
+    /// On one of the project's own verified domains HTTP routes are served by the edge, which
+    /// receives them through the domain's wildcard CNAME. TCP and UDP routes there are not
+    /// published by the backend: `records` lists the SRV (and address) records the domain's
+    /// owner has to create.
+    ///
     /// The SRV service name comes from the port's name, so a port named `minecraft` publishes
     /// `_minecraft._tcp.<subdomain>.<domain>`, and a UDP port publishes `_<name>._udp.…`.
     /// `https` only applies to HTTP routes.
@@ -194,7 +219,7 @@ pub(crate) impl RouteService for Backend {
     #[error(
         auth::{permission_denied, unreachable},
         server::not_found,
-        route::{domain_not_found, subdomain_invalid, subdomain_taken, subdomain_too_short,
+        route::{domain_not_found, domain_unverified, subdomain_invalid, subdomain_taken, subdomain_too_short,
             port_invalid, port_has_route, port_cooldown, service_invalid,
             https_unavailable, kind_unavailable, domain_not_linked, zone_not_found,
             backend_unavailable, backend_error},
@@ -230,6 +255,18 @@ pub(crate) impl RouteService for Backend {
             .route_domain(&*self.database, payload.domain)
             .await?
             .ok_or(CreateRouteError::RouteDomainNotFound)?;
+
+        let custom = !domain.is_platform();
+
+        if let Some(owner) = domain.project {
+            if owner != server.project {
+                return Err(CreateRouteError::RouteDomainNotFound);
+            }
+
+            if !domain.verified {
+                return Err(CreateRouteError::RouteDomainUnverified);
+            }
+        }
 
         if domain.private
             && !auth.has((), ManagementPermissions::DOMAINS_VIEW)
@@ -281,15 +318,22 @@ pub(crate) impl RouteService for Backend {
             (false, NetworkProtocol::Udp) => RouteKind::Udp,
         };
 
-        if !self.route_backends.supports(kind) {
-            return Err(CreateRouteError::RouteKindUnavailable);
-        }
+        if custom {
+            if matches!(kind, RouteKind::Http) && self.config.routes.edge.is_none() {
+                return Err(CreateRouteError::RouteKindUnavailable);
+            }
+        } else {
+            if !self.route_backends.supports(kind) {
+                return Err(CreateRouteError::RouteKindUnavailable);
+            }
 
-        if matches!(kind, RouteKind::Http) && domain.pangolin_domain_id.is_none() {
-            return Err(CreateRouteError::RouteDomainNotLinked);
+            if matches!(kind, RouteKind::Http) && domain.pangolin_domain_id.is_none() {
+                return Err(CreateRouteError::RouteDomainNotLinked);
+            }
         }
 
         let zone_id = match kind {
+            _ if custom => None,
             RouteKind::Http => None,
             RouteKind::Tcp | RouteKind::Udp => match domain.cloudflare_zone_id.clone() {
                 Some(zone) => Some(zone),
@@ -380,7 +424,19 @@ pub(crate) impl RouteService for Backend {
             label: format!("{} ({server_id})", server.name),
         };
 
-        let provisioned = match self.route_backends.create(&request).await {
+        let provisioned = if custom {
+            Ok(ProvisionedRoute {
+                external_ids: Vec::new(),
+                records: match kind {
+                    RouteKind::Http => Vec::new(),
+                    RouteKind::Tcp | RouteKind::Udp => planned_records(&request, MANUAL_RECORD_TTL),
+                },
+            })
+        } else {
+            self.route_backends.create(&request).await
+        };
+
+        let provisioned = match provisioned {
             Ok(provisioned) => provisioned,
             Err(err) => {
                 if let Err(cleanup) = query!("DELETE FROM routes WHERE id = $1", route_id)

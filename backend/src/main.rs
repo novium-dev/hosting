@@ -314,6 +314,8 @@ async fn main0() {
     load_templates(&backend).await;
 
     backend.spawn_session_cleanup();
+    backend.spawn_route_domain_verification();
+    backend.spawn_route_domain_certificates();
 
     info!("Starting Webserver...");
 

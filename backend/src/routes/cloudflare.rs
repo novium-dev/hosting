@@ -34,6 +34,16 @@ struct AddressRecordPayload<'a> {
 }
 
 #[derive(Debug, Serialize)]
+struct TxtRecordPayload<'a> {
+    #[serde(rename = "type")]
+    record_type: &'a str,
+    name: &'a str,
+    content: &'a str,
+    ttl: u32,
+    comment: &'a str,
+}
+
+#[derive(Debug, Serialize)]
 struct SrvData<'a> {
     priority: u16,
     weight: u16,
@@ -66,6 +76,46 @@ struct CloudflareResponse {
 struct CloudflareZonesResponse {
     success: bool,
     result: Option<Vec<CloudflareResult>>,
+}
+
+pub fn planned_records(request: &RouteRequest, ttl: u32) -> Vec<RouteRecord> {
+    let fqdn = request.fqdn();
+    let service = request
+        .service
+        .clone()
+        .unwrap_or_else(|| service_name(&request.label));
+    let protocol = request.kind.srv_protocol();
+
+    let mut records = Vec::with_capacity(2);
+
+    let address = request.target_host.parse::<IpAddr>().ok();
+    let srv_target = if address.is_some() {
+        fqdn.clone()
+    } else {
+        request.target_host.clone()
+    };
+
+    if let Some(address) = address {
+        records.push(RouteRecord {
+            record_type: if address.is_ipv4() { "A" } else { "AAAA" }.to_owned(),
+            name: fqdn.clone(),
+            value: request.target_host.clone(),
+            priority: None,
+            port: None,
+            ttl: Some(ttl),
+        });
+    }
+
+    records.push(RouteRecord {
+        record_type: "SRV".to_owned(),
+        name: format!("_{service}._{protocol}.{fqdn}"),
+        value: srv_target,
+        priority: Some(SRV_PRIORITY),
+        port: Some(request.target_port),
+        ttl: Some(ttl),
+    });
+
+    records
 }
 
 impl CloudflareClient {
@@ -162,6 +212,41 @@ impl CloudflareClient {
         Ok(zone)
     }
 
+    pub async fn zone_of(&self, name: &str) -> Result<String, RouteError> {
+        let mut candidate = name;
+        loop {
+            match self.zone(candidate).await {
+                Err(RouteError::ZoneNotFound) => {}
+                result => return result,
+            }
+
+            match candidate.split_once('.') {
+                Some((_, parent)) if parent.contains('.') => candidate = parent,
+                _ => return Err(RouteError::ZoneNotFound),
+            }
+        }
+    }
+
+    pub async fn create_txt(
+        &self,
+        zone: &str,
+        name: &str,
+        content: &str,
+        comment: &str,
+    ) -> Result<String, RouteError> {
+        self.post_record(
+            zone,
+            &TxtRecordPayload {
+                record_type: "TXT",
+                name,
+                content,
+                ttl: DEFAULT_TTL,
+                comment,
+            },
+        )
+        .await
+    }
+
     async fn post_record<P: Serialize + Sync>(
         &self,
         zone: &str,
@@ -199,90 +284,66 @@ impl CloudflareClient {
         }
     }
 
+    async fn post_planned(
+        &self,
+        zone: &str,
+        record: &RouteRecord,
+        comment: &str,
+    ) -> Result<String, RouteError> {
+        match record.port {
+            Some(port) => {
+                self.post_record(
+                    zone,
+                    &SrvRecordPayload {
+                        record_type: &record.record_type,
+                        name: &record.name,
+                        data: SrvData {
+                            priority: record.priority.unwrap_or(SRV_PRIORITY),
+                            weight: SRV_WEIGHT,
+                            port,
+                            target: &record.value,
+                        },
+                        ttl: self.ttl(),
+                        comment,
+                    },
+                )
+                .await
+            }
+            None => {
+                self.post_record(
+                    zone,
+                    &AddressRecordPayload {
+                        record_type: &record.record_type,
+                        name: &record.name,
+                        content: &record.value,
+                        ttl: self.ttl(),
+                        proxied: false,
+                        comment,
+                    },
+                )
+                .await
+            }
+        }
+    }
+
     pub async fn create(&self, request: &RouteRequest) -> Result<ProvisionedRoute, RouteError> {
         let zone = match request.zone_id {
             Some(ref zone) => zone.clone(),
             None => self.zone(&request.domain).await?,
         };
 
-        let fqdn = request.fqdn();
-        let service = request
-            .service
-            .clone()
-            .unwrap_or_else(|| service_name(&request.label));
-        let protocol = request.kind.srv_protocol();
+        let records = planned_records(request, self.ttl());
+        let mut external_ids = Vec::with_capacity(records.len());
 
-        let mut external_ids = Vec::new();
-        let mut records = Vec::new();
-
-        let srv_target = match request.target_host.parse::<IpAddr>() {
-            Ok(address) => {
-                let record_type = if address.is_ipv4() { "A" } else { "AAAA" };
-                let id = self
-                    .post_record(
-                        &zone,
-                        &AddressRecordPayload {
-                            record_type,
-                            name: &fqdn,
-                            content: &request.target_host,
-                            ttl: self.ttl(),
-                            proxied: false,
-                            comment: &request.label,
-                        },
-                    )
-                    .await?;
-
-                external_ids.push(id);
-                records.push(RouteRecord {
-                    record_type: record_type.to_owned(),
-                    name: fqdn.clone(),
-                    value: request.target_host.clone(),
-                    priority: None,
-                    port: None,
-                    ttl: Some(self.ttl()),
-                });
-
-                fqdn.clone()
-            }
-            Err(_) => request.target_host.clone(),
-        };
-
-        let name = format!("_{service}._{protocol}.{fqdn}");
-        let srv = self
-            .post_record(
-                &zone,
-                &SrvRecordPayload {
-                    record_type: "SRV",
-                    name: &name,
-                    data: SrvData {
-                        priority: SRV_PRIORITY,
-                        weight: SRV_WEIGHT,
-                        port: request.target_port,
-                        target: &srv_target,
-                    },
-                    ttl: self.ttl(),
-                    comment: &request.label,
-                },
-            )
-            .await;
-
-        match srv {
-            Ok(id) => {
-                external_ids.push(id);
-                records.push(RouteRecord {
-                    record_type: "SRV".to_owned(),
-                    name,
-                    value: srv_target,
-                    priority: Some(SRV_PRIORITY),
-                    port: Some(request.target_port),
-                    ttl: Some(self.ttl()),
-                });
-            }
-            Err(err) => {
-                if let Err(cleanup) = self.delete(&zone, &external_ids).await {
-                    error!("Unable to roll back the Cloudflare records: {cleanup:?}");
+        for record in &records {
+            match self.post_planned(&zone, record, &request.label).await {
+                Ok(id) => external_ids.push(id),
+                Err(err) => {
+                    if let Err(cleanup) = self.delete(&zone, &external_ids).await {
+                        error!("Unable to roll back the Cloudflare records: {cleanup:?}");
+                    }
+                    return Err(err);
                 }
-                return Err(err);
             }
         }
 

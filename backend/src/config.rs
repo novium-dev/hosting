@@ -437,6 +437,8 @@ impl InstanceDefaults {
 pub struct RouteConfig {
     pub cloudflare: Option<CloudflareConfig>,
     pub pangolin: Option<PangolinConfig>,
+    pub acme: Option<AcmeConfig>,
+    pub edge: Option<EdgeConfig>,
 }
 
 impl RouteConfig {
@@ -464,11 +466,63 @@ impl RouteConfig {
             })
             .transpose()?;
 
+        let acme = var("BACKEND_ACME_CHALLENGE_ZONE")
+            .map(|challenge_zone| {
+                if cloudflare.is_none() {
+                    return Err(anyhow!(
+                        "BACKEND_ACME_CHALLENGE_ZONE needs BACKEND_CLOUDFLARE_API_TOKEN"
+                    ));
+                }
+
+                Ok(AcmeConfig {
+                    challenge_zone: challenge_zone.trim().trim_end_matches('.').to_lowercase(),
+                    directory_url: url_var("BACKEND_ACME_DIRECTORY_URL")?,
+                })
+            })
+            .transpose()?;
+
+        let edge = var("BACKEND_EDGE_TOKEN")
+            .map(|token| {
+                Ok::<_, anyhow::Error>(EdgeConfig {
+                    token,
+                    public_host: required_var("BACKEND_EDGE_PUBLIC_HOST")?
+                        .trim()
+                        .trim_end_matches('.')
+                        .to_lowercase(),
+                    https_address: required_var("BACKEND_EDGE_HTTPS_ADDRESS")?,
+                    http_url: url_var("BACKEND_EDGE_HTTP_URL")?
+                        .ok_or_else(|| anyhow!("BACKEND_EDGE_HTTP_URL must be set"))?,
+                    root_key: var("BACKEND_EDGE_ROOT_KEY")
+                        .unwrap_or_else(|| "novium-edge".to_owned()),
+                    proxy_protocol: parse_var::<bool>("BACKEND_EDGE_PROXY_PROTOCOL")?
+                        .unwrap_or(false),
+                })
+            })
+            .transpose()?;
+
         Ok(Self {
             cloudflare,
             pangolin,
+            acme,
+            edge,
         })
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct EdgeConfig {
+    pub token: String,
+    pub public_host: String,
+    pub https_address: String,
+    pub http_url: Url,
+    pub root_key: String,
+    pub proxy_protocol: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct AcmeConfig {
+    pub challenge_zone: String,
+    pub directory_url: Option<Url>,
 }
 
 #[derive(Debug, Clone)]

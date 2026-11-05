@@ -22,6 +22,7 @@ export const ServerPermission = {
   DATABASE_MANAGE: 2 ** 20,
   SCHEDULE_VIEW: 2 ** 21,
   SCHEDULE_MANAGE: 2 ** 22,
+  DOMAINS_MANAGE: 2 ** 23,
 } as const;
 
 export const ManagementPermission = {
@@ -210,9 +211,15 @@ export const SERVER_PERMISSION_GROUPS: {
     permissions: [
       { bit: ServerPermission.BUILD_VIEW, label: "View startup settings" },
       { bit: ServerPermission.BUILD_EDIT, label: "Edit startup settings" },
+    ],
+  },
+  {
+    group: "Administration",
+    permissions: [
       {
         bit: ServerPermission.ADMIN_MANAGEMENT,
-        label: "View secret startup variables",
+        label:
+          "Manage project & server names, all API keys and secret variables",
       },
     ],
   },
@@ -256,6 +263,15 @@ export const SERVER_PERMISSION_GROUPS: {
       {
         bit: ServerPermission.DATABASE_MANAGE,
         label: "Create & delete databases",
+      },
+    ],
+  },
+  {
+    group: "Domains",
+    permissions: [
+      {
+        bit: ServerPermission.DOMAINS_MANAGE,
+        label: "Add & remove custom domains",
       },
     ],
   },
