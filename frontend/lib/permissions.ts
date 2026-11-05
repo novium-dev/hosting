@@ -211,9 +211,15 @@ export const SERVER_PERMISSION_GROUPS: {
     permissions: [
       { bit: ServerPermission.BUILD_VIEW, label: "View startup settings" },
       { bit: ServerPermission.BUILD_EDIT, label: "Edit startup settings" },
+    ],
+  },
+  {
+    group: "Administration",
+    permissions: [
       {
         bit: ServerPermission.ADMIN_MANAGEMENT,
-        label: "View secret startup variables",
+        label:
+          "Manage project & server names, all API keys and secret variables",
       },
     ],
   },
