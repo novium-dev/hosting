@@ -5,6 +5,7 @@ use crate::db::project::ProjectId;
 use crate::db::route::{RouteStatus, decode_records};
 use crate::db::server::ServerId;
 use crate::db::server::ports::NetworkProtocol;
+use crate::routes::cloudflare::planned_records;
 use crate::routes::{
     ProvisionedRoute, RouteError, RouteKind, RouteRecord, RouteRequest, is_valid_label,
     service_name,
@@ -20,6 +21,7 @@ use zelus::{define_query_variable, service};
 
 const MIN_SUBDOMAIN_LENGTH: usize = 3;
 const PORT_COOLDOWN_HOURS: i32 = 6;
+const MANUAL_RECORD_TTL: u32 = 300;
 
 define_query_variable!(project "The project the domains are listed for");
 
@@ -193,8 +195,10 @@ pub(crate) impl RouteService for Backend {
     /// Pangolin resource reachable at the subdomain, any other port gets a Cloudflare SRV record
     /// so clients reach it without typing the port.
     ///
-    /// On one of the project's own verified domains only HTTP routes are available. They are
-    /// served by the edge, which reaches them through the domain's wildcard CNAME.
+    /// On one of the project's own verified domains HTTP routes are served by the edge, which
+    /// receives them through the domain's wildcard CNAME. TCP and UDP routes there are not
+    /// published by the backend: `records` lists the SRV (and address) records the domain's
+    /// owner has to create.
     ///
     /// The SRV service name comes from the port's name, so a port named `minecraft` publishes
     /// `_minecraft._tcp.<subdomain>.<domain>`, and a UDP port publishes `_<name>._udp.…`.
@@ -306,7 +310,7 @@ pub(crate) impl RouteService for Backend {
         };
 
         if custom {
-            if !matches!(kind, RouteKind::Http) || self.config.routes.edge.is_none() {
+            if matches!(kind, RouteKind::Http) && self.config.routes.edge.is_none() {
                 return Err(CreateRouteError::RouteKindUnavailable);
             }
         } else {
@@ -320,6 +324,7 @@ pub(crate) impl RouteService for Backend {
         }
 
         let zone_id = match kind {
+            _ if custom => None,
             RouteKind::Http => None,
             RouteKind::Tcp | RouteKind::Udp => match domain.cloudflare_zone_id.clone() {
                 Some(zone) => Some(zone),
@@ -413,7 +418,10 @@ pub(crate) impl RouteService for Backend {
         let provisioned = if custom {
             Ok(ProvisionedRoute {
                 external_ids: Vec::new(),
-                records: Vec::new(),
+                records: match kind {
+                    RouteKind::Http => Vec::new(),
+                    RouteKind::Tcp | RouteKind::Udp => planned_records(&request, MANUAL_RECORD_TTL),
+                },
             })
         } else {
             self.route_backends.create(&request).await
