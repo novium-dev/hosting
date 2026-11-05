@@ -71,7 +71,8 @@ pub(crate) impl RouteService for Backend {
     ///
     /// `http_available` and `tcp_available` tell which kinds of routes the domain can carry:
     /// HTTP routes need Pangolin and a linked Pangolin domain, TCP routes need Cloudflare and a
-    /// resolved zone for the domain.
+    /// resolved zone for the domain. On a project's own domain HTTP routes need the edge, and TCP
+    /// routes are always available since their records are created by the domain's owner.
     ///
     /// Private domains are only listed when the given project has been granted access to them,
     /// or when the caller holds [`ManagementPermissions::DOMAINS_VIEW`]. The given project's own
@@ -116,16 +117,24 @@ pub(crate) impl RouteService for Backend {
                     |owner| domain.verified && project == Some(owner),
                 )
             })
-            .map(|domain| RouteDomainInfo {
-                custom: !domain.is_platform(),
-                id: domain.id,
-                domain: domain.domain,
-                https: domain.https,
-                private: domain.private,
-                http_available: self.route_backends.supports(RouteKind::Http)
-                    && domain.pangolin_domain_id.is_some(),
-                tcp_available: self.route_backends.supports(RouteKind::Tcp)
-                    && domain.cloudflare_zone_id.is_some(),
+            .map(|domain| {
+                let custom = !domain.is_platform();
+                RouteDomainInfo {
+                    http_available: if custom {
+                        self.config.routes.edge.is_some()
+                    } else {
+                        self.route_backends.supports(RouteKind::Http)
+                            && domain.pangolin_domain_id.is_some()
+                    },
+                    tcp_available: custom
+                        || (self.route_backends.supports(RouteKind::Tcp)
+                            && domain.cloudflare_zone_id.is_some()),
+                    custom,
+                    id: domain.id,
+                    domain: domain.domain,
+                    https: domain.https,
+                    private: domain.private,
+                }
             })
             .collect())
     }
