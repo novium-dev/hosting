@@ -4,7 +4,6 @@ use crate::auth::permissions::{ManagementPermissions, ProjectPermissions};
 use crate::db::project::ProjectId;
 use crate::db::route::ProjectRouteDomain;
 use crate::routes::acme::delegation_record;
-use crate::routes::edge::edge_record;
 use crate::routes::verify::{VerifyError, generate_token, verification_record};
 use crate::routes::{RouteRecord, is_valid_domain};
 use crate::service::domain::project_domain_service_error::{
@@ -39,11 +38,7 @@ pub(crate) struct ProjectDomainInfo {
 }
 
 impl ProjectDomainInfo {
-    fn new(
-        domain: ProjectRouteDomain,
-        challenge_zone: Option<&str>,
-        edge_host: Option<&str>,
-    ) -> Self {
+    fn new(domain: ProjectRouteDomain, challenge_zone: Option<&str>) -> Self {
         let mut records = Vec::new();
 
         if domain.verified_at.is_none() {
@@ -51,10 +46,6 @@ impl ProjectDomainInfo {
                 &domain.domain,
                 &domain.verification_token,
             ));
-        }
-
-        if let Some(host) = edge_host {
-            records.push(edge_record(&domain.domain, host));
         }
 
         if let Some(zone) = challenge_zone {
@@ -91,11 +82,6 @@ impl Backend {
                 .acme
                 .as_ref()
                 .map(|acme| acme.challenge_zone.as_str()),
-            self.config
-                .routes
-                .edge
-                .as_ref()
-                .map(|edge| edge.public_host.as_str()),
         )
     }
 }
@@ -116,10 +102,10 @@ pub(crate) impl ProjectDomainService for Backend {
     /// Lists the project's own domains.
     ///
     /// `records` lists the DNS records the domain needs: the TXT record proving ownership while
-    /// it is unverified, the wildcard CNAME pointing its subdomains at the edge when HTTP routes
-    /// on project domains are enabled, and, when certificates are enabled, the CNAME delegating
-    /// its ACME challenges. Certificates are issued for the domain and its wildcard with the email of the
-    /// user who added the domain as the ACME contact.
+    /// it is unverified and, when certificates are enabled, the CNAME delegating its ACME
+    /// challenges. Certificates are issued for the domain and its wildcard with the email of the
+    /// user who added the domain as the ACME contact. Each route on the domain lists its own
+    /// records.
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::VIEW`].

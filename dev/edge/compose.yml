@@ -1,0 +1,72 @@
+name: novium-edge-dev
+
+services:
+  challtestsrv:
+    image: ghcr.io/letsencrypt/pebble-challtestsrv:latest
+    command: >
+      -defaultIPv4 127.0.0.1 -defaultIPv6 ""
+      -dnsserver :8053 -management :8055
+      -http01 "" -https01 "" -tlsalpn01 "" -doh ""
+    ports:
+      - "8053:8053/udp"
+      - "8053:8053/tcp"
+      - "8055:8055"
+
+  pebble:
+    image: ghcr.io/letsencrypt/pebble:latest
+    command: -config test/config/pebble-config.json -dnsserver challtestsrv:8053
+    environment:
+      PEBBLE_VA_NOSLEEP: "1"
+      PEBBLE_WFE_NONCEREJECT: "0"
+    ports:
+      - "14000:14000"
+      - "15000:15000"
+    depends_on:
+      - challtestsrv
+
+  cloudflare:
+    image: python:3.13-alpine
+    command: python -u /mock/cloudflare_mock.py
+    environment:
+      CHALLTESTSRV: http://challtestsrv:8055
+      ZONES: novium.test
+    volumes:
+      - ./cloudflare_mock.py:/mock/cloudflare_mock.py:ro
+    ports:
+      - "18999:8080"
+    depends_on:
+      - challtestsrv
+
+  pangolin-traefik:
+    image: traefik:v3.7
+    command:
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --providers.redis.endpoints=host.docker.internal:6379
+      - --providers.redis.rootKey=novium-edge
+      - --accesslog=true
+      - --log.level=INFO
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "18080:80"
+      - "18443:443"
+
+  edge:
+    image: traefik:v3.7
+    command:
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.forwardedHeaders.insecure=true
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.proxyProtocol.insecure=true
+      - --providers.http.endpoint=http://host.docker.internal:8080/api/internal/edge/traefik
+      - --providers.http.pollInterval=5s
+      - --providers.http.headers.Authorization=Bearer dev-edge-token
+      - --accesslog=true
+      - --log.level=INFO
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  whoami:
+    image: traefik/whoami:latest
+    command: --port 25565

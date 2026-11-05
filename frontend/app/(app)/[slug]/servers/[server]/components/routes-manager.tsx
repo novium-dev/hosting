@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
-import { Copy, ExternalLink, Globe, Loader2, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, Globe, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Trans, useTranslation } from "react-i18next";
 
@@ -76,14 +76,6 @@ type Domain = ListRouteDomainsResponse[number];
 const SUBDOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const MIN_SUBDOMAIN_LENGTH = 3;
 
-type ManualRecord = {
-  type: string;
-  name: string;
-  value: string;
-};
-
-const IP_PATTERN = /^[0-9.]+$|:/;
-
 /** Mirrors the backend: the SRV service name is derived from the port's name. */
 function serviceName(name: string) {
   return name
@@ -154,7 +146,6 @@ export function RoutesManager({
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Route | null>(null);
 
-  const [manualPortId, setManualPortId] = useState<string>("");
   const [subdomain, setSubdomain] = useState("");
   const [domainId, setDomainId] = useState<string>("");
   const [portId, setPortId] = useState<string>("");
@@ -197,45 +188,6 @@ export function RoutesManager({
     () => selectablePorts.find((port) => String(port.id) === portId),
     [selectablePorts, portId],
   );
-
-  const manualPort = useMemo(
-    () => ports.find((port) => String(port.id) === manualPortId) ?? ports[0],
-    [ports, manualPortId],
-  );
-
-  const manualRecords = useMemo<ManualRecord[]>(() => {
-    if (!manualPort) return [];
-
-    if (manualPort.http) {
-      const route = routes.find(
-        (entry) => entry.port === manualPort.id && entry.kind === "http",
-      );
-
-      return route
-        ? [{ type: "CNAME", name: "your-domain", value: route.fqdn }]
-        : [];
-    }
-
-    const protocol = String(manualPort.protocol).toLowerCase();
-    const service = serviceName(manualPort.name);
-    const records: ManualRecord[] = [
-      {
-        type: "SRV",
-        name: `_${service}._${protocol}.your-domain`,
-        value: `0 0 ${manualPort.external_port_start} ${manualPort.host}`,
-      },
-    ];
-
-    if (IP_PATTERN.test(manualPort.host)) {
-      records.push({
-        type: "A",
-        name: "your-domain",
-        value: manualPort.host,
-      });
-    }
-
-    return records;
-  }, [manualPort, routes]);
 
   const customRecords = useMemo(
     () =>
@@ -305,15 +257,6 @@ export function RoutesManager({
       );
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const copy = async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success(t("common:actions.copied"));
-    } catch {
-      toast.error(t("servers:routes.toasts.copyFailed"));
     }
   };
 
@@ -497,108 +440,6 @@ export function RoutesManager({
         </Card>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-            <div>
-              <CardTitle>{t("servers:routes.manualDns.title")}</CardTitle>
-              <CardDescription>
-                {t("servers:routes.manualDns.description")}
-              </CardDescription>
-            </div>
-            <Select
-              items={[
-                ...ports.map((port) => ({
-                  value: String(port.id),
-                  label: (
-                    <>
-                      {port.name}— {port.host}:{port.external_port_start}(
-                      {port.http
-                        ? t("common:resources.http")
-                        : String(port.protocol).toUpperCase()}
-                      )
-                    </>
-                  ),
-                })),
-              ]}
-              value={manualPortId}
-              onValueChange={(value) => setManualPortId(value ?? "")}
-            >
-              <SelectTrigger className="w-full sm:w-[280px]">
-                <SelectValue placeholder={t("common:labels.port")} />
-              </SelectTrigger>
-              <SelectContent>
-                {ports.map((port) => (
-                  <SelectItem key={port.id} value={String(port.id)}>
-                    {port.name} — {port.host}:{port.external_port_start} (
-                    {port.http
-                      ? t("common:resources.http")
-                      : String(port.protocol).toUpperCase()}
-                    )
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {manualRecords.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              {ports.length === 0
-                ? t("servers:routes.manualDns.noPorts")
-                : t("servers:routes.manualDns.createRouteFirst")}
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("servers:routes.table.type")}</TableHead>
-                    <TableHead>{t("common:labels.name")}</TableHead>
-                    <TableHead>{t("common:labels.value")}</TableHead>
-                    <TableHead className="w-0" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {manualRecords.map((record) => (
-                    <TableRow key={`${record.type}-${record.name}`}>
-                      <TableCell>
-                        <Badge variant="outline">{record.type}</Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {record.name}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {record.value}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => void copy(record.value)}
-                        >
-                          <Copy className="size-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-          <p className="mt-3 text-xs text-muted-foreground">
-            <Trans
-              i18nKey="servers:routes.manualDns.replaceHelp"
-              components={{ code: <code className="font-mono" /> }}
-            />{" "}
-            {manualPort?.http
-              ? t("servers:routes.manualDns.httpHelp")
-              : t("servers:routes.manualDns.nonHttpHelp")}
-          </p>
-        </CardContent>
-      </Card>
-
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
@@ -732,7 +573,9 @@ export function RoutesManager({
               </Select>
               <p className="text-xs text-muted-foreground">
                 {isHttpRoute
-                  ? t("servers:routes.dialog.httpRouteHelp")
+                  ? selectedDomain?.custom
+                    ? t("servers:routes.dialog.customHttpRouteHelp")
+                    : t("servers:routes.dialog.httpRouteHelp")
                   : t("servers:routes.dialog.rawRouteHelp")}
               </p>
               {selectablePorts.length === 0 ? (

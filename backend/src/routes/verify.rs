@@ -1,7 +1,10 @@
 use crate::Backend;
 use crate::cluster::JOB_LOCK_TTL;
 use crate::routes::RouteRecord;
+use core::net::SocketAddr;
 use core::time::Duration;
+use hickory_resolver::config::{NameServerConfig, ResolverConfig};
+use hickory_resolver::net::runtime::TokioRuntimeProvider;
 use hickory_resolver::proto::rr::RData;
 use hickory_resolver::{ResolverBuilder, TokioResolver};
 use sqlx::query;
@@ -51,15 +54,30 @@ pub fn generate_token() -> String {
     format!("novium-verify={:032x}", rand::random::<u128>())
 }
 
-pub fn dns_resolver() -> Option<TokioResolver> {
-    TokioResolver::builder_tokio()
+pub fn dns_resolver(nameserver: Option<SocketAddr>) -> Option<TokioResolver> {
+    let builder = nameserver.map_or_else(TokioResolver::builder_tokio, |address| {
+        let mut server = NameServerConfig::udp_and_tcp(address.ip());
+        for connection in &mut server.connections {
+            connection.port = address.port();
+        }
+        Ok(TokioResolver::builder_with_config(
+            ResolverConfig::from_parts(None, Vec::new(), vec![server]),
+            TokioRuntimeProvider::default(),
+        ))
+    });
+
+    builder
         .and_then(ResolverBuilder::build)
         .inspect_err(|err| error!("Unable to create the DNS resolver: {err:?}"))
         .ok()
 }
 
-async fn has_token(domain: &str, token: &str) -> Result<bool, VerifyError> {
-    let resolver = dns_resolver().ok_or(VerifyError::Unavailable)?;
+async fn has_token(
+    nameserver: Option<SocketAddr>,
+    domain: &str,
+    token: &str,
+) -> Result<bool, VerifyError> {
+    let resolver = dns_resolver(nameserver).ok_or(VerifyError::Unavailable)?;
 
     let lookup = match resolver
         .txt_lookup(format!("{}.", verification_name(domain)))
@@ -100,7 +118,12 @@ impl Backend {
             return Ok(());
         };
 
-        let found = has_token(&pending.domain, &pending.verification_token).await;
+        let found = has_token(
+            self.config.routes.dns_resolver,
+            &pending.domain,
+            &pending.verification_token,
+        )
+        .await;
 
         query!(
             "UPDATE route_domains SET verify_checked_at = now() WHERE id = $1",
@@ -144,6 +167,7 @@ impl Backend {
         info!("Verified the route domain {}", pending.domain);
 
         self.sync_edge().await;
+        self.trigger_route_domain_certificates();
 
         Ok(())
     }
