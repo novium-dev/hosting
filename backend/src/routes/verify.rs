@@ -143,6 +143,8 @@ impl Backend {
 
         info!("Verified the route domain {}", pending.domain);
 
+        self.sync_edge().await;
+
         Ok(())
     }
 
@@ -177,6 +179,8 @@ impl Backend {
                 Err(err) => debug!("Unable to verify the route domain {}: {err:?}", row.id),
             }
         }
+
+        self.sync_edge().await;
 
         Ok(())
     }

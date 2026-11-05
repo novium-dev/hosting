@@ -67,6 +67,7 @@ pub struct StoredRoute {
     pub status: RouteStatus,
     pub external_ids: Vec<String>,
     pub records: Value,
+    pub custom: bool,
 }
 
 impl StoredRoute {
@@ -76,6 +77,7 @@ impl StoredRoute {
             domain: &self.domain_name,
             zone_id: self.zone_id.as_deref(),
             external_ids: &self.external_ids,
+            custom: self.custom,
         }
     }
 }
@@ -200,6 +202,7 @@ impl Backend {
                 routes.domain,
                 route_domains.domain AS domain_name,
                 route_domains.cloudflare_zone_id AS zone_id,
+                (route_domains.project IS NOT NULL) AS "custom!",
                 routes.subdomain,
                 routes.port,
                 routes.kind AS "kind: RouteKind",
@@ -245,6 +248,7 @@ impl Backend {
                 routes.domain,
                 route_domains.domain AS domain_name,
                 route_domains.cloudflare_zone_id AS zone_id,
+                (route_domains.project IS NOT NULL) AS "custom!",
                 routes.subdomain,
                 routes.port,
                 routes.kind AS "kind: RouteKind",

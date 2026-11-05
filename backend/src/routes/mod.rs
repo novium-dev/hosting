@@ -1,5 +1,6 @@
 pub mod acme;
 pub mod cloudflare;
+pub mod edge;
 pub mod pangolin;
 pub mod verify;
 
@@ -87,6 +88,7 @@ pub struct RouteHandle<'a> {
     pub domain: &'a str,
     pub zone_id: Option<&'a str>,
     pub external_ids: &'a [String],
+    pub custom: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -164,6 +166,10 @@ impl RouteBackends {
     }
 
     pub async fn delete(&self, handle: RouteHandle<'_>) -> Result<(), RouteError> {
+        if handle.custom {
+            return Ok(());
+        }
+
         match handle.kind {
             RouteKind::Http => {
                 self.pangolin

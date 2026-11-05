@@ -42,6 +42,7 @@ impl Check for Routes {
                    route_domains.https AS domain_https,
                    route_domains.pangolin_domain_id,
                    route_domains.cloudflare_zone_id,
+                   (route_domains.project IS NOT NULL) AS "custom!",
                    server_ports.server AS "port_server: ServerId",
                    servers.name AS server_name
                FROM routes
@@ -105,6 +106,7 @@ impl Check for Routes {
             }
 
             let missing_link = match row.kind.as_str() {
+                _ if row.custom => false,
                 "http" => row.pangolin_domain_id.is_none(),
                 _ => row.cloudflare_zone_id.is_none(),
             };
