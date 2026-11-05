@@ -51,13 +51,15 @@ pub fn generate_token() -> String {
     format!("novium-verify={:032x}", rand::random::<u128>())
 }
 
-async fn has_token(domain: &str, token: &str) -> Result<bool, VerifyError> {
-    let resolver = TokioResolver::builder_tokio()
+pub fn dns_resolver() -> Option<TokioResolver> {
+    TokioResolver::builder_tokio()
         .and_then(ResolverBuilder::build)
-        .map_err(|err| {
-            error!("Unable to create the DNS resolver: {err:?}");
-            VerifyError::Unavailable
-        })?;
+        .inspect_err(|err| error!("Unable to create the DNS resolver: {err:?}"))
+        .ok()
+}
+
+async fn has_token(domain: &str, token: &str) -> Result<bool, VerifyError> {
+    let resolver = dns_resolver().ok_or(VerifyError::Unavailable)?;
 
     let lookup = match resolver
         .txt_lookup(format!("{}.", verification_name(domain)))

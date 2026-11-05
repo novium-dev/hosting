@@ -437,6 +437,7 @@ impl InstanceDefaults {
 pub struct RouteConfig {
     pub cloudflare: Option<CloudflareConfig>,
     pub pangolin: Option<PangolinConfig>,
+    pub acme: Option<AcmeConfig>,
 }
 
 impl RouteConfig {
@@ -464,11 +465,33 @@ impl RouteConfig {
             })
             .transpose()?;
 
+        let acme = var("BACKEND_ACME_CHALLENGE_ZONE")
+            .map(|challenge_zone| {
+                if cloudflare.is_none() {
+                    return Err(anyhow!(
+                        "BACKEND_ACME_CHALLENGE_ZONE needs BACKEND_CLOUDFLARE_API_TOKEN"
+                    ));
+                }
+
+                Ok(AcmeConfig {
+                    challenge_zone: challenge_zone.trim().trim_end_matches('.').to_lowercase(),
+                    directory_url: url_var("BACKEND_ACME_DIRECTORY_URL")?,
+                })
+            })
+            .transpose()?;
+
         Ok(Self {
             cloudflare,
             pangolin,
+            acme,
         })
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct AcmeConfig {
+    pub challenge_zone: String,
+    pub directory_url: Option<Url>,
 }
 
 #[derive(Debug, Clone)]

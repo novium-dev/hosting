@@ -47,6 +47,9 @@ pub struct ProjectRouteDomain {
     pub verified_at: Option<DateTime<Utc>>,
     pub verify_checked_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+    pub certificate_issued_at: Option<DateTime<Utc>>,
+    pub certificate_expires_at: Option<DateTime<Utc>>,
+    pub certificate_error: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -126,11 +129,18 @@ impl Backend {
     ) -> Result<Vec<ProjectRouteDomain>, sqlx::Error> {
         query_as!(
             ProjectRouteDomain,
-            r#"SELECT id, domain, verification_token AS "verification_token!",
-                      verified_at, verify_checked_at, created_at
+            r#"SELECT route_domains.id, route_domains.domain,
+                      route_domains.verification_token AS "verification_token!",
+                      route_domains.verified_at, route_domains.verify_checked_at,
+                      route_domains.created_at,
+                      certificates.issued_at AS "certificate_issued_at?",
+                      certificates.expires_at AS "certificate_expires_at?",
+                      certificates.last_error AS "certificate_error?"
                FROM route_domains
-               WHERE project = $1
-               ORDER BY domain"#,
+               LEFT JOIN route_domain_certificates certificates
+                   ON certificates.domain = route_domains.id
+               WHERE route_domains.project = $1
+               ORDER BY route_domains.domain"#,
             &project
         )
         .fetch_all(executor)
@@ -145,10 +155,17 @@ impl Backend {
     ) -> Result<Option<ProjectRouteDomain>, sqlx::Error> {
         query_as!(
             ProjectRouteDomain,
-            r#"SELECT id, domain, verification_token AS "verification_token!",
-                      verified_at, verify_checked_at, created_at
+            r#"SELECT route_domains.id, route_domains.domain,
+                      route_domains.verification_token AS "verification_token!",
+                      route_domains.verified_at, route_domains.verify_checked_at,
+                      route_domains.created_at,
+                      certificates.issued_at AS "certificate_issued_at?",
+                      certificates.expires_at AS "certificate_expires_at?",
+                      certificates.last_error AS "certificate_error?"
                FROM route_domains
-               WHERE project = $1 AND id = $2"#,
+               LEFT JOIN route_domain_certificates certificates
+                   ON certificates.domain = route_domains.id
+               WHERE route_domains.project = $1 AND route_domains.id = $2"#,
             &project,
             domain_id
         )

@@ -3,6 +3,7 @@ use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions};
 use crate::db::project::ProjectId;
 use crate::db::route::ProjectRouteDomain;
+use crate::routes::acme::delegation_record;
 use crate::routes::verify::{VerifyError, generate_token, verification_record};
 use crate::routes::{RouteRecord, is_valid_domain};
 use crate::service::domain::project_domain_service_error::{
@@ -18,6 +19,13 @@ use zelus::service;
 const MAX_PROJECT_DOMAINS: i64 = 10;
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
+pub(crate) struct DomainCertificateInfo {
+    pub(crate) issued_at: Option<DateTime<Utc>>,
+    pub(crate) expires_at: Option<DateTime<Utc>>,
+    pub(crate) error: Option<String>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct ProjectDomainInfo {
     pub(crate) id: i32,
     pub(crate) domain: String,
@@ -26,18 +34,31 @@ pub(crate) struct ProjectDomainInfo {
     pub(crate) last_checked_at: Option<DateTime<Utc>>,
     pub(crate) created_at: DateTime<Utc>,
     pub(crate) records: Vec<RouteRecord>,
+    pub(crate) certificate: Option<DomainCertificateInfo>,
 }
 
-impl From<ProjectRouteDomain> for ProjectDomainInfo {
-    fn from(domain: ProjectRouteDomain) -> Self {
-        let records = if domain.verified_at.is_some() {
-            Vec::new()
-        } else {
-            vec![verification_record(
+impl ProjectDomainInfo {
+    fn new(domain: ProjectRouteDomain, challenge_zone: Option<&str>) -> Self {
+        let mut records = Vec::new();
+
+        if domain.verified_at.is_none() {
+            records.push(verification_record(
                 &domain.domain,
                 &domain.verification_token,
-            )]
-        };
+            ));
+        }
+
+        if let Some(zone) = challenge_zone {
+            records.push(delegation_record(&domain.domain, zone));
+        }
+
+        let certificate = (domain.certificate_expires_at.is_some()
+            || domain.certificate_error.is_some())
+        .then_some(DomainCertificateInfo {
+            issued_at: domain.certificate_issued_at,
+            expires_at: domain.certificate_expires_at,
+            error: domain.certificate_error,
+        });
 
         Self {
             id: domain.id,
@@ -47,7 +68,21 @@ impl From<ProjectRouteDomain> for ProjectDomainInfo {
             created_at: domain.created_at,
             domain: domain.domain,
             records,
+            certificate,
         }
+    }
+}
+
+impl Backend {
+    fn project_domain_info(&self, domain: ProjectRouteDomain) -> ProjectDomainInfo {
+        ProjectDomainInfo::new(
+            domain,
+            self.config
+                .routes
+                .acme
+                .as_ref()
+                .map(|acme| acme.challenge_zone.as_str()),
+        )
     }
 }
 
@@ -66,7 +101,10 @@ fn overlaps(domain: &str, other: &str) -> bool {
 pub(crate) impl ProjectDomainService for Backend {
     /// Lists the project's own domains.
     ///
-    /// Unverified domains carry the DNS records that have to be created to verify them.
+    /// `records` lists the DNS records the domain needs: the TXT record proving ownership while
+    /// it is unverified, and, when certificates are enabled, the CNAME delegating its ACME
+    /// challenges. Certificates are issued for the domain and its wildcard with the email of the
+    /// user who added the domain as the ACME contact.
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::VIEW`].
@@ -83,7 +121,7 @@ pub(crate) impl ProjectDomainService for Backend {
             .project_route_domains(&*self.database, project_id)
             .await?
             .into_iter()
-            .map(ProjectDomainInfo::from)
+            .map(|domain| self.project_domain_info(domain))
             .collect())
     }
 
@@ -164,7 +202,7 @@ pub(crate) impl ProjectDomainService for Backend {
 
         self.project_route_domain(&*self.database, project_id, id)
             .await?
-            .map(ProjectDomainInfo::from)
+            .map(|domain| self.project_domain_info(domain))
             .ok_or(CreateProjectDomainError::DbFailure)
     }
 
@@ -210,7 +248,7 @@ pub(crate) impl ProjectDomainService for Backend {
 
         self.project_route_domain(&*self.database, project_id, domain_id)
             .await?
-            .map(ProjectDomainInfo::from)
+            .map(|domain| self.project_domain_info(domain))
             .ok_or(VerifyProjectDomainError::RouteDomainNotFound)
     }
 

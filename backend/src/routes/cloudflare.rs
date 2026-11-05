@@ -34,6 +34,16 @@ struct AddressRecordPayload<'a> {
 }
 
 #[derive(Debug, Serialize)]
+struct TxtRecordPayload<'a> {
+    #[serde(rename = "type")]
+    record_type: &'a str,
+    name: &'a str,
+    content: &'a str,
+    ttl: u32,
+    comment: &'a str,
+}
+
+#[derive(Debug, Serialize)]
 struct SrvData<'a> {
     priority: u16,
     weight: u16,
@@ -160,6 +170,41 @@ impl CloudflareClient {
             .insert(domain.to_owned(), zone.clone());
 
         Ok(zone)
+    }
+
+    pub async fn zone_of(&self, name: &str) -> Result<String, RouteError> {
+        let mut candidate = name;
+        loop {
+            match self.zone(candidate).await {
+                Err(RouteError::ZoneNotFound) => {}
+                result => return result,
+            }
+
+            match candidate.split_once('.') {
+                Some((_, parent)) if parent.contains('.') => candidate = parent,
+                _ => return Err(RouteError::ZoneNotFound),
+            }
+        }
+    }
+
+    pub async fn create_txt(
+        &self,
+        zone: &str,
+        name: &str,
+        content: &str,
+        comment: &str,
+    ) -> Result<String, RouteError> {
+        self.post_record(
+            zone,
+            &TxtRecordPayload {
+                record_type: "TXT",
+                name,
+                content,
+                ttl: DEFAULT_TTL,
+                comment,
+            },
+        )
+        .await
     }
 
     async fn post_record<P: Serialize + Sync>(
