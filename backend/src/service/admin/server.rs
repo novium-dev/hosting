@@ -382,11 +382,17 @@ pub(crate) impl ServerAdminService for Backend {
                        FROM routes
                        JOIN route_domains ON route_domains.id = routes.domain
                        WHERE routes.server = $1
-                         AND route_domains.private
-                         AND NOT EXISTS (
-                             SELECT 1 FROM route_domain_projects
-                             WHERE route_domain_projects.domain = routes.domain
-                               AND route_domain_projects.project = $2
+                         AND (
+                             (route_domains.project IS NOT NULL AND route_domains.project <> $2)
+                             OR (
+                                 route_domains.project IS NULL
+                                 AND route_domains.private
+                                 AND NOT EXISTS (
+                                     SELECT 1 FROM route_domain_projects
+                                     WHERE route_domain_projects.domain = routes.domain
+                                       AND route_domain_projects.project = $2
+                                 )
+                             )
                          )"#,
                     &server_id,
                     &project

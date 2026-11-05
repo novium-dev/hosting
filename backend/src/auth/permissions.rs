@@ -82,6 +82,10 @@ bitflags! {
         ///
         /// Depends on [`ProjectPermissions::DATABASE_VIEW`]
         const DATABASE_MANAGE = 1 << 20;
+        /// Allows the user to add, verify and remove the project's own route domains.
+        ///
+        /// Depends on [`ProjectPermissions::VIEW`]
+        const DOMAINS_MANAGE = 1 << 23;
     }
 
     /// Permission set on a per-server basis

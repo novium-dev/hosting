@@ -1,5 +1,6 @@
 pub mod cloudflare;
 pub mod pangolin;
+pub mod verify;
 
 use crate::config::RouteConfig;
 use crate::routes::cloudflare::CloudflareClient;

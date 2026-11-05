@@ -32,6 +32,7 @@ pub(crate) struct RouteDomainInfo {
     pub(crate) domain: String,
     pub(crate) https: bool,
     pub(crate) private: bool,
+    pub(crate) custom: bool,
     pub(crate) http_available: bool,
     pub(crate) tcp_available: bool,
 }
@@ -70,7 +71,8 @@ pub(crate) impl RouteService for Backend {
     /// resolved zone for the domain.
     ///
     /// Private domains are only listed when the given project has been granted access to them,
-    /// or when the caller holds [`ManagementPermissions::DOMAINS_VIEW`].
+    /// or when the caller holds [`ManagementPermissions::DOMAINS_VIEW`]. The given project's own
+    /// verified domains are listed with `custom` set.
     #[route("/domains", method = GET, query = [project])]
     #[error(auth::{permission_denied, unreachable}, project::not_found, db::failure <- [sql:*])]
     async fn list_route_domains(
@@ -105,8 +107,14 @@ pub(crate) impl RouteService for Backend {
             .route_domains(&*self.database)
             .await?
             .into_iter()
-            .filter(|domain| all || !domain.private || granted.contains(&domain.id))
+            .filter(|domain| {
+                domain.project.map_or_else(
+                    || all || !domain.private || granted.contains(&domain.id),
+                    |owner| domain.verified && project == Some(owner),
+                )
+            })
             .map(|domain| RouteDomainInfo {
+                custom: !domain.is_platform(),
                 id: domain.id,
                 domain: domain.domain,
                 https: domain.https,
@@ -194,7 +202,7 @@ pub(crate) impl RouteService for Backend {
     #[error(
         auth::{permission_denied, unreachable},
         server::not_found,
-        route::{domain_not_found, subdomain_invalid, subdomain_taken, subdomain_too_short,
+        route::{domain_not_found, domain_unverified, subdomain_invalid, subdomain_taken, subdomain_too_short,
             port_invalid, port_has_route, port_cooldown, service_invalid,
             https_unavailable, kind_unavailable, domain_not_linked, zone_not_found,
             backend_unavailable, backend_error},
@@ -230,6 +238,18 @@ pub(crate) impl RouteService for Backend {
             .route_domain(&*self.database, payload.domain)
             .await?
             .ok_or(CreateRouteError::RouteDomainNotFound)?;
+
+        if let Some(owner) = domain.project {
+            if owner != server.project {
+                return Err(CreateRouteError::RouteDomainNotFound);
+            }
+
+            if !domain.verified {
+                return Err(CreateRouteError::RouteDomainUnverified);
+            }
+
+            return Err(CreateRouteError::RouteKindUnavailable);
+        }
 
         if domain.private
             && !auth.has((), ManagementPermissions::DOMAINS_VIEW)

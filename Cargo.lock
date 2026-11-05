@@ -393,6 +393,7 @@ dependencies = [
  "either",
  "futures",
  "hex",
+ "hickory-resolver",
  "http",
  "indexmap",
  "java-properties",

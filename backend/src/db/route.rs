@@ -2,6 +2,7 @@ use crate::Backend;
 use crate::db::project::ProjectId;
 use crate::db::server::ServerId;
 use crate::routes::{RouteHandle, RouteKind, RouteRecord};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{Executor, Postgres, query, query_as};
@@ -28,6 +29,24 @@ pub struct RouteDomain {
     pub cloudflare_zone_id: Option<String>,
     pub https: bool,
     pub private: bool,
+    pub project: Option<ProjectId>,
+    pub verified: bool,
+}
+
+impl RouteDomain {
+    pub const fn is_platform(&self) -> bool {
+        self.project.is_none()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ProjectRouteDomain {
+    pub id: i32,
+    pub domain: String,
+    pub verification_token: String,
+    pub verified_at: Option<DateTime<Utc>>,
+    pub verify_checked_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone)]
@@ -72,7 +91,9 @@ impl Backend {
     ) -> Result<Vec<RouteDomain>, sqlx::Error> {
         query_as!(
             RouteDomain,
-            r#"SELECT id, domain, pangolin_domain_id, cloudflare_zone_id, https, private
+            r#"SELECT id, domain, pangolin_domain_id, cloudflare_zone_id, https, private,
+                      project AS "project: ProjectId",
+                      (verified_at IS NOT NULL) AS "verified!"
                FROM route_domains
                ORDER BY domain"#
         )
@@ -87,9 +108,48 @@ impl Backend {
     ) -> Result<Option<RouteDomain>, sqlx::Error> {
         query_as!(
             RouteDomain,
-            r#"SELECT id, domain, pangolin_domain_id, cloudflare_zone_id, https, private
+            r#"SELECT id, domain, pangolin_domain_id, cloudflare_zone_id, https, private,
+                      project AS "project: ProjectId",
+                      (verified_at IS NOT NULL) AS "verified!"
                FROM route_domains
                WHERE id = $1"#,
+            domain_id
+        )
+        .fetch_optional(executor)
+        .await
+    }
+
+    pub(crate) async fn project_route_domains<'e, E: Executor<'e, Database = Postgres>>(
+        &self,
+        executor: E,
+        project: ProjectId,
+    ) -> Result<Vec<ProjectRouteDomain>, sqlx::Error> {
+        query_as!(
+            ProjectRouteDomain,
+            r#"SELECT id, domain, verification_token AS "verification_token!",
+                      verified_at, verify_checked_at, created_at
+               FROM route_domains
+               WHERE project = $1
+               ORDER BY domain"#,
+            &project
+        )
+        .fetch_all(executor)
+        .await
+    }
+
+    pub(crate) async fn project_route_domain<'e, E: Executor<'e, Database = Postgres>>(
+        &self,
+        executor: E,
+        project: ProjectId,
+        domain_id: i32,
+    ) -> Result<Option<ProjectRouteDomain>, sqlx::Error> {
+        query_as!(
+            ProjectRouteDomain,
+            r#"SELECT id, domain, verification_token AS "verification_token!",
+                      verified_at, verify_checked_at, created_at
+               FROM route_domains
+               WHERE project = $1 AND id = $2"#,
+            &project,
             domain_id
         )
         .fetch_optional(executor)

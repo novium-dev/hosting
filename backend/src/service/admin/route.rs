@@ -107,6 +107,10 @@ pub(crate) impl RouteAdminService for Backend {
 
         let mut domains = Vec::new();
         for domain in self.route_domains(&*self.database).await? {
+            if !domain.is_platform() {
+                continue;
+            }
+
             let routes = query_scalar!(
                 r#"SELECT COUNT(*) AS "count!" FROM routes WHERE domain = $1"#,
                 domain.id
@@ -238,7 +242,7 @@ pub(crate) impl RouteAdminService for Backend {
         let id = query!(
             r#"INSERT INTO route_domains (domain, pangolin_domain_id, https, private)
                VALUES ($1, $2, $3, $4)
-               ON CONFLICT (domain) DO NOTHING
+               ON CONFLICT (domain) WHERE project IS NULL OR verified_at IS NOT NULL DO NOTHING
                RETURNING id"#,
             domain,
             payload.pangolin_domain_id,

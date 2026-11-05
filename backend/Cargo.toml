@@ -65,6 +65,7 @@ redis.workspace = true
 utoipa.workspace = true
 utoipa-swagger-ui.workspace = true
 tower-http.workspace = true
+hickory-resolver = "0.26.3"
 rusty-s3 = { version = "0.11.0", default-features = false, features = ["rustcrypto"] }
 
 [dependencies.sqlx]
