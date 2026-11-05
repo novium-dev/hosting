@@ -237,20 +237,12 @@
       "kind": "Kind",
       "type": "Type"
     },
-    "manualDns": {
-      "title": "Point your own domain here",
-      "description": "The records to drop into your own DNS to reach a port. Pick the port and copy them over.",
-      "noPorts": "This server has no ports yet.",
-      "createRouteFirst": "Create a route for this port first — your own domain then points at it.",
-      "replaceHelp": "Replace <code>your-domain</code> with the name you own.",
-      "httpHelp": "An HTTP port is served through the reverse proxy, so your domain points at the route's address.",
-      "nonHttpHelp": "Clients that look the service up find the port on their own, so nobody has to type it."
-    },
     "dialog": {
       "title": "New route",
       "description": "Pick a subdomain, the domain it lives under and the port it points at.",
       "domainPlaceholder": "Domain",
       "httpRouteHelp": "An HTTP port becomes a reverse-proxied resource on the subdomain.",
+      "customHttpRouteHelp": "An HTTP port is served on the subdomain once you point it at us with the CNAME record listed after creating the route.",
       "rawRouteHelp": "A raw port gets an SRV record on the subdomain.",
       "noSelectablePorts": "This domain cannot carry any of this server's ports yet.",
       "httpsHelpOn": "Serve this route over HTTPS.",

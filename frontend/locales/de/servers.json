@@ -237,20 +237,12 @@
       "kind": "Art",
       "type": "Typ"
     },
-    "manualDns": {
-      "title": "Verweise deine eigene Domain hierher",
-      "description": "Die Einträge, die du in dein eigenes DNS eintragen musst, um einen Port zu erreichen. Wähle den Port aus und kopiere sie.",
-      "noPorts": "Dieser Server hat noch keine Ports.",
-      "createRouteFirst": "Erstelle zuerst eine Route für diesen Port — deine eigene Domain verweist dann darauf.",
-      "replaceHelp": "Ersetze <code>your-domain</code> durch den Namen, der dir gehört.",
-      "httpHelp": "Ein HTTP-Port wird über den Reverse-Proxy ausgeliefert, daher verweist deine Domain auf die Adresse der Route.",
-      "nonHttpHelp": "Clients, die den Dienst nachschlagen, finden den Port selbständig, sodass ihn niemand eintippen muss."
-    },
     "dialog": {
       "title": "Neue Route",
       "description": "Wähle eine Subdomain, die Domain, unter der sie liegt, und den Port, auf den sie verweist.",
       "domainPlaceholder": "Domain",
       "httpRouteHelp": "Ein HTTP-Port wird zu einer über den Reverse-Proxy ausgelieferten Ressource auf der Subdomain.",
+      "customHttpRouteHelp": "Ein HTTP-Port wird unter der Subdomain erreichbar, sobald du sie mit dem CNAME-Eintrag, der nach dem Erstellen der Route angezeigt wird, auf uns zeigst.",
       "rawRouteHelp": "Ein Raw-Port erhält einen SRV-Eintrag auf der Subdomain.",
       "noSelectablePorts": "Diese Domain kann noch keinen der Ports dieses Servers tragen.",
       "httpsHelpOn": "Diese Route über HTTPS ausliefern.",
