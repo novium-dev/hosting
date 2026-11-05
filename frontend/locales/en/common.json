@@ -182,7 +182,8 @@
     "admin": "Admin",
     "network": "Network",
     "backups": "Backups",
-    "ports": "Ports"
+    "ports": "Ports",
+    "domains": "Domains"
   },
   "resources": {
     "cpu": "CPU",

@@ -62,6 +62,7 @@ import {
   type NetworkPort,
 } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/api-error";
+import { DnsRecordsTable } from "@/components/routes/dns-records-table";
 
 type RoutesManagerProps = {
   serverId: string;
@@ -235,6 +236,16 @@ export function RoutesManager({
 
     return records;
   }, [manualPort, routes]);
+
+  const customRecords = useMemo(
+    () =>
+      routes.flatMap((route) =>
+        domains.some((domain) => domain.id === route.domain && domain.custom)
+          ? route.records
+          : [],
+      ),
+    [routes, domains],
+  );
 
   const isHttpRoute = selectedPort?.http === true;
   const srvService = selectedPort
@@ -472,6 +483,20 @@ export function RoutesManager({
         </CardContent>
       </Card>
 
+      {customRecords.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("servers:routes.customDns.title")}</CardTitle>
+            <CardDescription>
+              {t("servers:routes.customDns.description")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DnsRecordsTable records={customRecords} />
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
@@ -608,6 +633,9 @@ export function RoutesManager({
                           {domain.private
                             ? ` (${t("servers:routes.privateLabel")})`
                             : ""}
+                          {domain.custom
+                            ? ` (${t("servers:routes.customLabel")})`
+                            : ""}
                         </>
                       ),
                     })),
@@ -645,6 +673,9 @@ export function RoutesManager({
                         .{domain.domain}
                         {domain.private
                           ? ` (${t("servers:routes.privateLabel")})`
+                          : ""}
+                        {domain.custom
+                          ? ` (${t("servers:routes.customLabel")})`
                           : ""}
                       </SelectItem>
                     ))}
@@ -733,7 +764,11 @@ export function RoutesManager({
             ) : (
               <p className="rounded-md border p-3 text-xs text-muted-foreground">
                 <Trans
-                  i18nKey="servers:routes.dialog.createsRecordHelp"
+                  i18nKey={
+                    selectedDomain?.custom
+                      ? "servers:routes.dialog.customRecordHelp"
+                      : "servers:routes.dialog.createsRecordHelp"
+                  }
                   values={{
                     record: `_${srvService}._${srvProtocol}.${
                       subdomain ||

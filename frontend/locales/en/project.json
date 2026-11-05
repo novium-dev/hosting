@@ -239,5 +239,39 @@
     "noProjectDescription": "Please select a project before viewing servers.",
     "emptyTitle": "No servers found",
     "emptyDescription": "This project doesn't have any game servers yet."
+  },
+  "domains": {
+    "description": "Use domains you own for your routes. Each domain needs a few DNS records before it can be used.",
+    "empty": "No domains added yet.",
+    "status": {
+      "verified": "Verified",
+      "pending": "Pending verification"
+    },
+    "recordsPending": "Create these records at your domain's DNS provider.",
+    "recordsVerified": "Keep these records in place so routes and certificates keep working.",
+    "pendingHelp": "The domain is checked every few minutes. Domains that are not verified within a week are removed.",
+    "verifyButton": "Check now",
+    "deleteDescription": "Routes on this domain have to be removed first. Records at your DNS provider are not changed.",
+    "certificate": {
+      "validUntil": "Certificate valid until {{date}}",
+      "pending": "Certificate pending",
+      "error": "Certificate issuance failed: {{error}}"
+    },
+    "addDialog": {
+      "trigger": "Add domain",
+      "title": "Add domain",
+      "description": "Enter a domain you own. Its subdomains can be used for routes once it is verified.",
+      "domainLabel": "Domain",
+      "domainInvalid": "Enter a valid domain such as example.com."
+    },
+    "toasts": {
+      "loadFailed": "Failed to load the domains",
+      "createFailed": "Failed to add the domain",
+      "created": "{{domain}} added",
+      "verifyFailed": "Failed to verify the domain",
+      "verified": "{{domain}} verified",
+      "deleteFailed": "Failed to remove the domain",
+      "deleted": "{{domain}} removed"
+    }
   }
 }

@@ -258,7 +258,8 @@
       "createsRecordHelp": "Erstellt <code>{{record}}</code>, sodass Clients, die den Dienst nachschlagen, den Port selbständig erreichen. Der Dienstname stammt vom Port.",
       "yourNamePlaceholder": "dein-name",
       "theDomainPlaceholder": "die-domain",
-      "submitButton": "Route erstellen"
+      "submitButton": "Route erstellen",
+      "customRecordHelp": "Clients finden den Port über <code>{{record}}</code>. Der Eintrag wird nicht automatisch angelegt: Trage ihn nach dem Erstellen der Route bei deinem DNS-Anbieter ein."
     },
     "deleteDialog": {
       "title": "Route löschen",
@@ -272,6 +273,11 @@
       "copyFailed": "Kopieren fehlgeschlagen",
       "deleteFailed": "Route konnte nicht gelöscht werden",
       "deleteSuccess": "Route gelöscht"
+    },
+    "customLabel": "eigene Domain",
+    "customDns": {
+      "title": "DNS-Einträge für eigene Domains",
+      "description": "Routen auf eigenen Domains werden nicht automatisch veröffentlicht. Lege diese Einträge bei deinem DNS-Anbieter an und entferne sie selbst, wenn du die Route löschst."
     }
   },
   "schedules": {

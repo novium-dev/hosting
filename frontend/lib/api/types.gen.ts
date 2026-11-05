@@ -209,6 +209,12 @@ export type DeployServerPayload = {
     project: NanoId;
 };
 
+export type DomainCertificateInfo = {
+    error?: string | null;
+    expires_at?: string | null;
+    issued_at?: string | null;
+};
+
 export type GroupLimits = {
     cpu?: number | null;
     ram?: number | null;
@@ -517,6 +523,10 @@ export type PowerAction = typeof PowerAction[keyof typeof PowerAction];
 export type PrimaryPortInfo = {
     external_port: number;
     port: NetworkPort;
+};
+
+export type ProjectDomainPayload = {
+    domain: string;
 };
 
 export type RefreshTemplateCachePayload = {
@@ -894,6 +904,58 @@ export type TemplatePortDefinition = {
     placeholder: string;
     protocol: NetworkProtocol;
     remappable: boolean;
+};
+
+export type TraefikCertificate = {
+    certFile: string;
+    keyFile: string;
+};
+
+export type TraefikHttp = {
+    middlewares: {
+        [key: string]: TraefikMiddleware;
+    };
+    routers: {
+        [key: string]: TraefikRouter;
+    };
+    services: {
+        [key: string]: TraefikService;
+    };
+};
+
+export type TraefikLoadBalancer = {
+    servers: Array<TraefikServer>;
+};
+
+export type TraefikMiddleware = {
+    redirectScheme: TraefikRedirectScheme;
+};
+
+export type TraefikRedirectScheme = {
+    permanent: boolean;
+    scheme: string;
+};
+
+export type TraefikRouter = {
+    entryPoints: Array<string>;
+    middlewares?: Array<string>;
+    rule: string;
+    service: string;
+    tls?: {
+        [key: string]: string;
+    } | null;
+};
+
+export type TraefikServer = {
+    url: string;
+};
+
+export type TraefikService = {
+    loadBalancer: TraefikLoadBalancer;
+};
+
+export type TraefikTls = {
+    certificates: Array<TraefikCertificate>;
 };
 
 export type UnmanagedResource = {
@@ -10216,6 +10278,54 @@ export type TemplateInfoResponses = {
 
 export type TemplateInfoResponse = TemplateInfoResponses[keyof TemplateInfoResponses];
 
+export type EdgeTraefikData = {
+    body?: never;
+    headers: {
+        /**
+         * The authorization code for the registration
+         */
+        authorization: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/internal/edge/traefik';
+};
+
+export type EdgeTraefikErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500᠎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type EdgeTraefikError = EdgeTraefikErrors[keyof EdgeTraefikErrors];
+
+export type EdgeTraefikResponses = {
+    /**
+     * Success
+     */
+    200: {
+        http: TraefikHttp;
+        tls: TraefikTls;
+    };
+};
+
+export type EdgeTraefikResponse = EdgeTraefikResponses[keyof EdgeTraefikResponses];
+
 export type DaemonRootKeyData = {
     body?: never;
     headers: {
@@ -14360,6 +14470,7 @@ export type ListRouteDomainsResponses = {
      * Success
      */
     200: Array<{
+        custom: boolean;
         domain: string;
         http_available: boolean;
         https: boolean;
@@ -14482,9 +14593,18 @@ export type CreateRouteData = {
 
 export type CreateRouteErrors = {
     /**
-     * The specified subdomain is invalid
+     * The domain's verification record was not found yet, DNS changes can take a while to propagate
      */
     '400‎': {
+        error?: {
+            id?: 'route/domain_unverified';
+            msg?: 'The domain\'s verification record was not found yet, DNS changes can take a while to propagate';
+        };
+    };
+    /**
+     * The specified subdomain is invalid
+     */
+    '400‏': {
         error?: {
             id?: 'route/subdomain_invalid';
             msg?: 'The specified subdomain is invalid';
@@ -14493,25 +14613,43 @@ export type CreateRouteErrors = {
     /**
      * The specified subdomain is already taken
      */
-    '400‏': {
+    '400‪': {
         error?: {
             id?: 'route/subdomain_taken';
             msg?: 'The specified subdomain is already taken';
         };
     };
     /**
+     * The specified subdomain is too short
+     */
+    '400‫': {
+        error?: {
+            id?: 'route/subdomain_too_short';
+            msg?: 'The specified subdomain is too short';
+        };
+    };
+    /**
      * The selected port does not belong to this server
      */
-    '400‪': {
+    '400‬': {
         error?: {
             id?: 'route/port_invalid';
             msg?: 'The selected port does not belong to this server';
         };
     };
     /**
+     * The selected port already has a route
+     */
+    '400‭': {
+        error?: {
+            id?: 'route/port_has_route';
+            msg?: 'The selected port already has a route';
+        };
+    };
+    /**
      * The port's name cannot be used as an SRV service name
      */
-    '400‫': {
+    '400⁠': {
         error?: {
             id?: 'route/service_invalid';
             msg?: 'The port\'s name cannot be used as an SRV service name';
@@ -14520,7 +14658,7 @@ export type CreateRouteErrors = {
     /**
      * HTTPS is not available for the selected domain
      */
-    '400‬': {
+    '400⁡': {
         error?: {
             id?: 'route/https_unavailable';
             msg?: 'HTTPS is not available for the selected domain';
@@ -14529,7 +14667,7 @@ export type CreateRouteErrors = {
     /**
      * Routes of this kind are not configured on this instance
      */
-    '400‭': {
+    '400⁢': {
         error?: {
             id?: 'route/kind_unavailable';
             msg?: 'Routes of this kind are not configured on this instance';
@@ -14538,7 +14676,7 @@ export type CreateRouteErrors = {
     /**
      * The route domain is not linked to a Pangolin domain
      */
-    '400‮': {
+    '400⁣': {
         error?: {
             id?: 'route/domain_not_linked';
             msg?: 'The route domain is not linked to a Pangolin domain';
@@ -14547,7 +14685,7 @@ export type CreateRouteErrors = {
     /**
      * No Cloudflare zone carries the route domain
      */
-    '400⁠': {
+    '400⁤': {
         error?: {
             id?: 'route/zone_not_found';
             msg?: 'No Cloudflare zone carries the route domain';
@@ -14590,6 +14728,15 @@ export type CreateRouteErrors = {
         };
     };
     /**
+     * The selected port had a route removed recently, try again later
+     */
+    '429‮': {
+        error?: {
+            id?: 'route/port_cooldown';
+            msg?: 'The selected port had a route removed recently, try again later';
+        };
+    };
+    /**
      * Authentication storage is unreachable
      */
     '500​': {
@@ -14601,7 +14748,7 @@ export type CreateRouteErrors = {
     /**
      * Database operation failed
      */
-    '500⁣': {
+    '500⁨': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -14610,7 +14757,7 @@ export type CreateRouteErrors = {
     /**
      * The route backend rejected the request
      */
-    '502⁢': {
+    '502⁦': {
         error?: {
             id?: 'route/backend_error';
             msg?: 'The route backend rejected the request';
@@ -14619,7 +14766,7 @@ export type CreateRouteErrors = {
     /**
      * The route backend is currently unavailable
      */
-    '503⁡': {
+    '503⁧': {
         error?: {
             id?: 'route/backend_unavailable';
             msg?: 'The route backend is currently unavailable';
@@ -15511,6 +15658,448 @@ export type AllowDomainProjectResponses = {
 };
 
 export type AllowDomainProjectResponse = AllowDomainProjectResponses[keyof AllowDomainProjectResponses];
+
+export type ListProjectDomainsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+    };
+    query?: never;
+    url: '/project/{project_id}/domain';
+};
+
+export type ListProjectDomainsErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‍': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type ListProjectDomainsError = ListProjectDomainsErrors[keyof ListProjectDomainsErrors];
+
+export type ListProjectDomainsResponses = {
+    /**
+     * Success
+     */
+    200: Array<{
+        certificate?: null | DomainCertificateInfo;
+        created_at: string;
+        domain: string;
+        id: number;
+        last_checked_at?: string | null;
+        records: Array<RouteRecord>;
+        verified: boolean;
+        verified_at?: string | null;
+    }>;
+};
+
+export type ListProjectDomainsResponse = ListProjectDomainsResponses[keyof ListProjectDomainsResponses];
+
+export type CreateProjectDomainData = {
+    body: ProjectDomainPayload;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+    };
+    query?: never;
+    url: '/project/{project_id}/domain';
+};
+
+export type CreateProjectDomainErrors = {
+    /**
+     * The specified route domain is invalid
+     */
+    '400‍': {
+        error?: {
+            id?: 'route/domain_invalid';
+            msg?: 'The specified route domain is invalid';
+        };
+    };
+    /**
+     * A route domain with this name already exists
+     */
+    '400‎': {
+        error?: {
+            id?: 'route/domain_exists';
+            msg?: 'A route domain with this name already exists';
+        };
+    };
+    /**
+     * The domain overlaps a domain provided by this instance
+     */
+    '400‏': {
+        error?: {
+            id?: 'route/domain_reserved';
+            msg?: 'The domain overlaps a domain provided by this instance';
+        };
+    };
+    /**
+     * The project's custom domain limit has been reached
+     */
+    '400‫': {
+        error?: {
+            id?: 'route/domain_limit_exceeded';
+            msg?: 'The project\'s custom domain limit has been reached';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The domain has already been verified by another project
+     */
+    '409‪': {
+        error?: {
+            id?: 'route/domain_claimed';
+            msg?: 'The domain has already been verified by another project';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‬': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type CreateProjectDomainError = CreateProjectDomainErrors[keyof CreateProjectDomainErrors];
+
+export type CreateProjectDomainResponses = {
+    /**
+     * Success
+     */
+    200: {
+        certificate?: null | DomainCertificateInfo;
+        created_at: string;
+        domain: string;
+        id: number;
+        last_checked_at?: string | null;
+        records: Array<RouteRecord>;
+        verified: boolean;
+        verified_at?: string | null;
+    };
+};
+
+export type CreateProjectDomainResponse = CreateProjectDomainResponses[keyof CreateProjectDomainResponses];
+
+export type VerifyProjectDomainData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The route domain ID
+         */
+        domain_id: number;
+    };
+    query?: never;
+    url: '/project/{project_id}/domain/{domain_id}/verify';
+};
+
+export type VerifyProjectDomainErrors = {
+    /**
+     * The domain's verification record was not found yet, DNS changes can take a while to propagate
+     */
+    '400‎': {
+        error?: {
+            id?: 'route/domain_unverified';
+            msg?: 'The domain\'s verification record was not found yet, DNS changes can take a while to propagate';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified route domain was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'route/domain_not_found';
+            msg?: 'The specified route domain was not found';
+        };
+    };
+    /**
+     * The domain has already been verified by another project
+     */
+    '409‏': {
+        error?: {
+            id?: 'route/domain_claimed';
+            msg?: 'The domain has already been verified by another project';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‫': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The route backend is currently unavailable
+     */
+    '503‪': {
+        error?: {
+            id?: 'route/backend_unavailable';
+            msg?: 'The route backend is currently unavailable';
+        };
+    };
+};
+
+export type VerifyProjectDomainError = VerifyProjectDomainErrors[keyof VerifyProjectDomainErrors];
+
+export type VerifyProjectDomainResponses = {
+    /**
+     * Success
+     */
+    200: {
+        certificate?: null | DomainCertificateInfo;
+        created_at: string;
+        domain: string;
+        id: number;
+        last_checked_at?: string | null;
+        records: Array<RouteRecord>;
+        verified: boolean;
+        verified_at?: string | null;
+    };
+};
+
+export type VerifyProjectDomainResponse = VerifyProjectDomainResponses[keyof VerifyProjectDomainResponses];
+
+export type DeleteProjectDomainData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The route domain ID
+         */
+        domain_id: number;
+    };
+    query?: never;
+    url: '/project/{project_id}/domain/{domain_id}';
+};
+
+export type DeleteProjectDomainErrors = {
+    /**
+     * The route domain is still used by routes
+     */
+    '400‎': {
+        error?: {
+            id?: 'route/domain_in_use';
+            msg?: 'The route domain is still used by routes';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified route domain was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'route/domain_not_found';
+            msg?: 'The specified route domain was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‏': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type DeleteProjectDomainError = DeleteProjectDomainErrors[keyof DeleteProjectDomainErrors];
+
+export type DeleteProjectDomainResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteProjectDomainResponse = DeleteProjectDomainResponses[keyof DeleteProjectDomainResponses];
 
 export type ListSchedulesData = {
     body?: never;
