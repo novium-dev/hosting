@@ -6,7 +6,7 @@ use super::*;
 use crate::Backend;
 use crate::auth::Authentication;
 use crate::auth::permissions::{ManagementPermissions, ProjectPermissions, ServerPermissions};
-use crate::db::group::{GroupRef, group_labels, group_path, node_in_group};
+use crate::db::group::{GroupRef, group_path, node_in_group};
 use crate::db::license::ServerLicenseInfo;
 use crate::db::project::ProjectId;
 use crate::db::server::ports::{NetworkPort, NetworkProtocol, ServerPort};
@@ -22,10 +22,7 @@ use crate::service::template::*;
 use crate::templates::variable::VariablePayload;
 use crate::templates::{ENV_FILE_ENVIRONMENT, TemplateError};
 use crate::utils::task::detached;
-use crate::utils::{
-    PageSplit, PageSplitExtension as _, Paged, SortOrder, compare_ignore_case, matches_search,
-    normalize_search,
-};
+use crate::utils::{PageSplit, Paged, SortOrder, search_pattern};
 use daemon_common::service::backup::backup_service_error::{
     ServerCreateBackupOrderError, ServerListBackupsError,
 };
@@ -82,6 +79,7 @@ struct ServerListRecord {
     node: Uuid,
     node_server_id: i32,
     group_id: Option<i32>,
+    group_label: Option<String>,
     suspended: bool,
 }
 
@@ -167,6 +165,18 @@ pub(crate) enum ServerSort {
     Project,
 }
 
+impl ServerSort {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Name => "name",
+            Self::Template => "template",
+            Self::Node => "node",
+            Self::Group => "group",
+            Self::Project => "project",
+        }
+    }
+}
+
 #[service(path = "/server", tag = "server", no_sdk)]
 pub(crate) impl ServerService for Backend {
     /// Lists all servers you have access to.
@@ -177,7 +187,7 @@ pub(crate) impl ServerService for Backend {
     async fn list_servers(
         &self,
         #[special] auth: Authentication,
-        #[special] mut page: Option<PageSplit>,
+        #[special] page: Option<PageSplit>,
         project: Option<ProjectId>,
         node: Option<Uuid>,
         template: Option<String>,
@@ -186,107 +196,104 @@ pub(crate) impl ServerService for Backend {
         sort: Option<ServerSort>,
         order: Option<SortOrder>,
     ) -> Result<Paged<ServerListInfo>, _> {
-        let search = normalize_search(search);
-        let servers = if let Some(project) = project {
-            sqlx::query_as!(
-                ServerListRecord,
-                r#"SELECT servers.id AS "id: ServerId", servers.name, servers.project AS "project: ProjectId",
-                          projects.name AS project_name, projects.slug AS project_slug,
-                          servers.node, servers.node_server_id, servers.group_id,
-                          servers.template, servers.suspended
+        let visibility = auth.visible_servers();
+        let project = project.map(|project| project.to_string());
+        let search = search_pattern(search);
+        let sort = sort.map(ServerSort::as_str);
+        let desc = order.unwrap_or_default().is_desc();
+
+        let servers = sqlx::query_as!(
+            ServerListRecord,
+            r#"SELECT servers.id AS "id: ServerId", servers.name, servers.project AS "project: ProjectId",
+                      projects.name AS project_name, projects.slug AS project_slug,
+                      servers.node, servers.node_server_id, servers.group_id,
+                      group_paths.label AS "group_label?",
+                      servers.template, servers.suspended
+               FROM servers
+               JOIN projects ON projects.id = servers.project
+               JOIN nodes ON nodes.id = servers.node
+               LEFT JOIN group_paths ON group_paths.id = servers.group_id
+               WHERE (($1 AND NOT servers.id = ANY($2::text[])) OR (NOT $1 AND servers.id = ANY($2::text[])))
+                 AND ($3::text IS NULL OR servers.project = $3)
+                 AND ($4::uuid IS NULL OR servers.node = $4)
+                 AND ($5::text IS NULL OR servers.template = $5)
+                 AND ($6::text IS NULL
+                      OR servers.name ILIKE $6
+                      OR servers.id ILIKE $6
+                      OR servers.template ILIKE $6
+                      OR nodes.display ILIKE $6
+                      OR group_paths.label ILIKE $6
+                      OR projects.id ILIKE $6
+                      OR projects.name ILIKE $6
+                      OR projects.slug ILIKE $6)
+               ORDER BY
+                  CASE WHEN NOT $8 THEN CASE $7::text
+                      WHEN 'name' THEN lower(servers.name)
+                      WHEN 'template' THEN lower(servers.template)
+                      WHEN 'node' THEN lower(nodes.display)
+                      WHEN 'group' THEN lower(COALESCE(group_paths.label, ''))
+                      WHEN 'project' THEN lower(projects.name)
+                  END END ASC,
+                  CASE WHEN $8 THEN CASE $7::text
+                      WHEN 'name' THEN lower(servers.name)
+                      WHEN 'template' THEN lower(servers.template)
+                      WHEN 'node' THEN lower(nodes.display)
+                      WHEN 'group' THEN lower(COALESCE(group_paths.label, ''))
+                      WHEN 'project' THEN lower(projects.name)
+                  END END DESC,
+                  lower(servers.name),
+                  servers.id
+               LIMIT $9 OFFSET $10"#,
+            visibility.all_except,
+            &visibility.ids,
+            project,
+            node,
+            template,
+            search,
+            sort,
+            desc,
+            page.map(PageSplit::sql_limit),
+            PageSplit::sql_offset(page),
+        )
+        .fetch_all(&*self.database)
+        .await?;
+
+        let total = if page.is_some() {
+            sqlx::query_scalar!(
+                r#"SELECT COUNT(*) AS "count!"
                    FROM servers
                    JOIN projects ON projects.id = servers.project
-                   WHERE servers.project = $1
-                   ORDER BY servers.id"#,
-                &project
+                   JOIN nodes ON nodes.id = servers.node
+                   LEFT JOIN group_paths ON group_paths.id = servers.group_id
+                   WHERE (($1 AND NOT servers.id = ANY($2::text[])) OR (NOT $1 AND servers.id = ANY($2::text[])))
+                     AND ($3::text IS NULL OR servers.project = $3)
+                     AND ($4::uuid IS NULL OR servers.node = $4)
+                     AND ($5::text IS NULL OR servers.template = $5)
+                     AND ($6::text IS NULL
+                          OR servers.name ILIKE $6
+                          OR servers.id ILIKE $6
+                          OR servers.template ILIKE $6
+                          OR nodes.display ILIKE $6
+                          OR group_paths.label ILIKE $6
+                          OR projects.id ILIKE $6
+                          OR projects.name ILIKE $6
+                          OR projects.slug ILIKE $6)"#,
+                visibility.all_except,
+                &visibility.ids,
+                project,
+                node,
+                template,
+                search,
             )
-            .fetch_all(&*self.database)
+            .fetch_one(&*self.database)
             .await?
         } else {
-            sqlx::query_as!(
-                ServerListRecord,
-                r#"SELECT servers.id AS "id: ServerId", servers.name, servers.project AS "project: ProjectId",
-                          projects.name AS project_name, projects.slug AS project_slug,
-                          servers.node, servers.node_server_id, servers.group_id,
-                          servers.template, servers.suspended
-                   FROM servers
-                   JOIN projects ON projects.id = servers.project
-                   ORDER BY servers.id"#
-            )
-            .fetch_all(&*self.database)
-            .await?
+            i64::try_from(servers.len()).unwrap_or(i64::MAX)
         };
-
-        let group_labels = group_labels(&*self.database).await?;
 
         let nodes = self.nodes.read().await;
 
         let templates = self.templates.read().await;
-
-        let node_display = |id: &Uuid| nodes.get(id).map_or("", |node| node.display.as_str());
-        let template_display = |id: &str| templates.get(id).map_or("", |template| template.id());
-        let group_display = |id: Option<i32>| {
-            id.and_then(|id| group_labels.get(&id))
-                .map_or("", String::as_str)
-        };
-
-        let mut servers = servers
-            .into_iter()
-            .filter(|server| node.as_ref().is_none_or(|node| server.node == *node))
-            .filter(|server| {
-                template
-                    .as_ref()
-                    .is_none_or(|template| server.template == *template)
-            })
-            .filter(|server| auth.has(server.id, ProjectPermissions::VIEW))
-            .filter(|server| {
-                matches_search(
-                    search.as_deref(),
-                    [
-                        server.name.as_str(),
-                        server.id.to_string().as_str(),
-                        server.template.as_str(),
-                        template_display(&server.template),
-                        node_display(&server.node),
-                        group_display(server.group_id),
-                        server.project.to_string().as_str(),
-                        server.project_name.as_str(),
-                        server.project_slug.as_str(),
-                    ],
-                )
-            })
-            .collect::<Vec<_>>();
-
-        if let Some(sort) = sort {
-            let order = order.unwrap_or_default();
-            servers.sort_by(|left, right| {
-                order.apply(
-                    match sort {
-                        ServerSort::Name => compare_ignore_case(&left.name, &right.name),
-                        ServerSort::Template => compare_ignore_case(
-                            template_display(&left.template),
-                            template_display(&right.template),
-                        ),
-                        ServerSort::Node => {
-                            compare_ignore_case(node_display(&left.node), node_display(&right.node))
-                        }
-                        ServerSort::Group => compare_ignore_case(
-                            group_display(left.group_id),
-                            group_display(right.group_id),
-                        ),
-                        ServerSort::Project => {
-                            compare_ignore_case(&left.project_name, &right.project_name)
-                        }
-                    }
-                    .then_with(|| compare_ignore_case(&left.name, &right.name)),
-                )
-            });
-        }
-
-        let servers = servers
-            .into_iter()
-            .apply_pagesplit(&mut page)
-            .collect::<Vec<_>>();
 
         let mut statuses: HashMap<ServerId, ServerListStatus> = if include == Some(true) {
             futures::future::join_all(servers.iter().filter_map(|server| {
@@ -316,7 +323,7 @@ pub(crate) impl ServerService for Backend {
             HashMap::new()
         };
 
-        Ok(servers
+        let servers = servers
             .into_iter()
             .map(|server| ServerListInfo {
                 id: server.id,
@@ -325,12 +332,10 @@ pub(crate) impl ServerService for Backend {
                 project_name: server.project_name,
                 project_slug: server.project_slug,
                 node_id: server.node,
-                group: server.group_id.and_then(|id| {
-                    group_labels.get(&id).map(|label| GroupRef {
-                        id,
-                        label: label.clone(),
-                    })
-                }),
+                group: server
+                    .group_id
+                    .zip(server.group_label)
+                    .map(|(id, label)| GroupRef { id, label }),
                 suspended: server.suspended,
                 status: statuses.remove(&server.id),
                 template: templates
@@ -352,7 +357,9 @@ pub(crate) impl ServerService for Backend {
                     |node| node.display.clone(),
                 ),
             })
-            .collect_paged(page))
+            .collect();
+
+        Ok(Paged::from_total(page, total, servers))
     }
 
     /// Shows information about a specific server.

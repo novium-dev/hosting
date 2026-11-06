@@ -1,7 +1,6 @@
 use ::serde::Serialize;
 use axum::Json;
 use axum::extract::Query;
-use core::cmp::Ordering;
 use std::collections::HashMap;
 use utoipa::__dev::ComposeSchema;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
@@ -39,35 +38,28 @@ pub(crate) enum SortOrder {
 }
 
 impl SortOrder {
-    pub(crate) const fn apply(self, ordering: Ordering) -> Ordering {
-        match self {
-            Self::Asc => ordering,
-            Self::Desc => ordering.reverse(),
-        }
+    pub(crate) const fn is_desc(self) -> bool {
+        matches!(self, Self::Desc)
     }
 }
 
-pub(crate) fn compare_ignore_case(left: &str, right: &str) -> Ordering {
-    left.chars()
-        .flat_map(char::to_lowercase)
-        .cmp(right.chars().flat_map(char::to_lowercase))
-}
+pub(crate) fn search_pattern(search: Option<String>) -> Option<String> {
+    let search = search?;
+    let search = search.trim();
+    if search.is_empty() {
+        return None;
+    }
 
-pub(crate) fn normalize_search(search: Option<String>) -> Option<String> {
-    search
-        .map(|search| search.trim().to_lowercase())
-        .filter(|search| !search.is_empty())
-}
-
-pub(crate) fn matches_search<'a>(
-    search: Option<&str>,
-    fields: impl IntoIterator<Item = &'a str>,
-) -> bool {
-    search.is_none_or(|search| {
-        fields
-            .into_iter()
-            .any(|field| field.to_lowercase().contains(search))
-    })
+    let mut pattern = String::with_capacity(search.len().saturating_add(2));
+    pattern.push('%');
+    for character in search.chars() {
+        if matches!(character, '%' | '_' | '\\') {
+            pattern.push('\\');
+        }
+        pattern.push(character);
+    }
+    pattern.push('%');
+    Some(pattern)
 }
 
 #[derive(Copy, Clone)]
@@ -87,6 +79,45 @@ pub struct Paged<T: Serialize> {
     total_records: u64,
 
     data: Vec<T>,
+}
+
+impl PageSplit {
+    pub(crate) fn sql_limit(self) -> i64 {
+        i64::from(self.limit)
+    }
+
+    pub(crate) fn sql_offset(page: Option<Self>) -> i64 {
+        page.map_or(0, |page| {
+            i64::from(page.page).saturating_mul(i64::from(page.limit))
+        })
+    }
+}
+
+impl<T: Serialize> Paged<T> {
+    pub(crate) fn from_total(page: Option<PageSplit>, total: i64, data: Vec<T>) -> Self {
+        let total_records = u64::try_from(total).unwrap_or_default();
+        match page {
+            None => Self {
+                page: 0,
+                limit: 0,
+                total_pages: 1,
+                total_records,
+                data,
+            },
+            Some(split) => Self {
+                page: split.page,
+                limit: split.limit,
+                total_pages: if split.limit == 0 {
+                    1
+                } else {
+                    u32::try_from(total_records.div_ceil(u64::from(split.limit)))
+                        .unwrap_or(u32::MAX)
+                },
+                total_records,
+                data,
+            },
+        }
+    }
 }
 
 impl<E> OptionalFromRequestParts<E> for PageSplit {
