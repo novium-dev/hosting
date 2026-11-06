@@ -22,7 +22,10 @@ use crate::service::template::*;
 use crate::templates::variable::VariablePayload;
 use crate::templates::{ENV_FILE_ENVIRONMENT, TemplateError};
 use crate::utils::task::detached;
-use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
+use crate::utils::{
+    PageSplit, PageSplitExtension as _, Paged, SortOrder, compare_ignore_case, matches_search,
+    normalize_search,
+};
 use daemon_common::service::backup::backup_service_error::{
     ServerCreateBackupOrderError, ServerListBackupsError,
 };
@@ -154,12 +157,22 @@ const MAX_ENVIRONMENT_KEY_LENGTH: usize = 128;
 const MAX_ENVIRONMENT_VALUE_LENGTH: usize = 4096;
 const MAX_ENV_FILE_PATH_LENGTH: usize = 255;
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ServerSort {
+    Name,
+    Template,
+    Node,
+    Group,
+    Project,
+}
+
 #[service(path = "/server", tag = "server", no_sdk)]
 pub(crate) impl ServerService for Backend {
     /// Lists all servers you have access to.
     ///
     /// Only servers in which you have the [`ProjectPermissions::VIEW`] permission are listed.
-    #[route("", method = GET, raw, query = [project, node, template, include])]
+    #[route("", method = GET, raw, query = [project, node, template, include, search, sort, order])]
     #[error(auth::unreachable, db::failure <- [sql:*])]
     async fn list_servers(
         &self,
@@ -169,7 +182,11 @@ pub(crate) impl ServerService for Backend {
         node: Option<Uuid>,
         template: Option<String>,
         include: Option<bool>,
+        search: Option<String>,
+        sort: Option<ServerSort>,
+        order: Option<SortOrder>,
     ) -> Result<Paged<ServerListInfo>, _> {
+        let search = normalize_search(search);
         let servers = if let Some(project) = project {
             sqlx::query_as!(
                 ServerListRecord,
@@ -179,7 +196,8 @@ pub(crate) impl ServerService for Backend {
                           servers.template, servers.suspended
                    FROM servers
                    JOIN projects ON projects.id = servers.project
-                   WHERE servers.project = $1"#,
+                   WHERE servers.project = $1
+                   ORDER BY servers.id"#,
                 &project
             )
             .fetch_all(&*self.database)
@@ -192,13 +210,27 @@ pub(crate) impl ServerService for Backend {
                           servers.node, servers.node_server_id, servers.group_id,
                           servers.template, servers.suspended
                    FROM servers
-                   JOIN projects ON projects.id = servers.project"#
+                   JOIN projects ON projects.id = servers.project
+                   ORDER BY servers.id"#
             )
             .fetch_all(&*self.database)
             .await?
         };
 
-        let servers = servers
+        let group_labels = group_labels(&*self.database).await?;
+
+        let nodes = self.nodes.read().await;
+
+        let templates = self.templates.read().await;
+
+        let node_display = |id: &Uuid| nodes.get(id).map_or("", |node| node.display.as_str());
+        let template_display = |id: &str| templates.get(id).map_or("", |template| template.id());
+        let group_display = |id: Option<i32>| {
+            id.and_then(|id| group_labels.get(&id))
+                .map_or("", String::as_str)
+        };
+
+        let mut servers = servers
             .into_iter()
             .filter(|server| node.as_ref().is_none_or(|node| server.node == *node))
             .filter(|server| {
@@ -207,14 +239,54 @@ pub(crate) impl ServerService for Backend {
                     .is_none_or(|template| server.template == *template)
             })
             .filter(|server| auth.has(server.id, ProjectPermissions::VIEW))
-            .apply_pagesplit(&mut page)
+            .filter(|server| {
+                matches_search(
+                    search.as_deref(),
+                    [
+                        server.name.as_str(),
+                        server.id.to_string().as_str(),
+                        server.template.as_str(),
+                        template_display(&server.template),
+                        node_display(&server.node),
+                        group_display(server.group_id),
+                        server.project.to_string().as_str(),
+                        server.project_name.as_str(),
+                        server.project_slug.as_str(),
+                    ],
+                )
+            })
             .collect::<Vec<_>>();
 
-        let group_labels = group_labels(&*self.database).await?;
+        if let Some(sort) = sort {
+            let order = order.unwrap_or_default();
+            servers.sort_by(|left, right| {
+                order.apply(
+                    match sort {
+                        ServerSort::Name => compare_ignore_case(&left.name, &right.name),
+                        ServerSort::Template => compare_ignore_case(
+                            template_display(&left.template),
+                            template_display(&right.template),
+                        ),
+                        ServerSort::Node => {
+                            compare_ignore_case(node_display(&left.node), node_display(&right.node))
+                        }
+                        ServerSort::Group => compare_ignore_case(
+                            group_display(left.group_id),
+                            group_display(right.group_id),
+                        ),
+                        ServerSort::Project => {
+                            compare_ignore_case(&left.project_name, &right.project_name)
+                        }
+                    }
+                    .then_with(|| compare_ignore_case(&left.name, &right.name)),
+                )
+            });
+        }
 
-        let nodes = self.nodes.read().await;
-
-        let templates = self.templates.read().await;
+        let servers = servers
+            .into_iter()
+            .apply_pagesplit(&mut page)
+            .collect::<Vec<_>>();
 
         let mut statuses: HashMap<ServerId, ServerListStatus> = if include == Some(true) {
             futures::future::join_all(servers.iter().filter_map(|server| {

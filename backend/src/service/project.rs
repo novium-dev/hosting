@@ -16,7 +16,10 @@ use crate::service::project::project_service_error::{
     SetProjectUserError, UpdateProjectError, UploadProjectLogoError,
 };
 use crate::utils::name::display_name;
-use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
+use crate::utils::{
+    PageSplit, PageSplitExtension as _, Paged, SortOrder, compare_ignore_case, matches_search,
+    normalize_search,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
@@ -97,20 +100,33 @@ pub(crate) struct SetProjectLogo {
     pub(crate) url: String,
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ProjectSort {
+    Name,
+    Slug,
+    Owner,
+    Servers,
+}
+
 #[service(path = "/project", tag = "project", no_sdk)]
 pub(crate) impl ProjectService for Backend {
     /// Lists projects the current user can access.
-    #[route("", method = GET, raw, query = [own])]
+    #[route("", method = GET, raw, query = [own, search, sort, order])]
     #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found)]
     async fn list_projects(
         &self,
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
         own: Option<bool>,
+        search: Option<String>,
+        sort: Option<ProjectSort>,
+        order: Option<SortOrder>,
     ) -> Result<Paged<ProjectInfo>, _> {
         let own = own.unwrap_or_default();
+        let search = normalize_search(search);
 
-        Ok(query!(
+        let mut projects = query!(
             r#"SELECT
                 projects.id AS "id: ProjectId",
                 projects.slug,
@@ -144,8 +160,40 @@ pub(crate) impl ProjectService for Backend {
                 permissions: auth.permissions::<ProjectPermissions, _>(id).bits(),
             }
         })
-        .apply_pagesplit(&mut page)
-        .collect_paged(page))
+        .filter(|project| {
+            matches_search(
+                search.as_deref(),
+                [
+                    project.name.as_str(),
+                    project.slug.as_str(),
+                    project.owner_username.as_str(),
+                    project.id.to_string().as_str(),
+                ],
+            )
+        })
+        .collect::<Vec<_>>();
+
+        if let Some(sort) = sort {
+            let order = order.unwrap_or_default();
+            projects.sort_by(|left, right| {
+                order.apply(
+                    match sort {
+                        ProjectSort::Name => compare_ignore_case(&left.name, &right.name),
+                        ProjectSort::Slug => compare_ignore_case(&left.slug, &right.slug),
+                        ProjectSort::Owner => {
+                            compare_ignore_case(&left.owner_username, &right.owner_username)
+                        }
+                        ProjectSort::Servers => left.server_count.cmp(&right.server_count),
+                    }
+                    .then_with(|| left.slug.cmp(&right.slug)),
+                )
+            });
+        }
+
+        Ok(projects
+            .into_iter()
+            .apply_pagesplit(&mut page)
+            .collect_paged(page))
     }
 
     /// Creates a new project owned by the current user, or, with

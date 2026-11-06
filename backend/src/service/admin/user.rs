@@ -12,10 +12,13 @@ use crate::service::admin::user::user_admin_service_error::{
 };
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::*;
-use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
+use crate::utils::{
+    PageSplit, PageSplitExtension as _, Paged, SortOrder, compare_ignore_case, matches_search,
+    normalize_search,
+};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
-use zelus::service;
+use zelus::{define_query_variable, service};
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct AdminUserInfo {
@@ -51,19 +54,35 @@ pub(crate) struct AdminUserProjectInfo {
     pub(crate) server_count: i64,
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum UserSort {
+    Username,
+    Email,
+    Role,
+}
+
+define_query_variable!(role "Only include users with this role (0 user, 1 moderator, 2 admin)");
+
 #[service(path = "/admin/user", tag = "user", no_sdk)]
 pub(crate) impl UserAdminService for Backend {
     /// Lists all users.
-    #[route("", method = GET, raw)]
+    #[route("", method = GET, raw, query = [search, role, sort, order])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn list_users(
         &self,
         #[special] auth: Authentication,
         #[special] mut page: Option<PageSplit>,
+        search: Option<String>,
+        role: Option<i32>,
+        sort: Option<UserSort>,
+        order: Option<SortOrder>,
     ) -> Result<Paged<AdminUserInfo>, _> {
         auth.require::<_, _, ListUsersError>((), ManagementPermissions::USER_VIEW)?;
 
-        Ok(query!(
+        let search = normalize_search(search);
+
+        let mut users = query!(
             r#"SELECT id, username, auth_id, role AS "role: i32", email, avatar_url, first_name, last_name
              FROM users
              ORDER BY id"#
@@ -81,8 +100,37 @@ pub(crate) impl UserAdminService for Backend {
             first_name: user.first_name,
             last_name: user.last_name,
         })
-        .apply_pagesplit(&mut page)
-        .collect_paged(page))
+        .filter(|user| role.is_none_or(|role| user.role == role))
+        .filter(|user| {
+            matches_search(
+                search.as_deref(),
+                [
+                    user.username.as_str(),
+                    user.email.as_str(),
+                    user.id.to_string().as_str(),
+                ],
+            )
+        })
+        .collect::<Vec<_>>();
+
+        if let Some(sort) = sort {
+            let order = order.unwrap_or_default();
+            users.sort_by(|left, right| {
+                order.apply(
+                    match sort {
+                        UserSort::Username => compare_ignore_case(&left.username, &right.username),
+                        UserSort::Email => compare_ignore_case(&left.email, &right.email),
+                        UserSort::Role => left.role.cmp(&right.role),
+                    }
+                    .then_with(|| left.id.cmp(&right.id)),
+                )
+            });
+        }
+
+        Ok(users
+            .into_iter()
+            .apply_pagesplit(&mut page)
+            .collect_paged(page))
     }
 
     /// Creates a user and returns its ID.

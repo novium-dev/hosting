@@ -544,6 +544,15 @@ export type ProjectDomainPayload = {
     domain: string;
 };
 
+export const ProjectSort = {
+    NAME: 'name',
+    SLUG: 'slug',
+    OWNER: 'owner',
+    SERVERS: 'servers'
+} as const;
+
+export type ProjectSort = typeof ProjectSort[keyof typeof ProjectSort];
+
 export type RefreshTemplateCachePayload = {
     template?: string | null;
 };
@@ -798,6 +807,16 @@ export const ServerResyncStatus = {
 
 export type ServerResyncStatus = typeof ServerResyncStatus[keyof typeof ServerResyncStatus];
 
+export const ServerSort = {
+    NAME: 'name',
+    TEMPLATE: 'template',
+    NODE: 'node',
+    GROUP: 'group',
+    PROJECT: 'project'
+} as const;
+
+export type ServerSort = typeof ServerSort[keyof typeof ServerSort];
+
 export type ServerStartupEnvironmentInfo = {
     file_enabled: boolean;
     file_path: string;
@@ -851,6 +870,10 @@ export type SetupNodeConfigRequest = {
         [key: string]: ServerStorage;
     };
 };
+
+export const SortOrder = { ASC: 'asc', DESC: 'desc' } as const;
+
+export type SortOrder = typeof SortOrder[keyof typeof SortOrder];
 
 export type SshEndpointRequest = {
     host: string;
@@ -1068,6 +1091,14 @@ export type UserGrant = {
     database_uuid: string;
 };
 
+export const UserSort = {
+    USERNAME: 'username',
+    EMAIL: 'email',
+    ROLE: 'role'
+} as const;
+
+export type UserSort = typeof UserSort[keyof typeof UserSort];
+
 export type Value = unknown;
 
 export type VariableField = {
@@ -1132,6 +1163,18 @@ export type ListServersData = {
          * Whether to include live status from the daemon
          */
         include?: boolean | null;
+        /**
+         * Only include entries matching this case-insensitive search term
+         */
+        search?: string | null;
+        /**
+         * The column to sort by
+         */
+        sort?: null | ServerSort;
+        /**
+         * The sort direction, ascending by default
+         */
+        order?: null | SortOrder;
         /**
          * The page that should be returned. If missing disables paging.
          */
@@ -8042,6 +8085,22 @@ export type ListUsersData = {
     path?: never;
     query?: {
         /**
+         * Only include entries matching this case-insensitive search term
+         */
+        search?: string | null;
+        /**
+         * Only include users with this role (0 user, 1 moderator, 2 admin)
+         */
+        role?: number | null;
+        /**
+         * The column to sort by
+         */
+        sort?: null | UserSort;
+        /**
+         * The sort direction, ascending by default
+         */
+        order?: null | SortOrder;
+        /**
          * The page that should be returned. If missing disables paging.
          */
         page?: number;
@@ -9181,6 +9240,18 @@ export type ListProjectsData = {
          * Only include projects owned by or shared with the current user
          */
         own?: boolean | null;
+        /**
+         * Only include entries matching this case-insensitive search term
+         */
+        search?: string | null;
+        /**
+         * The column to sort by
+         */
+        sort?: null | ProjectSort;
+        /**
+         * The sort direction, ascending by default
+         */
+        order?: null | SortOrder;
         /**
          * The page that should be returned. If missing disables paging.
          */

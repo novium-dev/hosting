@@ -1,6 +1,7 @@
 use ::serde::Serialize;
 use axum::Json;
 use axum::extract::Query;
+use core::cmp::Ordering;
 use std::collections::HashMap;
 use utoipa::__dev::ComposeSchema;
 use utoipa::openapi::path::{OperationBuilder, ParameterBuilder, ParameterIn};
@@ -27,6 +28,46 @@ mod header {
     pub(super) const TOTAL_RECORDS: HeaderName = HeaderName::from_static("x-total-count");
     pub(super) const PER_PAGE: HeaderName = HeaderName::from_static("x-per-page");
     pub(super) const PAGE: HeaderName = HeaderName::from_static("x-page");
+}
+
+#[derive(Debug, Copy, Clone, Default, ::serde::Serialize, ::serde::Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum SortOrder {
+    #[default]
+    Asc,
+    Desc,
+}
+
+impl SortOrder {
+    pub(crate) const fn apply(self, ordering: Ordering) -> Ordering {
+        match self {
+            Self::Asc => ordering,
+            Self::Desc => ordering.reverse(),
+        }
+    }
+}
+
+pub(crate) fn compare_ignore_case(left: &str, right: &str) -> Ordering {
+    left.chars()
+        .flat_map(char::to_lowercase)
+        .cmp(right.chars().flat_map(char::to_lowercase))
+}
+
+pub(crate) fn normalize_search(search: Option<String>) -> Option<String> {
+    search
+        .map(|search| search.trim().to_lowercase())
+        .filter(|search| !search.is_empty())
+}
+
+pub(crate) fn matches_search<'a>(
+    search: Option<&str>,
+    fields: impl IntoIterator<Item = &'a str>,
+) -> bool {
+    search.is_none_or(|search| {
+        fields
+            .into_iter()
+            .any(|field| field.to_lowercase().contains(search))
+    })
 }
 
 #[derive(Copy, Clone)]

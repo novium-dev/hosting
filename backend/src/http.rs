@@ -60,6 +60,7 @@ impl Backend {
             .allow_origin(Any)
             .allow_headers(Any)
             .allow_methods(Any)
+            .expose_headers(Any)
             .max_age(Duration::from_hours(1));
 
         let (api_router, api) = ZelusRouter::with_openapi(ApiDoc::openapi())
