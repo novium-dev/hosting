@@ -18,7 +18,8 @@ export function SwitcherItem({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const pathAfterSlug = pathname.split("/").slice(2).join("/");
+  const segments = pathname.split("/").slice(2).filter(Boolean);
+  const pathAfterSlug = segments.length === 1 ? segments[0] : "";
 
   return (
     <DropdownMenuItem
