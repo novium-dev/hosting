@@ -12,14 +12,17 @@ use crate::service::database::database_service_error::{
 };
 use crate::service::error_database_agent_error::FromDatabaseAgentError;
 use crate::service::error_database_instance_not_found::FromDatabaseInstanceNotFound;
+use crate::service::error_database_limit_exceeded::FromDatabaseLimitExceeded;
+use crate::service::error_database_type_unavailable::FromDatabaseTypeUnavailable;
+use crate::service::error_project_not_found::FromProjectNotFound;
 use crate::utils::task::detached;
 use database_agent_common::identifier::{LABEL_MAX_LENGTH, LABEL_MIN_LENGTH};
 use database_agent_common::service::database::DatabaseService as _;
 use database_agent_common::service::instance::InstanceService as _;
 use database_agent_common::service::user::UserService as _;
 use database_agent_common::types::{
-    ContainerState, DatabaseType, PowerAction, ResourceUsage, StoredDatabase, StoredUser,
-    UserGrant, validate_database_name,
+    ApiInstance, ContainerState, DatabaseType, PowerAction, ResourceUsage, StoredDatabase,
+    StoredUser, UserGrant, validate_database_name,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
@@ -88,12 +91,12 @@ pub(crate) struct SetInstanceUserGrants {
     pub(crate) grants: Vec<UserGrant>,
 }
 
-fn agent_failure<E: FromDatabaseAgentError>(error: &impl core::fmt::Debug) -> E {
+pub(crate) fn agent_failure<E: FromDatabaseAgentError>(error: &impl core::fmt::Debug) -> E {
     tracing::error!("The database agent returned an error: {error:?}");
     <E as FromDatabaseAgentError>::from()
 }
 
-fn validate_username(username: &str) -> bool {
+pub(crate) fn validate_username(username: &str) -> bool {
     (LABEL_MIN_LENGTH..=LABEL_MAX_LENGTH).contains(&username.len())
         && username.bytes().all(|byte| byte.is_ascii_alphanumeric())
 }
@@ -115,14 +118,23 @@ fn user_info(
     user: StoredUser,
     databases: &[StoredDatabase],
 ) -> InstanceUserInfo {
-    let identifier = user.identifier();
-    let host = instance.host.public_host.clone();
-    let port = instance.host.port(instance.kind);
     let path = if instance.kind.has_named_databases() {
         default_database(&user, databases).unwrap_or_default()
     } else {
         ""
     };
+
+    connection_info(instance, user, path)
+}
+
+pub(crate) fn connection_info(
+    instance: &ProjectInstance,
+    user: StoredUser,
+    path: &str,
+) -> InstanceUserInfo {
+    let identifier = user.identifier();
+    let host = instance.host.public_host.clone();
+    let port = instance.host.port(instance.kind);
 
     InstanceUserInfo {
         uri: format!(
@@ -137,8 +149,193 @@ fn user_info(
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Provision {
+    Fresh { bypass_limit: bool },
+    Reuse,
+}
+
+enum ProvisionedSlot {
+    Existing(Uuid),
+    Created(Box<ApiInstance>),
+}
+
 impl Backend {
-    async fn require_instance<E>(
+    pub(crate) async fn provision_instance<E>(
+        &self,
+        project_id: ProjectId,
+        kind: DatabaseType,
+        display: String,
+        mode: Provision,
+    ) -> Result<(ProjectInstance, Option<ApiInstance>), E>
+    where
+        E: From<sqlx::Error>
+            + FromProjectNotFound
+            + FromDatabaseLimitExceeded
+            + FromDatabaseTypeUnavailable
+            + FromDatabaseAgentError
+            + Send
+            + 'static,
+    {
+        let defaults = self
+            .config
+            .databases
+            .defaults_for(kind)
+            .ok_or_else(<E as FromDatabaseTypeUnavailable>::from)?;
+
+        debug!(
+            "Provisioning a {kind} instance for project {project_id} with defaults: {defaults:?}"
+        );
+
+        let create = defaults.to_create(kind);
+        let host = self
+            .pick_database_host::<E>(project_id)
+            .await?
+            .ok_or_else(<E as FromDatabaseTypeUnavailable>::from)?;
+
+        let agent = Arc::clone(&host);
+        let stored_display = display.clone();
+        let created = chrono::Utc::now();
+        let mut conn = self.database.acquire().await?;
+        let slot = detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    query!(
+                        "SELECT id FROM projects WHERE id = $1 FOR UPDATE",
+                        &project_id
+                    )
+                    .fetch_optional(&mut **tx)
+                    .await?
+                    .ok_or_else(<E as FromProjectNotFound>::from)?;
+
+                    match mode {
+                        Provision::Reuse => {
+                            let existing = query_scalar!(
+                                "SELECT id FROM database_instances
+                                 WHERE project = $1 AND kind = $2
+                                 ORDER BY created LIMIT 1",
+                                &project_id,
+                                kind.as_str()
+                            )
+                            .fetch_optional(&mut **tx)
+                            .await?;
+
+                            if let Some(id) = existing {
+                                return Ok(ProvisionedSlot::Existing(id));
+                            }
+                        }
+                        Provision::Fresh { bypass_limit } => {
+                            let count = query_scalar!(
+                                r#"SELECT COUNT(*) AS "count!" FROM database_instances WHERE project = $1"#,
+                                &project_id
+                            )
+                            .fetch_one(&mut **tx)
+                            .await?;
+
+                            if count >= MAX_PROJECT_INSTANCES && !bypass_limit {
+                                return Err(<E as FromDatabaseLimitExceeded>::from());
+                            }
+                        }
+                    }
+
+                    let remote = agent
+                        .sdk
+                        .create_instance(create)
+                        .await
+                        .map_err(|err| agent_failure::<E>(&err))?;
+
+                    let stored = query!(
+                        "INSERT INTO database_instances (id, host, project, kind, display, created)
+                         VALUES ($1, $2, $3, $4, $5, $6)",
+                        remote.data.uuid,
+                        agent.id,
+                        &project_id,
+                        kind.as_str(),
+                        stored_display,
+                        created
+                    )
+                    .execute(&mut **tx)
+                    .await;
+
+                    if let Err(err) = stored {
+                        if let Err(cleanup) = agent.sdk.delete_instance(remote.data.uuid).await {
+                            tracing::error!(
+                                "Failed to roll back the remote instance {}: {cleanup:?}",
+                                remote.data.uuid
+                            );
+                        }
+                        return Err(err.into());
+                    }
+
+                    Ok(ProvisionedSlot::Created(Box::new(remote)))
+                })
+            })
+            .await
+        })
+        .await?;
+
+        match slot {
+            ProvisionedSlot::Existing(id) => Ok((
+                self.project_instances::<E>(project_id, Some(id))
+                    .await?
+                    .pop()
+                    .ok_or_else(<E as FromDatabaseTypeUnavailable>::from)?,
+                None,
+            )),
+            ProvisionedSlot::Created(remote) => {
+                if let Err(err) = host
+                    .sdk
+                    .power_instance(remote.data.uuid, PowerAction::Start)
+                    .await
+                {
+                    tracing::warn!(
+                        "Failed to start the new instance {}: {err:?}",
+                        remote.data.uuid
+                    );
+                }
+
+                Ok((
+                    ProjectInstance {
+                        id: remote.data.uuid,
+                        kind,
+                        display,
+                        created,
+                        host,
+                    },
+                    Some(*remote),
+                ))
+            }
+        }
+    }
+
+    pub(crate) async fn remove_instance<E>(&self, instance: ProjectInstance) -> Result<(), E>
+    where
+        E: From<sqlx::Error> + FromDatabaseAgentError + Send + 'static,
+    {
+        let mut conn = self.database.acquire().await?;
+        detached(async move {
+            conn.transaction(|tx| {
+                Box::pin(async move {
+                    query!("DELETE FROM database_instances WHERE id = $1", instance.id)
+                        .execute(&mut **tx)
+                        .await?;
+
+                    instance
+                        .host
+                        .sdk
+                        .delete_instance(instance.id)
+                        .await
+                        .map_err(|err| agent_failure::<E>(&err))?;
+
+                    Ok(())
+                })
+            })
+            .await
+        })
+        .await
+    }
+
+    pub(crate) async fn require_instance<E>(
         &self,
         project: ProjectId,
         instance: Uuid,
@@ -225,108 +422,29 @@ pub(crate) impl DatabaseService for Backend {
             .require::<_, _, CreateProjectInstanceError>((), ManagementPermissions::LIMITS_BYPASS)
             .is_ok();
 
-        let defaults = self
-            .config
-            .databases
-            .defaults_for(payload.kind)
-            .ok_or(CreateProjectInstanceError::DatabaseTypeUnavailable)?;
-
-        debug!(
-            "Creating a new {} instance for project {project_id} with defaults: {defaults:?}",
-            payload.kind
-        );
-
-        let create = defaults.to_create(payload.kind);
-        let host = self
-            .pick_database_host::<CreateProjectInstanceError>(project_id)
-            .await?
-            .ok_or(CreateProjectInstanceError::DatabaseTypeUnavailable)?;
-
-        let agent = Arc::clone(&host);
-        let display = payload.display.clone();
-        let created = chrono::Utc::now();
-        let mut conn = self.database.acquire().await?;
-        let remote = detached(async move {
-            conn.transaction(|tx| {
-                Box::pin(async move {
-                    query!(
-                        "SELECT id FROM projects WHERE id = $1 FOR UPDATE",
-                        &project_id
-                    )
-                    .fetch_optional(&mut **tx)
-                    .await?
-                    .ok_or(CreateProjectInstanceError::ProjectNotFound)?;
-
-                    let count = query_scalar!(
-                        r#"SELECT COUNT(*) AS "count!" FROM database_instances WHERE project = $1"#,
-                        &project_id
-                    )
-                    .fetch_one(&mut **tx)
-                    .await?;
-
-                    if count >= MAX_PROJECT_INSTANCES && !may_bypass {
-                        return Err(CreateProjectInstanceError::DatabaseLimitExceeded);
-                    }
-
-                    let remote = agent
-                        .sdk
-                        .create_instance(create)
-                        .await
-                        .map_err(|err| agent_failure::<CreateProjectInstanceError>(&err))?;
-
-                    let stored = query!(
-                        "INSERT INTO database_instances (id, host, project, kind, display, created)
-                         VALUES ($1, $2, $3, $4, $5, $6)",
-                        remote.data.uuid,
-                        agent.id,
-                        &project_id,
-                        payload.kind.as_str(),
-                        display,
-                        created
-                    )
-                    .execute(&mut **tx)
-                    .await;
-
-                    if let Err(err) = stored {
-                        if let Err(cleanup) = agent.sdk.delete_instance(remote.data.uuid).await {
-                            tracing::error!(
-                                "Failed to roll back the remote instance {}: {cleanup:?}",
-                                remote.data.uuid
-                            );
-                        }
-                        return Err(err.into());
-                    }
-
-                    Ok(remote)
-                })
-            })
-            .await
-        })
-        .await?;
-
-        if let Err(err) = host
-            .sdk
-            .power_instance(remote.data.uuid, PowerAction::Start)
-            .await
-        {
-            tracing::warn!(
-                "Failed to start the new instance {}: {err:?}",
-                remote.data.uuid
-            );
-        }
+        let (instance, remote) = self
+            .provision_instance::<CreateProjectInstanceError>(
+                project_id,
+                payload.kind,
+                payload.display,
+                Provision::Fresh {
+                    bypass_limit: may_bypass,
+                },
+            )
+            .await?;
 
         Ok(ProjectInstanceInfo {
-            id: remote.data.uuid,
-            kind: payload.kind,
-            display: payload.display,
-            host: host.public_host.clone(),
-            port: host.port(payload.kind),
+            id: instance.id,
+            kind: instance.kind,
+            host: instance.host.public_host.clone(),
+            port: instance.host.port(instance.kind),
+            display: instance.display,
             state: ContainerState::Starting,
             utilization: None,
-            memory_limit: Some(remote.data.memory),
-            disk_limit: Some(remote.data.disk),
-            suspended: remote.data.suspended,
-            created,
+            memory_limit: remote.as_ref().map(|remote| remote.data.memory),
+            disk_limit: remote.as_ref().map(|remote| remote.data.disk),
+            suspended: remote.is_some_and(|remote| remote.data.suspended),
+            created: instance.created,
         })
     }
 
@@ -352,27 +470,8 @@ pub(crate) impl DatabaseService for Backend {
             .require_instance::<DeleteProjectInstanceError>(project_id, instance_id)
             .await?;
 
-        let mut conn = self.database.acquire().await?;
-        detached(async move {
-            conn.transaction(|tx| {
-                Box::pin(async move {
-                    query!("DELETE FROM database_instances WHERE id = $1", instance.id)
-                        .execute(&mut **tx)
-                        .await?;
-
-                    instance
-                        .host
-                        .sdk
-                        .delete_instance(instance.id)
-                        .await
-                        .map_err(|err| agent_failure::<DeleteProjectInstanceError>(&err))?;
-
-                    Ok(())
-                })
-            })
+        self.remove_instance::<DeleteProjectInstanceError>(instance)
             .await
-        })
-        .await
     }
 
     /// Starts, stops, restarts or kills an instance.
@@ -477,8 +576,7 @@ pub(crate) impl DatabaseService for Backend {
         Ok(InstanceDatabaseInfo { database })
     }
 
-    /// Deletes a database. Users granted on it keep existing and simply lose
-    /// that grant.
+    /// Deletes a database together with every user granted on it.
     ///
     /// # Permissions
     /// Requires [`ProjectPermissions::DATABASE_MANAGE`].

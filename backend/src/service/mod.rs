@@ -14,6 +14,7 @@ pub(crate) mod minecraft;
 pub(crate) mod modpack;
 pub(crate) mod profile;
 pub(crate) mod project;
+pub(crate) mod project_database;
 pub(crate) mod resource;
 pub(crate) mod route;
 pub(crate) mod schedule;
@@ -195,6 +196,8 @@ define_error!(db {
 
 define_error!(database {
     name_invalid("The name must be 1-63 ascii alphanumeric characters" BAD_REQUEST),
+    name_taken("A database with this name already exists" CONFLICT),
+    engine_starting("The database engine is still starting, try again shortly" SERVICE_UNAVAILABLE),
     limit_exceeded("The project database instance limit has been reached" BAD_REQUEST),
     type_unavailable("No database host can currently offer this database type" SERVICE_UNAVAILABLE),
     host_not_found("The specified database host was not found" NOT_FOUND),

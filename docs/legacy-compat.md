@@ -82,3 +82,19 @@ Where:
 
 Remove once no web server has a config mentioning `/home/container`, then bump
 `REL` in `backend/src/templates/generic/web.rs`.
+
+## Several database instances per engine
+
+Projects used to create database instances themselves, so some own more than
+one instance of the same engine. New databases go to one instance per engine
+(`Provision::Reuse` picks the oldest), while the database list still reads
+every instance and shows its name next to each database.
+
+Where:
+
+- `backend/src/service/project_database.rs` - `list_project_databases` walking all instances, `instance_display` on `ProjectDatabaseInfo`
+- `backend/src/service/database.rs` - `create_project_instance` and `MAX_PROJECT_INSTANCES`
+- `frontend/components/databases/project-databases-table.tsx` - the instance name under a database
+
+Remove once no project holds more than one instance per engine. After that,
+drop `create_project_instance`, the instance limit and `instance_display`.
