@@ -50,7 +50,7 @@ function readMinecraftPlayers(
   return { online, max: asFiniteNumber(players.max), list };
 }
 
-function readSatisfactoryPlayers(
+function readPlayerCount(
   healthCheck: Record<string, unknown>,
 ): ServerPlayers | null {
   const players = asRecord(healthCheck.players);
@@ -66,7 +66,9 @@ function readSatisfactoryPlayers(
 const PLAYER_SOURCES: Record<string, PlayerSource | undefined> = {
   minecraft: readMinecraftPlayers,
   minecraft_proxy: readMinecraftPlayers,
-  satisfactory: readSatisfactoryPlayers,
+  satisfactory: readPlayerCount,
+  enshrouded: readPlayerCount,
+  arma_reforger: readPlayerCount,
 };
 
 export function supportsPlayers(template: string) {

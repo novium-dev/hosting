@@ -21,6 +21,8 @@ use crate::db::database::BackendDatabaseHost;
 use crate::db::node::BackendNode;
 use crate::routes::RouteBackends;
 use crate::templates::TemplateInner;
+use crate::templates::games::arma_reforger::ArmaReforgerTemplate;
+use crate::templates::games::enshrouded::EnshroudedTemplate;
 use crate::templates::games::hytale::HytaleTemplate;
 use crate::templates::games::minecraft_bedrock::MinecraftBedrockTemplate;
 use crate::templates::games::satisfactory::SatisfactoryTemplate;
@@ -199,6 +201,20 @@ async fn load_templates(backend: &Backend) {
         .await
         .expect("Unable to initialize satisfactory template");
     templates.insert(satisfactory.id().to_owned(), Arc::new(satisfactory));
+
+    let enshrouded = EnshroudedTemplate;
+    enshrouded
+        .init(backend.cache.clone(), skip_cache_update)
+        .await
+        .expect("Unable to initialize enshrouded template");
+    templates.insert(enshrouded.id().to_owned(), Arc::new(enshrouded));
+
+    let arma_reforger = ArmaReforgerTemplate;
+    arma_reforger
+        .init(backend.cache.clone(), skip_cache_update)
+        .await
+        .expect("Unable to initialize arma reforger template");
+    templates.insert(arma_reforger.id().to_owned(), Arc::new(arma_reforger));
 
     let hytale = HytaleTemplate;
     hytale
