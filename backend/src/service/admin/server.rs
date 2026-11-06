@@ -15,6 +15,7 @@ use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::template::*;
 use crate::service::*;
 use crate::templates::{TemplateError, ThinTemplateError};
+use crate::utils::name::display_name;
 use crate::utils::server::port_environment_key;
 use crate::utils::task::detached;
 use daemon_common::service::backup::backup_service_error::{
@@ -51,7 +52,8 @@ pub(crate) impl ServerAdminService for Backend {
         node::{not_found, failure},
         group::not_on_node,
         port::{invalid, not_allocated},
-        template::{not_found, unavailable, corrupted, port_definition_unknown, input_invalid})]
+        template::{not_found, unavailable, corrupted, port_definition_unknown, input_invalid},
+        input::name_invalid)]
     #[example("../examples/server.create.json")]
     async fn create_server(
         &self,
@@ -71,6 +73,8 @@ pub(crate) impl ServerAdminService for Backend {
         if !auth.has((), ManagementPermissions::SERVER_MANAGE) {
             return Err(<CreateServerError as FromAuthPermissionDenied>::from());
         }
+
+        let name = display_name(&name).ok_or(CreateServerError::InputNameInvalid)?;
 
         let project_exists = query_scalar!(
             r#"SELECT (COUNT(*) > 0) AS "exists!" FROM projects WHERE id = $1"#,

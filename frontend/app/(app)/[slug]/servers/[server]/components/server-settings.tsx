@@ -1,4 +1,5 @@
 "use client";
+import { isValidDisplayName, normalizeDisplayName } from "@/lib/display-name";
 import { apiErrorMessage } from "@/lib/api-error";
 import { useCallback, useState } from "react";
 import useSWR from "swr";
@@ -132,14 +133,14 @@ export function ServerSettings({
     setBackupSlotFree(limit === null || backups.data.length < limit);
   }, [canCreateBackup, serverId]);
 
+  const nextName = normalizeDisplayName(name);
   const canSave =
-    name.trim().length > 0 && name.trim() !== initialName && !isSaving;
+    isValidDisplayName(nextName) && nextName !== initialName && !isSaving;
 
-  const isNameDirty = name.trim() !== initialName;
+  const isNameDirty = nextName !== initialName;
 
   const onSave = async () => {
-    const nextName = name.trim();
-    if (!nextName || nextName === initialName) {
+    if (!isValidDisplayName(nextName) || nextName === initialName) {
       return;
     }
 

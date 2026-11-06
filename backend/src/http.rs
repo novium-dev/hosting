@@ -21,6 +21,7 @@ use crate::service::minecraft::MinecraftService;
 use crate::service::modpack::ModpackService;
 use crate::service::profile::ProfileService;
 use crate::service::project::ProjectService;
+use crate::service::project_database::ProjectDatabaseService;
 use crate::service::resource::ResourceService;
 use crate::service::route::RouteService;
 use crate::service::schedule::ScheduleService;
@@ -46,7 +47,7 @@ impl Backend {
         #[openapi()]
         struct ApiDoc;
 
-        let (default_router,) = framework_router!(Self self (default,) { ServerService, FileService, BackupService, ServerAdminService, NodeAdminService, UserAdminService, AuthService, ProfileService, ProjectService, TemplateService, InternalService, MinecraftService, ResourceService, ModpackService, ApiKeyService, ApiKeyAdminService, TemplateAdminService, RouteService, RouteAdminService, ProjectDomainService, ScheduleService, DatabaseService, DatabaseAdminService, IntegrityAdminService, InstanceService, GroupAdminService, DeployAdminService });
+        let (default_router,) = framework_router!(Self self (default,) { ServerService, FileService, BackupService, ServerAdminService, NodeAdminService, UserAdminService, AuthService, ProfileService, ProjectService, TemplateService, InternalService, MinecraftService, ResourceService, ModpackService, ApiKeyService, ApiKeyAdminService, TemplateAdminService, RouteService, RouteAdminService, ProjectDomainService, ScheduleService, DatabaseService, ProjectDatabaseService, DatabaseAdminService, IntegrityAdminService, InstanceService, GroupAdminService, DeployAdminService });
         let (dev_auth_router,) = framework_router!(Self self (dev_auth,) { AuthService });
 
         let router = if cfg!(feature = "auth_dev") {

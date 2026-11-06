@@ -50,9 +50,7 @@
     }
   },
   "databases": {
-    "description": "Your own database engines. Each one holds as many databases and users as you need.",
-    "descriptionBypass": "Your role lets you go past the usual instance limit.",
-    "descriptionLimit": "A project can run up to {{limit}}.",
+    "description": "Each database comes with its own user and connection string.",
     "instanceBreadcrumb": "Instance",
     "engineLabel": "Engine",
     "instanceView": {
@@ -68,13 +66,14 @@
       "deleteError": "Failed to delete the instance"
     },
     "createDialog": {
-      "trigger": "New instance",
-      "title": "Create database instance",
-      "description": "Your own engine, on a host in your project's region. Its size is set by the platform; you can put as many databases and users on it as you like.",
-      "namePlaceholder": "Production",
-      "nameDescription": "Only for you to tell instances apart. Renaming it later is up to an administrator.",
-      "submit": "Create instance",
-      "created": "Instance created, starting it now"
+      "trigger": "New database",
+      "title": "Create database",
+      "description": "Pick a name and an engine. A user with full access is created with it.",
+      "namePlaceholder": "economy",
+      "nameDescription": "Letters and digits only, 2 to 63 characters. Also used as the username.",
+      "submit": "Create database",
+      "submitting": "Creating, this can take a minute",
+      "created": "Database created"
     },
     "databasesCard": {
       "description": "As many as you need on this instance. Each one is reachable through the shared instance address.",
@@ -86,7 +85,7 @@
       "createDialogDescription": "Letters and digits only, up to 63 characters.",
       "namePlaceholder": "analytics",
       "createSubmit": "Create database",
-      "deleteDescription": "The database and all of its data are deleted. Users granted on it keep existing and simply lose that access.",
+      "deleteDescription": "The database, all of its data and every user granted on it are deleted.",
       "created": "Database created",
       "createError": "Failed to create the database",
       "deleted": "Database deleted",
@@ -146,11 +145,19 @@
       "killCommandSent": "Kill command sent",
       "powerError": "Failed to change the power state"
     },
-    "instancesTable": {
+    "list": {
       "stateColumn": "State",
-      "loadError": "Failed to load the instances.",
-      "emptyTitle": "No database instances yet",
-      "emptyDescription": "Create one, then add as many databases and users to it as you need."
+      "connectionColumn": "Connection",
+      "loadError": "Failed to load the databases.",
+      "emptyTitle": "No databases yet",
+      "emptyDescription": "Create one to get a connection string.",
+      "moreUsers_one": "+{{count}} user",
+      "moreUsers_other": "+{{count}} users",
+      "actions": "Database actions",
+      "advanced": "Users and settings",
+      "deleteDescription": "The database, all of its data and every user granted on it are deleted. This cannot be undone.",
+      "deleted": "Database deleted",
+      "deleteError": "Failed to delete the database"
     }
   },
   "members": {

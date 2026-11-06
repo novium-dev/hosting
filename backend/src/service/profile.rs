@@ -2,6 +2,7 @@ use super::*;
 use crate::Backend;
 use crate::auth::user::{UserAuthentication, generate_daemon_password, hash_daemon_password};
 use crate::service::profile::profile_service_error::{AddSshKeyError, DeleteSshKeyError};
+use crate::utils::name::display_name;
 use serde::Serialize;
 use sqlx::query;
 use ssh_key::{HashAlg, PublicKey};
@@ -47,13 +48,14 @@ pub(crate) impl ProfileService for Backend {
 
     /// Adds an SSH public key to the current user's profile.
     #[route("/ssh-keys", method = PUT)]
-    #[error(profile::ssh_key_invalid, db::failure <- [sql:*], auth::unreachable)]
+    #[error(profile::ssh_key_invalid, input::name_invalid, db::failure <- [sql:*], auth::unreachable)]
     async fn add_ssh_key(
         &self,
         #[special] auth: UserAuthentication,
         name: String,
         public_key: String,
     ) -> Result<i32, _> {
+        let name = display_name(&name).ok_or(AddSshKeyError::InputNameInvalid)?;
         let (public_key, fingerprint) =
             parse_ssh_public_key(&public_key).map_err(|()| AddSshKeyError::ProfileSshKeyInvalid)?;
 

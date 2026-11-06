@@ -6,6 +6,7 @@ import {
   listGroups,
   listInstanceDatabases,
   listNodeGroups,
+  listProjectDatabases,
   listProjectInstances,
   listRouteDomainsAdmin,
   serverInfo,
@@ -31,6 +32,27 @@ export function useProjectInstances(
       if (response.error) {
         throw new Error(
           apiErrorMessage(response.error, "Failed to load instances"),
+        );
+      }
+      return response.data ?? [];
+    },
+    config,
+  );
+}
+
+export function useProjectDatabases(
+  projectId: string | null | undefined,
+  config?: SWRConfiguration,
+) {
+  return useSWR(
+    projectId ? ["project-databases", projectId] : null,
+    async ([, id]) => {
+      const response = await listProjectDatabases({
+        path: { project_id: id },
+      });
+      if (response.error) {
+        throw new Error(
+          apiErrorMessage(response.error, "Failed to load databases"),
         );
       }
       return response.data ?? [];

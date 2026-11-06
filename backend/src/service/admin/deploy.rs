@@ -19,6 +19,7 @@ use crate::service::template::error_template_unavailable::FromTemplateUnavailabl
 use crate::service::template::*;
 use crate::service::*;
 use crate::templates::{TemplateError, ThinTemplateError};
+use crate::utils::name::display_name;
 use daemon_common::service::server::ServerResourcePayload;
 use redis::RedisError;
 use serde::{Deserialize, Serialize};
@@ -198,7 +199,7 @@ pub(crate) impl DeployAdminService for Backend {
         group::not_on_node,
         port::{invalid, not_allocated},
         template::{not_found, unavailable, corrupted, port_definition_unknown, input_invalid}, cache::failure <- [redis:*],
-        auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
+        auth::{permission_denied, unreachable}, db::failure <- [sql:*], input::name_invalid)]
     async fn deploy_server(
         &self,
         #[special] auth: Authentication,
@@ -208,6 +209,8 @@ pub(crate) impl DeployAdminService for Backend {
         node: Option<Uuid>,
     ) -> Result<DeployedServer, _> {
         auth.require::<_, _, DeployServerError>((), ManagementPermissions::SERVER_DEPLOY)?;
+
+        let name = display_name(&name).ok_or(DeployServerError::InputNameInvalid)?;
 
         let project_exists = query_scalar!(
             r#"SELECT EXISTS (SELECT 1 FROM projects WHERE id = $1) AS "exists!""#,

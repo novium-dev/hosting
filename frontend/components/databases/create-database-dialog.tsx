@@ -1,6 +1,6 @@
 "use client";
 
-import { createInstanceAction } from "@/actions/databases";
+import { createProjectDatabaseAction } from "@/actions/databases";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,7 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useHookFormAction } from "@/lib/action-hooks";
-import { createInstanceSchema } from "@/types/database.schema";
+import type { DatabaseType } from "@/lib/api";
+import { createProjectDatabaseSchema } from "@/types/database.schema";
 import { Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
@@ -36,49 +37,61 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { DATABASE_TYPE_LABELS } from "./database-type";
 
-interface CreateInstanceDialogProps {
+interface CreateDatabaseDialogProps {
   projectId: string;
-  /** Whether the project is already at its instance limit. */
-  atLimit: boolean;
+  /** Engines the project cannot add another database for (Redis allows one). */
+  unavailableTypes: DatabaseType[];
   onCreated: () => void;
 }
 
-export function CreateInstanceDialog({
+export function CreateDatabaseDialog({
   projectId,
-  atLimit,
+  unavailableTypes,
   onCreated,
-}: CreateInstanceDialogProps) {
+}: CreateDatabaseDialogProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
+  const typeOptions = Object.entries(DATABASE_TYPE_LABELS).map(
+    ([value, label]) => ({
+      value: value as DatabaseType,
+      label,
+      disabled: unavailableTypes.includes(value as DatabaseType),
+    }),
+  );
+
   const { form, action, handleSubmitWithAction, resetFormAndAction } =
-    useHookFormAction(createInstanceAction, zodResolver(createInstanceSchema), {
-      formProps: {
-        mode: "onChange",
-        defaultValues: {
-          projectId,
-          display: "",
-          type: "postgres" as const,
+    useHookFormAction(
+      createProjectDatabaseAction,
+      zodResolver(createProjectDatabaseSchema),
+      {
+        formProps: {
+          mode: "onChange",
+          defaultValues: {
+            projectId,
+            name: "",
+            type: "mariadb" as const,
+          },
+        },
+        actionProps: {
+          onSuccess: () => {
+            resetFormAndAction();
+            setOpen(false);
+            onCreated();
+            toast.success(t("project:databases.createDialog.created"));
+          },
+          onError: (error) => {
+            toast.error(
+              error.error.serverError ?? t("common:state.genericError"),
+            );
+          },
         },
       },
-      actionProps: {
-        onSuccess: () => {
-          resetFormAndAction();
-          setOpen(false);
-          onCreated();
-          toast.success(t("project:databases.createDialog.created"));
-        },
-        onError: (error) => {
-          toast.error(
-            error.error.serverError ?? t("common:state.genericError"),
-          );
-        },
-      },
-    });
+    );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button disabled={atLimit} />}>
+      <DialogTrigger render={<Button />}>
         <Plus className="size-4" />
         {t("project:databases.createDialog.trigger")}
       </DialogTrigger>
@@ -93,45 +106,7 @@ export function CreateInstanceDialog({
           <FieldGroup className="gap-4">
             <Controller
               control={form.control}
-              name="type"
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor={field.name}>
-                    {t("project:databases.engineLabel")}
-                  </FieldLabel>
-                  <Select
-                    items={[
-                      ...Object.entries(DATABASE_TYPE_LABELS).map(
-                        ([value, label]) => ({ value: value, label: label }),
-                      ),
-                    ]}
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
-                    <SelectTrigger
-                      id={field.name}
-                      aria-invalid={fieldState.invalid}
-                      className="w-full"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(DATABASE_TYPE_LABELS).map(
-                        ([value, label]) => (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        ),
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FieldError errors={[fieldState.error]} />
-                </Field>
-              )}
-            />
-            <Controller
-              control={form.control}
-              name="display"
+              name="name"
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor={field.name}>
@@ -152,13 +127,51 @@ export function CreateInstanceDialog({
                 </Field>
               )}
             />
+            <Controller
+              control={form.control}
+              name="type"
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>
+                    {t("project:databases.engineLabel")}
+                  </FieldLabel>
+                  <Select
+                    items={typeOptions}
+                    onValueChange={field.onChange}
+                    value={field.value}
+                  >
+                    <SelectTrigger
+                      id={field.name}
+                      aria-invalid={fieldState.invalid}
+                      className="w-full"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {typeOptions.map((option) => (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          disabled={option.disabled}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldError errors={[fieldState.error]} />
+                </Field>
+              )}
+            />
             <DialogFooter>
               <Button
                 type="submit"
                 className="w-full"
                 loading={action.isExecuting}
               >
-                {t("project:databases.createDialog.submit")}
+                {action.isExecuting
+                  ? t("project:databases.createDialog.submitting")
+                  : t("project:databases.createDialog.submit")}
               </Button>
             </DialogFooter>
           </FieldGroup>

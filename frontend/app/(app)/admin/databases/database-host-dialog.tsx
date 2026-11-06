@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidDisplayName } from "@/lib/display-name";
 import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
@@ -197,7 +198,9 @@ function DatabaseHostForm({
   };
 
   const canSubmit =
-    display.trim() !== "" && url.trim() !== "" && publicHost.trim() !== "";
+    isValidDisplayName(display) &&
+    url.trim() !== "" &&
+    publicHost.trim() !== "";
 
   return (
     <>

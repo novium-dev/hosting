@@ -1,4 +1,5 @@
 use crate::cluster::SyncTarget;
+use crate::utils::name::display_name;
 use tracing::error;
 
 use serde::{Deserialize, Serialize};
@@ -137,7 +138,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("", method = PUT)]
-    #[error(auth::{permission_denied, unreachable}, os::failure, node::invalid_host, db::failure <- [sql:*], cache::failure <- [redis:*])]
+    #[error(auth::{permission_denied, unreachable}, os::failure, node::invalid_host, input::name_invalid, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn create_node(
         &self,
         #[special] auth: Authentication,
@@ -145,6 +146,8 @@ pub(crate) impl NodeAdminService for Backend {
         config: SetupNodeConfigRequest,
     ) -> Result<String, _> {
         auth.require::<_, _, CreateNodeError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        let name = display_name(&name).ok_or(CreateNodeError::InputNameInvalid)?;
 
         let registration =
             config.into_registration::<CreateNodeError>(name, &self.config.public_url)?;
@@ -304,7 +307,7 @@ pub(crate) impl NodeAdminService for Backend {
     /// # Permissions
     /// Requires [`ManagementPermissions::NODES_MANAGE`].
     #[route("/registrations/{code}", method = PATCH)]
-    #[error(node::{not_found, invalid_host}, auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*])]
+    #[error(node::{not_found, invalid_host}, auth::{permission_denied, unreachable}, input::name_invalid, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn update_node_registration(
         &self,
         #[special] auth: Authentication,
@@ -313,6 +316,8 @@ pub(crate) impl NodeAdminService for Backend {
         config: SetupNodeConfigRequest,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateNodeRegistrationError>((), ManagementPermissions::NODES_MANAGE)?;
+
+        let name = display_name(&name).ok_or(UpdateNodeRegistrationError::InputNameInvalid)?;
 
         let registration = config
             .into_registration::<UpdateNodeRegistrationError>(name, &self.config.public_url)?;

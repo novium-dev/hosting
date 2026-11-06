@@ -2,19 +2,11 @@
 
 import { useTranslation } from "react-i18next";
 
-import { CreateInstanceDialog } from "@/components/databases/create-instance-dialog";
-import { InstancesTable } from "@/components/databases/instances-table";
-import { useProjectInstances } from "@/hooks/use-shared-queries";
-import { authClient } from "@/lib/auth-client";
-import {
-  ManagementPermission,
-  ServerPermission,
-  hasManagementPermission,
-  hasServerPermission,
-} from "@/lib/permissions";
-
-/** Mirrors MAX_PROJECT_INSTANCES in the backend. */
-const INSTANCE_LIMIT = 4;
+import { CreateDatabaseDialog } from "@/components/databases/create-database-dialog";
+import { hasNamedDatabases } from "@/components/databases/database-type";
+import { ProjectDatabasesTable } from "@/components/databases/project-databases-table";
+import { useProjectDatabases } from "@/hooks/use-shared-queries";
+import { ServerPermission, hasServerPermission } from "@/lib/permissions";
 
 interface DatabasesViewProps {
   projectId: string;
@@ -29,23 +21,20 @@ export function DatabasesView({
   permissions,
 }: DatabasesViewProps) {
   const { t } = useTranslation();
-  const { data: session } = authClient.useSession();
   const {
-    data: instances,
+    data: databases,
     error,
     isLoading,
     mutate,
-  } = useProjectInstances(projectId);
+  } = useProjectDatabases(projectId);
 
   const canManage = hasServerPermission(
     permissions,
     ServerPermission.DATABASE_MANAGE,
   );
-  const bypassesLimit = hasManagementPermission(
-    session?.user.permissions ?? 0,
-    ManagementPermission.LIMITS_BYPASS,
-  );
-  const atLimit = !bypassesLimit && (instances?.length ?? 0) >= INSTANCE_LIMIT;
+  const unavailableTypes = (databases ?? [])
+    .map((database) => database.type)
+    .filter((type) => !hasNamedDatabases(type));
 
   return (
     <div className="space-y-6">
@@ -53,27 +42,25 @@ export function DatabasesView({
         <div>
           <h1 className="text-xl font-semibold">{t("common:nav.databases")}</h1>
           <p className="text-sm text-muted-foreground">
-            {t("project:databases.description")}{" "}
-            {bypassesLimit
-              ? t("project:databases.descriptionBypass")
-              : t("project:databases.descriptionLimit", {
-                  limit: INSTANCE_LIMIT,
-                })}
+            {t("project:databases.description")}
           </p>
         </div>
         {canManage ? (
-          <CreateInstanceDialog
+          <CreateDatabaseDialog
             projectId={projectId}
-            atLimit={atLimit}
+            unavailableTypes={unavailableTypes}
             onCreated={() => void mutate()}
           />
         ) : null}
       </div>
-      <InstancesTable
+      <ProjectDatabasesTable
+        projectId={projectId}
         slug={slug}
-        instances={instances}
+        databases={databases}
+        canManage={canManage}
         isLoading={isLoading}
         error={Boolean(error)}
+        onChanged={() => void mutate()}
       />
     </div>
   );

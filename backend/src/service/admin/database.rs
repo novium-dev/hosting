@@ -13,6 +13,7 @@ use crate::service::admin::database::database_admin_service_error::{
 };
 use crate::service::error_database_agent_error::FromDatabaseAgentError;
 use crate::service::*;
+use crate::utils::name::display_name;
 use crate::utils::task::detached;
 use core::str::FromStr as _;
 use database_agent_common::service::instance::InstanceService as _;
@@ -207,16 +208,19 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, os::failure,
-        group::not_found, db::failure <- [sql:*], cache::failure <- [redis:*])]
+        group::not_found, input::name_invalid, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn create_database_host(
         &self,
         #[special] auth: Authentication,
-        payload: CreateDatabaseHost,
+        mut payload: CreateDatabaseHost,
     ) -> Result<String, _> {
         auth.require::<_, _, CreateDatabaseHostError>(
             (),
             ManagementPermissions::DATABASE_HOSTS_MANAGE,
         )?;
+
+        payload.display =
+            display_name(&payload.display).ok_or(CreateDatabaseHostError::InputNameInvalid)?;
 
         if !all_groups_exist(&*self.database, &payload.groups).await? {
             return Err(CreateDatabaseHostError::GroupNotFound);
@@ -280,17 +284,20 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host/registrations/{code}", method = PATCH)]
     #[error(auth::{permission_denied, unreachable}, database::host_not_found,
-        group::not_found, db::failure <- [sql:*], cache::failure <- [redis:*])]
+        group::not_found, input::name_invalid, db::failure <- [sql:*], cache::failure <- [redis:*])]
     async fn update_database_host_registration(
         &self,
         #[special] auth: Authentication,
         code: String,
-        payload: CreateDatabaseHost,
+        mut payload: CreateDatabaseHost,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateDatabaseHostRegistrationError>(
             (),
             ManagementPermissions::DATABASE_HOSTS_MANAGE,
         )?;
+
+        payload.display = display_name(&payload.display)
+            .ok_or(UpdateDatabaseHostRegistrationError::InputNameInvalid)?;
 
         if !all_groups_exist(&*self.database, &payload.groups).await? {
             return Err(UpdateDatabaseHostRegistrationError::GroupNotFound);
@@ -332,7 +339,7 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host/{host_id}", method = PATCH)]
     #[error(auth::{permission_denied, unreachable}, database::host_not_found <- [sql:not_found],
-        group::not_found <- [sql:foreign_key], db::failure <- [sql:*])]
+        group::not_found <- [sql:foreign_key], input::name_invalid, db::failure <- [sql:*])]
     async fn update_database_host(
         &self,
         #[special] auth: Authentication,
@@ -344,6 +351,11 @@ pub(crate) impl DatabaseAdminService for Backend {
             ManagementPermissions::DATABASE_HOSTS_MANAGE,
         )?;
 
+        let display = payload
+            .display
+            .map(|display| display_name(&display).ok_or(UpdateDatabaseHostError::InputNameInvalid))
+            .transpose()?;
+
         query!(
             "UPDATE database_hosts SET
                  display = COALESCE($2, display),
@@ -352,7 +364,7 @@ pub(crate) impl DatabaseAdminService for Backend {
                  maintenance = COALESCE($5, maintenance)
              WHERE id = $1",
             host_id,
-            payload.display,
+            display,
             payload.url.map(|url| url.to_string()),
             payload.public_host,
             payload.maintenance
@@ -505,18 +517,26 @@ pub(crate) impl DatabaseAdminService for Backend {
     /// Requires [`ManagementPermissions::DATABASE_HOSTS_MANAGE`].
     #[route("/host/{host_id}/instance/{instance_id}", method = PATCH)]
     #[error(auth::{permission_denied, unreachable},
-        database::{host_not_found, instance_not_found, agent_error}, db::failure <- [sql:*])]
+        database::{host_not_found, instance_not_found, agent_error}, input::name_invalid,
+        db::failure <- [sql:*])]
     async fn update_database_instance(
         &self,
         #[special] auth: Authentication,
         host_id: Uuid,
         instance_id: Uuid,
-        payload: UpdateDatabaseInstance,
+        mut payload: UpdateDatabaseInstance,
     ) -> Result<(), _> {
         auth.require::<_, _, UpdateDatabaseInstanceError>(
             (),
             ManagementPermissions::DATABASE_HOSTS_MANAGE,
         )?;
+
+        payload.display = payload
+            .display
+            .map(|display| {
+                display_name(&display).ok_or(UpdateDatabaseInstanceError::InputNameInvalid)
+            })
+            .transpose()?;
 
         let host = self
             .database_host(host_id)

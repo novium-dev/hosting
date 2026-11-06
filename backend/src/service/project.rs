@@ -15,6 +15,7 @@ use crate::service::project::project_service_error::{
     ListProjectUsersError, ListProjectsError, RemoveProjectUserError, SetProjectLogoError,
     SetProjectUserError, UpdateProjectError, UploadProjectLogoError,
 };
+use crate::utils::name::display_name;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -29,7 +30,6 @@ define_query_variable!(own "Only include projects owned by or shared with the cu
 define_query_variable!(slug "The project slug to check for availability");
 
 const SLUG_MAX_LENGTH: usize = 64;
-const NAME_MAX_LENGTH: usize = 64;
 const LOGO_URL_MAX_LENGTH: usize = 1024;
 
 const RESERVED_SLUGS: &[&str] = &[
@@ -66,12 +66,8 @@ fn validate_slug<E: FromProjectSlugInvalid>(slug: &str) -> Result<(), E> {
     }
 }
 
-fn validate_name<E: FromProjectNameInvalid>(name: &str) -> Result<(), E> {
-    if name.trim().is_empty() || name.chars().count() > NAME_MAX_LENGTH {
-        Err(<E as FromProjectNameInvalid>::from())
-    } else {
-        Ok(())
-    }
+fn validate_name<E: FromProjectNameInvalid>(name: &str) -> Result<String, E> {
+    display_name(name).ok_or_else(<E as FromProjectNameInvalid>::from)
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -176,7 +172,7 @@ pub(crate) impl ProjectService for Backend {
         }
 
         validate_slug::<CreateProjectError>(&slug)?;
-        validate_name::<CreateProjectError>(&name)?;
+        let name = validate_name::<CreateProjectError>(&name)?;
 
         let owner = if let Some(owner) = owner {
             auth.require::<_, _, CreateProjectError>((), ManagementPermissions::USER_MANAGE)?;
@@ -296,9 +292,10 @@ pub(crate) impl ProjectService for Backend {
             validate_slug::<UpdateProjectError>(slug)?;
         }
 
-        if let Some(name) = name.as_deref() {
-            validate_name::<UpdateProjectError>(name)?;
-        }
+        let name = name
+            .as_deref()
+            .map(validate_name::<UpdateProjectError>)
+            .transpose()?;
 
         if owner.is_some()
             && !auth.has((), ManagementPermissions::USER_MANAGE)

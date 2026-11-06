@@ -1,7 +1,8 @@
+import { displayNameSchema } from "@/lib/display-name";
 import { z } from "zod";
 
 export const createApiKeySchema = z.object({
-  name: z.string().min(1, "Name is required").max(64, "Name is too long"),
+  name: displayNameSchema("Name is required"),
   /** The project the key is scoped to; omitted for an instance-wide key. */
   projectId: z.string().optional(),
   permissions: z
@@ -19,7 +20,7 @@ export const updateApiKeySchema = z.object({
   id: z.number().int(),
   /** Update through the admin route, which can reach other users' keys. */
   admin: z.boolean().optional(),
-  name: z.string().min(1, "Name is required").max(64, "Name is too long"),
+  name: displayNameSchema("Name is required"),
   permissions: z
     .number()
     .int()

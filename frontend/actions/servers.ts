@@ -1,3 +1,4 @@
+import { displayNameSchema } from "@/lib/display-name";
 import { apiErrorMessage } from "@/lib/api-error";
 import { createServer, templateInfo } from "@/lib/api";
 import { authActionClient } from "@/lib/safe-action";
@@ -9,7 +10,7 @@ const templateInfoSchema = z.object({
 });
 
 const createServerSchema = z.object({
-  name: z.string().min(1, "Server name is required"),
+  name: displayNameSchema("Server name is required"),
   owner: z.string().min(1, "Project is required"),
   template: z.string().min(1, "Template is required"),
   node: z.string().min(1, "Node is required"),

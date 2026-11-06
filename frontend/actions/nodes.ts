@@ -1,3 +1,4 @@
+import { displayNameSchema } from "@/lib/display-name";
 import { apiErrorMessage } from "@/lib/api-error";
 import z from "zod";
 import { authActionClient } from "../lib/safe-action";
@@ -28,7 +29,7 @@ const backupEntrySchema = z
   });
 
 const nodeConfigSchema = z.object({
-  name: z.string().min(1, "Node name is required"),
+  name: displayNameSchema("Node name is required"),
   baseUrl: z.string().min(1, "Base URL is required"),
   defaultHost: z.string().min(1, "Default host is required"),
   // Optional SSH/SFTP endpoint. When unset, SSH/SFTP is disabled for the node.

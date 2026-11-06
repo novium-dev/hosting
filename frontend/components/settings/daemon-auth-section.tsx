@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidDisplayName, normalizeDisplayName } from "@/lib/display-name";
 import {
   addSshKey,
   deleteSshKey,
@@ -112,9 +113,9 @@ export function DaemonAuthSection() {
   const handleAddSshKey = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const name = keyName.trim();
+    const name = normalizeDisplayName(keyName);
     const key = publicKey.trim();
-    if (!name || !key) {
+    if (!isValidDisplayName(name) || !key) {
       toast.error(t("settings:daemonAuth.nameAndKeyRequired"));
       return;
     }
@@ -374,7 +375,7 @@ export function DaemonAuthSection() {
               type="submit"
               className="self-end"
               loading={addingKey}
-              disabled={!keyName.trim() || !publicKey.trim()}
+              disabled={!isValidDisplayName(keyName) || !publicKey.trim()}
             >
               {t("settings:daemonAuth.addKey")}
             </Button>

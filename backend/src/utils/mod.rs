@@ -15,6 +15,7 @@ use zelus::special::OptionalFromRequestParts;
 use zelus::types::{DataStream, DocumentedType};
 
 pub mod id;
+pub mod name;
 pub mod serde;
 pub mod server;
 pub mod task;
