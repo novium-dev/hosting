@@ -251,6 +251,8 @@ export const SERVER_PERMISSION_GROUPS: {
     group: "Network",
     permissions: [
       { bit: ServerPermission.NETWORK_VIEW, label: "View network & ports" },
+      { bit: ServerPermission.ROUTES_VIEW, label: "View routes" },
+      { bit: ServerPermission.ROUTES_MANAGE, label: "Create & delete routes" },
     ],
   },
   {

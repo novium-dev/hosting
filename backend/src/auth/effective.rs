@@ -120,8 +120,7 @@ impl EffectivePermissions {
         for record in server_records {
             let server_permissions = projects
                 .get(&record.project)
-                .copied()
-                .unwrap_or(permissions);
+                .map_or(permissions, |project| project | permissions);
 
             let server_permissions = if (record.suspended
                 && !ManagementPermissions::from_bits_retain(permissions)
