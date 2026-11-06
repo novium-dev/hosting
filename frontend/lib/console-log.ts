@@ -706,7 +706,8 @@ export function consoleLineToText(
  * such as JLine (which the Minecraft server console uses) repaint their `> `
  * prompt with one, and progress bars overwrite themselves the same way.
  * Treating those as newlines would emit a phantom line per repaint, so a bare
- * `\r` discards the partial line instead. Only CRLF and LF end a line.
+ * `\r` discards the partial line instead. Only LF ends a line, optionally
+ * preceded by any number of `\r` (the daemon turns CRLF into CR CR LF).
  */
 export function splitChunk(pending: string, chunk: string) {
   const buffer = pending + chunk;
@@ -724,14 +725,17 @@ export function splitChunk(pending: string, chunk: string) {
     }
 
     if (char === "\r") {
-      if (index === buffer.length - 1) {
-        return { lines, rest: `${current}\r` };
+      let next = index + 1;
+      while (buffer[next] === "\r") next += 1;
+
+      if (next === buffer.length) {
+        return { lines, rest: current + buffer.slice(index) };
       }
 
-      if (buffer[index + 1] === "\n") {
+      if (buffer[next] === "\n") {
         lines.push(current);
         current = "";
-        index += 1;
+        index = next;
         continue;
       }
 
