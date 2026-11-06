@@ -13,6 +13,7 @@ use crate::service::api_key::api_key_service_error::{
 use crate::service::api_key::error_api_key_permissions_exceeded::FromApiKeyPermissionsExceeded;
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::error_project_not_found::FromProjectNotFound;
+use crate::utils::name::display_name;
 use serde::Serialize;
 use sqlx::query;
 use zelus::{define_path_variable, service};
@@ -167,7 +168,7 @@ pub(crate) impl ApiKeyService for Backend {
     /// key (`project` omitted).
     /// The requested permissions may never exceed your own.
     #[route("", method = PUT)]
-    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found <- [sql:foreign_key], api_key::permissions_exceeded)]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found <- [sql:foreign_key], api_key::permissions_exceeded, input::name_invalid)]
     async fn create_api_key(
         &self,
         #[special] auth: UserAuthentication,
@@ -177,6 +178,7 @@ pub(crate) impl ApiKeyService for Backend {
     ) -> Result<CreatedApiKey, _> {
         ensure_scope_access::<CreateApiKeyError>(&auth, project)?;
         let permissions = grantable_permissions::<CreateApiKeyError>(&auth, project, permissions)?;
+        let name = display_name(&name).ok_or(CreateApiKeyError::InputNameInvalid)?;
 
         let token = ApiKeyToken::generate();
         let record = query!(
@@ -207,7 +209,7 @@ pub(crate) impl ApiKeyService for Backend {
     /// # Permissions
     /// The permissions may never exceed your own.
     #[route("/{api_key_id}", method = PATCH)]
-    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found, api_key::{not_found, permissions_exceeded})]
+    #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found, api_key::{not_found, permissions_exceeded}, input::name_invalid)]
     async fn update_api_key(
         &self,
         #[special] auth: UserAuthentication,
@@ -225,6 +227,10 @@ pub(crate) impl ApiKeyService for Backend {
         else {
             return Err(UpdateApiKeyError::ApiKeyNotFound);
         };
+
+        let name = name
+            .map(|name| display_name(&name).ok_or(UpdateApiKeyError::InputNameInvalid))
+            .transpose()?;
 
         if let Some(permissions) = permissions {
             ensure_scope_access::<UpdateApiKeyError>(&auth, key.project)?;

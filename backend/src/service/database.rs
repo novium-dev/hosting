@@ -15,6 +15,7 @@ use crate::service::error_database_instance_not_found::FromDatabaseInstanceNotFo
 use crate::service::error_database_limit_exceeded::FromDatabaseLimitExceeded;
 use crate::service::error_database_type_unavailable::FromDatabaseTypeUnavailable;
 use crate::service::error_project_not_found::FromProjectNotFound;
+use crate::utils::name::display_name;
 use crate::utils::task::detached;
 use database_agent_common::identifier::{LABEL_MAX_LENGTH, LABEL_MIN_LENGTH};
 use database_agent_common::service::database::DatabaseService as _;
@@ -406,7 +407,8 @@ pub(crate) impl DatabaseService for Backend {
     /// Requires [`ProjectPermissions::DATABASE_MANAGE`].
     #[route("", method = PUT)]
     #[error(auth::{permission_denied, unreachable}, project::not_found,
-        database::{limit_exceeded, type_unavailable, agent_error}, db::failure <- [sql:*])]
+        database::{limit_exceeded, type_unavailable, agent_error}, input::name_invalid,
+        db::failure <- [sql:*])]
     async fn create_project_instance(
         &self,
         #[special] auth: Authentication,
@@ -418,6 +420,9 @@ pub(crate) impl DatabaseService for Backend {
             ProjectPermissions::DATABASE_MANAGE,
         )?;
 
+        let display =
+            display_name(&payload.display).ok_or(CreateProjectInstanceError::InputNameInvalid)?;
+
         let may_bypass = auth
             .require::<_, _, CreateProjectInstanceError>((), ManagementPermissions::LIMITS_BYPASS)
             .is_ok();
@@ -426,7 +431,7 @@ pub(crate) impl DatabaseService for Backend {
             .provision_instance::<CreateProjectInstanceError>(
                 project_id,
                 payload.kind,
-                payload.display,
+                display,
                 Provision::Fresh {
                     bypass_limit: may_bypass,
                 },

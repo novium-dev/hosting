@@ -1,3 +1,4 @@
+use crate::utils::name::display_name;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -454,7 +455,7 @@ pub(crate) impl ServerService for Backend {
     /// Requires [`ManagementPermissions::SERVER_SUSPEND`] to (un)suspend a server or to change
     /// the reason a server is suspended for.
     #[route("/{server_id}", method = PATCH)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, suspension_reason_required, not_suspended}, node::failure, group::not_on_node, template::{corrupted, unavailable})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], cache::failure <- [redis:*], server::{not_found, suspension_reason_required, not_suspended}, node::failure, group::not_on_node, template::{corrupted, unavailable}, input::name_invalid)]
     async fn update_server(
         &self,
         #[special] auth: Authentication,
@@ -476,6 +477,10 @@ pub(crate) impl ServerService for Backend {
                 ProjectPermissions::ADMIN_MANAGEMENT,
             )?;
         }
+
+        let name = name
+            .map(|name| display_name(&name).ok_or(UpdateServerError::InputNameInvalid))
+            .transpose()?;
 
         if resource.is_some()
             || internet_access.is_some()

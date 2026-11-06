@@ -11,6 +11,7 @@ use crate::service::api_key::{
 };
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::*;
+use crate::utils::name::display_name;
 use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
 use sqlx::query;
 use zelus::service;
@@ -77,7 +78,7 @@ pub(crate) impl ApiKeyAdminService for Backend {
     /// Requires `ManagementPermissions::API_KEYS_MANAGE`. Both the key's current
     /// permissions and the new ones may never exceed your own.
     #[route("/{api_key_id}", method = PATCH)]
-    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], api_key::{not_found, permissions_exceeded})]
+    #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*], api_key::{not_found, permissions_exceeded}, input::name_invalid)]
     async fn update_any_api_key(
         &self,
         #[special] auth: Authentication,
@@ -97,6 +98,10 @@ pub(crate) impl ApiKeyAdminService for Backend {
         .fetch_optional(&*self.database)
         .await?
         .ok_or(UpdateAnyApiKeyError::ApiKeyNotFound)?;
+
+        let name = name
+            .map(|name| display_name(&name).ok_or(UpdateAnyApiKeyError::InputNameInvalid))
+            .transpose()?;
 
         if key.permissions & !grant_ceiling(access, key.project) != 0 {
             return Err(<UpdateAnyApiKeyError as FromAuthPermissionDenied>::from());

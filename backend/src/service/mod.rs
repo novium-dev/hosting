@@ -190,6 +190,10 @@ define_error!(license {
     not_accepted("A license required by this server has not been accepted yet" BAD_REQUEST),
 });
 
+define_error!(input {
+    name_invalid("The name must be 1-64 visible characters" BAD_REQUEST),
+});
+
 define_error!(db {
     failure("Database operation failed" INTERNAL_SERVER_ERROR),
 });
