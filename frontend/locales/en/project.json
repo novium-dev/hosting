@@ -153,11 +153,13 @@
       "emptyDescription": "Create one to get a connection string.",
       "moreUsers_one": "+{{count}} user",
       "moreUsers_other": "+{{count}} users",
-      "actions": "Database actions",
-      "advanced": "Users and settings",
       "deleteDescription": "The database, all of its data and every user granted on it are deleted. This cannot be undone.",
       "deleted": "Database deleted",
-      "deleteError": "Failed to delete the database"
+      "deleteError": "Failed to delete the database",
+      "noUsers": "No users",
+      "databaseCount_one": "{{count}} database",
+      "databaseCount_other": "{{count}} databases",
+      "openInstance": "Open instance"
     }
   },
   "members": {

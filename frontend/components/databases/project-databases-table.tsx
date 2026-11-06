@@ -1,6 +1,7 @@
 "use client";
 
 import { deleteProjectDatabaseAction } from "@/actions/databases";
+import Link from "@/components/link";
 import { ConnectionCell } from "@/components/databases/instance-users";
 import {
   AlertDialog,
@@ -14,12 +15,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -31,16 +26,22 @@ import {
 } from "@/components/ui/table";
 import { useAction } from "@/lib/action-hooks";
 import { useRouter } from "@/lib/navigation";
-import type { ProjectDatabaseEntry } from "@/types/api";
-import { Database, MoreHorizontal } from "lucide-react";
+import type { ProjectDatabaseEntry, ProjectInstance } from "@/types/api";
+import {
+  ChevronRight,
+  CornerDownRight,
+  Database,
+  Trash2Icon,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { DATABASE_TYPE_LABELS } from "./database-type";
+import { DATABASE_TYPE_LABELS, hasNamedDatabases } from "./database-type";
 
 interface ProjectDatabasesTableProps {
   projectId: string;
   slug: string;
+  instances: ProjectInstance[] | undefined;
   databases: ProjectDatabaseEntry[] | undefined;
   canManage: boolean;
   isLoading?: boolean;
@@ -48,14 +49,14 @@ interface ProjectDatabasesTableProps {
   onChanged: () => void;
 }
 
-function StateBadge({ database }: { database: ProjectDatabaseEntry }) {
+function StateBadge({ instance }: { instance: ProjectInstance }) {
   const { t } = useTranslation();
 
-  if (database.suspended) {
+  if (instance.suspended) {
     return <Badge variant="destructive">{t("common:status.suspended")}</Badge>;
   }
 
-  switch (database.state) {
+  switch (instance.state) {
     case "running":
       return <Badge>{t("common:status.running")}</Badge>;
     case "starting":
@@ -67,9 +68,38 @@ function StateBadge({ database }: { database: ProjectDatabaseEntry }) {
   }
 }
 
+function UsersCell({ database }: { database: ProjectDatabaseEntry }) {
+  const { t } = useTranslation();
+  const owner = database.users[0];
+
+  if (!owner) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {t("project:databases.list.noUsers")}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="min-w-0 flex-1">
+        <ConnectionCell user={owner} />
+      </div>
+      {database.users.length > 1 ? (
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {t("project:databases.list.moreUsers", {
+            count: database.users.length - 1,
+          })}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export function ProjectDatabasesTable({
   projectId,
   slug,
+  instances,
   databases,
   canManage,
   isLoading = false,
@@ -111,7 +141,7 @@ export function ProjectDatabasesTable({
     );
   }
 
-  if (!databases?.length) {
+  if (!instances?.length) {
     return (
       <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-10 text-center">
         <Database className="size-6 text-muted-foreground" />
@@ -125,12 +155,37 @@ export function ProjectDatabasesTable({
     );
   }
 
-  const instancesPerType = new Map<string, Set<string>>();
-  for (const database of databases) {
-    const instances = instancesPerType.get(database.type) ?? new Set();
-    instances.add(database.instance_id);
-    instancesPerType.set(database.type, instances);
+  const byInstance = new Map<string, ProjectDatabaseEntry[]>();
+  for (const database of databases ?? []) {
+    const entries = byInstance.get(database.instance_id) ?? [];
+    entries.push(database);
+    byInstance.set(database.instance_id, entries);
   }
+
+  const instancesPerType = new Map<string, number>();
+  for (const instance of instances) {
+    instancesPerType.set(
+      instance.type,
+      (instancesPerType.get(instance.type) ?? 0) + 1,
+    );
+  }
+
+  const deleteButton = (database: ProjectDatabaseEntry) =>
+    canManage ? (
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        onClick={(event) => {
+          event.stopPropagation();
+          setPendingDelete(database);
+        }}
+        aria-label={t("common:actions.delete")}
+        title={t("common:actions.delete")}
+      >
+        <Trash2Icon className="size-4" />
+      </Button>
+    ) : null;
 
   return (
     <>
@@ -139,94 +194,114 @@ export function ProjectDatabasesTable({
           <TableHeader className="bg-muted/40">
             <TableRow>
               <TableHead>{t("common:labels.name")}</TableHead>
-              <TableHead>{t("project:databases.engineLabel")}</TableHead>
               <TableHead>{t("project:databases.list.stateColumn")}</TableHead>
               <TableHead className="w-full">
                 {t("project:databases.list.connectionColumn")}
               </TableHead>
-              <TableHead className="w-0" />
+              <TableHead className="text-right">
+                {t("common:resources.manage")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {databases.map((database) => {
-              const owner = database.users[0];
-              const showInstance =
-                (instancesPerType.get(database.type)?.size ?? 0) > 1;
+            {instances.flatMap((instance) => {
+              const href = `/${slug}/databases/${instance.id}`;
+              const children = byInstance.get(instance.id) ?? [];
+              const named = hasNamedDatabases(instance.type);
+              const unnamedEntry = named ? undefined : children[0];
+              const showDisplay =
+                (instancesPerType.get(instance.type) ?? 0) > 1;
 
-              return (
-                <TableRow key={`${database.instance_id}/${database.id}`}>
+              const instanceRow = (
+                <TableRow
+                  key={instance.id}
+                  className="cursor-pointer"
+                  onClick={() => router.push(href)}
+                >
                   <TableCell>
-                    <div className="font-medium">{database.name}</div>
-                    {showInstance ? (
-                      <div className="text-xs text-muted-foreground">
-                        {database.instance_display}
-                      </div>
-                    ) : null}
+                    <div className="flex items-center gap-2">
+                      <Database className="size-4 shrink-0 text-muted-foreground" />
+                      <Link
+                        href={href}
+                        className="font-medium underline-offset-4 hover:underline"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {DATABASE_TYPE_LABELS[instance.type]}
+                      </Link>
+                      {showDisplay || !named ? (
+                        <span className="truncate text-xs text-muted-foreground">
+                          {instance.display}
+                        </span>
+                      ) : null}
+                      {named ? (
+                        <Badge variant="secondary" className="text-xs">
+                          {t("project:databases.list.databaseCount", {
+                            count: children.length,
+                          })}
+                        </Badge>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">
-                      {DATABASE_TYPE_LABELS[database.type]}
-                    </Badge>
+                    <StateBadge instance={instance} />
                   </TableCell>
-                  <TableCell>
-                    <StateBadge database={database} />
-                  </TableCell>
-                  <TableCell className="max-w-0">
-                    {owner ? (
-                      <div className="flex items-center gap-2">
-                        <div className="min-w-0 flex-1">
-                          <ConnectionCell user={owner} />
-                        </div>
-                        {database.users.length > 1 ? (
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            {t("project:databases.list.moreUsers", {
-                              count: database.users.length - 1,
-                            })}
-                          </span>
-                        ) : null}
-                      </div>
+                  <TableCell
+                    className="max-w-0"
+                    onClick={(event) => {
+                      if (unnamedEntry) event.stopPropagation();
+                    }}
+                  >
+                    {unnamedEntry ? (
+                      <UsersCell database={unnamedEntry} />
                     ) : (
                       <span className="font-mono text-xs text-muted-foreground">
-                        {database.host}:{database.port}
+                        {instance.host}:{instance.port}
                       </span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={t("project:databases.list.actions")}
-                          />
-                        }
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      {unnamedEntry ? deleteButton(unnamedEntry) : null}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        render={<Link href={href} />}
+                        nativeButton={false}
+                        onClick={(event) => event.stopPropagation()}
+                        aria-label={t("project:databases.list.openInstance")}
+                        title={t("project:databases.list.openInstance")}
                       >
-                        <MoreHorizontal className="size-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            router.push(
-                              `/${slug}/databases/${database.instance_id}/users`,
-                            )
-                          }
-                        >
-                          {t("project:databases.list.advanced")}
-                        </DropdownMenuItem>
-                        {canManage ? (
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setPendingDelete(database)}
-                          >
-                            {t("common:actions.delete")}
-                          </DropdownMenuItem>
-                        ) : null}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                        <ChevronRight className="size-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
+
+              if (!named) return [instanceRow];
+
+              return [
+                instanceRow,
+                ...children.map((database) => (
+                  <TableRow key={`${instance.id}/${database.id}`}>
+                    <TableCell>
+                      <div className="flex items-center gap-2 pl-6">
+                        <CornerDownRight className="size-4 shrink-0 text-muted-foreground" />
+                        <span className="font-medium">{database.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell />
+                    <TableCell className="max-w-0">
+                      <UsersCell database={database} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        {deleteButton(database)}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )),
+              ];
             })}
           </TableBody>
         </Table>

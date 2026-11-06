@@ -5,7 +5,10 @@ import { useTranslation } from "react-i18next";
 import { CreateDatabaseDialog } from "@/components/databases/create-database-dialog";
 import { hasNamedDatabases } from "@/components/databases/database-type";
 import { ProjectDatabasesTable } from "@/components/databases/project-databases-table";
-import { useProjectDatabases } from "@/hooks/use-shared-queries";
+import {
+  useProjectDatabases,
+  useProjectInstances,
+} from "@/hooks/use-shared-queries";
 import { ServerPermission, hasServerPermission } from "@/lib/permissions";
 
 interface DatabasesViewProps {
@@ -21,19 +24,20 @@ export function DatabasesView({
   permissions,
 }: DatabasesViewProps) {
   const { t } = useTranslation();
-  const {
-    data: databases,
-    error,
-    isLoading,
-    mutate,
-  } = useProjectDatabases(projectId);
+  const instances = useProjectInstances(projectId);
+  const databases = useProjectDatabases(projectId);
+
+  const refresh = () => {
+    void instances.mutate();
+    void databases.mutate();
+  };
 
   const canManage = hasServerPermission(
     permissions,
     ServerPermission.DATABASE_MANAGE,
   );
-  const unavailableTypes = (databases ?? [])
-    .map((database) => database.type)
+  const unavailableTypes = (instances.data ?? [])
+    .map((instance) => instance.type)
     .filter((type) => !hasNamedDatabases(type));
 
   return (
@@ -49,18 +53,19 @@ export function DatabasesView({
           <CreateDatabaseDialog
             projectId={projectId}
             unavailableTypes={unavailableTypes}
-            onCreated={() => void mutate()}
+            onCreated={refresh}
           />
         ) : null}
       </div>
       <ProjectDatabasesTable
         projectId={projectId}
         slug={slug}
-        databases={databases}
+        instances={instances.data}
+        databases={databases.data}
         canManage={canManage}
-        isLoading={isLoading}
-        error={Boolean(error)}
-        onChanged={() => void mutate()}
+        isLoading={instances.isLoading || databases.isLoading}
+        error={Boolean(instances.error || databases.error)}
+        onChanged={refresh}
       />
     </div>
   );

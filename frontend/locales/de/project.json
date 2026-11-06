@@ -153,11 +153,13 @@
       "emptyDescription": "Erstelle eine, um einen Connection-String zu bekommen.",
       "moreUsers_one": "+{{count}} Benutzer",
       "moreUsers_other": "+{{count}} Benutzer",
-      "actions": "Datenbank-Aktionen",
-      "advanced": "Benutzer und Einstellungen",
       "deleteDescription": "Die Datenbank, alle ihre Daten und jeder Benutzer mit Zugriff darauf werden gelöscht. Dies kann nicht rückgängig gemacht werden.",
       "deleted": "Datenbank gelöscht",
-      "deleteError": "Datenbank konnte nicht gelöscht werden"
+      "deleteError": "Datenbank konnte nicht gelöscht werden",
+      "noUsers": "Keine Benutzer",
+      "databaseCount_one": "{{count}} Datenbank",
+      "databaseCount_other": "{{count}} Datenbanken",
+      "openInstance": "Instanz öffnen"
     }
   },
   "members": {
