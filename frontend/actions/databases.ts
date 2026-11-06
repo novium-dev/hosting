@@ -1,9 +1,10 @@
 import { apiErrorMessage } from "@/lib/api-error";
 import {
   createInstanceDatabase,
-  createProjectInstance,
+  createProjectDatabase,
   createInstanceUser,
   deleteInstanceDatabase,
+  deleteProjectDatabase,
   deleteProjectInstance,
   deleteInstanceUser,
   powerProjectInstance,
@@ -14,7 +15,7 @@ import { authActionClient } from "@/lib/safe-action";
 import { ActionError } from "@/types/safe-action.types";
 import {
   createDatabaseSchema,
-  createInstanceSchema,
+  createProjectDatabaseSchema,
   createUserSchema,
   deleteDatabaseSchema,
   instanceSchema,
@@ -23,23 +24,43 @@ import {
   userSchema,
 } from "@/types/database.schema";
 
-export const createInstanceAction = authActionClient
-  .inputSchema(createInstanceSchema)
+export const createProjectDatabaseAction = authActionClient
+  .inputSchema(createProjectDatabaseSchema)
   .action(async ({ parsedInput }) => {
-    const { projectId, display, type } = parsedInput;
+    const { projectId, name, type } = parsedInput;
 
-    const response = await createProjectInstance({
+    const response = await createProjectDatabase({
       path: { project_id: projectId },
-      body: { display, type },
+      body: { name, type },
     });
 
     if (response.error || !response.data) {
       throw new ActionError(
-        apiErrorMessage(response.error, "Failed to create the instance"),
+        apiErrorMessage(response.error, "Failed to create the database"),
       );
     }
 
     return response.data;
+  });
+
+export const deleteProjectDatabaseAction = authActionClient
+  .inputSchema(deleteDatabaseSchema)
+  .action(async ({ parsedInput }) => {
+    const response = await deleteProjectDatabase({
+      path: {
+        project_id: parsedInput.projectId,
+        instance_id: parsedInput.instanceId,
+        database_id: parsedInput.databaseId,
+      },
+    });
+
+    if (response.error) {
+      throw new ActionError(
+        apiErrorMessage(response.error, "Failed to delete the database"),
+      );
+    }
+
+    return { success: true };
   });
 
 export const deleteInstanceAction = authActionClient

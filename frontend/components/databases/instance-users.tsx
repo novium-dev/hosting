@@ -76,7 +76,7 @@ import { useTranslation } from "react-i18next";
 
 export type ProjectUser = ListInstanceUsersResponses[200][number];
 
-async function copyValue(
+export async function copyValue(
   value: string,
   successMessage: string,
   errorMessage: string,
@@ -89,7 +89,7 @@ async function copyValue(
   }
 }
 
-function ConnectionCell({ user }: { user: ProjectUser }) {
+export function ConnectionCell({ user }: { user: ProjectUser }) {
   const { t } = useTranslation();
   const [revealed, setRevealed] = useState(false);
 

@@ -11,14 +11,6 @@ export const powerActions = ["start", "stop", "restart", "kill"] as const;
 
 export type PowerAction = (typeof powerActions)[number];
 
-export const createInstanceSchema = z.object({
-  projectId: z.string(),
-  display: z.string().min(1, "Name is required").max(64, "Name is too long"),
-  type: z.enum(databaseTypes),
-});
-
-export type CreateInstance = z.infer<typeof createInstanceSchema>;
-
 export const instanceSchema = z.object({
   projectId: z.string(),
   instanceId: z.string(),
@@ -48,6 +40,15 @@ export type CreateDatabase = z.infer<typeof createDatabaseSchema>;
 export const deleteDatabaseSchema = instanceSchema.extend({
   databaseId: z.string(),
 });
+
+/** The name also becomes the owner's username, which needs at least 2 characters. */
+export const createProjectDatabaseSchema = z.object({
+  projectId: z.string(),
+  name: objectName.min(2, "Name must be at least 2 characters"),
+  type: z.enum(databaseTypes),
+});
+
+export type CreateProjectDatabase = z.infer<typeof createProjectDatabaseSchema>;
 
 export const accessLevels = ["read", "write"] as const;
 

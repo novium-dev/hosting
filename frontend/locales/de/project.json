@@ -50,9 +50,7 @@
     }
   },
   "databases": {
-    "description": "Deine eigenen Datenbank-Engines. Jede kann so viele Datenbanken und Benutzer enthalten, wie du brauchst.",
-    "descriptionBypass": "Deine Rolle erlaubt es dir, das übliche Instanzlimit zu überschreiten.",
-    "descriptionLimit": "Ein Projekt kann bis zu {{limit}} betreiben.",
+    "description": "Jede Datenbank bekommt ihren eigenen Benutzer und Connection-String.",
     "instanceBreadcrumb": "Instanz",
     "engineLabel": "Engine",
     "instanceView": {
@@ -68,13 +66,14 @@
       "deleteError": "Instanz konnte nicht gelöscht werden"
     },
     "createDialog": {
-      "trigger": "Neue Instanz",
-      "title": "Datenbankinstanz erstellen",
-      "description": "Deine eigene Engine auf einem Host in der Region deines Projekts. Ihre Größe wird von der Plattform festgelegt; du kannst so viele Datenbanken und Benutzer darauf anlegen, wie du möchtest.",
-      "namePlaceholder": "Produktion",
-      "nameDescription": "Nur damit du Instanzen auseinanderhalten kannst. Eine spätere Umbenennung obliegt einem Administrator.",
-      "submit": "Instanz erstellen",
-      "created": "Instanz erstellt, wird jetzt gestartet"
+      "trigger": "Neue Datenbank",
+      "title": "Datenbank erstellen",
+      "description": "Wähle einen Namen und eine Engine. Ein Benutzer mit vollem Zugriff wird gleich mit angelegt.",
+      "namePlaceholder": "economy",
+      "nameDescription": "Nur Buchstaben und Ziffern, 2 bis 63 Zeichen. Wird auch als Benutzername verwendet.",
+      "submit": "Datenbank erstellen",
+      "submitting": "Wird erstellt, das kann eine Minute dauern",
+      "created": "Datenbank erstellt"
     },
     "databasesCard": {
       "description": "So viele wie du auf dieser Instanz benötigst. Jede ist über die gemeinsame Instanzadresse erreichbar.",
@@ -86,7 +85,7 @@
       "createDialogDescription": "Nur Buchstaben und Ziffern, bis zu 63 Zeichen.",
       "namePlaceholder": "analytics",
       "createSubmit": "Datenbank erstellen",
-      "deleteDescription": "Die Datenbank und alle ihre Daten werden gelöscht. Benutzer mit Zugriff bleiben bestehen und verlieren lediglich diesen Zugriff.",
+      "deleteDescription": "Die Datenbank, alle ihre Daten und jeder Benutzer mit Zugriff darauf werden gelöscht.",
       "created": "Datenbank erstellt",
       "createError": "Datenbank konnte nicht erstellt werden",
       "deleted": "Datenbank gelöscht",
@@ -146,11 +145,19 @@
       "killCommandSent": "Beenden-Befehl gesendet",
       "powerError": "Der Betriebszustand konnte nicht geändert werden"
     },
-    "instancesTable": {
-      "stateColumn": "Zustand",
-      "loadError": "Die Instanzen konnten nicht geladen werden.",
-      "emptyTitle": "Noch keine Datenbankinstanzen",
-      "emptyDescription": "Erstelle eine und füge ihr so viele Datenbanken und Benutzer hinzu, wie du brauchst."
+    "list": {
+      "stateColumn": "Status",
+      "connectionColumn": "Verbindung",
+      "loadError": "Die Datenbanken konnten nicht geladen werden.",
+      "emptyTitle": "Noch keine Datenbanken",
+      "emptyDescription": "Erstelle eine, um einen Connection-String zu bekommen.",
+      "moreUsers_one": "+{{count}} Benutzer",
+      "moreUsers_other": "+{{count}} Benutzer",
+      "actions": "Datenbank-Aktionen",
+      "advanced": "Benutzer und Einstellungen",
+      "deleteDescription": "Die Datenbank, alle ihre Daten und jeder Benutzer mit Zugriff darauf werden gelöscht. Dies kann nicht rückgängig gemacht werden.",
+      "deleted": "Datenbank gelöscht",
+      "deleteError": "Datenbank konnte nicht gelöscht werden"
     }
   },
   "members": {
