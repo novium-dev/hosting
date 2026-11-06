@@ -18,8 +18,8 @@
         "description": "Erstellung, Download, Wiederherstellung und Löschung von Backups verwalten."
       },
       "mods": {
-        "label": "Mods",
-        "description": "Minecraft-Mods oder -Plugins durchsuchen und installieren."
+        "label": "Inhalte",
+        "description": "Minecraft-Mods, -Plugins oder -Modpacks durchsuchen und installieren."
       },
       "players": {
         "label": "Spieler",

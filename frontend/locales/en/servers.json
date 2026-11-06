@@ -18,8 +18,8 @@
         "description": "Manage backup creation, download, restore, and deletion."
       },
       "mods": {
-        "label": "Mods",
-        "description": "Browse and install Minecraft mods or plugins."
+        "label": "Content",
+        "description": "Browse and install Minecraft mods, plugins or modpacks."
       },
       "players": {
         "label": "Players",
