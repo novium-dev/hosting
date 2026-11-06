@@ -42,7 +42,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { cn, titleCase } from "@/lib/utils";
-import { templateBanner } from "@/lib/template-banner";
+import { templateBanner, type TemplateBanner } from "@/lib/template-banner";
 import {
   HIGH_USAGE_THRESHOLD,
   formatCpuCompact,
@@ -69,6 +69,46 @@ const SNAPSHOT_RELOAD_DELAY = 1000;
 
 const emptyBarPattern =
   "repeating-linear-gradient(45deg, var(--muted-foreground) 0, var(--muted-foreground) 2px, transparent 2px, transparent 6px)";
+
+function ServerCardBanner({ banner }: { banner: TemplateBanner }) {
+  if (banner.kind === "image") {
+    return (
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute inset-0 bg-cover opacity-[0.22]"
+          style={{
+            backgroundImage: `url("${banner.src}")`,
+            backgroundPosition: "center 30%",
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, color-mix(in oklab, var(--card) 20%, transparent), color-mix(in oklab, var(--card) 90%, transparent) 60%)",
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0">
+      <div
+        className="absolute inset-0 opacity-10"
+        style={{
+          backgroundImage: `linear-gradient(to right, ${banner.color}, transparent 70%)`,
+        }}
+      />
+      {banner.kind === "logo" && (
+        <div
+          className="absolute top-1/2 -left-10 size-56 -translate-y-1/2 -rotate-12 bg-contain bg-center bg-no-repeat opacity-[0.16]"
+          style={{ backgroundImage: `url("${banner.src}")` }}
+        />
+      )}
+    </div>
+  );
+}
 
 function ResourceBar({
   icon: Icon,
@@ -186,16 +226,7 @@ function ServerRow({
       <ContextMenuTrigger className="block">
         <Link href={`/${slug}/servers/${server.id}`} className="group block">
           <Card className="relative overflow-hidden rounded-2xl border-border/60 py-0 transition-all duration-200 group-hover:border-primary/40 group-hover:shadow-md">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0 left-0 w-1/4 opacity-[0.14]"
-              style={{
-                backgroundImage: banner.gradient,
-                maskImage: "linear-gradient(to right, black, transparent)",
-                WebkitMaskImage:
-                  "linear-gradient(to right, black, transparent)",
-              }}
-            />
+            <ServerCardBanner banner={banner} />
 
             <div className="relative flex flex-col gap-5 px-5 py-5 lg:flex-row lg:items-center lg:gap-8">
               <div className="flex min-w-0 items-center gap-3.5 lg:w-72 lg:shrink-0">
