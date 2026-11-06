@@ -1380,6 +1380,15 @@ export type UpdateServerErrors = {
         };
     };
     /**
+     * The name must be 1-64 visible characters
+     */
+    '400⁠': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -5891,6 +5900,15 @@ export type CreateServerErrors = {
         };
     };
     /**
+     * The name must be 1-64 visible characters
+     */
+    '400⁦': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
+        };
+    };
+    /**
      * The template input is invalid
      */
     '400⁧': {
@@ -6888,6 +6906,15 @@ export type CreateNodeErrors = {
         };
     };
     /**
+     * The name must be 1-64 visible characters
+     */
+    '400‎': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -6926,7 +6953,7 @@ export type CreateNodeErrors = {
     /**
      * Database operation failed
      */
-    '500‎': {
+    '500‏': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -6935,7 +6962,7 @@ export type CreateNodeErrors = {
     /**
      * Cache operation failed
      */
-    '500‏': {
+    '500‪': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -7249,6 +7276,15 @@ export type UpdateNodeRegistrationErrors = {
         };
     };
     /**
+     * The name must be 1-64 visible characters
+     */
+    '400‎': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -7278,7 +7314,7 @@ export type UpdateNodeRegistrationErrors = {
     /**
      * Database operation failed
      */
-    '500‎': {
+    '500‏': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -7287,7 +7323,7 @@ export type UpdateNodeRegistrationErrors = {
     /**
      * Cache operation failed
      */
-    '500‏': {
+    '500‪': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -8973,6 +9009,15 @@ export type AddSshKeyErrors = {
         };
     };
     /**
+     * The name must be 1-64 visible characters
+     */
+    '400​': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -8984,7 +9029,7 @@ export type AddSshKeyErrors = {
     /**
      * Database operation failed
      */
-    '500​': {
+    '500‌': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -8993,7 +9038,7 @@ export type AddSshKeyErrors = {
     /**
      * Authentication storage is unreachable
      */
-    '500‌': {
+    '500‍': {
         error?: {
             id?: 'auth/unreachable';
             msg?: 'Authentication storage is unreachable';
@@ -13551,6 +13596,15 @@ export type CreateApiKeyErrors = {
         };
     };
     /**
+     * The name must be 1-64 visible characters
+     */
+    '400‏': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -13793,6 +13847,15 @@ export type UpdateApiKeyErrors = {
         error?: {
             id?: 'api_key/permissions_exceeded';
             msg?: 'An API key cannot be granted permissions you do not hold yourself';
+        };
+    };
+    /**
+     * The name must be 1-64 visible characters
+     */
+    '400‪': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
         };
     };
     /**
@@ -14048,6 +14111,15 @@ export type UpdateAnyApiKeyErrors = {
         error?: {
             id?: 'api_key/permissions_exceeded';
             msg?: 'An API key cannot be granted permissions you do not hold yourself';
+        };
+    };
+    /**
+     * The name must be 1-64 visible characters
+     */
+    '400‏': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
         };
     };
     /**
@@ -16830,6 +16902,15 @@ export type CreateProjectInstanceErrors = {
         };
     };
     /**
+     * The name must be 1-64 visible characters
+     */
+    '400‪': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -16868,7 +16949,7 @@ export type CreateProjectInstanceErrors = {
     /**
      * Database operation failed
      */
-    '500‪': {
+    '500‫': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -18427,6 +18508,15 @@ export type CreateDatabaseHostData = {
 
 export type CreateDatabaseHostErrors = {
     /**
+     * The name must be 1-64 visible characters
+     */
+    '400‎': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -18474,7 +18564,7 @@ export type CreateDatabaseHostErrors = {
     /**
      * Database operation failed
      */
-    '500‎': {
+    '500‏': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -18483,7 +18573,7 @@ export type CreateDatabaseHostErrors = {
     /**
      * Cache operation failed
      */
-    '500‏': {
+    '500‪': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -18604,6 +18694,15 @@ export type UpdateDatabaseHostRegistrationData = {
 
 export type UpdateDatabaseHostRegistrationErrors = {
     /**
+     * The name must be 1-64 visible characters
+     */
+    '400‎': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -18651,7 +18750,7 @@ export type UpdateDatabaseHostRegistrationErrors = {
     /**
      * Database operation failed
      */
-    '500‎': {
+    '500‏': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -18660,7 +18759,7 @@ export type UpdateDatabaseHostRegistrationErrors = {
     /**
      * Cache operation failed
      */
-    '500‏': {
+    '500‪': {
         error?: {
             id?: 'cache/failure';
             msg?: 'Cache operation failed';
@@ -18871,6 +18970,15 @@ export type UpdateDatabaseHostData = {
 
 export type UpdateDatabaseHostErrors = {
     /**
+     * The name must be 1-64 visible characters
+     */
+    '400‎': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -18918,7 +19026,7 @@ export type UpdateDatabaseHostErrors = {
     /**
      * Database operation failed
      */
-    '500‎': {
+    '500‏': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -19146,6 +19254,15 @@ export type UpdateDatabaseInstanceData = {
 
 export type UpdateDatabaseInstanceErrors = {
     /**
+     * The name must be 1-64 visible characters
+     */
+    '400‏': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
+        };
+    };
+    /**
      * Invalid authentication credentials
      */
     '401؜': {
@@ -19193,7 +19310,7 @@ export type UpdateDatabaseInstanceErrors = {
     /**
      * Database operation failed
      */
-    '500‏': {
+    '500‪': {
         error?: {
             id?: 'db/failure';
             msg?: 'Database operation failed';
@@ -20612,6 +20729,15 @@ export type DeployServerErrors = {
         error?: {
             id?: 'template/input_invalid';
             msg?: 'The template input is invalid';
+        };
+    };
+    /**
+     * The name must be 1-64 visible characters
+     */
+    '400⁨': {
+        error?: {
+            id?: 'input/name_invalid';
+            msg?: 'The name must be 1-64 visible characters';
         };
     };
     /**

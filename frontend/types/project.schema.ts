@@ -1,3 +1,4 @@
+import { displayNameSchema } from "@/lib/display-name";
 import { isReservedSlug } from "@/constants/reserved-slugs";
 import { z } from "zod";
 
@@ -19,7 +20,7 @@ const slugSchema = z
   });
 
 export const createProjectSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
+  name: displayNameSchema("Name is required"),
   slug: slugSchema,
   owner: z.number().int().positive().optional(),
 });
@@ -28,7 +29,7 @@ export type CreateProject = z.infer<typeof createProjectSchema>;
 
 export const updateProjectNameSchema = z.object({
   id: z.string().min(1, "Project ID is required"),
-  name: z.string(),
+  name: displayNameSchema("Name is required"),
 });
 
 export type UpdateProjectName = z.infer<typeof updateProjectNameSchema>;

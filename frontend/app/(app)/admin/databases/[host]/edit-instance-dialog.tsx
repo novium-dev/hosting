@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidDisplayName } from "@/lib/display-name";
 import { apiErrorMessage } from "@/lib/api-error";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -192,7 +193,7 @@ function EditInstanceForm({
         <Button
           type="button"
           onClick={() => void submit()}
-          disabled={display.trim() === "" || !numbersValid || isPending}
+          disabled={!isValidDisplayName(display) || !numbersValid || isPending}
           loading={isPending}
         >
           {t("common:resources.saveChanges")}
