@@ -648,7 +648,21 @@ export default function LogConsole({ serverId }: { serverId: string }) {
           </span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-1">
+          <div className="relative mr-1 w-full min-w-0 sm:w-56">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder={t("servers:console.filterPlaceholder")}
+              className="h-8 pl-8"
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+          </div>
+
           <Button
             type="button"
             variant={showTimestamps ? "secondary" : "ghost"}
@@ -922,21 +936,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
         )}
       </CardContent>
 
-      <div className="flex items-center gap-3 border-t px-3 py-2">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            placeholder={t("servers:console.filterPlaceholder")}
-            className="h-8 border-0 bg-transparent pl-8 shadow-none focus-visible:ring-0 dark:bg-transparent"
-            autoComplete="off"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-          />
-        </div>
-
+      <div className="flex items-center justify-end gap-3 border-t px-3 py-2">
         <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
           {t("servers:console.lineCount", { count: visibleLines.length })}
         </span>
