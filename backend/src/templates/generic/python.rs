@@ -58,7 +58,7 @@ impl Template for PythonTemplate {
                 .replace("{PYTHON_VERSION}", &extra.python_version),
             args: HashMap::new(),
             tag: None,
-            default_tag: Some(format!("python-{}-r{REL}", extra.python_version)),
+            default_tag: Some(format!("python-{}", extra.python_version)),
         };
         Ok(ServerBuildPayload {
             image,
