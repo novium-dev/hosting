@@ -2,17 +2,12 @@ import {
   createProject,
   listProjectUsers,
   listProjects,
-  listUsers,
   login,
   logout,
   me,
   updateProject,
 } from "@/lib/api";
-import type {
-  ListProjectsResponse,
-  ListUsersResponse,
-  MeResponse,
-} from "@/lib/api";
+import type { ListProjectsResponse, MeResponse } from "@/lib/api";
 import type { AuthClientMember } from "@/lib/auth-client";
 import type { ProjectMember } from "@/types/api";
 
@@ -155,12 +150,6 @@ export const auth = {
       });
       if (response.error) throw new Error("Failed to update project");
       return { ...project, ...body.data };
-    },
-
-    listUsers: async () => {
-      const response = await listUsers();
-      if (response.error || !response.data) return [];
-      return response.data satisfies ListUsersResponse;
     },
 
     signOut: async () => logout(),

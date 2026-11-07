@@ -141,7 +141,9 @@
     "next": "Next",
     "goToPreviousPage": "Go to previous page",
     "goToNextPage": "Go to next page",
-    "morePages": "More pages"
+    "morePages": "More pages",
+    "summary": "{{from}}-{{to}} of {{total}}",
+    "pageOf": "Page {{page}} of {{pages}}"
   },
   "table": {
     "noResultsFound": "No results found."
