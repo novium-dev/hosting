@@ -153,7 +153,7 @@ export function ResourceInstallDialog({
         </DialogHeader>
 
         {project ? (
-          <div className="flex flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-4">
             <div className="flex items-center gap-3">
               <ProjectIcon src={project.icon_url} title={project.title} />
               <div className="flex flex-wrap items-center gap-2">
@@ -214,7 +214,7 @@ export function ResourceInstallDialog({
                 </SelectContent>
               </Select>
               {version ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm break-words text-muted-foreground">
                   {[
                     version.version_type,
                     version.published_at

@@ -195,7 +195,7 @@ export function ModpackInstallDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           {target ? (
             <div className="flex items-center gap-3 rounded-md border p-3">
               <ProjectIcon src={target.iconUrl} title={target.title} />
