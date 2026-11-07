@@ -22,10 +22,39 @@ type ModpackInstallBannerProps = {
 
 const PATHS_SHOWN = 4;
 
-function shortList(entries: string[]) {
+function FileList({
+  entries,
+  message,
+}: {
+  entries: string[];
+  message: (list: string) => string;
+}) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const truncated = entries.length > PATHS_SHOWN;
+  const list =
+    expanded || !truncated
+      ? entries.join(", ")
+      : `${entries.slice(0, PATHS_SHOWN).join(", ")}, …`;
+
   return (
-    entries.slice(0, PATHS_SHOWN).join(", ") +
-    (entries.length > PATHS_SHOWN ? ", …" : "")
+    <p className="text-sm break-words text-muted-foreground">
+      {message(list)}
+      {truncated ? (
+        <>
+          {" "}
+          <button
+            type="button"
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded
+              ? t("common:actions.showLess")
+              : t("common:actions.showAll")}
+          </button>
+        </>
+      ) : null}
+    </p>
   );
 }
 
@@ -142,21 +171,27 @@ export function ModpackInstallBanner({
           ) : null}
 
           {!running && job.failures.length > 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t("servers-management:modpackInstall.failures", {
-                count: job.failures.length,
-                list: shortList(job.failures),
-              })}
-            </p>
+            <FileList
+              entries={job.failures}
+              message={(list) =>
+                t("servers-management:modpackInstall.failures", {
+                  count: job.failures.length,
+                  list,
+                })
+              }
+            />
           ) : null}
 
           {!running && job.skipped.length > 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t("servers-management:modpackInstall.skipped", {
-                count: job.skipped.length,
-                list: shortList(job.skipped),
-              })}
-            </p>
+            <FileList
+              entries={job.skipped}
+              message={(list) =>
+                t("servers-management:modpackInstall.skipped", {
+                  count: job.skipped.length,
+                  list,
+                })
+              }
+            />
           ) : null}
         </div>
 

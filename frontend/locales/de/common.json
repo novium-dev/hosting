@@ -66,7 +66,9 @@
     "reload": "Neu laden",
     "goBack": "Zurückgehen",
     "backToDashboard": "Zurück zum Dashboard",
-    "dismiss": "Ausblenden"
+    "dismiss": "Ausblenden",
+    "showAll": "Alle anzeigen",
+    "showLess": "Weniger anzeigen"
   },
   "labels": {
     "name": "Name",
