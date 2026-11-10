@@ -228,6 +228,7 @@
     "privateLabel": "private",
     "subdomainInvalid": "Only lowercase letters, digits and dashes are allowed.",
     "subdomainTooShort": "Subdomains need at least {{min}} characters.",
+    "apexHelp": "Leave the subdomain empty to use the domain itself. At the top of a zone your DNS provider needs ALIAS, ANAME or CNAME flattening for the CNAME record, otherwise use a subdomain.",
     "empty": {
       "noDomains": "No domains are available for this project yet.",
       "noRoutablePorts": "None of this server's ports can be routed yet.",

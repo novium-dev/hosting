@@ -1,6 +1,6 @@
 use crate::Backend;
 use crate::config::EdgeConfig;
-use crate::routes::RouteRecord;
+use crate::routes::{RouteRecord, route_fqdn};
 use futures::StreamExt as _;
 use redis::{AsyncCommands as _, AsyncIter, RedisError};
 use serde::Serialize;
@@ -229,7 +229,7 @@ impl Backend {
 
         for route in routes {
             let name = format!("novium-route-{}", route.id);
-            let rule = format!("Host(`{}.{}`)", route.subdomain, route.domain);
+            let rule = format!("Host(`{}`)", route_fqdn(&route.subdomain, &route.domain));
 
             http.services.insert(
                 name.clone(),
@@ -369,7 +369,7 @@ impl Backend {
         {
             Ok(rows) => rows
                 .into_iter()
-                .map(|row| (row.id, format!("{}.{}", row.subdomain, row.domain)))
+                .map(|row| (row.id, route_fqdn(&row.subdomain, &row.domain)))
                 .collect::<Vec<_>>(),
             Err(err) => {
                 error!("Unable to load the routes for the edge passthrough: {err:?}");

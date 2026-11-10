@@ -17,6 +17,8 @@ use tracing::{debug, error, info, warn};
 
 pub const CHALLENGE_LABEL: &str = "_acme-challenge";
 
+const ACCOUNT_DOES_NOT_EXIST: &str = "urn:ietf:params:acme:error:accountDoesNotExist";
+
 const CERTIFICATE_LOCK: &str = "route_domain_certificates";
 
 const CERTIFICATE_INTERVAL: Duration = Duration::from_mins(10);
@@ -350,13 +352,28 @@ impl Backend {
         .execute(&*self.database)
         .await?;
 
-        let account = self.acme_account(config, user, &email).await?;
-
         let identifiers = [
             Identifier::Dns(domain.to_owned()),
             Identifier::Dns(format!("*.{domain}")),
         ];
-        let mut order = account.new_order(&NewOrder::new(&identifiers)).await?;
+        let new_order = NewOrder::new(&identifiers);
+
+        let account = self.acme_account(config, user, &email).await?;
+        let mut order = match account.new_order(&new_order).await {
+            Err(instant_acme::Error::Api(ref problem))
+                if problem.r#type.as_deref() == Some(ACCOUNT_DOES_NOT_EXIST) =>
+            {
+                warn!("The ACME account of user {user} no longer exists, creating a new one");
+                query!(r#"DELETE FROM acme_accounts WHERE "user" = $1"#, user)
+                    .execute(&*self.database)
+                    .await?;
+                self.acme_account(config, user, &email)
+                    .await?
+                    .new_order(&new_order)
+                    .await?
+            }
+            result => result?,
+        };
 
         let mut records = Vec::new();
         let result = self

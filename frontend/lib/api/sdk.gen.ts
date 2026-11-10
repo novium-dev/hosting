@@ -1747,6 +1747,9 @@ export const listRoutes = <ThrowOnError extends boolean = false>(options: Option
  * `_minecraft._tcp.<subdomain>.<domain>`, and a UDP port publishes `_<name>._udp.…`.<br/>
  * `https` only applies to HTTP routes.<br/>
  * <br/>
+ * An empty `subdomain` puts the route on the domain itself. That is only allowed on one of<br/>
+ * the project's own domains, never on a domain provided by this instance.<br/>
+ * <br/>
  * # Permissions<br/>
  * Requires `ServerPermissions::ROUTES_MANAGE`.
  */

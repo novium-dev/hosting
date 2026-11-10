@@ -68,7 +68,7 @@ pub struct RouteRequest {
 
 impl RouteRequest {
     pub fn fqdn(&self) -> String {
-        format!("{}.{}", self.subdomain, self.domain)
+        route_fqdn(&self.subdomain, &self.domain)
     }
 
     pub fn address(&self) -> String {
@@ -216,6 +216,14 @@ impl RouteBackends {
             .ok_or(RouteError::Unavailable)?
             .zone(domain)
             .await
+    }
+}
+
+pub fn route_fqdn(subdomain: &str, domain: &str) -> String {
+    if subdomain.is_empty() {
+        domain.to_owned()
+    } else {
+        format!("{subdomain}.{domain}")
     }
 }
 

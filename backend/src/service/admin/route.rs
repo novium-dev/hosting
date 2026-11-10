@@ -4,7 +4,7 @@ use crate::auth::permissions::ManagementPermissions;
 use crate::db::project::ProjectId;
 use crate::db::route::RouteStatus;
 use crate::db::server::ServerId;
-use crate::routes::{RouteError, RouteKind, is_valid_domain};
+use crate::routes::{RouteError, RouteKind, is_valid_domain, route_fqdn};
 use crate::service::admin::route::route_admin_service_error::{
     AllowDomainProjectError, CreateRouteDomainError, DeleteRouteDomainError,
     DenyDomainProjectError, ListDomainRoutesError, ListRouteDomainsAdminError,
@@ -186,7 +186,7 @@ pub(crate) impl RouteAdminService for Backend {
         Ok(rows
             .into_iter()
             .map(|row| {
-                let fqdn = format!("{}.{}", row.subdomain, domain.domain);
+                let fqdn = route_fqdn(&row.subdomain, &domain.domain);
                 let address = match row.kind {
                     RouteKind::Http => {
                         let scheme = if row.https { "https" } else { "http" };

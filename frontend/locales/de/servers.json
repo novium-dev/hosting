@@ -228,6 +228,7 @@
     "privateLabel": "privat",
     "subdomainInvalid": "Nur Kleinbuchstaben, Ziffern und Bindestriche sind erlaubt.",
     "subdomainTooShort": "Subdomains brauchen mindestens {{min}} Zeichen.",
+    "apexHelp": "Lass die Subdomain leer, um die Domain selbst zu nutzen. Ganz oben in einer Zone braucht dein DNS-Anbieter dafür ALIAS, ANAME oder CNAME-Flattening, sonst nutze eine Subdomain.",
     "empty": {
       "noDomains": "Für dieses Projekt sind noch keine Domains verfügbar.",
       "noRoutablePorts": "Keiner der Ports dieses Servers kann derzeit geroutet werden.",

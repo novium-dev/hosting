@@ -2,6 +2,7 @@ use crate::Backend;
 use crate::db::route::RouteStatus;
 use crate::db::server::ServerId;
 use crate::integrity::{Check, CheckError};
+use crate::routes::route_fqdn;
 use daemon_common::integrity::{IntegrityCategory, IntegrityFinding};
 use sqlx::query;
 use zelus::async_trait;
@@ -63,7 +64,7 @@ impl Check for Routes {
         let mut findings = Vec::new();
 
         for row in rows {
-            let subject = format!("{}.{}", row.subdomain, row.domain);
+            let subject = route_fqdn(&row.subdomain, &row.domain);
             let detail_server = format!("{} ({})", row.server_name, row.server);
 
             if row.port_server != row.server {

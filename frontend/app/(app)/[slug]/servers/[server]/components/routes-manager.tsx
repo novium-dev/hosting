@@ -206,10 +206,13 @@ export function RoutesManager({
   const srvProtocol = String(selectedPort?.protocol ?? "tcp").toLowerCase();
   const httpsAvailable = isHttpRoute && (selectedDomain?.https ?? true);
 
-  const subdomainValid =
-    subdomain.length > 0 && SUBDOMAIN_PATTERN.test(subdomain);
+  const apexAllowed = selectedDomain?.custom === true;
+  const isApex = subdomain.length === 0;
+  const subdomainValid = isApex
+    ? apexAllowed
+    : SUBDOMAIN_PATTERN.test(subdomain);
   const subdomainTooShort =
-    !canBypassLimits && subdomain.length < MIN_SUBDOMAIN_LENGTH;
+    !isApex && !canBypassLimits && subdomain.length < MIN_SUBDOMAIN_LENGTH;
 
   const openCreate = () => {
     setSubdomain("");
@@ -533,6 +536,10 @@ export function RoutesManager({
                     min: MIN_SUBDOMAIN_LENGTH,
                   })}
                 </p>
+              ) : apexAllowed ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("servers:routes.apexHelp")}
+                </p>
               ) : null}
             </div>
 
@@ -614,9 +621,13 @@ export function RoutesManager({
                   }
                   values={{
                     record: `_${srvService}._${srvProtocol}.${
-                      subdomain ||
-                      t("servers:routes.dialog.yourNamePlaceholder")
-                    }.${
+                      isApex && apexAllowed
+                        ? ""
+                        : `${
+                            subdomain ||
+                            t("servers:routes.dialog.yourNamePlaceholder")
+                          }.`
+                    }${
                       selectedDomain?.domain ??
                       t("servers:routes.dialog.theDomainPlaceholder")
                     }`,

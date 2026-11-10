@@ -24,6 +24,10 @@ Pangolin keeps serving the platform domains.
      are served by the edge.
    - TCP and UDP routes: the SRV (and A/AAAA) records pointing at the node.
 
+   An empty subdomain puts the route on the domain itself, which only project
+   domains allow. At the top of a zone a CNAME is not allowed, so the owner
+   needs ALIAS, ANAME or CNAME flattening there.
+
    Other subdomains of the domain are left alone, wherever they are hosted.
 
 ## Traffic

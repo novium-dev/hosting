@@ -8,7 +8,7 @@ use crate::db::server::ports::NetworkProtocol;
 use crate::routes::cloudflare::planned_records;
 use crate::routes::edge::edge_record;
 use crate::routes::{
-    ProvisionedRoute, RouteError, RouteKind, RouteRecord, RouteRequest, is_valid_label,
+    ProvisionedRoute, RouteError, RouteKind, RouteRecord, RouteRequest, is_valid_label, route_fqdn,
     service_name,
 };
 use crate::service::route::route_service_error::{
@@ -170,7 +170,7 @@ pub(crate) impl RouteService for Backend {
             .and_then(|row| u16::try_from(row.external_port).ok())
             .unwrap_or_default();
 
-            let fqdn = format!("{}.{}", route.subdomain, domain.domain);
+            let fqdn = route_fqdn(&route.subdomain, &domain.domain);
             let address = match route.kind {
                 RouteKind::Http => {
                     let scheme = if route.https { "https" } else { "http" };
@@ -213,6 +213,9 @@ pub(crate) impl RouteService for Backend {
     /// `_minecraft._tcp.<subdomain>.<domain>`, and a UDP port publishes `_<name>._udp.…`.
     /// `https` only applies to HTTP routes.
     ///
+    /// An empty `subdomain` puts the route on the domain itself. That is only allowed on one of
+    /// the project's own domains, never on a domain provided by this instance.
+    ///
     /// # Permissions
     /// Requires [`ServerPermissions::ROUTES_MANAGE`].
     #[route("/{server_id}", method = PUT)]
@@ -234,12 +237,13 @@ pub(crate) impl RouteService for Backend {
         auth.require::<_, _, CreateRouteError>(server_id, ServerPermissions::ROUTES_MANAGE)?;
 
         let subdomain = payload.subdomain.trim().to_lowercase();
-        if !is_valid_label(&subdomain) {
+        let apex = subdomain.is_empty();
+        if !apex && !is_valid_label(&subdomain) {
             return Err(CreateRouteError::RouteSubdomainInvalid);
         }
 
         let bypass = auth.has((), ManagementPermissions::LIMITS_BYPASS);
-        if !bypass && subdomain.len() < MIN_SUBDOMAIN_LENGTH {
+        if !apex && !bypass && subdomain.len() < MIN_SUBDOMAIN_LENGTH {
             return Err(CreateRouteError::RouteSubdomainTooShort);
         }
 
@@ -257,6 +261,10 @@ pub(crate) impl RouteService for Backend {
             .ok_or(CreateRouteError::RouteDomainNotFound)?;
 
         let custom = !domain.is_platform();
+
+        if apex && !custom {
+            return Err(CreateRouteError::RouteSubdomainInvalid);
+        }
 
         if let Some(owner) = domain.project {
             if owner != server.project {
