@@ -228,6 +228,18 @@ define_query_variable!(
     file "The file path"
 );
 
+define_query_variable!(
+    search "Only include entries matching this case-insensitive search term"
+);
+
+define_query_variable!(
+    sort "The column to sort by"
+);
+
+define_query_variable!(
+    order "The sort direction, ascending by default"
+);
+
 define_path_variable!(
     license_id "The license ID"
 );

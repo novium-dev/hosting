@@ -1,11 +1,14 @@
 "use client";
 
 import { apiErrorMessage } from "@/lib/api-error";
+import { useState } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import { ApiKeysTable } from "@/components/api-keys/api-keys-table";
 import { CreateApiKeyDialog } from "@/components/api-keys/create-api-key-dialog";
+import { TablePagination } from "@/components/table-pagination";
+import { PAGE_SIZE, toPage } from "@/hooks/use-paged-table";
 import { listAllApiKeys } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import {
@@ -17,20 +20,22 @@ import {
 export function AdminApiKeysView() {
   const { t } = useTranslation();
   const { data: session } = authClient.useSession();
-  const {
-    data: keys,
-    error,
-    isLoading,
-    mutate,
-  } = useSWR("admin-api-keys", async () => {
-    const response = await listAllApiKeys();
-    if (response.error) {
-      throw new Error(
-        apiErrorMessage(response.error, t("admin-core:apiKeys.loadFailed")),
-      );
-    }
-    return response.data ?? [];
-  });
+  const [page, setPage] = useState(0);
+  const { data, error, isLoading, mutate } = useSWR(
+    ["admin-api-keys/page", page],
+    async ([, page]) => {
+      const response = await listAllApiKeys({
+        query: { page, limit: PAGE_SIZE },
+      });
+      if (response.error) {
+        throw new Error(
+          apiErrorMessage(response.error, t("admin-core:apiKeys.loadFailed")),
+        );
+      }
+      return toPage(response);
+    },
+    { keepPreviousData: true },
+  );
 
   const canManage = hasManagementPermission(
     session?.user.permissions ?? 0,
@@ -51,7 +56,7 @@ export function AdminApiKeysView() {
         ) : null}
       </div>
       <ApiKeysTable
-        keys={keys}
+        keys={data?.items}
         isLoading={isLoading}
         error={Boolean(error)}
         showScope
@@ -66,7 +71,19 @@ export function AdminApiKeysView() {
             ) === 0)
         }
         canDelete={() => canManage}
-        onChanged={() => void mutate()}
+        onChanged={() =>
+          void mutate().then((next) => {
+            if (next && next.items.length === 0 && page > 0) {
+              setPage(page - 1);
+            }
+          })
+        }
+      />
+      <TablePagination
+        page={page}
+        total={data?.total ?? 0}
+        totalPages={data?.totalPages ?? 1}
+        onPageChange={setPage}
       />
     </div>
   );

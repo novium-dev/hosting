@@ -29,6 +29,39 @@ mod header {
     pub(super) const PAGE: HeaderName = HeaderName::from_static("x-page");
 }
 
+#[derive(Debug, Copy, Clone, Default, ::serde::Serialize, ::serde::Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum SortOrder {
+    #[default]
+    Asc,
+    Desc,
+}
+
+impl SortOrder {
+    pub(crate) const fn is_desc(self) -> bool {
+        matches!(self, Self::Desc)
+    }
+}
+
+pub(crate) fn search_pattern(search: Option<String>) -> Option<String> {
+    let search = search?;
+    let search = search.trim();
+    if search.is_empty() {
+        return None;
+    }
+
+    let mut pattern = String::with_capacity(search.len().saturating_add(2));
+    pattern.push('%');
+    for character in search.chars() {
+        if matches!(character, '%' | '_' | '\\') {
+            pattern.push('\\');
+        }
+        pattern.push(character);
+    }
+    pattern.push('%');
+    Some(pattern)
+}
+
 #[derive(Copy, Clone)]
 pub struct PageSplit {
     pub limit: u32,
@@ -46,6 +79,45 @@ pub struct Paged<T: Serialize> {
     total_records: u64,
 
     data: Vec<T>,
+}
+
+impl PageSplit {
+    pub(crate) fn sql_limit(self) -> i64 {
+        i64::from(self.limit)
+    }
+
+    pub(crate) fn sql_offset(page: Option<Self>) -> i64 {
+        page.map_or(0, |page| {
+            i64::from(page.page).saturating_mul(i64::from(page.limit))
+        })
+    }
+}
+
+impl<T: Serialize> Paged<T> {
+    pub(crate) fn from_total(page: Option<PageSplit>, total: i64, data: Vec<T>) -> Self {
+        let total_records = u64::try_from(total).unwrap_or_default();
+        match page {
+            None => Self {
+                page: 0,
+                limit: 0,
+                total_pages: 1,
+                total_records,
+                data,
+            },
+            Some(split) => Self {
+                page: split.page,
+                limit: split.limit,
+                total_pages: if split.limit == 0 {
+                    1
+                } else {
+                    u32::try_from(total_records.div_ceil(u64::from(split.limit)))
+                        .unwrap_or(u32::MAX)
+                },
+                total_records,
+                data,
+            },
+        }
+    }
 }
 
 impl<E> OptionalFromRequestParts<E> for PageSplit {

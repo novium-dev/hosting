@@ -1,6 +1,6 @@
 import useSWR from "swr";
 
-import { listProjects, listUsers } from "@/lib/api";
+import { listUsers } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import {
   hasManagementPermission,
@@ -18,14 +18,6 @@ export default function AdminProjectsPage() {
       )
     : false;
 
-  const { data: projects, mutate } = useSWR(
-    session ? "admin/projects" : null,
-    async () => {
-      const response = await listProjects();
-      return response.error ? [] : (response.data ?? []);
-    },
-  );
-
   const { data: owners } = useSWR(
     canManageUsers ? "admin/project-owners" : null,
     async () => {
@@ -38,11 +30,7 @@ export default function AdminProjectsPage() {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6">
-      <ProjectsTable
-        projects={projects ?? []}
-        owners={canManageUsers ? (owners ?? []) : null}
-        onChanged={() => void mutate()}
-      />
+      <ProjectsTable owners={canManageUsers ? (owners ?? []) : null} />
     </div>
   );
 }

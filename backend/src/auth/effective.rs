@@ -9,6 +9,12 @@ use std::collections::HashMap;
 use tracing::error;
 
 #[derive(Debug, Default)]
+pub struct Visibility {
+    pub all_except: bool,
+    pub ids: Vec<String>,
+}
+
+#[derive(Debug, Default)]
 pub struct EffectivePermissions {
     pub global: i64,
     projects: HashMap<ProjectId, i64>,
@@ -33,8 +39,35 @@ impl EffectivePermissions {
         }
     }
 
-    pub fn is_project_member(&self, project: ProjectId) -> bool {
-        self.projects.contains_key(&project)
+    pub fn visible_projects(&self, members_only: bool) -> Visibility {
+        let all_except = !members_only
+            && ProjectPermissions::from_bits_retain(self.global).contains(ProjectPermissions::VIEW);
+        let ids = self
+            .projects
+            .iter()
+            .filter(|&(_, &permissions)| {
+                ProjectPermissions::from_bits_retain(permissions | self.global)
+                    .contains(ProjectPermissions::VIEW)
+                    != all_except
+            })
+            .map(|(id, _)| id.to_string())
+            .collect();
+        Visibility { all_except, ids }
+    }
+
+    pub fn visible_servers(&self) -> Visibility {
+        let all_except =
+            ProjectPermissions::from_bits_retain(self.global).contains(ProjectPermissions::VIEW);
+        let ids = self
+            .servers
+            .iter()
+            .filter(|&(_, &permissions)| {
+                ProjectPermissions::from_bits_retain(permissions).contains(ProjectPermissions::VIEW)
+                    != all_except
+            })
+            .map(|(id, _)| id.to_string())
+            .collect();
+        Visibility { all_except, ids }
     }
 
     pub(crate) fn project(&self, project: ProjectId) -> i64 {
