@@ -209,44 +209,44 @@ impl<E: Serialize + ComposeSchema + ToSchema> DocumentedResultResponse for Paged
                     header::TOTAL_PAGES.as_str(),
                     Header::builder()
                         .description(Some("The total number of pages"))
-                        .schema(RefOr::T(Schema::Object(
+                        .schema(Some(RefOr::T(Schema::Object(
                             Object::builder()
                                 .schema_type(SchemaType::Type(Type::Integer))
                                 .build(),
-                        )))
+                        ))))
                         .build(),
                 )
                 .header(
                     header::TOTAL_RECORDS.as_str(),
                     Header::builder()
                         .description(Some("The total number of items"))
-                        .schema(RefOr::T(Schema::Object(
+                        .schema(Some(RefOr::T(Schema::Object(
                             Object::builder()
                                 .schema_type(SchemaType::Type(Type::Integer))
                                 .build(),
-                        )))
+                        ))))
                         .build(),
                 )
                 .header(
                     header::PER_PAGE.as_str(),
                     Header::builder()
                         .description(Some("The maximum number of items per page"))
-                        .schema(RefOr::T(Schema::Object(
+                        .schema(Some(RefOr::T(Schema::Object(
                             Object::builder()
                                 .schema_type(SchemaType::Type(Type::Integer))
                                 .build(),
-                        )))
+                        ))))
                         .build(),
                 )
                 .header(
                     header::PAGE.as_str(),
                     Header::builder()
                         .description(Some("The current page"))
-                        .schema(RefOr::T(Schema::Object(
+                        .schema(Some(RefOr::T(Schema::Object(
                             Object::builder()
                                 .schema_type(SchemaType::Type(Type::Integer))
                                 .build(),
-                        )))
+                        ))))
                         .build(),
                 )
                 .build(),
