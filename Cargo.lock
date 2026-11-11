@@ -415,11 +415,11 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
- "utoipa 6.0.0",
+ "utoipa",
  "utoipa-swagger-ui",
  "uuid",
  "x509-parser",
- "zelus 0.1.0 (git+https://github.com/0xIO32/zelus.git?rev=b3a46be6f13d0ce14a8e160ab34030ee843dba33)",
+ "zelus",
  "zelus_keys",
 ]
 
@@ -850,15 +850,6 @@ dependencies = [
 
 [[package]]
 name = "convert_case"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "affbf0190ed2caf063e3def54ff444b449371d55c58e513a95ab98eca50adb49"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
-name = "convert_case"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1af709f1f33454bf52eadfc8c78b3b9ef9cb26fb54d16dc9cd9a7299f899fd1b"
@@ -1113,11 +1104,11 @@ dependencies = [
  "toml",
  "tracing",
  "url",
- "utoipa 6.0.0",
- "utoipa-axum 0.3.0",
+ "utoipa",
+ "utoipa-axum",
  "uuid",
  "xmltree",
- "zelus 0.1.0 (git+https://github.com/0xIO32/zelus.git)",
+ "zelus",
  "zelus_keys",
 ]
 
@@ -1203,11 +1194,11 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
- "utoipa 6.0.0",
- "utoipa-axum 0.3.0",
+ "utoipa",
+ "utoipa-axum",
  "utoipa-swagger-ui",
  "uuid",
- "zelus 0.1.0 (git+https://github.com/0xIO32/zelus.git?rev=b3a46be6f13d0ce14a8e160ab34030ee843dba33)",
+ "zelus",
  "zelus_keys",
 ]
 
@@ -1226,10 +1217,10 @@ dependencies = [
  "serde_json",
  "sha2 0.11.1",
  "url",
- "utoipa 6.0.0",
- "utoipa-axum 0.3.0",
+ "utoipa",
+ "utoipa-axum",
  "uuid",
- "zelus 0.1.0 (git+https://github.com/0xIO32/zelus.git?rev=b3a46be6f13d0ce14a8e160ab34030ee843dba33)",
+ "zelus",
  "zelus_keys",
 ]
 
@@ -2476,7 +2467,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.21",
- "utoipa 6.0.0",
+ "utoipa",
 ]
 
 [[package]]
@@ -2684,37 +2675,14 @@ dependencies = [
 
 [[package]]
 name = "manyhow"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56cc5193bd3c1b7b88bfab32e4d5b0cec69398fb2aaa834baa67ef8da20fd65a"
-dependencies = [
- "manyhow-macros 0.13.1",
- "proc-macro2",
- "quote",
- "syn 3.0.10",
-]
-
-[[package]]
-name = "manyhow"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1704b073316272a6785b70599f91f73b49022c2e290b065591ee6b9109ed8c7"
 dependencies = [
- "manyhow-macros 0.14.1",
+ "manyhow-macros",
  "proc-macro2",
  "quote",
  "syn 3.0.10",
-]
-
-[[package]]
-name = "manyhow-macros"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c631eca129e6101489988e8cb516f02fb50dc4278592efcc4545ce15e2f016d5"
-dependencies = [
- "proc-macro-utils",
- "proc-macro2",
- "quote",
 ]
 
 [[package]]
@@ -3412,12 +3380,6 @@ dependencies = [
  "smallvec",
  "windows-link",
 ]
-
-[[package]]
-name = "paste"
-version = "1.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "pastey"
@@ -5767,18 +5729,6 @@ checksum = "3a3b425286980a367278453f3b6d28cdcb134b574e5a35824a6ff5eebad50bb6"
 
 [[package]]
 name = "utoipa"
-version = "5.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bde15df68e80b16c7d16b9616e80770ad158988daa56a27dccd1e55558b0160"
-dependencies = [
- "indexmap",
- "serde",
- "serde_json",
- "utoipa-gen 5.5.0",
-]
-
-[[package]]
-name = "utoipa"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8765fe27aeff71012a3f90fa474cf1df863a7d0dd81ed25de4e63fff2544994f"
@@ -5786,20 +5736,7 @@ dependencies = [
  "indexmap",
  "serde",
  "serde_json",
- "utoipa-gen 6.0.1",
-]
-
-[[package]]
-name = "utoipa-axum"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c25bae5bccc842449ec0c5ddc5cbb6a3a1eaeac4503895dc105a1138f8234a0"
-dependencies = [
- "axum",
- "paste",
- "tower-layer",
- "tower-service",
- "utoipa 5.5.0",
+ "utoipa-gen",
 ]
 
 [[package]]
@@ -5812,18 +5749,7 @@ dependencies = [
  "pastey",
  "tower-layer",
  "tower-service",
- "utoipa 6.0.0",
-]
-
-[[package]]
-name = "utoipa-gen"
-version = "5.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ba0b99ee52df3028635d93840c797102da61f8a7bb3cf751032455895b52ef8"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
+ "utoipa",
 ]
 
 [[package]]
@@ -5852,7 +5778,7 @@ dependencies = [
  "serde",
  "serde_json",
  "url",
- "utoipa 6.0.0",
+ "utoipa",
  "zip",
 ]
 
@@ -6370,7 +6296,7 @@ dependencies = [
 [[package]]
 name = "zelus"
 version = "0.1.0"
-source = "git+https://github.com/0xIO32/zelus.git?rev=b3a46be6f13d0ce14a8e160ab34030ee843dba33#b3a46be6f13d0ce14a8e160ab34030ee843dba33"
+source = "git+https://github.com/0xIO32/zelus.git#77d757f078b1a2aa152a0d87be7761d45262878a"
 dependencies = [
  "async-trait",
  "axum",
@@ -6393,39 +6319,9 @@ dependencies = [
  "tower-service",
  "url",
  "urlencoding",
- "utoipa 5.5.0",
- "utoipa-axum 0.2.0",
- "zelus_macros 0.1.0 (git+https://github.com/0xIO32/zelus.git?rev=b3a46be6f13d0ce14a8e160ab34030ee843dba33)",
-]
-
-[[package]]
-name = "zelus"
-version = "0.1.0"
-source = "git+https://github.com/0xIO32/zelus.git#77d757f078b1a2aa152a0d87be7761d45262878a"
-dependencies = [
- "async-trait",
- "axum",
- "axum-extra",
- "bytes",
- "futures-util",
- "http",
- "pastey",
- "reqwest 0.13.4",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "sqlx",
- "tap",
- "thiserror 2.0.21",
- "tokio",
- "tokio-util",
- "tower-layer",
- "tower-service",
- "url",
- "urlencoding",
- "utoipa 6.0.0",
- "utoipa-axum 0.3.0",
- "zelus_macros 0.1.0 (git+https://github.com/0xIO32/zelus.git)",
+ "utoipa",
+ "utoipa-axum",
+ "zelus_macros",
 ]
 
 [[package]]
@@ -6456,30 +6352,14 @@ dependencies = [
 [[package]]
 name = "zelus_macros"
 version = "0.1.0"
-source = "git+https://github.com/0xIO32/zelus.git?rev=b3a46be6f13d0ce14a8e160ab34030ee843dba33#b3a46be6f13d0ce14a8e160ab34030ee843dba33"
-dependencies = [
- "convert_case 0.11.0",
- "either",
- "indexmap",
- "itertools",
- "lazy-regex",
- "manyhow 0.13.1",
- "proc-macro2",
- "quote",
- "syn 3.0.10",
-]
-
-[[package]]
-name = "zelus_macros"
-version = "0.1.0"
 source = "git+https://github.com/0xIO32/zelus.git#77d757f078b1a2aa152a0d87be7761d45262878a"
 dependencies = [
- "convert_case 0.12.0",
+ "convert_case",
  "either",
  "indexmap",
  "itertools",
  "lazy-regex",
- "manyhow 0.14.1",
+ "manyhow",
  "proc-macro2",
  "quote",
  "syn 3.0.10",
