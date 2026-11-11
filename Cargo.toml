@@ -83,14 +83,14 @@ version = "1.1.8"
 features = ["serde", "preserve_order"]
 
 [workspace.dependencies.utoipa]
-version = "5.5.0"
+version = "6"
 features = ["macros", "preserve_path_order", "uuid", "indexmap", "chrono", "url"]
 
 [workspace.dependencies.utoipa-axum]
-version = "0.2.0"
+version = "0.3"
 
 [workspace.dependencies.utoipa-swagger-ui]
-version = "9.0.2"
+version = "10"
 features = ["axum"]
 
 [workspace.dependencies.tower-http]
