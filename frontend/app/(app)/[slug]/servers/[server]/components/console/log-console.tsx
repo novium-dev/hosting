@@ -839,14 +839,14 @@ export default function LogConsole({ serverId }: { serverId: string }) {
                     data-index={item.index}
                     ref={virtualizer.measureElement}
                     className={cn(
-                      "absolute left-0 top-0 flex gap-3 px-4 py-px transition-colors hover:bg-foreground/[0.04]",
+                      "absolute left-0 top-0 block px-4 py-px transition-colors hover:bg-foreground/[0.04] sm:flex sm:gap-3",
                       wrapLines ? "w-full" : "w-max min-w-full",
                     )}
                     style={{ transform: `translateY(${item.start}px)` }}
                   >
                     {sourceColumn && (
                       <span
-                        className="w-24 shrink-0 truncate text-muted-foreground/70"
+                        className="mr-2 inline-block max-w-24 truncate align-bottom text-muted-foreground/70 max-sm:empty:hidden sm:mr-0 sm:block sm:w-24 sm:max-w-none sm:shrink-0"
                         title={line.source ?? undefined}
                       >
                         {line.source ?? ""}
@@ -855,7 +855,7 @@ export default function LogConsole({ serverId }: { serverId: string }) {
 
                     <span
                       className={cn(
-                        "w-12 shrink-0 text-[10px] font-semibold leading-6 tracking-wider",
+                        "mr-2 inline-block text-[10px] font-semibold leading-6 tracking-wider max-sm:empty:hidden sm:mr-0 sm:block sm:w-12 sm:shrink-0",
                         LEVEL_TEXT[line.level],
                       )}
                     >
@@ -865,14 +865,14 @@ export default function LogConsole({ serverId }: { serverId: string }) {
                     </span>
 
                     {showTimestamps && (
-                      <span className="w-[4.75rem] shrink-0 tabular-nums text-muted-foreground/70">
+                      <span className="mr-2 inline-block tabular-nums text-muted-foreground/70 sm:mr-0 sm:block sm:w-[4.75rem] sm:shrink-0">
                         {formatLineTime(line, clockOffset)}
                       </span>
                     )}
 
                     <span
                       className={cn(
-                        "min-w-0 flex-1",
+                        "sm:block sm:min-w-0 sm:flex-1",
                         line.system
                           ? "italic text-muted-foreground"
                           : line.command
