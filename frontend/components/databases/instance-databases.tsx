@@ -41,10 +41,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { DatabaseBackupsDialog } from "@/components/databases/database-backups-dialog";
 import { useInstanceDatabases } from "@/hooks/use-shared-queries";
 import { useAction } from "@/lib/action-hooks";
 import { type ListInstanceDatabasesResponses } from "@/lib/api";
-import { Plus, Table2, Trash2Icon } from "lucide-react";
+import { Archive, Plus, Table2, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -68,6 +69,7 @@ export function InstanceDatabases({
   const [pendingDelete, setPendingDelete] = useState<ProjectDatabase | null>(
     null,
   );
+  const [backupsOf, setBackupsOf] = useState<ProjectDatabase | null>(null);
 
   const { data, error, isLoading, mutate } = useInstanceDatabases(
     projectId,
@@ -159,18 +161,30 @@ export function InstanceDatabases({
                         {database.name}
                       </TableCell>
                       <TableCell>
-                        {canManage ? (
+                        <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => setPendingDelete(database)}
+                            onClick={() => setBackupsOf(database)}
                             aria-label={t(
-                              "project:databases.databasesCard.deleteAriaLabel",
+                              "project:databases.backups.openAriaLabel",
                             )}
                           >
-                            <Trash2Icon className="size-4" />
+                            <Archive className="size-4" />
                           </Button>
-                        ) : null}
+                          {canManage ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setPendingDelete(database)}
+                              aria-label={t(
+                                "project:databases.databasesCard.deleteAriaLabel",
+                              )}
+                            >
+                              <Trash2Icon className="size-4" />
+                            </Button>
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -214,6 +228,16 @@ export function InstanceDatabases({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DatabaseBackupsDialog
+        projectId={projectId}
+        instanceId={instanceId}
+        database={backupsOf}
+        canManage={canManage}
+        onOpenChange={(open) => {
+          if (!open) setBackupsOf(null);
+        }}
+      />
 
       <AlertDialog
         open={pendingDelete !== null}

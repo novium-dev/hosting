@@ -34,7 +34,9 @@
       "swapLabel": "Swap (MiB)",
       "diskLabel": "Speicherplatz (MiB)",
       "cpuLabel": "CPU (Kerne)",
-      "suspendedDescription": "Weist jede Client-Verbindung am Proxy zurück."
+      "suspendedDescription": "Weist jede Client-Verbindung am Proxy zurück.",
+      "backupLimitLabel": "Backups pro Datenbank",
+      "backupLimitHint": "Leer lassen für den Standardwert {{limit}}. 0 deaktiviert Backups."
     },
     "hostDialog": {
       "saveError": "Datenbank-Host konnte nicht gespeichert werden",

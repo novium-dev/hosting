@@ -10,6 +10,10 @@ pub(crate) fn default_data_dir() -> PathBuf {
     PathBuf::from("/var/lib/novium-database-agent/data")
 }
 
+pub(crate) fn default_backup_dir() -> PathBuf {
+    PathBuf::from("/var/lib/novium-database-agent/backups")
+}
+
 pub(crate) fn default_socket_dir() -> PathBuf {
     PathBuf::from("/run/novium-database-agent")
 }
@@ -66,6 +70,8 @@ pub struct AgentConfig {
     pub data_dir: PathBuf,
     #[serde(default = "default_socket_dir")]
     pub socket_dir: PathBuf,
+    #[serde(default = "default_backup_dir")]
+    pub backup_dir: PathBuf,
     #[serde(default = "default_disk_check_interval")]
     pub disk_check_interval: u64,
     #[serde(default = "default_disk_check_concurrency")]
@@ -98,6 +104,11 @@ impl AgentConfig {
     #[must_use]
     pub fn data_dir(&self, instance: Uuid) -> PathBuf {
         self.data_dir.join(instance.to_string())
+    }
+
+    #[must_use]
+    pub fn backup_dir(&self, instance: Uuid) -> PathBuf {
+        self.backup_dir.join(instance.to_string())
     }
 
     #[must_use]

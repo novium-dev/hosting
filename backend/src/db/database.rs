@@ -36,6 +36,7 @@ pub struct ProjectInstance {
     pub kind: DatabaseType,
     pub display: String,
     pub created: chrono::DateTime<chrono::Utc>,
+    pub backup_limit: Option<u32>,
     pub host: Arc<BackendDatabaseHost>,
 }
 
@@ -104,7 +105,7 @@ impl Backend {
         instance: Option<Uuid>,
     ) -> Result<Vec<ProjectInstance>, E> {
         let rows = query!(
-            r#"SELECT id, host, kind, display, created
+            r#"SELECT id, host, kind, display, created, backup_limit
                FROM database_instances
                WHERE project = $1 AND ($2::uuid IS NULL OR id = $2)
                ORDER BY created"#,
@@ -124,6 +125,7 @@ impl Backend {
                     kind: DatabaseType::from_str(&row.kind).ok()?,
                     display: row.display,
                     created: row.created,
+                    backup_limit: row.backup_limit.map(i32::cast_unsigned),
                     host: Arc::clone(hosts.get(&row.host)?),
                 })
             })

@@ -332,6 +332,7 @@ async fn main0() {
     backend.spawn_session_cleanup();
     backend.spawn_route_domain_verification();
     backend.spawn_route_domain_certificates();
+    backend.spawn_database_backup_jobs();
 
     info!("Starting Webserver...");
 

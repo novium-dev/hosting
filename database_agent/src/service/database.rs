@@ -85,7 +85,11 @@ impl DatabaseService for Agent {
 
         detached(async move { instance.delete_database(&database).await })
             .await
-            .or_database_failure("failed to delete a database")
+            .or_database_failure::<DeleteDatabaseError>("failed to delete a database")?;
+
+        self.remove_database_backups(instance_id, database_id).await;
+
+        Ok(())
     }
 
     async fn recreate_database(

@@ -1,5 +1,6 @@
 data_dir = "/var/lib/novium-database-agent/data"
 socket_dir = "/run/novium-database-agent"
+backup_dir = "/var/lib/novium-database-agent/backups"
 
 # Disk usage is rescanned per instance on this interval (seconds); an instance
 # over its limit is stopped. `disk_check_concurrency` caps parallel scans.

@@ -1,3 +1,4 @@
+use crate::service::backup::{BackupService, BackupServiceClientImpl, BackupServiceURL};
 use crate::service::database::{DatabaseService, DatabaseServiceClientImpl, DatabaseServiceURL};
 use crate::service::instance::{InstanceService, InstanceServiceClientImpl, InstanceServiceURL};
 use crate::service::integrity::{
@@ -15,6 +16,7 @@ pub use zelus::responses::FileResponse;
 pub use zelus::sdk::ZelusClientImpl;
 pub use zelus::types::DataStream;
 
+pub mod backup;
 pub mod database;
 pub mod instance;
 pub mod integrity;
@@ -78,7 +80,7 @@ where
 
     let (with_auth, without_auth) = framework_router!(T instance (with_auth,without_auth,) {
         InstanceService, DatabaseService, UserService, SystemService, SetupService,
-        IntegrityService
+        IntegrityService, BackupService
     });
 
     let (_router, api) = utoipa_axum::router::OpenApiRouter::with_openapi(ApiDoc::openapi())
@@ -107,7 +109,13 @@ where
 }
 
 pub trait DatabaseAgentServices:
-    InstanceService + DatabaseService + UserService + SystemService + SetupService + IntegrityService
+    InstanceService
+    + DatabaseService
+    + UserService
+    + SystemService
+    + SetupService
+    + IntegrityService
+    + BackupService
 {
 }
 
@@ -118,6 +126,7 @@ pub trait DatabaseAgentServicesClientImpl:
     + SystemServiceClientImpl
     + SetupServiceClientImpl
     + IntegrityServiceClientImpl
+    + BackupServiceClientImpl
 {
 }
 
@@ -129,5 +138,6 @@ pub trait DatabaseAgentServicesURL:
     + SystemServiceURL
     + SetupServiceURL
     + IntegrityServiceURL
+    + BackupServiceURL
 {
 }

@@ -392,12 +392,14 @@ pub(crate) impl ProjectDatabaseService for Backend {
             .await?;
 
         if instance.kind.has_named_databases() {
-            return instance
+            instance
                 .host
                 .sdk
                 .delete_database(instance.id, database_id)
                 .await
-                .map_err(|err| agent_failure::<DeleteProjectDatabaseError>(&err));
+                .map_err(|err| agent_failure::<DeleteProjectDatabaseError>(&err))?;
+            self.delete_backup_job(instance.id, database_id).await?;
+            return Ok(());
         }
 
         if database_id != instance.id {

@@ -39,6 +39,10 @@ export type ArchiveFilePayload = {
     sources: Array<string>;
 };
 
+export const BackupOperation = { BACKUP: 'backup', RESTORE: 'restore' } as const;
+
+export type BackupOperation = typeof BackupOperation[keyof typeof BackupOperation];
+
 /**
  * How many backups a policy keeps per time period.
  *
@@ -103,7 +107,7 @@ export type ContainerState = typeof ContainerState[keyof typeof ContainerState];
 export type CreateApiKeyPayload = {
     name: string;
     permissions: number;
-    project?: null | NanoId;
+    project?: NanoId | null;
 };
 
 export type CreateDatabaseHost = {
@@ -183,6 +187,27 @@ export type CreateUserPayload = {
 export const DatabaseAccess = { READ: 'read', WRITE: 'write' } as const;
 
 export type DatabaseAccess = typeof DatabaseAccess[keyof typeof DatabaseAccess];
+
+export type DatabaseBackupJob = {
+    cron: string;
+    enabled: boolean;
+    last_error?: JobError | null;
+    last_run?: string | null;
+    next_run?: string | null;
+    retention: BackupRetention;
+    timezone: string;
+};
+
+export type DatabaseBackupJobRequest = {
+    cron: string;
+    enabled: boolean;
+    /**
+     * Applied to all of the database's backups after every automatic backup.
+     * Protected backups are exempt.
+     */
+    retention: BackupRetention;
+    timezone: string;
+};
 
 export const DatabaseType = {
     MARIADB: 'mariadb',
@@ -276,7 +301,7 @@ export type InstalledModpack = {
     game_version?: string | null;
     icon_url?: string | null;
     installed_at: number;
-    loader?: null | ResourceLoader;
+    loader?: ResourceLoader | null;
     loader_version?: string | null;
     missing: Array<string>;
     mods: Array<ModpackMod>;
@@ -404,10 +429,19 @@ export type IntegritySource = {
 
 export type IntegritySourceReport = {
     error?: string | null;
-    report?: null | IntegrityReport;
+    report?: IntegrityReport | null;
     severity: IntegritySeverity;
     source: IntegritySource;
 };
+
+export const JobError = {
+    BUSY: 'busy',
+    OFFLINE: 'offline',
+    DATABASE_MISSING: 'database_missing',
+    AGENT: 'agent'
+} as const;
+
+export type JobError = typeof JobError[keyof typeof JobError];
 
 export type LightNodeInfo = {
     display: string;
@@ -509,7 +543,7 @@ export type PackLoader = typeof PackLoader[keyof typeof PackLoader];
 
 export type PackPlatform = {
     game_version?: string | null;
-    loader?: null | PackLoader;
+    loader?: PackLoader | null;
     loader_version?: string | null;
 };
 
@@ -742,7 +776,7 @@ export type ScheduleTask = {
     command: string;
     type: 'minecraft';
 } | {
-    retention?: null | BackupRetention;
+    retention?: BackupRetention | null;
     storage?: string | null;
     type: 'backup';
 } | {
@@ -846,7 +880,7 @@ export type SetupNodeConfigRequest = {
     };
     base_url: string;
     default_host: string;
-    ssh?: null | SshEndpointRequest;
+    ssh?: SshEndpointRequest | null;
     storages: {
         [key: string]: ServerStorage;
     };
@@ -871,6 +905,22 @@ export type StorageUsageEntry = {
     free: number;
     path: string;
     total: number;
+};
+
+export type StoredBackup = {
+    name?: string | null;
+    /**
+     * Whether the backup is exempt from retention policies.
+     */
+    protected: boolean;
+    /**
+     * The compressed size in bytes.
+     */
+    size: number;
+    /**
+     * The creation time in milliseconds, which is also the backup's id.
+     */
+    time: number;
 };
 
 export type StoredDatabase = {
@@ -1008,10 +1058,18 @@ export type UpdateDatabaseHost = {
 };
 
 export type UpdateDatabaseInstance = {
+    /**
+     * Backups each database may keep.
+     */
+    backup_limit?: number | null;
     cpu?: number | null;
     disk?: number | null;
     display?: string | null;
     memory?: number | null;
+    /**
+     * Resets the backup limit to the configured default; overrides `backup_limit`.
+     */
+    reset_backup_limit?: boolean;
     suspended?: boolean | null;
     swap?: number | null;
 };
@@ -1023,12 +1081,12 @@ export type UpdateNodeRegistrationPayload = {
 
 export type UpdatePortPayload = {
     bind?: string | null;
-    external_port?: null | PortRange;
+    external_port?: PortRange | null;
     host?: string | null;
     http?: boolean | null;
     internal_port?: number | null;
     name?: string | null;
-    protocol?: null | NetworkProtocol;
+    protocol?: NetworkProtocol | null;
 };
 
 export type UpdateProjectPayload = {
@@ -1039,11 +1097,11 @@ export type UpdateProjectPayload = {
 
 export type UpdateServerPayload = {
     custom_dockerfile?: string | null;
-    group?: null | ServerGroupChange;
+    group?: ServerGroupChange | null;
     internet_access?: boolean | null;
-    limits?: null | ServerLimits;
+    limits?: ServerLimits | null;
     name?: string | null;
-    resource?: null | ServerResourcePayload;
+    resource?: ServerResourcePayload | null;
     suspended?: boolean | null;
     suspension_reason?: string | null;
 };
@@ -1119,7 +1177,7 @@ export type ListServersData = {
         /**
          * The project
          */
-        project?: null | NanoId;
+        project?: NanoId | null;
         /**
          * The node
          */
@@ -1181,7 +1239,7 @@ export type ListServersResponses = {
      * Success
      */
     200: Array<{
-        group?: null | GroupRef;
+        group?: GroupRef | null;
         id: NanoId;
         name: string;
         node: string;
@@ -1189,7 +1247,7 @@ export type ListServersResponses = {
         project: NanoId;
         project_name: string;
         project_slug: string;
-        status?: null | ServerListStatus;
+        status?: ServerListStatus | null;
         suspended: boolean;
         template: string;
     }>;
@@ -1310,20 +1368,20 @@ export type ServerInfoResponses = {
         custom_dockerfile?: string | null;
         disk?: number | null;
         features: Array<string>;
-        group?: null | GroupRef;
+        group?: GroupRef | null;
         id: NanoId;
         internet_access: boolean;
         limits: ServerLimits;
         name: string;
-        network?: null | ServerNetworkInfo;
+        network?: ServerNetworkInfo | null;
         node: LightNodeInfo;
         node_server_id?: number | null;
-        primary_port?: null | PrimaryPortInfo;
+        primary_port?: PrimaryPortInfo | null;
         project: NanoId;
         ram?: number | null;
         started_at?: number | null;
         state?: string | null;
-        stats?: null | ServerStats;
+        stats?: ServerStats | null;
         suspended: boolean;
         suspension_reason?: string | null;
         swap?: number | null;
@@ -7229,7 +7287,7 @@ export type ListNodeRegistrationsResponses = {
         default_host: string;
         expires_in: number;
         name: string;
-        ssh?: null | SshEndpointRequest;
+        ssh?: SshEndpointRequest | null;
         storages: {
             [key: string]: ServerStorage;
         };
@@ -10379,8 +10437,8 @@ export type EdgeTraefikResponses = {
      * Success
      */
     200: {
-        http?: null | TraefikHttp;
-        tls?: null | TraefikTls;
+        http?: TraefikHttp | null;
+        tls?: TraefikTls | null;
     };
 };
 
@@ -10483,7 +10541,7 @@ export type DaemonConfigResponses = {
          * Origins whitelisted for CORS requests against this daemon.
          */
         origins?: Array<string>;
-        ssh?: null | HostAndPort;
+        ssh?: HostAndPort | null;
         storages: {
             [key: string]: ServerStorage;
         };
@@ -11483,7 +11541,7 @@ export type SearchResourcesData = {
         /**
          * Whether to browse individual resources or modpacks
          */
-        kind?: null | ResourceKind;
+        kind?: ResourceKind | null;
         /**
          * Restrict results to this Minecraft version
          */
@@ -11665,7 +11723,7 @@ export type ListResourceVersionsData = {
         /**
          * Whether to browse individual resources or modpacks
          */
-        kind?: null | ResourceKind;
+        kind?: ResourceKind | null;
         /**
          * Restrict results to this Minecraft version
          */
@@ -12069,7 +12127,7 @@ export type ListInstalledResourcesResponses = {
      */
     200: {
         managed: Array<InstalledResource>;
-        modpack?: null | InstalledModpack;
+        modpack?: InstalledModpack | null;
         unmanaged: Array<UnmanagedResource>;
         unreadable: Array<ResourceType>;
     };
@@ -13165,7 +13223,7 @@ export type ModpackStatusResponses = {
         finished_at?: number | null;
         live_untouched: boolean;
         pack?: string | null;
-        platform?: null | PackPlatform;
+        platform?: PackPlatform | null;
         skipped: Array<string>;
         started_at: number;
         state: ModpackJobState;
@@ -13354,7 +13412,7 @@ export type InstallModpackResponses = {
         finished_at?: number | null;
         live_untouched: boolean;
         pack?: string | null;
-        platform?: null | PackPlatform;
+        platform?: PackPlatform | null;
         skipped: Array<string>;
         started_at: number;
         state: ModpackJobState;
@@ -13507,7 +13565,7 @@ export type ModpackVersionsResponses = {
      */
     200: null | {
         installed_version: string;
-        latest?: null | ResourceVersion;
+        latest?: ResourceVersion | null;
         loader: ResourceLoader;
         project: string;
         provider: ResourceProvider;
@@ -13569,7 +13627,7 @@ export type ListApiKeysResponses = {
         name: string;
         permissions: number;
         prefix: string;
-        project?: null | NanoId;
+        project?: NanoId | null;
         project_slug?: string | null;
         user: number;
         username: string;
@@ -13738,7 +13796,7 @@ export type ListProjectApiKeysResponses = {
         name: string;
         permissions: number;
         prefix: string;
-        project?: null | NanoId;
+        project?: NanoId | null;
         project_slug?: string | null;
         user: number;
         username: string;
@@ -13999,7 +14057,7 @@ export type ListAllApiKeysResponses = {
         name: string;
         permissions: number;
         prefix: string;
-        project?: null | NanoId;
+        project?: NanoId | null;
         project_slug?: string | null;
         user: number;
         username: string;
@@ -14497,7 +14555,7 @@ export type ListRouteDomainsData = {
         /**
          * The project the domains are listed for
          */
-        project?: null | NanoId;
+        project?: NanoId | null;
     };
     url: '/route/domains';
 };
@@ -15819,7 +15877,7 @@ export type ListProjectDomainsResponses = {
      * Success
      */
     200: Array<{
-        certificate?: null | DomainCertificateInfo;
+        certificate?: DomainCertificateInfo | null;
         created_at: string;
         domain: string;
         id: number;
@@ -15950,7 +16008,7 @@ export type CreateProjectDomainResponses = {
      * Success
      */
     200: {
-        certificate?: null | DomainCertificateInfo;
+        certificate?: DomainCertificateInfo | null;
         created_at: string;
         domain: string;
         id: number;
@@ -16076,7 +16134,7 @@ export type VerifyProjectDomainResponses = {
      * Success
      */
     200: {
-        certificate?: null | DomainCertificateInfo;
+        certificate?: DomainCertificateInfo | null;
         created_at: string;
         domain: string;
         id: number;
@@ -16867,7 +16925,7 @@ export type ListProjectInstancesResponses = {
         state: ContainerState;
         suspended: boolean;
         type: DatabaseType;
-        utilization?: null | ResourceUsage;
+        utilization?: ResourceUsage | null;
     }>;
 };
 
@@ -16992,7 +17050,7 @@ export type CreateProjectInstanceResponses = {
         state: ContainerState;
         suspended: boolean;
         type: DatabaseType;
-        utilization?: null | ResourceUsage;
+        utilization?: ResourceUsage | null;
     };
 };
 
@@ -18063,6 +18121,1118 @@ export type RotateInstanceUserPasswordResponses = {
 
 export type RotateInstanceUserPasswordResponse = RotateInstanceUserPasswordResponses[keyof RotateInstanceUserPasswordResponses];
 
+export type ListDatabaseBackupsData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The database instance ID
+         */
+        instance_id: string;
+        /**
+         * The database ID
+         */
+        database_id: string;
+    };
+    query?: never;
+    url: '/project/{project_id}/instance/{instance_id}/database/{database_id}/backup';
+};
+
+export type ListDatabaseBackupsErrors = {
+    /**
+     * This database type does not support backups
+     */
+    '400‏': {
+        error?: {
+            id?: 'database/backup_unsupported';
+            msg?: 'This database type does not support backups';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified database instance was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/instance_not_found';
+            msg?: 'The specified database instance was not found';
+        };
+    };
+    /**
+     * The specified database was not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'database/not_found';
+            msg?: 'The specified database was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‫': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‪': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+};
+
+export type ListDatabaseBackupsError = ListDatabaseBackupsErrors[keyof ListDatabaseBackupsErrors];
+
+export type ListDatabaseBackupsResponses = {
+    /**
+     * Success
+     */
+    200: {
+        /**
+         * The backups, newest first.
+         */
+        backups: Array<StoredBackup>;
+        job?: DatabaseBackupJob | null;
+        /**
+         * How many backups the database may keep.
+         */
+        limit: number;
+        running?: BackupOperation | null;
+    };
+};
+
+export type ListDatabaseBackupsResponse = ListDatabaseBackupsResponses[keyof ListDatabaseBackupsResponses];
+
+export type CreateDatabaseBackupData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The database instance ID
+         */
+        instance_id: string;
+        /**
+         * The database ID
+         */
+        database_id: string;
+    };
+    query?: {
+        /**
+         * The name to give the backup
+         */
+        name?: string | null;
+    };
+    url: '/project/{project_id}/instance/{instance_id}/database/{database_id}/backup';
+};
+
+export type CreateDatabaseBackupErrors = {
+    /**
+     * This database type does not support backups
+     */
+    '400‪': {
+        error?: {
+            id?: 'database/backup_unsupported';
+            msg?: 'This database type does not support backups';
+        };
+    };
+    /**
+     * The database backup limit has been reached
+     */
+    '400‫': {
+        error?: {
+            id?: 'database/backup_limit_exceeded';
+            msg?: 'The database backup limit has been reached';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified database instance was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/instance_not_found';
+            msg?: 'The specified database instance was not found';
+        };
+    };
+    /**
+     * The specified database was not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'database/not_found';
+            msg?: 'The specified database was not found';
+        };
+    };
+    /**
+     * The database instance must be running for this operation
+     */
+    '409‏': {
+        error?: {
+            id?: 'database/offline';
+            msg?: 'The database instance must be running for this operation';
+        };
+    };
+    /**
+     * A backup or restore is already running for this database
+     */
+    '409‬': {
+        error?: {
+            id?: 'database/backup_busy';
+            msg?: 'A backup or restore is already running for this database';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‮': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‭': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+};
+
+export type CreateDatabaseBackupError = CreateDatabaseBackupErrors[keyof CreateDatabaseBackupErrors];
+
+export type CreateDatabaseBackupResponses = {
+    /**
+     * Success
+     */
+    200: number;
+};
+
+export type CreateDatabaseBackupResponse = CreateDatabaseBackupResponses[keyof CreateDatabaseBackupResponses];
+
+export type DeleteDatabaseBackupData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The database instance ID
+         */
+        instance_id: string;
+        /**
+         * The database ID
+         */
+        database_id: string;
+        /**
+         * The backup ID
+         */
+        backup_id: number;
+    };
+    query?: never;
+    url: '/project/{project_id}/instance/{instance_id}/database/{database_id}/backup/{backup_id}';
+};
+
+export type DeleteDatabaseBackupErrors = {
+    /**
+     * This database type does not support backups
+     */
+    '400‏': {
+        error?: {
+            id?: 'database/backup_unsupported';
+            msg?: 'This database type does not support backups';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified database instance was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/instance_not_found';
+            msg?: 'The specified database instance was not found';
+        };
+    };
+    /**
+     * The specified database was not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'database/not_found';
+            msg?: 'The specified database was not found';
+        };
+    };
+    /**
+     * The specified backup was not found
+     */
+    '404‫': {
+        error?: {
+            id?: 'backup/not_found';
+            msg?: 'The specified backup was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‬': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‪': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+};
+
+export type DeleteDatabaseBackupError = DeleteDatabaseBackupErrors[keyof DeleteDatabaseBackupErrors];
+
+export type DeleteDatabaseBackupResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteDatabaseBackupResponse = DeleteDatabaseBackupResponses[keyof DeleteDatabaseBackupResponses];
+
+export type DownloadDatabaseBackupData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The database instance ID
+         */
+        instance_id: string;
+        /**
+         * The database ID
+         */
+        database_id: string;
+        /**
+         * The backup ID
+         */
+        backup_id: number;
+    };
+    query?: never;
+    url: '/project/{project_id}/instance/{instance_id}/database/{database_id}/backup/{backup_id}';
+};
+
+export type DownloadDatabaseBackupErrors = {
+    /**
+     * This database type does not support backups
+     */
+    '400‏': {
+        error?: {
+            id?: 'database/backup_unsupported';
+            msg?: 'This database type does not support backups';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified database instance was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/instance_not_found';
+            msg?: 'The specified database instance was not found';
+        };
+    };
+    /**
+     * The specified database was not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'database/not_found';
+            msg?: 'The specified database was not found';
+        };
+    };
+    /**
+     * The specified backup was not found
+     */
+    '404‫': {
+        error?: {
+            id?: 'backup/not_found';
+            msg?: 'The specified backup was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‬': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‪': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+};
+
+export type DownloadDatabaseBackupError = DownloadDatabaseBackupErrors[keyof DownloadDatabaseBackupErrors];
+
+export type DownloadDatabaseBackupResponses = {
+    /**
+     * Success
+     */
+    200: Blob | File;
+};
+
+export type DownloadDatabaseBackupResponse = DownloadDatabaseBackupResponses[keyof DownloadDatabaseBackupResponses];
+
+export type UpdateDatabaseBackupData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The database instance ID
+         */
+        instance_id: string;
+        /**
+         * The database ID
+         */
+        database_id: string;
+        /**
+         * The backup ID
+         */
+        backup_id: number;
+    };
+    query?: {
+        /**
+         * The name to give the backup
+         */
+        name?: string | null;
+        /**
+         * Whether the backup is exempt from retention policies
+         */
+        protected?: boolean | null;
+    };
+    url: '/project/{project_id}/instance/{instance_id}/database/{database_id}/backup/{backup_id}';
+};
+
+export type UpdateDatabaseBackupErrors = {
+    /**
+     * This database type does not support backups
+     */
+    '400‏': {
+        error?: {
+            id?: 'database/backup_unsupported';
+            msg?: 'This database type does not support backups';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified database instance was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/instance_not_found';
+            msg?: 'The specified database instance was not found';
+        };
+    };
+    /**
+     * The specified database was not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'database/not_found';
+            msg?: 'The specified database was not found';
+        };
+    };
+    /**
+     * The specified backup was not found
+     */
+    '404‫': {
+        error?: {
+            id?: 'backup/not_found';
+            msg?: 'The specified backup was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‬': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‪': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+};
+
+export type UpdateDatabaseBackupError = UpdateDatabaseBackupErrors[keyof UpdateDatabaseBackupErrors];
+
+export type UpdateDatabaseBackupResponses = {
+    /**
+     * Success
+     */
+    200: {
+        name?: string | null;
+        /**
+         * Whether the backup is exempt from retention policies.
+         */
+        protected: boolean;
+        /**
+         * The compressed size in bytes.
+         */
+        size: number;
+        /**
+         * The creation time in milliseconds, which is also the backup's id.
+         */
+        time: number;
+    };
+};
+
+export type UpdateDatabaseBackupResponse = UpdateDatabaseBackupResponses[keyof UpdateDatabaseBackupResponses];
+
+export type RestoreDatabaseBackupData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The database instance ID
+         */
+        instance_id: string;
+        /**
+         * The database ID
+         */
+        database_id: string;
+        /**
+         * The backup ID
+         */
+        backup_id: number;
+    };
+    query?: never;
+    url: '/project/{project_id}/instance/{instance_id}/database/{database_id}/backup/{backup_id}/restore';
+};
+
+export type RestoreDatabaseBackupErrors = {
+    /**
+     * This database type does not support backups
+     */
+    '400‪': {
+        error?: {
+            id?: 'database/backup_unsupported';
+            msg?: 'This database type does not support backups';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified database instance was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/instance_not_found';
+            msg?: 'The specified database instance was not found';
+        };
+    };
+    /**
+     * The specified database was not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'database/not_found';
+            msg?: 'The specified database was not found';
+        };
+    };
+    /**
+     * The specified backup was not found
+     */
+    '404‭': {
+        error?: {
+            id?: 'backup/not_found';
+            msg?: 'The specified backup was not found';
+        };
+    };
+    /**
+     * The database instance must be running for this operation
+     */
+    '409‏': {
+        error?: {
+            id?: 'database/offline';
+            msg?: 'The database instance must be running for this operation';
+        };
+    };
+    /**
+     * A backup or restore is already running for this database
+     */
+    '409‫': {
+        error?: {
+            id?: 'database/backup_busy';
+            msg?: 'A backup or restore is already running for this database';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‮': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‬': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+};
+
+export type RestoreDatabaseBackupError = RestoreDatabaseBackupErrors[keyof RestoreDatabaseBackupErrors];
+
+export type RestoreDatabaseBackupResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type RestoreDatabaseBackupResponse = RestoreDatabaseBackupResponses[keyof RestoreDatabaseBackupResponses];
+
+export type DeleteDatabaseBackupJobData = {
+    body?: never;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The database instance ID
+         */
+        instance_id: string;
+        /**
+         * The database ID
+         */
+        database_id: string;
+    };
+    query?: never;
+    url: '/project/{project_id}/instance/{instance_id}/database/{database_id}/backup/job';
+};
+
+export type DeleteDatabaseBackupJobErrors = {
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified database instance was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/instance_not_found';
+            msg?: 'The specified database instance was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‎': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+};
+
+export type DeleteDatabaseBackupJobError = DeleteDatabaseBackupJobErrors[keyof DeleteDatabaseBackupJobErrors];
+
+export type DeleteDatabaseBackupJobResponses = {
+    /**
+     * Success
+     */
+    204: void;
+};
+
+export type DeleteDatabaseBackupJobResponse = DeleteDatabaseBackupJobResponses[keyof DeleteDatabaseBackupJobResponses];
+
+export type SetDatabaseBackupJobData = {
+    body: DatabaseBackupJobRequest;
+    headers?: {
+        /**
+         * The api key
+         */
+        Authorization?: string;
+    };
+    path: {
+        /**
+         * The project ID
+         */
+        project_id: NanoId;
+        /**
+         * The database instance ID
+         */
+        instance_id: string;
+        /**
+         * The database ID
+         */
+        database_id: string;
+    };
+    query?: never;
+    url: '/project/{project_id}/instance/{instance_id}/database/{database_id}/backup/job';
+};
+
+export type SetDatabaseBackupJobErrors = {
+    /**
+     * This database type does not support backups
+     */
+    '400‏': {
+        error?: {
+            id?: 'database/backup_unsupported';
+            msg?: 'This database type does not support backups';
+        };
+    };
+    /**
+     * Automatic backups need a retention policy that keeps between one backup and the database's backup limit
+     */
+    '400‪': {
+        error?: {
+            id?: 'database/backup_retention_invalid';
+            msg?: 'Automatic backups need a retention policy that keeps between one backup and the database\'s backup limit';
+        };
+    };
+    /**
+     * The cron expression is invalid
+     */
+    '400‬': {
+        error?: {
+            id?: 'schedule/cron_invalid';
+            msg?: 'The cron expression is invalid';
+        };
+    };
+    /**
+     * The timezone is not a known IANA timezone
+     */
+    '400‭': {
+        error?: {
+            id?: 'schedule/timezone_invalid';
+            msg?: 'The timezone is not a known IANA timezone';
+        };
+    };
+    /**
+     * Invalid authentication credentials
+     */
+    '401؜': {
+        error?: {
+            id?: 'auth/invalid';
+            msg?: 'Invalid authentication credentials';
+        };
+    };
+    /**
+     * You don't have the necessary permissions to perform this operation
+     */
+    '403᠎': {
+        error?: {
+            id?: 'auth/permission_denied';
+            msg?: 'You don\'t have the necessary permissions to perform this operation';
+        };
+    };
+    /**
+     * Project not found
+     */
+    '404‌': {
+        error?: {
+            id?: 'project/not_found';
+            msg?: 'Project not found';
+        };
+    };
+    /**
+     * The specified database instance was not found
+     */
+    '404‍': {
+        error?: {
+            id?: 'database/instance_not_found';
+            msg?: 'The specified database instance was not found';
+        };
+    };
+    /**
+     * The specified database was not found
+     */
+    '404‎': {
+        error?: {
+            id?: 'database/not_found';
+            msg?: 'The specified database was not found';
+        };
+    };
+    /**
+     * Authentication storage is unreachable
+     */
+    '500​': {
+        error?: {
+            id?: 'auth/unreachable';
+            msg?: 'Authentication storage is unreachable';
+        };
+    };
+    /**
+     * Database operation failed
+     */
+    '500‮': {
+        error?: {
+            id?: 'db/failure';
+            msg?: 'Database operation failed';
+        };
+    };
+    /**
+     * The database agent rejected the request
+     */
+    '502‫': {
+        error?: {
+            id?: 'database/agent_error';
+            msg?: 'The database agent rejected the request';
+        };
+    };
+};
+
+export type SetDatabaseBackupJobError = SetDatabaseBackupJobErrors[keyof SetDatabaseBackupJobErrors];
+
+export type SetDatabaseBackupJobResponses = {
+    /**
+     * Success
+     */
+    200: {
+        cron: string;
+        enabled: boolean;
+        last_error?: JobError | null;
+        last_run?: string | null;
+        next_run?: string | null;
+        retention: BackupRetention;
+        timezone: string;
+    };
+};
+
+export type SetDatabaseBackupJobResponse = SetDatabaseBackupJobResponses[keyof SetDatabaseBackupJobResponses];
+
 export type ListProjectDatabasesData = {
     body?: never;
     headers?: {
@@ -19118,13 +20288,21 @@ export type ListDatabaseInstancesResponses = {
      * Success
      */
     200: Array<{
+        /**
+         * Backups each database of the instance may keep; `null` uses the configured default.
+         */
+        backup_limit?: number | null;
         created: string;
+        /**
+         * The configured default that applies when `backup_limit` is `null`.
+         */
+        default_backup_limit: number;
         display: string;
         host: string;
         id: string;
         project: NanoId;
         project_slug: string;
-        remote?: null | ApiInstance;
+        remote?: ApiInstance | null;
         type: DatabaseType;
     }>;
 };
@@ -19620,7 +20798,7 @@ export type IntegritySchemaResponses = {
      */
     200: Array<{
         error?: string | null;
-        schema?: null | IntegritySchema;
+        schema?: IntegritySchema | null;
         source: IntegritySource;
     }>;
 };

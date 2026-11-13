@@ -34,7 +34,9 @@
       "swapLabel": "Swap (MiB)",
       "diskLabel": "Disk (MiB)",
       "cpuLabel": "CPU (cores)",
-      "suspendedDescription": "Rejects every client connection at the proxy."
+      "suspendedDescription": "Rejects every client connection at the proxy.",
+      "backupLimitLabel": "Backups per database",
+      "backupLimitHint": "Leave empty to use the default of {{limit}}. 0 disables backups."
     },
     "hostDialog": {
       "saveError": "Failed to save the database host",

@@ -1,5 +1,6 @@
 pub mod builder;
 
+use crate::service::backup::BackupServiceClientImpl;
 use crate::service::database::DatabaseServiceClientImpl;
 use crate::service::instance::InstanceServiceClientImpl;
 use crate::service::integrity::IntegrityServiceClientImpl;
@@ -59,6 +60,7 @@ impl UserServiceClientImpl for DatabaseAgentSDK {}
 impl SystemServiceClientImpl for DatabaseAgentSDK {}
 impl IntegrityServiceClientImpl for DatabaseAgentSDK {}
 impl SetupServiceClientImpl for DatabaseAgentSDK {}
+impl BackupServiceClientImpl for DatabaseAgentSDK {}
 impl DatabaseAgentServicesClientImpl for DatabaseAgentSDK {}
 impl DatabaseAgentServices for DatabaseAgentSDK {}
 impl DatabaseAgentServicesURL for DatabaseAgentSDK {}

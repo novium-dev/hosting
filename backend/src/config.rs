@@ -18,6 +18,7 @@ const DEFAULT_SESSION_LIFETIME: u64 = 43200;
 const DEFAULT_SESSION_ABSOLUTE_LIFETIME: u64 = 2_592_000;
 const DEFAULT_AUTH_PROVIDER: &str = "user";
 const DEFAULT_LOGO_UPLOAD_STRATEGY: &str = "s3";
+const DEFAULT_DATABASE_BACKUP_LIMIT: u32 = 3;
 
 fn var(key: &str) -> Option<String> {
     env::var(key).ok().filter(|value| !value.is_empty())
@@ -284,6 +285,7 @@ impl ResourceConfig {
 #[derive(Debug, Clone)]
 pub struct DatabaseConfig {
     defaults: HashMap<DatabaseType, InstanceDefaults>,
+    pub backup_limit: u32,
 }
 
 impl DatabaseConfig {
@@ -316,7 +318,11 @@ impl DatabaseConfig {
             defaults.insert(*kind, entry);
         }
 
-        Ok(Self { defaults })
+        Ok(Self {
+            defaults,
+            backup_limit: parse_var::<u32>("BACKEND_DB_BACKUP_LIMIT")?
+                .unwrap_or(DEFAULT_DATABASE_BACKUP_LIMIT),
+        })
     }
 
     pub fn defaults_for(&self, kind: DatabaseType) -> Option<&InstanceDefaults> {

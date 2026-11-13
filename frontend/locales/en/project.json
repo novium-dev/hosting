@@ -160,6 +160,58 @@
       "databaseCount_one": "{{count}} database",
       "databaseCount_other": "{{count}} databases",
       "openInstance": "Open instance"
+    },
+    "backups": {
+      "openAriaLabel": "Backups",
+      "title": "Backups of {{name}}",
+      "description": "Backups are compressed dumps stored on the database host. Restoring one wipes the database first.",
+      "loadError": "Failed to load the backups.",
+      "usage": "{{count}} of {{limit}} backups",
+      "running": {
+        "backup": "Backup in progress",
+        "restore": "Restore in progress"
+      },
+      "namePlaceholder": "Name (optional)",
+      "create": "Create backup",
+      "created": "Backup started",
+      "createError": "Failed to create the backup",
+      "empty": "No backups yet",
+      "created_at": "Created",
+      "size": "Size",
+      "protectedBadge": "Protected",
+      "protect": "Protect backup",
+      "unprotect": "Unprotect backup",
+      "protected": "Backup protected",
+      "unprotected": "Backup no longer protected",
+      "updateError": "Failed to update the backup",
+      "restore": "Restore",
+      "restoreTitle": "Restore backup?",
+      "restoreDescription": "{{name}} is wiped and replaced with the backup from {{date}}. Changes made since then are lost.",
+      "restoreStarted": "Restore started",
+      "restoreError": "Failed to restore the backup",
+      "deleteTitle": "Delete backup?",
+      "deleteDescription": "The backup from {{date}} is deleted permanently.",
+      "deleted": "Backup deleted",
+      "deleteError": "Failed to delete the backup",
+      "job": {
+        "title": "Automatic backups",
+        "description": "Takes a backup on a schedule, then removes older backups the retention policy does not keep. Protected backups are never removed.",
+        "enabled": "Automatic backups enabled",
+        "nextRun": "Next run: {{date}}",
+        "lastRun": "Last run: {{date}}",
+        "retentionDescription": "Keeps the newest backup of each period. The counters together may keep at most {{limit}} backups.",
+        "retentionInvalid": "The retention policy must keep between 1 and {{limit}} backups.",
+        "saved": "Automatic backups saved",
+        "saveError": "Failed to save the automatic backups",
+        "removed": "Automatic backups removed",
+        "removeError": "Failed to remove the automatic backups",
+        "errors": {
+          "busy": "The last run was skipped because another backup or restore was running.",
+          "offline": "The last run failed because the instance was not running.",
+          "database_missing": "The last run failed because the database no longer exists.",
+          "agent": "The last run failed because the database host rejected the backup."
+        }
+      }
     }
   },
   "members": {

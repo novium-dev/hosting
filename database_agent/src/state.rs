@@ -6,7 +6,7 @@ use crate::subsystems::SubsystemRegistry;
 use bollard::Docker;
 use core::ops::Deref;
 use core::time::Duration;
-use database_agent_common::types::{ContainerState, StoredInstanceCreate};
+use database_agent_common::types::{BackupOperation, ContainerState, StoredInstanceCreate};
 use sqlx::Connection as _;
 use std::collections::HashMap;
 use std::io;
@@ -31,6 +31,7 @@ pub struct AgentInner {
     pub subsystems: Arc<SubsystemRegistry>,
 
     pub disk_check_semaphore: Semaphore,
+    pub backup_operations: parking_lot::Mutex<HashMap<Uuid, BackupOperation>>,
     pub started: Instant,
 }
 
@@ -63,6 +64,7 @@ impl Agent {
             instances: RwLock::new(Vec::new()),
             routes: Arc::default(),
             subsystems: Arc::default(),
+            backup_operations: parking_lot::Mutex::default(),
             started: Instant::now(),
         }))
     }
@@ -186,6 +188,7 @@ impl Agent {
         for directory in [
             self.config.socket_dir(instance.uuid),
             self.config.data_dir(instance.uuid),
+            self.config.backup_dir(instance.uuid),
         ] {
             if let Err(err) = tokio::fs::remove_dir_all(&directory).await
                 && err.kind() != io::ErrorKind::NotFound

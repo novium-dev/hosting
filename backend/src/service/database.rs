@@ -301,6 +301,7 @@ impl Backend {
                         kind,
                         display,
                         created,
+                        backup_limit: None,
                         host,
                     },
                     Some(*remote),
@@ -609,7 +610,10 @@ pub(crate) impl DatabaseService for Backend {
             .sdk
             .delete_database(instance.id, database_id)
             .await
-            .map_err(|err| agent_failure::<DeleteInstanceDatabaseError>(&err))
+            .map_err(|err| agent_failure::<DeleteInstanceDatabaseError>(&err))?;
+
+        self.delete_backup_job(instance.id, database_id).await?;
+        Ok(())
     }
 
     /// Lists the users on one of the project's instances, with the connection

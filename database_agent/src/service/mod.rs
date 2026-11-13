@@ -1,3 +1,4 @@
+mod backup;
 mod database;
 mod instance;
 mod integrity;
@@ -14,6 +15,7 @@ use axum::response::{IntoResponse as _, Response};
 use axum_server::{Handle, Server};
 use core::net::SocketAddr;
 use core::time::Duration;
+use database_agent_common::service::backup::BackupService;
 use database_agent_common::service::database::DatabaseService;
 use database_agent_common::service::error_database_failure::FromDatabaseFailure;
 use database_agent_common::service::error_instance_failure::FromInstanceFailure;
@@ -104,7 +106,7 @@ impl Agent {
 
         let (authenticated, public) = framework_router!(Self self (with_auth,without_auth,) {
             InstanceService, DatabaseService, UserService, SystemService, SetupService,
-            IntegrityService
+            IntegrityService, BackupService
         });
 
         let authenticated = authenticated

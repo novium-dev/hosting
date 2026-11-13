@@ -387,3 +387,28 @@ pub struct BackendAgentConfig {
     pub base_url: Url,
     pub ports: HashMap<DatabaseType, u16>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct StoredBackup {
+    /// The creation time in milliseconds, which is also the backup's id.
+    pub time: i64,
+    pub name: Option<String>,
+    /// The compressed size in bytes.
+    pub size: u64,
+    /// Whether the backup is exempt from retention policies.
+    pub protected: bool,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum BackupOperation {
+    Backup,
+    Restore,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct DatabaseBackups {
+    pub backups: Vec<StoredBackup>,
+    /// The backup or restore currently running for the database, if any.
+    pub running: Option<BackupOperation>,
+}

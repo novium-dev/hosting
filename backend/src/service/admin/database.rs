@@ -101,6 +101,10 @@ pub(crate) struct DatabaseInstanceInfo {
     pub(crate) project: ProjectId,
     pub(crate) project_slug: String,
     pub(crate) created: chrono::DateTime<chrono::Utc>,
+    /// Backups each database of the instance may keep; `null` uses the configured default.
+    pub(crate) backup_limit: Option<u32>,
+    /// The configured default that applies when `backup_limit` is `null`.
+    pub(crate) default_backup_limit: u32,
     pub(crate) remote: Option<ApiInstance>,
 }
 
@@ -118,6 +122,12 @@ pub(crate) struct UpdateDatabaseInstance {
     pub(crate) cpu: Option<f64>,
     #[serde(default)]
     pub(crate) suspended: Option<bool>,
+    /// Backups each database may keep.
+    #[serde(default)]
+    pub(crate) backup_limit: Option<u32>,
+    /// Resets the backup limit to the configured default; overrides `backup_limit`.
+    #[serde(default)]
+    pub(crate) reset_backup_limit: bool,
 }
 
 define_path_variable!(code "The database host registration code");
@@ -480,7 +490,8 @@ pub(crate) impl DatabaseAdminService for Backend {
             r#"SELECT database_instances.id, database_instances.host,
                    database_instances.kind, database_instances.display,
                    database_instances.project AS "project: ProjectId",
-                   projects.slug AS project_slug, database_instances.created
+                   projects.slug AS project_slug, database_instances.created,
+                   database_instances.backup_limit
                FROM database_instances
                JOIN projects ON projects.id = database_instances.project
                WHERE database_instances.host = $1
@@ -503,12 +514,14 @@ pub(crate) impl DatabaseAdminService for Backend {
                 project: row.project,
                 project_slug: row.project_slug,
                 created: row.created,
+                backup_limit: row.backup_limit.map(i32::cast_unsigned),
+                default_backup_limit: self.config.databases.backup_limit,
             })
         })
         .collect())
     }
 
-    /// Renames a database instance and changes its resource limits.
+    /// Renames a database instance and changes its resource and backup limits.
     ///
     /// Projects own their instances but cannot resize or rename them; this is
     /// where that happens.
@@ -556,6 +569,25 @@ pub(crate) impl DatabaseAdminService for Backend {
                     )
                     .execute(&mut **tx)
                     .await?;
+                        if updated.rows_affected() == 0 {
+                            return Err(UpdateDatabaseInstanceError::DatabaseInstanceNotFound);
+                        }
+                    }
+
+                    let backup_limit = if payload.reset_backup_limit {
+                        Some(None)
+                    } else {
+                        payload.backup_limit.map(Some)
+                    };
+                    if let Some(backup_limit) = backup_limit {
+                        let updated = query!(
+                            "UPDATE database_instances SET backup_limit = $1 WHERE id = $2 AND host = $3",
+                            backup_limit.map(u32::cast_signed),
+                            instance_id,
+                            host_id
+                        )
+                        .execute(&mut **tx)
+                        .await?;
                         if updated.rows_affected() == 0 {
                             return Err(UpdateDatabaseInstanceError::DatabaseInstanceNotFound);
                         }

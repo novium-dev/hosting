@@ -160,6 +160,58 @@
       "databaseCount_one": "{{count}} Datenbank",
       "databaseCount_other": "{{count}} Datenbanken",
       "openInstance": "Instanz öffnen"
+    },
+    "backups": {
+      "openAriaLabel": "Backups",
+      "title": "Backups von {{name}}",
+      "description": "Backups sind komprimierte Dumps auf dem Datenbank-Host. Beim Wiederherstellen wird die Datenbank zuerst geleert.",
+      "loadError": "Die Backups konnten nicht geladen werden.",
+      "usage": "{{count}} von {{limit}} Backups",
+      "running": {
+        "backup": "Backup läuft",
+        "restore": "Wiederherstellung läuft"
+      },
+      "namePlaceholder": "Name (optional)",
+      "create": "Backup erstellen",
+      "created": "Backup gestartet",
+      "createError": "Das Backup konnte nicht erstellt werden",
+      "empty": "Noch keine Backups",
+      "created_at": "Erstellt",
+      "size": "Größe",
+      "protectedBadge": "Geschützt",
+      "protect": "Backup schützen",
+      "unprotect": "Schutz aufheben",
+      "protected": "Backup geschützt",
+      "unprotected": "Backup nicht mehr geschützt",
+      "updateError": "Das Backup konnte nicht aktualisiert werden",
+      "restore": "Wiederherstellen",
+      "restoreTitle": "Backup wiederherstellen?",
+      "restoreDescription": "{{name}} wird geleert und durch das Backup vom {{date}} ersetzt. Seitdem gemachte Änderungen gehen verloren.",
+      "restoreStarted": "Wiederherstellung gestartet",
+      "restoreError": "Das Backup konnte nicht wiederhergestellt werden",
+      "deleteTitle": "Backup löschen?",
+      "deleteDescription": "Das Backup vom {{date}} wird endgültig gelöscht.",
+      "deleted": "Backup gelöscht",
+      "deleteError": "Das Backup konnte nicht gelöscht werden",
+      "job": {
+        "title": "Automatische Backups",
+        "description": "Erstellt nach Zeitplan ein Backup und entfernt danach ältere Backups, die die Aufbewahrungsrichtlinie nicht behält. Geschützte Backups werden nie entfernt.",
+        "enabled": "Automatische Backups aktiviert",
+        "nextRun": "Nächster Lauf: {{date}}",
+        "lastRun": "Letzter Lauf: {{date}}",
+        "retentionDescription": "Behält das neueste Backup jedes Zeitraums. Zusammen dürfen die Zähler höchstens {{limit}} Backups behalten.",
+        "retentionInvalid": "Die Aufbewahrungsrichtlinie muss zwischen 1 und {{limit}} Backups behalten.",
+        "saved": "Automatische Backups gespeichert",
+        "saveError": "Die automatischen Backups konnten nicht gespeichert werden",
+        "removed": "Automatische Backups entfernt",
+        "removeError": "Die automatischen Backups konnten nicht entfernt werden",
+        "errors": {
+          "busy": "Der letzte Lauf wurde übersprungen, weil bereits ein Backup oder eine Wiederherstellung lief.",
+          "offline": "Der letzte Lauf ist fehlgeschlagen, weil die Instanz nicht lief.",
+          "database_missing": "Der letzte Lauf ist fehlgeschlagen, weil die Datenbank nicht mehr existiert.",
+          "agent": "Der letzte Lauf ist fehlgeschlagen, weil der Datenbank-Host das Backup abgelehnt hat."
+        }
+      }
     }
   },
   "members": {

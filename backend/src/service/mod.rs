@@ -6,6 +6,7 @@ pub(crate) mod api_key;
 pub(crate) mod auth;
 pub(crate) mod backup;
 pub(crate) mod database;
+pub(crate) mod database_backup;
 pub(crate) mod domain;
 pub(crate) mod file;
 pub(crate) mod instance;
@@ -209,6 +210,12 @@ define_error!(database {
     instance_not_found("The specified database instance was not found" NOT_FOUND),
     user_not_found("The specified database user was not found" NOT_FOUND),
     agent_error("The database agent rejected the request" BAD_GATEWAY),
+    not_found("The specified database was not found" NOT_FOUND),
+    offline("The database instance must be running for this operation" CONFLICT),
+    backup_unsupported("This database type does not support backups" BAD_REQUEST),
+    backup_limit_exceeded("The database backup limit has been reached" BAD_REQUEST),
+    backup_busy("A backup or restore is already running for this database" CONFLICT),
+    backup_retention_invalid("Automatic backups need a retention policy that keeps between one backup and the database's backup limit" BAD_REQUEST),
 });
 
 define_error!(cache {
