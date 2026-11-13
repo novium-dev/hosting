@@ -164,12 +164,13 @@ export function RoutesManager({
     () =>
       ports.filter(
         (port) =>
-          !routes.some((route) => route.port === port.id) &&
+          (canBypassLimits ||
+            !routes.some((route) => route.port === port.id)) &&
           (port.http
             ? domains.some((domain) => domain.http_available)
             : domains.some((domain) => domain.tcp_available)),
       ),
-    [ports, domains, routes],
+    [ports, domains, routes, canBypassLimits],
   );
 
   const selectablePorts = useMemo(

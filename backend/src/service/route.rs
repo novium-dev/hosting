@@ -216,6 +216,9 @@ pub(crate) impl RouteService for Backend {
     /// An empty `subdomain` puts the route on the domain itself. That is only allowed on one of
     /// the project's own domains, never on a domain provided by this instance.
     ///
+    /// A port carries one route, or any number of routes with
+    /// [`ManagementPermissions::LIMITS_BYPASS`].
+    ///
     /// # Permissions
     /// Requires [`ServerPermissions::ROUTES_MANAGE`].
     #[route("/{server_id}", method = PUT)]
@@ -392,12 +395,23 @@ pub(crate) impl RouteService for Backend {
         let external_port =
             u16::try_from(port.external_port).map_err(|_err| CreateRouteError::RoutePortInvalid)?;
 
-        if query!("SELECT id FROM routes WHERE port = $1", payload.port)
-            .fetch_optional(&*self.database)
-            .await?
-            .is_some()
-        {
-            return Err(CreateRouteError::RoutePortHasRoute);
+        let mut tx = self.database.begin().await?;
+
+        if !bypass {
+            query!(
+                "SELECT id FROM server_ports WHERE id = $1 FOR UPDATE",
+                payload.port
+            )
+            .fetch_optional(&mut *tx)
+            .await?;
+
+            if query!("SELECT id FROM routes WHERE port = $1", payload.port)
+                .fetch_optional(&mut *tx)
+                .await?
+                .is_some()
+            {
+                return Err(CreateRouteError::RoutePortHasRoute);
+            }
         }
 
         let Some(route_id) = query!(
@@ -413,11 +427,13 @@ pub(crate) impl RouteService for Backend {
             service,
             https,
         )
-        .fetch_optional(&*self.database)
+        .fetch_optional(&mut *tx)
         .await?
         .map(|row| row.id) else {
             return Err(CreateRouteError::RouteSubdomainTaken);
         };
+
+        tx.commit().await?;
 
         let request = RouteRequest {
             domain: domain.domain.clone(),
