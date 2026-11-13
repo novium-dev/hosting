@@ -147,7 +147,7 @@ impl MinecraftBedrockExtra {
             parents: Vec::new(),
             tag: None,
             default_tag: Some(format!(
-                "minecraft_bedrock_{}-{}-r{REL}",
+                "minecraft_bedrock_{}-{}",
                 self.software.id(),
                 self.version
             )),

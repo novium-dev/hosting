@@ -346,6 +346,10 @@ impl<T: Template + Send + Sync> TemplateInner for T {
             extra,
         )
         .await
+        .map(|mut payload| {
+            payload.image = utils::content_tagged(payload.image);
+            payload
+        })
     }
 
     async fn default_ports(
