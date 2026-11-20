@@ -112,6 +112,7 @@ define_error!(port {
     not_allocated("The specified port range is not allocated to the server" BAD_REQUEST),
     collision("The specified port range collides with another server's ports" BAD_REQUEST),
     in_use("The specified port range is still in use by a server" BAD_REQUEST),
+    name_locked("Ports defined by the template cannot be renamed" BAD_REQUEST),
 });
 
 define_error!(route {

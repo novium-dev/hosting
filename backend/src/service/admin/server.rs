@@ -28,7 +28,7 @@ use daemon_common::service::server::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, PgConnection, query, query_scalar};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tracing::error;
 use uuid::Uuid;
 use zelus::service;
@@ -567,7 +567,7 @@ pub(crate) impl ServerAdminService for Backend {
     server::{not_found},
     node::failure,
     template::{unavailable, corrupted},
-    port::{invalid, not_allocated, collision}
+    port::{invalid, not_allocated, collision, name_locked}
 )]
     async fn update_port(
         &self,
@@ -624,12 +624,24 @@ pub(crate) impl ServerAdminService for Backend {
             .await
             .map_err(TemplateError::into::<UpdatePortError>)?;
 
+        let locked_names = if name.is_some() {
+            server
+                .template
+                .default_ports()
+                .await
+                .map_err(ThinTemplateError::into::<UpdatePortError>)?
+                .into_keys()
+                .collect()
+        } else {
+            HashSet::new()
+        };
+
         let mut conn = self.database.acquire().await?;
         detached(async move {
             conn.transaction(|tx| {
                 Box::pin(async move {
                     let current = query!(
-                        r#"SELECT protocol AS "protocol: NetworkProtocol", internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!"
+                        r#"SELECT name, protocol AS "protocol: NetworkProtocol", internal_port, lower(external_port) AS "external_port_start!", upper(external_port) - 1 AS "external_port_end!"
                          FROM server_ports WHERE id = $1 AND server = $2"#,
                         port_id,
                         &server.id
@@ -637,6 +649,12 @@ pub(crate) impl ServerAdminService for Backend {
                     .fetch_optional(&mut **tx)
                     .await?
                     .ok_or(UpdatePortError::ServerNotFound)?;
+
+                    if name.as_ref().is_some_and(|name| *name != current.name)
+                        && locked_names.contains(&current.name)
+                    {
+                        return Err(UpdatePortError::PortNameLocked);
+                    }
 
                     let protocol_parsed = protocol.unwrap_or(current.protocol);
 

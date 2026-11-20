@@ -300,6 +300,7 @@
       "removeDialogDefaultName": "the selected port",
       "form": {
         "namePlaceholder": "Name",
+        "nameLockedHint": "Ports defined by the template cannot be renamed.",
         "httpHint": "HTTP is a TCP port that serves HTTP — only those can get a subdomain route.",
         "internalPortPlaceholder": "Internal port",
         "externalPortPlaceholder": "External port",

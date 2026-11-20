@@ -234,6 +234,7 @@ export default function AdminServerManagementPage() {
           <PortsManager
             serverId={data.id}
             nodeId={data.node.id}
+            template={data.template}
             initialPorts={initialPorts}
             canManage={canManageServers}
           />

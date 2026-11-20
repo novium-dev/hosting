@@ -69,6 +69,7 @@ import {
   updatePort,
   type NetworkProtocol,
 } from "@/lib/api";
+import { useTemplateInfo } from "@/hooks/use-shared-queries";
 import { extractAdminPorts, type AdminPortRow } from "./port-utils";
 import { formatPortRange, type SelectablePortRange } from "@/lib/ports";
 
@@ -107,6 +108,7 @@ function buildExternalPortOptions(
 type PortsManagerProps = {
   serverId: string;
   nodeId: string;
+  template: string;
   initialPorts: AdminPortRow[];
   canManage: boolean;
 };
@@ -158,10 +160,12 @@ const NO_PROTOCOLS: Record<string, NetworkProtocol> = {};
 export function PortsManager({
   serverId,
   nodeId,
+  template,
   initialPorts,
   canManage,
 }: PortsManagerProps) {
   const { t } = useTranslation();
+  const { data: templateData } = useTemplateInfo(template);
   const [ports, setPorts] = useState<AdminPortRow[]>(initialPorts);
   const [isLoading, setIsLoading] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -206,6 +210,9 @@ export function PortsManager({
     () => selectedPort?.id ?? null,
     [selectedPort],
   );
+  const selectedPortNameLocked =
+    selectedPort !== null &&
+    Object.hasOwn(templateData?.ports ?? {}, selectedPort.name);
 
   const availablePortRanges = useMemo<SelectablePortRange[]>(() => {
     if (!availablePortMap) {
@@ -716,6 +723,7 @@ export function PortsManager({
             setForm={setForm}
             availableRanges={availablePortRanges}
             mode="edit"
+            nameLocked={selectedPortNameLocked}
           />
           <DialogFooter>
             <Button
@@ -786,6 +794,7 @@ type PortFormProps = {
   setForm: React.Dispatch<React.SetStateAction<PortFormState>>;
   availableRanges: SelectablePortRange[];
   mode: "create" | "edit";
+  nameLocked?: boolean;
 };
 
 function ExternalPortField({
@@ -853,6 +862,7 @@ function PortForm({
   setForm,
   availableRanges,
   mode,
+  nameLocked = false,
 }: PortFormProps) {
   const { t } = useTranslation();
   const startOptions = buildExternalPortOptions(
@@ -873,7 +883,13 @@ function PortForm({
             "admin-infra:servers.portsManager.form.namePlaceholder",
           )}
           aria-invalid={Boolean(errors.name)}
+          disabled={nameLocked}
         />
+        {nameLocked ? (
+          <p className="text-xs text-muted-foreground">
+            {t("admin-infra:servers.portsManager.form.nameLockedHint")}
+          </p>
+        ) : null}
         <FieldError>{errors.name}</FieldError>
       </div>
 
