@@ -83,6 +83,20 @@ Where:
 Remove once no web server has a config mentioning `/home/container`, then bump
 `REL` in `backend/src/templates/generic/web.rs`.
 
+## Web server listen ports outside the server's ports
+
+The web entrypoint used to rewrite every nginx `listen` to the HTTP port, so
+existing configs may still listen on ports the server does not have (Pterodactyl
+ports, `80`). The rendered copy moves those to the HTTP port.
+
+Where:
+
+- `backend/src/templates/generic/web/entrypoint.sh` - the `awk` listen rewrite
+  in the nginx branch
+
+Remove once no web server config listens on a port it does not have, then bump
+`REL` in `backend/src/templates/generic/web.rs`.
+
 ## Several database instances per engine
 
 Projects used to create database instances themselves, so some own more than

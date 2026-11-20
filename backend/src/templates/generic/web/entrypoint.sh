@@ -78,7 +78,6 @@ case "$WEB_SERVER" in
           -e 's#/home/container#/work#g' \
           "$conf"
       fi
-      sed -i -E "s/^([[:space:]]*listen[[:space:]]+)((\[::\]|0\.0\.0\.0|\*):)?[0-9]+/\1\2$port/" "$conf"
     done
 
     if [[ ${#confs[@]} -eq 0 ]] || ! grep -qE "^[[:space:]]*server[[:space:]]*\{" "${confs[@]}"; then
@@ -129,6 +128,37 @@ server {
 EOF
     fi
 
+    # Each config is rendered into $sites, the files in nginx/conf.d stay untouched.
+    # ${NOVIUM_PORT_<NAME>} is replaced with that port's internal port. A listen on a
+    # port the server does not have is moved to the HTTP port, so configs written for
+    # another host keep working.
+    known_ports=" $port "
+    substitutions=(-e "")
+    for name in "${!NOVIUM_PORT_@}"; do
+      known_ports+="${!name} "
+      substitutions+=(-e "s/\\\$\\{$name\\}/${!name}/g")
+    done
+
+    sites="$runtime/novium-sites"
+    rm -rf "$sites"
+    mkdir -p "$sites"
+
+    shopt -s nullglob
+    for conf in nginx/conf.d/*.conf; do
+      sed -E "${substitutions[@]}" "$conf" | awk -v port="$port" -v known="$known_ports" '
+        match($0, /^[[:space:]]*listen[[:space:]]+((\[::\]|0\.0\.0\.0|\*):)?[0-9]+/) {
+          head = substr($0, 1, RLENGTH)
+          rest = substr($0, RLENGTH + 1)
+          match(head, /[0-9]+$/)
+          if (index(known, " " substr(head, RSTART) " ") == 0) {
+            $0 = substr(head, 1, RSTART - 1) port rest
+          }
+        }
+        { print }
+      ' > "$sites/$(basename "$conf")"
+    done
+    shopt -u nullglob
+
     rm -f "$runtime/nginx.conf"
     cat > "$runtime/nginx.conf" <<EOF
 worker_processes auto;
@@ -159,7 +189,7 @@ http {
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
 
-    include /work/nginx/conf.d/*.conf;
+    include $sites/*.conf;
 }
 EOF
 
