@@ -371,7 +371,7 @@ pub(crate) impl BackupService for Backend {
             ServerPermissions::FILES_READ,
         )?;
 
-        let allowed = ["tar", "tar.gz", "tar.xz", "tar.zst", "zip"];
+        let allowed = ["none", "zstd", "xz", "zlib", "lz4", "gzip", "bzip2"];
         if !allowed.contains(&compression.as_str()) {
             return Err(RealtimeDownloadBackupError::BackupCompressionNotAllowed);
         }
