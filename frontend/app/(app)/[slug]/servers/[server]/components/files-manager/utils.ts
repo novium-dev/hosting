@@ -44,10 +44,29 @@ export async function loadDirectory(serverId: string, path: string) {
     throw new Error("Failed to load files");
   }
 
-  return sortFiles(response.data);
+  return response.data;
 }
 
-export function sortFiles(files: FileRow[]) {
+export type FileSortColumn = "name" | "size" | "mode";
+
+export type FileSort = {
+  column: FileSortColumn;
+  direction: "asc" | "desc";
+};
+
+export const DEFAULT_FILE_SORT: FileSort = { column: "name", direction: "asc" };
+
+const nameCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
+export function sortFiles(
+  files: FileRow[],
+  sort: FileSort = DEFAULT_FILE_SORT,
+) {
+  const factor = sort.direction === "asc" ? 1 : -1;
+
   return [...files].sort((a, b) => {
     const aDir = isDirectory(a);
     const bDir = isDirectory(b);
@@ -56,8 +75,30 @@ export function sortFiles(files: FileRow[]) {
       return aDir ? -1 : 1;
     }
 
-    return a.name.localeCompare(b.name);
+    const byName = nameCollator.compare(a.name, b.name);
+    const primary =
+      sort.column === "size" && !aDir
+        ? a.size - b.size
+        : sort.column === "mode"
+          ? permissionBits(a.mode) - permissionBits(b.mode)
+          : byName;
+
+    return factor * (primary || byName);
   });
+}
+
+export function parentPath(path: string) {
+  const parts = normalizePath(path).split("/").filter(Boolean);
+  return `/${parts.slice(0, -1).join("/")}`;
+}
+
+export function filesHref(slug: string, serverId: string, path: string) {
+  const normalized = normalizePath(path);
+  const base = `/${slug}/servers/${serverId}/files`;
+
+  return normalized === "/"
+    ? base
+    : `${base}?path=${encodeURIComponent(normalized)}`;
 }
 
 export function joinPath(basePath: string, childName: string) {

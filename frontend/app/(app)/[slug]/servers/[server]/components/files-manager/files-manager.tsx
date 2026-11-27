@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   Archive,
@@ -57,12 +58,16 @@ import { useFileDrag } from "./use-file-drag";
 import { useFileOperations } from "./use-file-operations";
 import { useFilesWatch } from "./use-files-watch";
 import {
+  DEFAULT_FILE_SORT,
   filesKey,
   getFullPath,
   isDirectory,
   loadDirectory,
+  sortFiles,
   stripArchiveExtension,
   type FileRow,
+  type FileSort,
+  type FileSortColumn,
 } from "./utils";
 
 type FilesManagerProps = {
@@ -83,6 +88,51 @@ type FileDialog =
     };
 
 const NO_FILES: FileRow[] = [];
+
+const SORT_STORAGE_KEY = "files-manager-sort";
+
+function readStoredSort(): FileSort {
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(SORT_STORAGE_KEY) ?? "null",
+    ) as Partial<FileSort> | null;
+
+    if (
+      stored &&
+      (stored.column === "name" ||
+        stored.column === "size" ||
+        stored.column === "mode") &&
+      (stored.direction === "asc" || stored.direction === "desc")
+    ) {
+      return { column: stored.column, direction: stored.direction };
+    }
+  } catch {
+    return DEFAULT_FILE_SORT;
+  }
+
+  return DEFAULT_FILE_SORT;
+}
+
+function useFileSort() {
+  const [sort, setSort] = useState<FileSort>(readStoredSort);
+
+  const toggle = (column: FileSortColumn) => {
+    const next: FileSort =
+      sort.column === column
+        ? { column, direction: sort.direction === "asc" ? "desc" : "asc" }
+        : { column, direction: column === "name" ? "asc" : "desc" };
+
+    setSort(next);
+
+    try {
+      localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      return;
+    }
+  };
+
+  return { sort, toggle };
+}
 
 function useDiskUsage(serverId: string) {
   const [percent, setPercent] = useState<number | null>(null);
@@ -116,16 +166,18 @@ export function FilesManager({
   const diskUsagePercent = useDiskUsage(serverId);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [currentPath, setCurrentPath] = useState("/");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentPath = normalizePath(searchParams.get("path") ?? "/");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
   const [dialog, setDialog] = useState<FileDialog | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { sort, toggle: toggleSort } = useFileSort();
 
-  const [listedServerId, setListedServerId] = useState(serverId);
-  if (listedServerId !== serverId) {
-    setListedServerId(serverId);
-    setCurrentPath("/");
+  const viewKey = `${serverId}:${currentPath}`;
+  const [listedViewKey, setListedViewKey] = useState(viewKey);
+  if (listedViewKey !== viewKey) {
+    setListedViewKey(viewKey);
     setSearchQuery("");
     setSelectedNames([]);
   }
@@ -141,30 +193,42 @@ export function FilesManager({
   );
 
   const query = searchQuery.trim().toLowerCase();
-  const visibleFiles = query
-    ? files.filter((entry) => entry.name.toLowerCase().includes(query))
-    : files;
+  const visibleFiles = sortFiles(
+    query
+      ? files.filter((entry) => entry.name.toLowerCase().includes(query))
+      : files,
+    sort,
+  );
   const selectedEntries = files.filter((entry) =>
     selectedNames.includes(entry.name),
   );
   const dialogEntry = dialog && "entry" in dialog ? dialog.entry : null;
 
-  const navigate = (path: string) => {
+  const navigate = (path: string, replace = false) => {
     const normalized = normalizePath(path);
     if (normalized === currentPath) {
       return;
     }
 
-    setCurrentPath(normalized);
-    setSearchQuery("");
-    setSelectedNames([]);
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        if (normalized === "/") {
+          next.delete("path");
+        } else {
+          next.set("path", normalized);
+        }
+        return next;
+      },
+      { replace },
+    );
   };
 
   useFilesWatch({
     serverId,
     path: currentPath,
     enabled: !filesBlocked,
-    onPathChange: navigate,
+    onPathChange: (path) => navigate(path, true),
   });
 
   const reload = async (path = currentPath) => {
@@ -305,7 +369,7 @@ export function FilesManager({
             currentPath={currentPath}
             disabled={filesBlocked}
             drag={drag}
-            onNavigate={navigate}
+            onNavigate={(path) => navigate(path)}
           />
 
           <div className="relative w-full sm:w-56">
@@ -411,13 +475,15 @@ export function FilesManager({
           hasFiles={files.length > 0}
           isLoading={isLoading}
           searchQuery={searchQuery}
+          sort={sort}
+          onSort={toggleSort}
           selectedNames={selectedNames}
           canWrite={canWriteFiles}
           actionsDisabled={filesBlocked}
           drag={drag}
           onToggleEntry={toggleEntry}
           onToggleAll={toggleAll}
-          onOpenDirectory={navigate}
+          onOpenDirectory={(path) => navigate(path)}
           onOpenFile={(entry) => {
             if (!drag.isClickSuppressed()) {
               openEditor(entry);

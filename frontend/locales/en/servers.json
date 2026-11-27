@@ -177,7 +177,6 @@
   "fileEditor": {
     "loadingEditor": "Loading editor...",
     "defaultTitle": "File editor",
-    "defaultDescription": "Choose a file from the Files tab to open it here.",
     "backToFiles": "Back to files",
     "loadingFile": "Loading file...",
     "readOnlyNotice": "You have read-only file access for this server.",

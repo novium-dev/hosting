@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SortableTableHead } from "@/components/sortable-table-head";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -32,6 +33,8 @@ import {
   getFullPath,
   isDirectory,
   type FileRow,
+  type FileSort,
+  type FileSortColumn,
 } from "./utils";
 
 export function FilesTable({
@@ -40,6 +43,8 @@ export function FilesTable({
   hasFiles,
   isLoading,
   searchQuery,
+  sort,
+  onSort,
   selectedNames,
   canWrite,
   actionsDisabled,
@@ -55,6 +60,8 @@ export function FilesTable({
   hasFiles: boolean;
   isLoading: boolean;
   searchQuery: string;
+  sort: FileSort;
+  onSort: (column: FileSortColumn) => void;
   selectedNames: string[];
   canWrite: boolean;
   actionsDisabled: boolean;
@@ -124,11 +131,15 @@ export function FilesTable({
                 )}
               />
             </TableHead>
-            <TableHead>{t("common:labels.name")}</TableHead>
-            <TableHead>{t("common:labels.size")}</TableHead>
-            <TableHead>
+            <SortableTableHead column="name" sort={sort} onSort={onSort}>
+              {t("common:labels.name")}
+            </SortableTableHead>
+            <SortableTableHead column="size" sort={sort} onSort={onSort}>
+              {t("common:labels.size")}
+            </SortableTableHead>
+            <SortableTableHead column="mode" sort={sort} onSort={onSort}>
               {t("servers-management:filesManager.modeColumn")}
-            </TableHead>
+            </SortableTableHead>
             <TableHead className="text-right">
               {t("common:labels.actions")}
             </TableHead>

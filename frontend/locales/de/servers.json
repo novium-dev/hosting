@@ -177,7 +177,6 @@
   "fileEditor": {
     "loadingEditor": "Editor wird geladen...",
     "defaultTitle": "Datei-Editor",
-    "defaultDescription": "Wähle eine Datei im Tab „Dateien“ aus, um sie hier zu öffnen.",
     "backToFiles": "Zurück zu den Dateien",
     "loadingFile": "Datei wird geladen...",
     "readOnlyNotice": "Du hast für diesen Server nur Lesezugriff auf Dateien.",

@@ -3,7 +3,7 @@ import { useSWRConfig } from "swr";
 
 import { watchUser } from "@/lib/api";
 import { normalizePath } from "@/lib/files";
-import { filesKey, sortFiles, type FileRow } from "./utils";
+import { filesKey, type FileRow } from "./utils";
 
 // Live directory listing over the daemon's files watch websocket. Updates are
 // written into the SWR cache of the watched directory, so the regular listing
@@ -179,11 +179,9 @@ export function useFilesWatch({
       }
 
       if (list && viewPath !== null) {
-        void handlersRef.current.mutate(
-          filesKey(serverId, viewPath),
-          sortFiles(list),
-          { revalidate: false },
-        );
+        void handlersRef.current.mutate(filesKey(serverId, viewPath), list, {
+          revalidate: false,
+        });
       }
 
       sync();

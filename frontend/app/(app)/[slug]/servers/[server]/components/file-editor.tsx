@@ -1,9 +1,9 @@
 import { apiErrorMessage } from "@/lib/api-error";
 import type { EditorProps } from "@monaco-editor/react";
-import Link from "@/components/link";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ArrowLeft,
   Download,
   FileArchive,
   FileCode,
@@ -20,7 +20,6 @@ import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -33,6 +32,9 @@ import { FileMode, modeToType } from "@/lib/files";
 import { useServerTaskLock } from "@/stores/server-tasks";
 import { TaskLockNotice } from "@/components/server/task-lock-notice";
 import { normalizePath } from "@/lib/files";
+import { useRouter } from "@/lib/navigation";
+import { PathBar } from "./files-manager/path-bar";
+import { filesHref, parentPath } from "./files-manager/utils";
 
 type FileEditorProps = {
   serverId: string;
@@ -190,7 +192,13 @@ export function FileEditor({
     [normalizedPath, t],
   );
   const language = useMemo(() => getLanguageFromFileName(fileName), [fileName]);
-  const filesHref = `/${slug}/servers/${serverId}/files`;
+  const router = useRouter();
+  const openDirectory = (directory: string) => {
+    const normalized = normalizePath(directory);
+    if (normalized !== normalizedPath) {
+      router.push(filesHref(slug, serverId, normalized));
+    }
+  };
 
   const [mode, setMode] = useState<EditorMode>(path ? "loading" : "empty");
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
@@ -378,74 +386,81 @@ export function FileEditor({
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card>
       <UnsavedChangesGuard when={hasUnsavedChanges} />
-      <CardHeader className="border-b">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="flex items-center gap-2">
-              {mode === "image" ? (
-                <ImageIcon className="size-4" />
-              ) : mode === "archive" ? (
-                <FileArchive className="size-4" />
-              ) : (
-                <FileCode className="size-4" />
-              )}
-              <span className="truncate">{fileName}</span>
-            </CardTitle>
-            <CardDescription className="truncate">
-              {normalizedPath || t("servers:fileEditor.defaultDescription")}
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {normalizedPath ? (
-              <Badge variant="secondary">
-                {formatBytes(size, t("common:status.unknown"))}
-              </Badge>
-            ) : null}
+      <CardHeader className="flex flex-col gap-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <CardTitle className="flex min-w-0 items-center gap-2">
+            {mode === "image" ? (
+              <ImageIcon className="size-4 shrink-0" />
+            ) : mode === "archive" ? (
+              <FileArchive className="size-4 shrink-0" />
+            ) : (
+              <FileCode className="size-4 shrink-0" />
+            )}
+            <span className="truncate">{fileName}</span>
+          </CardTitle>
+          {normalizedPath ? (
+            <Badge variant="secondary">
+              {formatBytes(size, t("common:status.unknown"))}
+            </Badge>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label={t("servers:fileEditor.backToFiles")}
+            title={t("servers:fileEditor.backToFiles")}
+            onClick={() =>
+              openDirectory(normalizedPath ? parentPath(normalizedPath) : "/")
+            }
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+
+          <PathBar
+            key={normalizedPath}
+            currentPath={normalizedPath || "/"}
+            disabled={false}
+            onNavigate={openDirectory}
+          />
+
+          {downloadUrl ? (
             <Button
               type="button"
               variant="outline"
-              render={<Link href={filesHref} />}
+              render={<a href={downloadUrl} target="_blank" rel="noreferrer" />}
               nativeButton={false}
             >
-              {t("servers:fileEditor.backToFiles")}
+              <Download className="size-4" />
+              {t("common:actions.download")}
             </Button>
-            {downloadUrl ? (
-              <Button
-                type="button"
-                variant="outline"
-                render={
-                  <a href={downloadUrl} target="_blank" rel="noreferrer" />
-                }
-                nativeButton={false}
-              >
-                <Download className="size-4" />
-                {t("common:actions.download")}
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              onClick={() => {
-                void saveFile();
-              }}
-              disabled={
-                !writable ||
-                mode !== "text" ||
-                !hasUnsavedChanges ||
-                isSaving ||
-                storageLock.locked
-              }
-              loading={isSaving}
-            >
-              {t("common:actions.save")}
-            </Button>
-            <TaskLockNotice lock={storageLock} />
-          </div>
+          ) : null}
+          <Button
+            type="button"
+            onClick={() => {
+              void saveFile();
+            }}
+            disabled={
+              !writable ||
+              mode !== "text" ||
+              !hasUnsavedChanges ||
+              isSaving ||
+              storageLock.locked
+            }
+            loading={isSaving}
+          >
+            {t("common:actions.save")}
+          </Button>
         </div>
 
+        <TaskLockNotice lock={storageLock} />
+
         {isSaving ? (
-          <div className="mt-3 space-y-1">
+          <div className="space-y-1">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{t("servers:fileEditor.saving")}</span>
               <span>{saveProgress}%</span>
@@ -455,14 +470,14 @@ export function FileEditor({
         ) : null}
       </CardHeader>
 
-      <CardContent className="p-0">
+      <CardContent>
         {mode === "loading" ? (
-          <div className="flex h-[68vh] items-center justify-center gap-2 text-sm text-muted-foreground">
+          <div className="flex h-[68vh] items-center justify-center gap-2 rounded-lg border text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
             {t("servers:fileEditor.loadingFile")}
           </div>
         ) : mode === "empty" ? (
-          <div className="p-6">
+          <div>
             <Alert>
               <AlertTriangle className="size-4" />
               <AlertTitle>
@@ -474,7 +489,7 @@ export function FileEditor({
             </Alert>
           </div>
         ) : mode === "directory" ? (
-          <div className="p-6">
+          <div>
             <Alert>
               <AlertTriangle className="size-4" />
               <AlertTitle>
@@ -486,7 +501,7 @@ export function FileEditor({
             </Alert>
           </div>
         ) : mode === "archive" ? (
-          <div className="p-6">
+          <div>
             <Alert>
               <FileArchive className="size-4" />
               <AlertTitle>
@@ -498,7 +513,7 @@ export function FileEditor({
             </Alert>
           </div>
         ) : mode === "image" ? (
-          <div className="flex h-[68vh] items-center justify-center bg-muted/30 p-4">
+          <div className="flex h-[68vh] items-center justify-center rounded-lg border bg-muted/30 p-4">
             {downloadUrl ? (
               <img
                 src={downloadUrl}
@@ -508,7 +523,7 @@ export function FileEditor({
             ) : null}
           </div>
         ) : (
-          <div className="h-[68vh]">
+          <div className="h-[68vh] overflow-hidden rounded-lg border">
             <MonacoEditor
               height="100%"
               language={language}
@@ -529,7 +544,7 @@ export function FileEditor({
       </CardContent>
 
       {!writable && mode === "text" ? (
-        <CardFooter className="border-t py-3 text-sm text-muted-foreground">
+        <CardFooter className="text-sm text-muted-foreground">
           {modpackInstalling
             ? t("servers-management:mods.filesLockedNotice")
             : t("servers:fileEditor.readOnlyNotice")}

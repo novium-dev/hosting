@@ -50,7 +50,7 @@ export function PathBar({
 }: {
   currentPath: string;
   disabled: boolean;
-  drag: FileDrag;
+  drag?: FileDrag;
   onNavigate: (path: string) => void;
 }) {
   const { t } = useTranslation();
@@ -65,13 +65,13 @@ export function PathBar({
         size="icon"
         className={cn(
           "size-7 shrink-0 text-muted-foreground hover:text-foreground",
-          drag.dropTargetPath === "/" && "bg-primary/10 text-primary",
+          drag?.dropTargetPath === "/" && "bg-primary/10 text-primary",
         )}
         aria-label={t("servers-management:filesManager.goToRoot")}
         title={t("servers-management:filesManager.goToRoot")}
         disabled={disabled}
         onClick={() => onNavigate("/")}
-        {...drag.targetProps("/")}
+        {...drag?.targetProps("/")}
       >
         <Home className="size-4" />
       </Button>
@@ -96,10 +96,10 @@ export function PathBar({
                 <button
                   type="button"
                   onClick={() => onNavigate(segment.path)}
-                  {...drag.targetProps(segment.path)}
+                  {...drag?.targetProps(segment.path)}
                   className={cn(
                     "truncate rounded px-1 py-0.5 hover:text-foreground",
-                    drag.dropTargetPath === segment.path
+                    drag?.dropTargetPath === segment.path
                       ? "bg-primary/10 text-primary"
                       : index === segments.length - 1
                         ? "font-medium text-foreground"
