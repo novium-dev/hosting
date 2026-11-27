@@ -70,16 +70,6 @@ case "$WEB_SERVER" in
     confs=(nginx/conf.d/*.conf)
     shopt -u nullglob
 
-    for conf in "${confs[@]}"; do
-      if grep -q "/home/container" "$conf"; then
-        echo "### Migrating $conf from Pterodactyl..."
-        sed -i -E \
-          -e 's#unix:/home/container/[^;[:space:]]*#127.0.0.1:9000#g' \
-          -e 's#/home/container#/work#g' \
-          "$conf"
-      fi
-    done
-
     if [[ ${#confs[@]} -eq 0 ]] || ! grep -qE "^[[:space:]]*server[[:space:]]*\{" "${confs[@]}"; then
       if [[ "$php_enabled" == "1" ]]; then
         index="index.php index.html index.htm"

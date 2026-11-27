@@ -9,6 +9,7 @@ import {
   listProjectDatabases,
   listProjectInstances,
   listRouteDomainsAdmin,
+  listRoutes,
   serverInfo,
   templateInfo,
 } from "@/lib/api";
@@ -17,6 +18,20 @@ export function useServerInfo(serverId: string | null | undefined) {
   return useSWR(serverId ? ["server-info", serverId] : null, ([, id]) =>
     serverInfo({ path: { server_id: id } }),
   );
+}
+
+export function serverRoutesKey(serverId: string) {
+  return ["server-routes-list", serverId] as const;
+}
+
+export function useServerRoutes(serverId: string | null | undefined) {
+  return useSWR(serverId ? serverRoutesKey(serverId) : null, async ([, id]) => {
+    const response = await listRoutes({ path: { server_id: id } });
+    if (response.error) {
+      throw new Error(apiErrorMessage(response.error, "Failed to load routes"));
+    }
+    return response.data ?? [];
+  });
 }
 
 export function useProjectInstances(

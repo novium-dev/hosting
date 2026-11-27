@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { ExternalLink, Globe, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Trans, useTranslation } from "react-i18next";
@@ -62,6 +62,7 @@ import {
   type NetworkPort,
 } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/api-error";
+import { serverRoutesKey } from "@/hooks/use-shared-queries";
 import { DnsRecordsTable } from "@/components/routes/dns-records-table";
 
 type RoutesManagerProps = {
@@ -151,9 +152,10 @@ export function RoutesManager({
   const [portId, setPortId] = useState<string>("");
   const [https, setHttps] = useState(true);
 
+  const { mutate: globalMutate } = useSWRConfig();
   const refresh = useCallback(async () => {
-    await mutate();
-  }, [mutate]);
+    await Promise.all([mutate(), globalMutate(serverRoutesKey(serverId))]);
+  }, [mutate, globalMutate, serverId]);
 
   const selectedDomain = useMemo(
     () => domains.find((domain) => String(domain.id) === domainId),

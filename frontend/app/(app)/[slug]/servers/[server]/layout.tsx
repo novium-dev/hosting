@@ -13,9 +13,9 @@ import {
 } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
 import { appConfig } from "@/constants/config";
-import type { serverInfo } from "@/lib/api";
+import type { listRoutes, serverInfo } from "@/lib/api";
 import { useProject } from "@/hooks/use-project";
-import { useServerInfo } from "@/hooks/use-shared-queries";
+import { useServerInfo, useServerRoutes } from "@/hooks/use-shared-queries";
 import {
   hasManagementPermission,
   hasServerPermission,
@@ -28,26 +28,34 @@ import { hasResourceSupport } from "@/lib/mod-browser/types";
 import { ServerManagementBar } from "./components/management-bar/server-management-bar";
 import { ServerLicenseNotice } from "./components/server-licenses";
 
+type ServerRoutes = NonNullable<Awaited<ReturnType<typeof listRoutes>>["data"]>;
+
 function getServerAddress(
   serverData: Awaited<ReturnType<typeof serverInfo>>["data"],
+  routes: ServerRoutes | undefined,
 ) {
   if (!serverData) {
     return null;
   }
 
   const primary = serverData.primary_port;
-  if (!primary) {
-    return null;
+  if (primary?.port.host && primary.external_port) {
+    return `${primary.port.host}:${primary.external_port}`;
   }
 
-  const host = primary.port.host;
-  const port = primary.external_port;
-
-  if (!host || !port) {
-    return null;
+  const route = routes?.find((entry) => entry.status === "active");
+  if (route) {
+    return route.fqdn;
   }
 
-  return `${host}:${port}`;
+  const port = serverData.network?.ports.find(
+    (entry) => entry.host && entry.external_port_start,
+  );
+  if (port) {
+    return `${port.host}:${port.external_port_start}`;
+  }
+
+  return null;
 }
 
 export default function ServerLayout() {
@@ -60,6 +68,14 @@ export default function ServerLayout() {
   const { data: session, isLoading: sessionLoading } = authClient.useSession();
   const { data: project, isLoading: projectLoading } = useProject(slug);
   const { data: infoResponse, isLoading: infoLoading } = useServerInfo(server);
+  const canViewRoutes =
+    session != null &&
+    project != null &&
+    hasServerPermission(
+      mergePermissions(session.user.permissions, project.permissions),
+      ServerPermission.ROUTES_VIEW,
+    );
+  const { data: routes } = useServerRoutes(canViewRoutes ? server : null);
 
   if (sessionLoading || projectLoading) return null;
   if (!session) return <Navigate to={appConfig.authRoutes.signin} replace />;
@@ -115,7 +131,7 @@ export default function ServerLayout() {
     );
   }
 
-  const serverAddress = getServerAddress(serverData);
+  const serverAddress = getServerAddress(serverData, routes);
   const effectivePermissions = mergePermissions(
     session.user.permissions,
     project.permissions,
