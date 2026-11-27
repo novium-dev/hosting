@@ -28,7 +28,9 @@ type WatchMessage = {
 
 const AUTO_RETRY_LIMIT = 5;
 const AUTO_RETRY_BASE_DELAY = 2000;
-// The daemon does not answer a work directory change to a missing directory.
+// The daemon does not answer a work directory change to a missing directory,
+// and a late answer cannot be told apart from the next command's, so an
+// unanswered command reopens the socket on the current path instead.
 const COMMAND_TIMEOUT = 5000;
 
 // Work directory commands resolve against the watched directory, so absolute
@@ -109,6 +111,7 @@ export function useFilesWatch({
     if (!enabled) return;
 
     let disposed = false;
+    let abandoned = false;
     let socket: WebSocket | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let commandTimer: ReturnType<typeof setTimeout> | undefined;
@@ -149,7 +152,9 @@ export function useFilesWatch({
       );
       pendingPath = target;
       commandTimer = setTimeout(() => {
-        pendingPath = null;
+        abandoned = true;
+        socket?.close();
+        setAttempt((value) => value + 1);
       }, COMMAND_TIMEOUT);
     };
 
@@ -179,9 +184,11 @@ export function useFilesWatch({
       }
 
       if (list && viewPath !== null) {
-        void handlersRef.current.mutate(filesKey(serverId, viewPath), list, {
-          revalidate: false,
-        });
+        void handlersRef.current.mutate(
+          filesKey(serverId, viewPath),
+          [...list],
+          { revalidate: false },
+        );
       }
 
       sync();
@@ -209,14 +216,14 @@ export function useFilesWatch({
       };
 
       current.onclose = () => {
-        if (disposed) return;
+        if (disposed || abandoned) return;
         socket = null;
         syncRef.current = null;
         scheduleRetry();
       };
 
       current.onmessage = (event) => {
-        if (disposed || typeof event.data !== "string") return;
+        if (disposed || abandoned || typeof event.data !== "string") return;
 
         let message: WatchMessage;
         try {
