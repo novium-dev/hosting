@@ -410,7 +410,11 @@ export function BackupsManager({
           <Button
             type="button"
             onClick={() => setCreateOpen(true)}
-            disabled={isActionLoading || storageLock.locked}
+            disabled={
+              isActionLoading ||
+              storageLock.locked ||
+              (atBackupLimit && !canBypassLimits)
+            }
           >
             <HardDrive className="size-4" />
             {t("servers:backups.createButton")}
