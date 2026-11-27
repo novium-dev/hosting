@@ -50,5 +50,7 @@ ignore = true
 [advisories]
 unmaintained = "workspace"
 ignore = [
-  { id = "RUSTSEC-2026-0459", reason = "likely not affected, awaiting bump https://github.com/transact-rs/sqlx/issues/4516" }
+  { id = "RUSTSEC-2026-0459", reason = "likely not affected, awaiting bump https://github.com/transact-rs/sqlx/issues/4516" },
+  { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained, no alternative yet; used via sqlx, utoipa, cron and oauth2" },
+  { id = "RUSTSEC-2026-0555", reason = "chrono-tz unmaintained, tied to chrono migration" },
 ]
