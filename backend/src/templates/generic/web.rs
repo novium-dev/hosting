@@ -117,7 +117,11 @@ impl Template for WebTemplate {
             stop_timeout: 30,
             uid: None,
             gid: None,
-            backup_exclude: HashSet::from([".git/".to_owned(), ".composer/".to_owned()]),
+            backup_exclude: HashSet::from([
+                ".git/".to_owned(),
+                ".composer/".to_owned(),
+                "tmp/".to_owned(),
+            ]),
             environment: git_environment(GitFields {
                 url: extra.repository_url,
                 branch: extra.repository_branch,
