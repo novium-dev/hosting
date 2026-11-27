@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ArrowUpCircle,
@@ -9,6 +9,7 @@ import {
   Search,
   Trash2,
   TriangleAlert,
+  Upload,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -60,6 +61,8 @@ import {
   type UnmanagedResource,
 } from "@/lib/mod-browser/types";
 import { cn } from "@/lib/utils";
+import UploadProgressPanel from "../files-manager/upload-progress";
+import { useFileUploads } from "../files-manager/use-file-uploads";
 import { ModpackCard } from "./modpack-card";
 import type { ModpackTarget } from "./modpack-install-dialog";
 import {
@@ -86,6 +89,17 @@ type ContentRow = {
 };
 
 type SortOrder = "name" | "added";
+
+type UploadTarget = "plugin" | "modification";
+
+const UPLOAD_DIRECTORIES: Record<UploadTarget, string> = {
+  plugin: "/plugins",
+  modification: "/mods",
+};
+
+function hasDraggedFiles(event: DragEvent<HTMLElement>) {
+  return Array.from(event.dataTransfer.types).includes("Files");
+}
 
 type ContentPanelProps = {
   ctx: ModsContext;
@@ -121,8 +135,79 @@ export function ContentPanel({
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<ContentRow[] | null>(null);
 
+  const [dropActive, setDropActive] = useState(false);
+  const [pendingUpload, setPendingUpload] = useState<File[] | null>(null);
+
   const writable = canMutate(ctx) && !busy;
   const modpacksAvailable = ctx.modpackLoaders.length > 0;
+
+  const uploads = useFileUploads(ctx.serverId, async () => {
+    await onChanged();
+  });
+  const uploadTargets = [
+    ...new Set(
+      ctx.loaders
+        .map((loader) => loader.resource_type)
+        .filter((type): type is UploadTarget => type in UPLOAD_DIRECTORIES),
+    ),
+  ];
+  const canDrop = uploadTargets.length > 0;
+
+  const uploadTo = (files: File[], target: UploadTarget) => {
+    void uploads.upload(files, UPLOAD_DIRECTORIES[target]);
+  };
+
+  const onDropFiles = (incoming: File[]) => {
+    if (!canMutate(ctx)) {
+      toast.error(t("servers-management:mods.content.drop.notWritable"));
+      return;
+    }
+
+    const files = incoming.filter((file) =>
+      file.name.toLowerCase().endsWith(".jar"),
+    );
+
+    if (files.length < incoming.length) {
+      toast.error(t("servers-management:mods.content.drop.onlyJar"));
+    }
+
+    if (files.length === 0) {
+      return;
+    }
+
+    if (uploadTargets.length === 1) {
+      uploadTo(files, uploadTargets[0]);
+      return;
+    }
+
+    setPendingUpload(files);
+  };
+
+  const dropProps = canDrop
+    ? {
+        onDragOver: (event: DragEvent<HTMLElement>) => {
+          if (!hasDraggedFiles(event)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+          setDropActive(true);
+        },
+        onDragLeave: (event: DragEvent<HTMLElement>) => {
+          if (
+            event.relatedTarget instanceof Node &&
+            event.currentTarget.contains(event.relatedTarget)
+          ) {
+            return;
+          }
+          setDropActive(false);
+        },
+        onDrop: (event: DragEvent<HTMLElement>) => {
+          if (!hasDraggedFiles(event)) return;
+          event.preventDefault();
+          setDropActive(false);
+          onDropFiles(Array.from(event.dataTransfer.files ?? []));
+        },
+      }
+    : {};
 
   const rows = useMemo(() => {
     const updateByProject = new Map(
@@ -348,7 +433,25 @@ export function ContentPanel({
         </Card>
       ) : null}
 
-      <Card>
+      <Card
+        {...dropProps}
+        className={cn(
+          "relative transition-colors",
+          dropActive && "border-primary bg-primary/5",
+        )}
+      >
+        {dropActive ? (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/80">
+            <span className="flex items-center gap-2 text-sm font-medium text-primary">
+              <Upload className="size-4" />
+              {uploadTargets.length === 1
+                ? t("servers-management:mods.content.drop.overlay", {
+                    directory: UPLOAD_DIRECTORIES[uploadTargets[0]],
+                  })
+                : t("servers-management:mods.content.drop.overlayChoose")}
+            </span>
+          </div>
+        ) : null}
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1.5">
             <CardTitle className="flex items-center gap-2">
@@ -370,6 +473,9 @@ export function ContentPanel({
                   ? t("servers-management:mods.content.emptyWithPack")
                   : t("servers-management:mods.content.empty")
                 : t("servers-management:mods.content.count", { count: total })}
+              {canDrop && canMutate(ctx)
+                ? ` ${t("servers-management:mods.content.drop.hint")}`
+                : null}
             </CardDescription>
           </div>
 
@@ -394,6 +500,12 @@ export function ContentPanel({
 
         <CardContent className="flex flex-col gap-3">
           <TaskLockNotice lock={ctx.storageLock} />
+          <UploadProgressPanel
+            tasks={uploads.tasks}
+            onCancelTask={uploads.cancel}
+            onCancelAll={uploads.cancelAll}
+            onDismiss={uploads.dismiss}
+          />
 
           {total > 0 ? (
             <div className="flex flex-wrap items-center gap-2">
@@ -559,6 +671,41 @@ export function ContentPanel({
           </CardHeader>
         </Card>
       ) : null}
+
+      <AlertDialog
+        open={pendingUpload !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingUpload(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("servers-management:mods.content.drop.chooseTitle", {
+                count: pendingUpload?.length ?? 0,
+              })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {(pendingUpload ?? []).map((file) => file.name).join(", ")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
+            {uploadTargets.map((target) => (
+              <AlertDialogAction
+                key={target}
+                onClick={() => {
+                  const files = pendingUpload ?? [];
+                  setPendingUpload(null);
+                  uploadTo(files, target);
+                }}
+              >
+                {UPLOAD_DIRECTORIES[target]}
+              </AlertDialogAction>
+            ))}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={removing !== null}

@@ -362,6 +362,15 @@
       "removeConfirm": {
         "title_one": "Remove {{count}} resource?",
         "title_other": "Remove {{count}} resources?"
+      },
+      "drop": {
+        "hint": "Drop .jar files here to upload them.",
+        "overlay": "Drop to upload to {{directory}}",
+        "overlayChoose": "Drop to upload",
+        "onlyJar": "Only .jar files can be uploaded here.",
+        "notWritable": "You can't upload files to this server right now.",
+        "chooseTitle_one": "Where should this file go?",
+        "chooseTitle_other": "Where should these {{count}} files go?"
       }
     }
   },

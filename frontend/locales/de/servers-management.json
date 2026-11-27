@@ -362,6 +362,15 @@
       "removeConfirm": {
         "title_one": "{{count}} Ressource entfernen?",
         "title_other": "{{count}} Ressourcen entfernen?"
+      },
+      "drop": {
+        "hint": "Ziehe .jar-Dateien hierher, um sie hochzuladen.",
+        "overlay": "Loslassen, um nach {{directory}} hochzuladen",
+        "overlayChoose": "Loslassen zum Hochladen",
+        "onlyJar": "Hier können nur .jar-Dateien hochgeladen werden.",
+        "notWritable": "Du kannst gerade keine Dateien auf diesen Server hochladen.",
+        "chooseTitle_one": "Wohin soll diese Datei?",
+        "chooseTitle_other": "Wohin sollen diese {{count}} Dateien?"
       }
     }
   },
