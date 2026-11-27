@@ -1,5 +1,6 @@
+import { RedirectToSignin } from "@/lib/auth-redirect";
 import Link from "@/components/link";
-import { Navigate, Outlet, useParams } from "react-router-dom";
+import { Outlet, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { MainLayout } from "@/components/sidebar/main-layout";
@@ -12,7 +13,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
-import { appConfig } from "@/constants/config";
 import type { listRoutes, serverInfo } from "@/lib/api";
 import { useProject } from "@/hooks/use-project";
 import { useServerInfo, useServerRoutes } from "@/hooks/use-shared-queries";
@@ -78,7 +78,7 @@ export default function ServerLayout() {
   const { data: routes } = useServerRoutes(canViewRoutes ? server : null);
 
   if (sessionLoading || projectLoading) return null;
-  if (!session) return <Navigate to={appConfig.authRoutes.signin} replace />;
+  if (!session) return <RedirectToSignin />;
 
   if (!project) {
     return (

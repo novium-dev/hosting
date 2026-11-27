@@ -1,5 +1,6 @@
+import { RedirectToSignin } from "@/lib/auth-redirect";
 import { useEffect } from "react";
-import { Navigate, Outlet, useParams } from "react-router-dom";
+import { Outlet, useParams } from "react-router-dom";
 import { ProjectHeaderTitle } from "@/components/navigation/project-header-title";
 import { ProjectSidebar } from "@/components/navigation/project-sidebar";
 import { AppFooter } from "@/components/app-footer";
@@ -9,7 +10,6 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { appConfig } from "@/constants/config";
 import { authClient } from "@/lib/auth-client";
 import { useProjectStore } from "@/stores/projects";
 
@@ -23,7 +23,7 @@ export default function SlugLayout() {
   }, [slug, setCurrentSlug]);
 
   if (isLoading) return null;
-  if (!session) return <Navigate to={appConfig.authRoutes.signin} replace />;
+  if (!session) return <RedirectToSignin />;
 
   return (
     <SidebarProvider>

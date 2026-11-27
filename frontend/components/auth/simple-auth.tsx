@@ -15,6 +15,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { authClient } from "../../lib/auth-client";
 import { appConfig } from "../../constants/config";
+import { useSigninRedirect } from "@/lib/auth-redirect";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
@@ -24,6 +25,7 @@ export default function SimpleAuth() {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [isDevLoading, setIsDevLoading] = useState(false);
+  const callbackURL = useSigninRedirect() ?? appConfig.authRoutes.onboarding;
 
   const handleSignIn = async () => {
     setIsLoading(true);
@@ -31,7 +33,7 @@ export default function SimpleAuth() {
       await authClient.signIn.social(
         {
           provider: "user",
-          callbackURL: appConfig.authRoutes.onboarding,
+          callbackURL,
         },
         {
           onError: (ctx) => {
@@ -49,9 +51,7 @@ export default function SimpleAuth() {
   const handleDevSignIn = async () => {
     setIsDevLoading(true);
     try {
-      const started = await authClient.signIn.dev({
-        callbackURL: appConfig.authRoutes.onboarding,
-      });
+      const started = await authClient.signIn.dev({ callbackURL });
       if (!started) {
         toast.error(t("common:auth.signIn.devUnavailable"));
       }

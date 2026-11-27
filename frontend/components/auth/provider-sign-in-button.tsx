@@ -4,6 +4,7 @@ import { AppLogo } from "@/components/brand/app-logo";
 import { Button } from "@/components/ui/button";
 import { appConfig } from "@/constants/config";
 import { authClient } from "@/lib/auth-client";
+import { useSigninRedirect } from "@/lib/auth-redirect";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -17,6 +18,7 @@ type ProviderSignInButtonProps = {
 export function ProviderSignInButton({ provider }: ProviderSignInButtonProps) {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  const callbackURL = useSigninRedirect() ?? appConfig.authRoutes.onboarding;
 
   const handleSignIn = async () => {
     setIsLoading(true);
@@ -24,7 +26,7 @@ export function ProviderSignInButton({ provider }: ProviderSignInButtonProps) {
       await authClient.signIn.social(
         {
           provider,
-          callbackURL: appConfig.authRoutes.onboarding,
+          callbackURL,
         },
         {
           onError: (ctx) => {

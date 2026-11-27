@@ -1,5 +1,5 @@
-import { Navigate, Outlet } from "react-router-dom";
-import { appConfig } from "@/constants/config";
+import { RedirectToSignin } from "@/lib/auth-redirect";
+import { Outlet } from "react-router-dom";
 import { authClient } from "@/lib/auth-client";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 
@@ -9,7 +9,7 @@ export default function AppLayout() {
   const { data: session, isLoading } = authClient.useSession();
 
   if (isLoading) return null;
-  if (!session) return <Navigate to={appConfig.authRoutes.signin} replace />;
+  if (!session) return <RedirectToSignin />;
 
   return (
     <>
