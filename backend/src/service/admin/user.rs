@@ -12,10 +12,10 @@ use crate::service::admin::user::user_admin_service_error::{
 };
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::*;
-use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
+use crate::utils::{PageSplit, Paged, SortOrder, search_pattern};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
-use zelus::service;
+use zelus::{define_query_variable, service};
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub(crate) struct AdminUserInfo {
@@ -51,22 +51,73 @@ pub(crate) struct AdminUserProjectInfo {
     pub(crate) server_count: i64,
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum UserSort {
+    Username,
+    Email,
+    Role,
+}
+
+impl UserSort {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Username => "username",
+            Self::Email => "email",
+            Self::Role => "role",
+        }
+    }
+}
+
+define_query_variable!(role "Only include users with this role (0 user, 1 moderator, 2 admin)");
+
 #[service(path = "/admin/user", tag = "user", no_sdk)]
 pub(crate) impl UserAdminService for Backend {
     /// Lists all users.
-    #[route("", method = GET, raw)]
+    #[route("", method = GET, raw, query = [search, role, sort, order])]
     #[error(auth::{permission_denied, unreachable}, db::failure <- [sql:*])]
     async fn list_users(
         &self,
         #[special] auth: Authentication,
-        #[special] mut page: Option<PageSplit>,
+        #[special] page: Option<PageSplit>,
+        search: Option<String>,
+        role: Option<i32>,
+        sort: Option<UserSort>,
+        order: Option<SortOrder>,
     ) -> Result<Paged<AdminUserInfo>, _> {
         auth.require::<_, _, ListUsersError>((), ManagementPermissions::USER_VIEW)?;
 
-        Ok(query!(
+        let search = search_pattern(search);
+        let sort = sort.map(UserSort::as_str);
+        let desc = order.unwrap_or_default().is_desc();
+
+        let users = query!(
             r#"SELECT id, username, auth_id, role AS "role: i32", email, avatar_url, first_name, last_name
              FROM users
-             ORDER BY id"#
+             WHERE ($1::int IS NULL OR role = $1)
+               AND ($2::text IS NULL
+                    OR username ILIKE $2
+                    OR email ILIKE $2
+                    OR id::text ILIKE $2)
+             ORDER BY
+                CASE WHEN NOT $4 THEN CASE $3::text
+                    WHEN 'username' THEN lower(username)
+                    WHEN 'email' THEN lower(email)
+                END END ASC,
+                CASE WHEN $4 THEN CASE $3::text
+                    WHEN 'username' THEN lower(username)
+                    WHEN 'email' THEN lower(email)
+                END END DESC,
+                CASE WHEN $3::text = 'role' AND NOT $4 THEN role END ASC,
+                CASE WHEN $3::text = 'role' AND $4 THEN role END DESC,
+                id
+             LIMIT $5 OFFSET $6"#,
+            role,
+            search,
+            sort,
+            desc,
+            page.map(PageSplit::sql_limit),
+            PageSplit::sql_offset(page),
         )
         .fetch_all(&*self.database)
         .await?
@@ -81,8 +132,27 @@ pub(crate) impl UserAdminService for Backend {
             first_name: user.first_name,
             last_name: user.last_name,
         })
-        .apply_pagesplit(&mut page)
-        .collect_paged(page))
+        .collect::<Vec<_>>();
+
+        let total = if page.is_some() {
+            query_scalar!(
+                r#"SELECT COUNT(*) AS "count!"
+                 FROM users
+                 WHERE ($1::int IS NULL OR role = $1)
+                   AND ($2::text IS NULL
+                        OR username ILIKE $2
+                        OR email ILIKE $2
+                        OR id::text ILIKE $2)"#,
+                role,
+                search,
+            )
+            .fetch_one(&*self.database)
+            .await?
+        } else {
+            i64::try_from(users.len()).unwrap_or(i64::MAX)
+        };
+
+        Ok(Paged::from_total(page, total, users))
     }
 
     /// Creates a user and returns its ID.

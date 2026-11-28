@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { Plus, Search, Server } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -16,22 +16,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useTableSort } from "@/hooks/use-table-sort";
-import type { ListServersResponses } from "@/lib/api";
+import { TablePagination } from "@/components/table-pagination";
+import { toPage, usePagedTable } from "@/hooks/use-paged-table";
+import { listServers, type ServerSort } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import {
   hasManagementPermission,
   ManagementPermission,
 } from "@/lib/permissions";
 
-type ServerRow = ListServersResponses[200][number];
-
-type ServerColumn = "name" | "template" | "node" | "group" | "project";
-
-export function ServersTable({ servers }: { servers: ServerRow[] }) {
+export function ServersTable() {
   const { t } = useTranslation(["admin-infra", "common"]);
   const { data: session } = authClient.useSession();
-  const [query, setQuery] = useState("");
+  const { page, setPage, search, setSearch, sort, toggle, query } =
+    usePagedTable<ServerSort>({ column: "name", direction: "asc" });
+
+  const { data } = useSWR(
+    ["admin/servers/page", query],
+    async ([, query]) => toPage(await listServers({ query })),
+    { keepPreviousData: true },
+  );
+  const rows = data?.items ?? [];
 
   const canViewNodes = session
     ? hasManagementPermission(
@@ -39,44 +44,6 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
         ManagementPermission.NODES_VIEW,
       )
     : false;
-
-  const filteredServers = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    if (!normalizedQuery) {
-      return servers;
-    }
-
-    return servers.filter((server) => {
-      return (
-        server.name.toLowerCase().includes(normalizedQuery) ||
-        server.id.toLowerCase().includes(normalizedQuery) ||
-        server.node.toLowerCase().includes(normalizedQuery) ||
-        server.group?.label.toLowerCase().includes(normalizedQuery) ||
-        server.template.toLowerCase().includes(normalizedQuery) ||
-        server.project.toLowerCase().includes(normalizedQuery) ||
-        server.project_name.toLowerCase().includes(normalizedQuery) ||
-        server.project_slug.toLowerCase().includes(normalizedQuery)
-      );
-    });
-  }, [query, servers]);
-
-  const accessors = useMemo(
-    () => ({
-      name: (server: ServerRow) => server.name,
-      template: (server: ServerRow) => server.template,
-      node: (server: ServerRow) => server.node,
-      group: (server: ServerRow) => server.group?.label ?? "",
-      project: (server: ServerRow) => server.project_name,
-    }),
-    [],
-  );
-
-  const { rows, sort, toggle } = useTableSort<ServerRow, ServerColumn>(
-    filteredServers,
-    accessors,
-    { column: "name", direction: "asc" },
-  );
 
   return (
     <div className="space-y-4">
@@ -105,8 +72,8 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
           placeholder={t("admin-infra:servers.table.searchPlaceholder")}
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
         />
@@ -227,6 +194,13 @@ export function ServersTable({ servers }: { servers: ServerRow[] }) {
           </TableBody>
         </Table>
       </div>
+
+      <TablePagination
+        page={page}
+        total={data?.total ?? 0}
+        totalPages={data?.totalPages ?? 1}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

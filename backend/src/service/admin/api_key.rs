@@ -12,8 +12,8 @@ use crate::service::api_key::{
 use crate::service::error_auth_permission_denied::FromAuthPermissionDenied;
 use crate::service::*;
 use crate::utils::name::display_name;
-use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
-use sqlx::query;
+use crate::utils::{PageSplit, Paged};
+use sqlx::{query, query_scalar};
 use zelus::service;
 
 #[service(path = "/admin/api-key", tag = "api_key", no_sdk)]
@@ -30,11 +30,11 @@ pub(crate) impl ApiKeyAdminService for Backend {
     async fn list_all_api_keys(
         &self,
         #[special] auth: Authentication,
-        #[special] mut page: Option<PageSplit>,
+        #[special] page: Option<PageSplit>,
     ) -> Result<Paged<ApiKeyInfo>, _> {
         auth.require::<_, _, ListAllApiKeysError>((), ManagementPermissions::API_KEYS_VIEW)?;
 
-        Ok(query!(
+        let keys = query!(
             r#"SELECT
                 api_keys.id,
                 api_keys.name,
@@ -49,7 +49,10 @@ pub(crate) impl ApiKeyAdminService for Backend {
              FROM api_keys
              JOIN users ON users.id = api_keys."user"
              LEFT JOIN projects ON projects.id = api_keys.project
-             ORDER BY api_keys.id"#
+             ORDER BY api_keys.id
+             LIMIT $1 OFFSET $2"#,
+            page.map(PageSplit::sql_limit),
+            PageSplit::sql_offset(page),
         )
         .fetch_all(&*self.database)
         .await?
@@ -66,8 +69,17 @@ pub(crate) impl ApiKeyAdminService for Backend {
             created_at: key.created_at.timestamp(),
             last_used: key.last_used.map(|last_used| last_used.timestamp()),
         })
-        .apply_pagesplit(&mut page)
-        .collect_paged(page))
+        .collect::<Vec<_>>();
+
+        let total = if page.is_some() {
+            query_scalar!(r#"SELECT COUNT(*) AS "count!" FROM api_keys"#)
+                .fetch_one(&*self.database)
+                .await?
+        } else {
+            i64::try_from(keys.len()).unwrap_or(i64::MAX)
+        };
+
+        Ok(Paged::from_total(page, total, keys))
     }
 
     /// Renames any API key on this instance or changes its permissions.

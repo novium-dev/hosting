@@ -1,5 +1,5 @@
 use crate::auth::api_key::ApiKeyAuthentication;
-use crate::auth::effective::{EffectivePermissions, UserAccess};
+use crate::auth::effective::{EffectivePermissions, UserAccess, Visibility};
 use crate::auth::permissions::{Resolve, Scope};
 use crate::auth::user::UserAuthentication;
 use crate::service::error_auth_invalid::FromAuthInvalid;
@@ -61,9 +61,16 @@ impl Authentication {
             .unwrap_or_default()
     }
 
-    pub fn is_project_member(&self, project: crate::db::project::ProjectId) -> bool {
+    pub fn visible_projects(&self, members_only: bool) -> Visibility {
         self.access()
-            .is_some_and(|access| access.is_project_member(project))
+            .map(|access| access.visible_projects(members_only))
+            .unwrap_or_default()
+    }
+
+    pub fn visible_servers(&self) -> Visibility {
+        self.access()
+            .map(EffectivePermissions::visible_servers)
+            .unwrap_or_default()
     }
 
     pub const fn user_id(&self) -> Option<i32> {

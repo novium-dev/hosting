@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@/components/link";
-import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { FolderKanban, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -15,7 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useTableSort } from "@/hooks/use-table-sort";
+import { TablePagination } from "@/components/table-pagination";
+import { toPage, usePagedTable } from "@/hooks/use-paged-table";
 import type { ProjectOwnerOption } from "@/components/create-project-form";
 import { CreateProjectDialog } from "./create-project-dialog";
 import { authClient } from "@/lib/auth-client";
@@ -23,24 +24,24 @@ import {
   hasManagementPermission,
   ManagementPermission,
 } from "@/lib/permissions";
-import { type ListProjectsResponses } from "@/lib/api";
-
-type ProjectRow = ListProjectsResponses[200][number];
-
-type ProjectColumn = "name" | "slug" | "owner" | "servers";
+import { listProjects, type ProjectSort } from "@/lib/api";
 
 export function ProjectsTable({
-  projects,
   owners,
-  onChanged,
 }: {
-  projects: ProjectRow[];
   owners: ProjectOwnerOption[] | null;
-  onChanged: () => void;
 }) {
   const { t } = useTranslation();
   const { data: session } = authClient.useSession();
-  const [query, setQuery] = useState("");
+  const { page, setPage, search, setSearch, sort, toggle, query } =
+    usePagedTable<ProjectSort>({ column: "name", direction: "asc" });
+
+  const { data, mutate } = useSWR(
+    session ? ["admin/projects/page", query] : null,
+    async ([, query]) => toPage(await listProjects({ query })),
+    { keepPreviousData: true },
+  );
+  const rows = data?.items ?? [];
 
   const canViewUsers = session
     ? hasManagementPermission(
@@ -48,39 +49,6 @@ export function ProjectsTable({
         ManagementPermission.USER_VIEW,
       )
     : false;
-
-  const filteredProjects = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    if (!normalizedQuery) {
-      return projects;
-    }
-
-    return projects.filter((project) => {
-      return (
-        project.name.toLowerCase().includes(normalizedQuery) ||
-        project.id.toLowerCase().includes(normalizedQuery) ||
-        project.slug.toLowerCase().includes(normalizedQuery) ||
-        project.owner_username.toLowerCase().includes(normalizedQuery)
-      );
-    });
-  }, [projects, query]);
-
-  const accessors = useMemo(
-    () => ({
-      name: (project: ProjectRow) => project.name,
-      slug: (project: ProjectRow) => project.slug,
-      owner: (project: ProjectRow) => project.owner_username,
-      servers: (project: ProjectRow) => project.server_count,
-    }),
-    [],
-  );
-
-  const { rows, sort, toggle } = useTableSort<ProjectRow, ProjectColumn>(
-    filteredProjects,
-    accessors,
-    { column: "name", direction: "asc" },
-  );
 
   return (
     <div className="space-y-4">
@@ -92,7 +60,10 @@ export function ProjectsTable({
           </p>
         </div>
         {owners ? (
-          <CreateProjectDialog owners={owners} onCreated={onChanged} />
+          <CreateProjectDialog
+            owners={owners}
+            onCreated={() => void mutate()}
+          />
         ) : null}
       </div>
 
@@ -100,8 +71,8 @@ export function ProjectsTable({
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
           placeholder={t("admin-core:projects.searchPlaceholder")}
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
         />
@@ -198,6 +169,13 @@ export function ProjectsTable({
           </TableBody>
         </Table>
       </div>
+
+      <TablePagination
+        page={page}
+        total={data?.total ?? 0}
+        totalPages={data?.totalPages ?? 1}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

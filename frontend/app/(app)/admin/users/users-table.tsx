@@ -1,12 +1,11 @@
 "use client";
 
 import { Search, Shield, User, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { useTranslation } from "react-i18next";
 
 import Link from "@/components/link";
-import { getAllUsersAction } from "@/actions/users";
 import { SortableTableHead } from "@/components/sortable-table-head";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +25,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useTableSort } from "@/hooks/use-table-sort";
+import { TablePagination } from "@/components/table-pagination";
+import { toPage, usePagedTable } from "@/hooks/use-paged-table";
+import { listUsers, type UserSort } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type UserRole = "admin" | "moderator" | "user";
 
@@ -38,9 +40,7 @@ type AdminUser = {
   role: UserRole;
 };
 
-type UserColumn = "username" | "email" | "role";
-
-const roleRank: Record<UserRole, number> = {
+const roleValue: Record<UserRole, number> = {
   user: 0,
   moderator: 1,
   admin: 2,
@@ -79,53 +79,43 @@ function RoleBadge({ role }: { role: UserRole }) {
 
 export function UsersTable() {
   const { t } = useTranslation();
-  const [query, setQuery] = useState("");
-  const [role, setRole] = useState<"all" | UserRole>("all");
+  const [role, setRoleState] = useState<"all" | UserRole>("all");
+  const { page, setPage, search, setSearch, sort, toggle, query } =
+    usePagedTable<UserSort>({ column: "username", direction: "asc" });
 
-  const { data: users = null, error } = useSWR(
-    "admin/users-table",
-    async () => {
-      const result = await getAllUsersAction();
-      if (!result.data?.success) {
-        throw new Error("Failed to load users");
+  const setRole = (value: "all" | UserRole) => {
+    setRoleState(value);
+    setPage(0);
+  };
+
+  const { data, error } = useSWR(
+    [
+      "admin/users/page",
+      { ...query, role: role === "all" ? undefined : roleValue[role] },
+    ],
+    async ([, query]) => {
+      const response = await listUsers({ query });
+      if (response.error) {
+        throw new Error(
+          apiErrorMessage(response.error, t("admin-core:users.loadError")),
+        );
       }
-      return (result.data.users ?? []).map((item): AdminUser => ({
-        id: item.id,
-        username: item.username,
-        email: item.email,
-        avatar_url: item.avatar_url,
-        role: roleFromValue(item.role),
-      }));
+      const result = toPage(response);
+      return {
+        ...result,
+        items: result.items.map((item): AdminUser => ({
+          id: item.id,
+          username: item.username,
+          email: item.email,
+          avatar_url: item.avatar_url,
+          role: roleFromValue(item.role),
+        })),
+      };
     },
+    { keepPreviousData: true },
   );
-
-  const filtered = useMemo(() => {
-    if (!users) return [];
-    const normalized = query.trim().toLowerCase();
-    return users.filter((user) => {
-      if (role !== "all" && user.role !== role) return false;
-      if (!normalized) return true;
-      return (
-        user.username.toLowerCase().includes(normalized) ||
-        user.email.toLowerCase().includes(normalized)
-      );
-    });
-  }, [users, query, role]);
-
-  const accessors = useMemo(
-    () => ({
-      username: (user: AdminUser) => user.username,
-      email: (user: AdminUser) => user.email,
-      role: (user: AdminUser) => roleRank[user.role],
-    }),
-    [],
-  );
-
-  const { rows, sort, toggle } = useTableSort<AdminUser, UserColumn>(
-    filtered,
-    accessors,
-    { column: "username", direction: "asc" },
-  );
+  const users = data?.items ?? null;
+  const rows = users ?? [];
 
   const controls = (
     <div className="flex flex-wrap items-center gap-2">
@@ -133,8 +123,8 @@ export function UsersTable() {
         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
           placeholder={t("admin-core:users.searchPlaceholder")}
           className="h-9 w-[240px] rounded-md border border-input bg-background pl-8 pr-3 text-sm"
         />
@@ -290,6 +280,13 @@ export function UsersTable() {
           </TableBody>
         </Table>
       </div>
+
+      <TablePagination
+        page={page}
+        total={data?.total ?? 0}
+        totalPages={data?.totalPages ?? 1}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

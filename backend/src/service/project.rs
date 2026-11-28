@@ -12,11 +12,11 @@ use crate::service::error_project_not_found::FromProjectNotFound;
 use crate::service::error_project_slug_invalid::FromProjectSlugInvalid;
 use crate::service::project::project_service_error::{
     CreateProjectError, DeleteProjectError, DeleteProjectLogoError, GetProjectError,
-    ListProjectUsersError, ListProjectsError, RemoveProjectUserError, SetProjectLogoError,
-    SetProjectUserError, UpdateProjectError, UploadProjectLogoError,
+    ListProjectUsersError, RemoveProjectUserError, SetProjectLogoError, SetProjectUserError,
+    UpdateProjectError, UploadProjectLogoError,
 };
 use crate::utils::name::display_name;
-use crate::utils::{PageSplit, PageSplitExtension as _, Paged};
+use crate::utils::{PageSplit, PageSplitExtension as _, Paged, SortOrder, search_pattern};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection as _, query, query_scalar};
@@ -97,20 +97,46 @@ pub(crate) struct SetProjectLogo {
     pub(crate) url: String,
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ProjectSort {
+    Name,
+    Slug,
+    Owner,
+    Servers,
+}
+
+impl ProjectSort {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Name => "name",
+            Self::Slug => "slug",
+            Self::Owner => "owner",
+            Self::Servers => "servers",
+        }
+    }
+}
+
 #[service(path = "/project", tag = "project", no_sdk)]
 pub(crate) impl ProjectService for Backend {
     /// Lists projects the current user can access.
-    #[route("", method = GET, raw, query = [own])]
+    #[route("", method = GET, raw, query = [own, search, sort, order])]
     #[error(db::failure <- [sql:*], auth::{permission_denied, unreachable}, project::not_found)]
     async fn list_projects(
         &self,
         #[special] auth: Authentication,
-        #[special] mut page: Option<PageSplit>,
+        #[special] page: Option<PageSplit>,
         own: Option<bool>,
+        search: Option<String>,
+        sort: Option<ProjectSort>,
+        order: Option<SortOrder>,
     ) -> Result<Paged<ProjectInfo>, _> {
-        let own = own.unwrap_or_default();
+        let visibility = auth.visible_projects(own.unwrap_or_default());
+        let search = search_pattern(search);
+        let sort = sort.map_or("slug", ProjectSort::as_str);
+        let desc = order.unwrap_or_default().is_desc();
 
-        Ok(query!(
+        let projects = query!(
             r#"SELECT
                 projects.id AS "id: ProjectId",
                 projects.slug,
@@ -121,16 +147,42 @@ pub(crate) impl ProjectService for Backend {
                 (SELECT COUNT(*) FROM servers WHERE servers.project = projects.id) AS "server_count!"
              FROM projects
              JOIN users ON users.id = projects.owner
-             ORDER BY projects.slug"#
+             WHERE (($1 AND NOT projects.id = ANY($2::text[])) OR (NOT $1 AND projects.id = ANY($2::text[])))
+               AND ($3::text IS NULL
+                    OR projects.name ILIKE $3
+                    OR projects.slug ILIKE $3
+                    OR projects.id ILIKE $3
+                    OR users.username ILIKE $3)
+             ORDER BY
+                CASE WHEN NOT $5 THEN CASE $4::text
+                    WHEN 'name' THEN lower(projects.name)
+                    WHEN 'owner' THEN lower(users.username)
+                    WHEN 'slug' THEN lower(projects.slug)
+                END END ASC,
+                CASE WHEN $5 THEN CASE $4::text
+                    WHEN 'name' THEN lower(projects.name)
+                    WHEN 'owner' THEN lower(users.username)
+                    WHEN 'slug' THEN lower(projects.slug)
+                END END DESC,
+                CASE WHEN $4::text = 'servers' AND NOT $5
+                    THEN (SELECT COUNT(*) FROM servers WHERE servers.project = projects.id)
+                END ASC,
+                CASE WHEN $4::text = 'servers' AND $5
+                    THEN (SELECT COUNT(*) FROM servers WHERE servers.project = projects.id)
+                END DESC,
+                projects.slug
+             LIMIT $6 OFFSET $7"#,
+            visibility.all_except,
+            &visibility.ids,
+            search,
+            sort,
+            desc,
+            page.map(PageSplit::sql_limit),
+            PageSplit::sql_offset(page),
         )
         .fetch_all(&*self.database)
         .await?
         .into_iter()
-        .filter(|project| !own || auth.is_project_member(project.id))
-        .filter(|project| {
-            auth.require::<_, _, ListProjectsError>(project.id, ProjectPermissions::VIEW)
-                .is_ok()
-        })
         .map(|project| {
             let id = project.id;
             ProjectInfo {
@@ -144,8 +196,30 @@ pub(crate) impl ProjectService for Backend {
                 permissions: auth.permissions::<ProjectPermissions, _>(id).bits(),
             }
         })
-        .apply_pagesplit(&mut page)
-        .collect_paged(page))
+        .collect::<Vec<_>>();
+
+        let total = if page.is_some() {
+            query_scalar!(
+                r#"SELECT COUNT(*) AS "count!"
+                 FROM projects
+                 JOIN users ON users.id = projects.owner
+                 WHERE (($1 AND NOT projects.id = ANY($2::text[])) OR (NOT $1 AND projects.id = ANY($2::text[])))
+                   AND ($3::text IS NULL
+                        OR projects.name ILIKE $3
+                        OR projects.slug ILIKE $3
+                        OR projects.id ILIKE $3
+                        OR users.username ILIKE $3)"#,
+                visibility.all_except,
+                &visibility.ids,
+                search,
+            )
+            .fetch_one(&*self.database)
+            .await?
+        } else {
+            i64::try_from(projects.len()).unwrap_or(i64::MAX)
+        };
+
+        Ok(Paged::from_total(page, total, projects))
     }
 
     /// Creates a new project owned by the current user, or, with
