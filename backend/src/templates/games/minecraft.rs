@@ -29,7 +29,8 @@ use crate::templates::{Template, TemplateError, TemplatePortDefinition, ThinTemp
 use crate::utils::serde::SerdePrimitive;
 
 pub(crate) const WORK_TMP_SETUP: &str =
-    "\nRUN rm -rf /tmp /var/tmp\nRUN ln -s /work/.tmp /tmp\nRUN ln -s /work/.tmp /var/tmp\n";
+    "\nRUN rm -rf /tmp /var/tmp && ln -s /work/.tmp /tmp && ln -s /work/.tmp /var/tmp\n";
+pub(crate) const MONITOR_PORT_ENVIRONMENT: &str = "MC_MONITOR_DEFAULT_PORT";
 pub(crate) const JAVA_RECOMMENDED: &str = "Recommended";
 pub(crate) const JAVA_PREFIX: &str = "Java ";
 pub(crate) const SERVER_PORT: u16 = 25565;
@@ -193,23 +194,7 @@ impl MinecraftServerExtra {
     }
 
     pub(crate) fn image(&self) -> ServerBuildImage {
-        let generic = ServerBuildImage {
-            dockerfile: include_str!("minecraft/generic.Dockerfile")
-                .replace("{MC_MONITOR_DEFAULT_PORT}", &SERVER_PORT.to_string()),
-            args: HashMap::new(),
-            parents: Vec::new(),
-            tag: None,
-            default_tag: Some(format!("minecraft-generic-r{}", Self::REL)),
-            base: None,
-        };
-        let java = ServerBuildImage {
-            dockerfile: include_str!("minecraft/java.Dockerfile").to_owned(),
-            args: HashMap::from([("JAVA".to_owned(), self.java().to_string())]),
-            parents: vec![generic],
-            tag: Some(format!("minecraft-jre-{}-r{}", self.java(), Self::REL)),
-            default_tag: None,
-            base: Some(0),
-        };
+        let java = java_image(self.java());
 
         let dockerfile = match self.modification() {
             MinecraftServerModification::Vanilla => include_str!("minecraft/vanilla.Dockerfile"),
@@ -225,11 +210,7 @@ impl MinecraftServerExtra {
             parents = vec![ServerBuildImage {
                 args: HashMap::new(),
                 default_tag: None,
-                tag: Some(format!(
-                    "minecraft-paper_like-jre{}-r{}",
-                    self.java(),
-                    Self::REL
-                )),
+                tag: Some(format!("minecraft-paper_like-jre{}", self.java())),
                 parents,
                 base: Some(0),
                 dockerfile: include_str!("minecraft/paper_like.Dockerfile").to_owned(),
@@ -378,84 +359,43 @@ impl MinecraftServerExtra {
                 java,
                 minecraft_version,
                 ..
-            } => format!(
-                "minecraft_vanilla-{}-jre{}-r{}",
-                minecraft_version,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_vanilla-{minecraft_version}-jre{java}"),
             Self::Paper {
                 java,
                 minecraft_version,
                 paper_build,
                 ..
-            } => format!(
-                "minecraft_paper-{}-{}-jre{}-r{}",
-                minecraft_version,
-                paper_build,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_paper-{minecraft_version}-{paper_build}-jre{java}"),
             Self::Purpur {
                 java,
                 minecraft_version,
                 purpur_build,
                 ..
-            } => format!(
-                "minecraft_purpur-{}-{}-jre{}-r{}",
-                minecraft_version,
-                purpur_build,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_purpur-{minecraft_version}-{purpur_build}-jre{java}"),
             Self::Fabric {
                 java,
                 minecraft_version,
                 loader_version,
                 ..
-            } => format!(
-                "minecraft_fabric-{}-{}-jre{}-r{}",
-                minecraft_version,
-                loader_version,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_fabric-{minecraft_version}-{loader_version}-jre{java}"),
             Self::Quilt {
                 java,
                 minecraft_version,
                 loader_version,
                 ..
-            } => format!(
-                "minecraft_quilt-{}-{}-jre{}-r{}",
-                minecraft_version,
-                loader_version,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_quilt-{minecraft_version}-{loader_version}-jre{java}"),
             Self::NeoForge {
                 java,
                 minecraft_version,
                 loader_version,
                 ..
-            } => format!(
-                "minecraft_neoforge-{}-{}-jre{}-r{}",
-                minecraft_version,
-                loader_version,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_neoforge-{minecraft_version}-{loader_version}-jre{java}"),
             Self::Forge {
                 java,
                 minecraft_version,
                 loader_version,
                 ..
-            } => format!(
-                "minecraft_forge-{}-{}-jre{}-r{}",
-                minecraft_version,
-                loader_version,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_forge-{minecraft_version}-{loader_version}-jre{java}"),
         }
     }
 }
@@ -500,7 +440,10 @@ impl Template for MinecraftTemplate {
                 "DAC_OVERRIDE".to_owned(),
                 "NET_BIND_SERVICE".to_owned(),
             ],
-            environment: HashMap::new(),
+            environment: HashMap::from([(
+                MONITOR_PORT_ENVIRONMENT.to_owned(),
+                SERVER_PORT.to_string(),
+            )]),
             backup_exclude,
             files_write: extra.files_write(),
 
@@ -888,6 +831,25 @@ impl VersionCache {
             .collect();
         versions.sort_unstable_by_key(|(index, _)| *index);
         versions.into_iter().map(|(_, java)| java).collect()
+    }
+}
+
+pub(crate) fn java_image(java: u8) -> ServerBuildImage {
+    let generic = ServerBuildImage {
+        dockerfile: include_str!("minecraft/generic.Dockerfile").to_owned(),
+        args: HashMap::new(),
+        parents: Vec::new(),
+        tag: None,
+        default_tag: Some("minecraft-generic".to_owned()),
+        base: None,
+    };
+    ServerBuildImage {
+        dockerfile: include_str!("minecraft/java.Dockerfile").to_owned(),
+        args: HashMap::from([("JAVA".to_owned(), java.to_string())]),
+        parents: vec![generic],
+        tag: Some(format!("minecraft-jre-{java}")),
+        default_tag: None,
+        base: Some(0),
     }
 }
 

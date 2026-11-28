@@ -94,7 +94,7 @@ impl TeamSpeakExtra {
             args: HashMap::new(),
             parents: Vec::new(),
             tag: None,
-            default_tag: Some(format!("{}-{}-r{REL}", self.software.id(), self.version)),
+            default_tag: Some(format!("{}-{}", self.software.id(), self.version)),
             base: None,
         }
     }

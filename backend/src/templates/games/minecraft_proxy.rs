@@ -17,7 +17,8 @@ use tracing::{debug, error};
 
 use crate::db::server::ports::{NetworkProtocol, ServerPort};
 use crate::templates::games::minecraft::{
-    JAVA_PREFIX, JAVA_RECOMMENDED, VersionBuild, WORK_TMP_SETUP,
+    JAVA_PREFIX, JAVA_RECOMMENDED, MONITOR_PORT_ENVIRONMENT, VersionBuild, WORK_TMP_SETUP,
+    java_image,
 };
 use crate::templates::variable::{
     VariableBuilder, VariableContent, VariableDataBuilder, VariableGroupBuilder, VariablePayload,
@@ -150,48 +151,17 @@ impl MinecraftProxyExtra {
                 velocity_version,
                 velocity_build,
                 ..
-            } => format!(
-                "minecraft_proxy_velocity-{}-{}-jre{}-r{}",
-                velocity_version,
-                velocity_build,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_proxy_velocity-{velocity_version}-{velocity_build}-jre{java}"),
             Self::BungeeCord {
                 java,
                 bungeecord_build,
                 ..
-            } => format!(
-                "minecraft_proxy_bungeecord-{}-jre{}-r{}",
-                bungeecord_build,
-                java,
-                Self::REL
-            ),
+            } => format!("minecraft_proxy_bungeecord-{bungeecord_build}-jre{java}"),
         }
     }
 
     pub(crate) fn image(&self) -> ServerBuildImage {
-        let generic = ServerBuildImage {
-            dockerfile: include_str!("minecraft/generic.Dockerfile")
-                .replace("{MC_MONITOR_DEFAULT_PORT}", &PROXY_PORT.to_string()),
-            args: HashMap::new(),
-            parents: Vec::new(),
-            tag: None,
-            default_tag: Some(format!("minecraft_proxy-generic-r{}", Self::REL)),
-            base: None,
-        };
-        let java = ServerBuildImage {
-            dockerfile: include_str!("minecraft/java.Dockerfile").to_owned(),
-            args: HashMap::from([("JAVA".to_owned(), self.java().to_string())]),
-            parents: vec![generic],
-            tag: Some(format!(
-                "minecraft_proxy-jre-{}-r{}",
-                self.java(),
-                Self::REL
-            )),
-            default_tag: None,
-            base: Some(0),
-        };
+        let java = java_image(self.java());
 
         let dockerfile = match self.software() {
             MinecraftProxySoftware::Velocity => {
@@ -308,7 +278,10 @@ impl Template for MinecraftProxyTemplate {
                 "DAC_OVERRIDE".to_owned(),
                 "NET_BIND_SERVICE".to_owned(),
             ],
-            environment: HashMap::new(),
+            environment: HashMap::from([(
+                MONITOR_PORT_ENVIRONMENT.to_owned(),
+                PROXY_PORT.to_string(),
+            )]),
             backup_exclude: extra.backup_exclude(),
             files_write: extra.files_write(),
 

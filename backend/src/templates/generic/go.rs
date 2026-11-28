@@ -56,7 +56,7 @@ impl Template for GoTemplate {
             dockerfile: include_str!("go/Dockerfile").replace("{GO_VERSION}", &extra.go_version),
             args: HashMap::new(),
             tag: None,
-            default_tag: Some(format!("go-{}-r{REL}", extra.go_version)),
+            default_tag: Some(format!("go-{}", extra.go_version)),
         };
         Ok(ServerBuildPayload {
             image,
